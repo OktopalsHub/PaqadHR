@@ -60,6 +60,9 @@ export interface IEnvironment {
   PAYROLL: {
     DISBURSEMENT_MODE: 'manual' | 'gateway';
   };
+  BILLING: {
+    MODE: 'trial' | 'manual' | 'open';
+  };
 }
 
 export const ENVIRONMENT: IEnvironment = {
@@ -108,5 +111,12 @@ export const ENVIRONMENT: IEnvironment = {
       'gateway'
         ? 'gateway'
         : 'manual',
+  },
+  BILLING: {
+    MODE: (() => {
+      const mode = (process.env.BILLING_MODE || 'trial').toLowerCase();
+      if (mode === 'manual' || mode === 'open') return mode;
+      return 'trial';
+    })(),
   },
 };

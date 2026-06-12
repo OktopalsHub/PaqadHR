@@ -6,6 +6,12 @@ import { Repository } from 'typeorm';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
+import {
+  getBillingMode,
+  isBillingGatewayEnabled,
+  isFeatureGatingEnabled,
+} from '../config/billing.config';
+import { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
 
 @Injectable()
 export class SubscriptionsService {
@@ -42,17 +48,170 @@ export class SubscriptionsService {
     tenantId: string,
     features: FeatureAccess[],
   ): Promise<boolean> {
+    if (!isFeatureGatingEnabled()) {
+      return true;
+    }
+
     const subscription = await this.getTenantSubscription(tenantId);
-    if (
-      !subscription ||
-      ![SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL].includes(
-        subscription.status,
-      )
-    ) {
+    if (!subscription || !this.isSubscriptionEntitled(subscription)) {
       return false;
     }
+
     const planFeatures = subscription.plan?.features ?? {};
     return features.every((feature) => planFeatures[feature] === true);
+  }
+
+  isSubscriptionEntitled(subscription: TenantSubscription): boolean {
+    if (subscription.status === SubscriptionStatus.ACTIVE) {
+      return true;
+    }
+    if (subscription.status === SubscriptionStatus.TRIAL) {
+      if (!subscription.trialEndsAt) {
+        return true;
+      }
+      return new Date() < subscription.trialEndsAt;
+    }
+    return false;
+  }
+
+  async getBillingStatus(tenantId: string): Promise<{
+    billingMode: ReturnType<typeof getBillingMode>;
+    paymentsEnabled: boolean;
+    featureGatingEnabled: boolean;
+    subscription: {
+      status: SubscriptionStatus;
+      plan: string;
+      trialEndsAt: Date | null;
+      isOnTrial: boolean;
+      daysRemaining: number | null;
+      currentPeriodEnd: Date;
+    } | null;
+  }> {
+    const subscription = await this.getTenantSubscription(tenantId);
+    if (!subscription) {
+      return {
+        billingMode: getBillingMode(),
+        paymentsEnabled: isBillingGatewayEnabled(),
+        featureGatingEnabled: isFeatureGatingEnabled(),
+        subscription: null,
+      };
+    }
+
+    let daysRemaining: number | null = null;
+    if (subscription.trialEndsAt) {
+      const ms = subscription.trialEndsAt.getTime() - Date.now();
+      daysRemaining = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+    }
+
+    return {
+      billingMode: getBillingMode(),
+      paymentsEnabled: isBillingGatewayEnabled(),
+      featureGatingEnabled: isFeatureGatingEnabled(),
+      subscription: {
+        status: subscription.status,
+        plan:
+          subscription.plan?.slug ??
+          subscription.plan?.name ??
+          'starter',
+        trialEndsAt: subscription.trialEndsAt,
+        isOnTrial: subscription.isOnTrial,
+        daysRemaining,
+        currentPeriodEnd: subscription.currentPeriodEnd,
+      },
+    };
+  }
+
+  async activateTenantSubscription(
+    tenantId: string,
+    options: ActivateSubscriptionDto = {},
+  ): Promise<TenantSubscription> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    let subscription = await this.getTenantSubscription(tenantId);
+    if (!subscription) {
+      subscription = await this.createTrialSubscription(tenantId, {
+        planSlug: options.planSlug,
+        trialDays: 0,
+      });
+    }
+
+    if (options.planSlug) {
+      const countryCode = tenant.countryCode || 'GLOBAL';
+      const planPrice = await this.plansService.getPlanPrice(
+        options.planSlug,
+        countryCode,
+        tenant.preferredCurrency ?? undefined,
+      );
+      if (!planPrice) {
+        throw new BadRequestException(
+          `Plan "${options.planSlug}" not found for region ${countryCode}`,
+        );
+      }
+      subscription.planId = planPrice.planId;
+      subscription.planPriceId = planPrice.id;
+    }
+
+    const periodMonths = options.periodMonths ?? 1;
+    const now = new Date();
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + periodMonths);
+
+    subscription.status = SubscriptionStatus.ACTIVE;
+    subscription.currentPeriodStart = now;
+    subscription.currentPeriodEnd = periodEnd;
+    subscription.nextBillingDate = periodEnd;
+    subscription.trialEndsAt = null;
+
+    const history = subscription.billingHistory ?? [];
+    history.push({
+      date: now,
+      amount: 0,
+      currency: tenant.preferredCurrency ?? 'USD',
+      status: 'paid',
+      invoiceId: `manual-${now.getTime()}`,
+    });
+    subscription.billingHistory = history;
+
+    const saved = await this.subscriptionRepository.save(subscription);
+    const loaded = await this.subscriptionRepository.findOne({
+      where: { id: saved.id },
+      relations: ['plan', 'planPrice', 'planPrice.plan'],
+    });
+    return loaded ?? saved;
+  }
+
+  async extendTrial(
+    tenantId: string,
+    additionalDays: number,
+  ): Promise<TenantSubscription> {
+    const subscription = await this.getTenantSubscription(tenantId);
+    if (!subscription) {
+      throw new NotFoundException('Subscription not found');
+    }
+
+    const base =
+      subscription.trialEndsAt && subscription.trialEndsAt > new Date()
+        ? subscription.trialEndsAt
+        : new Date();
+    const newEnd = new Date(base);
+    newEnd.setDate(newEnd.getDate() + additionalDays);
+
+    subscription.status = SubscriptionStatus.TRIAL;
+    subscription.trialEndsAt = newEnd;
+    subscription.currentPeriodEnd = newEnd;
+    subscription.nextBillingDate = newEnd;
+
+    const saved = await this.subscriptionRepository.save(subscription);
+    const loaded = await this.subscriptionRepository.findOne({
+      where: { id: saved.id },
+      relations: ['plan', 'planPrice', 'planPrice.plan'],
+    });
+    return loaded ?? saved;
   }
 
   async getCurrentUsage(tenantId: string, usageType: string): Promise<number> {

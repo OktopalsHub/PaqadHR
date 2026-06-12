@@ -6,4 +6,4 @@ export * from './tenant.decorator';
 export * from './auth.decorator';
 export * from './detected-country.decorator';
 export * from './rate-limit.decorator';
-export * from './rate-limit.decorator';
+export * from './feature-access.decorator';

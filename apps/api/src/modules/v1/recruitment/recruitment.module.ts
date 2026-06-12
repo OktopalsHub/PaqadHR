@@ -4,6 +4,7 @@ import { FileModule } from 'src/common/modules/file.module';
 import { DepartmentExistsConstraint } from 'src/common/validators/department-exists.validator';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { CandidateService } from './services/candidate.service';
 import { InterviewService } from './services/interview.service';
 import { JobOpeningService } from './services/job-opening.service';
@@ -33,6 +34,7 @@ import { InterviewRepository } from "./repositories/interview.repository";
     FileModule,
     TenantsModule,
     TenantMembersModule,
+    SubscriptionsModule,
   ],
   controllers: [
     ApplicationController,

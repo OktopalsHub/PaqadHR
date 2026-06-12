@@ -12,12 +12,14 @@ import {
   UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
+import { FeatureAccess } from '../../../../common/enums/subscription.enum';
 import {
   TenantRoleGuard,
   Roles,
 } from '../../../../common/guards/tenant-member-role.guard';
+import { FeatureAccessGuard } from '../../../../common/guards/feature-access.guard';
 import {
   IAuthenticatedMemberRequest,
   MemberContext,
@@ -31,7 +33,8 @@ import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 
 @Controller('tenants/:tenantId/payroll')
-@UseGuards(TenantMemberGuard, TenantRoleGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.PAYROLL)
 export class PayrollController {
   private readonly logger = new Logger(PayrollController.name);
   constructor(

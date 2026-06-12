@@ -13,14 +13,17 @@ import {
   Patch,
   Query,
   UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { ApiTags } from '@nestjs/swagger';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { InterviewFilters, MemberContext } from 'src/common/interfaces';
 import { InterviewService } from '../services/interview.service';
 import { TenantMemberGuard } from "../../tenant-members/guards/tenant-members.guards";
 
 @ApiTags('Interviews')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.RECRUITMENT)
 @Controller('tenants/:tenantId/interviews')
 export class InterviewController {
   constructor(private readonly interviewService: InterviewService) {}

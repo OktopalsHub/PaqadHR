@@ -58,6 +58,15 @@ export class SubscriptionsController {
   getTenantSubscription(@Param('tenantId') tenantId: string) {
     return this.subscriptionsService.getTenantSubscription(tenantId);
   }
+
+  @Get('tenant/:tenantId/billing-status')
+  @UseGuards(TenantMemberGuard)
+  @ApiOperation({
+    summary: 'Billing mode, trial info, and whether card payments are enabled',
+  })
+  getBillingStatus(@Param('tenantId') tenantId: string) {
+    return this.subscriptionsService.getBillingStatus(tenantId);
+  }
   @Get('tenant/:tenantId/pricing')
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get tenant plan prices for locked country' })

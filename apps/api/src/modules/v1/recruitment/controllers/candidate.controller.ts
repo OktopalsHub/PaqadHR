@@ -1,6 +1,9 @@
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { RequireFeatures } from 'src/common/decorators';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { CandidateService } from '../services/candidate.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -9,7 +12,8 @@ import { UpdateCandidateStatusDto } from "../dto/update-candidate-status.dto";
 
 @ApiTags('Tenant Candidates')
 @Controller('tenants/:tenantId/candidates')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.RECRUITMENT)
 export class CandidateController {
   constructor(
     private readonly candidateService: CandidateService,
