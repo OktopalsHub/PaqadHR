@@ -152,6 +152,62 @@ export class SubscriptionsService {
     };
   }
 
+  async createTrialSubscription(
+    tenantId: string,
+    options?: { trialDays?: number; planSlug?: string },
+  ): Promise<TenantSubscription> {
+    const existing = await this.getTenantSubscription(tenantId);
+    if (existing) {
+      return existing;
+    }
+
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const countryCode = tenant.countryCode || 'GLOBAL';
+    const planSlug = options?.planSlug ?? 'starter';
+    const planPrice = await this.plansService.getPlanPrice(
+      planSlug,
+      countryCode,
+      tenant.preferredCurrency ?? undefined,
+    );
+
+    if (!planPrice) {
+      throw new BadRequestException(
+        `Plan "${planSlug}" not found for region ${countryCode}. Ensure plans are seeded.`,
+      );
+    }
+
+    const trialDays = options?.trialDays ?? 14;
+    const now = new Date();
+    const trialEndsAt = new Date(now);
+    trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
+
+    const subscription = this.subscriptionRepository.create({
+      tenantId,
+      planId: planPrice.planId,
+      planPriceId: planPrice.id,
+      status: SubscriptionStatus.TRIAL,
+      currentUsers: 0,
+      trialEndsAt,
+      currentPeriodStart: now,
+      currentPeriodEnd: trialEndsAt,
+      nextBillingDate: trialEndsAt,
+      usageMetrics: {},
+    });
+
+    const saved = await this.subscriptionRepository.save(subscription);
+    const loaded = await this.subscriptionRepository.findOne({
+      where: { id: saved.id },
+      relations: ['plan', 'planPrice', 'planPrice.plan'],
+    });
+    return loaded ?? saved;
+  }
+
   async getSupportedCountries(): Promise<
     Array<{
       countryCode: string;

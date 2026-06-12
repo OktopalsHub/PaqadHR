@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuditQueueService, AuthService } from './auth.service';
+import { AuthService } from './auth.service';
+import { AuditLogsService } from '../../../common/services/audit-logs.service';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -18,7 +19,7 @@ describe('AuthService', () => {
   let authService: AuthService;
   let userRepository: jest.Mocked<UserRepository>;
   let accountRepository: { findOne: jest.Mock };
-  let auditQueueService: jest.Mocked<AuditQueueService>;
+  let auditLogsService: jest.Mocked<Pick<AuditLogsService, 'queueAuditLog'>>;
 
   beforeEach(async () => {
     const mockUserRepository = {
@@ -57,8 +58,8 @@ describe('AuthService', () => {
     const mockTenantsService = {
       getTenantBySlug: jest.fn(),
     };
-    const mockAuditQueueService = {
-      enqueue: jest.fn(),
+    const mockAuditLogsService = {
+      queueAuditLog: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -74,12 +75,12 @@ describe('AuthService', () => {
         { provide: InvitationsService, useValue: mockInvitationsService },
         { provide: TenantMembersService, useValue: mockTenantMembersService },
         { provide: TenantsService, useValue: mockTenantsService },
-        { provide: AuditQueueService, useValue: mockAuditQueueService },
+        { provide: AuditLogsService, useValue: mockAuditLogsService },
       ],
     }).compile();
     authService = module.get<AuthService>(AuthService);
     userRepository = module.get(UserRepository);
-    auditQueueService = module.get(AuditQueueService);
+    auditLogsService = module.get(AuditLogsService);
   });
 
   afterEach(() => {
@@ -135,8 +136,8 @@ describe('AuthService', () => {
       await expect(
         authService.validateUser('test@example.com', 'password', auditContext),
       ).rejects.toThrow(UnauthorizedException);
-      expect(auditQueueService.enqueue).toHaveBeenCalledTimes(1);
-      expect(auditQueueService.enqueue).toHaveBeenCalledWith(
+      expect(auditLogsService.queueAuditLog).toHaveBeenCalledTimes(1);
+      expect(auditLogsService.queueAuditLog).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'LOGIN_FAILED',
           description: 'Invalid email or password',

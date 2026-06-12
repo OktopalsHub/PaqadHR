@@ -1,26 +1,26 @@
-import { Controller, Get, VERSION_NEUTRAL } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Response } from 'express';
 import { Public } from './common/decorators';
+import { AppService } from './app.service';
+
 @ApiTags('App')
 @Public()
 @Controller({ version: VERSION_NEUTRAL })
 export class AppController {
-  @Get() getHealthCheck() {
-    return {
-      status: 'ok',
-      message: 'PaqadHR Server is running!',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-    };
+  constructor(private readonly appService: AppService) {}
+
+  @Get()
+  getHealthCheck() {
+    return this.appService.getLiveness();
   }
-  @Get('health') getDetailedHealth() {
-    return {
-      status: 'healthy',
-      message: 'Server is operational',
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      memory: process.memoryUsage(),
-      version: '1.0.0',
-    };
+
+  @Get('health')
+  async getDetailedHealth(@Res({ passthrough: true }) res: Response) {
+    const health = await this.appService.getReadiness();
+    if (health.status === 'unhealthy') {
+      res.status(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+    return health;
   }
 }

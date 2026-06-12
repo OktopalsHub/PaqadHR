@@ -56,6 +56,60 @@ export class AuditService {
       },
     });
   }
+  async logPayrollApproved(
+    context: AuditContext,
+    payrollRunData: Record<string, any>,
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_APPROVED,
+      description: `Payroll run approved: ${payrollRunData.title}`,
+      beforeData: { status: 'processing' },
+      afterData: { status: 'approved', ...payrollRunData },
+      metadata: {
+        totalNetAmount: payrollRunData.totalNetAmount,
+        employeeCount: payrollRunData.employeeCount,
+        approvedAt: new Date().toISOString(),
+      },
+    });
+  }
+
+  async logManualDisbursement(
+    context: AuditContext,
+    results: Record<string, any>,
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_DISBURSED_MANUAL,
+      description: `Payroll manually disbursed: ${results.title}`,
+      beforeData: { status: 'approved' },
+      afterData: {
+        status: results.failedCount > 0 ? 'completed_with_failures' : 'completed',
+        ...results,
+      },
+      metadata: {
+        paidCount: results.paidCount,
+        failedCount: results.failedCount,
+        disbursementMode: 'manual',
+        processingDuration: results.processingDuration,
+      },
+    });
+  }
+
+  async logPayrollExported(
+    context: AuditContext,
+    exportData: Record<string, any>,
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYROLL_EXPORTED,
+      description: `Payroll export generated: ${exportData.exportType}`,
+      afterData: exportData,
+      metadata: {
+        exportType: exportData.exportType,
+        rowCount: exportData.rowCount,
+        exportedAt: new Date().toISOString(),
+      },
+    });
+  }
+
   async logPayrollProcessed(
     context: AuditContext,
     payrollRunData: Record<string, any>,

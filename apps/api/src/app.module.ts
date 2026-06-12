@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { LoggerModule } from 'nestjs-pino';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { pinoLoggerConfig } from './common/logger/pino-logger.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { dataSourceOptions } from './common/config';
+import { AuditModule } from './common/modules/audit.module';
 import { JwtAuthGuard } from './common/guards';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { AuthModule } from "./modules/v1/auth/auth.module";
@@ -41,17 +40,13 @@ import { LeavePolicyModule } from "./modules/v1/leave-policy/leave-policy.module
 import { TeamsModule } from "./modules/v1/teams/teams.module";
 import { WebhooksModule } from "./modules/v1/webhooks/webhooks.module";
 import { PaymentMethodModule } from "./modules/v1/payment-method/payment-method.module";
-
 import { ShoutoutsModule } from "./modules/v1/shoutouts/shoutouts.module";
 
 @Module({
   imports: [
-    LoggerModule.forRoot({
-      ...pinoLoggerConfig,
-      forRoutes: ['*'],
-    }),
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
+    AuditModule,
     AuthModule,
     UsersModule,
     TenantsModule,
@@ -84,7 +79,6 @@ import { ShoutoutsModule } from "./modules/v1/shoutouts/shoutouts.module";
     TeamsModule,
     WebhooksModule,
     PaymentMethodModule,
-
     ShoutoutsModule,
   ],
   controllers: [AppController],

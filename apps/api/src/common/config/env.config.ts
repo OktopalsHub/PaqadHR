@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import { EnvironmentValidationService } from './environment-validation.service';
+import { resolveTrustedOrigins } from './trusted-origins';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ export interface IEnvironment {
     PORT: number | string;
     FRONTEND_URL: string;
     BASE_URL: string;
+    TRUSTED_ORIGINS: string[];
   };
   DB: {
     URL: string;
@@ -55,6 +57,9 @@ export interface IEnvironment {
   ENCRYPTION: {
     KEY: string;
   };
+  PAYROLL: {
+    DISBURSEMENT_MODE: 'manual' | 'gateway';
+  };
 }
 
 export const ENVIRONMENT: IEnvironment = {
@@ -63,6 +68,7 @@ export const ENVIRONMENT: IEnvironment = {
     PORT: envValidator.getOptionalNumber('PORT', 3000),
     FRONTEND_URL: envValidator.getOptional('FRONTEND_URL', 'http://localhost:3000'),
     BASE_URL: envValidator.getOptional('BASE_URL', 'http://localhost:4000'),
+    TRUSTED_ORIGINS: resolveTrustedOrigins(),
   },
   DB: {
     URL: process.env.DATABASE_URL || '',
@@ -95,5 +101,12 @@ export const ENVIRONMENT: IEnvironment = {
   },
   ENCRYPTION: {
     KEY: envValidator.getOptional('ENCRYPTION_KEY', '01234567890123456789012345678901'),
+  },
+  PAYROLL: {
+    DISBURSEMENT_MODE:
+      (process.env.PAYROLL_DISBURSEMENT_MODE || 'manual').toLowerCase() ===
+      'gateway'
+        ? 'gateway'
+        : 'manual',
   },
 };

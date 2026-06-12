@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   Logger,
-  Optional,
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
@@ -27,6 +26,7 @@ import { InvitationsService } from '../invitations/invitations.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import { UserRepository } from '../users/repositories/users.repository';
+import { AuditLogsService } from '../../../common/services/audit-logs.service';
 import { User } from '../users/entities/user.entity';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
@@ -36,19 +36,6 @@ interface AuthAuditContext {
   userId?: string;
   ipAddress?: string;
   userAgent?: string;
-}
-
-interface AuditQueueEntry {
-  context: AuthAuditContext;
-  action: AuditAction;
-  description: string;
-  severity: AuditSeverity;
-  status: AuditStatus;
-  metadata?: Record<string, unknown>;
-}
-
-export class AuditQueueService {
-  async enqueue(_entry: AuditQueueEntry): Promise<void> {}
 }
 
 @Injectable()
@@ -67,7 +54,7 @@ export class AuthService {
     private readonly invitationsService: InvitationsService,
     private readonly tenantMembersService: TenantMembersService,
     private readonly tenantsService: TenantsService,
-    @Optional() private readonly auditQueueService?: AuditQueueService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async validateUser(
@@ -96,8 +83,10 @@ export class AuthService {
 
     if (!user.isActive) {
       if (auditContext) {
-        await this.auditQueueService?.enqueue({
-          context: { ...auditContext, userId: user.id },
+        await this.auditLogsService.queueAuditLog({
+          userId: auditContext.userId ?? user.id,
+          ipAddress: auditContext.ipAddress ?? null,
+          userAgent: auditContext.userAgent ?? null,
           action: AuditAction.LOGIN_FAILED,
           description: 'Login attempt with inactive account',
           severity: AuditSeverity.HIGH,
@@ -116,8 +105,10 @@ export class AuthService {
     reason: string,
   ) {
     if (!auditContext) return;
-    await this.auditQueueService?.enqueue({
-      context: auditContext,
+    await this.auditLogsService.queueAuditLog({
+      userId: auditContext.userId ?? null,
+      ipAddress: auditContext.ipAddress ?? null,
+      userAgent: auditContext.userAgent ?? null,
       action: AuditAction.LOGIN_FAILED,
       description: 'Invalid email or password',
       severity: AuditSeverity.MEDIUM,
@@ -181,8 +172,10 @@ export class AuthService {
     const tokens = this.generateTokens(user, session.token);
 
     if (auditContext) {
-      await this.auditQueueService?.enqueue({
-        context: { ...auditContext, userId: user.id },
+      await this.auditLogsService.queueAuditLog({
+        userId: user.id,
+        ipAddress: auditContext.ipAddress ?? ip ?? null,
+        userAgent: auditContext.userAgent ?? null,
         action: AuditAction.LOGIN,
         description: 'User logged in successfully',
         severity: AuditSeverity.LOW,

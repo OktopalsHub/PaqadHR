@@ -8,6 +8,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import helmet, { HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
 import passport from 'passport';
+import { resolveTrustedOrigins } from './trusted-origins';
 
 export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(cookieParser());
@@ -66,10 +67,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   });
   app.set('trust proxy', true);
   app.use(passport.initialize());
-  let allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  let allowedOrigins = resolveTrustedOrigins();
   const allowAll = allowedOrigins.includes('*');
   if (allowAll && process.env.NODE_ENV !== 'production') {
     allowedOrigins = ['*'];

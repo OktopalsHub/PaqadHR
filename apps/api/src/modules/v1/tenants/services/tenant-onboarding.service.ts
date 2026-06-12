@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { PlansService } from '../../plans/services/plans.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
+import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { Tenant } from '../entities/tenant.entity';
 import { OnboardingData } from "../../../../common/interfaces/onboarding-data.interface";
 import { OnboardingResult } from "../../../../common/interfaces/onboarding-result.interface";
@@ -33,8 +34,8 @@ export class TenantOnboardingService {
         userIpAddress,
         data.businessCountry,
       );
-    const subscription = await this.createInitialSubscription(
-      pricingResult.tenant,
+    const subscription = await this.subscriptionsService.createTrialSubscription(
+      pricingResult.tenant.id,
     );
 
     this.logger.log(
@@ -54,7 +55,7 @@ export class TenantOnboardingService {
         detectionMethod: pricingResult.detectionMethod,
         isLocked: pricingResult.tenant.pricingLocked,
       },
-      subscription,
+      subscription: this.mapSubscriptionSummary(pricingResult.tenant, subscription),
     };
   }
 
@@ -144,25 +145,25 @@ export class TenantOnboardingService {
     return Array.isArray(saved) ? saved[0] : saved;
   }
 
-  private async createInitialSubscription(tenant: Tenant): Promise<{
+  private mapSubscriptionSummary(
+    tenant: Tenant,
+    subscription: TenantSubscription,
+  ): {
     plan: string;
     status: string;
     currency: string;
-    trialEndsAt: Date;
+    trialEndsAt: Date | null;
     pricingLocked: boolean;
-  }> {
+  } {
     const defaults = GeoLocationHelper.getCountryDefaults(
       tenant.countryCode || 'GLOBAL',
     );
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 14);
-
     return {
-      plan: 'STARTER',
-      status: 'TRIAL',
+      plan: subscription.plan?.slug ?? subscription.plan?.name ?? 'starter',
+      status: subscription.status,
       currency: tenant.preferredCurrency || defaults.currency,
-      trialEndsAt: trialEndDate,
-      pricingLocked: true,
+      trialEndsAt: subscription.trialEndsAt,
+      pricingLocked: tenant.pricingLocked,
     };
   }
 

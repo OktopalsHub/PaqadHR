@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Logger,
   Param,
   Post,
@@ -24,7 +25,9 @@ import {
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';
-import { CreatePayrollRunDto } from "../dto/create-payroll-run.dto";
+import { AuditService } from '../services/audit.service';
+import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
+import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 
 @Controller('tenants/:tenantId/payroll')
@@ -34,7 +37,9 @@ export class PayrollController {
   constructor(
     private payrollService: PayrollService,
     private multiPaymentService: MultiPaymentService,
+    private auditService: AuditService,
   ) {}
+
   @Post('runs')
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createPayrollRun(
@@ -66,6 +71,7 @@ export class PayrollController {
       throw error;
     }
   }
+
   @Get('runs')
   async getPayrollRuns(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
@@ -93,6 +99,7 @@ export class PayrollController {
       throw error;
     }
   }
+
   @Get('runs/:id')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -102,6 +109,7 @@ export class PayrollController {
   ) {
     return this.payrollService.getPayrollRun(id, tenantId);
   }
+
   @Post('runs/:id/calculate')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -120,6 +128,7 @@ export class PayrollController {
     await this.payrollService.calculatePayroll(id, tenantId, auditContext);
     return { message: 'Payroll calculation completed' };
   }
+
   @Post('runs/:id/calculate-with-adjustments')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -142,6 +151,7 @@ export class PayrollController {
       note: 'Complex adjustments removed - using simple salary calculations',
     };
   }
+
   @Post('preview-calculation')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -156,6 +166,101 @@ export class PayrollController {
       member.id,
     );
   }
+
+  @Post('runs/:id/approve')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async approvePayrollRun(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const run = await this.payrollService.approvePayrollRun(
+      id,
+      tenantId,
+      auditContext,
+    );
+    return {
+      message: 'Payroll run approved',
+      payrollRunId: id,
+      status: run.status,
+      approvedAt: run.metadata?.approvedAt,
+    };
+  }
+
+  @Post('runs/:id/disburse')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async disbursePayroll(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: DisbursePayrollDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const dto: ProcessPayrollWithAudit & { confirmed: boolean } = {
+      payrollRunId: id,
+      tenantId,
+      confirmed: body.confirmed,
+      auditContext: {
+        payrollRunId: id,
+        performedById: member.id,
+        ipAddress: req.ip,
+        userAgent: req.get('User-Agent'),
+      },
+    };
+    const result = await this.payrollService.disburseManualPayroll(dto);
+    return {
+      message: 'Manual disbursement completed',
+      payrollRunId: id,
+      ...result,
+      disbursedAt: new Date().toISOString(),
+    };
+  }
+
+  @Get('runs/:id/export/bank-file')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @Header('Content-Type', 'text/csv')
+  async exportBankFile(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const csv = await this.payrollService.exportBankFile(
+      id,
+      tenantId,
+      auditContext,
+    );
+    return csv;
+  }
+
+  @Get('runs/:id/items/:itemId/payslip')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @Header('Content-Type', 'text/html')
+  async getPayslip(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ) {
+    return this.payrollService.getPayslipHtml(id, itemId, tenantId);
+  }
+
   @Post('runs/:id/process')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -196,6 +301,7 @@ export class PayrollController {
       throw error;
     }
   }
+
   @Get('runs/:id/audit')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -203,7 +309,9 @@ export class PayrollController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
   ) {
-    return   }
+    return this.auditService.getAuditTrail(id, tenantId);
+  }
+
   @Get('runs/:id/audit/report')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -211,7 +319,9 @@ export class PayrollController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
   ) {
-    return   }
+    return this.auditService.generateAuditReport(id);
+  }
+
   @Post('runs/:id/process-multi-payment')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -252,6 +362,7 @@ export class PayrollController {
       throw error;
     }
   }
+
   @Post('runs/:id/retry-failed-payments')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -290,6 +401,7 @@ export class PayrollController {
       throw error;
     }
   }
+
   @Get('runs/:id/payment-status')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)

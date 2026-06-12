@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { resolveTrustedOrigins } from './trusted-origins';
 import { EnvironmentValidationConfig } from "../interfaces/environment-validation-config.interface";
 
 export class EnvironmentValidationService {
@@ -16,7 +17,7 @@ export class EnvironmentValidationService {
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
       'GOOGLE_CALLBACK_URL',
-      'ALLOWED_ORIGINS',
+      'TRUSTED_ORIGINS',
     ],
     productionRequired: [
       'ZEPTOMAIL_API_KEY',
@@ -31,7 +32,7 @@ export class EnvironmentValidationService {
       'BASE_URL',
       'FRONTEND_URL',
       'PORT',
-      'ALLOWED_ORIGINS',
+      'TRUSTED_ORIGINS',
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
       'GOOGLE_CALLBACK_URL',
@@ -125,6 +126,14 @@ export class EnvironmentValidationService {
   }
   private validateCriticalVariables(errors: string[]): void {
     for (const variable of this.validationConfig.critical) {
+      if (variable === 'TRUSTED_ORIGINS') {
+        if (resolveTrustedOrigins().length === 0) {
+          errors.push(
+            'Critical environment variable TRUSTED_ORIGINS is not set (ALLOWED_ORIGINS and CORS_ALLOWED_ORIGINS are accepted as fallbacks)',
+          );
+        }
+        continue;
+      }
       const value = process.env[variable];
       if (!value || value.trim() === '') {
         errors.push(`Critical environment variable ${variable} is not set`);
@@ -210,6 +219,15 @@ export class EnvironmentValidationService {
       'localhost',
     ];
     this.validationConfig.neverAllowFallbacks.forEach((variable) => {
+      if (variable === 'TRUSTED_ORIGINS') {
+        const origins = resolveTrustedOrigins();
+        if (origins.length === 0) {
+          errors.push(
+            'Critical environment variable TRUSTED_ORIGINS must be explicitly set - no fallbacks allowed',
+          );
+        }
+        return;
+      }
       const value = process.env[variable];
       if (!value || value.trim() === '') {
         errors.push(
@@ -223,8 +241,8 @@ export class EnvironmentValidationService {
       );
       let hasProductionSuspiciousPattern = false;
       if (isProduction) {
-        if (variable === 'ALLOWED_ORIGINS') {
-          const origins = value.split(',').map((o) => o.trim().toLowerCase());
+        if (variable === 'TRUSTED_ORIGINS') {
+          const origins = resolveTrustedOrigins().map((o) => o.toLowerCase());
           const hasProductionOrigin = origins.some(
             (origin) =>
               !origin.includes('localhost') &&
@@ -250,9 +268,9 @@ export class EnvironmentValidationService {
           );
         }
       } else if (hasProductionSuspiciousPattern) {
-        if (variable === 'ALLOWED_ORIGINS') {
+        if (variable === 'TRUSTED_ORIGINS') {
           warnings.push(
-            `ALLOWED_ORIGINS should include production URLs in production environment: ${value}`,
+            `TRUSTED_ORIGINS should include production URLs in production environment: ${resolveTrustedOrigins().join(', ')}`,
           );
         } else if (variable === 'GOOGLE_CALLBACK_URL') {
           warnings.push(

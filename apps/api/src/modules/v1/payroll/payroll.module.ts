@@ -14,6 +14,8 @@ import { PayrollCalculationService } from './services/payroll-calculation.servic
 import { PayrollFeeService } from './services/payroll-fee.service';
 import { PayrollService } from './services/payroll.service';
 import { AuditService } from './services/audit.service';
+import { ManualDisbursementService } from './services/manual-disbursement.service';
+import { PayrollExportService } from './services/payroll-export.service';
 import { PayrollRun } from "./entities/payroll-run.entity";
 import { PayrollItem } from "./entities/payroll-item.entity";
 import { PayrollAuditLog } from "./entities/payroll-audit.entity";
@@ -40,6 +42,8 @@ import { PayrollFeeController } from "./controllers/payroll-fee.controller";
     PayrollFeeService,
     MultiPaymentService,
     AuditService,
+    ManualDisbursementService,
+    PayrollExportService,
   ],
   exports: [
     PayrollService,

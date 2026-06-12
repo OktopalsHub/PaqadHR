@@ -17,7 +17,7 @@ import { ENVIRONMENT } from '../config/env.config';
 @Injectable()
 export class CloudflareR2Service {
   private readonly logger = new Logger(CloudflareR2Service.name);
-  private readonly s3Client: S3Client;
+  private s3Client: S3Client | null = null;
   private readonly bucketName: string;
   private readonly accountId: string;
   private readonly publicId: string | null;
@@ -47,21 +47,39 @@ export class CloudflareR2Service {
         'No custom domain or public ID configured. Public URLs will not be available.',
       );
     }
-    if (!accountId || !accessKeyId || !secretAccessKey || !this.bucketName) {
-      throw new BadRequestException('Missing required Cloudflare R2 configuration');
+    const missingR2 =
+      !accountId || !accessKeyId || !secretAccessKey || !this.bucketName;
+    if (missingR2) {
+      const message =
+        'Missing required Cloudflare R2 configuration (CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME)';
+      if (process.env.NODE_ENV === 'production') {
+        throw new BadRequestException(message);
+      }
+      this.logger.warn(`${message} — file uploads disabled in development`);
     }
-    const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-    this.s3Client = new S3Client({
-      region: 'auto', 
-      endpoint,
-      credentials: {
-        accessKeyId,
-        secretAccessKey,
-      },
-      forcePathStyle: true,
-    });
-    this.logger.log('Cloudflare R2 service initialized');
+    if (!missingR2) {
+      const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+      this.s3Client = new S3Client({
+        region: 'auto',
+        endpoint,
+        credentials: {
+          accessKeyId,
+          secretAccessKey,
+        },
+        forcePathStyle: true,
+      });
+      this.logger.log('Cloudflare R2 service initialized');
+    }
   }
+  private getClient(): S3Client {
+    if (!this.s3Client) {
+      throw new BadRequestException(
+        'Cloudflare R2 is not configured. File storage is unavailable.',
+      );
+    }
+    return this.s3Client;
+  }
+
   private generateFileKey(
     tenantId: string,
     location: FileUploadLocation,
@@ -85,7 +103,7 @@ export class CloudflareR2Service {
       ACL: 'public-read', 
     });
     try {
-      const uploadUrl = await getSignedUrl(this.s3Client, command, {
+      const uploadUrl = await getSignedUrl(this.getClient(), command, {
         expiresIn: options.expiresIn || this.presignedUrlExpires,
       });
       this.logger.debug(`Generated upload URL for key: ${fileKey}`);
@@ -111,7 +129,7 @@ export class CloudflareR2Service {
         : undefined,
     });
     try {
-      const downloadUrl = await getSignedUrl(this.s3Client, command, {
+      const downloadUrl = await getSignedUrl(this.getClient(), command, {
         expiresIn: expiresIn || this.presignedUrlExpires,
       });
       this.logger.debug(
@@ -138,7 +156,7 @@ export class CloudflareR2Service {
         Bucket: this.bucketName,
         Key: fileKey,
       });
-      const response = await this.s3Client.send(command);
+      const response = await this.getClient().send(command);
       const downloadUrl = await this.generateDownloadUrl(fileKey);
       const publicUrl = this.getPublicUrl(fileKey);
       return {
@@ -163,7 +181,7 @@ export class CloudflareR2Service {
         Bucket: this.bucketName,
         Key: fileKey,
       });
-      await this.s3Client.send(command);
+      await this.getClient().send(command);
       this.logger.debug(`Deleted file with key: ${fileKey}`);
     } catch (error) {
       this.logger.error(`Failed to delete file with key: ${fileKey}`, error);
@@ -176,7 +194,7 @@ export class CloudflareR2Service {
         Bucket: this.bucketName,
         Key: fileKey,
       });
-      await this.s3Client.send(command);
+      await this.getClient().send(command);
       return true;
     } catch (error) {
       if (error.name === 'NotFound') {
@@ -207,7 +225,7 @@ export class CloudflareR2Service {
         Metadata: options.metadata,
         ACL: 'public-read', 
       });
-      await this.s3Client.send(command);
+      await this.getClient().send(command);
       const downloadUrl = await this.generateDownloadUrl(fileKey);
       const publicUrl = this.getPublicUrl(fileKey);
       this.logger.debug(`Uploaded file with key: ${fileKey}`);
@@ -234,7 +252,7 @@ export class CloudflareR2Service {
         Bucket: this.bucketName,
         Prefix: prefix,
       });
-      const response = await this.s3Client.send(command);
+      const response = await this.getClient().send(command);
       if (!response.Contents) {
         return [];
       }

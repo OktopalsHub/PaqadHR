@@ -7,14 +7,16 @@ import { PlansController } from './controllers/plans.controller';
 import { PlanPrice } from './entities/plan-price.entity';
 import { Plan } from './entities/plan.entity';
 import { PlansService } from './services/plans.service';
+import { PlanSeederService } from './services/plan-seeder.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Plan, PlanPrice])],
   controllers: [PlansController, PlansAdminController],
   providers: [
     PlansService,
+    PlanSeederService,
     { provide: APP_INTERCEPTOR, useClass: GeoInterceptor },
   ],
-  exports: [PlansService],
+  exports: [PlansService, PlanSeederService],
 })
 export class PlansModule {}

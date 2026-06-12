@@ -3,12 +3,15 @@ import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollCalculationService } from './payroll-calculation.service';
 import {
   BadRequestException,
-  Inject,
   Injectable,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { NombaProvider } from '../../../../common/providers/nomba.provider';
+import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
+import { ManualDisbursementService } from './manual-disbursement.service';
+import { PayrollExportService } from './payroll-export.service';
 import { EmploymentService } from '../../employment/employment.service';
 import { PaymentMethodType } from 'src/common/enums';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
@@ -57,7 +60,9 @@ export class PayrollService {
     private readonly payrollCalculationService: PayrollCalculationService,
     private readonly auditService: AuditService,
     private readonly employmentService: EmploymentService,
-    private readonly nombaProvider: NombaProvider,
+    private readonly manualDisbursementService: ManualDisbursementService,
+    private readonly payrollExportService: PayrollExportService,
+    @Optional() private readonly nombaProvider?: NombaProvider,
   ) {}
   async createPayrollRun(
     dto: CreatePayrollRunDto,
@@ -283,7 +288,116 @@ export class PayrollService {
       await queryRunner.release();
     }
   }
+  async approvePayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+  ): Promise<PayrollRun> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    if (payrollRun.status !== PayrollStatus.PROCESSING) {
+      throw new BadRequestException(
+        `Payroll run must be calculated (PROCESSING) before approval. Current status: ${payrollRun.status}`,
+      );
+    }
+    payrollRun.status = PayrollStatus.APPROVED;
+    payrollRun.metadata = {
+      ...payrollRun.metadata,
+      approvedAt: new Date().toISOString(),
+      approvedBy: auditContext.performedById,
+    };
+    await this.payrollRunRepository.save(payrollRun);
+    await this.auditService.logPayrollApproved(auditContext, {
+      title: payrollRun.title,
+      totalNetAmount: payrollRun.totalNetAmount,
+      employeeCount: payrollRun.employeeCount,
+    });
+    this.logger.log(`Payroll run ${payrollRunId} approved`);
+    return payrollRun;
+  }
+
+  async disburseManualPayroll(
+    dto: ProcessPayrollWithAudit & { confirmed: boolean },
+  ): Promise<{ paidCount: number; failedCount: number }> {
+    if (!isManualPayrollDisbursement()) {
+      throw new BadRequestException(
+        'Manual disbursement is disabled. Set PAYROLL_DISBURSEMENT_MODE=manual or use gateway process endpoint.',
+      );
+    }
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: dto.payrollRunId, tenantId: dto.tenantId },
+      relations: ['items', 'items.employee'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    return this.manualDisbursementService.disbursePayrollRun(
+      payrollRun,
+      dto.auditContext,
+      dto.confirmed,
+    );
+  }
+
+  async exportBankFile(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+  ): Promise<string> {
+    const payrollRun = await this.payrollExportService.getPayrollRunForExport(
+      payrollRunId,
+      tenantId,
+    );
+    if (
+      payrollRun.status !== PayrollStatus.PROCESSING &&
+      payrollRun.status !== PayrollStatus.APPROVED &&
+      payrollRun.status !== PayrollStatus.COMPLETED
+    ) {
+      throw new BadRequestException(
+        'Bank file export requires a calculated payroll run',
+      );
+    }
+    const rows = await this.payrollExportService.buildBankExportRows(payrollRun);
+    const csv = this.payrollExportService.toCsv(rows, payrollRun);
+    await this.auditService.logPayrollExported(auditContext, {
+      exportType: 'bank_csv',
+      rowCount: rows.length,
+      payrollRunId,
+    });
+    return csv;
+  }
+
+  async getPayslipHtml(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+  ): Promise<string> {
+    const payrollRun = await this.payrollExportService.getPayrollRunForExport(
+      payrollRunId,
+      tenantId,
+    );
+    const item = payrollRun.items?.find((i) => i.id === itemId);
+    if (!item) {
+      throw new BadRequestException('Payroll item not found');
+    }
+    return this.payrollExportService.renderPayslipHtml(payrollRun, item);
+  }
+
   async processPayroll(dto: ProcessPayrollWithAudit): Promise<void> {
+    if (isManualPayrollDisbursement()) {
+      throw new BadRequestException(
+        'Manual disbursement mode: approve the run (POST /runs/:id/approve) then disburse with confirmation (POST /runs/:id/disburse).',
+      );
+    }
+    if (!this.nombaProvider) {
+      throw new BadRequestException(
+        'Gateway disbursement is not configured. Set PAYROLL_DISBURSEMENT_MODE=manual for offline payroll.',
+      );
+    }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: dto.payrollRunId, tenantId: dto.tenantId },
       relations: ['items', 'items.employee'],
@@ -434,6 +548,9 @@ export class PayrollService {
     return paymentMethod.currency || 'USD';
   }
   private getPaymentProvider(_paymentMethod: PaymentMethod): NombaProvider {
+    if (!this.nombaProvider) {
+      throw new BadRequestException('Payment gateway is not configured');
+    }
     return this.nombaProvider;
   }
   private calculatePayPeriodDays(startDate: Date, endDate: Date): number {

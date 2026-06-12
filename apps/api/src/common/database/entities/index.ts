@@ -52,7 +52,7 @@ export * from '../../../modules/v1/tenants/entities/tenant.entity';
 export * from '../../../modules/v1/auth/entities/account.entity';
 export * from '../../../modules/v1/auth/entities/session.entity';
 export * from '../../../modules/v1/auth/entities/verification.entity';
-export * from '../../../modules/v1/shoutouts/entities/audit-log.entity';
+export * from './audit-log.entity';
 export * from '../../../modules/v1/users/entities/user.entity';
 
 export * from '../../integrations/entities/integration-channel.entity';

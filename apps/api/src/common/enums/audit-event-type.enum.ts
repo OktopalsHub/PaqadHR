@@ -7,5 +7,8 @@ export enum AuditEventType {
     TAX_CALCULATED = 'tax_calculated',
     DEDUCTION_APPLIED = 'deduction_applied',
     BONUS_APPLIED = 'bonus_applied',
-    COMPLIANCE_CHECK = 'compliance_check'
+    COMPLIANCE_CHECK = 'compliance_check',
+    PAYROLL_APPROVED = 'payroll_approved',
+    PAYROLL_DISBURSED_MANUAL = 'payroll_disbursed_manual',
+    PAYROLL_EXPORTED = 'payroll_exported',
 }

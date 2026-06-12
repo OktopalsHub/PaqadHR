@@ -1,5 +1,6 @@
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
 import { DataSource } from 'typeorm';
 import { NombaProvider } from 'src/common/providers/nomba.provider';
 import { AuditContext } from 'src/common/interfaces/audit-context.interface';
@@ -33,6 +34,11 @@ export class MultiPaymentService {
     tenantId: string,
     auditContext: AuditContext,
   ): Promise<BatchPaymentResult> {
+    if (isManualPayrollDisbursement()) {
+      throw new BadRequestException(
+        'Multi-payment is unavailable in manual disbursement mode. Approve and disburse the payroll run instead.',
+      );
+    }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
       relations: ['items', 'items.employee'],
@@ -70,6 +76,11 @@ export class MultiPaymentService {
     auditContext: AuditContext,
     specificItemIds?: string[],
   ): Promise<BatchPaymentResult> {
+    if (isManualPayrollDisbursement()) {
+      throw new BadRequestException(
+        'Payment retry is unavailable in manual disbursement mode.',
+      );
+    }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
       relations: ['items', 'items.employee'],
