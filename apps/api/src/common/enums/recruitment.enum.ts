@@ -1,0 +1,63 @@
+export enum JobStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  CLOSED = 'CLOSED',
+  ARCHIVED = 'ARCHIVED',
+}
+export enum LocationType {
+  ONSITE = 'ONSITE',
+  REMOTE = 'REMOTE',
+  HYBRID = 'HYBRID',
+}
+export enum CandidateStatus {
+  APPLIED = 'APPLIED',
+  SCREENING = 'SCREENING',
+  INTERVIEW = 'INTERVIEW',
+  OFFER = 'OFFER',
+  HIRED = 'HIRED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
+  UNDER_REVIEW = 'UNDER_REVIEW',
+}
+export enum CandidateSource {
+  INTERNAL = 'INTERNAL',
+  PUBLIC_WEBSITE = 'PUBLIC_WEBSITE',
+  LINKEDIN = 'LINKEDIN',
+  INDEED = 'INDEED',
+  OTHER = 'OTHER',
+}
+export enum InterviewType {
+  PHONE = 'PHONE',
+  VIDEO = 'VIDEO',
+  ONSITE = 'ONSITE',
+}
+export enum InterviewStatus {
+  SCHEDULED = 'SCHEDULED',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+}
+export enum ExperienceLevel {
+  ENTRY_LEVEL = 'ENTRY_LEVEL',
+  JUNIOR = 'JUNIOR',
+  MID_LEVEL = 'MID_LEVEL',
+  SENIOR = 'SENIOR',
+  LEAD = 'LEAD',
+  EXECUTIVE = 'EXECUTIVE',
+}
+export enum QuestionType {
+  SHORT_TEXT = 'SHORT_TEXT',
+  LONG_TEXT = 'LONG_TEXT',
+  SINGLE_CHOICE = 'SINGLE_CHOICE',
+  MULTIPLE_CHOICE = 'MULTIPLE_CHOICE',
+  DATE = 'DATE',
+  FILE_UPLOAD = 'FILE_UPLOAD',
+  RATING = 'RATING',
+}
+export enum EmploymentType {
+  FULL_TIME = 'FULL_TIME',
+  PART_TIME = 'PART_TIME',
+  CONTRACT = 'CONTRACT',
+  INTERNSHIP = 'INTERNSHIP',
+  TEMPORARY = 'TEMPORARY',
+}

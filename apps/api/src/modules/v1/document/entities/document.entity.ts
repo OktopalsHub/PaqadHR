@@ -1,0 +1,308 @@
+import { Column, Entity, ManyToOne } from 'typeorm';
+import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
+import { Tenant } from "../../tenants/entities/tenant.entity";
+import { DocumentType } from "../../../../common/enums/document-type.enum";
+import { DocumentCategory } from "../../../../common/enums/document-category.enum";
+import { DocumentAccessLevel } from "../../../../common/enums/document-access-level.enum";
+import { DocumentRetentionPolicy } from "../../../../common/enums/document-retention-policy.enum";
+import { BaseEntity } from "../../../../common/database/entities/base.entity";
+
+export function getDocumentCategory(type: DocumentType): DocumentCategory {
+  const categoryMap: Record<DocumentType, DocumentCategory> = {
+    [DocumentType.ID_CARD]: DocumentCategory.IDENTIFICATION,
+    [DocumentType.PASSPORT]: DocumentCategory.IDENTIFICATION,
+    [DocumentType.DRIVERS_LICENSE]: DocumentCategory.IDENTIFICATION,
+    [DocumentType.BIRTH_CERTIFICATE]: DocumentCategory.IDENTIFICATION,
+    [DocumentType.SOCIAL_SECURITY]: DocumentCategory.IDENTIFICATION,
+    [DocumentType.VISA_WORK_PERMIT]: DocumentCategory.IDENTIFICATION,
+    [DocumentType.RESUME_CV]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.OFFER_LETTER]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.EMPLOYMENT_CONTRACT]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.PROBATION_AGREEMENT]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.NON_DISCLOSURE_AGREEMENT]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.NON_COMPETE_AGREEMENT]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.ACCEPTANCE_LETTER]: DocumentCategory.EMPLOYMENT,
+    [DocumentType.TAX_FORMS]: DocumentCategory.COMPLIANCE,
+    [DocumentType.I9_FORM]: DocumentCategory.COMPLIANCE,
+    [DocumentType.BACKGROUND_CHECK]: DocumentCategory.COMPLIANCE,
+    [DocumentType.DRUG_TEST_RESULTS]: DocumentCategory.COMPLIANCE,
+    [DocumentType.REFERENCE_CHECK]: DocumentCategory.COMPLIANCE,
+    [DocumentType.CERTIFICATE_OF_CONDUCT]: DocumentCategory.COMPLIANCE,
+    [DocumentType.HEALTH_INSURANCE]: DocumentCategory.BENEFITS,
+    [DocumentType.DENTAL_INSURANCE]: DocumentCategory.BENEFITS,
+    [DocumentType.VISION_INSURANCE]: DocumentCategory.BENEFITS,
+    [DocumentType.LIFE_INSURANCE]: DocumentCategory.BENEFITS,
+    [DocumentType.DISABILITY_INSURANCE]: DocumentCategory.BENEFITS,
+    [DocumentType.RETIREMENT_PLAN]: DocumentCategory.BENEFITS,
+    [DocumentType.FLEXIBLE_SPENDING]: DocumentCategory.BENEFITS,
+    [DocumentType.TRAINING_CERTIFICATE]: DocumentCategory.TRAINING,
+    [DocumentType.PROFESSIONAL_CERTIFICATION]: DocumentCategory.TRAINING,
+    [DocumentType.EDUCATION_DEGREE]: DocumentCategory.TRAINING,
+    [DocumentType.SKILLS_ASSESSMENT]: DocumentCategory.TRAINING,
+    [DocumentType.COMPETENCY_FRAMEWORK]: DocumentCategory.TRAINING,
+    [DocumentType.DEVELOPMENT_PLAN]: DocumentCategory.TRAINING,
+    [DocumentType.PERFORMANCE_REVIEW]: DocumentCategory.PERFORMANCE,
+    [DocumentType.GOAL_SETTING]: DocumentCategory.PERFORMANCE,
+    [DocumentType.MID_YEAR_REVIEW]: DocumentCategory.PERFORMANCE,
+    [DocumentType.FEEDBACK_FORM]: DocumentCategory.PERFORMANCE,
+    [DocumentType.DISCIPLINARY_ACTION]: DocumentCategory.PERFORMANCE,
+    [DocumentType.ACHIEVEMENT_AWARD]: DocumentCategory.PERFORMANCE,
+    [DocumentType.PAY_STUB]: DocumentCategory.PAYROLL,
+    [DocumentType.SALARY_HISTORY]: DocumentCategory.PAYROLL,
+    [DocumentType.BONUS_AGREEMENT]: DocumentCategory.PAYROLL,
+    [DocumentType.STOCK_OPTIONS]: DocumentCategory.PAYROLL,
+    [DocumentType.COMMISSION_PLAN]: DocumentCategory.PAYROLL,
+    [DocumentType.OVERTIME_RECORDS]: DocumentCategory.PAYROLL,
+    [DocumentType.MEDICAL_CERTIFICATE]: DocumentCategory.MEDICAL,
+    [DocumentType.FITNESS_FOR_DUTY]: DocumentCategory.MEDICAL,
+    [DocumentType.WORKERS_COMP_CLAIM]: DocumentCategory.MEDICAL,
+    [DocumentType.ACCOMMODATION_REQUEST]: DocumentCategory.MEDICAL,
+    [DocumentType.VACCINATION_RECORD]: DocumentCategory.MEDICAL,
+    [DocumentType.EMERGENCY_CONTACT]: DocumentCategory.MEDICAL,
+    [DocumentType.TERMINATION_LETTER]: DocumentCategory.TERMINATION,
+    [DocumentType.SEVERANCE_AGREEMENT]: DocumentCategory.TERMINATION,
+    [DocumentType.EXIT_INTERVIEW]: DocumentCategory.TERMINATION,
+    [DocumentType.FINAL_PAYCHECK]: DocumentCategory.TERMINATION,
+    [DocumentType.BENEFITS_ELECTION]: DocumentCategory.TERMINATION,
+    [DocumentType.PROPERTY_RETURN]: DocumentCategory.TERMINATION,
+    [DocumentType.NON_DISPARAGEMENT]: DocumentCategory.TERMINATION,
+    [DocumentType.CODE_OF_CONDUCT]: DocumentCategory.POLICIES,
+    [DocumentType.EMPLOYEE_HANDBOOK]: DocumentCategory.POLICIES,
+    [DocumentType.POLICY_ACKNOWLEDGMENT]: DocumentCategory.POLICIES,
+    [DocumentType.REMOTE_WORK_AGREEMENT]: DocumentCategory.POLICIES,
+    [DocumentType.DATA_PRIVACY_CONSENT]: DocumentCategory.POLICIES,
+    [DocumentType.TAX_WITHHOLDING]: DocumentCategory.TAX,
+    [DocumentType.DIRECT_DEPOSIT]: DocumentCategory.TAX,
+    [DocumentType.BENEFIT_ELECTION]: DocumentCategory.TAX,
+    [DocumentType.FORM_1099]: DocumentCategory.TAX,
+    [DocumentType.UNEMPLOYMENT_CLAIMS]: DocumentCategory.TAX,
+    [DocumentType.CONTRACTOR_AGREEMENT]: DocumentCategory.CONTRACTOR,
+    [DocumentType.VENDOR_CONTRACT]: DocumentCategory.CONTRACTOR,
+    [DocumentType.SUBCONTRACTOR_CERT]: DocumentCategory.CONTRACTOR,
+    [DocumentType.INDEPENDENT_CONTRACTOR]: DocumentCategory.CONTRACTOR,
+    [DocumentType.EXPENSE_REPORT]: DocumentCategory.MISCELLANEOUS,
+    [DocumentType.TRAVEL_AUTHORIZATION]: DocumentCategory.MISCELLANEOUS,
+    [DocumentType.PURCHASE_REQUEST]: DocumentCategory.MISCELLANEOUS,
+    [DocumentType.TIME_OFF_REQUEST]: DocumentCategory.MISCELLANEOUS,
+    [DocumentType.EQUIPMENT_REQUEST]: DocumentCategory.MISCELLANEOUS,
+    [DocumentType.OTHER]: DocumentCategory.MISCELLANEOUS,
+  };
+  return categoryMap[type] || DocumentCategory.MISCELLANEOUS;
+}
+export function getDocumentAccessLevel(
+  type: DocumentType,
+): DocumentAccessLevel {
+  const accessMap: Record<DocumentType, DocumentAccessLevel> = {
+    [DocumentType.EMPLOYEE_HANDBOOK]: DocumentAccessLevel.PUBLIC,
+    [DocumentType.CODE_OF_CONDUCT]: DocumentAccessLevel.PUBLIC,
+    [DocumentType.POLICY_ACKNOWLEDGMENT]: DocumentAccessLevel.PUBLIC,
+    [DocumentType.PAY_STUB]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.SALARY_HISTORY]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PERFORMANCE_REVIEW]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.MEDICAL_CERTIFICATE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.BACKGROUND_CHECK]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DRUG_TEST_RESULTS]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DISCIPLINARY_ACTION]: DocumentAccessLevel.HR_ONLY,
+    [DocumentType.TERMINATION_LETTER]: DocumentAccessLevel.HR_ONLY,
+    [DocumentType.EXIT_INTERVIEW]: DocumentAccessLevel.HR_ONLY,
+    [DocumentType.REFERENCE_CHECK]: DocumentAccessLevel.HR_ONLY,
+    [DocumentType.BONUS_AGREEMENT]: DocumentAccessLevel.MANAGEMENT,
+    [DocumentType.STOCK_OPTIONS]: DocumentAccessLevel.MANAGEMENT,
+    [DocumentType.SEVERANCE_AGREEMENT]: DocumentAccessLevel.MANAGEMENT,
+    [DocumentType.ID_CARD]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PASSPORT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DRIVERS_LICENSE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.BIRTH_CERTIFICATE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.SOCIAL_SECURITY]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.VISA_WORK_PERMIT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.RESUME_CV]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.OFFER_LETTER]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.EMPLOYMENT_CONTRACT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PROBATION_AGREEMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.NON_DISCLOSURE_AGREEMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.NON_COMPETE_AGREEMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.ACCEPTANCE_LETTER]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.TAX_FORMS]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.I9_FORM]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.CERTIFICATE_OF_CONDUCT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.HEALTH_INSURANCE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DENTAL_INSURANCE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.VISION_INSURANCE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.LIFE_INSURANCE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DISABILITY_INSURANCE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.RETIREMENT_PLAN]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.FLEXIBLE_SPENDING]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.TRAINING_CERTIFICATE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PROFESSIONAL_CERTIFICATION]:
+      DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.EDUCATION_DEGREE]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.SKILLS_ASSESSMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.COMPETENCY_FRAMEWORK]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DEVELOPMENT_PLAN]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.GOAL_SETTING]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.MID_YEAR_REVIEW]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.FEEDBACK_FORM]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.ACHIEVEMENT_AWARD]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.COMMISSION_PLAN]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.OVERTIME_RECORDS]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.FITNESS_FOR_DUTY]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.WORKERS_COMP_CLAIM]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.ACCOMMODATION_REQUEST]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.VACCINATION_RECORD]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.EMERGENCY_CONTACT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.FINAL_PAYCHECK]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.BENEFITS_ELECTION]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PROPERTY_RETURN]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.NON_DISPARAGEMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.REMOTE_WORK_AGREEMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DATA_PRIVACY_CONSENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.TAX_WITHHOLDING]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.DIRECT_DEPOSIT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.BENEFIT_ELECTION]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.FORM_1099]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.UNEMPLOYMENT_CLAIMS]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.CONTRACTOR_AGREEMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.VENDOR_CONTRACT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.SUBCONTRACTOR_CERT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.INDEPENDENT_CONTRACTOR]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.EXPENSE_REPORT]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.TRAVEL_AUTHORIZATION]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PURCHASE_REQUEST]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.TIME_OFF_REQUEST]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.EQUIPMENT_REQUEST]: DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.OTHER]: DocumentAccessLevel.EMPLOYEE_ONLY,
+  };
+  return accessMap[type] || DocumentAccessLevel.EMPLOYEE_ONLY;
+}
+export function getDocumentRetentionPolicy(
+  type: DocumentType,
+): DocumentRetentionPolicy {
+  const retentionMap: Record<DocumentType, DocumentRetentionPolicy> = {
+    [DocumentType.EMPLOYMENT_CONTRACT]: DocumentRetentionPolicy.PERMANENT,
+    [DocumentType.NON_DISCLOSURE_AGREEMENT]: DocumentRetentionPolicy.PERMANENT,
+    [DocumentType.NON_COMPETE_AGREEMENT]: DocumentRetentionPolicy.PERMANENT,
+    [DocumentType.TERMINATION_LETTER]: DocumentRetentionPolicy.PERMANENT,
+    [DocumentType.SEVERANCE_AGREEMENT]: DocumentRetentionPolicy.PERMANENT,
+    [DocumentType.TAX_FORMS]: DocumentRetentionPolicy.LEGAL_REQUIREMENT,
+    [DocumentType.I9_FORM]: DocumentRetentionPolicy.LEGAL_REQUIREMENT,
+    [DocumentType.WORKERS_COMP_CLAIM]:
+      DocumentRetentionPolicy.LEGAL_REQUIREMENT,
+    [DocumentType.UNEMPLOYMENT_CLAIMS]:
+      DocumentRetentionPolicy.LEGAL_REQUIREMENT,
+    [DocumentType.PERFORMANCE_REVIEW]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PAY_STUB]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.BACKGROUND_CHECK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.EXPENSE_REPORT]: DocumentRetentionPolicy.TEMPORARY,
+    [DocumentType.TRAVEL_AUTHORIZATION]: DocumentRetentionPolicy.TEMPORARY,
+    [DocumentType.TIME_OFF_REQUEST]: DocumentRetentionPolicy.TEMPORARY,
+    [DocumentType.ID_CARD]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PASSPORT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DRIVERS_LICENSE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.BIRTH_CERTIFICATE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.SOCIAL_SECURITY]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.VISA_WORK_PERMIT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.RESUME_CV]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.OFFER_LETTER]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PROBATION_AGREEMENT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.ACCEPTANCE_LETTER]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.CERTIFICATE_OF_CONDUCT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.HEALTH_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DENTAL_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.VISION_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.LIFE_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DISABILITY_INSURANCE]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.RETIREMENT_PLAN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.FLEXIBLE_SPENDING]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.TRAINING_CERTIFICATE]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PROFESSIONAL_CERTIFICATION]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.EDUCATION_DEGREE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.SKILLS_ASSESSMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.COMPETENCY_FRAMEWORK]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DEVELOPMENT_PLAN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.GOAL_SETTING]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.MID_YEAR_REVIEW]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.FEEDBACK_FORM]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.ACHIEVEMENT_AWARD]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.SALARY_HISTORY]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.BONUS_AGREEMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.STOCK_OPTIONS]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.COMMISSION_PLAN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.OVERTIME_RECORDS]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.MEDICAL_CERTIFICATE]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.FITNESS_FOR_DUTY]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.ACCOMMODATION_REQUEST]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.VACCINATION_RECORD]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.EMERGENCY_CONTACT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.EXIT_INTERVIEW]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.FINAL_PAYCHECK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.BENEFITS_ELECTION]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PROPERTY_RETURN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.NON_DISPARAGEMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.CODE_OF_CONDUCT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.EMPLOYEE_HANDBOOK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.POLICY_ACKNOWLEDGMENT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.REMOTE_WORK_AGREEMENT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DATA_PRIVACY_CONSENT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.TAX_WITHHOLDING]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DIRECT_DEPOSIT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.BENEFIT_ELECTION]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.FORM_1099]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.CONTRACTOR_AGREEMENT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.VENDOR_CONTRACT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.SUBCONTRACTOR_CERT]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.INDEPENDENT_CONTRACTOR]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PURCHASE_REQUEST]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.EQUIPMENT_REQUEST]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.OTHER]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DRUG_TEST_RESULTS]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.REFERENCE_CHECK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DISCIPLINARY_ACTION]:
+      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+  };
+  return retentionMap[type] || DocumentRetentionPolicy.EMPLOYMENT_PERIOD;
+}
+@Entity()
+export class Document extends BaseEntity {
+  @Column()
+  name: string;
+  @Column({ type: 'enum', enum: DocumentType })
+  type: DocumentType;
+  @Column({ name: 'file_key' })
+  fileKey: string;
+  @Column({ type: 'date', name: 'issue_date', nullable: true })
+  issueDate?: Date;
+  @Column({ type: 'date', name: 'expiry_date', nullable: true })
+  expiryDate?: Date;
+  @Column({ type: 'text', nullable: true })
+  description?: string;
+  @Column({ name: 'is_verified', default: false })
+  isVerified: boolean;
+  @Column({ name: 'tenant_member_id' })
+  tenantMemberId: string;
+  @Column({ name: 'tenant_id' })
+  tenantId: string;
+  @ManyToOne(() => TenantMember, (member) => member.documents, {
+    onDelete: 'CASCADE',
+  })
+  tenantMember: TenantMember;
+  @ManyToOne(() => Tenant, (tenant) => tenant.documents, {
+    onDelete: 'CASCADE',
+  })
+  tenant: Tenant;
+}

@@ -1,0 +1,31 @@
+import { Notification } from './entities/notification.entity';
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotificationService } from './services/notification.service';
+import { NotificationPreferenceService } from './services/notification-preference.service';
+import { ZeptomailEmailService } from './services/zeptomail-email.service';
+import { SSENotificationService } from './services/sse-notification.service';
+import { NotificationHelperService } from './services/notification-helper.service';
+import { NotificationPreference } from "./entities/notification-preference.entity";
+import { NotificationController } from "./controllers/notification.controller";
+import { NotificationPreferenceController } from "./controllers/notification-preference.controller";
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Notification, NotificationPreference])],
+  controllers: [NotificationController, NotificationPreferenceController],
+  providers: [
+    NotificationService,
+    NotificationPreferenceService,
+    ZeptomailEmailService,
+    SSENotificationService,
+    NotificationHelperService,
+  ],
+  exports: [
+    NotificationService,
+    NotificationPreferenceService,
+    ZeptomailEmailService,
+    SSENotificationService,
+    NotificationHelperService,
+  ],
+})
+export class NotificationsModule {}

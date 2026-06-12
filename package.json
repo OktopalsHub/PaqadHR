@@ -1,0 +1,28 @@
+{
+  "name": "paqad",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "start": "turbo start",
+    "test": "turbo test",
+    "format": "turbo format"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.16"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "argon2"
+    ],
+    "overrides": {
+      "flatted": ">=3.4.2",
+      "tar": ">=7.5.16",
+      "postcss": ">=8.5.15",
+      "picomatch": ">=4.0.4",
+      "js-yaml": ">=4.2.0"
+    }
+  }
+}

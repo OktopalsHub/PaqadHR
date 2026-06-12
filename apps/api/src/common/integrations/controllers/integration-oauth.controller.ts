@@ -1,0 +1,226 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Redirect,
+  Req,
+  UseGuards,
+  Version,
+  VERSION_NEUTRAL,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { ENVIRONMENT } from 'src/common/config/env.config';
+import { CurrentTenantMember, Public } from 'src/common/decorators';
+import { IntegrationType } from 'src/common/enums';
+import { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
+import { TenantsService } from '../../../modules/v1/tenants/tenants.service';
+import { OAuthIntegrationService } from '../services/oauth-integration.service';
+import { ChannelManagementService } from '../services/channel-management.service';
+import { PlatformIntegrationService } from '../services/platform-integration.service';
+import { OAuthStateData } from '../integration.types';
+
+@Controller()
+export class OAuthIntegrationController {
+  private readonly logger = new Logger(OAuthIntegrationController.name);
+  constructor(
+    private readonly oauthService: OAuthIntegrationService,
+    private readonly channelService: ChannelManagementService,
+    private readonly tenantService: TenantsService,
+    private readonly integrationService: PlatformIntegrationService,
+  ) {}
+  @Get('tenants/:tenantId/integrations/oauth/connect/:platform')
+  @UseGuards(TenantMemberGuard)
+  async connectPlatform(
+    @Param('tenantId') tenantId: string,
+    @Param('platform') platform: IntegrationType,
+    @Req() request: IAuthenticatedMemberRequest,
+  ) {
+    const member = request.member;
+    const validPlatforms = Object.values(IntegrationType);
+    if (!validPlatforms.includes(platform)) {
+      throw new BadRequestException(`Invalid platform type: ${platform}`);
+    }
+    const redirectUri = this.getRedirectUri(request, platform);
+    const oauthUrl = this.oauthService.generateOAuthUrl(
+      tenantId,
+      platform,
+      member.id,
+      redirectUri,
+    );
+    this.logger.debug(`Generated OAuth URL for ${platform}`, {
+      platform,
+      tenantId,
+      userId: member.id,
+      ip: request.ip,
+    });
+    return { url: oauthUrl };
+  }
+  @Get('integrations/oauth/callback')
+  @Version(VERSION_NEUTRAL)
+  @Redirect()
+  @Public()
+  async handleCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Req() request: Request,
+    @Query('error') error?: string,
+  ) {
+    this.logger.debug('OAuth callback received', {
+      hasCode: !!code,
+      hasState: !!state,
+      error,
+      ip: request.ip,
+      userAgent: request.get('user-agent'),
+    });
+    if (!state || state.length > 2048) {
+      this.logger.error('Invalid or missing state parameter', {
+        stateLength: state?.length,
+        ip: request.ip,
+      });
+      return {
+        url: `${ENVIRONMENT.APP.FRONTEND_URL}?error=invalid_state`,
+      };
+    }
+    let stateData: OAuthStateData;
+    try {
+      const decodedState = Buffer.from(state, 'base64').toString('utf-8');
+      if (decodedState.length > 1024) {
+        throw new BadRequestException('State data too large');
+      }
+      stateData = JSON.parse(decodedState) as OAuthStateData;
+      if (!stateData.tenantId || !stateData.platformType || !stateData.tenantMemberId) {
+        throw new BadRequestException('Missing required state fields');
+      }
+      const stateAge = Date.now() - (stateData.timestamp || 0);
+      if (stateAge > 600000) {
+        throw new BadRequestException('State expired');
+      }
+      this.logger.debug('State validated successfully', {
+        tenantId: stateData.tenantId,
+        platform: stateData.platformType,
+        age: stateAge,
+      });
+    } catch (err) {
+      this.logger.error('State validation failed', {
+        error: err instanceof Error ? err.message : String(err),
+        ip: request.ip,
+        userAgent: request.get('user-agent'),
+      });
+      return {
+        url: `${ENVIRONMENT.APP.FRONTEND_URL}?error=invalid_state`,
+      };
+    }
+    const { tenantId } = stateData;
+    let tenantSlug: string;
+    try {
+      const tenant = await this.tenantService.getTenant(tenantId);
+      tenantSlug = tenant.slug;
+    } catch (err) {
+      this.logger.error('Failed to get tenant', err);
+      return {
+        url: `${ENVIRONMENT.APP.FRONTEND_URL}?error=tenant_not_found`,
+      };
+    }
+    const frontendBase = ENVIRONMENT.APP.FRONTEND_URL;
+    let baseTarget: string;
+    if (process.env.APP_USE_SUBDOMAIN === 'true') {
+      baseTarget = `https://${tenantSlug}.${frontendBase}`;
+    } else {
+      baseTarget = `${frontendBase}/${tenantSlug}`;
+    }
+    if (error) {
+      this.logger.error('OAuth error', { error });
+      return { url: `${baseTarget}/integrations?error=${error}` };
+    }
+    if (!code) {
+      this.logger.error('No code parameter in callback');
+      return { url: `${baseTarget}/integrations?error=no_code` };
+    }
+    try {
+      this.logger.log('Processing OAuth callback...');
+      const result = await this.oauthService.handleOAuthCallback(code, state);
+      this.logger.log('OAuth callback processed successfully', {
+        integrationId: result.integrationId,
+      });
+      return {
+        url: `${baseTarget}/integrations/setup-channel?integration_id=${result.integrationId}&platform=${stateData.platformType}`,
+      };
+    } catch (err) {
+      this.logger.error('OAuth callback processing failed', err);
+      return {
+        url: `${baseTarget}/integrations?error=auth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`,
+      };
+    }
+  }
+  @Get('integrations/:integrationId/channels')
+  @UseGuards(TenantMemberGuard)
+  async getAvailableChannels(
+    @Param('integrationId') integrationId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const userToken = await this.oauthService.getUserToken(
+      integrationId,
+      member.id,
+    );
+    if (!userToken?.userAccessToken) {
+      throw new BadRequestException(
+        'User token not found. Re-authorize integration.',
+      );
+    }
+    return this.channelService.getAvailableChannels(
+      integrationId,
+      userToken.userAccessToken,
+    );
+  }
+  @Post('integrations/:integrationId/setup-channel')
+  @UseGuards(TenantMemberGuard)
+  async setupChannel(
+    @Param('integrationId') integrationId: string,
+    @Body()
+    body: {
+      platformChannelId: string;
+      platformChannelName: string;
+    },
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const userToken = await this.oauthService.getUserToken(
+      integrationId,
+      member.id,
+    );
+    await this.channelService.configureShoutoutChannel(
+      integrationId,
+      body.platformChannelId,
+      body.platformChannelName,
+      member.id,
+      userToken?.userAccessToken,
+    );
+    await this.integrationService.syncUsers(
+      integrationId,
+      body.platformChannelId,
+    );
+    return {
+      success: true,
+      message: 'Channel configured and users synced!',
+    };
+  }
+  private getRedirectUri(request: Request, platform: IntegrationType): string {
+    const isDevelopment =
+      ENVIRONMENT.APP.NODE_ENV === 'development' ||
+      request.get('host')?.includes('localhost');
+    if (isDevelopment) {
+      const protocol =
+        request.get('x-forwarded-proto') || (request.secure ? 'https' : 'http');
+      const host = request.get('host');
+      return `${protocol}://${host}/integrations/oauth/callback`;
+    }
+    return `${ENVIRONMENT.APP.BASE_URL}/integrations/oauth/callback`;
+  }
+}

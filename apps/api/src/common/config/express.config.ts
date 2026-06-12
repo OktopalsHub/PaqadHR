@@ -1,0 +1,228 @@
+import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import csurf from 'csurf';
+import express, { NextFunction, Request, Response } from 'express';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import helmet, { HelmetOptions } from 'helmet';
+import helmetCsp from 'helmet-csp';
+import passport from 'passport';
+
+export const ExpressSetup = (app: NestExpressApplication) => {
+  app.use(cookieParser());
+  app.use(express.json({ limit: '10mb' })); 
+  app.use(express.urlencoded({ limit: '10mb', extended: true })); 
+  const csrfProtection = csurf({
+    cookie: {
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', 
+      secure: process.env.NODE_ENV === 'production', 
+      maxAge: 3600000, 
+    },
+    ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
+  });
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const excludedPaths = [
+      '/api/v1/auth/register',
+      '/api/v1/auth/login',
+      '/api/v1/auth/refresh',
+      '/api/v1/auth/forgot-password',
+      '/api/v1/auth/reset-password',
+      '/api/v1/auth/github/callback',
+      '/api/v1/auth/google/callback',
+      '/api/v1/integrations/oauth/callback',
+      '/api/v1/invitations/details',
+      '/api/v1/invitations/accept',
+      '/api/v1/invitations/decline',
+      '/api/v1/webhooks',
+      '/health',
+      '/metrics',
+    ];
+    const isExcludedPath = excludedPaths.some((path) =>
+      req.path.startsWith(path),
+    );
+    if (isExcludedPath) {
+      return next();
+    }
+    csrfProtection(req, res, next);
+  });
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      err.code === 'EBADCSRFTOKEN'
+    ) {
+      return res.status(403).json({
+        message: 'Invalid CSRF token',
+        error: 'Forbidden',
+        statusCode: 403,
+        details:
+          'CSRF token validation failed. Please refresh the page and try again.',
+      });
+    }
+    next(err);
+  });
+  app.set('trust proxy', true);
+  app.use(passport.initialize());
+  let allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowAll = allowedOrigins.includes('*');
+  if (allowAll && process.env.NODE_ENV !== 'production') {
+    allowedOrigins = ['*'];
+  } else if (allowAll) {
+    allowedOrigins = allowedOrigins.filter((o) => o !== '*');
+  }
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes('*')) return callback(null, true);
+        if (process.env.NODE_ENV === 'development') {
+          if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+            return callback(null, true);
+          }
+          if (
+            origin.includes('vercel.app') ||
+            origin.includes('netlify.app') ||
+            origin.includes('devtunnels.ms') ||
+            origin.includes('ngrok.io')
+          ) {
+            return callback(null, true);
+          }
+        }
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        console.warn(
+          `CORS rejected origin: ${origin}. Allowed origins:`,
+          allowedOrigins,
+        );
+        callback(new Error(`Not allowed by CORS: ${origin}`), false);
+      },
+      credentials: true,
+      methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Headers',
+        'Access-Control-Allow-Credentials',
+        'x-csrf-token',
+        'X-CSRF-Token',
+        'x-tenant-id',
+        'X-Tenant-ID',
+      ],
+      exposedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'Access-Control-Allow-Origin',
+        'Access-Control-Allow-Headers',
+        'Access-Control-Allow-Credentials',
+        'x-csrf-token',
+        'X-CSRF-Token',
+      ],
+      optionsSuccessStatus: 200, 
+    }),
+  );
+  const contentSecurityPolicy = {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
+      imgSrc: ["'self'"],
+      frameAncestors: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  };
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, 
+    }),
+  );
+  app.use(helmetCsp(contentSecurityPolicy));
+  const helmetConfig: HelmetOptions = {
+    frameguard: { action: 'deny' },
+    xssFilter: true,
+    referrerPolicy: { policy: 'strict-origin' },
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  };
+  app.use(helmet(helmetConfig));
+  app.use(helmet.hidePoweredBy());
+  app.use(helmet.noSniff());
+  app.use(helmet.ieNoOpen());
+  app.use(helmet.dnsPrefetchControl());
+  app.use(helmet.permittedCrossDomainPolicies());
+  const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
+    message: {
+      error: 'Too Many Requests',
+      message: 'Too many requests from this IP, please try again later.',
+      statusCode: 429,
+    },
+    skip: (req) => {
+      const skipPaths = ['/health', '/metrics'];
+      const securityProbes = ['/.git/', '/admin', '/wp-admin', '/.env'];
+      return (
+        skipPaths.includes(req.path) ||
+        securityProbes.some((probe) => req.path.includes(probe))
+      );
+    },
+  });
+  app.use(limiter);
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 5, 
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
+    message: {
+      error: 'Too Many Authentication Attempts',
+      message:
+        'Too many authentication attempts from this IP, please try again later.',
+      statusCode: 429,
+    },
+  });
+  app.use('/api/v1/auth/login', authLimiter);
+  app.use('/api/v1/auth/register', authLimiter);
+  app.use('/api/v1/auth/refresh', authLimiter);
+  app.use('/api/v1/auth/forgot-password', authLimiter);
+  app.use('/api/v1/auth/reset-password', authLimiter);
+  const webhookLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, 
+    max: 50, 
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
+    message: {
+      error: 'Too Many Webhook Requests',
+      message:
+        'Too many webhook requests, please check your webhook configuration.',
+      statusCode: 429,
+    },
+  });
+  app.use('/api/v1/webhooks', webhookLimiter);
+  const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip || '';
+    if (APPROVED_CLIENTS.length && !APPROVED_CLIENTS.includes(ip)) {
+      return res.status(403).json({ message: 'Client not approved' });
+    }
+    next();
+  });
+};

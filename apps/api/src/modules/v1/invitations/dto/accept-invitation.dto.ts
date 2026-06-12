@@ -1,0 +1,56 @@
+import { Invitation } from '../entities/invitation.entity';
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
+export class AcceptInvitationDto {
+  @ApiProperty({
+    description: 'Invitation token',
+    example: 'abc123',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+  @ApiProperty({
+    description: 'Email address of the invited user',
+    example: 'user@example.com',
+    format: 'email',
+    required: true,
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+  @ApiProperty({
+    description: 'First name of the user',
+    example: 'John',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
+  @ApiProperty({
+    description: 'Last name of the user',
+    example: 'Doe',
+    required: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
+  @ApiProperty({
+    description: 'Password for the new account (required only for new users)',
+    example: 'securepassword123',
+    required: false,
+    minLength: 8,
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.password !== undefined && o.password !== null)
+  @IsString({ message: 'Password must be a string' })
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  password?: string;
+}
