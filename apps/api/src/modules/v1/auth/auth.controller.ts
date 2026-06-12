@@ -14,7 +14,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
+import { JwtPayload } from 'src/common/interfaces';
 import { AuthService } from './auth.service';
+
 interface AuthResponse {
   accessToken: string;
   refreshToken: string;
@@ -24,10 +26,12 @@ interface AuthResponse {
     role: string;
   };
 }
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
+
   @Post('register')
   @Public()
   async register(
@@ -47,7 +51,7 @@ export class AuthController {
       ip,
     );
     this.setAuthCookies(res, accessToken, refreshToken);
-    const response = {
+    return {
       accessToken,
       refreshToken,
       user: {
@@ -57,8 +61,8 @@ export class AuthController {
       },
       ...(invitation ? { invitation } : {}),
     };
-    return response;
   }
+
   @Post('login')
   @Public()
   @UseGuards(AuthGuard('local'))
@@ -72,7 +76,7 @@ export class AuthController {
       ip,
     );
     this.setAuthCookies(res, accessToken, refreshToken);
-    const response = {
+    return {
       accessToken,
       refreshToken,
       user: {
@@ -81,12 +85,13 @@ export class AuthController {
         role: req.user.role,
       },
     };
-    return response;
   }
+
   @Get('google')
   @Public()
   @UseGuards(AuthGuard('google'))
-  async googleLogin(@Query('redirect_uri') redirectUri?: string) {}
+  async googleLogin(@Query('redirect_uri') _redirectUri?: string) {}
+
   @Get('google/callback')
   @Public()
   @UseGuards(AuthGuard('google'))
@@ -110,6 +115,7 @@ export class AuthController {
       },
     };
   }
+
   @Post('refresh')
   @Public()
   async refresh(
@@ -126,96 +132,102 @@ export class AuthController {
     this.setAuthCookies(res, accessToken, newRefreshToken);
     return { accessToken, refreshToken: newRefreshToken };
   }
+
+  @Post('forgot-password')
+  @Public()
+  async forgotPassword(@Body() body: { email: string }) {
+    return this.authService.forgotPassword(body.email);
+  }
+
+  @Post('reset-password')
+  @Public()
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    return this.authService.resetPassword(body.token, body.newPassword);
+  }
+
   @Post('logout')
-    async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
+  async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
     const refreshToken = req.cookies['refresh_token'];
-    if (refreshToken) await this.authService.logout(refreshToken);
-    const isLocal = process.env.NODE_ENV !== 'production';
-    res.clearCookie('access_token', {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
-      path: '/',
-    });
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
-      path: '/',
-    });
+    const user = req.user as JwtPayload | undefined;
+    if (refreshToken) {
+      await this.authService.logoutByRefreshToken(refreshToken);
+    } else if (user?.principalId) {
+      await this.authService.logout(user.principalId);
+    }
+    this.clearAuthCookies(res);
     res.json({ message: 'Logout successful' });
   }
+
   @Post('logout-all')
-    async logoutAllDevices(
+  async logoutAllDevices(
     @Req() req: Request,
     @Res() res: Response,
   ): Promise<void> {
-    const refreshToken = req.cookies['refresh_token'];
-    if (!refreshToken) {
-      throw new UnauthorizedException('No refresh token provided');
+    const user = req.user as JwtPayload | undefined;
+    if (!user?.principalId) {
+      throw new UnauthorizedException('Not authenticated');
     }
-    const token = await this.authService.validateRefreshToken(refreshToken);
-    await this.authService.revokeAllRefreshTokensForUser(token.userId);
-    const isLocal = process.env.NODE_ENV !== 'production';
-    res.clearCookie('access_token', {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
-      path: '/',
-    });
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
-      path: '/',
-    });
+    await this.authService.logout(user.principalId);
+    this.clearAuthCookies(res);
     res.json({ message: 'Logged out from all devices successfully' });
   }
+
   @Get('sessions')
-    async getActiveSessions(@Req() req: Request): Promise<{ sessions: unknown[] }> {
-    const refreshToken = req.cookies['refresh_token'];
-    if (!refreshToken) {
-      throw new UnauthorizedException('No refresh token provided');
+  async getActiveSessions(@Req() req: Request): Promise<{ sessions: unknown[] }> {
+    const user = req.user as JwtPayload | undefined;
+    if (!user?.principalId) {
+      throw new UnauthorizedException('Not authenticated');
     }
-    const token = await this.authService.validateRefreshToken(refreshToken);
-    const activeTokens = await this.authService.getActiveRefreshTokensForUser(
-      token.userId,
+    const sessions = await this.authService.getActiveSessionsForUser(
+      user.principalId,
     );
-    const sessions = activeTokens.map((token) => ({
-      id: token.id,
-      deviceInfo: 'Unknown', 
-      createdAt: token.createdAt,
-      expiresAt: token.expiresAt,
-      lastUsed: token.createdAt, 
-    }));
-    return { sessions };
+    return {
+      sessions: sessions.map((session) => ({
+        id: session.id,
+        createdAt: session.createdAt,
+        expiresAt: session.expiresAt,
+        ipAddress: session.ipAddress,
+        userAgent: session.userAgent,
+      })),
+    };
   }
-  private extractTokenFromHeader(authHeader: string): string | null {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
-    return authHeader.substring(7);
-  }
+
   private setAuthCookies(
     res: Response,
     accessToken: string,
     refreshToken: string,
   ) {
-    const accessMaxAge = 24 * 60 * 60 * 1000; 
-    const refreshMaxAge = 7 * 24 * 60 * 60 * 1000; 
+    const accessMaxAge = 24 * 60 * 60 * 1000;
+    const refreshMaxAge = 7 * 24 * 60 * 60 * 1000;
     const isLocal = process.env.NODE_ENV !== 'production';
     res.cookie('access_token', accessToken, {
       httpOnly: true,
-      secure: !isLocal, 
-      sameSite: isLocal ? 'lax' : 'none', 
+      secure: !isLocal,
+      sameSite: isLocal ? 'lax' : 'none',
       maxAge: accessMaxAge,
       path: '/',
     });
     res.cookie('refresh_token', refreshToken, {
       httpOnly: true,
-      secure: !isLocal, 
-      sameSite: isLocal ? 'lax' : 'none', 
+      secure: !isLocal,
+      sameSite: isLocal ? 'lax' : 'none',
       maxAge: refreshMaxAge,
+      path: '/',
+    });
+  }
+
+  private clearAuthCookies(res: Response) {
+    const isLocal = process.env.NODE_ENV !== 'production';
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: !isLocal,
+      sameSite: isLocal ? 'lax' : 'none',
+      path: '/',
+    });
+    res.clearCookie('refresh_token', {
+      httpOnly: true,
+      secure: !isLocal,
+      sameSite: isLocal ? 'lax' : 'none',
       path: '/',
     });
   }

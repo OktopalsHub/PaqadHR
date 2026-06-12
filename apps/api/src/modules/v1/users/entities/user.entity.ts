@@ -14,20 +14,20 @@ import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 @Entity('user')
 export class User extends BaseEntity {
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   name?: string | null;
 
-  @Column({ length: 100, unique: true })
+  @Column({ type: 'varchar', length: 100, unique: true })
   email: string;
 
   @Exclude()
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   password?: string | null;
 
   @Column({ name: 'email_verified', default: false })
   emailVerified: boolean;
 
-  @Column({ name: 'country_code', length: 2, nullable: true })
+  @Column({ name: 'country_code', type: 'varchar', length: 2, nullable: true })
   countryCode?: string | null;
 
   @Column({ name: 'image_key', type: 'varchar', nullable: true })

@@ -1,4 +1,7 @@
-import { IBaseRepository } from 'src/common/interfaces';
-import { Repository } from "typeorm";
-import { User } from "../entities/user.entity";
-import { RefreshToken } from "../entities/refresh-token.entity";
+import { User } from '../entities/user.entity';
+
+export interface IUserRepository {
+  findUserByEmail(email: string, includeDeleted?: boolean): Promise<User | null>;
+  findUser(id: string, includeDeleted?: boolean): Promise<User | null>;
+  insertUser(userData: Partial<User>): Promise<User>;
+}

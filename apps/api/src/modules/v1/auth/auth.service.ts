@@ -7,18 +7,30 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { randomUUID } from 'node:crypto';
+import { ENVIRONMENT } from 'src/common/config/env.config';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from 'src/common/enums/audit-action.enum';
+import { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
 import {
   GeoLocationHelper,
   PasswordService,
   StringUtility,
 } from 'src/common/utils';
 import { UserRole } from 'src/common/enums';
-import {
-  AuditAction,
-  AuditSeverity,
-  AuditStatus,
-} from '../../../common/enums/audit-action.enum';
-import { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
+import { Repository } from 'typeorm';
+import { InvitationsService } from '../invitations/invitations.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantsService } from '../tenants/tenants.service';
+import { UserRepository } from '../users/repositories/users.repository';
+import { User } from '../users/entities/user.entity';
+import { Account } from './entities/account.entity';
+import { Session } from './entities/session.entity';
+import { Verification } from './entities/verification.entity';
 
 interface AuthAuditContext {
   userId?: string;
@@ -38,48 +50,50 @@ interface AuditQueueEntry {
 export class AuditQueueService {
   async enqueue(_entry: AuditQueueEntry): Promise<void> {}
 }
-import { InvitationsService } from '../invitations/invitations.service';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { TenantsService } from '../tenants/tenants.service';
-import { UserRepository } from "../users/repositories/users.repository";
-import { RefreshTokenRepository } from "../users/repositories/refresh-token.repository";
-import { User } from "../users/entities/user.entity";
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly userRepository: UserRepository,
+    @InjectRepository(Account)
+    private readonly accountRepository: Repository<Account>,
+    @InjectRepository(Session)
+    private readonly sessionRepository: Repository<Session>,
+    @InjectRepository(Verification)
+    private readonly verificationRepository: Repository<Verification>,
     private readonly jwtService: JwtService,
-    private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly invitationsService: InvitationsService,
     private readonly tenantMembersService: TenantMembersService,
     private readonly tenantsService: TenantsService,
     @Optional() private readonly auditQueueService?: AuditQueueService,
   ) {}
+
   async validateUser(
     email: string,
     password: string,
     auditContext?: AuthAuditContext,
   ): Promise<User | null> {
     const user = await this.userRepository.findUserByEmail(email);
-    if (
-      !user ||
-      !user.password ||
-      !(await PasswordService.verifyPassword(user.password, password))
-    ) {
-      if (auditContext) {
-        await this.auditQueueService?.enqueue({
-          context: auditContext,
-          action: AuditAction.LOGIN_FAILED,
-          description: 'Invalid email or password',
-          severity: AuditSeverity.MEDIUM,
-          status: AuditStatus.FAILED,
-          metadata: { email, reason: 'invalid_credentials' },
-        });
-      }
+    if (!user) {
+      await this.enqueueLoginFailed(auditContext, email, 'invalid_credentials');
       throw new UnauthorizedException('Email or password not correct');
     }
+
+    const account = await this.accountRepository.findOne({
+      where: { userId: user.id, providerId: 'credential' },
+    });
+    const hashedPassword = account?.password ?? user.password;
+
+    if (
+      !hashedPassword ||
+      !(await PasswordService.verifyPassword(hashedPassword, password))
+    ) {
+      await this.enqueueLoginFailed(auditContext, email, 'invalid_credentials');
+      throw new UnauthorizedException('Email or password not correct');
+    }
+
     if (!user.isActive) {
       if (auditContext) {
         await this.auditQueueService?.enqueue({
@@ -95,34 +109,57 @@ export class AuthService {
     }
     return user;
   }
-  async generateTokens(user: User) {
-    const payload = { email: user.email, sub: user.id, role: user.role };
-    const accessToken = this.jwtService.sign(payload);
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-    await this.enforceRefreshTokenLimit(user.id);
-    const refreshToken = await this.userRepository.createRefreshToken(
-      user,
+
+  private async enqueueLoginFailed(
+    auditContext: AuthAuditContext | undefined,
+    email: string,
+    reason: string,
+  ) {
+    if (!auditContext) return;
+    await this.auditQueueService?.enqueue({
+      context: auditContext,
+      action: AuditAction.LOGIN_FAILED,
+      description: 'Invalid email or password',
+      severity: AuditSeverity.MEDIUM,
+      status: AuditStatus.FAILED,
+      metadata: { email, reason },
+    });
+  }
+
+  generateTokens(user: User, sessionToken?: string) {
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      sid: sessionToken,
+    };
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: ENVIRONMENT.JWT.ACCESS_EXPIRES_IN as `${number}${'s' | 'm' | 'h' | 'd'}`,
+    });
+    const refreshToken = this.jwtService.sign(payload, {
+      secret: ENVIRONMENT.JWT.REFRESH_SECRET,
+      expiresIn: '7d',
+    });
+    return { accessToken, refreshToken };
+  }
+
+  private async createSession(
+    userId: string,
+    ipAddress?: string | null,
+    userAgent?: string | null,
+  ): Promise<Session> {
+    const sessionToken = randomUUID();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const session = this.sessionRepository.create({
+      userId,
+      token: sessionToken,
       expiresAt,
-    );
-    return { accessToken, refreshToken: refreshToken.token };
+      ipAddress: ipAddress ?? null,
+      userAgent: userAgent ?? null,
+    });
+    return this.sessionRepository.save(session);
   }
-  private async enforceRefreshTokenLimit(userId: string): Promise<void> {
-    const maxTokens = parseInt(process.env.MAX_REFRESH_TOKENS_PER_USER || '10');
-    const activeTokens =
-      await this.refreshTokenRepository.findActiveTokenByUserId(userId);
-    if (activeTokens.length >= maxTokens) {
-      const tokensToRevoke = activeTokens
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-        .slice(0, activeTokens.length - maxTokens + 1);
-      for (const token of tokensToRevoke) {
-        await this.refreshTokenRepository.revokeToken(token.id);
-      }
-      this.logger.warn(
-        `Revoked ${tokensToRevoke.length} old refresh tokens for user ${userId} (limit: ${maxTokens})`,
-      );
-    }
-  }
+
   async login(
     user: User,
     ip: string,
@@ -139,7 +176,10 @@ export class AuthService {
       user.countryCode = countryCode;
       await this.userRepository.update(user.id, { countryCode });
     }
-    const tokens = await this.generateTokens(user);
+
+    const session = await this.createSession(user.id);
+    const tokens = this.generateTokens(user, session.token);
+
     if (auditContext) {
       await this.auditQueueService?.enqueue({
         context: { ...auditContext, userId: user.id },
@@ -156,6 +196,7 @@ export class AuthService {
     }
     return tokens;
   }
+
   async register(
     email: string,
     password: string,
@@ -173,12 +214,23 @@ export class AuthService {
       if (emailExist) {
         throw new UnprocessableEntityException('Email already exists');
       }
-      const user = await this.userRepository.create({
+
+      const user = await this.userRepository.insertUser({
         email: normalizedEmail,
         password: hashedPassword,
         role: UserRole.BASIC,
         countryCode: countryCode ?? '',
+        emailVerified: false,
       });
+
+      await this.accountRepository.save(
+        this.accountRepository.create({
+          userId: user.id,
+          providerId: 'credential',
+          password: hashedPassword,
+        }),
+      );
+
       let invitation: IInvitationResponseDto | { error: string } | null = null;
       if (inviteToken) {
         try {
@@ -186,7 +238,7 @@ export class AuthService {
             await this.invitationsService.acceptInvitation(
               inviteToken,
               user.email,
-              { password }, 
+              { password },
             );
           invitation = invitationResult.invitation;
           if (!invitationResult.userExists && invitation) {
@@ -217,7 +269,7 @@ export class AuthService {
             await this.tenantMembersService.createTenantMember(
               user.id,
               tenant.id,
-              { firstName: '', lastName: '' }, 
+              { firstName: '', lastName: '' },
             );
           }
         } catch (error) {
@@ -235,72 +287,155 @@ export class AuthService {
       );
     }
   }
+
   async findOrCreateGoogleUser(
     googleId: string,
     email: string,
     ip?: string,
   ): Promise<User> {
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
-    let user = await this.userRepository.findUserByGoogleId(googleId);
-    if (!user) {
-      const [existingUser, countryCode] = await Promise.all([
-        this.userRepository.findUserByEmail(normalizedEmail),
-        GeoLocationHelper.getCountryCode(ip ?? ''),
-      ]);
-      if (existingUser) {
-        throw new UnauthorizedException(
-          'Email already exists with another account',
-        );
-      }
-      user = await this.userRepository.create({
-        email: normalizedEmail,
-        googleId,
-        role: UserRole.BASIC,
-        countryCode: countryCode ?? 'UNKNOWN',
-      });
+
+    const existingAccount = await this.accountRepository.findOne({
+      where: { providerId: 'google', accountId: googleId },
+      relations: ['user'],
+    });
+    if (existingAccount?.user) {
+      return existingAccount.user;
     }
+
+    const existingUser = await this.userRepository.findUserByEmail(normalizedEmail);
+    if (existingUser) {
+      throw new UnauthorizedException(
+        'Email already exists with another account',
+      );
+    }
+
+    const countryCode = await GeoLocationHelper.getCountryCode(ip ?? '');
+    const user = await this.userRepository.insertUser({
+      email: normalizedEmail,
+      role: UserRole.BASIC,
+      countryCode: countryCode ?? 'UNKNOWN',
+      emailVerified: true,
+    });
+
+    await this.accountRepository.save(
+      this.accountRepository.create({
+        userId: user.id,
+        providerId: 'google',
+        accountId: googleId,
+      }),
+    );
+
     return user;
   }
+
   async refreshToken(refreshToken: string) {
-    const token = await this.userRepository.findRefreshToken(refreshToken);
-    if (!token || token.isRevoked || token.expiresAt < new Date()) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: ENVIRONMENT.JWT.REFRESH_SECRET,
+      }) as { sub: string; sid?: string };
+
+      const user = await this.userRepository.findUser(payload.sub);
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      if (payload.sid) {
+        const session = await this.sessionRepository.findOne({
+          where: { token: payload.sid, userId: user.id },
+        });
+        if (!session || session.expiresAt < new Date()) {
+          throw new UnauthorizedException('Invalid or expired session');
+        }
+      }
+
+      return this.generateTokens(user, payload.sid);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
-    const user = token.user;
-    await this.userRepository.revokeRefreshToken(refreshToken); 
-    return this.generateTokens(user);
   }
-  async storeRefreshToken(
-    token: string,
-    userId: string,
-    ttlSeconds: number,
-  ): Promise<void> {
-    const expiresAt = new Date();
-    expiresAt.setSeconds(expiresAt.getSeconds() + ttlSeconds);
-    await this.refreshTokenRepository.create({
-      token,
-      userId,
-      expiresAt,
-      isRevoked: false,
+
+  async logout(userId: string) {
+    await this.sessionRepository.delete({ userId });
+  }
+
+  async logoutByRefreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: ENVIRONMENT.JWT.REFRESH_SECRET,
+      }) as { sub: string; sid?: string };
+      if (payload.sid) {
+        await this.sessionRepository.delete({
+          userId: payload.sub,
+          token: payload.sid,
+        });
+      } else {
+        await this.sessionRepository.delete({ userId: payload.sub });
+      }
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async getActiveSessionsForUser(userId: string) {
+    return this.sessionRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
     });
   }
-  async revokeRefreshToken(token: string): Promise<void> {
-    await this.refreshTokenRepository.revokeToken(token);
-  }
-  async revokeAllRefreshTokensForUser(userId: string): Promise<void> {
-    await this.refreshTokenRepository.revokeAllUserTokens(userId);
-  }
-  async logout(refreshToken: string) {
-    await this.userRepository.revokeRefreshToken(refreshToken);
-  }
-  async getActiveRefreshTokensForUser(userId: string) {
-    return this.refreshTokenRepository.findActiveTokenByUserId(userId);
-  }
-  async validateRefreshToken(refreshToken: string) {
-    const token = await this.userRepository.findRefreshToken(refreshToken);
-    if (!token || token.isRevoked || token.expiresAt < new Date()) {
-      throw new UnauthorizedException('Invalid or expired refresh token');
+
+  async forgotPassword(email: string) {
+    const user = await this.userRepository.findUserByEmail(email);
+    if (!user) {
+      return { message: 'If email exists, a reset token was created' };
     }
-    return token;
+
+    const resetToken = randomUUID();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    await this.verificationRepository.save(
+      this.verificationRepository.create({
+        identifier: `reset:${user.id}`,
+        token: resetToken,
+        expiresAt,
+      }),
+    );
+
+    return {
+      message: 'If email exists, a reset token was created',
+      resetToken,
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const verification = await this.verificationRepository.findOne({
+      where: { token },
+    });
+
+    if (!verification || verification.expiresAt < new Date()) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    const userId = verification.identifier.replace('reset:', '');
+    const user = await this.userRepository.findUser(userId);
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    const hashedPassword = await PasswordService.hashPassword(newPassword);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    const account = await this.accountRepository.findOne({
+      where: { userId: user.id, providerId: 'credential' },
+    });
+    if (account) {
+      account.password = hashedPassword;
+      await this.accountRepository.save(account);
+    }
+
+    await this.verificationRepository.delete(verification.id);
+    return { message: 'Password reset successfully' };
   }
 }

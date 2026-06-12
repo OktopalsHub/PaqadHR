@@ -1,22 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailHashService } from 'src/common/services/email-hash.service';
+import { Session } from '../auth/entities/session.entity';
+import { User } from './entities/user.entity';
+import { UserRepository } from './repositories/users.repository';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { User } from "./entities/user.entity";
-import { RefreshToken } from "./entities/refresh-token.entity";
-import { UserRepository } from "./repositories/users.repository";
-import { RefreshTokenRepository } from "./repositories/refresh-token.repository";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, RefreshToken])],
+  imports: [TypeOrmModule.forFeature([User, Session])],
   controllers: [UsersController],
-  providers: [
-    UsersService,
-    UserRepository,
-    RefreshTokenRepository,
-    EmailHashService,
-  ],
-  exports: [UsersService],
+  providers: [UsersService, UserRepository, EmailHashService],
+  exports: [UsersService, UserRepository],
 })
 export class UsersModule {}

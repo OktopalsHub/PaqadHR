@@ -1,13 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { User } from './entities/user.entity';
-import { RefreshTokenRepository } from './repositories/refresh-token.repository';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Session } from '../auth/entities/session.entity';
 import { UserRepository } from './repositories/users.repository';
+import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly refreshTokenRepository: RefreshTokenRepository,
+    @InjectRepository(Session)
+    private readonly sessionRepository: Repository<Session>,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -21,7 +24,7 @@ export class UsersService {
   async deleteAccount(userId: string): Promise<void> {
     await this.userRepository.findUser(userId);
     await Promise.all([
-      this.refreshTokenRepository.markTokensAsRevoked(userId),
+      this.sessionRepository.delete({ userId }),
       this.userRepository.softDelete(userId),
     ]);
   }

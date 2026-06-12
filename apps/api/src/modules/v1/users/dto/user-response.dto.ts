@@ -6,7 +6,7 @@ export class UserResponseDto {
   email: string;
   isActive: boolean;
   role: UserRole;
-  countryCode: string;
+  countryCode?: string | null;
   imageKey?: string | null;
 
   static toResponse(user: User): UserResponseDto {

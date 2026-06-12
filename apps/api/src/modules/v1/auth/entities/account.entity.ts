@@ -6,7 +6,6 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
-  UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
@@ -20,10 +19,10 @@ export class Account extends BaseEntity {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @Column({ name: 'account_id', length: 255, nullable: true })
+  @Column({ name: 'account_id', type: 'varchar', length: 255, nullable: true })
   accountId?: string | null;
 
-  @Column({ name: 'provider_id', length: 255, nullable: true })
+  @Column({ name: 'provider_id', type: 'varchar', length: 255, nullable: true })
   providerId?: string | null;
 
   @Column({ name: 'access_token', type: 'text', nullable: true })
@@ -51,7 +50,4 @@ export class Account extends BaseEntity {
   @ManyToOne(() => User, (user) => user.accounts, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: User;
-
-  @UpdateDateColumn({ name: 'updated_at', type: 'timestamp' })
-  updatedAt: Date;
 }

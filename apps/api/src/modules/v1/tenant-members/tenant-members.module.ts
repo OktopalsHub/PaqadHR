@@ -26,6 +26,6 @@ import { FileModule } from '../../../common/modules/file.module';
     TenantCounterRepository,
     TenantMemberGuard,
   ],
-  exports: [TenantMembersService, TenantMemberGuard],
+  exports: [TenantMembersService, TenantMemberGuard, TypeOrmModule],
 })
 export class TenantMembersModule {}
