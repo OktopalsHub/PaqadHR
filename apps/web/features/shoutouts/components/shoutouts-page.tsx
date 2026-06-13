@@ -1,102 +1,70 @@
 "use client";
 
-import { useState } from "react";
-import { Heart, Send } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Heart, Sparkles, Trophy, Users } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
+import { AppPage } from "@/components/app-page";
+import { ContentCard } from "@/components/content-card";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingBlock } from "@/components/loading-block";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { StatCard } from "@/components/stat-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useEmployees } from "@/hooks/queries/use-employees";
 import {
   useCreateShoutout,
+  useMyPointsBalance,
   useShoutoutCategories,
   useShoutouts,
 } from "@/hooks/queries/use-shoutouts";
-import type { Shoutout } from "@/lib/schemas/shoutout";
-import { formatDateTime } from "@/lib/format-date";
-
-function memberName(member: {
-  firstName?: string | null;
-  lastName?: string | null;
-  preferredName?: string | null;
-}) {
-  return (
-    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
-    member.preferredName ||
-    "Team member"
-  );
-}
-
-function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
-  return (
-    <article className="rounded-xl border bg-card p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium">
-            {memberName(shoutout.sender)} →{" "}
-            {shoutout.recipients.map((r) => memberName(r)).join(", ")}
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-foreground">
-            {shoutout.message}
-          </p>
-        </div>
-        <span className="shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium">
-          +{shoutout.totalPoints} pts
-        </span>
-      </div>
-      <p className="mt-3 text-xs text-muted-foreground">
-        {formatDateTime(shoutout.createdAt)}
-      </p>
-    </article>
-  );
-}
+import { ShoutoutCard } from "./shoutout-card";
+import { ShoutoutComposer } from "./shoutout-composer";
 
 export function ShoutoutsPage() {
-  const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [points, setPoints] = useState("10");
   const [recipientId, setRecipientId] = useState("");
+  const [categoryId, setCategoryId] = useState("");
 
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useShoutoutCategories();
+  const { data: pointsBalance } = useMyPointsBalance();
   const { data, isLoading, isError, error } = useShoutouts();
   const createShoutout = useCreateShoutout();
 
   const items =
     data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
 
+  const totalPointsGiven = useMemo(
+    () => items.reduce((sum, item) => sum + item.totalPoints, 0),
+    [items],
+  );
+
+  useEffect(() => {
+    if (categories[0] && !categoryId) {
+      setCategoryId(categories[0].id);
+    }
+  }, [categories, categoryId]);
+
   const handleCreate = async () => {
     if (!recipientId || !message.trim()) {
       toast.error("Select a recipient and write a message");
       return;
     }
+    const pointsNum = Number(points) || 10;
+    if (
+      pointsBalance &&
+      pointsNum > pointsBalance.remainingAllowance
+    ) {
+      toast.error("You don't have enough points left this month");
+      return;
+    }
     try {
       await createShoutout.mutateAsync({
         recipientIds: [recipientId],
-        pointsPerRecipient: Number(points) || 10,
+        pointsPerRecipient: pointsNum,
         message: message.trim(),
-        categoryIds: categories[0] ? [categories[0].id] : undefined,
+        categoryIds: categoryId ? [categoryId] : undefined,
       });
-      setOpen(false);
       setMessage("");
       setRecipientId("");
       toast.success("Shoutout sent");
@@ -105,96 +73,124 @@ export function ShoutoutsPage() {
     }
   };
 
-  if (isLoading) return <LoadingBlock />;
+  if (isLoading) {
+    return (
+      <AppPage>
+        <LoadingBlock />
+      </AppPage>
+    );
+  }
 
   if (isError) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Unable to load shoutouts</AlertTitle>
-        <AlertDescription>
-          {error instanceof Error ? error.message : "Something went wrong"}
-        </AlertDescription>
-      </Alert>
+      <AppPage>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load shoutouts</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "Something went wrong"}
+          </AlertDescription>
+        </Alert>
+      </AppPage>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Shoutouts"
-        description="Recognize teammates with points and public appreciation."
-        action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Send className="mr-2 size-4" />
-                New shoutout
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Send a shoutout</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label>Recipient</Label>
-                  <Select value={recipientId} onValueChange={setRecipientId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose teammate" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {employees.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.id}>
-                          {employee.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Points</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={points}
-                    onChange={(e) => setPoints(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Message</Label>
-                  <Textarea
-                    rows={4}
-                    placeholder="Thanks for going above and beyond..."
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                  />
-                </div>
-                <Button
-                  className="w-full"
-                  disabled={createShoutout.isPending}
-                  onClick={handleCreate}
-                >
-                  Send shoutout
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        }
-      />
-
-      {items.length === 0 ? (
-        <EmptyState
-          icon={Heart}
-          title="No shoutouts yet"
-          description="Be the first to recognize someone on your team."
+    <AppPage>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Shoutouts"
+          value={items.length}
+          hint="All time in workspace"
+          icon={Sparkles}
         />
-      ) : (
-        <div className="space-y-4">
-          {items.map((shoutout) => (
-            <ShoutoutCard key={shoutout.id} shoutout={shoutout} />
-          ))}
-        </div>
-      )}
-    </div>
+        <StatCard
+          label="Points shared"
+          value={totalPointsGiven}
+          hint="Across the feed"
+          icon={Trophy}
+        />
+        <StatCard
+          label="Given this month"
+          value={pointsBalance?.monthlyGiven ?? "—"}
+          hint={
+            pointsBalance
+              ? `${pointsBalance.remainingAllowance} left to give`
+              : undefined
+          }
+          icon={Heart}
+        />
+        <StatCard
+          label="Core values"
+          value={categories.length}
+          hint="Active categories"
+          icon={Users}
+        />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_340px]">
+        <ContentCard
+          title="Team feed"
+          description="Recent recognition across your workspace"
+          bodyClassName="space-y-3 p-3 sm:p-4"
+        >
+          {items.length === 0 ? (
+            <EmptyState
+              icon={Heart}
+              title="No shoutouts yet"
+              description="Be the first to recognize someone on your team."
+            />
+          ) : (
+            items.map((shoutout) => (
+              <ShoutoutCard key={shoutout.id} shoutout={shoutout} />
+            ))
+          )}
+        </ContentCard>
+
+        <aside className="space-y-4 lg:sticky lg:top-16 lg:self-start">
+          <ShoutoutComposer
+            employees={employees.map((e) => ({ id: e.id, name: e.name }))}
+            categories={categories}
+            points={pointsBalance}
+            recipientId={recipientId}
+            onRecipientChange={setRecipientId}
+            categoryId={categoryId}
+            onCategoryChange={setCategoryId}
+            pointsValue={points}
+            onPointsChange={setPoints}
+            message={message}
+            onMessageChange={setMessage}
+            onSubmit={handleCreate}
+            isSubmitting={createShoutout.isPending}
+          />
+
+          {categories.length > 0 ? (
+            <div className="app-card rounded-xl p-4">
+              <h3 className="text-sm font-semibold">Your values</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tag shoutouts to reinforce what matters most.
+              </p>
+              <ul className="mt-3 space-y-2">
+                {categories.map((category) => (
+                  <li
+                    key={category.id}
+                    className="flex items-center gap-2 text-sm"
+                  >
+                    <span
+                      className="size-2 shrink-0 rounded-full bg-primary"
+                      style={
+                        category.color
+                          ? { backgroundColor: category.color }
+                          : undefined
+                      }
+                    />
+                    {category.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </aside>
+      </div>
+    </AppPage>
   );
 }

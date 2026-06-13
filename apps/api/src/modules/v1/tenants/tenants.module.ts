@@ -4,6 +4,7 @@ import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { UsersModule } from '../users/users.module';
 import { PlansModule } from '../plans/plans.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { PositionModule } from '../position/position.module';
 import { TenantsController } from './tenants.controller';
 import { TenantOnboardingController } from './controllers/tenant-onboarding.controller';
 import { TenantsService } from './tenants.service';
@@ -19,6 +20,7 @@ import { FileModule } from '../../../common/modules/file.module';
     UsersModule,
     PlansModule,
     SubscriptionsModule,
+    PositionModule,
     FileModule,
   ],
   controllers: [TenantsController, TenantOnboardingController],

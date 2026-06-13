@@ -1,25 +1,12 @@
+"use client";
+
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ContentCard } from "@/components/content-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import {
-  Users,
-  UserPlus,
-  Settings,
-  MoreHorizontal,
-  TrendingUp,
-  Calendar,
-  Target,
-} from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Users, UserPlus, Settings, MoreHorizontal, Target } from "lucide-react";
 import { TeamDetailDialog } from "@/features/teams/components/team-detail-dialog";
 
 interface Team {
@@ -90,39 +77,35 @@ export function TeamManagement() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Team Management</h2>
-          <p className="text-muted-foreground">Manage teams and departments</p>
-        </div>
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Create Team
-        </Button>
-      </div>
-
-      {/* Teams Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {teams.map((team) => (
-          <Card
-            key={team.id}
-            className="hover:shadow-md transition-shadow cursor-pointer"
-          >
-            <CardHeader className="pb-3">
+    <div className="space-y-5">
+      <ContentCard
+        title="Teams"
+        description="Manage teams and departments"
+        action={
+          <Button size="sm" className="h-8 rounded-lg text-xs">
+            <UserPlus className="mr-1.5 size-3.5" />
+            Create team
+          </Button>
+        }
+        bodyClassName="p-0"
+      >
+        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+          {teams.map((team) => (
+            <article
+              key={team.id}
+              className="app-card rounded-xl p-4 transition-colors hover:border-primary/25"
+            >
               <div className="flex items-center justify-between">
                 <Badge variant="outline">{team.department}</Badge>
-                <Button variant="ghost" size="sm">
-                  <MoreHorizontal className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="size-8 p-0">
+                  <MoreHorizontal className="size-4" />
                 </Button>
               </div>
-              <CardTitle className="text-lg">{team.name}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Team Lead */}
-              <div className="flex items-center gap-3">
-                <Avatar className="h-8 w-8">
+
+              <h3 className="mt-2 text-base font-semibold">{team.name}</h3>
+
+              <div className="mt-3 flex items-center gap-3">
+                <Avatar className="size-8">
                   <AvatarImage src={team.lead.avatar} />
                   <AvatarFallback className="text-xs">
                     {team.lead.initials}
@@ -130,61 +113,53 @@ export function TeamManagement() {
                 </Avatar>
                 <div>
                   <p className="text-sm font-medium">{team.lead.name}</p>
-                  <p className="text-xs text-muted-foreground">Team Lead</p>
+                  <p className="text-xs text-muted-foreground">Team lead</p>
                 </div>
               </div>
 
-              {/* Stats */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
+                  <Users className="size-4 text-muted-foreground" />
                   <span>{team.members} members</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Target className="h-4 w-4 text-muted-foreground" />
+                  <Target className="size-4 text-muted-foreground" />
                   <span>{team.projects} projects</span>
                 </div>
               </div>
 
-              {/* Performance */}
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-muted-foreground">
-                    Performance
-                  </span>
-                  <span className="text-sm font-medium">
-                    {team.performance}%
-                  </span>
+              <div className="mt-3">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Performance</span>
+                  <span className="font-medium">{team.performance}%</span>
                 </div>
                 <Progress value={team.performance} className="h-2" />
               </div>
 
-              {/* Budget */}
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Budget</span>
-                <span className="text-sm font-medium">
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Budget</span>
+                <span className="font-medium">
                   ${team.budget.toLocaleString()}
                 </span>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-2 pt-2">
+              <div className="mt-4 flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="flex-1"
+                  className="h-8 flex-1 text-xs"
                   onClick={() => handleViewTeam(team)}
                 >
-                  View Details
+                  View details
                 </Button>
-                <Button variant="ghost" size="sm">
-                  <Settings className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="size-8 p-0">
+                  <Settings className="size-4" />
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      </ContentCard>
 
       <TeamDetailDialog
         open={showTeamDetail}

@@ -12,6 +12,10 @@ import { TenantMembersService } from '../../tenant-members/tenant-members.servic
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { Tenant } from '../entities/tenant.entity';
+import { UsersService } from '../../users/users.service';
+import { User } from '../../users/entities/user.entity';
+import { PositionService } from '../../position/services/position.service';
+import { PositionMemberService } from '../../position/services/position-member.service';
 import {
   TenantCreatedEvent,
   TenantMemberCreatedEvent,
@@ -29,6 +33,9 @@ export class TenantOnboardingService {
     private subscriptionsService: SubscriptionsService,
     private plansService: PlansService,
     private tenantMembersService: TenantMembersService,
+    private usersService: UsersService,
+    private positionService: PositionService,
+    private positionMemberService: PositionMemberService,
     private eventEmitter: EventEmitter2,
   ) {}
 
@@ -39,11 +46,28 @@ export class TenantOnboardingService {
     this.logger.log(`Starting onboarding for tenant: ${data.name}`);
 
     const tenant = await this.createTenant(data);
+    const user = await this.usersService.getUser(data.createdBy!);
+    const { firstName, lastName } = this.resolveMemberNames(data, user);
     const member = await this.tenantMembersService.createTenantMember(
       data.createdBy!,
       tenant.id,
-      { role: TenantMemberRole.OWNER },
+      {
+        role: TenantMemberRole.OWNER,
+        firstName,
+        lastName,
+        preferredName: data.preferredName?.trim() || firstName || undefined,
+      },
     );
+    if (data.jobTitle?.trim()) {
+      const position = await this.positionService.createPosition(tenant.id, {
+        title: data.jobTitle.trim(),
+      });
+      await this.positionMemberService.assignPosition(
+        tenant.id,
+        member.id,
+        position.id,
+      );
+    }
     this.emitTenantSetupEvents(tenant, member, data.name);
     const pricingResult =
       await this.subscriptionsService.setTenantRegionOnboarding(
@@ -221,5 +245,27 @@ export class TenantOnboardingService {
 
   private generateInviteCode(): string {
     return randomBytes(3).toString('hex').toUpperCase();
+  }
+
+  private resolveMemberNames(
+    data: OnboardingData,
+    user: User,
+  ): { firstName: string; lastName: string } {
+    const firstName = data.firstName?.trim() ?? '';
+    const lastName = data.lastName?.trim() ?? '';
+    if (firstName || lastName) {
+      return { firstName, lastName };
+    }
+    if (user.name?.trim()) {
+      const parts = user.name.trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 1) {
+        return { firstName: parts[0], lastName: '' };
+      }
+      return {
+        firstName: parts[0],
+        lastName: parts.slice(1).join(' '),
+      };
+    }
+    return { firstName: '', lastName: '' };
   }
 }

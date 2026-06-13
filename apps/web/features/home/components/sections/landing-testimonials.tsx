@@ -1,53 +1,49 @@
-"use client";
-
 import { Star } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { testimonials } from "../../constants";
 
 export const LandingTestimonials = () => {
   return (
-    <section className="py-20 bg-white" id="testimonials">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16 animate-fade-in">
-          <h2 className="text-4xl lg:text-5xl font-bold text-slate-900 mb-6">
-            Loved by HR teams worldwide
+    <section className="py-24 md:py-28" id="testimonials">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-medium text-primary">Testimonials</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            Teams that switched to Paqad
           </h2>
-          <p className="text-xl text-slate-600">
-            See what industry leaders are saying about ModernHR
+          <p className="mt-4 text-muted-foreground">
+            Real feedback from people ops leaders building calmer HR stacks.
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {testimonials.map((testimonial, index) => (
-            <Card
-              key={index}
-              className="animate-fade-in hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+        <div className="mt-16 grid gap-6 md:grid-cols-3">
+          {testimonials.map((testimonial) => (
+            <article
+              key={testimonial.name}
+              className="flex flex-col rounded-2xl border border-border/60 bg-card/50 p-6"
             >
-              <CardContent className="p-6">
-                <div className="flex items-center gap-1 mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className="w-4 h-4 fill-yellow-400 text-yellow-400"
-                    />
-                  ))}
+              <div className="flex gap-0.5">
+                {Array.from({ length: testimonial.rating }).map((_, i) => (
+                  <Star
+                    key={i}
+                    className="size-4 fill-primary text-primary"
+                  />
+                ))}
+              </div>
+              <p className="mt-4 flex-1 text-sm leading-relaxed text-muted-foreground">
+                &ldquo;{testimonial.content}&rdquo;
+              </p>
+              <div className="mt-6 flex items-center gap-3 border-t border-border/50 pt-5">
+                <div className="flex size-10 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                  {testimonial.avatar}
                 </div>
-                <p className="text-slate-700 mb-6 italic">
-                  &quot;{testimonial.content}&quot;
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                    {testimonial.avatar}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-900">
-                      {testimonial.name}
-                    </p>
-                    <p className="text-sm text-slate-600">{testimonial.role}</p>
-                  </div>
+                <div>
+                  <p className="text-sm font-medium">{testimonial.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {testimonial.role}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </article>
           ))}
         </div>
       </div>

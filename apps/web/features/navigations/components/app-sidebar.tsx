@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,7 +11,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { NavMain } from "./nav-main";
 import { WorkspaceSwitcher } from "./workspace-switcher";
@@ -20,26 +20,29 @@ export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="relative border-b">
+    <Sidebar
+      collapsible="icon"
+      className="border-r border-border/60 bg-card/80 backdrop-blur-xl"
+      {...props}
+    >
+      <SidebarHeader className="border-b border-border/60 px-2 py-3">
+        <WorkspaceSwitcher />
+      </SidebarHeader>
+      <SidebarContent className="px-1.5 py-2">
+        <NavMain items={navItems} />
+      </SidebarContent>
+      <SidebarFooter className="border-t border-border/60 p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild>
-              <Link href="/app">
-                <span className="font-semibold tracking-tight">Paqad</span>
+            <SidebarMenuButton asChild tooltip="Settings">
+              <Link href="/app/settings">
+                <Settings />
+                <span>Settings</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
-        <SidebarTrigger className="absolute top-1/2 right-[-2.75rem] z-50 size-7 -translate-y-1/2" />
-      </SidebarHeader>
-      <SidebarContent>
-        <div className="px-2 py-3">
-          <WorkspaceSwitcher />
-        </div>
-        <NavMain items={navItems} />
-      </SidebarContent>
-      <SidebarFooter />
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

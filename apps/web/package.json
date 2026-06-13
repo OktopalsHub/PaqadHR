@@ -16,6 +16,9 @@
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.4.0",
     "@radix-ui/react-accordion": "^1.2.13",
     "@radix-ui/react-alert-dialog": "^1.1.16",
@@ -50,6 +53,7 @@
     "date-fns": "^4.4.0",
     "dayjs": "^1.11.21",
     "embla-carousel-react": "^8.6.0",
+    "framer-motion": "^12.40.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.17.0",
     "next": "16.2.7",

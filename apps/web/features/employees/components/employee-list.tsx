@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { AppPage } from "@/components/app-page";
+import { LoadingBlock } from "@/components/loading-block";
+import { PageActions } from "@/components/page-actions";
 import { useEmployeeFilters } from "../hooks/";
 import { EmployeeFiltersComponent } from "./employee-filters";
 import { ViewModeToggle } from "./view-mode-toggle";
@@ -9,7 +12,6 @@ import { EmployeeCards } from "./employee-card";
 import { AddEmployeeDialog } from "./add-employee-dialog";
 import { EmployeePagination } from "./employee-pagination";
 import { useEmployees } from "@/hooks/queries/use-employees";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export const EmployeeList = () => {
@@ -31,39 +33,33 @@ export const EmployeeList = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
+      <AppPage>
+        <LoadingBlock />
+      </AppPage>
     );
   }
 
   if (isError) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Unable to load employees</AlertTitle>
-        <AlertDescription>
-          {error instanceof Error ? error.message : "Something went wrong"}
-        </AlertDescription>
-      </Alert>
+      <AppPage>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load employees</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "Something went wrong"}
+          </AlertDescription>
+        </Alert>
+      </AppPage>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Employees</h1>
-          <p className="text-muted-foreground">
-            Manage your employee directory.
-          </p>
-        </div>
+    <AppPage>
+      <PageActions>
         <AddEmployeeDialog
           isOpen={isAddEmployeeOpen}
           onOpenChange={setIsAddEmployeeOpen}
         />
-      </div>
+      </PageActions>
 
       <EmployeeFiltersComponent
         filters={filters}
@@ -85,6 +81,6 @@ export const EmployeeList = () => {
         onPageChange={setCurrentPage}
         onItemsPerPageChange={updateItemsPerPage}
       />
-    </div>
+    </AppPage>
   );
 };

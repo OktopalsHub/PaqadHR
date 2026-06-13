@@ -257,10 +257,4 @@ export class JobOpeningController {
   }> {
     return this.jobOpeningService.getJobStats(tenantId);
   }
-  @Get(':jobId/candidates')
-  async getCandidatesByJob(
-    @Param('jobId') jobId: string,
-    @Param('tenantId') tenantId: string,
-  ) {
-  }
 }

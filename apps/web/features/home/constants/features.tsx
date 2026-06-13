@@ -1,60 +1,59 @@
-import { DollarSign, Globe, Shield, Star, Users, Zap } from "lucide-react";
+import {
+  Briefcase,
+  Calendar,
+  Heart,
+  Shield,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 export const features = [
   {
-    icon: <Users className="w-8 h-8" />,
-    title: "Complete HR Suite",
+    icon: <Users className="size-8" />,
+    title: "Employee management",
     description:
-      "Employee management, time tracking, performance reviews, and compliance - all integrated seamlessly.",
-    color: "from-blue-500 to-blue-600",
-    benefits: [
-      "360° employee profiles",
-      "Automated workflows",
-      "Compliance tracking",
-    ],
+      "Directory, org structure, documents, and employment records in one place.",
+    color: "from-emerald-500 to-emerald-600",
+    benefits: ["Employee profiles", "Org structure", "Document storage"],
   },
   {
-    icon: <Zap className="w-8 h-8" />,
-    title: "AI-Powered Recruitment",
+    icon: <Briefcase className="size-8" />,
+    title: "Recruitment",
     description:
-      "Smart candidate matching, automated screening, and bias-free hiring with our advanced AI algorithms.",
+      "Publish job openings, track candidates, and manage interviews.",
     color: "from-green-500 to-green-600",
-    benefits: ["CV screening", "Skill matching", "Interview scheduling"],
+    benefits: ["Job postings", "Candidate pipeline", "Interview scheduling"],
   },
   {
-    icon: <DollarSign className="w-8 h-8" />,
-    title: "Multi-Currency Payroll",
+    icon: <Wallet className="size-8" />,
+    title: "Manual payroll",
     description:
-      "Pay globally in 150+ currencies including crypto (USDT, ETH, BTC) with automated tax calculations.",
-    color: "from-purple-500 to-purple-600",
-    benefits: ["Crypto payments", "Global compliance", "Instant transfers"],
+      "Calculate payroll runs, export bank files, and mark salaries paid offline.",
+    color: "from-teal-500 to-teal-600",
+    benefits: ["Payroll runs", "Bank exports", "Offline disbursement"],
   },
   {
-    icon: <Shield className="w-8 h-8" />,
-    title: "Enterprise Security",
+    icon: <Shield className="size-8" />,
+    title: "Access & security",
     description:
-      "Bank-grade security with SOC 2 compliance, 2FA, audit logs, and granular access controls.",
-    color: "from-red-500 to-red-600",
-    benefits: ["SOC 2 certified", "Zero-trust architecture", "Data encryption"],
+      "Role-based access, audit logs, and tenant-scoped data isolation.",
+    color: "from-emerald-600 to-emerald-700",
+    benefits: ["RBAC", "Audit trail", "Tenant isolation"],
   },
   {
-    icon: <Globe className="w-8 h-8" />,
-    title: "Global Remote Teams",
+    icon: <Calendar className="size-8" />,
+    title: "Leave & calendar",
     description:
-      "Manage distributed teams with timezone tracking, virtual attendance, and cultural insights.",
-    color: "from-indigo-500 to-indigo-600",
-    benefits: [
-      "Multi-timezone support",
-      "Virtual check-ins",
-      "Cultural calendar",
-    ],
+      "Request time off, track balances, and see team availability.",
+    color: "from-lime-500 to-lime-600",
+    benefits: ["Leave requests", "Balance tracking", "Team calendar"],
   },
   {
-    icon: <Star className="w-8 h-8" />,
-    title: "Performance Analytics",
+    icon: <Heart className="size-8" />,
+    title: "Shoutouts",
     description:
-      "Data-driven insights with customizable dashboards, predictive analytics, and ROI tracking.",
-    color: "from-yellow-500 to-yellow-600",
-    benefits: ["Predictive insights", "Custom reports", "ROI tracking"],
+      "Recognize teammates with points and a shared appreciation feed.",
+    color: "from-green-400 to-green-500",
+    benefits: ["Peer recognition", "Points system", "Team feed"],
   },
 ];

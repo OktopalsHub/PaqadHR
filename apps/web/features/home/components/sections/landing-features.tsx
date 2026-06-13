@@ -1,60 +1,34 @@
-const features = [
-  {
-    title: "Employee management",
-    description:
-      "Directory, org structure, documents, and employment records in one place.",
-  },
-  {
-    title: "Leave & calendar",
-    description:
-      "Request time off, track balances, and see team availability at a glance.",
-  },
-  {
-    title: "Manual payroll",
-    description:
-      "Calculate runs, export bank files, and mark salaries paid offline.",
-  },
-  {
-    title: "Shoutouts",
-    description:
-      "Recognize teammates with points and a shared appreciation feed.",
-  },
-  {
-    title: "Teams & analytics",
-    description:
-      "Departments, reporting lines, and lightweight workforce insights.",
-  },
-  {
-    title: "Trial-first billing",
-    description:
-      "Start on a free trial. Upgrade manually when you are ready — no card required.",
-  },
-];
+import { services } from "../../constants";
 
 export const LandingFeatures = () => {
   return (
-    <section className="border-b" id="features">
-      <div className="mx-auto max-w-6xl px-6 py-24">
-        <div className="max-w-2xl">
-          <h2 className="text-3xl font-semibold tracking-tight">
-            Everything your HR team needs
+    <section className="py-24 md:py-28" id="features">
+      <div className="mx-auto max-w-7xl px-6 lg:px-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-medium text-primary">Features</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            Everything HR needs in one platform
           </h2>
-          <p className="mt-3 text-muted-foreground">
-            Focused modules that work together — not a bloated suite you will
-            never fully configure.
+          <p className="mt-4 text-muted-foreground">
+            Modular tools that connect your people data, hiring pipeline, and
+            payroll workflow without the enterprise bloat.
           </p>
         </div>
-        <div className="mt-14 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {features.map((feature) => (
-            <div
-              key={feature.title}
-              className="rounded-2xl border bg-card p-6"
+
+        <div className="mt-16 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {services.map((service) => (
+            <article
+              key={service.title}
+              className="group rounded-2xl border border-border/60 bg-card/50 p-6 transition-all hover:border-primary/35 hover:bg-card/80"
             >
-              <h3 className="font-medium">{feature.title}</h3>
+              <div className="mb-5 flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary transition-colors group-hover:bg-primary/20">
+                <service.icon className="size-5" />
+              </div>
+              <h3 className="font-medium">{service.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {feature.description}
+                {service.description}
               </p>
-            </div>
+            </article>
           ))}
         </div>
       </div>

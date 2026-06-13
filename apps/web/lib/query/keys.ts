@@ -23,13 +23,24 @@ export const queryKeys = {
   shoutouts: {
     all: ["shoutouts"] as const,
     categories: ["shoutouts", "categories"] as const,
+    points: (tenantId: string) => ["shoutouts", "points", tenantId] as const,
   },
   payroll: {
     all: ["payroll"] as const,
     detail: (id: string) => ["payroll", id] as const,
   },
+  recruitment: {
+    jobs: ["recruitment", "jobs"] as const,
+    job: (id: string) => ["recruitment", "jobs", id] as const,
+    candidates: (jobId: string) =>
+      ["recruitment", "candidates", jobId] as const,
+    allCandidates: ["recruitment", "allCandidates"] as const,
+  },
   billing: {
     status: (tenantId: string) => ["billing", tenantId] as const,
+  },
+  member: {
+    profile: (tenantId: string) => ["member", "profile", tenantId] as const,
   },
   onboarding: {
     pricing: (country?: string) => ["onboarding", "pricing", country] as const,

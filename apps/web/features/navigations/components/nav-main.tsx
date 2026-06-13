@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -13,12 +12,12 @@ import type { NavItem } from "../constants/nav-items";
 
 export const NavMain = ({ items }: { items: NavItem[] }) => {
   const pathname = usePathname();
+  const mainItems = items.filter((item) => item.href !== "/app/settings");
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-      <SidebarMenu>
-        {items.map((item) => {
+    <SidebarGroup className="p-0">
+      <SidebarMenu className="gap-1">
+        {mainItems.map((item) => {
           const isActive =
             item.href === "/app"
               ? pathname === "/app"
@@ -26,9 +25,14 @@ export const NavMain = ({ items }: { items: NavItem[] }) => {
 
           return (
             <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton asChild isActive={isActive} tooltip={item.name}>
+              <SidebarMenuButton
+                asChild
+                isActive={isActive}
+                tooltip={item.name}
+                className="h-10 rounded-xl px-3"
+              >
                 <Link href={item.href}>
-                  <item.icon />
+                  <item.icon className="size-[18px]" />
                   <span>{item.name}</span>
                 </Link>
               </SidebarMenuButton>

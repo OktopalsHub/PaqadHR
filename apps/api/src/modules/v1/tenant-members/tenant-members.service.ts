@@ -72,7 +72,7 @@ export class TenantMembersService {
         employeeNumber,
         firstName: createDto.firstName,
         lastName: createDto.lastName,
-        preferredName: createDto.firstName,
+        preferredName: createDto.preferredName ?? createDto.firstName,
       };
       const savedMember = await this.tenantMemberRepository.save(memberData);
       try {

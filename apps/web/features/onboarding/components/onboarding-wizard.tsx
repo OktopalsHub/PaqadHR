@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,12 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuth } from "@/hooks/use-auth";
 import { completeOnboarding, fetchPricingPreview } from "@/lib/api/onboarding";
 import { queryKeys } from "@/lib/query/keys";
 import { markOnboardingComplete } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Company", "Region", "Launch"] as const;
+const STEPS = ["Company", "You", "Region", "Launch"] as const;
 
 const INDUSTRIES = [
   "Technology",
@@ -38,19 +39,38 @@ const COUNTRIES = [
   { code: "GLOBAL", label: "Global (USD)" },
 ];
 
+function splitFullName(name?: string | null) {
+  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  if (parts.length === 0) return { firstName: "", lastName: "" };
+  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
+  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+}
+
 export function OnboardingWizard() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState("");
   const [companySize, setCompanySize] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [preferredName, setPreferredName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [country, setCountry] = useState("NG");
+
+  useEffect(() => {
+    if (!user?.name || firstName || lastName) return;
+    const parsed = splitFullName(user.name);
+    setFirstName(parsed.firstName);
+    setLastName(parsed.lastName);
+  }, [user?.name, firstName, lastName]);
 
   const pricingQuery = useQuery({
     queryKey: queryKeys.onboarding.pricing(country),
     queryFn: () => fetchPricingPreview(country),
-    enabled: step >= 1,
+    enabled: step >= 2,
   });
 
   const completeMutation = useMutation({
@@ -59,6 +79,11 @@ export function OnboardingWizard() {
       markOnboardingComplete();
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      if (result.tenant?.id) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.member.profile(result.tenant.id),
+        });
+      }
       toast.success(`Workspace "${result.tenant.name}" is ready`);
       router.push("/app");
     },
@@ -71,8 +96,12 @@ export function OnboardingWizard() {
     step === 0
       ? name.trim().length >= 2
       : step === 1
-        ? Boolean(country)
-        : true;
+        ? firstName.trim().length >= 1 &&
+          lastName.trim().length >= 1 &&
+          jobTitle.trim().length >= 2
+        : step === 2
+          ? Boolean(country)
+          : true;
 
   const handleNext = () => {
     if (step < STEPS.length - 1) {
@@ -84,6 +113,10 @@ export function OnboardingWizard() {
       industry: industry || undefined,
       companySize: companySize || undefined,
       businessCountry: country,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      preferredName: preferredName.trim() || undefined,
+      jobTitle: jobTitle.trim(),
     });
   };
 
@@ -173,6 +206,64 @@ export function OnboardingWizard() {
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
+                About you
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                This is how you&apos;ll appear to your team in the workspace.
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="first-name">First name</Label>
+                  <Input
+                    id="first-name"
+                    placeholder="Jane"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="last-name">Last name</Label>
+                  <Input
+                    id="last-name"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="preferred-name">
+                  Preferred name{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id="preferred-name"
+                  placeholder="What should we call you on the dashboard?"
+                  value={preferredName}
+                  onChange={(e) => setPreferredName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="job-title">Job position</Label>
+                <Input
+                  id="job-title"
+                  placeholder="Head of People"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight">
                 Billing region
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -216,7 +307,7 @@ export function OnboardingWizard() {
           </div>
         ) : null}
 
-        {step === 2 ? (
+        {step === 3 ? (
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
@@ -230,6 +321,22 @@ export function OnboardingWizard() {
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Company</dt>
                 <dd className="font-medium">{name}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">You</dt>
+                <dd className="font-medium">
+                  {firstName} {lastName}
+                </dd>
+              </div>
+              {preferredName ? (
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Preferred name</dt>
+                  <dd className="font-medium">{preferredName}</dd>
+                </div>
+              ) : null}
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Position</dt>
+                <dd className="font-medium">{jobTitle}</dd>
               </div>
               {industry ? (
                 <div className="flex justify-between gap-4">

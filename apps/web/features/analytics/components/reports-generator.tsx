@@ -1,7 +1,8 @@
+"use client";
+
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ContentCard } from "@/components/content-card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -74,18 +75,11 @@ export function ReportsGenerator() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Report Generator */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Generate Report
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="grid gap-5 lg:grid-cols-2">
+      <ContentCard title="Generate report" description="Configure and export">
+        <div className="space-y-4">
           <div>
-            <Label>Report Type</Label>
+            <Label>Report type</Label>
             <Select value={selectedReport} onValueChange={setSelectedReport}>
               <SelectTrigger>
                 <SelectValue placeholder="Select report type" />
@@ -94,7 +88,7 @@ export function ReportsGenerator() {
                 {reportTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
                     <div className="flex items-center gap-2">
-                      <type.icon className="h-4 w-4" />
+                      <type.icon className="size-4" />
                       {type.name}
                     </div>
                   </SelectItem>
@@ -120,7 +114,7 @@ export function ReportsGenerator() {
           </div>
 
           <div>
-            <Label>Date Range</Label>
+            <Label>Date range</Label>
             <div className="flex gap-2">
               <Popover>
                 <PopoverTrigger asChild>
@@ -128,7 +122,7 @@ export function ReportsGenerator() {
                     variant="outline"
                     className="justify-start text-left font-normal"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 size-4" />
                     {dateRange.from ? format(dateRange.from, "PPP") : "From"}
                   </Button>
                 </PopoverTrigger>
@@ -149,7 +143,7 @@ export function ReportsGenerator() {
                     variant="outline"
                     className="justify-start text-left font-normal"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 size-4" />
                     {dateRange.to ? format(dateRange.to, "PPP") : "To"}
                   </Button>
                 </PopoverTrigger>
@@ -168,59 +162,53 @@ export function ReportsGenerator() {
 
           <div className="flex gap-2">
             <Button onClick={handleGenerateReport} className="flex-1">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Generate Report
+              <BarChart3 className="mr-2 size-4" />
+              Generate report
             </Button>
-            <Button variant="outline">
-              <Filter className="h-4 w-4" />
+            <Button variant="outline" size="icon">
+              <Filter className="size-4" />
             </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </ContentCard>
 
-      {/* Recent Reports */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Reports</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {recentReports.map((report) => (
-              <div
-                key={report.id}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-              >
-                <div className="flex-1">
-                  <h4 className="font-medium">{report.name}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Generated on{" "}
-                    {format(new Date(report.generatedAt), "MMM dd, yyyy")}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      report.status === "completed" ? "default" : "secondary"
-                    }
-                  >
-                    {report.status}
-                  </Badge>
-                  {report.status === "completed" && (
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm">
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+      <ContentCard title="Recent reports" description="Download or share exports">
+        <div className="space-y-3">
+          {recentReports.map((report) => (
+            <div
+              key={report.id}
+              className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <h4 className="truncate font-medium">{report.name}</h4>
+                <p className="text-sm text-muted-foreground">
+                  Generated on{" "}
+                  {format(new Date(report.generatedAt), "MMM dd, yyyy")}
+                </p>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge
+                  variant={
+                    report.status === "completed" ? "default" : "secondary"
+                  }
+                >
+                  {report.status}
+                </Badge>
+                {report.status === "completed" ? (
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="sm">
+                      <Download className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm">
+                      <Send className="size-4" />
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      </ContentCard>
     </div>
   );
 }

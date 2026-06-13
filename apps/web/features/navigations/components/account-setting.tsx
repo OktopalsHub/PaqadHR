@@ -1,40 +1,57 @@
+"use client";
+
+import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import Link from "next/link";
-import { getInitials } from "@/lib/utils";
-import { User } from "@/types";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  memberFullName,
+  memberInitials,
+  useMemberProfile,
+} from "@/hooks/queries/use-member-profile";
+import { ThemeMenuItem } from "./theme-switcher";
 
-export const AccountSetting = ({
-  user,
-  logout,
-}: {
-  user: User;
-  logout: () => void;
-}) => {
+export const AccountSetting = ({ logout }: { logout: () => void }) => {
+  const { user } = useAuth();
+  const { data: profile } = useMemberProfile();
+  const name = memberFullName(profile, user?.name);
+  const initials = memberInitials(profile, user?.name);
+  const position = profile?.position?.title?.trim();
+
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild className="cursor-pointer">
-        <div className="flex items-center">
-          <Avatar className="rounded-full size-8 bg-destructive/20 items-center justify-center">
-            <AvatarImage src={"/assets/avatar.png"} alt="avatar image" />
-            <AvatarFallback className="size-8">
-              {getInitials(user?.name)}
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1 outline-none transition-colors hover:bg-muted/60"
+        >
+          <Avatar className="size-8 shrink-0">
+            <AvatarImage src={profile?.avatarUrl ?? undefined} alt={name} />
+            <AvatarFallback className="bg-muted text-xs font-medium text-foreground">
+              {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="hidden md:block text-left">
-            <p className="text-sm font-medium">{user?.name || "User"}</p>
-            <p className="text-xs text-muted-foreground">Administrator</p>
+          <div className="hidden min-w-0 max-w-[140px] text-left lg:block">
+            <p className="truncate text-sm font-semibold leading-tight">
+              {name}
+            </p>
+            {position ? (
+              <p className="truncate text-xs leading-tight text-muted-foreground">
+                {position}
+              </p>
+            ) : null}
           </div>
-        </div>
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+        className="min-w-56 rounded-xl"
         align="end"
         sideOffset={4}
       >
@@ -42,8 +59,10 @@ export const AccountSetting = ({
           <DropdownMenuItem asChild>
             <Link href="/app/settings">Settings</Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={logout}>Sign Out</DropdownMenuItem>
+          <ThemeMenuItem />
         </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={logout}>Sign out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

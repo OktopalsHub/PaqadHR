@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Download, FileText, Plus } from "lucide-react";
+import { CalendarDays, Download, FileText, Plus, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
+import { AppPage } from "@/components/app-page";
+import { ContentCard } from "@/components/content-card";
+import { PageActions } from "@/components/page-actions";
 import { EmptyState } from "@/components/empty-state";
 import { LoadingBlock } from "@/components/loading-block";
+import { StatCard } from "@/components/stat-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -52,7 +55,7 @@ function PayrollRunRow({
   busy: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-lg border border-border/60 bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <p className="font-medium">{run.title}</p>
@@ -132,14 +135,14 @@ export function PayrollPage() {
     actions.disburse.isPending ||
     actions.exportCsv.isPending;
 
+  const activeEmployees = employees.filter((e) => e.status === "Active");
+
   const handleCreate = async () => {
     if (!title.trim()) {
       toast.error("Enter a payroll title");
       return;
     }
-    const activeIds = employees
-      .filter((e) => e.status === "Active")
-      .map((e) => e.id);
+    const activeIds = activeEmployees.map((e) => e.id);
     if (!activeIds.length) {
       toast.error("No active employees to include");
       return;
@@ -174,50 +177,59 @@ export function PayrollPage() {
     }
   };
 
-  if (isLoading) return <LoadingBlock />;
+  if (isLoading) {
+    return (
+      <AppPage>
+        <LoadingBlock />
+      </AppPage>
+    );
+  }
 
   if (isError) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Unable to load payroll</AlertTitle>
-        <AlertDescription>
-          {error instanceof Error ? error.message : "Something went wrong"}
-        </AlertDescription>
-      </Alert>
+      <AppPage>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load payroll</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "Something went wrong"}
+          </AlertDescription>
+        </Alert>
+      </AppPage>
     );
   }
 
   const runs = data?.runs ?? [];
+  const completedRuns = runs.filter((r) => r.status === "completed").length;
+  const pendingRuns = runs.filter((r) =>
+    ["draft", "processing", "approved"].includes(r.status),
+  ).length;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Payroll"
-        description="Create runs, export bank files, and mark salaries paid offline."
-        action={
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 size-4" />
-                New run
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create payroll run</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label>Title</Label>
-                  <Input
-                    placeholder="March 2026 payroll"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Includes {employees.filter((e) => e.status === "Active").length}{" "}
-                  active employees for the current month.
+    <AppPage>
+      <PageActions>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="h-8 rounded-lg text-xs">
+              <Plus className="mr-1.5 size-3.5" />
+              New run
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create payroll run</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input
+                  placeholder="March 2026 payroll"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Includes {activeEmployees.length} active employees for the
+                current month.
                 </p>
                 <Button
                   className="w-full"
@@ -229,27 +241,57 @@ export function PayrollPage() {
               </div>
             </DialogContent>
           </Dialog>
-        }
-      />
+      </PageActions>
 
-      {runs.length === 0 ? (
-        <EmptyState
-          icon={FileText}
-          title="No payroll runs"
-          description="Create a run to calculate salaries and export a bank file."
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Active employees"
+          value={activeEmployees.length}
+          hint="Eligible for payroll"
+          icon={Wallet}
         />
-      ) : (
-        <div className="space-y-4">
-          {runs.map((run) => (
+        <StatCard
+          label="Total runs"
+          value={runs.length}
+          hint="All payroll cycles"
+          icon={FileText}
+        />
+        <StatCard
+          label="Completed"
+          value={completedRuns}
+          hint="Paid out runs"
+          icon={CalendarDays}
+        />
+        <StatCard
+          label="In progress"
+          value={pendingRuns}
+          hint="Draft or awaiting action"
+          icon={Wallet}
+        />
+      </div>
+
+      <ContentCard
+        title="Payroll runs"
+        description="Calculate, approve, and export salary runs"
+        bodyClassName="space-y-3"
+      >
+        {runs.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="No payroll runs"
+            description="Create a run to calculate salaries and export a bank file."
+          />
+        ) : (
+          runs.map((run) => (
             <PayrollRunRow
               key={run.id}
               run={run}
               busy={busy}
               onAction={handleAction}
             />
-          ))}
-        </div>
-      )}
-    </div>
+          ))
+        )}
+      </ContentCard>
+    </AppPage>
   );
 }

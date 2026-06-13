@@ -56,7 +56,7 @@ export const CalendarView = () => {
         <Skeleton className="m-4 h-96" />
       ) : isError ? (
         <Alert variant="destructive" className="m-4">
-          <AlertTitle>Unable to load calendar</AlertTitle>
+          <AlertTitle>Unable to load schedule</AlertTitle>
           <AlertDescription>
             {error instanceof Error ? error.message : "Something went wrong"}
           </AlertDescription>

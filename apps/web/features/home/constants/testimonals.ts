@@ -1,26 +1,26 @@
 export const testimonials = [
   {
-    name: "Sarah Chen",
-    role: "Head of HR, TechCorp",
+    name: "Amara Okafor",
+    role: "People Lead, Brightpath",
     content:
-      "ModernHR transformed how we manage our global workforce. The crypto payroll feature alone saved us thousands in international transfer fees.",
-    avatar: "SC",
+      "We replaced three spreadsheets and a shared inbox with Paqad. Leave requests and payroll exports finally live in the same place.",
+    avatar: "AO",
     rating: 5,
   },
   {
-    name: "Michael Rodriguez",
-    role: "CEO, StartupVision",
+    name: "James Liu",
+    role: "COO, Stackline",
     content:
-      "From 10 to 500 employees, ModernHR scaled with us seamlessly. The AI-powered recruitment matching is phenomenal.",
-    avatar: "MR",
+      "Recruitment and employee records in one workspace changed how fast we hire. The team adopted it in a week.",
+    avatar: "JL",
     rating: 5,
   },
   {
-    name: "Emma Thompson",
-    role: "People Operations, FinanceFlow",
+    name: "Priya Sharma",
+    role: "HR Manager, Kora Health",
     content:
-      "The performance review system is intuitive and our employee satisfaction scores increased by 40% after implementation.",
-    avatar: "ET",
+      "Shoutouts sound small until you see morale shift. Paqad keeps recognition visible without adding process.",
+    avatar: "PS",
     rating: 5,
   },
 ];

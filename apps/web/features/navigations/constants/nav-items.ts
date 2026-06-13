@@ -1,6 +1,8 @@
 import {
   BarChart2,
+  Briefcase,
   Calendar,
+  CalendarClock,
   FileText,
   Heart,
   LayoutDashboard,
@@ -19,9 +21,10 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { name: "Dashboard", href: "/app", icon: LayoutDashboard },
   { name: "Employees", href: "/app/employees", icon: Users },
+  { name: "Recruitment", href: "/app/recruitment", icon: Briefcase },
   { name: "Teams", href: "/app/teams", icon: Building },
-  { name: "Calendar", href: "/app/calendar", icon: Calendar },
-  { name: "Leaves", href: "/app/leaves", icon: Calendar },
+  { name: "Schedule", href: "/app/schedule", icon: Calendar },
+  { name: "Leaves", href: "/app/leaves", icon: CalendarClock },
   { name: "Payroll", href: "/app/payroll", icon: FileText },
   { name: "Shoutouts", href: "/app/shoutouts", icon: Heart },
   { name: "Analytics", href: "/app/analytics", icon: BarChart2 },

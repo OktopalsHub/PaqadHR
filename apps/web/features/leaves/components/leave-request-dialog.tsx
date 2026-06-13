@@ -62,9 +62,9 @@ export function LeaveRequestDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus size={16} />
-          <span>Request Leave</span>
+        <Button size="sm" className="h-8 rounded-lg text-xs">
+          <Plus className="mr-1.5 size-3.5" />
+          Request leave
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

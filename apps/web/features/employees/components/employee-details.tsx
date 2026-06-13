@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEmployee } from "@/hooks/queries/use-employees";
 import type { Employee } from "@/lib/schemas/employee";
+import { useBreadcrumbTail } from "@/providers/breadcrumb-provider";
 import { useParams } from "next/navigation";
 import { EmployeeDetailHeader } from "./detail/employee-detail-header";
 import { EmployeeDetailSidebar } from "./detail/employee-detail-sidebar";
@@ -34,6 +35,8 @@ function EmployeeDetailView({ baseEmployee }: { baseEmployee: Employee }) {
 const EmployeeDetail = () => {
   const { employeeID: id } = useParams<{ employeeID: string }>();
   const { data: employee, isLoading, isError, error } = useEmployee(id);
+
+  useBreadcrumbTail(employee?.name ?? null);
 
   if (isLoading) {
     return (

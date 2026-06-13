@@ -30,4 +30,29 @@ export class CompleteOnboardingDto {
   @IsString()
   @MaxLength(2)
   businessCountry?: string;
+
+  @ApiProperty({ example: 'Jane', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  firstName?: string;
+
+  @ApiProperty({ example: 'Doe', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  lastName?: string;
+
+  @ApiProperty({ example: 'Jane', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  preferredName?: string;
+
+  @ApiProperty({ example: 'Head of People', minLength: 2 })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(100)
+  jobTitle: string;
 }

@@ -11,10 +11,11 @@ export class PositionService {
     tenantId: string,
     createPositionDto: CreatePositionDto,
   ): Promise<Position> {
-    return this.positionRepository.create({
+    const position = this.positionRepository.create({
       ...createPositionDto,
       tenantId,
     });
+    return this.positionRepository.save(position);
   }
   async listPositions(tenantId: string): Promise<Position[]> {
     return this.positionRepository.listPositions(tenantId);

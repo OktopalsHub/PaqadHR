@@ -1,122 +1,229 @@
 "use client";
-import React, { useState } from "react";
+
+import Link from "next/link";
+import { ArrowUpRight, Briefcase, CalendarClock, Users } from "lucide-react";
+import { AppPage } from "@/components/app-page";
+import { ContentCard } from "@/components/content-card";
+import { LoadingBlock } from "@/components/loading-block";
+import { PageActions } from "@/components/page-actions";
+import { StatCard } from "@/components/stat-card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Settings, Plus } from "lucide-react";
-import { DashboardGrid } from "./dashboard-grid";
-import { WidgetSelector } from "./widget-selector";
-import { Widget, WidgetType, LayoutItem } from "../types";
+import { useEmployees } from "@/hooks/queries/use-employees";
+import { useLeaves } from "@/hooks/queries/use-leaves";
+import { useJobOpenings } from "@/hooks/queries/use-recruitment";
+import { formatDate } from "@/lib/format-date";
+import { useAuth } from "@/hooks/use-auth";
+import {
+  memberPreferredOrFirstName,
+  useMemberProfile,
+} from "@/hooks/queries/use-member-profile";
+
+function leaveStatusVariant(status: string) {
+  switch (status.toLowerCase()) {
+    case "approved":
+      return "default";
+    case "pending":
+      return "secondary";
+    case "rejected":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
 
 export const Dashboard = () => {
-  const [isCustomizing, setIsCustomizing] = useState(false);
-  const [showWidgetSelector, setShowWidgetSelector] = useState(false);
-  const [widgets, setWidgets] = useState<Widget[]>([
-    {
-      id: "kpi-1",
-      type: "kpi",
-      position: { x: 0, y: 0 },
-      size: { w: 3, h: 2 },
-    },
-    {
-      id: "metrics-1",
-      type: "metrics",
-      position: { x: 3, y: 0 },
-      size: { w: 3, h: 2 },
-    },
-    {
-      id: "chart-1",
-      type: "chart",
-      position: { x: 6, y: 0 },
-      size: { w: 6, h: 3 },
-    },
-    {
-      id: "quickActions-1",
-      type: "quickActions",
-      position: { x: 0, y: 2 },
-      size: { w: 6, h: 2 },
-    },
-  ]);
+  const { user } = useAuth();
+  const { data: profile } = useMemberProfile();
+  const { data: employees = [], isLoading: employeesLoading } = useEmployees();
+  const { data: leaves = [], isLoading: leavesLoading } = useLeaves();
+  const { data: jobsData, isLoading: jobsLoading } = useJobOpenings();
 
-  const handleRemoveWidget = (widgetId: string) => {
-    setWidgets(widgets.filter((w) => w.id !== widgetId));
-  };
+  const isLoading = employeesLoading || leavesLoading || jobsLoading;
+  const jobs = jobsData?.jobs ?? [];
+  const openRoles = jobs.filter((j) => j.status === "ACTIVE").length;
+  const pendingLeaves = leaves.filter(
+    (l) => l.status?.toLowerCase() === "pending",
+  ).length;
+  const recentLeaves = [...leaves]
+    .sort(
+      (a, b) =>
+        new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
+    )
+    .slice(0, 6);
 
-  const handleAddWidget = (widgetType: WidgetType) => {
-    const newWidget: Widget = {
-      id: `${widgetType}-${Date.now()}`,
-      type: widgetType,
-      position: { x: 0, y: 0 },
-      size: { w: 3, h: 2 },
-    };
-    setWidgets([...widgets, newWidget]);
-    setShowWidgetSelector(false);
-  };
+  const dashboardTitle = memberPreferredOrFirstName(profile, user?.name);
+  const departmentCount = new Set(
+    employees.map((e) => e.department).filter(Boolean),
+  ).size;
+  const activeJobs = jobs.filter((j) => j.status === "ACTIVE").slice(0, 4);
+  const pipelineStages = [
+    { label: "Active", count: jobs.filter((j) => j.status === "ACTIVE").length },
+    { label: "Draft", count: jobs.filter((j) => j.status === "DRAFT").length },
+    { label: "Closed", count: jobs.filter((j) => j.status === "CLOSED").length },
+    { label: "Archived", count: jobs.filter((j) => j.status === "ARCHIVED").length },
+  ];
+  const pipelineMax = Math.max(1, ...pipelineStages.map((s) => s.count));
 
-  const handleLayoutChange = (layout: LayoutItem[]) => {
-    const updatedWidgets = widgets.map((widget) => {
-      const layoutItem = layout.find((item) => item.i === widget.id);
-      if (layoutItem) {
-        return {
-          ...widget,
-          position: { x: layoutItem.x, y: layoutItem.y },
-          size: { w: layoutItem.w, h: layoutItem.h },
-        };
-      }
-      return widget;
-    });
-    setWidgets(updatedWidgets);
-  };
+  if (isLoading) {
+    return (
+      <AppPage>
+        <LoadingBlock />
+      </AppPage>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-muted/20 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-              Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Welcome back! Here&apos;s what&apos;s happening at your company
-              today.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Reports
-            </Button>
-            <Button
-              variant={isCustomizing ? "default" : "outline"}
-              onClick={() => setIsCustomizing(!isCustomizing)}
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              {isCustomizing ? "Done" : "Customize"}
-            </Button>
-            {isCustomizing && (
-              <Button onClick={() => setShowWidgetSelector(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Widget
-              </Button>
-            )}
-          </div>
-        </div>
+    <AppPage>
+      <PageActions>
+        <Button asChild size="sm" className="h-8 rounded-lg text-xs">
+          <Link href="/app/recruitment">
+            View hiring pipeline
+            <ArrowUpRight className="ml-1.5 size-3.5" />
+          </Link>
+        </Button>
+      </PageActions>
 
-        {/* Customizable Dashboard Grid */}
-        <DashboardGrid
-          widgets={widgets}
-          isCustomizing={isCustomizing}
-          onRemoveWidget={handleRemoveWidget}
-          onLayoutChange={handleLayoutChange}
+      <p className="text-sm text-muted-foreground">
+        Welcome back, {dashboardTitle}.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Headcount"
+          value={employees.length}
+          hint="Active employees"
+          icon={Users}
         />
-
-        {/* Widget Selector */}
-        {showWidgetSelector && (
-          <WidgetSelector
-            onAddWidget={handleAddWidget}
-            onClose={() => setShowWidgetSelector(false)}
-          />
-        )}
+        <StatCard
+          label="Open roles"
+          value={openRoles}
+          hint={`${jobs.length} total postings`}
+          icon={Briefcase}
+        />
+        <StatCard
+          label="Pending leave"
+          value={pendingLeaves}
+          hint={`${leaves.length} requests total`}
+          icon={CalendarClock}
+        />
+        <StatCard
+          label="Departments"
+          value={departmentCount || "—"}
+          hint="With assigned members"
+          icon={Users}
+          iconClassName="bg-chart-2/15 text-chart-2"
+        />
       </div>
-    </div>
+
+      <div className="grid gap-4 xl:grid-cols-12">
+        <ContentCard
+          className="xl:col-span-8"
+          title="Recent leave requests"
+          action={
+            <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
+              <Link href="/app/leaves">View all</Link>
+            </Button>
+          }
+          bodyClassName="p-0"
+        >
+          {recentLeaves.length === 0 ? (
+            <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+              No leave requests yet.
+            </p>
+          ) : (
+            <div className="divide-y divide-border/60">
+              {recentLeaves.map((leave) => (
+                <div
+                  key={leave.id}
+                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {leave.employee}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {leave.type} · {formatDate(leave.startDate)} –{" "}
+                      {formatDate(leave.endDate)}
+                    </p>
+                  </div>
+                  <Badge variant={leaveStatusVariant(leave.status ?? "pending")}>
+                    {leave.status ?? "Pending"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </ContentCard>
+
+        <ContentCard
+          className="xl:col-span-4"
+          title="Active openings"
+          action={
+            <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
+              <Link href="/app/recruitment">Manage</Link>
+            </Button>
+          }
+          bodyClassName="space-y-2 p-3"
+        >
+          {activeJobs.length === 0 ? (
+            <p className="py-3 text-center text-sm text-muted-foreground">
+              No active roles published.
+            </p>
+          ) : (
+            activeJobs.map((job) => (
+              <div
+                key={job.id}
+                className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5"
+              >
+                <p className="text-sm font-medium">{job.title}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {[job.departmentName, job.employmentType]
+                    .filter(Boolean)
+                    .join(" · ") || "No department"}
+                </p>
+              </div>
+            ))
+          )}
+        </ContentCard>
+      </div>
+
+      {jobs.length > 0 ? (
+        <ContentCard title="Hiring pipeline" bodyClassName="p-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {pipelineStages.map((stage) => (
+              <div
+                key={stage.label}
+                className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3"
+              >
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {stage.label}
+                </p>
+                <p className="mt-1 text-xl font-semibold">{stage.count}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex h-20 items-end gap-2 border-b border-border/60 pb-1">
+            {pipelineStages.map((stage) => {
+              const height = Math.max(8, (stage.count / pipelineMax) * 100);
+              return (
+                <div
+                  key={stage.label}
+                  className="flex flex-1 flex-col items-center gap-1"
+                >
+                  <div
+                    className="w-full max-w-8 rounded-t-md bg-primary/70"
+                    style={{ height: `${height}%` }}
+                  />
+                  <span className="text-[10px] text-muted-foreground">
+                    {stage.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </ContentCard>
+      ) : null}
+    </AppPage>
   );
 };

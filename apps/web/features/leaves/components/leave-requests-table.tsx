@@ -16,8 +16,7 @@ interface LeaveRequestsTableProps {
 
 export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
   return (
-    <div className="rounded-md border">
-      <Table>
+    <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Employee</TableHead>
@@ -68,6 +67,5 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
           ))}
         </TableBody>
       </Table>
-    </div>
   );
 }

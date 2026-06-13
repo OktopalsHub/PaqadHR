@@ -22,11 +22,17 @@ export class PositionMemberRepository extends Repository<PositionMember> {
     positionId: string,
     assignedAt: Date = new Date(),
   ): Promise<PositionMember> {
-    return this.positionMemberRepository.create({
+    await this.positionMemberRepository.update(
+      { tenantMemberId, isCurrent: true },
+      { isCurrent: false },
+    );
+    const assignment = this.positionMemberRepository.create({
       tenantMemberId,
       positionId,
       assignedAt,
+      isCurrent: true,
     });
+    return this.positionMemberRepository.save(assignment);
   }
   async getPositionHistory(
     tenantId: string,

@@ -23,7 +23,7 @@ export function DepartmentCard({
   const memberCount = department.members.length + (department.manager ? 1 : 0);
 
   return (
-    <Card className="glass-card">
+    <Card className="app-card rounded-2xl">
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">

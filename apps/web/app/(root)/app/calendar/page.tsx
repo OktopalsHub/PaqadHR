@@ -1,5 +1,5 @@
-import { CalendarView } from "@/features/calenders/components/calendar-view";
+import { redirect } from "next/navigation";
 
-export default function CalendarPage() {
-  return <CalendarView />;
+export default function CalendarRedirectPage() {
+  redirect("/app/schedule");
 }

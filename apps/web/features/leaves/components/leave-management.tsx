@@ -1,45 +1,99 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CalendarClock, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { AppPage } from "@/components/app-page";
+import { ContentCard } from "@/components/content-card";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingBlock } from "@/components/loading-block";
+import { PageActions } from "@/components/page-actions";
+import { StatCard } from "@/components/stat-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useLeaves } from "@/hooks/queries/use-leaves";
+import { useLeaveBalances, useLeaves } from "@/hooks/queries/use-leaves";
+import { LeaveBalancesPanel } from "./leave-balances-panel";
 import { LeavePagination } from "./leave-pagination";
 import { LeaveRequestDialog } from "./leave-request-dialog";
 import { LeaveRequestsTable } from "./leave-requests-table";
 
 const ITEMS_PER_PAGE = 5;
 
+function countByStatus(
+  requests: { status: string }[],
+  statuses: string[],
+) {
+  return requests.filter((r) =>
+    statuses.includes(r.status.toLowerCase()),
+  ).length;
+}
+
 const LeaveManagement = () => {
   const [isRequestLeaveOpen, setIsRequestLeaveOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const { data: leaveRequests = [], isLoading, isError, error } = useLeaves();
+  const { data: balances = [] } = useLeaveBalances();
 
-  const totalPages = Math.max(1, Math.ceil(leaveRequests.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(leaveRequests.length / ITEMS_PER_PAGE),
+  );
 
   const currentItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return leaveRequests.slice(start, start + ITEMS_PER_PAGE);
   }, [leaveRequests, currentPage]);
 
+  const pendingCount = countByStatus(leaveRequests, ["pending"]);
+  const approvedCount = countByStatus(leaveRequests, ["approved"]);
+  const closedCount = countByStatus(leaveRequests, [
+    "rejected",
+    "cancelled",
+  ]);
+
+  if (isLoading) {
+    return (
+      <AppPage>
+        <LoadingBlock />
+      </AppPage>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Leave Management</h1>
-          <p className="text-muted-foreground">
-            Manage and track employee leave requests.
-          </p>
-        </div>
+    <AppPage>
+      <PageActions>
         <LeaveRequestDialog
           open={isRequestLeaveOpen}
           onOpenChange={setIsRequestLeaveOpen}
         />
+      </PageActions>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Pending"
+          value={pendingCount}
+          hint="Awaiting review"
+          icon={Clock}
+        />
+        <StatCard
+          label="Approved"
+          value={approvedCount}
+          hint="Confirmed requests"
+          icon={CheckCircle2}
+        />
+        <StatCard
+          label="Rejected / cancelled"
+          value={closedCount}
+          hint="Closed requests"
+          icon={XCircle}
+        />
+        <StatCard
+          label="Total requests"
+          value={leaveRequests.length}
+          hint="All time"
+          icon={CalendarClock}
+        />
       </div>
 
-      {isLoading ? (
-        <Skeleton className="h-64 w-full" />
-      ) : isError ? (
+      {isError ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to load leave requests</AlertTitle>
           <AlertDescription>
@@ -47,16 +101,42 @@ const LeaveManagement = () => {
           </AlertDescription>
         </Alert>
       ) : (
-        <>
-          <LeaveRequestsTable requests={currentItems} />
-          <LeavePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-        </>
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="space-y-4">
+            <ContentCard
+              title="Leave requests"
+              description="Review and action pending time-off"
+              bodyClassName="p-0"
+            >
+              {leaveRequests.length === 0 ? (
+                <div className="p-4">
+                  <EmptyState
+                    icon={CalendarClock}
+                    title="No leave requests"
+                    description="Submit a request to get started."
+                  />
+                </div>
+              ) : (
+                <LeaveRequestsTable requests={currentItems} />
+              )}
+            </ContentCard>
+            {leaveRequests.length > 0 ? (
+              <LeavePagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            ) : null}
+          </div>
+
+          {balances.length > 0 ? (
+            <aside className="lg:sticky lg:top-16 lg:self-start">
+              <LeaveBalancesPanel balances={balances} />
+            </aside>
+          ) : null}
+        </div>
       )}
-    </div>
+    </AppPage>
   );
 };
 

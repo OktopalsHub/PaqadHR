@@ -6,6 +6,7 @@ import {
   fetchShoutoutCategories,
   fetchShoutouts,
 } from "@/lib/api/shoutouts";
+import { fetchMyPointsBalance } from "@/lib/api/member-points";
 import type { CreateShoutoutInput } from "@/lib/schemas/shoutout";
 import { queryKeys } from "@/lib/query/keys";
 import { useTenant } from "@/providers/tenant-provider";
@@ -40,6 +41,21 @@ export function useCreateShoutout() {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.shoutouts.all, tenantId],
       });
+      if (tenantId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.shoutouts.points(tenantId),
+        });
+      }
     },
+  });
+}
+
+export function useMyPointsBalance() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: queryKeys.shoutouts.points(tenantId ?? ""),
+    queryFn: fetchMyPointsBalance,
+    enabled: !tenantLoading && Boolean(tenantId),
   });
 }

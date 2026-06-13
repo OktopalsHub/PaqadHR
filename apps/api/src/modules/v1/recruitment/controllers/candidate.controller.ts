@@ -25,6 +25,17 @@ export class CandidateController {
       await this.candidateService.getCandidatesByTenant(tenantId);
     return CandidateMapper.toResponseList(candidates, this.fileUrlService);
   }
+  @Get('jobs/:jobId')
+  async getCandidatesByJob(
+    @Param('jobId') jobId: string,
+    @Param('tenantId') tenantId: string,
+  ) {
+    const candidates = await this.candidateService.getCandidatesByJob(
+      jobId,
+      tenantId,
+    );
+    return CandidateMapper.toResponseList(candidates, this.fileUrlService);
+  }
   @Get(':candidateId')
   async getCandidate(
     @Param('candidateId') candidateId: string,
@@ -48,16 +59,5 @@ export class CandidateController {
       updateDto,
     );
     return CandidateMapper.toResponse(updated, this.fileUrlService);
-  }
-  @Get('jobs/:jobId')
-  async getCandidatesByJob(
-    @Param('jobId') jobId: string,
-    @Param('tenantId') tenantId: string,
-  ) {
-    const candidates = await this.candidateService.getCandidatesByJob(
-      jobId,
-      tenantId,
-    );
-    return CandidateMapper.toResponseList(candidates, this.fileUrlService);
   }
 }

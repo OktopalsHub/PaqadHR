@@ -1,60 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatCard } from "@/components/stat-card";
+import { ContentCard } from "@/components/content-card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  TrendingUp,
-  TrendingDown,
-  Users,
-  DollarSign,
-  Calendar,
-  Target,
-  ArrowUpRight,
-  ArrowDownRight,
-  Eye,
-} from "lucide-react";
-
-interface AnalyticsCardProps {
-  title: string;
-  value: string;
-  change: string;
-  trend: "up" | "down";
-  icon: React.ElementType;
-}
-
-const AnalyticsCard = ({
-  title,
-  value,
-  change,
-  trend,
-  icon: Icon,
-}: AnalyticsCardProps) => (
-  <Card>
-    <CardContent className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="text-2xl font-bold">{value}</p>
-          <div className="flex items-center gap-1 mt-1">
-            {trend === "up" ? (
-              <ArrowUpRight className="h-4 w-4 text-green-500" />
-            ) : (
-              <ArrowDownRight className="h-4 w-4 text-red-500" />
-            )}
-            <span
-              className={`text-sm ${trend === "up" ? "text-green-500" : "text-red-500"}`}
-            >
-              {change}
-            </span>
-          </div>
-        </div>
-        <div className="p-3 bg-primary/10 rounded-lg">
-          <Icon className="h-6 w-6 text-primary" />
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-);
+import { Users, DollarSign, Calendar, Target } from "lucide-react";
 
 export function CompanyAnalytics() {
   const metrics = [
@@ -97,52 +45,47 @@ export function CompanyAnalytics() {
   ];
 
   return (
-    <div className="space-y-6">
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {metrics.map((metric, index) => (
-          <AnalyticsCard key={index} {...metric} />
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {metrics.map((metric) => (
+          <StatCard
+            key={metric.title}
+            label={metric.title}
+            value={metric.value}
+            icon={metric.icon}
+            trend={{
+              value: metric.change,
+              positive: metric.trend === "up",
+            }}
+          />
         ))}
       </div>
 
-      {/* Department Analysis */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Department Performance Overview
-            <Button variant="outline" size="sm">
-              <Eye className="h-4 w-4 mr-2" />
-              View Details
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {departmentData.map((dept, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">{dept.name}</h4>
-                    <Badge
-                      variant={dept.performance >= 90 ? "default" : "secondary"}
-                    >
-                      {dept.performance}% Performance
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span>{dept.employees} employees</span>
-                    <span>${dept.budget.toLocaleString()} budget</span>
-                  </div>
-                  <Progress value={dept.performance} className="mt-2 h-2" />
-                </div>
+      <ContentCard
+        title="Department performance overview"
+        description="Sample analytics preview. Connect live data in a future release."
+      >
+        <div className="space-y-4">
+          {departmentData.map((dept) => (
+            <div
+              key={dept.name}
+              className="rounded-xl border border-border/60 bg-muted/20 p-4"
+            >
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="font-medium">{dept.name}</h4>
+                <Badge variant={dept.performance >= 90 ? "default" : "secondary"}>
+                  {dept.performance}% performance
+                </Badge>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>{dept.employees} employees</span>
+                <span>${dept.budget.toLocaleString()} budget</span>
+              </div>
+              <Progress value={dept.performance} className="mt-2 h-2" />
+            </div>
+          ))}
+        </div>
+      </ContentCard>
     </div>
   );
 }

@@ -55,6 +55,10 @@ export class TenantOnboardingController {
       industry: dto.industry,
       companySize: dto.companySize,
       businessCountry: dto.businessCountry,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      preferredName: dto.preferredName,
+      jobTitle: dto.jobTitle,
       createdBy: req.auth.principalId,
     };
     return this.onboardingService.completeTenantOnboarding(

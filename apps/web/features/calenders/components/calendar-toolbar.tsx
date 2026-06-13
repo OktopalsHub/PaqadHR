@@ -31,7 +31,7 @@ export function CalendarToolbar({
 }: CalendarToolbarProps) {
   return (
     <div className="p-4 flex justify-between items-center border-b">
-      <h2 className="text-lg font-semibold">Calendar</h2>
+      <h2 className="text-lg font-semibold">Schedule</h2>
       <div className="flex gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

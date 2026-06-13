@@ -1,5 +1,4 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
-@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -9,7 +8,9 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-manrope);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-primary-soft: var(--primary-soft);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,75 +46,108 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* App light — neutral surfaces, Nomba yellow accent */
 :root {
-  --font-manrope: "Manrope", sans-serif;
   --font-inter: "Inter", sans-serif;
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+  --brand: #ffcc00;
+  --brand-foreground: #0a0a0a;
+  --primary-soft: #fff9e0;
+  --background: #fafafa;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #ffcc00;
+  --primary-foreground: #0a0a0a;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #ef4444;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #ffcc00;
+  --chart-1: #ffcc00;
+  --chart-2: #3b82f6;
+  --chart-3: #22c55e;
+  --chart-4: #a855f7;
+  --chart-5: #f97316;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0a0a0a;
+  --sidebar-primary: #ffcc00;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #171717;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #ffcc00;
 }
 
+/* App dark — Nomba-inspired: true black, white text, yellow accent */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --brand: #ffcc00;
+  --brand-foreground: #000000;
+  --primary-soft: #2a2400;
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0f0f0f;
+  --card-foreground: #ffffff;
+  --popover: #0f0f0f;
+  --popover-foreground: #ffffff;
+  --primary: #ffcc00;
+  --primary-foreground: #000000;
+  --secondary: #171717;
+  --secondary-foreground: #fafafa;
+  --muted: #171717;
+  --muted-foreground: #a3a3a3;
+  --accent: #1a1a1a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #ffcc00;
+  --chart-1: #ffcc00;
+  --chart-2: #60a5fa;
+  --chart-3: #4ade80;
+  --chart-4: #c084fc;
+  --chart-5: #fb923c;
+  --sidebar: #000000;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #ffcc00;
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: #171717;
+  --sidebar-accent-foreground: #fafafa;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #ffcc00;
+}
+
+/* Marketing landing — always light, scoped tokens */
+.theme-marketing {
+  --brand: #ffcc00;
+  --brand-foreground: #0a0a0a;
+  --primary-soft: #fff9e0;
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #ffcc00;
+  --primary-foreground: #0a0a0a;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #171717;
+  --muted: #f5f5f5;
+  --muted-foreground: #6b6b6b;
+  --accent: #f5f5f5;
+  --accent-foreground: #171717;
+  --destructive: #ef4444;
+  --border: #e8e8e8;
+  --input: #e8e8e8;
+  --ring: #ffcc00;
+  color-scheme: light;
 }
 
 @layer base {
@@ -121,57 +155,50 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
-    transition:
-      background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-      color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    @apply bg-background text-foreground font-sans antialiased;
   }
-  /* Modern Color Classes */
-  .bg-electric-blue {
-    background-color: hsl(var(--electric-blue));
-  }
-  .bg-coral-sunset {
-    background-color: hsl(var(--coral-sunset));
-  }
-  .bg-deep-purple {
-    background-color: hsl(var(--deep-purple));
-  }
-  .bg-neon-green {
-    background-color: hsl(var(--neon-green));
-  }
-  .bg-cyber-pink {
-    background-color: hsl(var(--cyber-pink));
-  }
-  .bg-golden-yellow {
-    background-color: hsl(var(--golden-yellow));
-  }
+}
 
-  .text-electric-blue {
-    color: hsl(var(--electric-blue));
+@layer utilities {
+  .marketing-glow {
+    background:
+      radial-gradient(
+        ellipse 80% 50% at 50% -20%,
+        rgba(255, 204, 0, 0.08),
+        transparent
+      ),
+      var(--background);
   }
-  .text-coral-sunset {
-    color: hsl(var(--coral-sunset));
+  .landing-beam {
+    background:
+      radial-gradient(
+        ellipse 55% 45% at 50% -5%,
+        rgba(255, 204, 0, 0.06),
+        transparent 70%
+      );
   }
-  .text-deep-purple {
-    color: hsl(var(--deep-purple));
+  .text-gradient-brand {
+    @apply bg-gradient-to-r from-primary to-amber-400 bg-clip-text text-transparent;
   }
-  .text-neon-green {
-    color: hsl(var(--neon-green));
+  .app-card {
+    @apply border border-border/60 bg-card shadow-sm;
   }
-  .text-cyber-pink {
-    color: hsl(var(--cyber-pink));
+  .app-surface {
+    @apply bg-muted/30;
   }
-  .text-golden-yellow {
-    color: hsl(var(--golden-yellow));
+  .culture-hero {
+    @apply border border-primary/20 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent;
   }
-
-  .border-electric-blue {
-    border-color: hsl(var(--electric-blue));
+  .culture-panel {
+    @apply border border-border/60 bg-card shadow-sm;
   }
-  .border-coral-sunset {
-    border-color: hsl(var(--coral-sunset));
+  .culture-card {
+    @apply border border-border/60 bg-card shadow-sm transition-colors hover:border-primary/30;
   }
-  .border-deep-purple {
-    border-color: hsl(var(--deep-purple));
+  .culture-message {
+    @apply border border-border/50 bg-muted/35 text-foreground;
+  }
+  .culture-points-pill {
+    @apply inline-flex items-center rounded-full border border-primary/30 bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-foreground dark:text-primary;
   }
 }
