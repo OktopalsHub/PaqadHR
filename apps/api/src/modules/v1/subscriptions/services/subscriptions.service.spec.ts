@@ -1,0 +1,91 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { SubscriptionsService } from './subscriptions.service';
+import { TenantSubscription } from '../entities/tenant-subscription.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { PlansService } from '../../plans/services/plans.service';
+
+describe('SubscriptionsService', () => {
+  let service: SubscriptionsService;
+  let subscriptionRepo: { findOne: jest.Mock };
+  const originalBillingMode = process.env.BILLING_MODE;
+
+  beforeEach(async () => {
+    process.env.BILLING_MODE = 'trial';
+    subscriptionRepo = { findOne: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SubscriptionsService,
+        {
+          provide: getRepositoryToken(TenantSubscription),
+          useValue: subscriptionRepo,
+        },
+        {
+          provide: getRepositoryToken(Tenant),
+          useValue: { findOne: jest.fn() },
+        },
+        {
+          provide: PlansService,
+          useValue: { getPlanPrice: jest.fn(), getPricesForCountry: jest.fn() },
+        },
+      ],
+    }).compile();
+
+    service = module.get(SubscriptionsService);
+  });
+
+  afterEach(() => {
+    process.env.BILLING_MODE = originalBillingMode;
+  });
+
+  describe('isSubscriptionEntitled', () => {
+    it('allows active subscriptions', () => {
+      const sub = {
+        status: SubscriptionStatus.ACTIVE,
+        trialEndsAt: null,
+      } as TenantSubscription;
+      expect(service.isSubscriptionEntitled(sub)).toBe(true);
+    });
+
+    it('allows non-expired trials', () => {
+      const sub = {
+        status: SubscriptionStatus.TRIAL,
+        trialEndsAt: new Date(Date.now() + 86_400_000),
+      } as TenantSubscription;
+      expect(service.isSubscriptionEntitled(sub)).toBe(true);
+    });
+
+    it('denies expired trials', () => {
+      const sub = {
+        status: SubscriptionStatus.TRIAL,
+        trialEndsAt: new Date(Date.now() - 86_400_000),
+      } as TenantSubscription;
+      expect(service.isSubscriptionEntitled(sub)).toBe(false);
+    });
+  });
+
+  describe('hasFeatureAccess', () => {
+    it('grants all features when billing mode is open', async () => {
+      process.env.BILLING_MODE = 'open';
+      const allowed = await service.hasFeatureAccess('tenant-1', [
+        FeatureAccess.PAYROLL,
+      ]);
+      expect(allowed).toBe(true);
+    });
+
+    it('denies payroll when plan lacks feature', async () => {
+      subscriptionRepo.findOne.mockResolvedValue({
+        status: SubscriptionStatus.TRIAL,
+        trialEndsAt: new Date(Date.now() + 86_400_000),
+        plan: { features: { [FeatureAccess.BASIC_HR]: true } },
+      });
+
+      const allowed = await service.hasFeatureAccess('tenant-1', [
+        FeatureAccess.PAYROLL,
+      ]);
+      expect(allowed).toBe(false);
+    });
+  });
+});

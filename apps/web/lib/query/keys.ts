@@ -20,4 +20,18 @@ export const queryKeys = {
   calendar: {
     events: ["calendar", "events"] as const,
   },
+  shoutouts: {
+    all: ["shoutouts"] as const,
+    categories: ["shoutouts", "categories"] as const,
+  },
+  payroll: {
+    all: ["payroll"] as const,
+    detail: (id: string) => ["payroll", id] as const,
+  },
+  billing: {
+    status: (tenantId: string) => ["billing", tenantId] as const,
+  },
+  onboarding: {
+    pricing: (country?: string) => ["onboarding", "pricing", country] as const,
+  },
 } as const;

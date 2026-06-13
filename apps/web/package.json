@@ -2,11 +2,15 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "format:check": "prettier --check \"**/*.{ts,tsx}\" --ignore-path ../../.gitignore",
     "cf:build": "opennextjs-cloudflare build",
     "cf:deploy": "opennextjs-cloudflare deploy",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"
@@ -44,6 +48,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
+    "dayjs": "^1.11.21",
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.17.0",

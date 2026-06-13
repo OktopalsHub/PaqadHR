@@ -6,6 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import Link from "next/link";
 import { getInitials } from "@/lib/utils";
 import { User } from "@/types";
 
@@ -38,8 +39,9 @@ export const AccountSetting = ({
         sideOffset={4}
       >
         <DropdownMenuGroup>
-          <DropdownMenuItem>Profile Settings</DropdownMenuItem>
-          <DropdownMenuItem>Preferences</DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/app/settings">Settings</Link>
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={logout}>Sign Out</DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>

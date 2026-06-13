@@ -74,7 +74,7 @@ export class TenantMembersService {
         lastName: createDto.lastName,
         preferredName: createDto.firstName,
       };
-      const savedMember = await this.tenantMemberRepository.create(memberData);
+      const savedMember = await this.tenantMemberRepository.save(memberData);
       try {
         if (createDto.role !== TenantMemberRole.OWNER) {
           this.eventEmitter.emit(

@@ -16,7 +16,7 @@ export class LeavePolicyService {
       autoCreateAnnualBalances: true,
       prorateForNewJoiners: true,
     };
-    return this.leavePolicyRepository.create(defaultPolicy);
+    return this.leavePolicyRepository.save(defaultPolicy);
   }
   async getTenantPolicy(tenantId: string) {
     return this.leavePolicyRepository.findOne({ where: { tenantId } });

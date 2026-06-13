@@ -25,7 +25,9 @@ export const TenantId = createParamDecorator(
   (_data: unknown, ctx: ExecutionContext) => {
     const tenant = tenantContext.getCurrentTenant();
     if (tenant) return tenant.id;
-    return ctx.switchToHttp().getRequest().tenant?.id;
+    const request = ctx.switchToHttp().getRequest();
+    if (request.tenant?.id) return request.tenant.id;
+    return request.params?.tenantId;
   },
 );
 

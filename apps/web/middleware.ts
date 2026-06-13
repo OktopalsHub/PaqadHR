@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 
 const PROTECTED_PREFIX = "/app";
 const AUTH_ROUTES = ["/signin", "/signup", "/forgot-password"];
+const ONBOARDING_ROUTE = "/onboarding";
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -11,9 +12,10 @@ export function middleware(request: NextRequest) {
     request.cookies.has("refresh_token");
 
   const isProtected = pathname.startsWith(PROTECTED_PREFIX);
+  const isOnboarding = pathname.startsWith(ONBOARDING_ROUTE);
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
 
-  if (isProtected && !hasSession) {
+  if ((isProtected || isOnboarding) && !hasSession) {
     const signInUrl = new URL("/signin", request.url);
     signInUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(signInUrl);
@@ -27,5 +29,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/signin", "/signup", "/forgot-password"],
+  matcher: [
+    "/app/:path*",
+    "/onboarding",
+    "/signin",
+    "/signup",
+    "/forgot-password",
+  ],
 };

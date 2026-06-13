@@ -17,7 +17,7 @@ export class LeaveTypeService {
     memberId: string,
     dto: CreateLeaveTypeDto,
   ) {
-    const leaveType = await this.leaveTypeRepository.create({
+    const leaveType = await this.leaveTypeRepository.save({
       ...dto,
       tenantId,
       tenantMemberId: memberId,

@@ -45,3 +45,13 @@ export function clearTenantId() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TENANT_KEY);
 }
+
+export function markOnboardingComplete() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(ONBOARDING_KEY, "true");
+}
+
+export function isOnboardingComplete(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(ONBOARDING_KEY) === "true";
+}

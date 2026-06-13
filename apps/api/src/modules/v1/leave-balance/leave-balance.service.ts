@@ -20,7 +20,7 @@ export class LeaveBalanceService {
     leaveTypeId: string,
     dto: CreateLeaveBalanceDto,
   ): Promise<LeaveBalance> {
-    return this.leaveBalanceRepository.create({
+    return this.leaveBalanceRepository.save({
       ...dto,
       tenantId,
       memberId,

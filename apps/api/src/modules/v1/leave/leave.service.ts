@@ -45,11 +45,11 @@ export class LeaveService {
       daysToCheck,
       new Date(startDate),
     );
-    return this.leaveRepository.create({
+    return this.leaveRepository.save({
       ...dto,
       tenantId,
       requestedBy: memberId,
-      duration: workingDays ?? durationInDays, 
+      duration: workingDays ?? durationInDays,
       startDate,
       endDate,
     });

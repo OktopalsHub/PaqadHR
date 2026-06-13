@@ -1,12 +1,21 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
+import { TenantMemberRole } from 'src/common/enums';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import { StringUtility } from 'src/common/utils/string.util';
 import { PlansService } from '../../plans/services/plans.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { Tenant } from '../entities/tenant.entity';
+import {
+  TenantCreatedEvent,
+  TenantMemberCreatedEvent,
+} from '../../leave/events/leave.events';
 import { OnboardingData } from "../../../../common/interfaces/onboarding-data.interface";
 import { OnboardingResult } from "../../../../common/interfaces/onboarding-result.interface";
 
@@ -19,6 +28,8 @@ export class TenantOnboardingService {
     private tenantRepository: Repository<Tenant>,
     private subscriptionsService: SubscriptionsService,
     private plansService: PlansService,
+    private tenantMembersService: TenantMembersService,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   async completeTenantOnboarding(
@@ -28,6 +39,12 @@ export class TenantOnboardingService {
     this.logger.log(`Starting onboarding for tenant: ${data.name}`);
 
     const tenant = await this.createTenant(data);
+    const member = await this.tenantMembersService.createTenantMember(
+      data.createdBy!,
+      tenant.id,
+      { role: TenantMemberRole.OWNER },
+    );
+    this.emitTenantSetupEvents(tenant, member, data.name);
     const pricingResult =
       await this.subscriptionsService.setTenantRegionOnboarding(
         tenant.id,
@@ -167,17 +184,42 @@ export class TenantOnboardingService {
     };
   }
 
+  private emitTenantSetupEvents(
+    tenant: Tenant,
+    member: TenantMember,
+    companyName: string,
+  ): void {
+    this.eventEmitter.emit(
+      'tenant.created',
+      new TenantCreatedEvent(tenant.id, member.id, tenant),
+    );
+    this.eventEmitter.emit(
+      'tenant.member.created',
+      new TenantMemberCreatedEvent(tenant.id, member.id, member.joinDate),
+    );
+    this.eventEmitter.emit('tenant.settings.initialize', {
+      tenantId: tenant.id,
+      companyName,
+      defaultSettings: {
+        general: { companyName },
+        attendance: { weekends: [0, 6] },
+      },
+    });
+  }
+
   private generateSlug(name: string): string {
-    const baseSlug = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-    const randomSuffix = randomBytes(4).toString('hex');
-    return `${baseSlug}-${randomSuffix}`;
+    const suffix = randomBytes(3).toString('hex');
+    const maxBaseLength = 25 - 1 - suffix.length;
+    let base = StringUtility.slugify(name)
+      .slice(0, maxBaseLength)
+      .replace(/-+$/, '');
+    if (!base) {
+      base = 't';
+    }
+    return `${base}-${suffix}`;
   }
 
   private generateInviteCode(): string {
-    return randomBytes(6).toString('hex').toUpperCase();
+    return randomBytes(3).toString('hex').toUpperCase();
   }
 }

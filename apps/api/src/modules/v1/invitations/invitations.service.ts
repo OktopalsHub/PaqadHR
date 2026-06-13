@@ -149,7 +149,7 @@ export class InvitationsService {
       employeeNumber: createInvitationDto.employeeNumber,
       positionId: createInvitationDto.positionId,
     };
-    const invitation = await this.invitationsRepository.create(invitationData);
+    const invitation = await this.invitationsRepository.save(invitationData);
     await this.sendInvitationEmail(invitation);
     return this?.mapToResponseDto(invitation);
   }

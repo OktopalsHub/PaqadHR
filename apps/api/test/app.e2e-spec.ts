@@ -1,25 +1,36 @@
 import { INestApplication } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { createE2eApp } from './e2e-bootstrap';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('Health (e2e)', () => {
+  let app: INestApplication;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+  beforeAll(async () => {
+    app = await createE2eApp();
   });
 
-  it('/ (GET)', () => {
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET / returns liveness JSON', () => {
     return request(app.getHttpServer())
       .get('/')
       .expect(200)
-      .expect('Hello World!');
+      .expect((res) => {
+        expect(res.body.status).toBe('ok');
+        expect(res.body.message).toContain('PaqadHR');
+        expect(res.body).toHaveProperty('timestamp');
+      });
+  });
+
+  it('GET /health returns readiness with database check', () => {
+    return request(app.getHttpServer())
+      .get('/health')
+      .expect(200)
+      .expect((res) => {
+        expect(['healthy', 'unhealthy']).toContain(res.body.status);
+        expect(res.body.checks?.database).toBeDefined();
+      });
   });
 });

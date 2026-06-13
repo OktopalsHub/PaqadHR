@@ -49,7 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success(
         <ToastMessage title="Login Successful" description="Welcome back!" />,
       );
-      router.push("/app");
+      router.push(
+        user.needsOnboarding ? "/onboarding" : "/app",
+      );
     },
     onError: (error: Error) => {
       toast.error(

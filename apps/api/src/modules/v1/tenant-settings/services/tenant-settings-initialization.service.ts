@@ -92,7 +92,7 @@ export class TenantSettingsInitializationService {
       settings: finalSettings,
     };
     const savedSettings =
-      await this.tenantSettingsRepository.create(newSettings);
+      await this.tenantSettingsRepository.save(newSettings);
     this.logger.log(`Initialized tenant settings for tenant: ${tenantId}`);
     return savedSettings;
   }

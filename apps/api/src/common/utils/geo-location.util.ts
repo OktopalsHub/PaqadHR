@@ -82,4 +82,17 @@ export class GeoLocationHelper {
     const code = countryCode?.toUpperCase() || DEFAULT_COUNTRY;
     return COUNTRY_DEFAULTS[code] ?? COUNTRY_DEFAULTS.GLOBAL;
   }
+
+  /** ISO alpha-2 for DB columns; null when region is GLOBAL or unknown. */
+  static toStoredCountryCode(code: string | null | undefined): string | null {
+    if (!code) return null;
+    const upper = code.toUpperCase();
+    return /^[A-Z]{2}$/.test(upper) ? upper : null;
+  }
+
+  /** Pricing/plan lookup key — falls back to GLOBAL for non ISO codes. */
+  static toPricingRegion(code: string | null | undefined): string {
+    const stored = this.toStoredCountryCode(code);
+    return stored ?? DEFAULT_COUNTRY;
+  }
 }

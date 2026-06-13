@@ -10,6 +10,7 @@ import { TenantSettings } from './entities/tenant-settings.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantSettingsController } from './controllers/tenant-settings.controller';
 import { TenantSettingRepository } from './services/tenant-setting.repository';
+import { TenantSettingsListener } from './listeners/tenant-settings.listener';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { TenantSettingRepository } from './services/tenant-setting.repository';
     TenantSettingsService,
     TenantSettingsInitializationService,
     TenantSettingRepository,
+    TenantSettingsListener,
   ],
   exports: [
     TenantSettingsService,

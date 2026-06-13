@@ -1,22 +1,18 @@
-import { Tenant } from '../entities/tenant.entity';
 import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, Public } from 'src/common/decorators';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import { TenantOnboardingService } from '../services/tenant-onboarding.service';
-import { AuthenticatedRequest } from "../../../../common/interfaces/authenticated-request.interface";
 import { OnboardingData } from "../../../../common/interfaces/onboarding-data.interface";
+import { CompleteOnboardingDto } from '../dto/complete-onboarding.dto';
 
-export class CreateTenantDto {
-  name: string;
-  industry?: string;
-  companySize?: string;
-  businessCountry?: string; 
-}
 @ApiTags('Tenant Onboarding')
 @Controller('onboarding')
 export class TenantOnboardingController {
   constructor(private readonly onboardingService: TenantOnboardingService) {}
   @Get('pricing-preview')
+  @Public()
   @ApiOperation({
     summary: 'Preview pricing for user location (before signup)',
     description:
@@ -32,7 +28,7 @@ export class TenantOnboardingController {
     description: 'Override country code (e.g., NG, US)',
   })
   async getPricingPreview(
-    @Req() req: AuthenticatedRequest,
+    @Req() req: IAuthenticatedUserRequest,
     @Query('country') countryCode?: string,
   ) {
     const clientIp = this.getClientIP(req);
@@ -49,17 +45,17 @@ export class TenantOnboardingController {
     description: 'Tenant onboarded successfully with locked pricing',
   })
   async completeTenantOnboarding(
-    @Body() dto: CreateTenantDto,
-    @Req() req: AuthenticatedRequest,
+    @Body() dto: CompleteOnboardingDto,
+    @CurrentUser() req: IAuthenticatedUserRequest,
+    @Req() httpReq: IAuthenticatedUserRequest,
   ) {
-    const clientIp = this.getClientIP(req);
-    const userId = req.user?.id;
+    const clientIp = this.getClientIP(httpReq);
     const onboardingData: OnboardingData = {
       name: dto.name,
       industry: dto.industry,
       companySize: dto.companySize,
       businessCountry: dto.businessCountry,
-      createdBy: userId || undefined,
+      createdBy: req.auth.principalId,
     };
     return this.onboardingService.completeTenantOnboarding(
       onboardingData,
@@ -90,7 +86,7 @@ export class TenantOnboardingController {
   async canChangePricingRegion(@Param('tenantId') tenantId: string) {
     return this.onboardingService.canChangePricingRegion(tenantId);
   }
-  private getClientIP(req: AuthenticatedRequest): string {
+  private getClientIP(req: IAuthenticatedUserRequest): string {
     return GeoLocationHelper.resolveClientIp(
       req.headers,
       req.socket?.remoteAddress,

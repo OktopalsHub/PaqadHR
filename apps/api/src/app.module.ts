@@ -37,6 +37,7 @@ import { PayrollModule } from "./modules/v1/payroll/payroll.module";
 import { NotificationsModule } from "./modules/v1/notifications/notifications.module";
 import { IntegrationModule } from "./common/integrations/integrations.module";
 import { LeavePolicyModule } from "./modules/v1/leave-policy/leave-policy.module";
+import { LeaveManagementModule } from "./modules/v1/leave/listeners/leave-management.module";
 import { TeamsModule } from "./modules/v1/teams/teams.module";
 import { WebhooksModule } from "./modules/v1/webhooks/webhooks.module";
 import { PaymentMethodModule } from "./modules/v1/payment-method/payment-method.module";
@@ -76,6 +77,7 @@ import { ShoutoutsModule } from "./modules/v1/shoutouts/shoutouts.module";
     NotificationsModule,
     IntegrationModule,
     LeavePolicyModule,
+    LeaveManagementModule,
     TeamsModule,
     WebhooksModule,
     PaymentMethodModule,

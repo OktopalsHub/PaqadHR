@@ -212,7 +212,7 @@ export class AuthService {
         email: normalizedEmail,
         password: hashedPassword,
         role: UserRole.BASIC,
-        countryCode: countryCode ?? '',
+        countryCode: GeoLocationHelper.toStoredCountryCode(countryCode),
         emailVerified: false,
       });
 
