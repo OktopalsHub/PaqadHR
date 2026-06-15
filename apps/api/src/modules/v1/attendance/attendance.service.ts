@@ -25,7 +25,7 @@ import type { AttendanceException } from './entities/attendance-exception.entity
 import { AttendanceRepository } from './repositories/attendance.repository';
 import { AttendanceExceptionRepository } from './repositories/attendance-exception.repository';
 import { AttendancePolicyRepository } from './repositories/attendance-policy.repository';
-import type { DepartmentUtils } from './utils/department.utils';
+import { DepartmentUtils } from './utils/department.utils';
 
 @Injectable()
 export class AttendanceService {

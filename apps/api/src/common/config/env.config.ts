@@ -95,12 +95,12 @@ export const ENVIRONMENT: IEnvironment = {
     WEBHOOK_URL: envValidator.getOptional('SLACK_WEBHOOK_URL', ''),
   },
   CLOUDFLARE_R2: {
-    ACCOUNT_ID: envValidator.getOptional('CLOUDFLARE_R2_ACCOUNT_ID', ''),
+    ACCOUNT_ID: envValidator.getRequired('CLOUDFLARE_R2_ACCOUNT_ID'),
     PUBLIC_ID: envValidator.getOptional('CLOUDFLARE_R2_PUBLIC_ID'),
     CUSTOM_DOMAIN: envValidator.getOptional('CLOUDFLARE_R2_CUSTOM_DOMAIN'),
-    ACCESS_KEY_ID: envValidator.getOptional('CLOUDFLARE_R2_ACCESS_KEY_ID', ''),
-    SECRET_ACCESS_KEY: envValidator.getOptional('CLOUDFLARE_R2_SECRET_ACCESS_KEY', ''),
-    BUCKET_NAME: envValidator.getOptional('CLOUDFLARE_R2_BUCKET_NAME', ''),
+    ACCESS_KEY_ID: envValidator.getRequired('CLOUDFLARE_R2_ACCESS_KEY_ID'),
+    SECRET_ACCESS_KEY: envValidator.getRequired('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
+    BUCKET_NAME: envValidator.getRequired('CLOUDFLARE_R2_BUCKET_NAME'),
   },
   ENCRYPTION: {
     KEY: envValidator.getOptional('ENCRYPTION_KEY', '01234567890123456789012345678901'),

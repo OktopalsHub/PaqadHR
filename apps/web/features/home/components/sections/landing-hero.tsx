@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { fadeUp, stagger } from '../../constants/landing-motion';
-import { LandingRecruitmentBoardMockup } from './landing-recruitment-board-mockup';
+import { LandingProductPreview } from './landing-product-preview';
 
 export const LandingHero = () => {
   return (
@@ -58,7 +58,7 @@ export const LandingHero = () => {
         </motion.p>
       </motion.div>
 
-      <LandingRecruitmentBoardMockup />
+      <LandingProductPreview />
     </section>
   );
 };

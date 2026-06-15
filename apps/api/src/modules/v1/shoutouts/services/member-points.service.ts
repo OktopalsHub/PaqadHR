@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import type { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';

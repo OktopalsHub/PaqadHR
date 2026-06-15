@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import type { Reflector } from '@nestjs/core';
+import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators';
 @Injectable()
 export class TenantMemberGuard implements CanActivate {

@@ -46,26 +46,21 @@ export class CloudflareR2Service {
     }
     const missingR2 = !accountId || !accessKeyId || !secretAccessKey || !this.bucketName;
     if (missingR2) {
-      const message =
-        'Missing required Cloudflare R2 configuration (CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME)';
-      if (process.env.NODE_ENV === 'production') {
-        throw new BadRequestException(message);
-      }
-      this.logger.warn(`${message} — file uploads disabled in development`);
+      throw new BadRequestException(
+        'Missing required Cloudflare R2 configuration (CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME)',
+      );
     }
-    if (!missingR2) {
-      const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
-      this.s3Client = new S3Client({
-        region: 'auto',
-        endpoint,
-        credentials: {
-          accessKeyId,
-          secretAccessKey,
-        },
-        forcePathStyle: true,
-      });
-      this.logger.log('Cloudflare R2 service initialized');
-    }
+    const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;
+    this.s3Client = new S3Client({
+      region: 'auto',
+      endpoint,
+      credentials: {
+        accessKeyId,
+        secretAccessKey,
+      },
+      forcePathStyle: true,
+    });
+    this.logger.log('Cloudflare R2 service initialized');
   }
   private getClient(): S3Client {
     if (!this.s3Client) {

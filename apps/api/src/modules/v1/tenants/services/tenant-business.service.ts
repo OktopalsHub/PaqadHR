@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
 import { StringUtility } from 'src/common/utils';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';

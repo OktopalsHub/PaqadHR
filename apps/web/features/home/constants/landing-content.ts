@@ -40,7 +40,7 @@ export const showcases = [
     description:
       'Open roles, track applicants, and schedule interviews without leaving Paqad. Your pipeline stays visible to everyone who needs it.',
     highlights: ['Job postings', 'Candidate pipeline', 'Interview tracking'],
-    mockVariant: 'recruitment' as const,
+    panel: 'recruitment' as const,
   },
   {
     eyebrow: 'Payroll',
@@ -48,7 +48,7 @@ export const showcases = [
     description:
       'Calculate salaries, review totals, export bank-ready files, and mark runs paid when money leaves your account.',
     highlights: ['Run calculator', 'Bank file export', 'Approval workflow'],
-    mockVariant: 'payroll' as const,
+    panel: 'payroll' as const,
   },
   {
     eyebrow: 'Culture',
@@ -56,6 +56,6 @@ export const showcases = [
     description:
       'Shoutouts, leave visibility, and team calendars keep people connected without another Slack bot.',
     highlights: ['Shoutout feed', 'Leave calendar', 'Team shoutouts'],
-    mockVariant: 'culture' as const,
+    panel: 'culture' as const,
   },
 ];

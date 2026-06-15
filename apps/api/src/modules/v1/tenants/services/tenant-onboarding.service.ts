@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
@@ -71,6 +71,7 @@ export class TenantOnboardingService {
     const pricingResult = await this.subscriptionsService.setTenantRegionOnboarding(
       tenant.id,
       userIpAddress,
+      data.businessCountry,
     );
     const subscription = await this.subscriptionsService.createTrialSubscription(
       pricingResult.tenant.id,

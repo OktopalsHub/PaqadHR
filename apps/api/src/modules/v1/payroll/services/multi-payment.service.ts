@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { NombaProvider } from 'src/common/providers/nomba.provider';
-import type { DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';

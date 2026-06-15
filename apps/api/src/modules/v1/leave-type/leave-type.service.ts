@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeaveTypeCreatedEvent } from '../leave/events/leave.events';
 import type { CreateLeaveTypeDto } from './dto/create-leave-type.dto';
 import type { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';

@@ -33,6 +33,11 @@ env:
   GOOGLE_CALLBACK_URL: http://localhost:9001/api/v1/auth/google/callback
   BILLING_MODE: trial
   PAYROLL_DISBURSEMENT_MODE: manual
+  CLOUDFLARE_R2_ACCOUNT_ID: ci-account-id
+  CLOUDFLARE_R2_ACCESS_KEY_ID: ci-access-key-id
+  CLOUDFLARE_R2_SECRET_ACCESS_KEY: ci-secret-access-key-min-10-chars
+  CLOUDFLARE_R2_BUCKET_NAME: ci-bucket
+  CLOUDFLARE_R2_PUBLIC_ID: ci-public-id
 
 jobs:
   lint-and-test:

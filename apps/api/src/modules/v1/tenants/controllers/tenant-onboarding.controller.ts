@@ -70,6 +70,7 @@ export class TenantOnboardingController {
       slug: dto.slug,
       industry: dto.industry,
       companySize: dto.companySize,
+      businessCountry: dto.businessCountry,
       firstName: dto.firstName,
       lastName: dto.lastName,
       preferredName: dto.preferredName,

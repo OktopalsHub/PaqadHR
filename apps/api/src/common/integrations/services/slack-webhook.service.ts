@@ -1,6 +1,6 @@
 import * as crypto from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
 import { IsNull, Not } from 'typeorm';

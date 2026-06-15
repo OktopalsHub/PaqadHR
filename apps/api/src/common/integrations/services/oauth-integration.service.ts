@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
-import type { EntityManager } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import { PlatformIntegration } from '../entities/platform-integration.entity';
 import { UserIntegrationToken } from '../entities/user-integration-token.entity';
 import type { OAuthTokenData } from '../integration.types';

@@ -9,6 +9,7 @@ import {
 import { PasswordService } from 'src/common/utils';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
+import { RateLimitService } from '../../../common/services/rate-limit.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
@@ -21,37 +22,13 @@ import { InvitationsRepository } from './repositories/invitations.repository';
 @Injectable()
 export class InvitationsService {
   private readonly logger = new Logger(InvitationsService.name);
-  private readonly failedAttempts = new Map<string, { count: number; lastAttempt: number }>();
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
     private readonly tenantMembersService: TenantMembersService,
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
+    private readonly rateLimitService: RateLimitService,
   ) {}
-  private checkRateLimit(
-    identifier: string,
-    maxAttempts: number = 5,
-    windowMs: number = 15 * 60 * 1000,
-  ): void {
-    const now = Date.now();
-    const attempts = this.failedAttempts.get(identifier) || {
-      count: 0,
-      lastAttempt: 0,
-    };
-    if (now - attempts.lastAttempt > windowMs) {
-      attempts.count = 0;
-    }
-    if (attempts.count >= maxAttempts) {
-      this.logger.warn(`Rate limit exceeded for identifier: ${identifier}`);
-      throw new InternalServerErrorException('Too many attempts. Please try again later.');
-    }
-    attempts.count++;
-    attempts.lastAttempt = now;
-    this.failedAttempts.set(identifier, attempts);
-  }
-  private clearRateLimit(identifier: string): void {
-    this.failedAttempts.delete(identifier);
-  }
   private generateInvitationToken(): string {
     const crypto = require('node:crypto');
     return crypto.randomBytes(32).toString('hex');
@@ -188,7 +165,7 @@ export class InvitationsService {
       hasPassword: !!acceptInvitationDto?.password,
       hasName: !!(acceptInvitationDto?.firstName && acceptInvitationDto?.lastName),
     });
-    this.checkRateLimitWithContext(`accept_${email}`, 5, 15 * 60 * 1000, 'accept invitation');
+    await this.checkRateLimitWithContext(`accept_${email}`, 5, 15 * 60 * 1000, 'accept invitation');
     const invitation = await this.invitationsRepository.findInvitationByToken(token);
     if (!invitation) {
       this.logger.warn(`❌ No invitation found for token: ${token}`);
@@ -264,7 +241,7 @@ export class InvitationsService {
     }
     const updatedInvitation = await this.invitationsRepository.acceptInvitation(invitation.id);
     await this.invitationsRepository.softDelete(invitation.id);
-    this.clearRateLimit(`accept_${email}`);
+    await this.rateLimitService.clearRateLimit(`accept_${email}`);
     this.logger.log(`🎉 INVITATION ACCEPTED SUCCESSFULLY:`);
     this.logger.log(`📧 Email: ${email}`);
     this.logger.log(`👤 User exists: ${userExists}`);
@@ -347,17 +324,18 @@ export class InvitationsService {
       throw new BadRequestException('Invalid email format');
     }
   }
-  private checkRateLimitWithContext(
+  private async checkRateLimitWithContext(
     key: string,
     max: number,
     windowMs: number,
     context: string,
-  ): void {
-    try {
-      this.checkRateLimit(key, max, windowMs);
-    } catch (error) {
+  ): Promise<void> {
+    const result = await this.rateLimitService.checkRateLimit(key, {
+      rules: [{ maxRequests: max, windowMs }],
+    });
+    if (!result.allowed) {
       this.logger.warn(`Rate limit exceeded for ${context}`, { key });
-      throw error;
+      throw new InternalServerErrorException('Too many attempts. Please try again later.');
     }
   }
   private validateInvitation(invitation: Invitation, email: string): void {
@@ -390,7 +368,7 @@ export class InvitationsService {
       email,
       token: `${token.substring(0, 8)}...`,
     });
-    this.checkRateLimitWithContext(
+    await this.checkRateLimitWithContext(
       `get_invitation_${email}`,
       10,
       15 * 60 * 1000,
@@ -414,7 +392,7 @@ export class InvitationsService {
     if (userExists) {
       this.logger.log(`Existing user ID: ${existingUser.id}`);
     }
-    this.clearRateLimit(`get_invitation_${email}`);
+    await this.rateLimitService.clearRateLimit(`get_invitation_${email}`);
     this.logger.log('Invitation details retrieved successfully', {
       invitationId: invitation.id,
       email,
@@ -443,7 +421,12 @@ export class InvitationsService {
       email,
       token: `${token.substring(0, 8)}...`,
     });
-    this.checkRateLimitWithContext(`decline_${email}`, 5, 15 * 60 * 1000, 'decline invitation');
+    await this.checkRateLimitWithContext(
+      `decline_${email}`,
+      5,
+      15 * 60 * 1000,
+      'decline invitation',
+    );
     const invitation = await this.invitationsRepository.findInvitationByToken(token);
     if (!invitation) {
       throw new NotFoundException('Invitation not found');
@@ -469,7 +452,7 @@ export class InvitationsService {
       });
       throw new InternalServerErrorException('Failed to process invitation decline');
     }
-    this.clearRateLimit(`decline_${email}`);
+    await this.rateLimitService.clearRateLimit(`decline_${email}`);
     this.logger.log('Invitation declined successfully', {
       invitationId: invitation.id,
       email,

@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './common/guards';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
 import { AuditModule } from './common/modules/audit.module';
+import { RateLimitModule } from './common/modules/rate-limit.module';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
 import { AssetsModule } from './modules/v1/assets/assets.module';
@@ -48,6 +49,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
   imports: [
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
+    RateLimitModule,
     AuditModule,
     AuthModule,
     UsersModule,

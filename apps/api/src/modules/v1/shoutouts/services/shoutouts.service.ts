@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import type { DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';

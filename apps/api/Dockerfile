@@ -22,8 +22,8 @@ RUN pnpm build
 FROM base AS runner
 WORKDIR /app/apps/api
 ENV NODE_ENV=production
-ENV PORT=3000
-EXPOSE 3000
+ENV PORT=9001
+EXPOSE 9001
 
 COPY --from=dependencies /app/node_modules /app/node_modules
 COPY --from=dependencies /app/apps/api/node_modules ./node_modules

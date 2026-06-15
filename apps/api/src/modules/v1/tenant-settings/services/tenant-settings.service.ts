@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
