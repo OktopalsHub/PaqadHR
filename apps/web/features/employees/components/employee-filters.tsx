@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { Input } from "@/components/ui/input";
+import { Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Search } from "lucide-react";
-import type { Department } from "@/lib/schemas/department";
-import { STATUSES } from "../constants/";
-import type { EmployeeFilters } from "../types/";
+} from '@/components/ui/select';
+import type { Department } from '@/lib/schemas/department';
+import { STATUSES } from '../constants/';
+import type { EmployeeFilters } from '../types/';
 
 interface EmployeeFiltersProps {
   filters: EmployeeFilters;
@@ -33,14 +33,14 @@ export const EmployeeFiltersComponent = ({
             placeholder="Search employees..."
             className="pl-9"
             value={filters.searchTerm}
-            onChange={(e) => onFilterChange("searchTerm", e.target.value)}
+            onChange={(e) => onFilterChange('searchTerm', e.target.value)}
           />
         </div>
       </div>
       <div>
         <Select
-          value={filters.department || "all_departments"}
-          onValueChange={(value) => onFilterChange("department", value)}
+          value={filters.department || 'all_departments'}
+          onValueChange={(value) => onFilterChange('department', value)}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Department" />
@@ -57,8 +57,8 @@ export const EmployeeFiltersComponent = ({
       </div>
       <div>
         <Select
-          value={filters.status || "all_statuses"}
-          onValueChange={(value) => onFilterChange("status", value)}
+          value={filters.status || 'all_statuses'}
+          onValueChange={(value) => onFilterChange('status', value)}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Status" />

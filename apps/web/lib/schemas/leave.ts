@@ -1,11 +1,6 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-export const leaveStatusSchema = z.enum([
-  "pending",
-  "approved",
-  "rejected",
-  "cancelled",
-]);
+export const leaveStatusSchema = z.enum(['pending', 'approved', 'rejected', 'cancelled']);
 
 export const leaveRequestSchema = z.object({
   id: z.string(),
@@ -31,10 +26,10 @@ export const leaveBalanceSchema = z.object({
 export type LeaveBalance = z.infer<typeof leaveBalanceSchema>;
 
 export const createLeaveSchema = z.object({
-  leaveTypeId: z.string().min(1, "Leave type is required"),
-  startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().min(1, "End date is required"),
-  reason: z.string().min(1, "Reason is required"),
+  leaveTypeId: z.string().min(1, 'Leave type is required'),
+  startDate: z.string().min(1, 'Start date is required'),
+  endDate: z.string().min(1, 'End date is required'),
+  reason: z.string().min(1, 'Reason is required'),
 });
 
 export type CreateLeaveInput = z.infer<typeof createLeaveSchema>;

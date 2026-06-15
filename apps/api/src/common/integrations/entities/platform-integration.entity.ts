@@ -1,9 +1,9 @@
 import { IntegrationType } from 'src/common/enums';
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
-import { PlatformUser } from './platform-user.entity';
-import { IntegrationChannel } from './integration-channel.entity';
 import { Tenant } from '../../../modules/v1/tenants/entities/tenant.entity';
 import { BaseEntity } from '../../database/entities/base.entity';
+import { IntegrationChannel } from './integration-channel.entity';
+import { PlatformUser } from './platform-user.entity';
 
 @Entity('platform_integrations')
 export class PlatformIntegration extends BaseEntity {
@@ -19,7 +19,7 @@ export class PlatformIntegration extends BaseEntity {
   @Column({ name: 'platform_team_name' })
   platformTeamName: string;
   @Column({ name: 'bot_token', type: 'text', nullable: true })
-  botToken: string; 
+  botToken: string;
   @Column({ name: 'access_token', type: 'text', nullable: true })
   accessToken: string;
   @Column({ name: 'refresh_token', type: 'text', nullable: true })
@@ -30,8 +30,14 @@ export class PlatformIntegration extends BaseEntity {
   isActive: boolean;
   @Column({ name: 'expires_at', nullable: true })
   expiresAt: Date;
-  @OneToMany(() => PlatformUser, (user) => user.integration)
+  @OneToMany(
+    () => PlatformUser,
+    (user) => user.integration,
+  )
   platformUsers: PlatformUser[];
-  @OneToMany(() => IntegrationChannel, (channel) => channel.integration)
+  @OneToMany(
+    () => IntegrationChannel,
+    (channel) => channel.integration,
+  )
   channels: IntegrationChannel[];
 }

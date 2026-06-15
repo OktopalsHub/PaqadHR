@@ -1,4 +1,4 @@
-import type { Department, DepartmentMember } from "@/lib/schemas/department";
+import type { Department, DepartmentMember } from '@/lib/schemas/department';
 
 type ApiDepartmentMember = {
   id: string;
@@ -37,12 +37,12 @@ type ApiDepartment = {
 };
 
 const DEPARTMENT_COLORS = [
-  "bg-blue-500",
-  "bg-purple-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-cyan-500",
+  'bg-blue-500',
+  'bg-purple-500',
+  'bg-emerald-500',
+  'bg-amber-500',
+  'bg-rose-500',
+  'bg-cyan-500',
 ];
 
 function initials(firstName: string, lastName: string) {
@@ -63,26 +63,20 @@ function mapMember(member: ApiDepartmentMember): DepartmentMember {
 }
 
 function mapTeamMember(member: ApiTeamMember): DepartmentMember {
-  const first = member.firstName ?? "";
-  const last = member.lastName ?? "";
-  const name = `${first} ${last}`.trim() || member.email || "Member";
+  const first = member.firstName ?? '';
+  const last = member.lastName ?? '';
+  const name = `${first} ${last}`.trim() || member.email || 'Member';
 
   return {
     id: member.id,
     name,
-    email: member.email ?? "",
+    email: member.email ?? '',
     role: member.role,
-    initials:
-      first && last
-        ? initials(first, last)
-        : name.slice(0, 2).toUpperCase(),
+    initials: first && last ? initials(first, last) : name.slice(0, 2).toUpperCase(),
   };
 }
 
-export function mapApiDepartment(
-  department: ApiDepartment,
-  index: number,
-): Department {
+export function mapApiDepartment(department: ApiDepartment, index: number): Department {
   return {
     id: department.id,
     name: department.name,

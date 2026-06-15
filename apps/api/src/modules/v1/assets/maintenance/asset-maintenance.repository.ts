@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { MaintenanceStatus } from 'src/common/enums';
 import { Between, Repository } from 'typeorm';
-import { AssetMaintenance } from "./entities/asset-maintenance.entity";
+import { AssetMaintenance } from './entities/asset-maintenance.entity';
 
 @Injectable()
 export class AssetMaintenanceRepository extends Repository<AssetMaintenance> {
@@ -10,7 +10,11 @@ export class AssetMaintenanceRepository extends Repository<AssetMaintenance> {
     @InjectRepository(AssetMaintenance)
     private readonly maintenanceRepository: Repository<AssetMaintenance>,
   ) {
-    super(maintenanceRepository.target, maintenanceRepository.manager, maintenanceRepository.queryRunner);
+    super(
+      maintenanceRepository.target,
+      maintenanceRepository.manager,
+      maintenanceRepository.queryRunner,
+    );
   }
 
   async findById(
@@ -27,7 +31,11 @@ export class AssetMaintenanceRepository extends Repository<AssetMaintenance> {
   }
 
   async findByAsset(assetId: string): Promise<AssetMaintenance[]> {
-    return this.find({ withDeleted: false, where: { assetId }, relations: ['scheduledBy', 'completedBy'] });
+    return this.find({
+      withDeleted: false,
+      where: { assetId },
+      relations: ['scheduledBy', 'completedBy'],
+    });
   }
   async findScheduledMaintenance(
     tenantId: string,
@@ -44,10 +52,7 @@ export class AssetMaintenanceRepository extends Repository<AssetMaintenance> {
       order: { maintenanceDate: 'ASC' },
     });
   }
-  async findUpcomingMaintenance(
-    tenantId: string,
-    days: number = 30,
-  ): Promise<AssetMaintenance[]> {
+  async findUpcomingMaintenance(tenantId: string, days: number = 30): Promise<AssetMaintenance[]> {
     const currentDate = new Date();
     const futureDate = new Date();
     futureDate.setDate(currentDate.getDate() + days);
@@ -80,7 +85,7 @@ export class AssetMaintenanceRepository extends Repository<AssetMaintenance> {
       .getRawOne();
     return {
       totalCost: parseFloat(result.totalCost) || 0,
-      maintenanceCount: parseInt(result.maintenanceCount) || 0,
+      maintenanceCount: parseInt(result.maintenanceCount, 10) || 0,
     };
   }
   async findOverdueMaintenance(tenantId: string): Promise<AssetMaintenance[]> {
@@ -94,15 +99,10 @@ export class AssetMaintenanceRepository extends Repository<AssetMaintenance> {
         relations: ['asset', 'scheduledBy'],
       })
       .then((maintenances) =>
-        maintenances.filter(
-          (maintenance) => maintenance.maintenanceDate < currentDate,
-        ),
+        maintenances.filter((maintenance) => maintenance.maintenanceDate < currentDate),
       );
   }
-  async findByTenant(
-    tenantId: string,
-    includeDeleted = false,
-  ): Promise<AssetMaintenance[]> {
+  async findByTenant(tenantId: string, includeDeleted = false): Promise<AssetMaintenance[]> {
     return this.maintenanceRepository.find({
       where: {
         asset: { tenantId },

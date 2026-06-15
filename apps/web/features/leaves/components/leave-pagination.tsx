@@ -6,7 +6,7 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from "@/components/ui/pagination";
+} from '@/components/ui/pagination';
 
 interface LeavePaginationProps {
   currentPage: number;
@@ -14,11 +14,7 @@ interface LeavePaginationProps {
   onPageChange: (page: number) => void;
 }
 
-export function LeavePagination({
-  currentPage,
-  totalPages,
-  onPageChange,
-}: LeavePaginationProps) {
+export function LeavePagination({ currentPage, totalPages, onPageChange }: LeavePaginationProps) {
   if (totalPages <= 1) return null;
 
   return (
@@ -27,11 +23,7 @@ export function LeavePagination({
         <PaginationItem>
           <PaginationPrevious
             onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
-            className={
-              currentPage === 1
-                ? "pointer-events-none opacity-50"
-                : "cursor-pointer"
-            }
+            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
           />
         </PaginationItem>
 
@@ -75,9 +67,7 @@ export function LeavePagination({
 
         {currentPage < totalPages - 1 && (
           <PaginationItem>
-            <PaginationLink onClick={() => onPageChange(totalPages)}>
-              {totalPages}
-            </PaginationLink>
+            <PaginationLink onClick={() => onPageChange(totalPages)}>{totalPages}</PaginationLink>
           </PaginationItem>
         )}
 
@@ -85,9 +75,7 @@ export function LeavePagination({
           <PaginationNext
             onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
             className={
-              currentPage === totalPages
-                ? "pointer-events-none opacity-50"
-                : "cursor-pointer"
+              currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'
             }
           />
         </PaginationItem>

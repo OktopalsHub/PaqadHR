@@ -1,4 +1,4 @@
-import type { CalendarEventType } from "@/lib/schemas/calendar";
+import type { CalendarEventType } from '@/lib/schemas/calendar';
 
 export type ScheduleEvent = {
   id: string;

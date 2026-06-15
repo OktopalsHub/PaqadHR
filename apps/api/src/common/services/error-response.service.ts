@@ -1,7 +1,7 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { StandardErrorResponse } from "../interfaces/standard-error-response.interface";
-import { ErrorContext } from "../interfaces/error-context.interface";
+import { HttpStatus, Injectable } from '@nestjs/common';
+import type { ErrorContext } from '../interfaces/error-context.interface';
+import type { StandardErrorResponse } from '../interfaces/standard-error-response.interface';
 
 @Injectable()
 export class ErrorResponseService {
@@ -206,9 +206,7 @@ export class ErrorResponseService {
   formatValidationMessages(messages: string[]): Record<string, string[]> {
     const errors: Record<string, string[]> = {};
     messages.forEach((msg) => {
-      const enhancedMatch = msg.match(
-        /^([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)*): (.+)$/,
-      );
+      const enhancedMatch = msg.match(/^([a-zA-Z][a-zA-Z0-9]*(?:\.[a-zA-Z][a-zA-Z0-9]*)*): (.+)$/);
       if (enhancedMatch) {
         const field = enhancedMatch[1];
         const constraint = enhancedMatch[2];
@@ -238,7 +236,7 @@ export class ErrorResponseService {
       for (const pattern of patterns) {
         const match = msg.match(pattern);
         if (match) {
-          const field = match[1].toLowerCase().replace(/\s+/g, ''); 
+          const field = match[1].toLowerCase().replace(/\s+/g, '');
           const constraint = match[2];
           if (!errors[field]) {
             errors[field] = [];
@@ -257,24 +255,18 @@ export class ErrorResponseService {
           }
           errors[field].push(msg);
         } else {
-          if (!errors['general']) {
-            errors['general'] = [];
+          if (!errors.general) {
+            errors.general = [];
           }
-          errors['general'].push(msg);
+          errors.general.push(msg);
         }
       }
     });
     return errors;
   }
-  private sanitizeMessage(
-    message: string | string[],
-    status: HttpStatus,
-  ): string | string[] {
+  private sanitizeMessage(message: string | string[], status: HttpStatus): string | string[] {
     const sanitizedMessage = this.removeSensitiveInfo(message);
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'staging'
-    ) {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
       return sanitizedMessage;
     }
     if (status >= 400 && status < 500) {
@@ -287,17 +279,14 @@ export class ErrorResponseService {
       const sanitizedMessages = {
         [HttpStatus.INTERNAL_SERVER_ERROR]:
           'An internal server error occurred. Please try again later.',
-        [HttpStatus.BAD_GATEWAY]:
-          'Service temporarily unavailable. Please try again later.',
+        [HttpStatus.BAD_GATEWAY]: 'Service temporarily unavailable. Please try again later.',
         [HttpStatus.SERVICE_UNAVAILABLE]:
           'Service temporarily unavailable. Please try again later.',
-        [HttpStatus.GATEWAY_TIMEOUT]:
-          'Request timeout. Please try again later.',
+        [HttpStatus.GATEWAY_TIMEOUT]: 'Request timeout. Please try again later.',
         [HttpStatus.NOT_IMPLEMENTED]: 'This feature is not available.',
       };
       return (
-        sanitizedMessages[status] ||
-        'An internal server error occurred. Please try again later.'
+        sanitizedMessages[status] || 'An internal server error occurred. Please try again later.'
       );
     }
     return sanitizedMessage;
@@ -311,9 +300,9 @@ export class ErrorResponseService {
   private sanitizeString(message: string): string {
     if (typeof message !== 'string') return message;
     const sensitivePatterns = [
-      /postgres:\/\/[^@]+@[^\/]+\/\w+/gi,
-      /mysql:\/\/[^@]+@[^\/]+\/\w+/gi,
-      /mongodb:\/\/[^@]+@[^\/]+\/\w+/gi,
+      /postgres:\/\/[^@]+@[^/]+\/\w+/gi,
+      /mysql:\/\/[^@]+@[^/]+\/\w+/gi,
+      /mongodb:\/\/[^@]+@[^/]+\/\w+/gi,
       /\b(?:10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|192\.168\.)\d{1,3}\.\d{1,3}\b/g,
       /at\s+[^\s]+\s+\([^)]+\)/g,
       /^\s*at\s+.*$/gm,
@@ -329,31 +318,20 @@ export class ErrorResponseService {
   }
   private getGenericClientErrorMessage(status: HttpStatus): string {
     const genericMessages = {
-      [HttpStatus.BAD_REQUEST]:
-        'Invalid request. Please check your input and try again.',
-      [HttpStatus.UNAUTHORIZED]:
-        'Authentication required. Please log in and try again.',
-      [HttpStatus.FORBIDDEN]:
-        'You do not have permission to perform this action.',
+      [HttpStatus.BAD_REQUEST]: 'Invalid request. Please check your input and try again.',
+      [HttpStatus.UNAUTHORIZED]: 'Authentication required. Please log in and try again.',
+      [HttpStatus.FORBIDDEN]: 'You do not have permission to perform this action.',
       [HttpStatus.NOT_FOUND]: 'The requested resource was not found.',
-      [HttpStatus.METHOD_NOT_ALLOWED]:
-        'This method is not allowed for this resource.',
+      [HttpStatus.METHOD_NOT_ALLOWED]: 'This method is not allowed for this resource.',
       [HttpStatus.CONFLICT]: 'A conflict occurred. Please try again.',
       [HttpStatus.UNPROCESSABLE_ENTITY]:
         'The request could not be processed. Please check your input.',
-      [HttpStatus.TOO_MANY_REQUESTS]:
-        'Too many requests. Please try again later.',
+      [HttpStatus.TOO_MANY_REQUESTS]: 'Too many requests. Please try again later.',
     };
     return genericMessages[status] || 'An error occurred. Please try again.';
   }
-  private sanitizeContext(
-    context: ErrorContext,
-    status: HttpStatus,
-  ): Record<string, any> {
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'staging'
-    ) {
+  private sanitizeContext(context: ErrorContext, status: HttpStatus): Record<string, any> {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
       return {
         ...context,
         timestamp: new Date().toISOString(),
@@ -370,10 +348,7 @@ export class ErrorResponseService {
     };
   }
   private shouldIncludeContext(status: HttpStatus): boolean {
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'staging'
-    ) {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
       return true;
     }
     return process.env.NODE_ENV === 'production' && status < 500;
@@ -382,10 +357,7 @@ export class ErrorResponseService {
     return status >= 500;
   }
   shouldIncludeDetails(status: HttpStatus): boolean {
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.NODE_ENV === 'staging'
-    ) {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
       return true;
     }
     return process.env.NODE_ENV === 'production' && status < 500;

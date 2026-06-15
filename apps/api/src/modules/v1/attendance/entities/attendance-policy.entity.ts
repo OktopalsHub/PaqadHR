@@ -1,6 +1,6 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('attendance_policies')
 export class AttendancePolicy extends BaseEntity {
@@ -24,7 +24,10 @@ export class AttendancePolicy extends BaseEntity {
   isActive: boolean;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => Tenant, (tenant) => tenant.attendancePolicies)
+  @ManyToOne(
+    () => Tenant,
+    (tenant) => tenant.attendancePolicies,
+  )
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
 }

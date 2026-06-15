@@ -1,11 +1,7 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne } from 'typeorm';
-import { Tenant } from "../../../tenants/entities/tenant.entity";
-import { Asset } from "../../entities/asset.entity";
-import { BaseEntity } from "../../../../../common/database/entities/base.entity";
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../../common/database/entities/base.entity';
+import { Tenant } from '../../../tenants/entities/tenant.entity';
+import { Asset } from '../../entities/asset.entity';
 
 @Entity({ name: 'asset_documents' })
 export class AssetDocument extends BaseEntity {
@@ -28,6 +24,10 @@ export class AssetDocument extends BaseEntity {
   metadata?: Record<string, any>;
   @Column({ name: 'asset_id' })
   assetId: string;
-  @ManyToOne(() => Asset, (asset) => asset.documents, { onDelete: 'CASCADE' })
+  @ManyToOne(
+    () => Asset,
+    (asset) => asset.documents,
+    { onDelete: 'CASCADE' },
+  )
   asset: Asset;
 }

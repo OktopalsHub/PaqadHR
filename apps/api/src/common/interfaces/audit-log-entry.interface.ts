@@ -1,4 +1,4 @@
-import { AuditEventType } from '../enums/audit-event-type.enum';
+import type { AuditEventType } from '../enums/audit-event-type.enum';
 
 export interface AuditLogEntry {
   eventType: AuditEventType;

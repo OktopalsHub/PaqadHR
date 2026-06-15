@@ -1,8 +1,8 @@
-import type { Candidate, CandidateSource, CandidateStatus } from "@/lib/schemas/recruitment";
+import type { Candidate, CandidateSource, CandidateStatus } from '@/lib/schemas/recruitment';
 
 type ApiCandidate = {
   id: string;
-  jobOpeningId?: string | null;
+  jobOpeningId: string;
   firstName: string;
   lastName: string;
   email: string;

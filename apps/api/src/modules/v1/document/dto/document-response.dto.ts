@@ -1,9 +1,8 @@
-import { Document } from '../entities/document.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { DocumentType } from '../../../../common/enums/document-type.enum';
 import { FileUrlMapper } from '../../../../common/mappers/file-url.mapper';
-import { FileUrlService } from '../../../../common/services/file-url.service';
+import type { FileUrlService } from '../../../../common/services/file-url.service';
+import type { Document } from '../entities/document.entity';
 
 export class DocumentResponseDto {
   @ApiProperty({ description: 'Document ID' })
@@ -20,8 +19,7 @@ export class DocumentResponseDto {
   fileKey: string;
   @ApiProperty({
     description: 'Document URL (constructed from fileKey)',
-    example:
-      'https://custom-domain.com/tenants/123/documents/passport_1731668445123.pdf',
+    example: 'https://custom-domain.com/tenants/123/documents/passport_1731668445123.pdf',
     required: false,
   })
   fileUrl?: string;
@@ -43,10 +41,7 @@ export class DocumentResponseDto {
   updatedAt?: string;
 }
 export class DocumentMapper {
-  static toResponse(
-    document: Document,
-    fileUrlService?: FileUrlService,
-  ): DocumentResponseDto {
+  static toResponse(document: Document, fileUrlService?: FileUrlService): DocumentResponseDto {
     const response: DocumentResponseDto = {
       id: document.id,
       name: document.name,
@@ -73,8 +68,6 @@ export class DocumentMapper {
     documents: Document[],
     fileUrlService?: FileUrlService,
   ): DocumentResponseDto[] {
-    return documents.map((document) =>
-      this.toResponse(document, fileUrlService),
-    );
+    return documents.map((document) => DocumentMapper.toResponse(document, fileUrlService));
   }
 }

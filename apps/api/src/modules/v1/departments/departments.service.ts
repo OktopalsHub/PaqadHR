@@ -1,15 +1,14 @@
-import { DepartmentMemberDto, DepartmentResponseDto } from './dto/department-response.dto';
-import { Department } from './entities/department.entity';
-import { Team } from '../teams/entities/team.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { IPaginatedData } from 'src/common/interfaces/pagination.interface';
+import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import { FindOptionsWhere } from 'typeorm';
-import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
-import { DepartmentsRepository } from "./repositories/departments.repository";
-import { DepartmentMembersRepository } from "./repositories/department-members.repository";
-import { CreateDepartmentDto } from "./dto/create-department.dto";
-import { UpdateDepartmentDto } from "./dto/update-department.dto";
+import type { FindOptionsWhere } from 'typeorm';
+import type { TenantMember } from '../tenant-members/entities/tenant-member.entity';
+import type { CreateDepartmentDto } from './dto/create-department.dto';
+import type { DepartmentMemberDto, DepartmentResponseDto } from './dto/department-response.dto';
+import type { UpdateDepartmentDto } from './dto/update-department.dto';
+import type { Department } from './entities/department.entity';
+import type { DepartmentMembersRepository } from './repositories/department-members.repository';
+import type { DepartmentsRepository } from './repositories/departments.repository';
 
 @Injectable()
 export class DepartmentsService {
@@ -124,8 +123,7 @@ export class DepartmentsService {
       take: limit,
     });
     const records = departments.map((department) => {
-      const activeMembers =
-        department.departmentMembers?.filter((dm) => dm.isActive) || [];
+      const activeMembers = department.departmentMembers?.filter((dm) => dm.isActive) || [];
       const formatMember = (
         member: TenantMember,
         role?: string,
@@ -136,15 +134,11 @@ export class DepartmentsService {
         lastName: member.lastName ?? '',
         email: member.user?.email ?? '',
         phone: member.phone ?? undefined,
-        position:
-          member.positionHistory?.find((p) => p.isCurrent)?.position?.title,
-        role: role || member.positionHistory?.find((p) => p.isCurrent)?.position
-          ?.title,
+        position: member.positionHistory?.find((p) => p.isCurrent)?.position?.title,
+        role: role || member.positionHistory?.find((p) => p.isCurrent)?.position?.title,
         isManager,
       });
-      const manager = department.manager
-        ? formatMember(department.manager, 'Manager', true)
-        : null;
+      const manager = department.manager ? formatMember(department.manager, 'Manager', true) : null;
       const members = activeMembers
         .filter((dm) => dm.memberId !== department.managerId)
         .map((dm) => formatMember(dm.member, dm.role));
@@ -194,11 +188,7 @@ export class DepartmentsService {
     if (!department) throw new NotFoundException('Department not found');
     return department;
   }
-  async createDepartment(
-    tenantId: string,
-    memberId: string,
-    dto: CreateDepartmentDto,
-  ) {
+  async createDepartment(tenantId: string, memberId: string, dto: CreateDepartmentDto) {
     const departmentData = {
       ...dto,
       tenantId,
@@ -206,12 +196,8 @@ export class DepartmentsService {
     };
     return this.departmentsRepository.create(departmentData);
   }
-  async updateDepartment(
-    tenantId: string,
-    id: string,
-    dto: UpdateDepartmentDto,
-  ) {
-    await this.departmentsRepository.update(id,  {
+  async updateDepartment(tenantId: string, id: string, dto: UpdateDepartmentDto) {
+    await this.departmentsRepository.update(id, {
       ...dto,
       tenantId,
     });
@@ -224,11 +210,7 @@ export class DepartmentsService {
     if (!department) throw new NotFoundException('Department not found');
     return this.departmentsRepository.delete(id);
   }
-  async addMemberToDepartment(
-    tenantId: string,
-    departmentId: string,
-    memberId: string,
-  ) {
+  async addMemberToDepartment(tenantId: string, departmentId: string, memberId: string) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
     });
@@ -248,11 +230,7 @@ export class DepartmentsService {
     });
     return { success: true };
   }
-  async removeMemberFromDepartment(
-    tenantId: string,
-    departmentId: string,
-    memberId: string,
-  ) {
+  async removeMemberFromDepartment(tenantId: string, departmentId: string, memberId: string) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
     });

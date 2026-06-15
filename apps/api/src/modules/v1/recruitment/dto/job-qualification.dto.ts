@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsString, ValidateNested, IsOptional } from 'class-validator';
-import { JobExperienceDto } from "./job-experience.dto";
+import { IsArray, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { JobExperienceDto } from './job-experience.dto';
 
 export class JobQualificationsDto {
   @ApiProperty({ type: [String], description: 'Educational qualifications' })

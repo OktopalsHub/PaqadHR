@@ -1,15 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
+  IsDateString,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
-  IsNumber,
-  IsDateString,
-  IsDecimal,
   ValidateNested,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { AssetType, AssetCondition } from 'src/common/enums';
+import { AssetCondition, AssetType } from 'src/common/enums';
 export class AssetLocationDto {
   @IsOptional()
   @ApiProperty({

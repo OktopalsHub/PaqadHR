@@ -1,4 +1,4 @@
 export interface ShoutoutSettings {
-    maxRecipientsPerShoutout: number;
-    enableCategories: boolean;
+  maxRecipientsPerShoutout: number;
+  enableCategories: boolean;
 }

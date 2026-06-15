@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 
@@ -6,8 +6,7 @@ let app: INestApplication;
 
 beforeAll(async () => {
   process.env.DATABASE_URL =
-    process.env.TEST_DATABASE_URL ||
-    'postgres://test:test@localhost:5432/paqadhr_test';
+    process.env.TEST_DATABASE_URL || 'postgres://test:test@localhost:5432/paqadhr_test';
 
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],

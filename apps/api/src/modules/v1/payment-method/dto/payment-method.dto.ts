@@ -38,8 +38,7 @@ export class CreatePaymentMethodDto {
   @MaxLength(255, { message: 'Display name cannot exceed 255 characters' })
   displayName?: string;
   @ApiProperty({
-    description:
-      'Bank name (max 120 characters) - Required for BANK payment method',
+    description: 'Bank name (max 120 characters) - Required for BANK payment method',
     required: true,
     example: 'Chase Bank',
   })
@@ -58,8 +57,7 @@ export class CreatePaymentMethodDto {
   @MaxLength(20, { message: 'Bank code cannot exceed 20 characters' })
   bankCode?: string;
   @ApiProperty({
-    description:
-      'Account holder name (max 160 characters) - Required for BANK payment method',
+    description: 'Account holder name (max 160 characters) - Required for BANK payment method',
     required: true,
     example: 'John Doe',
   })
@@ -82,8 +80,7 @@ export class CreatePaymentMethodDto {
   @MaxLength(17, { message: 'Account number cannot exceed 17 digits' })
   accountNumber?: string;
   @ApiProperty({
-    description:
-      'Country code (2 characters, ISO format) - Required for BANK payment method',
+    description: 'Country code (2 characters, ISO format) - Required for BANK payment method',
     required: true,
     example: 'US',
   })
@@ -158,8 +155,7 @@ export class UpdatePaymentMethodDto {
   })
   accountName?: string;
   @ApiProperty({
-    description:
-      'Bank account number (max 17 digits to support various countries)',
+    description: 'Bank account number (max 17 digits to support various countries)',
     required: false,
   })
   @IsOptional()

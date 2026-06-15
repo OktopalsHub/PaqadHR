@@ -1,10 +1,7 @@
-import type { ApiTenantMember } from "@/lib/mappers/employee";
-import {
-  mapApiEducationRecord,
-  mapApiEmergencyContact,
-} from "@/lib/mappers/employee-records";
-import type { ApiEducation } from "@/lib/api/education";
-import type { ApiEmergencyContact } from "@/lib/api/emergency-contacts";
+import type { ApiEducation } from '@/lib/api/education';
+import type { ApiEmergencyContact } from '@/lib/api/emergency-contacts';
+import type { ApiTenantMember } from '@/lib/mappers/employee';
+import { mapApiEducationRecord, mapApiEmergencyContact } from '@/lib/mappers/employee-records';
 
 export type EmployeeDetailState = ReturnType<typeof createEmployeeDetailState>;
 
@@ -18,69 +15,65 @@ export function createEmployeeDetailState(
   records: EmployeeRecordSeed = {},
 ) {
   const name =
-    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+    [member.firstName, member.lastName].filter(Boolean).join(' ') ||
     member.preferredName ||
-    "Unknown";
+    'Unknown';
 
-  const hireDate = member.joinDate
-    ? new Date(member.joinDate).toISOString().slice(0, 10)
-    : "";
+  const hireDate = member.joinDate ? new Date(member.joinDate).toISOString().slice(0, 10) : '';
 
   const dateOfBirth = member.dateOfBirth
     ? new Date(member.dateOfBirth).toISOString().slice(0, 10)
-    : "";
+    : '';
 
   return {
     id: member.id,
     firstName: member.firstName,
     lastName: member.lastName,
     name,
-    preferredName: member.preferredName ?? "",
-    position: member.position?.title ?? "Team Member",
-    department: member.department?.name ?? "Unassigned",
+    preferredName: member.preferredName ?? '',
+    position: member.position?.title ?? 'Team Member',
+    department: member.department?.name ?? 'Unassigned',
     email: member.user.email,
-    phone: member.phone ?? "",
+    phone: member.phone ?? '',
     dateOfBirth,
     hireDate,
-    status: member.isActive ? ("Active" as const) : ("Inactive" as const),
-    manager: "",
-    profileImage: member.avatarUrl ?? "",
-    gender: member.gender ?? "",
+    status: member.isActive ? ('Active' as const) : ('Inactive' as const),
+    manager: '',
+    profileImage: member.avatarUrl ?? '',
+    gender: member.gender ?? '',
     address: {
-      street: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      country: "",
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: '',
     },
-    emergencyContacts: (records.emergencyContacts ?? []).map(
-      mapApiEmergencyContact,
-    ),
+    emergencyContacts: (records.emergencyContacts ?? []).map(mapApiEmergencyContact),
     personalInfo: {
-      gender: member.gender ?? "",
-      maritalStatus: "",
-      nationality: "",
-      bloodGroup: "",
+      gender: member.gender ?? '',
+      maritalStatus: '',
+      nationality: '',
+      bloodGroup: '',
     },
     employment: {
       employeeId: member.employeeNumber ?? member.id,
-      employeeType: "",
-      division: "",
-      team: "",
-      workLocation: "",
+      employeeType: '',
+      division: '',
+      team: '',
+      workLocation: '',
       joinDate: hireDate,
-      reportingTo: "",
-      payGrade: "",
-      workSchedule: "",
+      reportingTo: '',
+      payGrade: '',
+      workSchedule: '',
     },
     compensation: {
-      salary: "",
-      payFrequency: "",
-      bonusPlan: "",
+      salary: '',
+      payFrequency: '',
+      bonusPlan: '',
       lastIncrement: {
-        date: "",
-        percentage: "",
-        amount: "",
+        date: '',
+        percentage: '',
+        amount: '',
       },
       benefits: [] as string[],
     },

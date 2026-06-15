@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNumber, IsString, IsBoolean } from 'class-validator';
+import { IsBoolean, IsNumber, IsString } from 'class-validator';
 export class JobSalaryDto {
   @ApiProperty({ description: 'Minimum salary' })
   @IsNumber()

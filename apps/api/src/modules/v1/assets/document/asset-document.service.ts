@@ -1,12 +1,11 @@
-import { Asset } from '../entities/asset.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { FileService } from 'src/common/services/file.service';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
-import { AssetDocument } from "./entities/asset-document.entity";
-import { CreateAssetDocumentDto } from "./dto/create-asset-document.dto";
-import { UpdateAssetDocumentDto } from "./dto/update-asset-document.dto";
+import type { FileService } from 'src/common/services/file.service';
+import type { Repository } from 'typeorm';
+import type { CreateAssetDocumentDto } from './dto/create-asset-document.dto';
+import type { UpdateAssetDocumentDto } from './dto/update-asset-document.dto';
+import { AssetDocument } from './entities/asset-document.entity';
 
 @Injectable()
 export class AssetDocumentService {
@@ -15,10 +14,7 @@ export class AssetDocumentService {
     private readonly assetDocumentRepository: Repository<AssetDocument>,
     private readonly fileService: FileService,
   ) {}
-  async createAssetDocument(
-    tenantId: string,
-    createAssetDocumentDto: CreateAssetDocumentDto,
-  ) {
+  async createAssetDocument(tenantId: string, createAssetDocumentDto: CreateAssetDocumentDto) {
     const assetDocument = this.assetDocumentRepository.create({
       ...createAssetDocumentDto,
       tenantId,
@@ -40,10 +36,7 @@ export class AssetDocumentService {
     id: string,
     updateAssetDocumentDto: UpdateAssetDocumentDto,
   ) {
-    return this.assetDocumentRepository.update(
-      { id, tenantId },
-      updateAssetDocumentDto,
-    );
+    return this.assetDocumentRepository.update({ id, tenantId }, updateAssetDocumentDto);
   }
   deleteAssetDocument(tenantId: string, id: string) {
     return this.assetDocumentRepository.delete({ id, tenantId });
@@ -57,8 +50,8 @@ export class AssetDocumentService {
       tenantId,
       FileUploadLocation.ASSETS,
       document.imageKey,
-      undefined, 
-      document.documentName, 
+      undefined,
+      document.documentName,
     );
   }
 }

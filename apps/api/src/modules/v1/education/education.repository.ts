@@ -1,16 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
-import { Education } from "./entities/education.entity";
-import { CreateEducationDto } from "./dto/create-education.dto";
-import { UpdateEducationDto } from "./dto/update-education.dto";
-import { IEducationRepository } from "../../../common/interfaces/ieducation-repository.interface";
+import { type FindOptionsWhere, Repository } from 'typeorm';
+import type { IEducationRepository } from '../../../common/interfaces/ieducation-repository.interface';
+import type { CreateEducationDto } from './dto/create-education.dto';
+import type { UpdateEducationDto } from './dto/update-education.dto';
+import { Education } from './entities/education.entity';
 
 @Injectable()
-export class EducationRepository
-  extends Repository<Education>
-  implements IEducationRepository
-{
+export class EducationRepository extends Repository<Education> implements IEducationRepository {
   constructor(
     @InjectRepository(Education)
     repository: Repository<Education>,
@@ -29,20 +26,14 @@ export class EducationRepository
     };
     return this.create(educationData);
   }
-  async listEducations(
-    tenantId: string,
-    tenantMemberId?: string,
-  ): Promise<Education[]> {
+  async listEducations(tenantId: string, tenantMemberId?: string): Promise<Education[]> {
     const where: FindOptionsWhere<Education> = { tenantId };
     if (tenantMemberId) {
       where.tenantMemberId = tenantMemberId;
     }
     return this.find({ withDeleted: false, where: where });
   }
-  async getEducation(
-    id: string,
-    tenantId: string,
-  ): Promise<Education | null> {
+  async getEducation(id: string, tenantId: string): Promise<Education | null> {
     const education = await this.findOne({
       where: { id, tenantId } as FindOptionsWhere<Education>,
       withDeleted: false,

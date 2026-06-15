@@ -1,3 +1,3 @@
 export interface AttendanceSettings {
-    weekends: number[];
+  weekends: number[];
 }

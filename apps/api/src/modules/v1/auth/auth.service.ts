@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
@@ -5,29 +6,20 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import type { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { randomUUID } from 'node:crypto';
 import { ENVIRONMENT } from 'src/common/config/env.config';
-import {
-  AuditAction,
-  AuditSeverity,
-  AuditStatus,
-} from 'src/common/enums/audit-action.enum';
-import { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
-import {
-  GeoLocationHelper,
-  PasswordService,
-  StringUtility,
-} from 'src/common/utils';
 import { UserRole } from 'src/common/enums';
-import { Repository } from 'typeorm';
-import { InvitationsService } from '../invitations/invitations.service';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { TenantsService } from '../tenants/tenants.service';
-import { UserRepository } from '../users/repositories/users.repository';
-import { AuditLogsService } from '../../../common/services/audit-logs.service';
-import { User } from '../users/entities/user.entity';
+import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
+import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
+import { GeoLocationHelper, PasswordService, StringUtility } from 'src/common/utils';
+import type { Repository } from 'typeorm';
+import type { AuditLogsService } from '../../../common/services/audit-logs.service';
+import type { InvitationsService } from '../invitations/invitations.service';
+import type { TenantMembersService } from '../tenant-members/tenant-members.service';
+import type { TenantsService } from '../tenants/tenants.service';
+import type { User } from '../users/entities/user.entity';
+import type { UserRepository } from '../users/repositories/users.repository';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
@@ -73,10 +65,7 @@ export class AuthService {
     });
     const hashedPassword = account?.password ?? user.password;
 
-    if (
-      !hashedPassword ||
-      !(await PasswordService.verifyPassword(hashedPassword, password))
-    ) {
+    if (!hashedPassword || !(await PasswordService.verifyPassword(hashedPassword, password))) {
       await this.enqueueLoginFailed(auditContext, email, 'invalid_credentials');
       throw new UnauthorizedException('Email or password not correct');
     }
@@ -227,22 +216,17 @@ export class AuthService {
       let invitation: IInvitationResponseDto | { error: string } | null = null;
       if (inviteToken) {
         try {
-          const invitationResult =
-            await this.invitationsService.acceptInvitation(
-              inviteToken,
-              user.email,
-              { password },
-            );
+          const invitationResult = await this.invitationsService.acceptInvitation(
+            inviteToken,
+            user.email,
+            { password },
+          );
           invitation = invitationResult.invitation;
           if (!invitationResult.userExists && invitation) {
-            await this.tenantMembersService.createTenantMember(
-              user.id,
-              invitation.tenantId,
-              {
-                firstName: invitation.firstName,
-                lastName: invitation.lastName,
-              },
-            );
+            await this.tenantMembersService.createTenantMember(user.id, invitation.tenantId, {
+              firstName: invitation.firstName,
+              lastName: invitation.lastName,
+            });
           }
         } catch (error) {
           if (error.name === 'NotFoundException') {
@@ -250,7 +234,7 @@ export class AuthService {
           } else {
             this.logger.error(
               'Error processing invitation during registration',
-              error && error.stack ? error.stack : error,
+              error?.stack ? error.stack : error,
             );
           }
         }
@@ -259,11 +243,10 @@ export class AuthService {
         try {
           const tenant = await this.tenantsService.getTenantBySlug(subdomain);
           if (tenant) {
-            await this.tenantMembersService.createTenantMember(
-              user.id,
-              tenant.id,
-              { firstName: '', lastName: '' },
-            );
+            await this.tenantMembersService.createTenantMember(user.id, tenant.id, {
+              firstName: '',
+              lastName: '',
+            });
           }
         } catch (error) {
           this.logger.error('Error adding user to tenant by subdomain:', error);
@@ -275,17 +258,11 @@ export class AuthService {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      throw new UnprocessableEntityException(
-        'Registration failed. Please try again.',
-      );
+      throw new UnprocessableEntityException('Registration failed. Please try again.');
     }
   }
 
-  async findOrCreateGoogleUser(
-    googleId: string,
-    email: string,
-    ip?: string,
-  ): Promise<User> {
+  async findOrCreateGoogleUser(googleId: string, email: string, ip?: string): Promise<User> {
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
 
     const existingAccount = await this.accountRepository.findOne({
@@ -298,9 +275,7 @@ export class AuthService {
 
     const existingUser = await this.userRepository.findUserByEmail(normalizedEmail);
     if (existingUser) {
-      throw new UnauthorizedException(
-        'Email already exists with another account',
-      );
+      throw new UnauthorizedException('Email already exists with another account');
     }
 
     const countryCode = await GeoLocationHelper.getCountryCode(ip ?? '');

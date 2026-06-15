@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { PaqadLogo } from "@/components/paqad-logo";
+import Link from 'next/link';
+import { PaqadLogo } from '@/components/paqad-logo';
 
 export const LandingFooter = () => {
   return (
@@ -20,9 +20,7 @@ export const LandingFooter = () => {
             Terms
           </a>
         </div>
-        <p className="text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Paqad
-        </p>
+        <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Paqad</p>
       </div>
     </footer>
   );

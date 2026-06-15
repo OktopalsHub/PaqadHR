@@ -1,23 +1,23 @@
-import { apiClient, tenantPath } from "@/lib/api/client";
-import { fetchLeaves } from "@/lib/api/leaves";
-import { fetchUpcomingInterviews } from "@/lib/api/interviews";
-import { resolveTenantId } from "@/lib/api/tenants";
-import type { CalendarEvent, CalendarEventType } from "@/lib/schemas/calendar";
-import type { Interview } from "@/lib/api/interviews";
+import { apiClient, tenantPath } from '@/lib/api/client';
+import type { Interview } from '@/lib/api/interviews';
+import { fetchUpcomingInterviews } from '@/lib/api/interviews';
+import { fetchLeaves } from '@/lib/api/leaves';
+import { resolveTenantId } from '@/lib/api/tenants';
+import type { CalendarEvent, CalendarEventType } from '@/lib/schemas/calendar';
 
 type ApiCelebration = {
   id: string;
   firstName: string;
   lastName: string;
   preferredName?: string;
-  type: "birthday" | "anniversary";
+  type: 'birthday' | 'anniversary';
   date: string;
 };
 
 type Celebration = {
   id: string;
   memberName: string;
-  type: "birthday" | "anniversary";
+  type: 'birthday' | 'anniversary';
   date: string;
 };
 
@@ -30,11 +30,11 @@ type Holiday = {
 function mapCelebration(item: ApiCelebration): Celebration {
   const memberName =
     item.preferredName?.trim() ||
-    [item.firstName, item.lastName].filter(Boolean).join(" ") ||
-    "Team member";
+    [item.firstName, item.lastName].filter(Boolean).join(' ') ||
+    'Team member';
 
   const date =
-    typeof item.date === "string"
+    typeof item.date === 'string'
       ? item.date.slice(0, 10)
       : new Date(item.date).toISOString().slice(0, 10);
 
@@ -57,7 +57,7 @@ function leaveToEvent(leave: {
     id: `leave-${leave.id}`,
     title: `${leave.employee} — ${leave.type}`,
     date: leave.startDate,
-    type: "leave",
+    type: 'leave',
     description: leave.reason,
   };
 }
@@ -65,39 +65,35 @@ function leaveToEvent(leave: {
 function celebrationToEvent(item: Celebration): CalendarEvent {
   return {
     id: `celebration-${item.id}`,
-    title: `${item.memberName} — ${item.type === "birthday" ? "Birthday" : "Work Anniversary"}`,
+    title: `${item.memberName} — ${item.type === 'birthday' ? 'Birthday' : 'Work Anniversary'}`,
     date: item.date,
-    type: "celebration",
+    type: 'celebration',
   };
 }
 
 function interviewEventType(type: string): CalendarEventType {
   const normalized = type.toLowerCase();
-  if (normalized.includes("technical") || normalized.includes("review")) {
-    return "review";
+  if (normalized.includes('technical') || normalized.includes('review')) {
+    return 'review';
   }
-  return "meeting";
+  return 'meeting';
 }
 
 function formatInterviewTime(dateStr: string) {
   const date = new Date(dateStr);
   if (Number.isNaN(date.getTime())) return undefined;
   return date.toLocaleTimeString(undefined, {
-    hour: "numeric",
-    minute: "2-digit",
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
 function interviewToEvent(interview: Interview): CalendarEvent {
   const candidateName = interview.candidate
-    ? [interview.candidate.firstName, interview.candidate.lastName]
-        .filter(Boolean)
-        .join(" ")
-    : "";
-  const roleTitle = interview.jobOpening?.title ?? "Interview";
-  const title = candidateName
-    ? `${candidateName} — ${roleTitle}`
-    : roleTitle;
+    ? [interview.candidate.firstName, interview.candidate.lastName].filter(Boolean).join(' ')
+    : '';
+  const roleTitle = interview.jobOpening?.title ?? 'Interview';
+  const title = candidateName ? `${candidateName} — ${roleTitle}` : roleTitle;
 
   return {
     id: `interview-${interview.id}`,
@@ -110,14 +106,13 @@ function interviewToEvent(interview: Interview): CalendarEvent {
 }
 
 function holidayToEvent(holiday: Holiday): CalendarEvent {
-  const date =
-    holiday.date.length > 10 ? holiday.date.slice(0, 10) : holiday.date;
+  const date = holiday.date.length > 10 ? holiday.date.slice(0, 10) : holiday.date;
 
   return {
     id: `holiday-${holiday.id}`,
     title: holiday.name,
     date,
-    type: "holiday",
+    type: 'holiday',
   };
 }
 
@@ -140,9 +135,7 @@ export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
 
   const [leaves, celebrations, interviews, holidays] = await Promise.all([
     fetchLeaves().catch(() => []),
-    apiClient<ApiCelebration[]>(tenantPath(tenantId, "celebrations")).catch(
-      () => [],
-    ),
+    apiClient<ApiCelebration[]>(tenantPath(tenantId, 'celebrations')).catch(() => []),
     fetchUpcomingInterviews(90).catch(() => []),
     fetchHolidayEvents(),
   ]);

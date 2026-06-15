@@ -1,14 +1,8 @@
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany } from 'typeorm';
-import { TenantMember } from "../../../tenant-members/entities/tenant-member.entity";
-import { Tenant } from "../../../tenants/entities/tenant.entity";
-import { Asset } from "../../entities/asset.entity";
-import { BaseEntity } from "../../../../../common/database/entities/base.entity";
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../../common/database/entities/base.entity';
+import { TenantMember } from '../../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../../tenants/entities/tenant.entity';
+import { Asset } from '../../entities/asset.entity';
 
 @Entity({ name: 'asset_categories' })
 export class AssetCategory extends BaseEntity {
@@ -40,7 +34,10 @@ export class AssetCategory extends BaseEntity {
   maintenanceDescription?: string;
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
-  @OneToMany(() => Asset, (asset) => asset.category)
+  @OneToMany(
+    () => Asset,
+    (asset) => asset.category,
+  )
   assets: Asset[];
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

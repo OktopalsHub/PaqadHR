@@ -1,14 +1,8 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { NotificationPreferenceType } from "../../../../common/enums/notification-preference-type.enum";
-import { NotificationChannel } from "../../../../common/enums/notification-channel.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
 @Entity('notification_preferences')
 @Index(['tenantMemberId', 'notificationType'], { unique: true })

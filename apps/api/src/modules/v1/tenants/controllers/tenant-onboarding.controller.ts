@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public } from 'src/common/decorators';
+import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
-import { IAuthenticatedUserRequest } from 'src/common/interfaces';
-import { TenantOnboardingService } from '../services/tenant-onboarding.service';
-import { OnboardingData } from "../../../../common/interfaces/onboarding-data.interface";
-import { CompleteOnboardingDto } from '../dto/complete-onboarding.dto';
+import type { OnboardingData } from '../../../../common/interfaces/onboarding-data.interface';
+import type { CompleteOnboardingDto } from '../dto/complete-onboarding.dto';
+import type { TenantOnboardingService } from '../services/tenant-onboarding.service';
 
 @ApiTags('Tenant Onboarding')
 @Controller('onboarding')
@@ -77,10 +77,7 @@ export class TenantOnboardingController {
       planSlug: dto.planSlug,
       createdBy: req.auth.principalId,
     };
-    return this.onboardingService.completeTenantOnboarding(
-      onboardingData,
-      clientIp,
-    );
+    return this.onboardingService.completeTenantOnboarding(onboardingData, clientIp);
   }
   @Get('tenant/:tenantId/pricing-info')
   @ApiOperation({
@@ -107,10 +104,6 @@ export class TenantOnboardingController {
     return this.onboardingService.canChangePricingRegion(tenantId);
   }
   private getClientIP(req: IAuthenticatedUserRequest): string {
-    return GeoLocationHelper.resolveClientIp(
-      req.headers,
-      req.socket?.remoteAddress,
-      req.ip,
-    );
+    return GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, req.ip);
   }
 }

@@ -1,4 +1,4 @@
 export enum CelebrationType {
-    BIRTHDAY = 'birthday',
-    ANNIVERSARY = 'anniversary'
+  BIRTHDAY = 'birthday',
+  ANNIVERSARY = 'anniversary',
 }

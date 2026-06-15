@@ -10,7 +10,11 @@ export class InvitationsRepository extends Repository<Invitation> {
     @InjectRepository(Invitation)
     private readonly invitationRepository: Repository<Invitation>,
   ) {
-    super(invitationRepository.target, invitationRepository.manager, invitationRepository.queryRunner);
+    super(
+      invitationRepository.target,
+      invitationRepository.manager,
+      invitationRepository.queryRunner,
+    );
   }
 
   async listInvitations(status?: string): Promise<Invitation[]> {
@@ -28,10 +32,7 @@ export class InvitationsRepository extends Repository<Invitation> {
     });
   }
 
-  async findInvitationByTenant(
-    id: string,
-    tenantId: string,
-  ): Promise<Invitation | null> {
+  async findInvitationByTenant(id: string, tenantId: string): Promise<Invitation | null> {
     return this.findOne({
       where: { id, tenantId },
       relations: ['department', 'position'],
@@ -39,7 +40,11 @@ export class InvitationsRepository extends Repository<Invitation> {
   }
 
   async findInvitationByEmail(email: string): Promise<Invitation[]> {
-    return this.find({ withDeleted: false, where: { email }, relations: ['department', 'position'] });
+    return this.find({
+      withDeleted: false,
+      where: { email },
+      relations: ['department', 'position'],
+    });
   }
 
   async findInvitationByToken(token: string): Promise<Invitation | null> {
@@ -49,10 +54,7 @@ export class InvitationsRepository extends Repository<Invitation> {
     });
   }
 
-  async listInvitationsByTenant(
-    tenantId: string,
-    status?: string,
-  ): Promise<Invitation[]> {
+  async listInvitationsByTenant(tenantId: string, status?: string): Promise<Invitation[]> {
     const where: Record<string, unknown> = { tenantId };
     if (status) {
       where.status = status as InvitationStatus;
@@ -65,16 +67,16 @@ export class InvitationsRepository extends Repository<Invitation> {
   }
 
   async findPendingInvitationByEmail(email: string): Promise<Invitation[]> {
-    return this.find({ withDeleted: false, where: {
-              email,
-              status: InvitationStatus.PENDING,
-            } });
+    return this.find({
+      withDeleted: false,
+      where: {
+        email,
+        status: InvitationStatus.PENDING,
+      },
+    });
   }
 
-  async updateInvitation(
-    id: string,
-    updateData: Partial<Invitation>,
-  ): Promise<Invitation> {
+  async updateInvitation(id: string, updateData: Partial<Invitation>): Promise<Invitation> {
     const result = await this.update(
       id,
       updateData as Parameters<Repository<Invitation>['update']>[1],

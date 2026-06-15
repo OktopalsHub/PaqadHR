@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class TenantCounters1781241216981 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -18,7 +18,9 @@ export class TenantCounters1781241216981 implements MigrationInterface {
       );
     `);
 
-    await queryRunner.query(`CREATE INDEX idx_tenant_counters_lookup ON tenant_counters(tenant_id, counter_type);`);
+    await queryRunner.query(
+      `CREATE INDEX idx_tenant_counters_lookup ON tenant_counters(tenant_id, counter_type);`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

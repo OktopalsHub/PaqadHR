@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import { Send, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Send, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import type { ShoutoutCategory } from "@/lib/schemas/shoutout";
-import type { MemberPointsBalance } from "@/lib/schemas/member-points";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import type { MemberPointsBalance } from '@/lib/schemas/member-points';
+import type { ShoutoutCategory } from '@/lib/schemas/shoutout';
+import { cn } from '@/lib/utils';
 
 type EmployeeOption = { id: string; name: string };
 
@@ -55,16 +55,14 @@ export function ShoutoutComposer({
   const allowance = points?.remainingAllowance;
 
   return (
-    <div className={cn("culture-panel rounded-xl p-4", className)}>
+    <div className={cn('culture-panel rounded-xl p-4', className)}>
       <div className="flex items-center gap-2">
         <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
           <Sparkles className="size-4" />
         </div>
         <div>
           <h3 className="text-sm font-semibold">Give recognition</h3>
-          <p className="text-xs text-muted-foreground">
-            Celebrate someone who made a difference
-          </p>
+          <p className="text-xs text-muted-foreground">Celebrate someone who made a difference</p>
         </div>
       </div>
 
@@ -77,9 +75,7 @@ export function ShoutoutComposer({
             <p className="text-[11px] text-muted-foreground">Points to give</p>
           </div>
           <div>
-            <p className="text-lg font-semibold tabular-nums">
-              {points.monthlyGiven}
-            </p>
+            <p className="text-lg font-semibold tabular-nums">{points.monthlyGiven}</p>
             <p className="text-[11px] text-muted-foreground">Given this month</p>
           </div>
         </div>
@@ -116,10 +112,10 @@ export function ShoutoutComposer({
                   <Badge
                     variant="outline"
                     className={cn(
-                      "cursor-pointer px-2.5 py-0.5 text-xs transition-colors",
+                      'cursor-pointer px-2.5 py-0.5 text-xs transition-colors',
                       categoryId === category.id
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "hover:bg-muted",
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'hover:bg-muted',
                     )}
                   >
                     {category.name}
@@ -155,11 +151,7 @@ export function ShoutoutComposer({
           />
         </div>
 
-        <Button
-          className="w-full"
-          disabled={isSubmitting}
-          onClick={onSubmit}
-        >
+        <Button className="w-full" disabled={isSubmitting} onClick={onSubmit}>
           <Send className="mr-2 size-4" />
           Send shoutout
         </Button>

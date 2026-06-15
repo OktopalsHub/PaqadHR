@@ -7,14 +7,16 @@
   },
   "scripts": {
     "build": "turbo build",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
     "dev": "turbo dev",
-    "lint": "turbo lint",
+    "format": "biome check --write .",
+    "lint": "biome check .",
     "start": "turbo start",
-    "test": "turbo test",
-    "format": "turbo format",
-    "format:check": "pnpm --filter api format:check && pnpm --filter web format:check"
+    "test": "turbo test"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.5.0",
     "turbo": "^2.9.16"
   },
   "pnpm": {

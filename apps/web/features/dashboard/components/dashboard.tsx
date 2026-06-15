@@ -1,54 +1,59 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
-import { ArrowUpRight, Briefcase, CalendarClock, Users } from "lucide-react";
-import { AppPage } from "@/components/app-page";
-import { ContentCard } from "@/components/content-card";
-import { LoadingBlock } from "@/components/loading-block";
-import { PageActions } from "@/components/page-actions";
-import { StatCard } from "@/components/stat-card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useEmployees } from "@/hooks/queries/use-employees";
-import { useLeaves } from "@/hooks/queries/use-leaves";
-import { useJobOpenings } from "@/hooks/queries/use-recruitment";
-import { formatDate } from "@/lib/format-date";
-import { useAuth } from "@/hooks/use-auth";
-import {
-  memberPreferredOrFirstName,
-  useMemberProfile,
-} from "@/hooks/queries/use-member-profile";
-import type { JobOpening } from "@/lib/schemas/recruitment";
-import { RecruitmentVacancyGrid } from "@/features/recruitment/components/dashboard/recruitment-vacancy-grid";
-import { RecruitmentScheduleWidget } from "@/features/recruitment/components/dashboard/recruitment-schedule-widget";
-import { RecruitmentApplicantsTable } from "@/features/recruitment/components/dashboard/recruitment-applicants-table";
-import { RecruitmentActivityFeed } from "@/features/recruitment/components/dashboard/recruitment-activity-feed";
-import { JobDetailSheet } from "@/features/recruitment/components/job-detail-sheet";
-import { useRecruitmentOverview } from "@/features/recruitment/hooks/use-recruitment-overview";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
+import { ArrowUpRight, Briefcase, CalendarClock, Users } from 'lucide-react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { AppPage } from '@/components/app-page';
+import { ContentCard } from '@/components/content-card';
+import { LoadingBlock } from '@/components/loading-block';
+import { PageActions } from '@/components/page-actions';
+import { StatCard } from '@/components/stat-card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { RecruitmentActivityFeed } from '@/features/recruitment/components/dashboard/recruitment-activity-feed';
+import { RecruitmentApplicantsTable } from '@/features/recruitment/components/dashboard/recruitment-applicants-table';
+import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
+import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
+import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
+import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
+import { useEmployees } from '@/hooks/queries/use-employees';
+import { useLeaves } from '@/hooks/queries/use-leaves';
+import { memberPreferredOrFirstName, useMemberProfile } from '@/hooks/queries/use-member-profile';
+import { useJobOpenings } from '@/hooks/queries/use-recruitment';
+import { useAuth } from '@/hooks/use-auth';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { formatDate } from '@/lib/format-date';
+import type { JobOpening } from '@/lib/schemas/recruitment';
 
 function leaveStatusVariant(status: string) {
   switch (status.toLowerCase()) {
-    case "approved":
-      return "default";
-    case "pending":
-      return "secondary";
-    case "rejected":
-      return "destructive";
+    case 'approved':
+      return 'default';
+    case 'pending':
+      return 'secondary';
+    case 'rejected':
+      return 'destructive';
     default:
-      return "outline";
+      return 'outline';
   }
 }
 
 export const Dashboard = () => {
   const { user } = useAuth();
   const { data: profile } = useMemberProfile();
-  const { data: employees = [], isLoading: employeesLoading, isError: employeesError } = useEmployees();
+  const {
+    data: employees = [],
+    isLoading: employeesLoading,
+    isError: employeesError,
+  } = useEmployees();
   const { data: leaves = [], isLoading: leavesLoading, isError: leavesError } = useLeaves();
   const { data: jobsData, isLoading: jobsLoading, isError: jobsError } = useJobOpenings();
-  const { overview, isLoading: overviewLoading, jobsError: overviewError } = useRecruitmentOverview();
+  const {
+    overview,
+    isLoading: overviewLoading,
+    jobsError: overviewError,
+  } = useRecruitmentOverview();
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
@@ -56,15 +61,10 @@ export const Dashboard = () => {
   const hasError = employeesError || leavesError || jobsError || overviewError;
 
   const jobs = jobsData?.jobs ?? [];
-  const openRoles = jobs.filter((job) => job.status === "ACTIVE").length;
-  const pendingLeaves = leaves.filter(
-    (leave) => leave.status?.toLowerCase() === "pending",
-  ).length;
+  const openRoles = jobs.filter((job) => job.status === 'ACTIVE').length;
+  const pendingLeaves = leaves.filter((leave) => leave.status?.toLowerCase() === 'pending').length;
   const recentLeaves = [...leaves]
-    .sort(
-      (a, b) =>
-        new Date(b.startDate).getTime() - new Date(a.startDate).getTime(),
-    )
+    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
     .slice(0, 6);
 
   const dashboardTitle = useMemo(
@@ -72,15 +72,14 @@ export const Dashboard = () => {
     [profile, user?.name],
   );
 
-  const departmentCount = new Set(
-    employees.map((employee) => employee.department).filter(Boolean),
-  ).size;
+  const departmentCount = new Set(employees.map((employee) => employee.department).filter(Boolean))
+    .size;
 
   const pipelineStages = [
-    { label: "Active", count: jobs.filter((job) => job.status === "ACTIVE").length },
-    { label: "Draft", count: jobs.filter((job) => job.status === "DRAFT").length },
-    { label: "Closed", count: jobs.filter((job) => job.status === "CLOSED").length },
-    { label: "Archived", count: jobs.filter((job) => job.status === "ARCHIVED").length },
+    { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
+    { label: 'Draft', count: jobs.filter((job) => job.status === 'DRAFT').length },
+    { label: 'Closed', count: jobs.filter((job) => job.status === 'CLOSED').length },
+    { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
   ];
   const pipelineMax = Math.max(1, ...pipelineStages.map((stage) => stage.count));
 
@@ -102,8 +101,7 @@ export const Dashboard = () => {
         <Alert variant="destructive">
           <AlertTitle>Unable to load dashboard</AlertTitle>
           <AlertDescription>
-            Some workspace data could not be loaded. Refresh the page or try
-            again shortly.
+            Some workspace data could not be loaded. Refresh the page or try again shortly.
           </AlertDescription>
         </Alert>
       </AppPage>
@@ -114,24 +112,17 @@ export const Dashboard = () => {
     <AppPage className="space-y-5">
       <PageActions>
         <Button asChild size="sm" className="h-8 rounded-lg text-xs">
-          <Link href={tenantHref("recruitment")}>
+          <Link href={tenantHref('recruitment')}>
             View recruitment
             <ArrowUpRight className="ml-1.5 size-3.5" />
           </Link>
         </Button>
       </PageActions>
 
-      <p className="text-sm text-muted-foreground">
-        Welcome back, {dashboardTitle}.
-      </p>
+      <p className="text-sm text-muted-foreground">Welcome back, {dashboardTitle}.</p>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Headcount"
-          value={employees.length}
-          hint="Active employees"
-          icon={Users}
-        />
+        <StatCard label="Headcount" value={employees.length} hint="Active employees" icon={Users} />
         <StatCard
           label="Open roles"
           value={openRoles}
@@ -146,7 +137,7 @@ export const Dashboard = () => {
         />
         <StatCard
           label="Departments"
-          value={departmentCount || "—"}
+          value={departmentCount || '—'}
           hint="With assigned members"
           icon={Users}
           iconClassName="bg-chart-2/15 text-chart-2"
@@ -159,7 +150,7 @@ export const Dashboard = () => {
           title="Recent leave requests"
           action={
             <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-              <Link href={tenantHref("leaves")}>View all</Link>
+              <Link href={tenantHref('leaves')}>View all</Link>
             </Button>
           }
           bodyClassName="p-0"
@@ -176,16 +167,13 @@ export const Dashboard = () => {
                   className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {leave.employee}
-                    </p>
+                    <p className="truncate text-sm font-medium">{leave.employee}</p>
                     <p className="text-xs text-muted-foreground">
-                      {leave.type} · {formatDate(leave.startDate)} –{" "}
-                      {formatDate(leave.endDate)}
+                      {leave.type} · {formatDate(leave.startDate)} – {formatDate(leave.endDate)}
                     </p>
                   </div>
-                  <Badge variant={leaveStatusVariant(leave.status ?? "pending")}>
-                    {leave.status ?? "Pending"}
+                  <Badge variant={leaveStatusVariant(leave.status ?? 'pending')}>
+                    {leave.status ?? 'Pending'}
                   </Badge>
                 </div>
               ))}
@@ -198,7 +186,7 @@ export const Dashboard = () => {
           title="Hiring pipeline"
           action={
             <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-              <Link href={tenantHref("recruitment")}>Manage</Link>
+              <Link href={tenantHref('recruitment')}>Manage</Link>
             </Button>
           }
           bodyClassName="p-4"
@@ -220,17 +208,12 @@ export const Dashboard = () => {
             {pipelineStages.map((stage) => {
               const height = Math.max(8, (stage.count / pipelineMax) * 100);
               return (
-                <div
-                  key={stage.label}
-                  className="flex flex-1 flex-col items-center gap-1"
-                >
+                <div key={stage.label} className="flex flex-1 flex-col items-center gap-1">
                   <div
                     className="w-full max-w-8 rounded-t-md bg-primary/70"
                     style={{ height: `${height}%` }}
                   />
-                  <span className="text-[10px] text-muted-foreground">
-                    {stage.label}
-                  </span>
+                  <span className="text-[10px] text-muted-foreground">{stage.label}</span>
                 </div>
               );
             })}
@@ -240,7 +223,7 @@ export const Dashboard = () => {
 
       <div className="grid gap-5 lg:grid-cols-2">
         <RecruitmentVacancyGrid
-          jobs={overview.jobs.filter((job) => job.status === "ACTIVE")}
+          jobs={overview.jobs.filter((job) => job.status === 'ACTIVE')}
           applicantCounts={overview.applicantCounts}
           onSelectDetails={handleSelectJobDetails}
         />

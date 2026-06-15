@@ -1,4 +1,3 @@
-import { Candidate } from '../entities/candidate.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { CandidateStatus } from 'src/common/enums';

@@ -9,8 +9,9 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "format:check": "prettier --check \"**/*.{ts,tsx}\" --ignore-path ../../.gitignore",
+    "lint": "biome check .",
+    "check": "biome check .",
+    "format": "biome check --write .",
     "cf:build": "opennextjs-cloudflare build",
     "cf:deploy": "opennextjs-cloudflare deploy",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview"

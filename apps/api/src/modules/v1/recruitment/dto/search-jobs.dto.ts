@@ -1,7 +1,6 @@
-import { Department } from '../../departments/entities/department.entity';
-import { IsOptional, IsString, IsNumber, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 export class SearchJobsDto {
   @ApiProperty({
     description: 'Search term for job title or description',

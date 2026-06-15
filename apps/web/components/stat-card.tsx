@@ -1,5 +1,5 @@
-import type { LucideIcon } from "lucide-react";
-import { cn } from "@/lib/utils";
+import type { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type StatCardProps = {
   label: string;
@@ -23,7 +23,7 @@ export function StatCard({
   return (
     <article
       className={cn(
-        "app-card group rounded-xl p-4 transition-colors hover:border-primary/30",
+        'app-card group rounded-xl p-4 transition-colors hover:border-primary/30',
         className,
       )}
     >
@@ -33,7 +33,7 @@ export function StatCard({
         </p>
         <div
           className={cn(
-            "flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary",
+            'flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary',
             iconClassName,
           )}
         >
@@ -44,8 +44,8 @@ export function StatCard({
       {trend ? (
         <p
           className={cn(
-            "mt-1 text-xs font-medium",
-            trend.positive ? "text-primary" : "text-muted-foreground",
+            'mt-1 text-xs font-medium',
+            trend.positive ? 'text-primary' : 'text-muted-foreground',
           )}
         >
           {trend.value}

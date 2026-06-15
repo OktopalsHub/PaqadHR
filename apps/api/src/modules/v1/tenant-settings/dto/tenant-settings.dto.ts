@@ -1,5 +1,3 @@
-import { Attendance } from '../../attendance/entities/attendance.entity';
-import { Notification } from '../../notifications/entities/notification.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -13,7 +11,6 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { Holiday } from "../../../../common/interfaces/holiday.interface";
 
 export class PointsSettingsDto {
   @ApiProperty({
@@ -233,8 +230,7 @@ export class HolidayDto {
   @IsString()
   name: string;
   @ApiProperty({
-    description:
-      'Holiday date (YYYY-MM-DD for specific dates, MM-DD for recurring)',
+    description: 'Holiday date (YYYY-MM-DD for specific dates, MM-DD for recurring)',
     example: '12-25',
   })
   @IsString()

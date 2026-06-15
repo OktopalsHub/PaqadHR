@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { Settings } from "lucide-react";
+import { Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -10,8 +10,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
-} from "@/components/ui/sidebar";
-import { navItems } from "../constants/nav-items";
+} from '@/components/ui/sidebar';
+import { navItems } from '../constants/nav-items';
 
 type LandingMockSidebarProps = {
   activeHref: string;
@@ -33,16 +33,11 @@ function LandingWorkspaceHeader() {
 }
 
 function isNavActive(activeHref: string, itemHref: string) {
-  return itemHref === "/app"
-    ? activeHref === "/app"
-    : activeHref.startsWith(itemHref);
+  return itemHref === '/app' ? activeHref === '/app' : activeHref.startsWith(itemHref);
 }
 
-function LandingMockSidebarNav({
-  activeHref,
-  onNavSelect,
-}: LandingMockSidebarProps) {
-  const mainItems = navItems.filter((item) => item.href !== "/app/settings");
+function LandingMockSidebarNav({ activeHref, onNavSelect }: LandingMockSidebarProps) {
+  const mainItems = navItems.filter((item) => item.href !== '/app/settings');
 
   return (
     <>
@@ -72,10 +67,10 @@ function LandingMockSidebarNav({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              isActive={isNavActive(activeHref, "/app/settings")}
+              isActive={isNavActive(activeHref, '/app/settings')}
               tooltip="Settings"
               className="h-10 rounded-xl px-3"
-              onClick={() => onNavSelect("/app/settings", "Settings")}
+              onClick={() => onNavSelect('/app/settings', 'Settings')}
             >
               <Settings className="size-[18px]" />
               <span>Settings</span>

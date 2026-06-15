@@ -7,15 +7,16 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { MemberContext } from 'src/common/interfaces';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { PaginationDto } from 'src/common/dto/pagination.dto';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { LeaveService } from './leave.service';
-import { CreateLeaveDto } from "./dto/create-leave.dto";
-import { UpdateLeaveDto } from "./dto/update-leave.dto";
+import type { CreateLeaveDto } from './dto/create-leave.dto';
+import type { UpdateLeaveDto } from './dto/update-leave.dto';
+import type { LeaveService } from './leave.service';
 
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leaves')
@@ -23,11 +24,11 @@ import { UpdateLeaveDto } from "./dto/update-leave.dto";
 export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}
   @Post()
-    async createLeave(
+  async createLeave(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateLeaveDto,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.leaveService.createLeave(tenantId, member.id, dto);
   }
   @Get()
@@ -41,7 +42,7 @@ export class LeaveController {
   async getMyLeaves(
     @Param('tenantId') tenantId: string,
     @Query() pagination: PaginationDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.leaveService.getLeavesByMember(tenantId, member.id, pagination);
   }
@@ -51,11 +52,7 @@ export class LeaveController {
     @CurrentTenantMember() member: MemberContext,
     @Query('year') year?: number,
   ) {
-    return this.leaveService.getLeaveBalanceForMember(
-      tenantId,
-      member.id,
-      year,
-    );
+    return this.leaveService.getLeaveBalanceForMember(tenantId, member.id, year);
   }
   @Get('balances/:leaveTypeId')
   async getMyLeaveBalanceByType(
@@ -64,22 +61,14 @@ export class LeaveController {
     @CurrentTenantMember() member: MemberContext,
     @Query('year') year?: number,
   ) {
-    return this.leaveService.getLeaveBalanceForMemberByType(
-      tenantId,
-      member.id,
-      leaveTypeId,
-      year,
-    );
+    return this.leaveService.getLeaveBalanceForMemberByType(tenantId, member.id, leaveTypeId, year);
   }
   @Get(':leaveId')
-  async getLeave(
-    @Param('tenantId') tenantId: string,
-    @Param('leaveId') leaveId: string,
-  ) {
+  async getLeave(@Param('tenantId') tenantId: string, @Param('leaveId') leaveId: string) {
     return this.leaveService.getLeave(tenantId, leaveId);
   }
   @Patch(':leaveId')
-    async updateLeave(
+  async updateLeave(
     @Param('tenantId') tenantId: string,
     @Param('leaveId') leaveId: string,
     @Body() dto: UpdateLeaveDto,
@@ -87,38 +76,25 @@ export class LeaveController {
     return this.leaveService.updateLeave(tenantId, leaveId, dto);
   }
   @Delete(':leaveId')
-    async deleteLeave(
-    @Param('tenantId') tenantId: string,
-    @Param('leaveId') leaveId: string,
-  ) {
+  async deleteLeave(@Param('tenantId') tenantId: string, @Param('leaveId') leaveId: string) {
     return this.leaveService.deleteLeave(tenantId, leaveId);
   }
   @Patch(':leaveId/approve')
-    async approveLeave(
+  async approveLeave(
     @Param('tenantId') tenantId: string,
     @Param('leaveId') leaveId: string,
     @Body('comments') comments: string,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveService.approveLeave(
-      tenantId,
-      leaveId,
-      member.id,
-      comments,
-    );
+    return this.leaveService.approveLeave(tenantId, leaveId, member.id, comments);
   }
   @Patch(':leaveId/reject')
-    async rejectLeave(
+  async rejectLeave(
     @Param('tenantId') tenantId: string,
     @Param('leaveId') leaveId: string,
     @Body('comments') comments: string,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveService.rejectLeave(
-      tenantId,
-      leaveId,
-      member.id,
-      comments,
-    );
+    return this.leaveService.rejectLeave(tenantId, leaveId, member.id, comments);
   }
 }

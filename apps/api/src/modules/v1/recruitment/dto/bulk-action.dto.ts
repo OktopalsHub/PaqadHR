@@ -1,11 +1,5 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsArray,
-  IsUUID,
-  IsOptional,
-} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsArray, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 export class BulkActionDto {
   @ApiProperty({
     description: 'Action to perform',

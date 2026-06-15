@@ -1,15 +1,11 @@
-"use client";
+'use client';
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  createShoutout,
-  fetchShoutoutCategories,
-  fetchShoutouts,
-} from "@/lib/api/shoutouts";
-import { fetchMyPointsBalance } from "@/lib/api/member-points";
-import type { CreateShoutoutInput } from "@/lib/schemas/shoutout";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchMyPointsBalance } from '@/lib/api/member-points';
+import { createShoutout, fetchShoutoutCategories, fetchShoutouts } from '@/lib/api/shoutouts';
+import { queryKeys } from '@/lib/query/keys';
+import type { CreateShoutoutInput } from '@/lib/schemas/shoutout';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function useShoutouts() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -54,7 +50,7 @@ export function useMyPointsBalance() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: queryKeys.shoutouts.points(tenantId ?? ""),
+    queryKey: queryKeys.shoutouts.points(tenantId ?? ''),
     queryFn: fetchMyPointsBalance,
     enabled: !tenantLoading && Boolean(tenantId),
   });

@@ -1,10 +1,10 @@
-import { NotificationPreference } from '../entities/notification-preference.entity';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { NotificationPreferenceType } from "../../../../common/enums/notification-preference-type.enum";
-import { NotificationChannel } from "../../../../common/enums/notification-channel.enum";
-import { UpdatePreferenceDto } from "../../../../common/interfaces/update-preference-dto.interface";
+import type { Repository } from 'typeorm';
+import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
+import type { UpdatePreferenceDto } from '../../../../common/interfaces/update-preference-dto.interface';
+import { NotificationPreference } from '../entities/notification-preference.entity';
 
 @Injectable()
 export class NotificationPreferenceService {
@@ -12,9 +12,7 @@ export class NotificationPreferenceService {
     @InjectRepository(NotificationPreference)
     private preferenceRepository: Repository<NotificationPreference>,
   ) {}
-  async getUserPreferences(
-    tenantMemberId: string,
-  ): Promise<NotificationPreference[]> {
+  async getUserPreferences(tenantMemberId: string): Promise<NotificationPreference[]> {
     return this.preferenceRepository.find({
       where: { tenantMemberId },
       order: { notificationType: 'ASC' },
@@ -51,18 +49,12 @@ export class NotificationPreferenceService {
   }
   async updateMultiplePreferences(
     tenantMemberId: string,
-    preferences: Array<
-      { notificationType: NotificationPreferenceType } & UpdatePreferenceDto
-    >,
+    preferences: Array<{ notificationType: NotificationPreferenceType } & UpdatePreferenceDto>,
   ): Promise<NotificationPreference[]> {
     const results: NotificationPreference[] = [];
     for (const pref of preferences) {
       const { notificationType, ...updateDto } = pref;
-      const result = await this.updatePreference(
-        tenantMemberId,
-        notificationType,
-        updateDto,
-      );
+      const result = await this.updatePreference(tenantMemberId, notificationType, updateDto);
       results.push(result);
     }
     return results;
@@ -135,10 +127,7 @@ export class NotificationPreferenceService {
     notificationType: NotificationPreferenceType,
     channel: NotificationChannel,
   ): Promise<boolean> {
-    const preference = await this.getPreference(
-      tenantMemberId,
-      notificationType,
-    );
+    const preference = await this.getPreference(tenantMemberId, notificationType);
     if (!preference) {
       return true;
     }
@@ -164,13 +153,11 @@ export class NotificationPreferenceService {
       return false;
     }
     const now = new Date();
-    const currentDay = now
-      .toLocaleDateString('en-US', { weekday: 'long' })
-      .toLowerCase();
-    if (preference.quietDays && preference.quietDays.includes(currentDay)) {
+    const currentDay = now.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    if (preference.quietDays?.includes(currentDay)) {
       return true;
     }
-    const currentTime = now.toTimeString().slice(0, 5); 
+    const currentTime = now.toTimeString().slice(0, 5);
     const startTime = preference.quietHoursStart;
     const endTime = preference.quietHoursEnd;
     if (startTime > endTime) {

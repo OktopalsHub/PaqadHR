@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createE2eApp, uniqueEmail } from './e2e-bootstrap';
 
@@ -24,12 +24,9 @@ describe('Tenant flows (e2e)', () => {
       .expect(201);
 
     const token = registerRes.body.accessToken as string;
-    const withAuth = (req: request.Test) =>
-      req.set('Authorization', `Bearer ${token}`);
+    const withAuth = (req: request.Test) => req.set('Authorization', `Bearer ${token}`);
 
-    const onboarding = await withAuth(
-      agent.post('/api/v1/onboarding/complete'),
-    )
+    const onboarding = await withAuth(agent.post('/api/v1/onboarding/complete'))
       .send({
         name: `E2E Workspace ${Date.now()}`,
         industry: 'Technology',
@@ -42,9 +39,7 @@ describe('Tenant flows (e2e)', () => {
     expect(onboarding.body.subscription?.status).toBe('TRIAL');
     expect(onboarding.body.pricingRegion?.countryCode).toBe('NG');
 
-    const tenants = await withAuth(
-      agent.get('/api/v1/tenants/user/me?limit=10'),
-    ).expect(200);
+    const tenants = await withAuth(agent.get('/api/v1/tenants/user/me?limit=10')).expect(200);
     expect(tenants.body.records?.length).toBeGreaterThan(0);
 
     const tenantId = onboarding.body.tenant.id as string;

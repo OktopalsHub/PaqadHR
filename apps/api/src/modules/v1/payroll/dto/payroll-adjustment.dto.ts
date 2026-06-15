@@ -3,18 +3,18 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
   IsUUID,
-  ValidateNested,
-  Min,
   Max,
-  IsNotEmpty,
   MaxLength,
+  Min,
+  ValidateNested,
 } from 'class-validator';
-import { AdjustmentType } from "../../../../common/enums/adjustment-type.enum";
-import { AdjustmentMethod } from "../../../../common/enums/adjustment-method.enum";
+import { AdjustmentMethod } from '../../../../common/enums/adjustment-method.enum';
+import { AdjustmentType } from '../../../../common/enums/adjustment-type.enum';
 
 export class PayrollAdjustmentDto {
   @ApiProperty({ description: 'Employee ID' })

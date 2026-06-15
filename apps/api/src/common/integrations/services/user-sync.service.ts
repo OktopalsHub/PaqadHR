@@ -1,15 +1,22 @@
-import { SlackClient } from '../clients/slack.client';
-import { Inject, Injectable, Logger, BadRequestException, NotFoundException, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  forwardRef,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { IsNull } from 'typeorm';
 import { IntegrationType } from 'src/common/enums';
-import { IPlatformUser } from 'src/common/interfaces';
-import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
+import type { IPlatformUser } from 'src/common/interfaces';
+import { IsNull } from 'typeorm';
+import type { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
+import { SlackClient } from '../clients/slack.client';
+import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import type { PlatformUserData, PlatformUserSaveData } from '../integration.types';
+import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import type { PlatformUserRepository } from '../repositories/platform-user.repository';
 import { PlatformIntegrationService } from './platform-integration.service';
-import { PlatformUserRepository } from "../repositories/platform-user.repository";
-import { PlatformIntegrationRepository } from "../repositories/platform-integration.repository";
-import { PlatformIntegration } from '../entities/platform-integration.entity';
-import { PlatformUserData, PlatformUserSaveData } from '../integration.types';
 
 @Injectable()
 export class UserSyncService {
@@ -17,7 +24,7 @@ export class UserSyncService {
   constructor(
     private readonly tenantMembersService: TenantMembersService,
     @Inject(forwardRef(() => PlatformIntegrationService))
-    private readonly platformIntegrationService: PlatformIntegrationService,
+    readonly _platformIntegrationService: PlatformIntegrationService,
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly integrationRepo: PlatformIntegrationRepository,
   ) {}
@@ -28,9 +35,7 @@ export class UserSyncService {
     platform: IntegrationType;
   }) {
     try {
-      this.logger.log(
-        `Auto-syncing users for integration: ${payload.integrationId}`,
-      );
+      this.logger.log(`Auto-syncing users for integration: ${payload.integrationId}`);
       await this.syncAllUsers(payload.integrationId, payload.tenantId);
     } catch (error) {
       this.logger.error(
@@ -47,8 +52,7 @@ export class UserSyncService {
       throw new NotFoundException('Integration not found');
     }
     const platformUsers = await this.getPlatformUsers(integration);
-    const tenantMembers =
-      await this.tenantMembersService.getTenantMembers(tenantId);
+    const tenantMembers = await this.tenantMembersService.getTenantMembers(tenantId);
     const syncResults = {
       matched: 0,
       unmatched: 0,
@@ -58,16 +62,10 @@ export class UserSyncService {
     for (const platformUser of platformUsers) {
       try {
         const matchedMember = tenantMembers.find(
-          (member) =>
-            member.user?.email?.toLowerCase() ===
-            platformUser.email?.toLowerCase(),
+          (member) => member.user?.email?.toLowerCase() === platformUser.email?.toLowerCase(),
         );
         if (matchedMember) {
-          await this.upsertPlatformUser(
-            integrationId,
-            platformUser,
-            matchedMember.id,
-          );
+          await this.upsertPlatformUser(integrationId, platformUser, matchedMember.id);
           syncResults.matched++;
         } else {
           await this.upsertPlatformUser(integrationId, platformUser, null);
@@ -80,17 +78,10 @@ export class UserSyncService {
         syncResults.errors++;
       }
     }
-    this.logger.log(
-      `User sync completed for integration ${integrationId}:`,
-      syncResults,
-    );
+    this.logger.log(`User sync completed for integration ${integrationId}:`, syncResults);
     return syncResults;
   }
-  async manualUserMatch(
-    integrationId: string,
-    platformUserId: string,
-    tenantMemberId: string,
-  ) {
+  async manualUserMatch(integrationId: string, platformUserId: string, tenantMemberId: string) {
     const platformUser = await this.platformUserRepo.findOne({
       where: { integrationId, platformUserId },
     });
@@ -134,11 +125,7 @@ export class UserSyncService {
       matchRate: total > 0 ? Math.round((matched / total) * 100) : 0,
     };
   }
-  async bulkInviteUnmatchedUsers(
-    integrationId: string,
-    tenantId: string,
-    invitedBy: string,
-  ) {
+  async bulkInviteUnmatchedUsers(integrationId: string, tenantId: string, invitedBy: string) {
     const unmatchedUsers = await this.getUnmatchedUsers(integrationId);
     const inviteResults = {
       sent: 0,
@@ -152,13 +139,8 @@ export class UserSyncService {
             tenantId,
             {
               email: platformUser.platformEmail,
-              firstName:
-                platformUser.platformDisplayName?.split(' ')[0] || 'User',
-              lastName:
-                platformUser.platformDisplayName
-                  ?.split(' ')
-                  .slice(1)
-                  .join(' ') || '',
+              firstName: platformUser.platformDisplayName?.split(' ')[0] || 'User',
+              lastName: platformUser.platformDisplayName?.split(' ').slice(1).join(' ') || '',
               sendWelcomeEmail: true,
             },
             invitedBy,
@@ -171,17 +153,12 @@ export class UserSyncService {
         inviteResults.errors.push(
           `${platformUser.platformEmail}: ${error instanceof Error ? error.message : String(error)}`,
         );
-        this.logger.error(
-          `Failed to invite ${platformUser.platformEmail}:`,
-          error,
-        );
+        this.logger.error(`Failed to invite ${platformUser.platformEmail}:`, error);
       }
     }
     return inviteResults;
   }
-  private async getPlatformUsers(
-    integration: PlatformIntegration,
-  ): Promise<IPlatformUser[]> {
+  private async getPlatformUsers(integration: PlatformIntegration): Promise<IPlatformUser[]> {
     const client = this.createClient(integration);
     return client.listUsers() as Promise<IPlatformUser[]>;
   }
@@ -190,9 +167,7 @@ export class UserSyncService {
       case IntegrationType.SLACK:
         return new SlackClient(integration.botToken);
       default:
-        throw new BadRequestException(
-          `Unsupported integration type: ${integration.type}`,
-        );
+        throw new BadRequestException(`Unsupported integration type: ${integration.type}`);
     }
   }
   private async upsertPlatformUser(

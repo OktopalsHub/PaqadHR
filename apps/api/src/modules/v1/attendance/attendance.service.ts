@@ -1,4 +1,3 @@
-import { Attendance } from './entities/attendance.entity';
 import {
   BadRequestException,
   ConflictException,
@@ -6,26 +5,27 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AttendanceStatus, EAttendanceExceptionStatus } from 'src/common/enums';
+import { type AttendanceStatus, EAttendanceExceptionStatus } from 'src/common/enums';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import { Between, FindOptionsWhere } from 'typeorm';
-import { LeaveService } from '../leave/leave.service';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
-import { DepartmentUtils } from './utils/department.utils';
-import { AttendanceRepository } from "./repositories/attendance.repository";
-import { AttendanceExceptionRepository } from "./repositories/attendance-exception.repository";
-import { AttendancePolicyRepository } from "./repositories/attendance-policy.repository";
-import { CreateAttendancePolicyDto } from "./dto/create-attendance-policy.dto";
-import { UpdateAttendancePolicyDto } from "./dto/update-attendance-policy.dto";
-import { ClockInDto } from "./dto/clock-in.dto";
-import { ClockOutDto } from "./dto/clock-out.dto";
-import { UpdateAttendanceDto } from "./dto/update-attendance.dto";
-import { CreateAttendanceExceptionDto } from "./dto/create-attendance-exception.dto";
-import { ApproveAttendanceExceptionDto } from "./dto/approve-attendance-exception.dto";
-import { RejectAttendanceExceptionDto } from "./dto/reject-attendance-exception.dto";
-import { AttendanceException } from './entities/attendance-exception.entity';
-import { LeaveResponseDto } from '../leave/dto/leave-response.dto';
+import { Between, type FindOptionsWhere } from 'typeorm';
+import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
+import type { LeaveService } from '../leave/leave.service';
+import type { TenantMembersService } from '../tenant-members/tenant-members.service';
+import type { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
+import type { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
+import type { ClockInDto } from './dto/clock-in.dto';
+import type { ClockOutDto } from './dto/clock-out.dto';
+import type { CreateAttendanceExceptionDto } from './dto/create-attendance-exception.dto';
+import type { CreateAttendancePolicyDto } from './dto/create-attendance-policy.dto';
+import type { RejectAttendanceExceptionDto } from './dto/reject-attendance-exception.dto';
+import type { UpdateAttendanceDto } from './dto/update-attendance.dto';
+import type { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
+import type { Attendance } from './entities/attendance.entity';
+import type { AttendanceException } from './entities/attendance-exception.entity';
+import type { AttendanceRepository } from './repositories/attendance.repository';
+import type { AttendanceExceptionRepository } from './repositories/attendance-exception.repository';
+import type { AttendancePolicyRepository } from './repositories/attendance-policy.repository';
+import type { DepartmentUtils } from './utils/department.utils';
 
 @Injectable()
 export class AttendanceService {
@@ -39,10 +39,7 @@ export class AttendanceService {
     private readonly leaveService: LeaveService,
     private readonly departmentUtils: DepartmentUtils,
   ) {}
-  async createAttendancePolicy(
-    tenantId: string,
-    dto: CreateAttendancePolicyDto,
-  ) {
+  async createAttendancePolicy(tenantId: string, dto: CreateAttendancePolicyDto) {
     return this.attendancePolicyRepository.create({ ...dto, tenantId });
   }
   async getAttendancePolicies(tenantId: string) {
@@ -50,26 +47,22 @@ export class AttendanceService {
   }
   async getAttendancePolicy(tenantId: string, policyId: string) {
     const policy = await this.attendancePolicyRepository.findOne({
-      where: { id: policyId, tenantId }
+      where: { id: policyId, tenantId },
     });
     if (!policy) {
       throw new NotFoundException('Attendance policy not found');
     }
     return policy;
   }
-  async updateAttendancePolicy(
-    tenantId: string,
-    policyId: string,
-    dto: UpdateAttendancePolicyDto,
-  ) {
-    await this.getAttendancePolicy(tenantId, policyId); 
-    await this.attendancePolicyRepository.update(policyId,  dto);
+  async updateAttendancePolicy(tenantId: string, policyId: string, dto: UpdateAttendancePolicyDto) {
+    await this.getAttendancePolicy(tenantId, policyId);
+    await this.attendancePolicyRepository.update(policyId, dto);
     return this.attendancePolicyRepository.findOne({
       where: { id: policyId, tenantId },
     });
   }
   async deleteAttendancePolicy(tenantId: string, policyId: string) {
-    await this.getAttendancePolicy(tenantId, policyId); 
+    await this.getAttendancePolicy(tenantId, policyId);
     return this.attendancePolicyRepository.delete(policyId);
   }
   async clockIn(
@@ -92,7 +85,7 @@ export class AttendanceService {
     const leaveStatus = await this.isOnLeave(tenantId, tenantMemberId, today);
     if (leaveStatus.isOnLeave) {
       throw new ConflictException(
-        `Cannot clock in while on leave${leaveStatus.leaveType ? ': ' + leaveStatus.leaveType : ''}.`,
+        `Cannot clock in while on leave${leaveStatus.leaveType ? `: ${leaveStatus.leaveType}` : ''}.`,
       );
     }
     const activeSession = await this.attendanceRepository.findOne({
@@ -104,14 +97,12 @@ export class AttendanceService {
       },
     });
     if (activeSession) {
-      throw new ConflictException(
-        'You already have an active session. Please clock out first.',
-      );
+      throw new ConflictException('You already have an active session. Please clock out first.');
     }
     const policy = await this.attendancePolicyRepository.findOne({
       where: { tenantId, isActive: true },
     });
-    const maxSessionsPerDay = policy?.maxSessionsPerDay || 3; 
+    const maxSessionsPerDay = policy?.maxSessionsPerDay || 3;
     const todaySessions = await this.attendanceRepository.find({
       where: {
         tenantId,
@@ -121,9 +112,7 @@ export class AttendanceService {
       order: { sessionNumber: 'DESC' },
     });
     const nextSessionNumber =
-      todaySessions.length > 0
-        ? Math.max(...todaySessions.map((s) => s.sessionNumber)) + 1
-        : 1;
+      todaySessions.length > 0 ? Math.max(...todaySessions.map((s) => s.sessionNumber)) + 1 : 1;
     if (nextSessionNumber > maxSessionsPerDay) {
       throw new ConflictException(
         `Maximum sessions per day (${maxSessionsPerDay}) reached. Please contact your administrator.`,
@@ -133,7 +122,7 @@ export class AttendanceService {
       tenantId,
       tenantMemberId,
       date: new Date(),
-      clockIn: new Date(), 
+      clockIn: new Date(),
       status: 'PRESENT',
       sessionStatus: 'ACTIVE',
       sessionNumber: nextSessionNumber,
@@ -141,7 +130,7 @@ export class AttendanceService {
       ipAddress: metadata?.ipAddress,
       userAgent: metadata?.userAgent,
       deviceType: metadata?.deviceType,
-      entryMethod: 'auto', 
+      entryMethod: 'auto',
       isManualEntry: false,
     });
     return attendance;
@@ -153,12 +142,7 @@ export class AttendanceService {
     const seconds = totalSeconds % 60;
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
-  async clockOut(
-    tenantId: string,
-    tenantMemberId: string,
-    attendanceId: string,
-    dto: ClockOutDto,
-  ) {
+  async clockOut(tenantId: string, tenantMemberId: string, attendanceId: string, dto: ClockOutDto) {
     const attendance = await this.attendanceRepository.findOne({
       where: {
         id: attendanceId,
@@ -177,21 +161,21 @@ export class AttendanceService {
     let clockInTime: Date;
     try {
       clockInTime = new Date(attendance.clockIn);
-      if (isNaN(clockInTime.getTime())) {
+      if (Number.isNaN(clockInTime.getTime())) {
         throw new BadRequestException('Invalid clock in time');
       }
-    } catch (error) {
+    } catch (_error) {
       throw new ConflictException('Invalid clock in time format.');
     }
     const workTimeMs = clockOutTime.getTime() - clockInTime.getTime();
     const workHours = this.formatTimeToHHMMSS(workTimeMs);
-    await this.attendanceRepository.update(attendanceId,  {
+    await this.attendanceRepository.update(attendanceId, {
       clockOut: clockOutTime,
       sessionStatus: 'CLOSED',
-      workHours: workHours, 
+      workHours: workHours,
       location: dto.location || attendance.location,
       notes: dto.notes,
-      entryMethod: 'auto', 
+      entryMethod: 'auto',
     });
     return this.attendanceRepository.findOne({
       where: { id: attendanceId, tenantId },
@@ -232,7 +216,7 @@ export class AttendanceService {
               firstName: member.firstName,
               lastName: member.lastName,
               email: member.user?.email || null,
-              department: null, 
+              department: null,
               avatar: member.avatarKey,
               role: member.role,
               employeeNumber: member.employeeNumber,
@@ -263,8 +247,7 @@ export class AttendanceService {
             firstName: member.firstName,
             lastName: member.lastName,
             email: member.user?.email || null,
-            department:
-              this.departmentUtils.formatDepartmentResponse(department),
+            department: this.departmentUtils.formatDepartmentResponse(department),
             avatar: member.avatarKey,
             role: member.role,
             employeeNumber: member.employeeNumber,
@@ -273,13 +256,9 @@ export class AttendanceService {
         : null,
     };
   }
-  async updateAttendance(
-    tenantId: string,
-    attendanceId: string,
-    dto: UpdateAttendanceDto,
-  ) {
+  async updateAttendance(tenantId: string, attendanceId: string, dto: UpdateAttendanceDto) {
     await this.getAttendance(tenantId, attendanceId);
-    await this.attendanceRepository.update(attendanceId,  dto);
+    await this.attendanceRepository.update(attendanceId, dto);
     return this.attendanceRepository.findOne({
       where: { id: attendanceId, tenantId },
     });
@@ -318,10 +297,7 @@ export class AttendanceService {
     }
     return this.attendanceExceptionRepository.find({
       where,
-      relations: [
-        'tenantMember',
-        'approvedBy',
-      ]
+      relations: ['tenantMember', 'approvedBy'],
     });
   }
   async getAttendanceException(tenantId: string, exceptionId: string) {
@@ -340,14 +316,11 @@ export class AttendanceService {
     approvedById: string,
     dto: ApproveAttendanceExceptionDto,
   ) {
-    const exception = await this.getAttendanceException(
-      tenantId,
-      exceptionId,
-    );
+    const exception = await this.getAttendanceException(tenantId, exceptionId);
     if (exception.status !== EAttendanceExceptionStatus.PENDING) {
       throw new ConflictException('Exception is not pending approval');
     }
-    await this.attendanceExceptionRepository.update(exceptionId,  {
+    await this.attendanceExceptionRepository.update(exceptionId, {
       status: EAttendanceExceptionStatus.APPROVED,
       approvedById,
       approvedAt: new Date(),
@@ -361,14 +334,11 @@ export class AttendanceService {
     exceptionId: string,
     dto: RejectAttendanceExceptionDto,
   ) {
-    const exception = await this.getAttendanceException(
-      tenantId,
-      exceptionId,
-    );
+    const exception = await this.getAttendanceException(tenantId, exceptionId);
     if (exception.status !== EAttendanceExceptionStatus.PENDING) {
       throw new ConflictException('Exception is not pending approval');
     }
-    await this.attendanceExceptionRepository.update(exceptionId,  {
+    await this.attendanceExceptionRepository.update(exceptionId, {
       status: EAttendanceExceptionStatus.REJECTED,
     });
     return this.attendanceExceptionRepository.findOne({
@@ -381,7 +351,8 @@ export class AttendanceService {
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-      const attendances = await this.attendanceRepository.find({ where: {
+      const attendances = await this.attendanceRepository.find({
+        where: {
           tenantId,
           date: Between(startOfDay, endOfDay),
         },
@@ -391,10 +362,7 @@ export class AttendanceService {
         attendances.map(async (attendance) => {
           const member = attendance.tenantMember;
           const department = member
-            ? await this.departmentUtils.getMemberDepartment(
-                tenantId,
-                member.id,
-              )
+            ? await this.departmentUtils.getMemberDepartment(tenantId, member.id)
             : null;
           return {
             ...attendance,
@@ -404,8 +372,7 @@ export class AttendanceService {
                   firstName: member.firstName,
                   lastName: member.lastName,
                   email: member.user?.email || null,
-                  department:
-                    this.departmentUtils.formatDepartmentResponse(department),
+                  department: this.departmentUtils.formatDepartmentResponse(department),
                   avatar: member.avatarKey,
                   role: member.role,
                   employeeNumber: member.employeeNumber,
@@ -413,19 +380,13 @@ export class AttendanceService {
                 }
               : null,
           };
-        }));
-      const totalEmployees =
-        await this.tenantMembersService.getTenantMembersCount(tenantId);
-      const presentCount = attendances.filter(
-        (a) => a.status === 'PRESENT',
-      ).length;
-      const absentCount = attendances.filter(
-        (a) => a.status === 'ABSENT',
-      ).length;
+        }),
+      );
+      const totalEmployees = await this.tenantMembersService.getTenantMembersCount(tenantId);
+      const presentCount = attendances.filter((a) => a.status === 'PRESENT').length;
+      const absentCount = attendances.filter((a) => a.status === 'ABSENT').length;
       const lateCount = attendances.filter((a) => a.status === 'LATE').length;
-      const onLeaveCount = attendances.filter(
-        (a) => a.status === 'ON_LEAVE',
-      ).length;
+      const onLeaveCount = attendances.filter((a) => a.status === 'ON_LEAVE').length;
       return {
         date: date.toISOString().split('T')[0],
         totalEmployees,
@@ -433,8 +394,7 @@ export class AttendanceService {
         absentCount,
         lateCount,
         onLeaveCount,
-        attendanceRate:
-          totalEmployees > 0 ? (presentCount / totalEmployees) * 100 : 0,
+        attendanceRate: totalEmployees > 0 ? (presentCount / totalEmployees) * 100 : 0,
         attendances: transformedAttendances,
       };
     } catch (error) {
@@ -442,11 +402,7 @@ export class AttendanceService {
       throw error;
     }
   }
-  async getMonthlyAttendanceReport(
-    tenantId: string,
-    month: number,
-    year: number,
-  ) {
+  async getMonthlyAttendanceReport(tenantId: string, month: number, year: number) {
     const startOfMonth = new Date(year, month - 1, 1);
     const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
     const attendances = await this.attendanceRepository.find({
@@ -456,18 +412,13 @@ export class AttendanceService {
       },
       relations: ['tenantMember'],
     });
-    const totalEmployees =
-      await this.tenantMembersService.getTenantMembersCount(tenantId);
+    const totalEmployees = await this.tenantMembersService.getTenantMembersCount(tenantId);
     const workingDays = await this.getWorkingDaysInMonth(tenantId, year, month);
     const totalExpectedAttendance = totalEmployees * workingDays;
-    const presentCount = attendances.filter(
-      (a) => a.status === 'PRESENT',
-    ).length;
+    const presentCount = attendances.filter((a) => a.status === 'PRESENT').length;
     const absentCount = attendances.filter((a) => a.status === 'ABSENT').length;
     const lateCount = attendances.filter((a) => a.status === 'LATE').length;
-    const onLeaveCount = attendances.filter(
-      (a) => a.status === 'ON_LEAVE',
-    ).length;
+    const onLeaveCount = attendances.filter((a) => a.status === 'ON_LEAVE').length;
     return {
       month,
       year,
@@ -479,9 +430,7 @@ export class AttendanceService {
       lateCount,
       onLeaveCount,
       attendanceRate:
-        totalExpectedAttendance > 0
-          ? (presentCount / totalExpectedAttendance) * 100
-          : 0,
+        totalExpectedAttendance > 0 ? (presentCount / totalExpectedAttendance) * 100 : 0,
       attendances,
     };
   }
@@ -499,17 +448,11 @@ export class AttendanceService {
       },
       relations: ['tenantMember'],
     });
-    const totalDays = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-    );
-    const presentCount = attendances.filter(
-      (a) => a.status === 'PRESENT',
-    ).length;
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const presentCount = attendances.filter((a) => a.status === 'PRESENT').length;
     const absentCount = attendances.filter((a) => a.status === 'ABSENT').length;
     const lateCount = attendances.filter((a) => a.status === 'LATE').length;
-    const onLeaveCount = attendances.filter(
-      (a) => a.status === 'ON_LEAVE',
-    ).length;
+    const onLeaveCount = attendances.filter((a) => a.status === 'ON_LEAVE').length;
     return {
       memberId,
       startDate: startDate.toISOString().split('T')[0],
@@ -530,9 +473,8 @@ export class AttendanceService {
   ): Promise<number> {
     const daysInMonth = new Date(year, month, 0).getDate();
     let workingDays = 0;
-    const tenantSettings =
-      await this.tenantSettingsService.getTenantSettings(tenantId);
-    const weekends = tenantSettings?.settings?.attendance?.weekends || [0, 6]; 
+    const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
+    const weekends = tenantSettings?.settings?.attendance?.weekends || [0, 6];
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month - 1, day);
       const dayOfWeek = date.getDay();
@@ -552,14 +494,12 @@ export class AttendanceService {
           tenantMemberId,
           date: today,
         },
-        order: { sessionNumber: 'ASC' }
+        order: { sessionNumber: 'ASC' },
       });
       if (attendances.length === 0) {
         return null;
       }
-      const activeSession = attendances.find(
-        (a) => a.sessionStatus === 'ACTIVE',
-      );
+      const activeSession = attendances.find((a) => a.sessionStatus === 'ACTIVE');
       if (activeSession) {
         return activeSession;
       }
@@ -577,17 +517,11 @@ export class AttendanceService {
       },
       relations: ['tenantMember'],
     });
-    const totalPresent = attendances.filter(
-      (a) => a.status === 'PRESENT',
-    ).length;
+    const totalPresent = attendances.filter((a) => a.status === 'PRESENT').length;
     const totalAbsent = attendances.filter((a) => a.status === 'ABSENT').length;
     const totalLate = attendances.filter((a) => a.status === 'LATE').length;
-    const totalHalfDay = attendances.filter(
-      (a) => a.status === 'HALF_DAY',
-    ).length;
-    const totalOnLeave = attendances.filter(
-      (a) => a.status === 'ON_LEAVE',
-    ).length;
+    const totalHalfDay = attendances.filter((a) => a.status === 'HALF_DAY').length;
+    const totalOnLeave = attendances.filter((a) => a.status === 'ON_LEAVE').length;
     const stats = {
       totalPresent,
       totalAbsent,
@@ -628,7 +562,7 @@ export class AttendanceService {
     const policy = await this.attendancePolicyRepository.findOne({
       where: { tenantId, isActive: true },
     });
-    return policy?.maxSessionsPerDay || 3; 
+    return policy?.maxSessionsPerDay || 3;
   }
   async getCurrentSessionCount(
     tenantId: string,
@@ -671,23 +605,22 @@ export class AttendanceService {
       clockOut: dto.clockOut,
       status: dto.status,
       sessionStatus: dto.clockOut ? 'CLOSED' : 'ACTIVE',
-      sessionNumber: 1, 
+      sessionNumber: 1,
       workHours: workHours,
       location: dto.location || 'Office',
       notes: dto.notes,
-      entryMethod: 'manual', 
+      entryMethod: 'manual',
       isManualEntry: true,
     });
     return attendance;
   }
   private async isWeekend(tenantId: string, date: Date): Promise<boolean> {
     try {
-      const tenantSettings =
-        await this.tenantSettingsService.getTenantSettings(tenantId);
-      const weekends = tenantSettings.settings.attendance?.weekends || [0, 6]; 
+      const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
+      const weekends = tenantSettings.settings.attendance?.weekends || [0, 6];
       const dayOfWeek = date.getDay();
       return weekends.includes(dayOfWeek);
-    } catch (error) {
+    } catch (_error) {
       const dayOfWeek = date.getDay();
       return dayOfWeek === 0 || dayOfWeek === 6;
     }
@@ -702,11 +635,10 @@ export class AttendanceService {
       startOfDay.setHours(0, 0, 0, 0);
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-      const leaves = await this.leaveService.getLeavesByMember(
-        tenantId,
-        tenantMemberId,
-        { page: 1, limit: 100 },
-      );
+      const leaves = await this.leaveService.getLeavesByMember(tenantId, tenantMemberId, {
+        page: 1,
+        limit: 100,
+      });
       for (const leave of leaves.records) {
         if (leave.status === 'APPROVED') {
           const leaveStart = new Date(leave.startDate);
@@ -720,7 +652,7 @@ export class AttendanceService {
         }
       }
       return { isOnLeave: false };
-    } catch (error) {
+    } catch (_error) {
       return { isOnLeave: false };
     }
   }
@@ -733,8 +665,7 @@ export class AttendanceService {
   ) {
     try {
       const skip = (page - 1) * limit;
-      const allMembers =
-        await this.tenantMembersService.getTenantMembers(tenantId);
+      const allMembers = await this.tenantMembersService.getTenantMembers(tenantId);
       const activeMembers = allMembers.filter((member) => member.isActive);
       const paginatedMembers = activeMembers.slice(skip, skip + limit);
       const members = await getPaginationSummary(
@@ -748,46 +679,44 @@ export class AttendanceService {
       const daysInMonth = endOfMonth.getDate();
       let tenantSettings;
       try {
-        tenantSettings =
-          await this.tenantSettingsService.getTenantSettings(tenantId);
+        tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
         if (!tenantSettings.settings.attendance) {
           tenantSettings.settings.attendance = { weekends: [0, 6] };
         }
         if (!tenantSettings.settings.attendance.weekends) {
           tenantSettings.settings.attendance.weekends = [0, 6];
         }
-      } catch (error) {
+      } catch (_error) {
         tenantSettings = {
           settings: {
             attendance: {
-              weekends: [0, 6], 
+              weekends: [0, 6],
             },
           },
         };
       }
       const membersAttendance: unknown[] = [];
       for (const member of members.records) {
-        const attendanceRecords = await this.attendanceRepository.find({ where: {
+        const attendanceRecords = await this.attendanceRepository.find({
+          where: {
             tenantId,
             tenantMemberId: member.id,
             date: Between(startOfMonth, endOfMonth),
-          }
+          },
         });
         let memberLeaves: LeaveResponseDto[] = [];
         try {
-          const leavesResult = await this.leaveService.getLeavesByMember(
-            tenantId,
-            member.id,
-            { page: 1, limit: 100 },
-          );
+          const leavesResult = await this.leaveService.getLeavesByMember(tenantId, member.id, {
+            page: 1,
+            limit: 100,
+          });
           memberLeaves = leavesResult.records.filter(
             (leave) =>
               leave.status === 'APPROVED' &&
               new Date(leave.startDate) <= endOfMonth &&
               new Date(leave.endDate) >= startOfMonth,
           );
-        } catch (error) {
-        }
+        } catch (_error) {}
         const dailyAttendance: Array<{
           date: string;
           day: number;
@@ -809,10 +738,9 @@ export class AttendanceService {
         for (let day = 1; day <= daysInMonth; day++) {
           const currentDate = new Date(year, month - 1, day);
           const dateString = currentDate.toISOString().split('T')[0];
-          const isWeekend =
-            tenantSettings.settings.attendance.weekends.includes(
-              currentDate.getDay(),
-            );
+          const isWeekend = tenantSettings.settings.attendance.weekends.includes(
+            currentDate.getDay(),
+          );
           const onLeave = memberLeaves.find((leave) => {
             const leaveStart = new Date(leave.startDate);
             const leaveEnd = new Date(leave.endDate);
@@ -854,18 +782,11 @@ export class AttendanceService {
         const presentDays = dailyAttendance.filter(
           (d) => d.status === 'PRESENT' || d.status === 'LATE',
         ).length;
-        const absentDays = dailyAttendance.filter(
-          (d) => d.status === 'ABSENT',
-        ).length;
-        const weekendDays = dailyAttendance.filter(
-          (d) => d.status === 'WEEKEND',
-        ).length;
-        const leaveDays = dailyAttendance.filter(
-          (d) => d.status === 'ON_LEAVE',
-        ).length;
+        const absentDays = dailyAttendance.filter((d) => d.status === 'ABSENT').length;
+        const weekendDays = dailyAttendance.filter((d) => d.status === 'WEEKEND').length;
+        const leaveDays = dailyAttendance.filter((d) => d.status === 'ON_LEAVE').length;
         const workingDays = daysInMonth - weekendDays;
-        const attendanceRate =
-          workingDays > 0 ? (presentDays / workingDays) * 100 : 0;
+        const attendanceRate = workingDays > 0 ? (presentDays / workingDays) * 100 : 0;
         membersAttendance.push({
           member: {
             id: member.id,
@@ -873,10 +794,7 @@ export class AttendanceService {
             lastName: member.lastName,
             email: member.user?.email,
             department: this.departmentUtils.formatDepartmentResponse(
-              await this.departmentUtils.getMemberDepartment(
-                tenantId,
-                member.id,
-              ),
+              await this.departmentUtils.getMemberDepartment(tenantId, member.id),
             ),
             employeeNumber: member.employeeNumber,
             avatar: member.avatarKey,
@@ -912,9 +830,7 @@ export class AttendanceService {
             daysInMonth -
             Array.from({ length: daysInMonth }, (_, i) => {
               const date = new Date(year, month - 1, i + 1);
-              return tenantSettings.settings.attendance.weekends.includes(
-                date.getDay(),
-              );
+              return tenantSettings.settings.attendance.weekends.includes(date.getDay());
             }).filter(Boolean).length,
         },
         members: membersAttendance,
@@ -924,11 +840,7 @@ export class AttendanceService {
       throw error;
     }
   }
-  async getClockInInfo(
-    tenantId: string,
-    tenantMemberId: string,
-    date: Date = new Date(),
-  ) {
+  async getClockInInfo(tenantId: string, tenantMemberId: string, date: Date = new Date()) {
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
     const [isWeekendResult, leaveResult] = await Promise.all([
@@ -945,9 +857,7 @@ export class AttendanceService {
     });
     const sessionLimit = await this.getSessionLimit(tenantId);
     const currentSessionCount = existingAttendance.length;
-    const activeSession = existingAttendance.find(
-      (a) => a.sessionStatus === 'ACTIVE',
-    );
+    const activeSession = existingAttendance.find((a) => a.sessionStatus === 'ACTIVE');
     let status = 'WORKING_DAY';
     let canClockIn = true;
     let reason = '';

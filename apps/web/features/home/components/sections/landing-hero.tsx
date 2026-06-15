@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { LandingRecruitmentBoardMockup } from "./landing-recruitment-board-mockup";
-import { fadeUp, stagger } from "../../constants/landing-motion";
+import { motion } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { fadeUp, stagger } from '../../constants/landing-motion';
+import { LandingRecruitmentBoardMockup } from './landing-recruitment-board-mockup';
 
 export const LandingHero = () => {
   return (
@@ -39,14 +39,11 @@ export const LandingHero = () => {
           variants={fadeUp}
           className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
         >
-          Simplify hiring, empower teams, and run people operations with one
-          calm workspace — recruitment, payroll, leave, and recognition.
+          Simplify hiring, empower teams, and run people operations with one calm workspace —
+          recruitment, payroll, leave, and recognition.
         </motion.p>
 
-        <motion.div
-          variants={fadeUp}
-          className="mt-8 flex justify-center"
-        >
+        <motion.div variants={fadeUp} className="mt-8 flex justify-center">
           <Button
             asChild
             size="lg"
@@ -56,10 +53,7 @@ export const LandingHero = () => {
           </Button>
         </motion.div>
 
-        <motion.p
-          variants={fadeUp}
-          className="mt-4 text-sm text-muted-foreground"
-        >
+        <motion.p variants={fadeUp} className="mt-4 text-sm text-muted-foreground">
           14 days free · No card required
         </motion.p>
       </motion.div>

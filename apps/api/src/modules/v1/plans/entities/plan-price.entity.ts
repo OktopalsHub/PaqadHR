@@ -1,7 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
 import { Plan } from './plan.entity';
-import { PlanRegionalConfig } from "../../../../common/interfaces/plan-regional-config.interface";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'plan_prices' })
 @Index(['planId', 'countryCode', 'currency'], {
@@ -9,7 +9,11 @@ import { BaseEntity } from "../../../../common/database/entities/base.entity";
   where: 'deleted_at IS NULL',
 })
 export class PlanPrice extends BaseEntity {
-  @ManyToOne(() => Plan, (plan) => plan.prices, { onDelete: 'CASCADE' })
+  @ManyToOne(
+    () => Plan,
+    (plan) => plan.prices,
+    { onDelete: 'CASCADE' },
+  )
   @JoinColumn({ name: 'plan_id' })
   plan: Plan;
   @Column({ name: 'plan_id' })
@@ -55,8 +59,7 @@ export class PlanPrice extends BaseEntity {
   } {
     const cfg = this.config;
     const overageUsers = Math.max(0, userCount - (cfg.includedUsers ?? 0));
-    const basePrice =
-      Math.max(userCount, cfg.minimumUsers ?? 1) * (cfg.pricePerUser ?? 0);
+    const basePrice = Math.max(userCount, cfg.minimumUsers ?? 1) * (cfg.pricePerUser ?? 0);
     const overagePrice = overageUsers * (cfg.overagePricePerUser ?? 0);
     return {
       basePrice,

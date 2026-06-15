@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
-import { LandingMockSidebar } from "@/features/navigations/components/landing-mock-sidebar";
+import type { ReactNode } from 'react';
+import { LandingMockSidebar } from '@/features/navigations/components/landing-mock-sidebar';
+import { cn } from '@/lib/utils';
 
 type RecruitmentBoardFrameProps = {
   children: ReactNode;
   className?: string;
-  variant?: "marketing" | "app";
+  variant?: 'marketing' | 'app';
   activeHref?: string;
   onNavSelect?: (href: string, name: string) => void;
 };
@@ -15,19 +15,19 @@ type RecruitmentBoardFrameProps = {
 export function RecruitmentBoardFrame({
   children,
   className,
-  variant = "marketing",
-  activeHref = "/app/recruitment",
+  variant = 'marketing',
+  activeHref = '/app/recruitment',
   onNavSelect,
 }: RecruitmentBoardFrameProps) {
-  const isMarketing = variant === "marketing";
+  const isMarketing = variant === 'marketing';
 
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border shadow-xl",
+        'overflow-hidden rounded-2xl border shadow-xl',
         isMarketing
-          ? "border-border/80 bg-card shadow-black/10"
-          : "border-border/60 bg-card shadow-black/20",
+          ? 'border-border/80 bg-card shadow-black/10'
+          : 'border-border/60 bg-card shadow-black/20',
         className,
       )}
     >

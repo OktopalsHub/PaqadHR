@@ -1,26 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type, Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
-  IsArray,
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-  ValidateNested,
-  IsDateString,
   ArrayMaxSize,
   ArrayMinSize,
   ArrayUnique,
+  IsArray,
+  IsEnum,
   IsISO4217CurrencyCode,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
   IsUUID,
   MaxLength,
   MinLength,
-  IsNotEmpty,
 } from 'class-validator';
 import { TransactionType } from 'src/common/enums';
 import {
-  IsNotFuture,
   IsAfterStartDate,
+  IsNotFuture,
   IsValidPayrollPeriod,
 } from 'src/common/validators/payroll-date.validator';
 export class PayrollItemDto {
@@ -93,12 +91,9 @@ export class CreatePayrollRunDto {
     example: 'monthly',
   })
   @IsString()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'], {
-    message:
-      'Frequency must be one of: weekly, biweekly, monthly, quarterly, annually',
+    message: 'Frequency must be one of: weekly, biweekly, monthly, quarterly, annually',
   })
   frequency: string;
   @ApiProperty({ description: 'Pay period start date' })

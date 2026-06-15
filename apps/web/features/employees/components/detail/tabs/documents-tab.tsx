@@ -1,14 +1,8 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { TabsContent } from "@/components/ui/tabs";
-import type { EmployeeDetailForm } from "../../../hooks/use-employee-detail-form";
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TabsContent } from '@/components/ui/tabs';
+import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
 interface DocumentsTabProps {
   form: EmployeeDetailForm;
@@ -35,10 +29,7 @@ export function DocumentsTab({ form }: DocumentsTabProps) {
 
             <div className="border rounded-lg divide-y">
               {employee.documents.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between p-4"
-                >
+                <div key={doc.id} className="flex items-center justify-between p-4">
                   <div>
                     <p className="font-medium">{doc.name}</p>
                     <p className="text-sm text-muted-foreground">

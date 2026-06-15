@@ -1,4 +1,4 @@
-import { Interview } from '../entities/interview.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -7,11 +7,11 @@ import {
   IsNumber,
   IsOptional,
   IsString,
-  ValidateNested,
-  Min,
   Max,
+  Min,
+  ValidateNested,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 class InterviewerDto {
   @ApiPropertyOptional({
     description: 'Interviewer user ID',

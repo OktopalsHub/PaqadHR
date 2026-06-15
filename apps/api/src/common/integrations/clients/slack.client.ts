@@ -1,6 +1,6 @@
 import { WebClient } from '@slack/web-api';
-import { IPlatformClient, IPlatformUser } from 'src/common/interfaces';
-import { ShoutoutMessage } from '../integration.types';
+import type { IPlatformClient, IPlatformUser } from 'src/common/interfaces';
+import type { ShoutoutMessage } from '../integration.types';
 
 export class SlackClient implements IPlatformClient {
   client: WebClient;
@@ -25,7 +25,7 @@ export class SlackClient implements IPlatformClient {
         }) || [],
       );
       return members.filter((u) => u.email);
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -43,19 +43,15 @@ export class SlackClient implements IPlatformClient {
           }))
           .filter((u) => !u.username?.startsWith('bot.') && u.email) || []
       );
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
   async sendMessage(channelId: string, message: string): Promise<unknown> {
-    try {
-      return this.client.chat.postMessage({
-        channel: channelId,
-        text: message,
-      });
-    } catch (error) {
-      throw error;
-    }
+    return this.client.chat.postMessage({
+      channel: channelId,
+      text: message,
+    });
   }
   createShoutoutMessage(shoutout: ShoutoutMessage): string {
     return `*New Shoutout!*\n${shoutout.message}\n${shoutout.total_points} points awarded!`;

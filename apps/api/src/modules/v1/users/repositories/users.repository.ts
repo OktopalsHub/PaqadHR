@@ -1,23 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { StringUtility } from 'src/common/utils';
-import { DataSource, Repository } from 'typeorm';
+import { type DataSource, Repository } from 'typeorm';
 import { User } from '../entities/user.entity';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
   constructor(
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    private dataSource: DataSource,
+    @InjectRepository(User) readonly userRepository: Repository<User>,
+    _dataSource: DataSource,
   ) {
     super(userRepository.target, userRepository.manager, userRepository.queryRunner);
   }
 
-  async findUserByEmail(
-    email: string,
-    includeDeleted = false,
-  ): Promise<User | null> {
+  async findUserByEmail(email: string, includeDeleted = false): Promise<User | null> {
     const normalizedEmail = email.toLowerCase().trim();
     return this.findOne({
       where: { email: normalizedEmail },

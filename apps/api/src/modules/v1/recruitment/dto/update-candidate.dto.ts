@@ -1,16 +1,15 @@
-import { Candidate } from '../entities/candidate.entity';
-import { Interview } from '../entities/interview.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
+  Allow,
+  IsDateString,
   IsEnum,
   IsObject,
   IsOptional,
   IsString,
-  IsDateString,
   ValidateNested,
-  Allow,
 } from 'class-validator';
-import { Type, Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 class CurrentStageDto {
   @ApiPropertyOptional({
     description: 'Stage name',
@@ -44,13 +43,7 @@ export class UpdateCandidateDto {
     required: false,
   })
   @IsOptional()
-  status?:
-    | 'APPLIED'
-    | 'SCREENING'
-    | 'INTERVIEW'
-    | 'OFFER'
-    | 'HIRED'
-    | 'REJECTED';
+  status?: 'APPLIED' | 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED';
   @ApiPropertyOptional({
     description: 'Current stage information',
     type: CurrentStageDto,
@@ -120,11 +113,7 @@ export class UpdateCandidateDto {
   @IsOptional()
   @Allow()
   @Transform(({ value }) => {
-    if (
-      typeof value === 'object' &&
-      value &&
-      typeof value.filename === 'string'
-    ) {
+    if (typeof value === 'object' && value && typeof value.filename === 'string') {
       return value.filename;
     }
     if (typeof value === 'string') {
@@ -140,11 +129,7 @@ export class UpdateCandidateDto {
   @IsOptional()
   @Allow()
   @Transform(({ value }) => {
-    if (
-      typeof value === 'object' &&
-      value &&
-      typeof value.filename === 'string'
-    ) {
+    if (typeof value === 'object' && value && typeof value.filename === 'string') {
       return value.filename;
     }
     if (typeof value === 'string') {

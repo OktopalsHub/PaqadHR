@@ -1,18 +1,18 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import {
   BOARD_COLUMNS,
-  DISQUALIFIED_STATUSES,
-  columnForStatus,
   type CandidateStatus,
-} from "./board-columns";
-import type { BoardCandidate } from "./recruitment-kanban-board";
+  columnForStatus,
+  DISQUALIFIED_STATUSES,
+} from './board-columns';
+import type { BoardCandidate } from './recruitment-kanban-board';
 
 function formatStatus(status: CandidateStatus) {
   return status
-    .split("_")
+    .split('_')
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join(" ");
+    .join(' ');
 }
 
 function CandidateListRow({ candidate }: { candidate: BoardCandidate }) {
@@ -33,13 +33,9 @@ function CandidateListRow({ candidate }: { candidate: BoardCandidate }) {
             {formatStatus(candidate.status)}
           </Badge>
         </div>
-        <p className="truncate text-xs text-muted-foreground">
-          {candidate.email}
-        </p>
+        <p className="truncate text-xs text-muted-foreground">{candidate.email}</p>
         {candidate.summary ? (
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-            {candidate.summary}
-          </p>
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{candidate.summary}</p>
         ) : null}
       </div>
     </div>
@@ -50,9 +46,7 @@ type RecruitmentCandidateListProps = {
   candidates: BoardCandidate[];
 };
 
-export function RecruitmentCandidateList({
-  candidates,
-}: RecruitmentCandidateListProps) {
+export function RecruitmentCandidateList({ candidates }: RecruitmentCandidateListProps) {
   const disqualified = candidates.filter((candidate) =>
     DISQUALIFIED_STATUSES.includes(candidate.status),
   );
@@ -65,13 +59,11 @@ export function RecruitmentCandidateList({
     ...BOARD_COLUMNS.map((column) => ({
       id: column.id,
       title: column.title,
-      items: qualified.filter(
-        (candidate) => columnForStatus(candidate.status) === column.id,
-      ),
+      items: qualified.filter((candidate) => columnForStatus(candidate.status) === column.id),
     })),
     {
-      id: "disqualified",
-      title: "Disqualified",
+      id: 'disqualified',
+      title: 'Disqualified',
       items: disqualified,
     },
   ].filter((group) => group.items.length > 0);

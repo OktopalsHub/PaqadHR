@@ -1,35 +1,20 @@
-import { NotificationPreference } from '../entities/notification-preference.entity';
-import { NotificationPreferenceService } from '../services/notification-preference.service';
-import {
-  Controller,
-  Get,
-  Patch,
-  Body,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
+import type { MemberContext } from 'src/common/interfaces';
+import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
+import type { UpdatePreferenceDto } from '../../../../common/interfaces/update-preference-dto.interface';
 import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
-import { MemberContext } from 'src/common/interfaces';
-import { NotificationPreferenceType } from "../../../../common/enums/notification-preference-type.enum";
-import { UpdatePreferenceDto } from "../../../../common/interfaces/update-preference-dto.interface";
+import type { NotificationPreference } from '../entities/notification-preference.entity';
+import type { NotificationPreferenceService } from '../services/notification-preference.service';
 
 @ApiTags('Notification Preferences')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, HeaderTenantMemberGuard)
 @Controller('notification-preferences')
 export class NotificationPreferenceController {
-  constructor(
-    private readonly preferenceService: NotificationPreferenceService,
-  ) {}
+  constructor(private readonly preferenceService: NotificationPreferenceService) {}
   @Get()
   @ApiOperation({ summary: 'Get user notification preferences' })
   @ApiResponse({
@@ -95,10 +80,7 @@ export class NotificationPreferenceController {
       ...pref,
       notificationType: pref.notificationType as NotificationPreferenceType,
     }));
-    return this.preferenceService.updateMultiplePreferences(
-      member.id,
-      typedPreferences,
-    );
+    return this.preferenceService.updateMultiplePreferences(member.id, typedPreferences);
   }
   @Post('reset')
   @ApiOperation({ summary: 'Reset preferences to defaults' })

@@ -1,6 +1,3 @@
-import { Department } from '../../departments/entities/department.entity';
-import { Employment } from '../../employment/entities/employment.entity';
-import { Position } from '../../position/entities/position.entity';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -15,8 +12,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { EmploymentType, JobStatus } from 'src/common/enums';
-import { JobLocationDto } from "./job-location.dto";
-import { CustomQuestionDto } from "./index";
+import { CustomQuestionDto } from './index';
+import { JobLocationDto } from './job-location.dto';
 
 export class UpdateJobOpeningDto {
   @ApiPropertyOptional({
@@ -101,8 +98,7 @@ export class UpdateJobOpeningDto {
   isUrgent?: boolean;
   @ApiPropertyOptional({
     description: 'Job description',
-    example:
-      'We are looking for a Senior Software Engineer to join our team...',
+    example: 'We are looking for a Senior Software Engineer to join our team...',
   })
   @IsString()
   @IsOptional()
@@ -110,11 +106,7 @@ export class UpdateJobOpeningDto {
   @ApiPropertyOptional({
     description: 'Key responsibilities',
     type: [String],
-    example: [
-      'Develop new features',
-      'Code review',
-      'Mentor junior developers',
-    ],
+    example: ['Develop new features', 'Code review', 'Mentor junior developers'],
   })
   @IsArray()
   @IsString({ each: true })

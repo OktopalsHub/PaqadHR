@@ -1,19 +1,12 @@
-import { Document } from './entities/document.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import {
-  getDocumentCategory,
-  getDocumentAccessLevel,
-} from './entities/document.entity';
-import { DocumentType } from '../../../common/enums/document-type.enum';
-import { IDocumentRepository } from '../../../common/interfaces/idocument-repository.interface';
+import type { DocumentType } from '../../../common/enums/document-type.enum';
+import type { IDocumentRepository } from '../../../common/interfaces/idocument-repository.interface';
+import { Document, getDocumentAccessLevel, getDocumentCategory } from './entities/document.entity';
 
 @Injectable()
-export class DocumentRepository
-  extends Repository<Document>
-  implements IDocumentRepository
-{
+export class DocumentRepository extends Repository<Document> implements IDocumentRepository {
   constructor(
     @InjectRepository(Document)
     repository: Repository<Document>,
@@ -34,25 +27,16 @@ export class DocumentRepository
   async listDocuments(tenantId: string): Promise<Document[]> {
     return this.find({ withDeleted: false, where: { tenantId } });
   }
-  async getDocument(
-    id: string,
-    tenantId: string,
-  ): Promise<Document | null> {
+  async getDocument(id: string, tenantId: string): Promise<Document | null> {
     return this.findOne({ where: { id, tenantId }, withDeleted: false });
   }
-  async getDocumentsByMemberId(
-    memberId: string,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByMemberId(memberId: string, tenantId: string): Promise<Document[]> {
     return this.find({
       withDeleted: false,
       where: { tenantMemberId: memberId, tenantId },
     });
   }
-  async getDocumentsByType(
-    type: DocumentType,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByType(type: DocumentType, tenantId: string): Promise<Document[]> {
     return this.find({ withDeleted: false, where: { type, tenantId } });
   }
   async updateDocument(
@@ -60,15 +44,10 @@ export class DocumentRepository
     updateDocumentDto: Partial<Document>,
     tenantId: string,
   ): Promise<Document> {
-    await this.update(
-      id,
-      updateDocumentDto as Parameters<typeof this.update>[1],
-    );
+    await this.update(id, updateDocumentDto as Parameters<typeof this.update>[1]);
     const updatedDocument = await this.getDocument(id, tenantId);
     if (!updatedDocument) {
-      throw new NotFoundException(
-        `Document with ID "${id}" not found after update`,
-      );
+      throw new NotFoundException(`Document with ID "${id}" not found after update`);
     }
     return updatedDocument;
   }
@@ -90,10 +69,7 @@ export class DocumentRepository
   ): Promise<Document[]> {
     return this.find({ withDeleted: false, where: { tenantId, isVerified } });
   }
-  async getExpiringDocuments(
-    tenantId: string,
-    expiryDate: Date,
-  ): Promise<Document[]> {
+  async getExpiringDocuments(tenantId: string, expiryDate: Date): Promise<Document[]> {
     return this.createQueryBuilder('document')
       .where('document.tenantId = :tenantId', { tenantId })
       .andWhere('document.expiryDate IS NOT NULL')
@@ -102,10 +78,7 @@ export class DocumentRepository
       .orderBy('document.expiryDate', 'ASC')
       .getMany();
   }
-  async getDocumentsByTypes(
-    types: DocumentType[],
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByTypes(types: DocumentType[], tenantId: string): Promise<Document[]> {
     return this.find({
       withDeleted: false,
       where: {
@@ -114,20 +87,14 @@ export class DocumentRepository
       },
     });
   }
-  async getDocumentsByCategory(
-    category: string,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByCategory(category: string, tenantId: string): Promise<Document[]> {
     const allDocuments = await this.listDocuments(tenantId);
     return allDocuments.filter((doc) => {
       const docCategory = getDocumentCategory(doc.type);
       return docCategory === category;
     });
   }
-  async getDocumentsByAccessLevel(
-    accessLevel: string,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByAccessLevel(accessLevel: string, tenantId: string): Promise<Document[]> {
     const allDocuments = await this.listDocuments(tenantId);
     return allDocuments.filter((doc) => {
       const docAccessLevel = getDocumentAccessLevel(doc.type);

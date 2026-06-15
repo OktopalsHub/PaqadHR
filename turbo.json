@@ -9,6 +9,9 @@
     "lint": {
       "dependsOn": ["^build"]
     },
+    "check": {
+      "dependsOn": ["^build"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

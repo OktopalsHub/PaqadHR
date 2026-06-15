@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const billingStatusSchema = z.object({
-  billingMode: z.enum(["trial", "manual", "open"]),
+  billingMode: z.enum(['trial', 'manual', 'open']),
   paymentsEnabled: z.boolean(),
   featureGatingEnabled: z.boolean(),
   subscription: z

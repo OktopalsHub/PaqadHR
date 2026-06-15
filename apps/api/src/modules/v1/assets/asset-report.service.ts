@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { AssetMaintenanceRepository } from './maintenance/asset-maintenance.repository';
-import { AssetAssignmentRepository } from './assignment/asset-assignment.repository';
-import { AssetRepository } from "./repositories/asset.repository";
+import type { AssetAssignmentRepository } from './assignment/asset-assignment.repository';
+import type { AssetMaintenanceRepository } from './maintenance/asset-maintenance.repository';
+import type { AssetRepository } from './repositories/asset.repository';
 
 @Injectable()
 export class AssetReportService {
@@ -10,10 +10,7 @@ export class AssetReportService {
     private readonly assetMaintenanceRepository: AssetMaintenanceRepository,
     private readonly assetAssignmentRepository: AssetAssignmentRepository,
   ) {}
-  async getInventoryReport(
-    tenantId: string,
-    filters: Record<string, unknown> = {},
-  ) {
+  async getInventoryReport(tenantId: string, filters: Record<string, unknown> = {}) {
     const { assets } = await this.assetRepository.findByTenant(tenantId, {
       ...(filters as object),
       page: 1,
@@ -27,25 +24,17 @@ export class AssetReportService {
     };
     assets.forEach((asset) => {
       summary.byType[asset.type] = (summary.byType[asset.type] || 0) + 1;
-      summary.byStatus[asset.status] =
-        (summary.byStatus[asset.status] || 0) + 1;
-      summary.byCondition[asset.condition] =
-        (summary.byCondition[asset.condition] || 0) + 1;
+      summary.byStatus[asset.status] = (summary.byStatus[asset.status] || 0) + 1;
+      summary.byCondition[asset.condition] = (summary.byCondition[asset.condition] || 0) + 1;
       const categoryName = asset.category?.name || 'Uncategorized';
-      summary.byCategory[categoryName] =
-        (summary.byCategory[categoryName] || 0) + 1;
+      summary.byCategory[categoryName] = (summary.byCategory[categoryName] || 0) + 1;
     });
     return {
       summary,
       assets,
     };
   }
-  async getMaintenanceReport(
-    tenantId: string,
-    startDate: Date,
-    endDate: Date,
-    type?: string,
-  ) {
+  async getMaintenanceReport(tenantId: string, startDate: Date, endDate: Date, type?: string) {
     const maintenanceRecords = type
       ? await this.assetMaintenanceRepository.findMaintenanceByType(
           tenantId,
@@ -58,19 +47,13 @@ export class AssetReportService {
           startDate,
           endDate,
         );
-    const costs =
-      await this.assetMaintenanceRepository.getMaintenanceCostsByPeriod(
-        tenantId,
-        startDate,
-        endDate,
-      );
-    const upcoming =
-      await this.assetMaintenanceRepository.findUpcomingMaintenance(
-        tenantId,
-        30,
-      );
-    const overdue =
-      await this.assetMaintenanceRepository.findOverdueMaintenance(tenantId);
+    const costs = await this.assetMaintenanceRepository.getMaintenanceCostsByPeriod(
+      tenantId,
+      startDate,
+      endDate,
+    );
+    const upcoming = await this.assetMaintenanceRepository.findUpcomingMaintenance(tenantId, 30);
+    const overdue = await this.assetMaintenanceRepository.findOverdueMaintenance(tenantId);
     return {
       period: { startDate, endDate },
       costs,
@@ -84,11 +67,7 @@ export class AssetReportService {
       },
     };
   }
-  async getDepreciationReport(
-    tenantId: string,
-    year: number,
-    categoryId?: string,
-  ) {
+  async getDepreciationReport(tenantId: string, year: number, categoryId?: string) {
     const filters: Record<string, unknown> = {};
     if (categoryId) {
       filters.categoryId = categoryId;
@@ -103,10 +82,7 @@ export class AssetReportService {
       const yearsOwned = year - purchaseYear;
       const depreciationRate = asset.category?.depreciationRate || 0;
       const annualDepreciation = asset.purchasePrice * (depreciationRate / 100);
-      const totalDepreciation = Math.min(
-        annualDepreciation * yearsOwned,
-        asset.purchasePrice,
-      );
+      const totalDepreciation = Math.min(annualDepreciation * yearsOwned, asset.purchasePrice);
       const currentValue = asset.purchasePrice - totalDepreciation;
       return {
         asset: {
@@ -142,9 +118,7 @@ export class AssetReportService {
         totalCurrentValue,
         totalDepreciation,
         depreciationPercentage:
-          totalPurchaseValue > 0
-            ? (totalDepreciation / totalPurchaseValue) * 100
-            : 0,
+          totalPurchaseValue > 0 ? (totalDepreciation / totalPurchaseValue) * 100 : 0,
       },
       assets: deprecationData,
     };

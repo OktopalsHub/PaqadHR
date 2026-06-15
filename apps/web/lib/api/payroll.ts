@@ -1,16 +1,10 @@
-import { apiClient, tenantPath, fetchWithCsrf, getApiV1Base } from "@/lib/api/client";
-import { resolveTenantId } from "@/lib/api/tenants";
-import type {
-  CreatePayrollRunInput,
-  PayrollRun,
-  PayrollRunsResponse,
-} from "@/lib/schemas/payroll";
+import { apiClient, fetchWithCsrf, getApiV1Base, tenantPath } from '@/lib/api/client';
+import { resolveTenantId } from '@/lib/api/tenants';
+import type { CreatePayrollRunInput, PayrollRun, PayrollRunsResponse } from '@/lib/schemas/payroll';
 
 export async function fetchPayrollRuns(): Promise<PayrollRunsResponse> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollRunsResponse>(
-    tenantPath(tenantId, "payroll/runs"),
-  );
+  return apiClient<PayrollRunsResponse>(tenantPath(tenantId, 'payroll/runs'));
 }
 
 export async function fetchPayrollRun(id: string): Promise<PayrollRun> {
@@ -18,12 +12,10 @@ export async function fetchPayrollRun(id: string): Promise<PayrollRun> {
   return apiClient<PayrollRun>(tenantPath(tenantId, `payroll/runs/${id}`));
 }
 
-export async function createPayrollRun(
-  input: CreatePayrollRunInput,
-): Promise<PayrollRun> {
+export async function createPayrollRun(input: CreatePayrollRunInput): Promise<PayrollRun> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollRun>(tenantPath(tenantId, "payroll/runs"), {
-    method: "POST",
+  return apiClient<PayrollRun>(tenantPath(tenantId, 'payroll/runs'), {
+    method: 'POST',
     body: JSON.stringify(input),
   });
 }
@@ -31,21 +23,21 @@ export async function createPayrollRun(
 export async function calculatePayrollRun(id: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `payroll/runs/${id}/calculate`), {
-    method: "POST",
+    method: 'POST',
   });
 }
 
 export async function approvePayrollRun(id: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `payroll/runs/${id}/approve`), {
-    method: "POST",
+    method: 'POST',
   });
 }
 
 export async function disbursePayrollRun(id: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `payroll/runs/${id}/disburse`), {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({ confirmed: true }),
   });
 }
@@ -56,12 +48,12 @@ export async function downloadPayrollBankFile(id: string): Promise<void> {
     `${getApiV1Base()}${tenantPath(tenantId, `payroll/runs/${id}/export/bank-file`)}`,
   );
   if (!response.ok) {
-    throw new Error("Failed to export bank file");
+    throw new Error('Failed to export bank file');
   }
   const csv = await response.text();
-  const blob = new Blob([csv], { type: "text/csv" });
+  const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
   link.download = `payroll-${id.slice(0, 8)}.csv`;
   link.click();

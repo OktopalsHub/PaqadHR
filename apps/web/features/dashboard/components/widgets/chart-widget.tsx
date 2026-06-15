@@ -1,34 +1,17 @@
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, XAxis, YAxis } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const ChartWidget = () => {
   const departmentData = [
-    { name: "Engineering", value: 45, percentage: 29 },
-    { name: "Sales", value: 32, percentage: 21 },
-    { name: "Marketing", value: 18, percentage: 12 },
-    { name: "HR", value: 12, percentage: 8 },
-    { name: "Finance", value: 15, percentage: 10 },
-    { name: "Operations", value: 34, percentage: 20 },
+    { name: 'Engineering', value: 45, percentage: 29 },
+    { name: 'Sales', value: 32, percentage: 21 },
+    { name: 'Marketing', value: 18, percentage: 12 },
+    { name: 'HR', value: 12, percentage: 8 },
+    { name: 'Finance', value: 15, percentage: 10 },
+    { name: 'Operations', value: 34, percentage: 20 },
   ];
 
-  const COLORS = [
-    "#3B82F6",
-    "#10B981",
-    "#F59E0B",
-    "#EF4444",
-    "#8B5CF6",
-    "#06B6D4",
-  ];
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4'];
 
   return (
     <Card className="h-full">
@@ -40,12 +23,7 @@ export const ChartWidget = () => {
           <div>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={departmentData}>
-                <XAxis
-                  dataKey="name"
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                />
+                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
                 <YAxis />
                 <Bar dataKey="value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -62,11 +40,8 @@ export const ChartWidget = () => {
                   outerRadius={80}
                   dataKey="value"
                 >
-                  {departmentData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
+                  {departmentData.map((_entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
               </PieChart>

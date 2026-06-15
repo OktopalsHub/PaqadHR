@@ -6,14 +6,9 @@ import { ShoutoutCategory } from '../entities/shoutout-category.entity';
 @Injectable()
 export class ShoutoutCategoriesRepository extends Repository<ShoutoutCategory> {
   constructor(
-    @InjectRepository(ShoutoutCategory)
-    private readonly categoryRepository: Repository<ShoutoutCategory>,
+    @InjectRepository(ShoutoutCategory) readonly categoryRepository: Repository<ShoutoutCategory>,
   ) {
-    super(
-      categoryRepository.target,
-      categoryRepository.manager,
-      categoryRepository.queryRunner,
-    );
+    super(categoryRepository.target, categoryRepository.manager, categoryRepository.queryRunner);
   }
 
   async listByTenant(tenantId: string): Promise<ShoutoutCategory[]> {

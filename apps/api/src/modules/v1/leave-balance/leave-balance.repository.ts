@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LeaveBalance } from "./entities/leave-balance.entity";
+import { LeaveBalance } from './entities/leave-balance.entity';
 
 @Injectable()
 export class LeaveBalanceRepository extends Repository<LeaveBalance> {
@@ -9,7 +9,11 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
     @InjectRepository(LeaveBalance)
     private readonly leaveBalanceRepository: Repository<LeaveBalance>,
   ) {
-    super(leaveBalanceRepository.target, leaveBalanceRepository.manager, leaveBalanceRepository.queryRunner);
+    super(
+      leaveBalanceRepository.target,
+      leaveBalanceRepository.manager,
+      leaveBalanceRepository.queryRunner,
+    );
   }
   async findByCriteria(criteria: {
     tenantId: string;
@@ -27,11 +31,7 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
       },
     });
   }
-  async findByMember(
-    tenantId: string,
-    memberId: string,
-    year: number,
-  ): Promise<LeaveBalance[]> {
+  async findByMember(tenantId: string, memberId: string, year: number): Promise<LeaveBalance[]> {
     return this.leaveBalanceRepository.find({
       where: {
         tenantId,

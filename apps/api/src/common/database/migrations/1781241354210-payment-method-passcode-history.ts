@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class PaymentMethodPasscodeHistory1781241354210 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

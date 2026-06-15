@@ -1,4 +1,3 @@
-import { CreatePaymentMethodDto, UpdatePaymentMethodDto, PasscodeChangeDto } from '../dto/payment-method.dto';
 import {
   Body,
   Controller,
@@ -11,15 +10,20 @@ import {
   Post,
   Put,
   Query,
-  UseGuards } from '@nestjs/common';
-import { MemberContext } from 'src/common/interfaces';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
+import type { MemberContext } from 'src/common/interfaces';
+import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { PaymentMethodService } from '../services/payment-method.service';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { PaymentMethodStatus } from "../../../../common/enums/payment-method-status.enum";
+import type {
+  CreatePaymentMethodDto,
+  PasscodeChangeDto,
+  UpdatePaymentMethodDto,
+} from '../dto/payment-method.dto';
+import type { PaymentMethodService } from '../services/payment-method.service';
 
 @ApiTags('Payment Methods')
 @Controller('tenants/:tenantId/payment-methods')
@@ -56,29 +60,16 @@ export class PaymentMethodController {
         },
         isPrimary: { type: 'boolean', example: false },
       },
-      required: [
-        'currency',
-        'bankName',
-        'accountName',
-        'accountNumber',
-        'country',
-        'passcode',
-      ],
+      required: ['currency', 'bankName', 'accountName', 'accountNumber', 'country', 'passcode'],
     },
   })
   async createPaymentMethod(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreatePaymentMethodDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(
-      `Creating payment method for member ${member.id} in tenant ${tenantId}`,
-    );
-    return this.paymentMethodService.createPaymentMethod(
-      tenantId,
-      member.id,
-      dto,
-    );
+    this.logger.log(`Creating payment method for member ${member.id} in tenant ${tenantId}`);
+    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, dto);
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -140,17 +131,10 @@ export class PaymentMethodController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: UpdatePaymentMethodDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(
-      `Updating payment method ${paymentMethodId} for member ${member.id}`,
-    );
-    return this.paymentMethodService.updatePaymentMethod(
-      paymentMethodId,
-      tenantId,
-      member.id,
-      dto,
-    );
+    this.logger.log(`Updating payment method ${paymentMethodId} for member ${member.id}`);
+    return this.paymentMethodService.updatePaymentMethod(paymentMethodId, tenantId, member.id, dto);
   }
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)
@@ -174,15 +158,10 @@ export class PaymentMethodController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: PasscodeChangeDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
     this.logger.log(`Changing passcode for payment method ${paymentMethodId}`);
-    await this.paymentMethodService.changePasscode(
-      paymentMethodId,
-      tenantId,
-      member.id,
-      dto,
-    );
+    await this.paymentMethodService.changePasscode(paymentMethodId, tenantId, member.id, dto);
   }
   @Delete(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
@@ -202,8 +181,7 @@ export class PaymentMethodController {
       properties: {
         passcode: {
           type: 'string',
-          description:
-            'Passcode for deletion (required if payment method has passcode)',
+          description: 'Passcode for deletion (required if payment method has passcode)',
         },
       },
     },
@@ -212,11 +190,9 @@ export class PaymentMethodController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { passcode?: string },
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(
-      `Deleting payment method ${paymentMethodId} for member ${member.id}`,
-    );
+    this.logger.log(`Deleting payment method ${paymentMethodId} for member ${member.id}`);
     await this.paymentMethodService.deletePaymentMethod(
       paymentMethodId,
       tenantId,
@@ -248,9 +224,7 @@ export class PaymentMethodController {
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
   ) {
-    this.logger.log(
-      `Admin accessing payment method for member ${memberId} in tenant ${tenantId}`,
-    );
+    this.logger.log(`Admin accessing payment method for member ${memberId} in tenant ${tenantId}`);
     return this.paymentMethodService.findByMemberId(memberId);
   }
   @Get(':id')
@@ -260,13 +234,8 @@ export class PaymentMethodController {
     status: 200,
     description: 'Payment method retrieved successfully',
   })
-  async getPaymentMethod(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    this.logger.log(
-      `Admin accessing payment method ${id} in tenant ${tenantId}`,
-    );
+  async getPaymentMethod(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    this.logger.log(`Admin accessing payment method ${id} in tenant ${tenantId}`);
     return this.paymentMethodService.findById(id);
   }
   @Post(':paymentMethodId/verify')
@@ -291,14 +260,8 @@ export class PaymentMethodController {
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: PaymentMethodStatus; notes?: string },
   ) {
-    this.logger.log(
-      `Admin verifying payment method ${paymentMethodId} with status ${body.status}`,
-    );
-    return this.paymentMethodService.verifyPaymentMethod(
-      paymentMethodId,
-      body.status,
-      body.notes,
-    );
+    this.logger.log(`Admin verifying payment method ${paymentMethodId} with status ${body.status}`);
+    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, body.status, body.notes);
   }
   @Get(':paymentMethodId/passcode-history')
   @UseGuards(TenantMemberGuard)
@@ -310,12 +273,8 @@ export class PaymentMethodController {
   async getPasscodeHistory(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
-    @CurrentTenantMember() member: MemberContext
-    ) {
-    return this.paymentMethodService.getPasscodeHistory(
-      paymentMethodId,
-      tenantId,
-      member.id,
-    );
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.getPasscodeHistory(paymentMethodId, tenantId, member.id);
   }
 }

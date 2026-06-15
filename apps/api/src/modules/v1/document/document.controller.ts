@@ -1,4 +1,3 @@
-import { Document } from './entities/document.entity';
 import {
   Body,
   Controller,
@@ -13,20 +12,21 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { MemberContext } from 'src/common/interfaces';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { FileUrlService } from 'src/common/services/file-url.service';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import type { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
+import type { DocumentCategory } from '../../../common/enums/document-category.enum';
+import type { DocumentType } from '../../../common/enums/document-type.enum';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { DocumentService } from './document.service';
-import { CreateDocumentDto } from "./dto/create-document.dto";
-import { TenantMember } from "../tenant-members/entities/tenant-member.entity";
-import { DocumentMapper } from "./dto/document-response.dto";
-import { UpdateDocumentDto } from "./dto/update-document.dto";
-import { DocumentType } from "../../../common/enums/document-type.enum";
-import { DocumentCategory } from "../../../common/enums/document-category.enum";
-import { DocumentAccessLevel } from "../../../common/enums/document-access-level.enum";
+import type { DocumentService } from './document.service';
+import type { CreateDocumentDto } from './dto/create-document.dto';
+import { DocumentMapper } from './dto/document-response.dto';
+import type { UpdateDocumentDto } from './dto/update-document.dto';
+import { Document } from './entities/document.entity';
 
 @ApiTags('documents')
 @UseGuards(TenantMemberGuard)
@@ -52,20 +52,16 @@ Step 3: Call this endpoint with the fileKey from step 1`,
   async createDocument(
     @Body() createDocumentDto: CreateDocumentDto,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<Document> {
-    return this.documentService.createDocument(
-      tenantId,
-      member.id,
-      createDocumentDto,
-    );
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<Document> {
+    return this.documentService.createDocument(tenantId, member.id, createDocumentDto);
   }
   @Get()
   @HttpCode(HttpStatus.OK)
   async getDocuments(
     @Param('tenantId') tenantId: string,
     @Query('memberId') memberId?: string,
-    @Query('types') types?: string, 
+    @Query('types') types?: string,
     @Query('category') category?: DocumentCategory,
     @Query('isVerified') isVerified?: boolean,
     @Query('expiringWithinDays') expiringWithinDays?: number,
@@ -83,40 +79,19 @@ Step 3: Call this endpoint with the fileKey from step 1`,
         tenantId,
       );
     } else if (memberId) {
-      documents = await this.documentService.getDocumentsByMemberId(
-        memberId,
-        tenantId,
-      );
+      documents = await this.documentService.getDocumentsByMemberId(memberId, tenantId);
     } else if (parsedTypes && parsedTypes.length === 1) {
-      documents = await this.documentService.getDocumentsByType(
-        parsedTypes[0],
-        tenantId,
-      );
+      documents = await this.documentService.getDocumentsByType(parsedTypes[0], tenantId);
     } else if (parsedTypes && parsedTypes.length > 1) {
-      documents = await this.documentService.getDocumentsByTypes(
-        parsedTypes,
-        tenantId,
-      );
+      documents = await this.documentService.getDocumentsByTypes(parsedTypes, tenantId);
     } else if (category) {
-      documents = await this.documentService.getDocumentsByCategory(
-        category,
-        tenantId,
-      );
+      documents = await this.documentService.getDocumentsByCategory(category, tenantId);
     } else if (isVerified !== undefined) {
-      documents = await this.documentService.getDocumentsByVerificationStatus(
-        tenantId,
-        isVerified,
-      );
+      documents = await this.documentService.getDocumentsByVerificationStatus(tenantId, isVerified);
     } else if (expiringWithinDays) {
-      documents = await this.documentService.getExpiringDocuments(
-        tenantId,
-        expiringWithinDays,
-      );
+      documents = await this.documentService.getExpiringDocuments(tenantId, expiringWithinDays);
     } else if (accessLevel) {
-      documents = await this.documentService.getDocumentsByAccessLevel(
-        accessLevel,
-        tenantId,
-      );
+      documents = await this.documentService.getDocumentsByAccessLevel(accessLevel, tenantId);
     } else {
       documents = await this.documentService.listDocuments(tenantId);
     }
@@ -124,10 +99,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
   }
   @Get(':id')
   @HttpCode(HttpStatus.OK)
-  async getDocument(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Param('tenantId') tenantId: string,
-  ) {
+  async getDocument(@Param('id', ParseUUIDPipe) id: string, @Param('tenantId') tenantId: string) {
     const document = await this.documentService.getDocument(id, tenantId);
     return DocumentMapper.toResponse(document, this.fileUrlService);
   }
@@ -146,10 +118,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
   ) {
-    const downloadUrl = await this.documentService.downloadDocument(
-      tenantId,
-      id,
-    );
+    const downloadUrl = await this.documentService.downloadDocument(tenantId, id);
     return { downloadUrl };
   }
   @Delete(':id')
@@ -184,11 +153,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     @Param('tenantId') tenantId: string,
     @Body() body: { documentIds: string[]; isVerified: boolean },
   ): Promise<Document[]> {
-    return this.documentService.bulkVerifyDocuments(
-      tenantId,
-      body.documentIds,
-      body.isVerified,
-    );
+    return this.documentService.bulkVerifyDocuments(tenantId, body.documentIds, body.isVerified);
   }
   @Post('bulk/delete')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -213,11 +178,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     @Param('tenantId') tenantId: string,
     @Body() body: { signerEmails: string[] },
   ) {
-    return this.documentService.initiateDigitalSignature(
-      tenantId,
-      id,
-      body.signerEmails,
-    );
+    return this.documentService.initiateDigitalSignature(tenantId, id, body.signerEmails);
   }
   @Get(':id/access-logs')
   @HttpCode(HttpStatus.OK)
@@ -235,8 +196,8 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
     @Body() body: { memberId: string; action: string },
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     const hasAccess = await this.documentService.checkDocumentAccess(
       tenantId,
       id,
@@ -246,12 +207,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     if (!hasAccess) {
       throw new ForbiddenException('Access denied to this document');
     }
-    return this.documentService.logDocumentAccess(
-      tenantId,
-      id,
-      body.memberId,
-      body.action,
-    );
+    return this.documentService.logDocumentAccess(tenantId, id, body.memberId, body.action);
   }
   @Get(':id/access-check')
   @HttpCode(HttpStatus.OK)
@@ -259,8 +215,8 @@ Step 3: Call this endpoint with the fileKey from step 1`,
   async checkDocumentAccess(
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     const hasAccess = await this.documentService.checkDocumentAccess(
       tenantId,
       id,

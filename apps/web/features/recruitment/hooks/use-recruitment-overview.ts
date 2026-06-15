@@ -1,9 +1,6 @@
-import { useMemo } from "react";
-import { useCalendarEvents } from "@/hooks/queries/use-calendar";
-import {
-  useAllCandidates,
-  useJobOpenings,
-} from "@/hooks/queries/use-recruitment";
+import { useMemo } from 'react';
+import { useCalendarEvents } from '@/hooks/queries/use-calendar';
+import { useAllCandidates, useJobOpenings } from '@/hooks/queries/use-recruitment';
 import {
   computeApplicationsChart,
   computeDepartmentChart,
@@ -11,8 +8,8 @@ import {
   computeSourceChart,
   countApplicantsByJob,
   toApplicantRows,
-} from "../lib/recruitment-dashboard-metrics";
-import { calendarEventsToSchedule } from "../lib/recruitment-schedule-utils";
+} from '../lib/recruitment-dashboard-metrics';
+import { calendarEventsToSchedule } from '../lib/recruitment-schedule-utils';
 
 export function useRecruitmentOverview() {
   const {
@@ -21,10 +18,7 @@ export function useRecruitmentOverview() {
     isError: jobsError,
     error: jobsErrorObj,
   } = useJobOpenings();
-  const {
-    data: apiCandidates = [],
-    isLoading: candidatesLoading,
-  } = useAllCandidates();
+  const { data: apiCandidates = [], isLoading: candidatesLoading } = useAllCandidates();
   const { data: calendarEvents = [] } = useCalendarEvents();
 
   const apiJobs = jobsData?.jobs ?? [];

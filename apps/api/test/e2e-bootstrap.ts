@@ -1,6 +1,6 @@
-import { INestApplication, RequestMethod, VersioningType } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { NestExpressApplication } from '@nestjs/platform-express';
+import { type INestApplication, RequestMethod, VersioningType } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { Test, type TestingModule } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import { AppModule } from '../src/app.module';
 import { ExpressSetup } from '../src/common/config/express.config';

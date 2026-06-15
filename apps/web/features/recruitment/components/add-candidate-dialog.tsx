@@ -1,37 +1,34 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  useCreateCandidate,
-  useJobOpenings,
-} from "@/hooks/queries/use-recruitment";
-import type { CandidateSource } from "@/lib/schemas/recruitment";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useCreateCandidate, useJobOpenings } from '@/hooks/queries/use-recruitment';
+import type { CandidateSource } from '@/lib/schemas/recruitment';
 
 const SOURCE_OPTIONS: { value: CandidateSource; label: string }[] = [
-  { value: "INTERNAL", label: "Referral / internal" },
-  { value: "LINKEDIN", label: "LinkedIn" },
-  { value: "INDEED", label: "Indeed" },
-  { value: "PUBLIC_WEBSITE", label: "Job board / website" },
-  { value: "OTHER", label: "Other" },
+  { value: 'INTERNAL', label: 'Referral / internal' },
+  { value: 'LINKEDIN', label: 'LinkedIn' },
+  { value: 'INDEED', label: 'Indeed' },
+  { value: 'PUBLIC_WEBSITE', label: 'Job board / website' },
+  { value: 'OTHER', label: 'Other' },
 ];
 
 type AddCandidateDialogProps = {
@@ -39,41 +36,38 @@ type AddCandidateDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-export function AddCandidateDialog({
-  open,
-  onOpenChange,
-}: AddCandidateDialogProps) {
+export function AddCandidateDialog({ open, onOpenChange }: AddCandidateDialogProps) {
   const createCandidate = useCreateCandidate();
   const { data: jobsData } = useJobOpenings();
   const jobs = jobsData?.jobs ?? [];
 
-  const [jobOpeningId, setJobOpeningId] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [skills, setSkills] = useState("");
-  const [source, setSource] = useState<CandidateSource>("OTHER");
+  const [jobOpeningId, setJobOpeningId] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [skills, setSkills] = useState('');
+  const [source, setSource] = useState<CandidateSource>('OTHER');
 
   const reset = () => {
-    setJobOpeningId("");
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setPhone("");
-    setSkills("");
-    setSource("OTHER");
+    setJobOpeningId('');
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setPhone('');
+    setSkills('');
+    setSource('OTHER');
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!jobOpeningId) {
-      toast.error("Select a job posting for this candidate.");
+      toast.error('Select a job posting for this candidate.');
       return;
     }
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error("First name, last name, and email are required.");
+      toast.error('First name, last name, and email are required.');
       return;
     }
 
@@ -87,13 +81,11 @@ export function AddCandidateDialog({
         skills: skills.trim() || undefined,
         source,
       });
-      toast.success("Candidate added to the role.");
+      toast.success('Candidate added to the role.');
       reset();
       onOpenChange(false);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to add candidate",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to add candidate');
     }
   };
 
@@ -191,10 +183,7 @@ export function AddCandidateDialog({
 
           <div className="space-y-2">
             <Label>Source</Label>
-            <Select
-              value={source}
-              onValueChange={(value) => setSource(value as CandidateSource)}
-            >
+            <Select value={source} onValueChange={(value) => setSource(value as CandidateSource)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -209,18 +198,11 @@ export function AddCandidateDialog({
           </div>
 
           <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              type="submit"
-              disabled={createCandidate.isPending || jobs.length === 0}
-            >
-              {createCandidate.isPending ? "Adding…" : "Add candidate"}
+            <Button type="submit" disabled={createCandidate.isPending || jobs.length === 0}>
+              {createCandidate.isPending ? 'Adding…' : 'Add candidate'}
             </Button>
           </div>
         </form>

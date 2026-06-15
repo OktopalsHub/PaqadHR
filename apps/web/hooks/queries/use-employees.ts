@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchEmployeeById, fetchEmployees } from "@/lib/api/employees";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
+import { useQuery } from '@tanstack/react-query';
+import { fetchEmployeeById, fetchEmployees } from '@/lib/api/employees';
+import { queryKeys } from '@/lib/query/keys';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function useEmployees() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -17,7 +17,7 @@ export function useEmployees() {
 
 export function useEmployee(id: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.employees.detail(id ?? ""),
+    queryKey: queryKeys.employees.detail(id ?? ''),
     queryFn: () => fetchEmployeeById(id!),
     enabled: Boolean(id),
   });

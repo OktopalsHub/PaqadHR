@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -10,13 +10,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import {
-  useApproveLeave,
-  useRejectLeave,
-} from "@/hooks/queries/use-leaves";
-import type { LeaveRequest } from "@/lib/schemas/leave";
-import { LeaveStatusBadge } from "./leave-status-badge";
+} from '@/components/ui/table';
+import { useApproveLeave, useRejectLeave } from '@/hooks/queries/use-leaves';
+import type { LeaveRequest } from '@/lib/schemas/leave';
+import { LeaveStatusBadge } from './leave-status-badge';
 
 interface LeaveRequestsTableProps {
   requests: LeaveRequest[];
@@ -31,11 +28,9 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
     setPendingId(leaveId);
     try {
       await approveLeave.mutateAsync({ leaveId });
-      toast.success("Leave request approved");
+      toast.success('Leave request approved');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to approve leave",
-      );
+      toast.error(error instanceof Error ? error.message : 'Unable to approve leave');
     } finally {
       setPendingId(null);
     }
@@ -45,11 +40,9 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
     setPendingId(leaveId);
     try {
       await rejectLeave.mutateAsync({ leaveId });
-      toast.success("Leave request rejected");
+      toast.success('Leave request rejected');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to reject leave",
-      );
+      toast.error(error instanceof Error ? error.message : 'Unable to reject leave');
     } finally {
       setPendingId(null);
     }
@@ -71,7 +64,7 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
       </TableHeader>
       <TableBody>
         {requests.map((request) => {
-          const isPending = request.status.toLowerCase() === "pending";
+          const isPending = request.status.toLowerCase() === 'pending';
           const isBusy = pendingId === request.id;
 
           return (
@@ -84,9 +77,7 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
               <TableCell>
                 <LeaveStatusBadge status={request.status} />
               </TableCell>
-              <TableCell className="max-w-[200px] truncate">
-                {request.reason}
-              </TableCell>
+              <TableCell className="max-w-[200px] truncate">{request.reason}</TableCell>
               <TableCell>
                 {isPending ? (
                   <div className="flex space-x-2">

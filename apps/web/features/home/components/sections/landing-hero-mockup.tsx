@@ -1,12 +1,12 @@
-"use client";
+'use client';
 
-import { motion } from "framer-motion";
-import { scaleIn } from "../../constants/landing-motion";
+import { motion } from 'framer-motion';
+import { scaleIn } from '../../constants/landing-motion';
 
 const rows = [
-  { name: "Ada O.", role: "Product Designer", status: "Interview", tone: "text-primary" },
-  { name: "Kofi M.", role: "Backend Engineer", status: "Offer", tone: "text-foreground" },
-  { name: "Zara L.", role: "People Ops", status: "Screening", tone: "text-muted-foreground" },
+  { name: 'Ada O.', role: 'Product Designer', status: 'Interview', tone: 'text-primary' },
+  { name: 'Kofi M.', role: 'Backend Engineer', status: 'Offer', tone: 'text-foreground' },
+  { name: 'Zara L.', role: 'People Ops', status: 'Screening', tone: 'text-muted-foreground' },
 ];
 
 export function LandingHeroMockup() {
@@ -24,7 +24,7 @@ export function LandingHeroMockup() {
         transition={{
           duration: 6,
           repeat: Number.POSITIVE_INFINITY,
-          ease: "easeInOut",
+          ease: 'easeInOut',
         }}
         className="relative"
       >
@@ -35,9 +35,7 @@ export function LandingHeroMockup() {
               <span className="size-2 rounded-full bg-white/20" />
               <span className="size-2 rounded-full bg-white/20" />
             </div>
-            <span className="ml-1 text-[11px] text-muted-foreground/70">
-              paqad.app
-            </span>
+            <span className="ml-1 text-[11px] text-muted-foreground/70">paqad.app</span>
           </div>
 
           <div className="grid md:grid-cols-[168px_1fr]">
@@ -48,20 +46,16 @@ export function LandingHeroMockup() {
                 </span>
                 <span className="text-xs font-medium">Paqad</span>
               </div>
-              {["Dashboard", "Employees", "Recruitment", "Payroll", "Leave"].map(
-                (item, i) => (
-                  <div
-                    key={item}
-                    className={`mb-0.5 rounded-md px-2 py-1.5 text-[11px] ${
-                      i === 2
-                        ? "bg-white/[0.06] text-foreground"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {item}
-                  </div>
-                ),
-              )}
+              {['Dashboard', 'Employees', 'Recruitment', 'Payroll', 'Leave'].map((item, i) => (
+                <div
+                  key={item}
+                  className={`mb-0.5 rounded-md px-2 py-1.5 text-[11px] ${
+                    i === 2 ? 'bg-white/[0.06] text-foreground' : 'text-muted-foreground'
+                  }`}
+                >
+                  {item}
+                </div>
+              ))}
             </aside>
 
             <div className="p-5 md:p-6">
@@ -83,9 +77,7 @@ export function LandingHeroMockup() {
                   >
                     <div>
                       <p className="text-xs font-medium">{row.name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {row.role}
-                      </p>
+                      <p className="text-[10px] text-muted-foreground">{row.role}</p>
                     </div>
                     <span className={`text-[10px] ${row.tone}`}>{row.status}</span>
                   </div>
@@ -94,17 +86,12 @@ export function LandingHeroMockup() {
 
               <div className="mt-5 grid grid-cols-3 gap-2">
                 {[
-                  { label: "Headcount", value: "124" },
-                  { label: "On leave", value: "8" },
-                  { label: "Open roles", value: "3" },
+                  { label: 'Headcount', value: '124' },
+                  { label: 'On leave', value: '8' },
+                  { label: 'Open roles', value: '3' },
                 ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-lg border border-white/[0.06] px-3 py-2"
-                  >
-                    <p className="text-[10px] text-muted-foreground">
-                      {stat.label}
-                    </p>
+                  <div key={stat.label} className="rounded-lg border border-white/[0.06] px-3 py-2">
+                    <p className="text-[10px] text-muted-foreground">{stat.label}</p>
                     <p className="text-sm font-medium">{stat.value}</p>
                   </div>
                 ))}

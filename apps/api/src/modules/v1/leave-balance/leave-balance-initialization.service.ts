@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
-import { LeaveTypeService } from '../leave-type/leave-type.service';
-import { TenantMember } from "../tenant-members/entities/tenant-member.entity";
-import { LeaveBalance } from "./entities/leave-balance.entity";
+import type { Repository } from 'typeorm';
+import type { LeaveBalanceService } from '../leave-balance/leave-balance.service';
+import type { LeaveTypeService } from '../leave-type/leave-type.service';
+import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
+import type { LeaveBalance } from './entities/leave-balance.entity';
 
 @Injectable()
 export class LeaveBalanceInitializationService {
@@ -14,17 +14,11 @@ export class LeaveBalanceInitializationService {
     @InjectRepository(TenantMember)
     private readonly tenantMemberRepository: Repository<TenantMember>,
   ) {}
-  async initializeLeaveBalancesForNewEmployee(
-    tenantId: string,
-    memberId: string,
-    joinDate?: Date,
-  ) {
+  async initializeLeaveBalancesForNewEmployee(tenantId: string, memberId: string, joinDate?: Date) {
     const currentYear = new Date().getFullYear();
     const joinYear = joinDate ? joinDate.getFullYear() : currentYear;
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
-    const activeLeaveTypes = leaveTypes.filter(
-      (lt) => lt.isActive && lt.tenantId === tenantId,
-    );
+    const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive && lt.tenantId === tenantId);
     const balances: LeaveBalance[] = [];
     for (const leaveType of activeLeaveTypes) {
       const existingBalance = await this.leaveBalanceService.findByCriteria({
@@ -34,11 +28,7 @@ export class LeaveBalanceInitializationService {
         year: joinYear,
       });
       if (!existingBalance) {
-        const allocatedDays = this.calculateProratedDays(
-          leaveType.defaultDays,
-          joinDate,
-          joinYear,
-        );
+        const allocatedDays = this.calculateProratedDays(leaveType.defaultDays, joinDate, joinYear);
         const newBalance = await this.leaveBalanceService.createLeaveBalance(
           tenantId,
           memberId,
@@ -53,19 +43,12 @@ export class LeaveBalanceInitializationService {
         balances.push(newBalance);
       }
     }
-    if (
-      joinYear === currentYear &&
-      this.shouldCreateNextYearBalance(joinDate)
-    ) {
+    if (joinYear === currentYear && this.shouldCreateNextYearBalance(joinDate)) {
       await this.createNextYearBalances(tenantId, memberId, activeLeaveTypes);
     }
     return balances;
   }
-  async bulkInitializeLeaveBalances(
-    tenantId: string,
-    memberIds: string[],
-    year?: number,
-  ) {
+  async bulkInitializeLeaveBalances(tenantId: string, memberIds: string[], year?: number) {
     const targetYear = year || new Date().getFullYear();
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
     const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive);
@@ -187,18 +170,14 @@ export class LeaveBalanceInitializationService {
     }
     return results;
   }
-  private calculateProratedDays(
-    defaultDays: number,
-    joinDate?: Date,
-    year?: number,
-  ): number {
+  private calculateProratedDays(defaultDays: number, joinDate?: Date, year?: number): number {
     if (!joinDate) return defaultDays;
     const currentYear = year || new Date().getFullYear();
     const joinYear = joinDate.getFullYear();
     if (joinYear < currentYear) {
-      return defaultDays; 
+      return defaultDays;
     }
-    const joinMonth = joinDate.getMonth(); 
+    const joinMonth = joinDate.getMonth();
     const remainingMonths = 12 - joinMonth;
     return Math.ceil((defaultDays * remainingMonths) / 12);
   }
@@ -222,17 +201,12 @@ export class LeaveBalanceInitializationService {
         year: nextYear,
       });
       if (!existingBalance) {
-        await this.leaveBalanceService.createLeaveBalance(
-          tenantId,
-          memberId,
-          leaveType.id,
-          {
-            year: nextYear,
-            totalDays: leaveType.defaultDays,
-            usedDays: 0,
-            remainingDays: leaveType.defaultDays,
-          },
-        );
+        await this.leaveBalanceService.createLeaveBalance(tenantId, memberId, leaveType.id, {
+          year: nextYear,
+          totalDays: leaveType.defaultDays,
+          usedDays: 0,
+          remainingDays: leaveType.defaultDays,
+        });
       }
     }
   }
@@ -258,9 +232,7 @@ export class LeaveBalanceInitializationService {
     );
     return eligibleCarryover;
   }
-  private async listActiveTenantMembers(
-    tenantId: string,
-  ): Promise<TenantMember[]> {
+  private async listActiveTenantMembers(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: {
         tenantId,

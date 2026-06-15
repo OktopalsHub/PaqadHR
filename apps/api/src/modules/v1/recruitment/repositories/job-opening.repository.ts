@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
-import { FindOptionsWhere, Repository, SelectQueryBuilder } from 'typeorm';
-import { JobOpening } from "../entities/job-opening.entity";
-import { JobFilterOptions } from "../../../../common/interfaces/job-filter-options.interface";
+import { type FindOptionsWhere, Repository, type SelectQueryBuilder } from 'typeorm';
+import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
+import { JobOpening } from '../entities/job-opening.entity';
 
 @Injectable()
 export class JobOpeningRepository extends Repository<JobOpening> {
@@ -11,7 +11,11 @@ export class JobOpeningRepository extends Repository<JobOpening> {
     @InjectRepository(JobOpening)
     private readonly jobOpeningRepository: Repository<JobOpening>,
   ) {
-    super(jobOpeningRepository.target, jobOpeningRepository.manager, jobOpeningRepository.queryRunner);
+    super(
+      jobOpeningRepository.target,
+      jobOpeningRepository.manager,
+      jobOpeningRepository.queryRunner,
+    );
   }
   async findAllByTenantMember(
     tenantId: string,
@@ -41,16 +45,9 @@ export class JobOpeningRepository extends Repository<JobOpening> {
     jobOpeningId: string,
     includeDeleted = false,
   ): Promise<JobOpening | null> {
-    return this.findById(
-      jobOpeningId,
-      includeDeleted,
-      { tenantId, tenantMemberId: memberId },
-      [],
-    );
+    return this.findById(jobOpeningId, includeDeleted, { tenantId, tenantMemberId: memberId }, []);
   }
-  async findPublicJobs(
-    filters?: JobFilterOptions,
-  ): Promise<{ jobs: JobOpening[]; total: number }> {
+  async findPublicJobs(filters?: JobFilterOptions): Promise<{ jobs: JobOpening[]; total: number }> {
     const queryBuilder = this.jobOpeningRepository
       .createQueryBuilder('job')
       .leftJoinAndSelect('job.department', 'department')
@@ -89,10 +86,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       },
     });
   }
-  async findByTenant(
-    tenantId: string,
-    includeDeleted = false,
-  ): Promise<JobOpening[]> {
+  async findByTenant(tenantId: string, includeDeleted = false): Promise<JobOpening[]> {
     return this.find({ withDeleted: includeDeleted, where: { tenantId } });
   }
   async countByStatus(tenantId: string, status: JobStatus): Promise<number> {
@@ -129,7 +123,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       archived: 0,
     };
     stats.forEach((stat) => {
-      const count = parseInt(stat.count);
+      const count = parseInt(stat.count, 10);
       result.total += count;
       switch (stat.status) {
         case JobStatus.DRAFT:
@@ -162,9 +156,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .andWhere('job.departmentId IS NOT NULL')
       .orderBy('department.name', 'ASC')
       .getRawMany();
-    return result
-      .map((item) => ({ id: item.id, name: item.name }))
-      .filter(Boolean);
+    return result.map((item) => ({ id: item.id, name: item.name })).filter(Boolean);
   }
   async getActiveLocations(): Promise<string[]> {
     const result = await this.jobOpeningRepository
@@ -229,8 +221,8 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .getRawOne();
     return {
       totalActiveJobs,
-      totalDepartments: parseInt(departmentsResult?.count || '0'),
-      totalLocations: parseInt(locationsResult?.count || '0'),
+      totalDepartments: parseInt(departmentsResult?.count || '0', 10),
+      totalLocations: parseInt(locationsResult?.count || '0', 10),
       urgentJobs,
       recentJobs,
     };
@@ -257,9 +249,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .limit(limit)
       .getMany();
   }
-  async getSearchSuggestions(
-    query: string,
-  ): Promise<{ titles: string[]; positions: string[] }> {
+  async getSearchSuggestions(query: string): Promise<{ titles: string[]; positions: string[] }> {
     const searchTerm = `%${query.toLowerCase()}%`;
     const titleResults = await this.jobOpeningRepository
       .createQueryBuilder('job')

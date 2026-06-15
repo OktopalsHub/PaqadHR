@@ -1,14 +1,14 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LeaveBalanceModule } from '../leave-balance/leave-balance.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
-import { LeaveTypeAssignmentService } from './leave-type-assignment.service';
+import { LeaveAssignmentController } from './controllers/leave-assignment.controller';
+import { LeaveTypeController } from './controllers/leave-type.controller';
+import { LeaveType } from './entities/leave-type.entity';
 import { LeaveTypeRepository } from './leave-type.repository';
 import { LeaveTypeService } from './leave-type.service';
-import { LeaveType } from "./entities/leave-type.entity";
-import { LeaveTypeController } from "./controllers/leave-type.controller";
-import { LeaveAssignmentController } from "./controllers/leave-assignment.controller";
+import { LeaveTypeAssignmentService } from './leave-type-assignment.service';
 
 @Module({
   imports: [
@@ -18,11 +18,7 @@ import { LeaveAssignmentController } from "./controllers/leave-assignment.contro
     forwardRef(() => LeaveBalanceModule),
   ],
   controllers: [LeaveTypeController, LeaveAssignmentController],
-  providers: [
-    LeaveTypeService,
-    LeaveTypeAssignmentService,
-    LeaveTypeRepository,
-  ],
+  providers: [LeaveTypeService, LeaveTypeAssignmentService, LeaveTypeRepository],
   exports: [LeaveTypeService],
 })
 export class LeaveTypeModule {}

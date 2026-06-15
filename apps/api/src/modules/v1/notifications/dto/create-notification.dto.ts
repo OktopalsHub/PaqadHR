@@ -1,35 +1,22 @@
-import {
-  IsEnum,
-  IsString,
-  IsOptional,
-  IsUUID,
-  IsObject,
-  IsDateString,
-} from 'class-validator';
-import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { NotificationType } from "../../../../common/enums/notification-type.enum";
-import { NotificationChannel } from "../../../../common/enums/notification-channel.enum";
-import { NotificationPriority } from "../../../../common/enums/notification-priority.enum";
+import { Transform } from 'class-transformer';
+import { IsDateString, IsEnum, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
+import { NotificationType } from '../../../../common/enums/notification-type.enum';
 
 export class CreateNotificationDto {
   @ApiProperty({ enum: NotificationType })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(NotificationType)
   type: NotificationType;
   @ApiProperty({ enum: NotificationChannel })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(NotificationChannel)
   channel: NotificationChannel;
   @ApiPropertyOptional({ enum: NotificationPriority })
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(NotificationPriority)
   priority?: NotificationPriority;
   @ApiProperty()
@@ -80,16 +67,12 @@ export class CreateBulkNotificationDto {
   @IsUUID(4, { each: true })
   recipientIds: string[];
   @ApiProperty({ enum: NotificationChannel })
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(NotificationChannel)
   channel: NotificationChannel;
   @ApiPropertyOptional({ enum: NotificationPriority })
   @IsOptional()
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(NotificationPriority)
   priority?: NotificationPriority;
   @ApiProperty()

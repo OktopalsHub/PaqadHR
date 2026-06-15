@@ -1,10 +1,9 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -12,50 +11,48 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { useDepartments } from "@/hooks/queries/use-departments";
-import { createEmployeeInvite } from "@/lib/api/employees";
-import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
+} from '@/components/ui/select';
+import { useDepartments } from '@/hooks/queries/use-departments';
+import { createEmployeeInvite } from '@/lib/api/employees';
+import { queryKeys } from '@/lib/query/keys';
+import { useTenant } from '@/providers/tenant-provider';
 
 interface AddEmployeeDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export const AddEmployeeDialog = ({
-  isOpen,
-  onOpenChange,
-}: AddEmployeeDialogProps) => {
+export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogProps) => {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   const { data: departments = [] } = useDepartments();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [departmentId, setDepartmentId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetForm = () => {
-    setFirstName("");
-    setLastName("");
-    setEmail("");
-    setJobTitle("");
-    setDepartmentId("");
+    setFirstName('');
+    setLastName('');
+    setEmail('');
+    setJobTitle('');
+    setDepartmentId('');
   };
 
   const handleSubmit = async () => {
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error("First name, last name, and email are required.");
+      toast.error('First name, last name, and email are required.');
       return;
     }
 
@@ -65,21 +62,19 @@ export const AddEmployeeDialog = ({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
-        role: "member",
+        role: 'member',
         jobTitle: jobTitle.trim() || undefined,
         departmentId: departmentId || undefined,
       });
 
-      toast.success("Invitation sent successfully.");
+      toast.success('Invitation sent successfully.');
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.all, tenantId],
       });
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to send invitation",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to send invitation');
     } finally {
       setIsSubmitting(false);
     }
@@ -91,8 +86,8 @@ export const AddEmployeeDialog = ({
         <DialogHeader>
           <DialogTitle>Invite employee</DialogTitle>
           <DialogDescription>
-            Send an invitation to join your workspace. They will receive an email
-            to complete onboarding.
+            Send an invitation to join your workspace. They will receive an email to complete
+            onboarding.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -161,7 +156,7 @@ export const AddEmployeeDialog = ({
             Cancel
           </Button>
           <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Sending…" : "Send invitation"}
+            {isSubmitting ? 'Sending…' : 'Send invitation'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,5 +1,5 @@
 export enum NotificationType {
-    SYSTEM = 'system',
-    TENANT = 'tenant',
-    USER = 'user'
+  SYSTEM = 'system',
+  TENANT = 'tenant',
+  USER = 'user',
 }

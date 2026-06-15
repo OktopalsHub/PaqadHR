@@ -1,4 +1,4 @@
-import type { LeaveBalance } from "@/lib/schemas/leave";
+import type { LeaveBalance } from '@/lib/schemas/leave';
 
 type ApiLeaveBalance = {
   leaveTypeId: string;
@@ -11,7 +11,7 @@ type ApiLeaveBalance = {
 export function mapApiLeaveBalance(balance: ApiLeaveBalance): LeaveBalance {
   return {
     leaveTypeId: balance.leaveTypeId,
-    leaveTypeName: balance.leaveType?.name ?? "Leave",
+    leaveTypeName: balance.leaveType?.name ?? 'Leave',
     allocated: balance.totalDays,
     used: balance.usedDays,
     remaining: balance.remainingDays,

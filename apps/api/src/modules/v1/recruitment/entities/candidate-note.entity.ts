@@ -1,5 +1,5 @@
 import { Column, DeleteDateColumn, Entity } from 'typeorm';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 @Entity()
 export class CandidateNote extends BaseEntity {

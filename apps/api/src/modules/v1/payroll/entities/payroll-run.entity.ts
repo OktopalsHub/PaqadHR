@@ -1,10 +1,10 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { PayrollFrequency } from '../../../../common/enums/payroll-frequency.enum';
+import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import { PayrollItem } from './payroll-item.entity';
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { PayrollStatus } from "../../../../common/enums/payroll-status.enum";
-import { PayrollFrequency } from "../../../../common/enums/payroll-frequency.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'payroll_runs' })
 export class PayrollRun extends BaseEntity {
@@ -54,7 +54,7 @@ export class PayrollRun extends BaseEntity {
     scale: 2,
     default: 0,
     comment: 'Total gross amount in base currency',
-    })
+  })
   totalGrossAmount: number;
   @Column({
     type: 'decimal',
@@ -62,7 +62,7 @@ export class PayrollRun extends BaseEntity {
     scale: 2,
     default: 0,
     comment: 'Total deductions in base currency',
-    })
+  })
   totalDeductions: number;
   @Column({
     type: 'decimal',
@@ -70,7 +70,7 @@ export class PayrollRun extends BaseEntity {
     scale: 2,
     default: 0,
     comment: 'Total net amount in base currency',
-    })
+  })
   totalNetAmount: number;
   @Column({
     type: 'int',
@@ -118,8 +118,12 @@ export class PayrollRun extends BaseEntity {
   processingLockedBy: TenantMember | null;
   @Column({ name: 'processing_locked_by', nullable: true })
   processingLockedById: string | null;
-  @OneToMany(() => PayrollItem, (item) => item.payrollRun, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => PayrollItem,
+    (item) => item.payrollRun,
+    {
+      cascade: true,
+    },
+  )
   items: PayrollItem[];
 }

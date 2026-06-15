@@ -1,29 +1,28 @@
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { UserPlus, CheckCircle, Megaphone, DollarSign } from "lucide-react";
+import { CheckCircle, DollarSign, Megaphone, UserPlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const QuickActionsWidget = () => {
   const actions = [
     {
       icon: <UserPlus className="w-5 h-5" />,
-      label: "Add Employee",
-      color: "from-blue-500 to-blue-600",
+      label: 'Add Employee',
+      color: 'from-blue-500 to-blue-600',
     },
     {
       icon: <CheckCircle className="w-5 h-5" />,
-      label: "Approve Leave",
-      color: "from-green-500 to-green-600",
+      label: 'Approve Leave',
+      color: 'from-green-500 to-green-600',
     },
     {
       icon: <Megaphone className="w-5 h-5" />,
-      label: "Announcement",
-      color: "from-purple-500 to-purple-600",
+      label: 'Announcement',
+      color: 'from-purple-500 to-purple-600',
     },
     {
       icon: <DollarSign className="w-5 h-5" />,
-      label: "Run Payroll",
-      color: "from-emerald-500 to-emerald-600",
+      label: 'Run Payroll',
+      color: 'from-emerald-500 to-emerald-600',
     },
   ];
 

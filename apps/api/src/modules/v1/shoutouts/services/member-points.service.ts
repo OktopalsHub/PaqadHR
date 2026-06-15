@@ -1,28 +1,21 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
-import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { DataSource, EntityManager } from 'typeorm';
-import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
-import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
-import { MemberPointsRepository } from '../repositories/member-points.repository';
-import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { DateTimeHelper } from 'src/common/utils/date-time.helper';
+import { getPaginationSummary } from 'src/common/utils/pagination.util';
+import type { DataSource, EntityManager } from 'typeorm';
+import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import type { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
+import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
+import type { MemberPointsRepository } from '../repositories/member-points.repository';
 
 @Injectable()
 export class MemberPointsService {
-
   constructor(
     private readonly memberPointsRepository: MemberPointsRepository,
     private readonly tenantConfigService: TenantConfigService,
     private readonly tenantMembersService: TenantMembersService,
     private readonly dataSource: DataSource,
   ) {}
-
 
   async ensureMemberRow(
     tenantId: string,
@@ -63,18 +56,15 @@ export class MemberPointsService {
     row.lastResetDate = DateTimeHelper.getStartOfUtcMonth(now);
     const saved = await repo.save(row);
 
-    await this.memberPointsRepository.insertTransaction(
-      manager ?? this.dataSource.manager,
-      {
-        tenantId: row.tenantId,
-        memberId: row.memberId,
-        type: ShoutoutPointTransactionType.MONTHLY_RESET,
-        points: 0,
-        runningBalance: row.currentBalance,
-        description: 'Monthly points reset',
-        createdBy: row.memberId,
-      },
-    );
+    await this.memberPointsRepository.insertTransaction(manager ?? this.dataSource.manager, {
+      tenantId: row.tenantId,
+      memberId: row.memberId,
+      type: ShoutoutPointTransactionType.MONTHLY_RESET,
+      points: 0,
+      runningBalance: row.currentBalance,
+      description: 'Monthly points reset',
+      createdBy: row.memberId,
+    });
 
     return saved;
   }
@@ -99,19 +89,13 @@ export class MemberPointsService {
     };
   }
 
-  async listTransactions(
-    tenantId: string,
-    memberId: string,
-    page: number,
-    limit: number,
-  ) {
-    const { records, total } =
-      await this.memberPointsRepository.listTransactions(
-        tenantId,
-        memberId,
-        page,
-        limit,
-      );
+  async listTransactions(tenantId: string, memberId: string, page: number, limit: number) {
+    const { records, total } = await this.memberPointsRepository.listTransactions(
+      tenantId,
+      memberId,
+      page,
+      limit,
+    );
     return getPaginationSummary(records, total, { page, limit }, 'transactions');
   }
 
@@ -129,12 +113,7 @@ export class MemberPointsService {
     }));
   }
 
-  async bulkAssign(
-    tenantId: string,
-    points: number,
-    reason: string | undefined,
-    actorId: string,
-  ) {
+  async bulkAssign(tenantId: string, points: number, reason: string | undefined, actorId: string) {
     const members = await this.tenantMembersService.getTenantMembers(tenantId);
     let membersUpdated = 0;
 
@@ -170,8 +149,7 @@ export class MemberPointsService {
   async initializeAllMembers(tenantId: string, initialPoints?: number) {
     const pointsSettings = await this.tenantConfigService.getPointsSettings(tenantId);
     const members = await this.tenantMembersService.getTenantMembers(tenantId);
-    const startingBalance =
-      initialPoints ?? pointsSettings?.startingBalance ?? 0;
+    const startingBalance = initialPoints ?? pointsSettings?.startingBalance ?? 0;
     const autoAssign = pointsSettings?.autoAssignPoints ?? false;
     const autoAmount = pointsSettings?.autoAssignAmount ?? 0;
 
@@ -256,9 +234,7 @@ export class MemberPointsService {
     );
 
     if (!limitCheck.isValid) {
-      throw new BadRequestException(
-        limitCheck.reason ?? 'Points limit exceeded',
-      );
+      throw new BadRequestException(limitCheck.reason ?? 'Points limit exceeded');
     }
 
     return sender;
@@ -273,12 +249,7 @@ export class MemberPointsService {
     shoutoutId: string,
   ): Promise<void> {
     const totalCost = pointsEach * recipientIds.length;
-    let sender = await this.validateSenderAllowance(
-      tenantId,
-      senderMemberId,
-      totalCost,
-      manager,
-    );
+    const sender = await this.validateSenderAllowance(tenantId, senderMemberId, totalCost, manager);
 
     sender.monthlyGiven += totalCost;
     sender.totalGiven += totalCost;

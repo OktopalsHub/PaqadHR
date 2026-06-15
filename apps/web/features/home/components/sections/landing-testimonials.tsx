@@ -1,5 +1,5 @@
-import { Star } from "lucide-react";
-import { testimonials } from "../../constants";
+import { Star } from 'lucide-react';
+import { testimonials } from '../../constants';
 
 export const LandingTestimonials = () => {
   return (
@@ -23,10 +23,7 @@ export const LandingTestimonials = () => {
             >
               <div className="flex gap-0.5">
                 {Array.from({ length: testimonial.rating }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className="size-4 fill-primary text-primary"
-                  />
+                  <Star key={i} className="size-4 fill-primary text-primary" />
                 ))}
               </div>
               <p className="mt-4 flex-1 text-sm leading-relaxed text-muted-foreground">
@@ -38,9 +35,7 @@ export const LandingTestimonials = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium">{testimonial.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {testimonial.role}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{testimonial.role}</p>
                 </div>
               </div>
             </article>

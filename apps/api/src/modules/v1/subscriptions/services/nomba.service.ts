@@ -1,11 +1,6 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotImplementedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums';
-import {
+import type {
   CreateSubscriptionPayload,
   CreateSubscriptionResponse,
   IPaymentProvider,
@@ -38,10 +33,7 @@ export class NombaService implements IPaymentProvider {
   async getSubscription(_subscriptionId: string): Promise<null> {
     return null;
   }
-  async updateSubscription(
-    _subscriptionId: string,
-    _updates: unknown,
-  ): Promise<null> {
+  async updateSubscription(_subscriptionId: string, _updates: unknown): Promise<null> {
     return null;
   }
   async processWebhook(_payload: unknown, _signature: string): Promise<void> {

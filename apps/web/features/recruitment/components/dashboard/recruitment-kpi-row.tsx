@@ -1,7 +1,7 @@
-import { Briefcase, CheckCircle2, UserCheck, UserX } from "lucide-react";
-import { StatCard } from "@/components/stat-card";
-import { cn } from "@/lib/utils";
-import type { RecruitmentKpis } from "../../lib/recruitment-dashboard-metrics";
+import { Briefcase, CheckCircle2, UserCheck, UserX } from 'lucide-react';
+import { StatCard } from '@/components/stat-card';
+import { cn } from '@/lib/utils';
+import type { RecruitmentKpis } from '../../lib/recruitment-dashboard-metrics';
 
 type RecruitmentKpiRowProps = {
   kpis: RecruitmentKpis;
@@ -15,7 +15,7 @@ export function RecruitmentKpiRow({ kpis }: RecruitmentKpiRowProps) {
         value={kpis.applications.toLocaleString()}
         icon={Briefcase}
         trend={kpis.trends.applications}
-        className={cn("border-primary/30 bg-primary/5")}
+        className={cn('border-primary/30 bg-primary/5')}
       />
       <StatCard
         label="Shortlisted"

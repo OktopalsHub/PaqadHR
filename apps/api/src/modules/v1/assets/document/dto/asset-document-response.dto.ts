@@ -1,9 +1,7 @@
-import { Asset } from '../../entities/asset.entity';
-import { Document } from '../../../document/entities/document.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { FileUrlMapper } from '../../../../../common/mappers/file-url.mapper';
-import { FileUrlService } from '../../../../../common/services/file-url.service';
-import { AssetDocument } from '../entities/asset-document.entity';
+import type { FileUrlService } from '../../../../../common/services/file-url.service';
+import type { AssetDocument } from '../entities/asset-document.entity';
 
 export class AssetDocumentResponseDto {
   @ApiProperty({ description: 'Asset document ID' })
@@ -16,8 +14,7 @@ export class AssetDocumentResponseDto {
   imageKey: string;
   @ApiProperty({
     description: 'Document URL (constructed from imageKey)',
-    example:
-      'https://custom-domain.com/tenants/123/assets/document_1731668445123.pdf',
+    example: 'https://custom-domain.com/tenants/123/assets/document_1731668445123.pdf',
     required: false,
   })
   imageUrl?: string;
@@ -66,8 +63,6 @@ export class AssetDocumentMapper {
     tenantId?: string,
     fileUrlService?: FileUrlService,
   ): AssetDocumentResponseDto[] {
-    return documents.map((doc) =>
-      this.toResponse(doc, tenantId, fileUrlService),
-    );
+    return documents.map((doc) => AssetDocumentMapper.toResponse(doc, tenantId, fileUrlService));
   }
 }

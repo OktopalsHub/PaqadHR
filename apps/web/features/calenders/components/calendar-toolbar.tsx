@@ -1,21 +1,21 @@
-import { Filter } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Filter } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import type { CalendarEventType } from "@/lib/schemas/calendar";
-import { EVENT_COLORS } from "../lib/calendar-utils";
+} from '@/components/ui/dropdown-menu';
+import type { CalendarEventType } from '@/lib/schemas/calendar';
+import { EVENT_COLORS } from '../lib/calendar-utils';
 
 const FILTER_TYPES: { key: CalendarEventType; label: string }[] = [
-  { key: "leave", label: "Leave" },
-  { key: "celebration", label: "Celebration" },
-  { key: "holiday", label: "Holiday" },
-  { key: "meeting", label: "Meeting" },
-  { key: "review", label: "Review" },
+  { key: 'leave', label: 'Leave' },
+  { key: 'celebration', label: 'Celebration' },
+  { key: 'holiday', label: 'Holiday' },
+  { key: 'meeting', label: 'Meeting' },
+  { key: 'review', label: 'Review' },
 ];
 
 interface CalendarToolbarProps {
@@ -48,21 +48,14 @@ export function CalendarToolbar({
                   checked={selectedTypes[key]}
                   onCheckedChange={() => onToggleType(key)}
                 >
-                  <span
-                    className={`mr-2 inline-block h-2 w-2 rounded-full ${EVENT_COLORS[key]}`}
-                  />
+                  <span className={`mr-2 inline-block h-2 w-2 rounded-full ${EVENT_COLORS[key]}`} />
                   {label}
                 </DropdownMenuCheckboxItem>
               ))}
             </div>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full text-xs"
-                onClick={onSelectAll}
-              >
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={onSelectAll}>
                 Reset filters
               </Button>
             </div>

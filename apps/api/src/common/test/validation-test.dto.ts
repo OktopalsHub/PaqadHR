@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty, IsEmail, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 export class ValidationTestDto {
   @ApiProperty({ description: 'Required name field' })
   @IsNotEmpty({ message: 'Name is required and cannot be empty' })

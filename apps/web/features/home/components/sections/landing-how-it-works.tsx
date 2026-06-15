@@ -1,18 +1,15 @@
 const steps = [
   {
-    title: "Create your workspace",
-    description:
-      "Sign up, add your company details, and lock your billing region.",
+    title: 'Create your workspace',
+    description: 'Sign up, add your company details, and lock your billing region.',
   },
   {
-    title: "Invite your team",
-    description:
-      "Add employees, set up departments, and configure leave policies.",
+    title: 'Invite your team',
+    description: 'Add employees, set up departments, and configure leave policies.',
   },
   {
-    title: "Run operations",
-    description:
-      "Manage leave, payroll exports, shoutouts, and day-to-day HR from one app.",
+    title: 'Run operations',
+    description: 'Manage leave, payroll exports, shoutouts, and day-to-day HR from one app.',
   },
 ];
 
@@ -33,9 +30,7 @@ export const LandingHowItWorks = () => {
                 {index + 1}
               </div>
               <h3 className="font-medium">{step.title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {step.description}
-              </p>
+              <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
             </div>
           ))}
         </div>

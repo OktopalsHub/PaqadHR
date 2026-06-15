@@ -1,5 +1,5 @@
-import { ContentCard } from "@/components/content-card";
-import type { LeaveBalance } from "@/lib/schemas/leave";
+import { ContentCard } from '@/components/content-card';
+import type { LeaveBalance } from '@/lib/schemas/leave';
 
 type LeaveBalancesPanelProps = {
   balances: LeaveBalance[];
@@ -18,10 +18,8 @@ export function LeaveBalancesPanel({ balances }: LeaveBalancesPanelProps) {
           >
             <span className="font-medium">{balance.leaveTypeName}</span>
             <span className="tabular-nums text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {balance.remaining}
-              </span>
-              {" / "}
+              <span className="font-semibold text-foreground">{balance.remaining}</span>
+              {' / '}
               {balance.allocated} days
             </span>
           </li>

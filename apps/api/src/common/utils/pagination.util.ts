@@ -1,7 +1,4 @@
-import {
-  IPaginatedData,
-  IPaginationOption,
-} from '../interfaces/pagination.interface';
+import type { IPaginatedData, IPaginationOption } from '../interfaces/pagination.interface';
 
 export const PAGINATION_DEFAULT_LIMIT = 10;
 export const PAGINATION_MAX_LIMIT = 100;
@@ -73,9 +70,7 @@ export class PaginationUtil {
   /**
    * Parse pagination options from query parameters
    */
-  static parsePaginationOptions(
-    query: Record<string, any>,
-  ): { page: number; limit: number } {
+  static parsePaginationOptions(query: Record<string, any>): { page: number; limit: number } {
     const page = parseInt(String(query.page ?? ''), 10) || 1;
     const limit = normalizePaginationLimit(query.limit);
     return { page, limit };
@@ -88,8 +83,7 @@ export class PaginationUtil {
     query: Record<string, any>,
     tenantSettings?: { general?: { paginationLimit?: number } },
   ): { page: number; limit: number } {
-    const tenantDefault =
-      tenantSettings?.general?.paginationLimit ?? PAGINATION_DEFAULT_LIMIT;
+    const tenantDefault = tenantSettings?.general?.paginationLimit ?? PAGINATION_DEFAULT_LIMIT;
     const page = parseInt(String(query.page ?? ''), 10) || 1;
     const limit = normalizePaginationLimit(query.limit ?? tenantDefault);
     return { page, limit };

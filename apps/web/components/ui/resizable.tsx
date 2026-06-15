@@ -1,21 +1,20 @@
-"use client"
+'use client';
 
-import * as React from "react"
-import { GripVerticalIcon } from "lucide-react"
+import { GripVerticalIcon } from 'lucide-react';
 import {
   Group,
-  Panel,
-  Separator,
   type GroupProps,
+  Panel,
   type PanelProps,
+  Separator,
   type SeparatorProps,
-} from "react-resizable-panels"
+} from 'react-resizable-panels';
 
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 type ResizablePanelGroupProps = GroupProps & {
-  direction?: "horizontal" | "vertical"
-}
+  direction?: 'horizontal' | 'vertical';
+};
 
 function ResizablePanelGroup({
   className,
@@ -23,24 +22,21 @@ function ResizablePanelGroup({
   orientation,
   ...props
 }: ResizablePanelGroupProps) {
-  const resolvedOrientation = orientation ?? direction ?? "horizontal"
+  const resolvedOrientation = orientation ?? direction ?? 'horizontal';
 
   return (
     <Group
       data-slot="resizable-panel-group"
       data-orientation={resolvedOrientation}
       orientation={resolvedOrientation}
-      className={cn(
-        "flex h-full w-full data-[orientation=vertical]:flex-col",
-        className
-      )}
+      className={cn('flex h-full w-full data-[orientation=vertical]:flex-col', className)}
       {...props}
     />
-  )
+  );
 }
 
 function ResizablePanel({ ...props }: PanelProps) {
-  return <Panel data-slot="resizable-panel" {...props} />
+  return <Panel data-slot="resizable-panel" {...props} />;
 }
 
 function ResizableHandle({
@@ -48,14 +44,14 @@ function ResizableHandle({
   className,
   ...props
 }: SeparatorProps & {
-  withHandle?: boolean
+  withHandle?: boolean;
 }) {
   return (
     <Separator
       data-slot="resizable-handle"
       className={cn(
-        "bg-border focus-visible:ring-ring relative flex w-px items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden data-[orientation=vertical]:h-px data-[orientation=vertical]:w-full data-[orientation=vertical]:after:left-0 data-[orientation=vertical]:after:h-1 data-[orientation=vertical]:after:w-full data-[orientation=vertical]:after:translate-x-0 data-[orientation=vertical]:after:-translate-y-1/2 [&[data-orientation=vertical]>div]:rotate-90",
-        className
+        'bg-border focus-visible:ring-ring relative flex w-px items-center justify-center after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-offset-1 focus-visible:outline-hidden data-[orientation=vertical]:h-px data-[orientation=vertical]:w-full data-[orientation=vertical]:after:left-0 data-[orientation=vertical]:after:h-1 data-[orientation=vertical]:after:w-full data-[orientation=vertical]:after:translate-x-0 data-[orientation=vertical]:after:-translate-y-1/2 [&[data-orientation=vertical]>div]:rotate-90',
+        className,
       )}
       {...props}
     >
@@ -65,7 +61,7 @@ function ResizableHandle({
         </div>
       )}
     </Separator>
-  )
+  );
 }
 
-export { ResizablePanelGroup, ResizablePanel, ResizableHandle }
+export { ResizableHandle, ResizablePanel, ResizablePanelGroup };

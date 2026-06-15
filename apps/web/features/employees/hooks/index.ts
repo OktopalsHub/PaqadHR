@@ -1,12 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useMemo } from "react";
-import type { Employee, EmployeeFilters, ViewMode } from "../types/";
-import {
-  filterEmployees,
-  paginateEmployees,
-  calculatePageNumbers,
-} from "../utils";
+import { useMemo, useState } from 'react';
+import type { Employee, EmployeeFilters, ViewMode } from '../types/';
+import { calculatePageNumbers, filterEmployees, paginateEmployees } from '../utils';
 
 interface UseEmployeeFiltersProps {
   employees: Employee[];
@@ -14,21 +10,16 @@ interface UseEmployeeFiltersProps {
 
 export const useEmployeeFilters = ({ employees }: UseEmployeeFiltersProps) => {
   const [filters, setFilters] = useState<EmployeeFilters>({
-    searchTerm: "",
-    department: "",
-    status: "",
+    searchTerm: '',
+    department: '',
+    status: '',
   });
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(6);
 
   const filteredEmployees = useMemo(() => {
-    return filterEmployees(
-      employees,
-      filters.searchTerm,
-      filters.department,
-      filters.status,
-    );
+    return filterEmployees(employees, filters.searchTerm, filters.department, filters.status);
   }, [employees, filters]);
 
   const currentEmployees = useMemo(() => {

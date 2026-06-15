@@ -1,8 +1,8 @@
-import { BulkTransferData } from './bulk-transfer-data.interface';
-import { CreatePaymentData } from './create-payment-data.interface';
-import { PaymentResult } from './payment-result.interface';
-import { TransactionStatus } from '../enums/transaction-status.enum';
-import { WebhookResult } from './webhook-result.interface';
+import type { TransactionStatus } from '../enums/transaction-status.enum';
+import type { BulkTransferData } from './bulk-transfer-data.interface';
+import type { CreatePaymentData } from './create-payment-data.interface';
+import type { PaymentResult } from './payment-result.interface';
+import type { WebhookResult } from './webhook-result.interface';
 
 export interface PaymentProviderInterface {
   createPayment(data: CreatePaymentData): Promise<PaymentResult>;

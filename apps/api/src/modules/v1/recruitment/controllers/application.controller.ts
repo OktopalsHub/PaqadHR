@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
-import { CandidateService } from '../services/candidate.service';
-import { Candidate } from "../entities/candidate.entity";
-import { CreateCandidateDto } from "../dto/index";
-import { UpdateCandidateDto } from "../dto/update-candidate.dto";
+import type { CreateCandidateDto } from '../dto/index';
+import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
+import { Candidate } from '../entities/candidate.entity';
+import type { CandidateService } from '../services/candidate.service';
 
 @ApiTags('Public Applications')
 @Public()
@@ -92,10 +92,6 @@ File Upload Flow:
     @Body() updateDto: UpdateCandidateDto & { email: string },
   ): Promise<Candidate> {
     const { email, ...updateData } = updateDto;
-    return this.candidateService.updateApplication(
-      applicationId,
-      email,
-      updateData,
-    );
+    return this.candidateService.updateApplication(applicationId, email, updateData);
   }
 }

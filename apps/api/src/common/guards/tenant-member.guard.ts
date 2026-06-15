@@ -1,11 +1,10 @@
-import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
 import {
-  CanActivate,
-  ExecutionContext,
+  type CanActivate,
+  type ExecutionContext,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import type { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators';
 @Injectable()
 export class TenantMemberGuard implements CanActivate {

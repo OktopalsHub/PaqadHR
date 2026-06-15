@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { AppPage } from "@/components/app-page";
-import { EmptyState } from "@/components/empty-state";
-import { LoadingBlock } from "@/components/loading-block";
-import { PageActions } from "@/components/page-actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Building2, Plus, Search } from "lucide-react";
-import { useDepartments } from "@/hooks/queries/use-departments";
-import { CreateDepartmentDialog } from "./create-department-dialog";
-import { DepartmentCard } from "./department-card";
+import { Building2, Plus, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AppPage } from '@/components/app-page';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingBlock } from '@/components/loading-block';
+import { PageActions } from '@/components/page-actions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useDepartments } from '@/hooks/queries/use-departments';
+import { CreateDepartmentDialog } from './create-department-dialog';
+import { DepartmentCard } from './department-card';
 
 export const Teams = () => {
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [expandedDepts, setExpandedDepts] = useState<string[]>([]);
   const { data: departments = [], isLoading, isError, error } = useDepartments();
@@ -35,9 +35,7 @@ export const Teams = () => {
 
   const toggleDepartment = (deptId: string) => {
     setExpandedDepts((prev) =>
-      prev.includes(deptId)
-        ? prev.filter((id) => id !== deptId)
-        : [...prev, deptId],
+      prev.includes(deptId) ? prev.filter((id) => id !== deptId) : [...prev, deptId],
     );
   };
 
@@ -52,11 +50,7 @@ export const Teams = () => {
   return (
     <AppPage>
       <PageActions>
-        <Button
-          className="gap-2 rounded-lg"
-          size="sm"
-          onClick={() => setCreateOpen(true)}
-        >
+        <Button className="gap-2 rounded-lg" size="sm" onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
           Add department
         </Button>
@@ -68,7 +62,7 @@ export const Teams = () => {
         <Alert variant="destructive">
           <AlertTitle>Unable to load departments</AlertTitle>
           <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong"}
+            {error instanceof Error ? error.message : 'Something went wrong'}
           </AlertDescription>
         </Alert>
       ) : (

@@ -1,13 +1,8 @@
-import { User } from '../../modules/v1/users/entities/user.entity';
-import {
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { type ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import type { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { IAuthenticatedUserRequest, JwtPayload } from '../interfaces';
+import type { IAuthenticatedUserRequest, JwtPayload } from '../interfaces';
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(private reflector: Reflector) {
@@ -36,12 +31,9 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     _info: unknown,
     context: ExecutionContext,
   ): TUser {
-    const request = context
-      .switchToHttp()
-      .getRequest<IAuthenticatedUserRequest>();
+    const request = context.switchToHttp().getRequest<IAuthenticatedUserRequest>();
     if (err) {
-      const message =
-        err instanceof Error ? err.message : 'Unknown error';
+      const message = err instanceof Error ? err.message : 'Unknown error';
       throw new UnauthorizedException(`Authentication error: ${message}`);
     }
     if (!user || !this.isJwtPayload(user)) {

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 type ContentCardProps = {
   title: string;
@@ -19,22 +19,15 @@ export function ContentCard({
   bodyClassName,
 }: ContentCardProps) {
   return (
-    <section
-      className={cn(
-        "app-card flex flex-col overflow-hidden rounded-xl",
-        className,
-      )}
-    >
+    <section className={cn('app-card flex flex-col overflow-hidden rounded-xl', className)}>
       <div className="flex flex-col gap-2 border-b border-border/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-          {description ? (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          ) : null}
+          {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      <div className={cn("flex-1 p-4", bodyClassName)}>{children}</div>
+      <div className={cn('flex-1 p-4', bodyClassName)}>{children}</div>
     </section>
   );
 }

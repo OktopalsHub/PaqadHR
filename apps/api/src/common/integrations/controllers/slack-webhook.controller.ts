@@ -5,18 +5,18 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  RawBodyRequest,
+  type RawBodyRequest,
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
-import {
+import type { Request } from 'express';
+import type {
   SlackEventPayload,
   SlackInteractiveBody,
   SlackSlashCommandPayload,
   SlackUrlVerificationPayload,
 } from '../integration.types';
-import { SlackWebhookService } from '../services/slack-webhook.service';
+import type { SlackWebhookService } from '../services/slack-webhook.service';
 
 @ApiTags('Slack Webhooks')
 @Controller('webhooks/slack')

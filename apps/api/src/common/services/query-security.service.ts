@@ -20,7 +20,10 @@ export class QuerySecurityService {
       this.logger.warn('Query has placeholders but no parameters provided');
       return false;
     }
-    if (query.toUpperCase().includes('DROP TABLE') || query.toUpperCase().includes('TRUNCATE TABLE')) {
+    if (
+      query.toUpperCase().includes('DROP TABLE') ||
+      query.toUpperCase().includes('TRUNCATE TABLE')
+    ) {
       this.logger.error('Dangerous SQL operation detected');
       return false;
     }

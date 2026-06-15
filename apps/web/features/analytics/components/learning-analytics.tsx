@@ -1,58 +1,58 @@
-import { StatCard } from "@/components/stat-card";
-import { ContentCard } from "@/components/content-card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Users, Clock, Target, Award } from "lucide-react";
+import { Award, Clock, Target, Users } from 'lucide-react';
+import { ContentCard } from '@/components/content-card';
+import { StatCard } from '@/components/stat-card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 export function LearningAnalytics() {
   const analyticsData = [
     {
-      title: "Learning Completion Rate",
-      value: "78%",
-      change: "+5%",
-      trend: "up" as const,
+      title: 'Learning Completion Rate',
+      value: '78%',
+      change: '+5%',
+      trend: 'up' as const,
       icon: Target,
     },
     {
-      title: "Average Learning Hours",
-      value: "12.5",
-      change: "+2.3 hrs",
-      trend: "up" as const,
+      title: 'Average Learning Hours',
+      value: '12.5',
+      change: '+2.3 hrs',
+      trend: 'up' as const,
       icon: Clock,
     },
     {
-      title: "Active Learners",
-      value: "142",
-      change: "-8",
-      trend: "down" as const,
+      title: 'Active Learners',
+      value: '142',
+      change: '-8',
+      trend: 'down' as const,
       icon: Users,
     },
     {
-      title: "Courses Completed",
-      value: "89",
-      change: "+12",
-      trend: "up" as const,
+      title: 'Courses Completed',
+      value: '89',
+      change: '+12',
+      trend: 'up' as const,
       icon: Award,
     },
   ];
 
   const departmentProgress = [
     {
-      department: "Engineering",
+      department: 'Engineering',
       progress: 85,
       employees: 25,
       completedCourses: 180,
     },
     {
-      department: "Marketing",
+      department: 'Marketing',
       progress: 92,
       employees: 12,
       completedCourses: 96,
     },
-    { department: "Sales", progress: 78, employees: 18, completedCourses: 134 },
-    { department: "HR", progress: 95, employees: 8, completedCourses: 72 },
+    { department: 'Sales', progress: 78, employees: 18, completedCourses: 134 },
+    { department: 'HR', progress: 95, employees: 8, completedCourses: 72 },
     {
-      department: "Operations",
+      department: 'Operations',
       progress: 72,
       employees: 15,
       completedCourses: 98,
@@ -60,11 +60,11 @@ export function LearningAnalytics() {
   ];
 
   const skillsGapData = [
-    { skill: "Digital Marketing", gap: 35, priority: "High" },
-    { skill: "Data Analysis", gap: 28, priority: "Medium" },
-    { skill: "Project Management", gap: 42, priority: "High" },
-    { skill: "Leadership", gap: 15, priority: "Low" },
-    { skill: "Communication", gap: 22, priority: "Medium" },
+    { skill: 'Digital Marketing', gap: 35, priority: 'High' },
+    { skill: 'Data Analysis', gap: 28, priority: 'Medium' },
+    { skill: 'Project Management', gap: 42, priority: 'High' },
+    { skill: 'Leadership', gap: 15, priority: 'Low' },
+    { skill: 'Communication', gap: 22, priority: 'Medium' },
   ];
 
   return (
@@ -78,7 +78,7 @@ export function LearningAnalytics() {
             icon={metric.icon}
             trend={{
               value: metric.change,
-              positive: metric.trend === "up",
+              positive: metric.trend === 'up',
             }}
           />
         ))}
@@ -96,17 +96,16 @@ export function LearningAnalytics() {
                   <div>
                     <h4 className="font-medium">{dept.department}</h4>
                     <p className="text-sm text-muted-foreground">
-                      {dept.employees} employees · {dept.completedCourses}{" "}
-                      courses completed
+                      {dept.employees} employees · {dept.completedCourses} courses completed
                     </p>
                   </div>
                   <Badge
                     variant={
                       dept.progress >= 85
-                        ? "default"
+                        ? 'default'
                         : dept.progress >= 70
-                          ? "secondary"
-                          : "destructive"
+                          ? 'secondary'
+                          : 'destructive'
                     }
                   >
                     {dept.progress}%
@@ -128,17 +127,15 @@ export function LearningAnalytics() {
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-medium">{skill.skill}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {skill.gap}% gap identified
-                    </p>
+                    <p className="text-sm text-muted-foreground">{skill.gap}% gap identified</p>
                   </div>
                   <Badge
                     variant={
-                      skill.priority === "High"
-                        ? "destructive"
-                        : skill.priority === "Medium"
-                          ? "secondary"
-                          : "outline"
+                      skill.priority === 'High'
+                        ? 'destructive'
+                        : skill.priority === 'Medium'
+                          ? 'secondary'
+                          : 'outline'
                     }
                   >
                     {skill.priority}

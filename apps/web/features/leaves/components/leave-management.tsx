@@ -1,29 +1,24 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { CalendarClock, CheckCircle2, Clock, XCircle } from "lucide-react";
-import { AppPage } from "@/components/app-page";
-import { ContentCard } from "@/components/content-card";
-import { EmptyState } from "@/components/empty-state";
-import { LoadingBlock } from "@/components/loading-block";
-import { PageActions } from "@/components/page-actions";
-import { StatCard } from "@/components/stat-card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useLeaveBalances, useLeaves } from "@/hooks/queries/use-leaves";
-import { LeaveBalancesPanel } from "./leave-balances-panel";
-import { LeavePagination } from "./leave-pagination";
-import { LeaveRequestDialog } from "./leave-request-dialog";
-import { LeaveRequestsTable } from "./leave-requests-table";
+import { CalendarClock, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AppPage } from '@/components/app-page';
+import { ContentCard } from '@/components/content-card';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingBlock } from '@/components/loading-block';
+import { PageActions } from '@/components/page-actions';
+import { StatCard } from '@/components/stat-card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
+import { LeaveBalancesPanel } from './leave-balances-panel';
+import { LeavePagination } from './leave-pagination';
+import { LeaveRequestDialog } from './leave-request-dialog';
+import { LeaveRequestsTable } from './leave-requests-table';
 
 const ITEMS_PER_PAGE = 5;
 
-function countByStatus(
-  requests: { status: string }[],
-  statuses: string[],
-) {
-  return requests.filter((r) =>
-    statuses.includes(r.status.toLowerCase()),
-  ).length;
+function countByStatus(requests: { status: string }[], statuses: string[]) {
+  return requests.filter((r) => statuses.includes(r.status.toLowerCase())).length;
 }
 
 const LeaveManagement = () => {
@@ -32,22 +27,16 @@ const LeaveManagement = () => {
   const { data: leaveRequests = [], isLoading, isError, error } = useLeaves();
   const { data: balances = [] } = useLeaveBalances();
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(leaveRequests.length / ITEMS_PER_PAGE),
-  );
+  const totalPages = Math.max(1, Math.ceil(leaveRequests.length / ITEMS_PER_PAGE));
 
   const currentItems = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return leaveRequests.slice(start, start + ITEMS_PER_PAGE);
   }, [leaveRequests, currentPage]);
 
-  const pendingCount = countByStatus(leaveRequests, ["pending"]);
-  const approvedCount = countByStatus(leaveRequests, ["approved"]);
-  const closedCount = countByStatus(leaveRequests, [
-    "rejected",
-    "cancelled",
-  ]);
+  const pendingCount = countByStatus(leaveRequests, ['pending']);
+  const approvedCount = countByStatus(leaveRequests, ['approved']);
+  const closedCount = countByStatus(leaveRequests, ['rejected', 'cancelled']);
 
   if (isLoading) {
     return (
@@ -60,19 +49,11 @@ const LeaveManagement = () => {
   return (
     <AppPage>
       <PageActions>
-        <LeaveRequestDialog
-          open={isRequestLeaveOpen}
-          onOpenChange={setIsRequestLeaveOpen}
-        />
+        <LeaveRequestDialog open={isRequestLeaveOpen} onOpenChange={setIsRequestLeaveOpen} />
       </PageActions>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Pending"
-          value={pendingCount}
-          hint="Awaiting review"
-          icon={Clock}
-        />
+        <StatCard label="Pending" value={pendingCount} hint="Awaiting review" icon={Clock} />
         <StatCard
           label="Approved"
           value={approvedCount}
@@ -97,7 +78,7 @@ const LeaveManagement = () => {
         <Alert variant="destructive">
           <AlertTitle>Unable to load leave requests</AlertTitle>
           <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong"}
+            {error instanceof Error ? error.message : 'Something went wrong'}
           </AlertDescription>
         </Alert>
       ) : (

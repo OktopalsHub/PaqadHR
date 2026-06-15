@@ -1,22 +1,22 @@
-"use client";
+'use client';
 
-import { Sparkles } from "lucide-react";
-import { MemberAvatar, memberLabel } from "@/components/member-avatar";
-import { Badge } from "@/components/ui/badge";
-import type { Shoutout } from "@/lib/schemas/shoutout";
-import { formatDateTime } from "@/lib/format-date";
-import { cn } from "@/lib/utils";
+import { Sparkles } from 'lucide-react';
+import { MemberAvatar, memberLabel } from '@/components/member-avatar';
+import { Badge } from '@/components/ui/badge';
+import { formatDateTime } from '@/lib/format-date';
+import type { Shoutout } from '@/lib/schemas/shoutout';
+import { cn } from '@/lib/utils';
 
 function categoryStyle(color?: string | null) {
   if (!color) return undefined;
-  if (color.startsWith("#") || color.startsWith("rgb")) {
+  if (color.startsWith('#') || color.startsWith('rgb')) {
     return { backgroundColor: `${color}20`, color, borderColor: `${color}40` };
   }
   return undefined;
 }
 
 export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
-  const recipients = shoutout.recipients.map((r) => memberLabel(r)).join(", ");
+  const recipients = shoutout.recipients.map((r) => memberLabel(r)).join(', ');
 
   return (
     <article className="culture-card overflow-hidden rounded-xl">
@@ -29,9 +29,7 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
               <span className="text-muted-foreground"> recognized </span>
               <span className="font-semibold">{recipients}</span>
             </p>
-            <span className="culture-points-pill shrink-0">
-              +{shoutout.totalPoints} pts
-            </span>
+            <span className="culture-points-pill shrink-0">+{shoutout.totalPoints} pts</span>
           </div>
 
           {shoutout.categories.length > 0 ? (
@@ -41,8 +39,8 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
                   key={category.id}
                   variant="outline"
                   className={cn(
-                    "rounded-full px-2 py-0 text-[11px] font-medium",
-                    !category.color && "border-primary/20 bg-primary/5 text-primary",
+                    'rounded-full px-2 py-0 text-[11px] font-medium',
+                    !category.color && 'border-primary/20 bg-primary/5 text-primary',
                   )}
                   style={categoryStyle(category.color)}
                 >

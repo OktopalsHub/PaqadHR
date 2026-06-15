@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { LoadingBlock } from "@/components/loading-block";
-import { useAuth } from "@/hooks/use-auth";
-import { useTenant } from "@/providers/tenant-provider";
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { LoadingBlock } from '@/components/loading-block';
+import { useAuth } from '@/hooks/use-auth';
+import { useTenant } from '@/providers/tenant-provider';
 
 /** Redirect to workspace setup when the user has no tenant yet. */
 export function AppGate({ children }: { children: React.ReactNode }) {
@@ -15,7 +15,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authLoading || tenantLoading) return;
     if (tenants.length === 0) {
-      router.replace("/onboarding");
+      router.replace('/onboarding');
     }
   }, [authLoading, tenantLoading, tenants.length, router]);
 

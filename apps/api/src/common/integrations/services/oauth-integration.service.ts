@@ -1,11 +1,11 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectEntityManager } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
-import { EntityManager } from 'typeorm';
-import { PlatformIntegration } from "../entities/platform-integration.entity";
-import { UserIntegrationToken } from "../entities/user-integration-token.entity";
-import { OAuthTokenData } from '../integration.types';
+import type { EntityManager } from 'typeorm';
+import { PlatformIntegration } from '../entities/platform-integration.entity';
+import { UserIntegrationToken } from '../entities/user-integration-token.entity';
+import type { OAuthTokenData } from '../integration.types';
 
 @Injectable()
 export class OAuthIntegrationService {
@@ -32,7 +32,7 @@ export class OAuthIntegrationService {
         return (
           `https://slack.com/oauth/v2/authorize?` +
           `client_id=${ENVIRONMENT.SLACK.CLIENT_ID}&` +
-          `scope=chat:write,channels:read,users:read,channels:join&` + 
+          `scope=chat:write,channels:read,users:read,channels:join&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
           `state=${state}`
         );
@@ -54,11 +54,7 @@ export class OAuthIntegrationService {
       const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
       const { tenantId, tenantMemberId, platformType } = stateData;
       const redirectUri = `${ENVIRONMENT.APP.BASE_URL}/integrations/oauth/callback`;
-      const tokenData = await this.exchangeCodeForTokens(
-        platformType,
-        code,
-        redirectUri,
-      );
+      const tokenData = await this.exchangeCodeForTokens(platformType, code, redirectUri);
       let integration = await manager.findOne(PlatformIntegration, {
         where: { tenantId, type: platformType },
       });
@@ -131,10 +127,7 @@ export class OAuthIntegrationService {
         throw new BadRequestException(`Unsupported platform: ${platformType}`);
     }
   }
-  private async exchangeSlackToken(
-    code: string,
-    redirectUri: string,
-  ): Promise<OAuthTokenData> {
+  private async exchangeSlackToken(code: string, redirectUri: string): Promise<OAuthTokenData> {
     const response = await fetch('https://slack.com/api/oauth.v2.access', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -161,10 +154,7 @@ export class OAuthIntegrationService {
       bot_token: data.bot?.token || data.access_token,
     };
   }
-  private async exchangeGoogleToken(
-    code: string,
-    redirectUri: string,
-  ): Promise<OAuthTokenData> {
+  private async exchangeGoogleToken(code: string, redirectUri: string): Promise<OAuthTokenData> {
     const response = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -180,12 +170,9 @@ export class OAuthIntegrationService {
     if (data.error) {
       throw new BadRequestException(`Google OAuth error: ${data.error_description}`);
     }
-    const userResponse = await fetch(
-      'https://www.googleapis.com/oauth2/v2/userinfo',
-      {
-        headers: { Authorization: `Bearer ${data.access_token}` },
-      },
-    );
+    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${data.access_token}` },
+    });
     const userData = await userResponse.json();
     return {
       access_token: data.access_token,

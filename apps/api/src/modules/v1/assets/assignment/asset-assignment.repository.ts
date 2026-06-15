@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AssetAssignmentStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
-import { AssetAssignment } from "./entities/asset-assignment.entity";
+import { AssetAssignment } from './entities/asset-assignment.entity';
 
 @Injectable()
 export class AssetAssignmentRepository extends Repository<AssetAssignment> {
@@ -10,11 +10,13 @@ export class AssetAssignmentRepository extends Repository<AssetAssignment> {
     @InjectRepository(AssetAssignment)
     private readonly assignmentRepository: Repository<AssetAssignment>,
   ) {
-    super(assignmentRepository.target, assignmentRepository.manager, assignmentRepository.queryRunner);
+    super(
+      assignmentRepository.target,
+      assignmentRepository.manager,
+      assignmentRepository.queryRunner,
+    );
   }
-  async findActiveAssignmentByAsset(
-    assetId: string,
-  ): Promise<AssetAssignment | null> {
+  async findActiveAssignmentByAsset(assetId: string): Promise<AssetAssignment | null> {
     return this.assignmentRepository.findOne({
       where: {
         assetId,
@@ -54,8 +56,7 @@ export class AssetAssignmentRepository extends Repository<AssetAssignment> {
       .then((assignments) =>
         assignments.filter(
           (assignment) =>
-            assignment.expectedReturnDate &&
-            assignment.expectedReturnDate < currentDate,
+            assignment.expectedReturnDate && assignment.expectedReturnDate < currentDate,
         ),
       );
   }

@@ -1,11 +1,11 @@
-import type { INestApplication } from "@nestjs/common";
-import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import type { INestApplication } from '@nestjs/common';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 export function setupSwagger(app: INestApplication): void {
-	const config = new DocumentBuilder()
-		.setTitle("PaqadHR API")
-		.setDescription(
-			`
+  const config = new DocumentBuilder()
+    .setTitle('PaqadHR API')
+    .setDescription(
+      `
       # PaqadHR API Documentation
       A comprehensive HR management platform API that provides:
       ## Features
@@ -45,76 +45,71 @@ export function setupSwagger(app: INestApplication): void {
       }
       \`\`\`
     `,
-		)
-		.setVersion("1.0")
-		.setContact(
-			"PaqadHR Support",
-			"https://paqadhr.com/support",
-			"support@paqadhr.com",
-		)
-		.setLicense("MIT", "https://opensource.org/licenses/MIT")
-		.addServer("http://localhost:9001", "Development Server")
-		.addServer("https://api.paqadhr.com", "Production Server")
-		.addBearerAuth(
-			{
-				type: "http",
-				scheme: "bearer",
-				bearerFormat: "JWT",
-				name: "JWT",
-				description: "Enter JWT token",
-				in: "header",
-			},
-			"JWT-auth",
-		)
-		.addApiKey(
-			{
-				type: "apiKey",
-				name: "X-API-Key",
-				in: "header",
-				description: "API Key for service-to-service communication",
-			},
-			"API-Key",
-		)
-		.addTag("Analytics", "Workforce insights and reporting")
-		.addTag("Authentication", "User authentication and authorization")
-		.addTag("Tenants", "Multi-tenant organization management")
-		.addTag("Users", "User account management")
-		.addTag("Employees", "Employee management and profiles")
-		.addTag("Attendance", "Time tracking and attendance management")
-		.addTag("Leave Management", "Leave requests and balance tracking")
-		.addTag("Payroll", "Payroll processing and calculations")
-		.addTag("Assets", "Company asset management")
-		.addTag("Recruitment", "Job postings and candidate management")
-		.addTag("Shoutouts", "Employee recognition and rewards")
-		.addTag("Integrations", "Third-party platform integrations")
-		.build();
+    )
+    .setVersion('1.0')
+    .setContact('PaqadHR Support', 'https://paqadhr.com/support', 'support@paqadhr.com')
+    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
+    .addServer('http://localhost:9001', 'Development Server')
+    .addServer('https://api.paqadhr.com', 'Production Server')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'X-API-Key',
+        in: 'header',
+        description: 'API Key for service-to-service communication',
+      },
+      'API-Key',
+    )
+    .addTag('Analytics', 'Workforce insights and reporting')
+    .addTag('Authentication', 'User authentication and authorization')
+    .addTag('Tenants', 'Multi-tenant organization management')
+    .addTag('Users', 'User account management')
+    .addTag('Employees', 'Employee management and profiles')
+    .addTag('Attendance', 'Time tracking and attendance management')
+    .addTag('Leave Management', 'Leave requests and balance tracking')
+    .addTag('Payroll', 'Payroll processing and calculations')
+    .addTag('Assets', 'Company asset management')
+    .addTag('Recruitment', 'Job postings and candidate management')
+    .addTag('Shoutouts', 'Employee recognition and rewards')
+    .addTag('Integrations', 'Third-party platform integrations')
+    .build();
 
-	const document = SwaggerModule.createDocument(app, config, {
-		operationIdFactory: (_controllerKey: string, methodKey: string) =>
-			methodKey,
-		deepScanRoutes: true,
-	});
+  const document = SwaggerModule.createDocument(app, config, {
+    operationIdFactory: (_controllerKey: string, methodKey: string) => methodKey,
+    deepScanRoutes: true,
+  });
 
-	document.info["x-logo"] = {
-		url: "https://paqadhr.com/logo.png",
-		altText: "PaqadHR Logo",
-	};
+  document.info['x-logo'] = {
+    url: 'https://paqadhr.com/logo.png',
+    altText: 'PaqadHR Logo',
+  };
 
-	SwaggerModule.setup("docs", app, document, {
-		swaggerOptions: {
-			persistAuthorization: true,
-			displayRequestDuration: true,
-			docExpansion: "none",
-			filter: true,
-			showRequestHeaders: true,
-			tryItOutEnabled: true,
-		},
-		customSiteTitle: "PaqadHR API",
-		customfavIcon: "https://paqadhr.com/favicon.ico",
-		customCss: `
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      docExpansion: 'none',
+      filter: true,
+      showRequestHeaders: true,
+      tryItOutEnabled: true,
+    },
+    customSiteTitle: 'PaqadHR API',
+    customfavIcon: 'https://paqadhr.com/favicon.ico',
+    customCss: `
       .swagger-ui .topbar { display: none }
       .swagger-ui .info .title { color: #2c3e50; }
       .swagger-ui .scheme-container { background: #f8f9fa; padding: 15px; border-radius: 5px; }
     `,
-	});
+  });
 }

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class Notifications1781241359849 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1,53 +1,46 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, XCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { useAuth } from "@/hooks/use-auth";
-import {
-  checkSlugAvailability,
-  completeOnboarding,
-} from "@/lib/api/onboarding";
-import { tenantRoot } from "@/lib/navigation/tenant-routes";
-import { queryKeys } from "@/lib/query/keys";
-import {
-  getAppBaseUrl,
-  isSlugFormatValid,
-  slugifyInput,
-} from "@/lib/utils/slug";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/select';
+import { useAuth } from '@/hooks/use-auth';
+import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
+import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { queryKeys } from '@/lib/query/keys';
+import { cn } from '@/lib/utils';
+import { getAppBaseUrl, isSlugFormatValid, slugifyInput } from '@/lib/utils/slug';
 
-const STEPS = ["Company", "You", "Launch"] as const;
+const STEPS = ['Company', 'You', 'Launch'] as const;
 
 const INDUSTRIES = [
-  "Technology",
-  "Finance",
-  "Healthcare",
-  "Retail",
-  "Manufacturing",
-  "Professional Services",
-  "Other",
+  'Technology',
+  'Finance',
+  'Healthcare',
+  'Retail',
+  'Manufacturing',
+  'Professional Services',
+  'Other',
 ];
 
-const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-500", "500+"];
+const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
 
 function splitFullName(name?: string | null) {
   const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  if (parts.length === 0) return { firstName: "", lastName: "" };
-  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
-  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
 export function OnboardingWizard() {
@@ -55,17 +48,17 @@ export function OnboardingWizard() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [step, setStep] = useState(0);
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [debouncedSlug, setDebouncedSlug] = useState("");
-  const [appBaseUrl, setAppBaseUrl] = useState("");
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [debouncedSlug, setDebouncedSlug] = useState('');
+  const [appBaseUrl, setAppBaseUrl] = useState('');
   const slugTouchedRef = useRef(false);
-  const [industry, setIndustry] = useState("");
-  const [companySize, setCompanySize] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [preferredName, setPreferredName] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
+  const [industry, setIndustry] = useState('');
+  const [companySize, setCompanySize] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [preferredName, setPreferredName] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
 
   useEffect(() => {
     setAppBaseUrl(getAppBaseUrl());
@@ -81,7 +74,7 @@ export function OnboardingWizard() {
   useEffect(() => {
     if (slugTouchedRef.current) return;
     if (!name.trim()) {
-      setSlug("");
+      setSlug('');
       return;
     }
     setSlug(slugifyInput(name));
@@ -117,8 +110,7 @@ export function OnboardingWizard() {
     slugAvailabilityQuery.isSuccess &&
     !slugAvailabilityQuery.data.available;
 
-  const canContinueStep0 =
-    name.trim().length >= 2 && slugFormatValid && !slugBlocked;
+  const canContinueStep0 = name.trim().length >= 2 && slugFormatValid && !slugBlocked;
 
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
@@ -144,9 +136,7 @@ export function OnboardingWizard() {
     step === 0
       ? canContinueStep0
       : step === 1
-        ? firstName.trim().length >= 1 &&
-          lastName.trim().length >= 1 &&
-          jobTitle.trim().length >= 2
+        ? firstName.trim().length >= 1 && lastName.trim().length >= 1 && jobTitle.trim().length >= 2
         : true;
 
   const handleNext = () => {
@@ -173,21 +163,16 @@ export function OnboardingWizard() {
           <div key={label} className="flex items-center gap-2">
             <div
               className={cn(
-                "flex size-8 items-center justify-center rounded-full border text-xs font-medium transition-colors",
+                'flex size-8 items-center justify-center rounded-full border text-xs font-medium transition-colors',
                 index <= step
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground",
+                  ? 'border-foreground bg-foreground text-background'
+                  : 'border-border text-muted-foreground',
               )}
             >
               {index + 1}
             </div>
             {index < STEPS.length - 1 ? (
-              <div
-                className={cn(
-                  "h-px w-8",
-                  index < step ? "bg-foreground" : "bg-border",
-                )}
-              />
+              <div className={cn('h-px w-8', index < step ? 'bg-foreground' : 'bg-border')} />
             ) : null}
           </div>
         ))}
@@ -197,9 +182,7 @@ export function OnboardingWizard() {
         {step === 0 ? (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight">
-                Set up your company
-              </h2>
+              <h2 className="text-xl font-semibold tracking-tight">Set up your company</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Tell us about your organization to personalize your workspace.
               </p>
@@ -219,7 +202,7 @@ export function OnboardingWizard() {
                 <Label htmlFor="workspace-slug">Workspace slug</Label>
                 <div className="flex overflow-hidden rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
                   <span className="flex max-w-[55%] shrink-0 items-center border-r border-input bg-muted/50 px-3 text-xs text-muted-foreground sm:max-w-none sm:text-sm">
-                    {appBaseUrl || "…/"}
+                    {appBaseUrl || '…/'}
                   </span>
                   <Input
                     id="workspace-slug"
@@ -236,37 +219,37 @@ export function OnboardingWizard() {
                 <p
                   id="workspace-slug-hint"
                   className={cn(
-                    "flex items-center gap-1.5 text-xs",
-                    slugCheckPending && "text-muted-foreground",
+                    'flex items-center gap-1.5 text-xs',
+                    slugCheckPending && 'text-muted-foreground',
                     slug.trim().length >= 2 &&
                       !slugCheckPending &&
                       slugAvailabilityQuery.data?.available &&
-                      "text-emerald-600 dark:text-emerald-400",
-                    slugBlocked && "text-destructive",
-                    slug.trim().length >= 2 && !slugFormatValid && "text-destructive",
-                    slug.trim().length < 2 && "text-muted-foreground",
+                      'text-emerald-600 dark:text-emerald-400',
+                    slugBlocked && 'text-destructive',
+                    slug.trim().length >= 2 && !slugFormatValid && 'text-destructive',
+                    slug.trim().length < 2 && 'text-muted-foreground',
                   )}
                 >
                   {slug.trim().length < 2 ? (
-                    "Pick a short slug for your workspace. It cannot be changed later."
+                    'Pick a short slug for your workspace. It cannot be changed later.'
                   ) : !slugFormatValid ? (
                     <>
                       <XCircle className="size-3.5 shrink-0" />
                       Use 2–25 lowercase letters, numbers, and hyphens.
                     </>
                   ) : slugCheckPending ? (
-                    "Checking availability…"
+                    'Checking availability…'
                   ) : slugAvailabilityQuery.data?.available ? (
                     <>
                       <CheckCircle2 className="size-3.5 shrink-0" />
                       This slug is available.
                     </>
-                  ) : slugAvailabilityQuery.data?.reason === "taken" ? (
+                  ) : slugAvailabilityQuery.data?.reason === 'taken' ? (
                     <>
                       <XCircle className="size-3.5 shrink-0" />
                       This slug is already taken.
                     </>
-                  ) : slugAvailabilityQuery.data?.reason === "reserved" ? (
+                  ) : slugAvailabilityQuery.data?.reason === 'reserved' ? (
                     <>
                       <XCircle className="size-3.5 shrink-0" />
                       This slug is reserved.
@@ -314,9 +297,7 @@ export function OnboardingWizard() {
         {step === 1 ? (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight">
-                About you
-              </h2>
+              <h2 className="text-xl font-semibold tracking-tight">About you</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 This is how you&apos;ll appear to your team in the workspace.
               </p>
@@ -344,10 +325,8 @@ export function OnboardingWizard() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="preferred-name">
-                  Preferred name{" "}
-                  <span className="font-normal text-muted-foreground">
-                    (optional)
-                  </span>
+                  Preferred name{' '}
+                  <span className="font-normal text-muted-foreground">(optional)</span>
                 </Label>
                 <Input
                   id="preferred-name"
@@ -372,9 +351,7 @@ export function OnboardingWizard() {
         {step === 2 ? (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight">
-                Ready to launch
-              </h2>
+              <h2 className="text-xl font-semibold tracking-tight">Ready to launch</h2>
               <p className="mt-1 text-sm text-muted-foreground">
                 Review your workspace details before we create your account.
               </p>
@@ -443,9 +420,9 @@ export function OnboardingWizard() {
           >
             {step === STEPS.length - 1
               ? completeMutation.isPending
-                ? "Creating..."
-                : "Create workspace"
-              : "Continue"}
+                ? 'Creating...'
+                : 'Create workspace'
+              : 'Continue'}
           </Button>
         </div>
       </div>

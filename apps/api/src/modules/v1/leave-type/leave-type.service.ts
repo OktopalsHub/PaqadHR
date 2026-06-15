@@ -1,10 +1,9 @@
-import { Leave } from '../leave/entities/leave.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { LeaveTypeRepository } from './leave-type.repository';
-import { CreateLeaveTypeDto } from "./dto/create-leave-type.dto";
-import { LeaveTypeCreatedEvent } from "../leave/events/leave.events";
-import { UpdateLeaveTypeDto } from "./dto/update-leave-type.dto";
+import type { EventEmitter2 } from '@nestjs/event-emitter';
+import { LeaveTypeCreatedEvent } from '../leave/events/leave.events';
+import type { CreateLeaveTypeDto } from './dto/create-leave-type.dto';
+import type { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
+import type { LeaveTypeRepository } from './leave-type.repository';
 
 @Injectable()
 export class LeaveTypeService {
@@ -12,11 +11,7 @@ export class LeaveTypeService {
     private readonly leaveTypeRepository: LeaveTypeRepository,
     private readonly eventEmitter: EventEmitter2,
   ) {}
-  async createLeaveType(
-    tenantId: string,
-    memberId: string,
-    dto: CreateLeaveTypeDto,
-  ) {
+  async createLeaveType(tenantId: string, memberId: string, dto: CreateLeaveTypeDto) {
     const leaveType = await this.leaveTypeRepository.save({
       ...dto,
       tenantId,
@@ -40,13 +35,9 @@ export class LeaveTypeService {
     }
     return leaveType;
   }
-  async updateLeaveType(
-    typeId: string,
-    dto: UpdateLeaveTypeDto,
-    tenantId: string,
-  ) {
+  async updateLeaveType(typeId: string, dto: UpdateLeaveTypeDto, tenantId: string) {
     await this.getLeaveType(typeId, tenantId);
-    await this.leaveTypeRepository.update(typeId,  dto);
+    await this.leaveTypeRepository.update(typeId, dto);
     return this.leaveTypeRepository.findOne({ where: { id: typeId } });
   }
   async deleteLeaveType(typeId: string, tenantId: string) {

@@ -1,4 +1,4 @@
-import { trustedLogos } from "../../constants";
+import { trustedLogos } from '../../constants';
 
 export const LandingLogoStrip = () => {
   return (

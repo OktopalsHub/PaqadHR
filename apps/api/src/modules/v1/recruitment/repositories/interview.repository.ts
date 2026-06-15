@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InterviewStatus } from 'src/common/enums';
-import { InterviewFilters } from 'src/common/interfaces';
+import type { InterviewFilters } from 'src/common/interfaces';
 import { Between, Repository } from 'typeorm';
-import { Interview } from "../entities/interview.entity";
+import { Interview } from '../entities/interview.entity';
 
 @Injectable()
 export class InterviewRepository extends Repository<Interview> {
@@ -156,10 +156,7 @@ export class InterviewRepository extends Repository<Interview> {
       order: { date: 'ASC' },
     });
   }
-  async findTodaysInterviews(
-    tenantId: string,
-    _tenantMemberId: string,
-  ): Promise<Interview[]> {
+  async findTodaysInterviews(tenantId: string, _tenantMemberId: string): Promise<Interview[]> {
     const today = new Date();
     const startOfDay = new Date(today);
     startOfDay.setHours(0, 0, 0, 0);
@@ -299,10 +296,7 @@ export class InterviewRepository extends Repository<Interview> {
       },
       averageDuration:
         interviews.length > 0
-          ? Math.round(
-              interviews.reduce((sum, i) => sum + i.duration, 0) /
-                interviews.length,
-            )
+          ? Math.round(interviews.reduce((sum, i) => sum + i.duration, 0) / interviews.length)
           : 0,
     };
     return stats;

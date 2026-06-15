@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { User } from '../../users/entities/user.entity';
-import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import type { ITenantMemberResponseDto } from '../../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper } from '../../tenant-members/dto/tenant-member-response.dto';
+import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { UserResponseDto } from '../../users/dto/user-response.dto';
-import { ITenantMemberResponseDto } from '../../../../common/interfaces/itenant-member-response-dto.interface';
+import type { User } from '../../users/entities/user.entity';
 
 export class AuthResponseDto {
   @ApiProperty()

@@ -1,16 +1,16 @@
-import { Check } from "lucide-react";
-import { showcases } from "../../constants";
+import { Check } from 'lucide-react';
+import { showcases } from '../../constants';
 
-function ShowcaseMock({ variant }: { variant: "recruitment" | "payroll" | "culture" }) {
-  if (variant === "recruitment") {
+function ShowcaseMock({ variant }: { variant: 'recruitment' | 'payroll' | 'culture' }) {
+  if (variant === 'recruitment') {
     return (
       <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-xl shadow-black/20">
         <p className="text-xs font-medium text-primary">Open roles</p>
         <div className="mt-4 space-y-2">
           {[
-            { role: "Product Designer", stage: "Interview", count: 4 },
-            { role: "Backend Engineer", stage: "Screening", count: 12 },
-            { role: "People Ops", stage: "Offer", count: 2 },
+            { role: 'Product Designer', stage: 'Interview', count: 4 },
+            { role: 'Backend Engineer', stage: 'Screening', count: 12 },
+            { role: 'People Ops', stage: 'Offer', count: 2 },
           ].map((row) => (
             <div
               key={row.role}
@@ -27,7 +27,7 @@ function ShowcaseMock({ variant }: { variant: "recruitment" | "payroll" | "cultu
     );
   }
 
-  if (variant === "payroll") {
+  if (variant === 'payroll') {
     return (
       <div className="rounded-2xl border border-border/60 bg-card p-5 shadow-xl shadow-black/20">
         <div className="flex items-center justify-between">
@@ -48,9 +48,7 @@ function ShowcaseMock({ variant }: { variant: "recruitment" | "payroll" | "cultu
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full w-4/5 rounded-full bg-primary" />
           </div>
-          <p className="text-[10px] text-muted-foreground">
-            Bank file ready for export
-          </p>
+          <p className="text-[10px] text-muted-foreground">Bank file ready for export</p>
         </div>
       </div>
     );
@@ -61,13 +59,10 @@ function ShowcaseMock({ variant }: { variant: "recruitment" | "payroll" | "cultu
       <p className="text-xs font-medium text-primary">Recent shoutouts</p>
       <div className="mt-4 space-y-3">
         {[
-          { from: "Ada", to: "Kofi", msg: "Crushed the launch week" },
-          { from: "Zara", to: "Team", msg: "Smooth onboarding for 3 hires" },
+          { from: 'Ada', to: 'Kofi', msg: 'Crushed the launch week' },
+          { from: 'Zara', to: 'Team', msg: 'Smooth onboarding for 3 hires' },
         ].map((item) => (
-          <div
-            key={item.msg}
-            className="rounded-lg border border-border/50 bg-background/40 p-3"
-          >
+          <div key={item.msg} className="rounded-lg border border-border/50 bg-background/40 p-3">
             <p className="text-[10px] text-muted-foreground">
               {item.from} → {item.to}
             </p>
@@ -97,19 +92,15 @@ export const LandingShowcase = () => {
               <div
                 key={item.title}
                 className={`grid items-center gap-12 lg:grid-cols-2 lg:gap-16 ${
-                  reversed ? "lg:[&>*:first-child]:order-2" : ""
+                  reversed ? 'lg:[&>*:first-child]:order-2' : ''
                 }`}
               >
                 <div>
-                  <p className="text-sm font-medium text-primary">
-                    {item.eyebrow}
-                  </p>
+                  <p className="text-sm font-medium text-primary">{item.eyebrow}</p>
                   <h3 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
                     {item.title}
                   </h3>
-                  <p className="mt-4 leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
+                  <p className="mt-4 leading-relaxed text-muted-foreground">{item.description}</p>
                   <ul className="mt-6 space-y-3">
                     {item.highlights.map((point) => (
                       <li

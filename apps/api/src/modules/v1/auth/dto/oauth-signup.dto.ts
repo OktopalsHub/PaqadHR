@@ -1,4 +1,3 @@
-import { User } from '../../users/entities/user.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { OauthProvider, UserRole } from 'src/common/enums';

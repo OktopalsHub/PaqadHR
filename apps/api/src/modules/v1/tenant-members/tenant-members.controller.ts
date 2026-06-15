@@ -1,28 +1,19 @@
-import { TenantMemberResponseDto, TenantMemberMapper } from './dto/tenant-member-response.dto';
-import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
-import { Tenant } from '../tenants/entities/tenant.entity';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
-import { IAuthenticatedUserRequest } from 'src/common/interfaces';
-import { FileUrlService } from 'src/common/services/file-url.service';
+import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
+import type { FileUrlService } from 'src/common/services/file-url.service';
 import { Public } from '../../../common/decorators';
+import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
+import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
+import type { ITenantMemberResponseDto } from '../../../common/interfaces/itenant-member-response-dto.interface';
+import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member-response.dto';
+import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
+import type { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
-import { TenantMembersService } from './tenant-members.service';
-import { UpdateTenantMemberStatusDto } from "./dto/update-tenant-member-status.dto";
-import { ICelebrationResponseDto } from "../../../common/interfaces/icelebration-response-dto.interface";
-import { INewHiresResponseDto } from "../../../common/interfaces/inew-hires-response-dto.interface";
-import { ITenantMemberResponseDto } from "../../../common/interfaces/itenant-member-response-dto.interface";
+import type { TenantMembersService } from './tenant-members.service';
 
 @ApiTags('Tenant Members')
 @Controller('tenants/:tenantId')
@@ -43,15 +34,9 @@ export class TenantMembersController {
     description: 'Tenant members retrieved successfully',
     type: [TenantMemberResponseDto],
   })
-  async getTenantMembers(
-    @Param('tenantId') tenantId: string,
-  ): Promise<ITenantMemberResponseDto[]> {
-    const tenantMembers =
-      await this.tenantMembersService.getTenantMembers(tenantId);
-    return TenantMemberMapper.toResponseList(
-      tenantMembers,
-      this.fileUrlService,
-    );
+  async getTenantMembers(@Param('tenantId') tenantId: string): Promise<ITenantMemberResponseDto[]> {
+    const tenantMembers = await this.tenantMembersService.getTenantMembers(tenantId);
+    return TenantMemberMapper.toResponseList(tenantMembers, this.fileUrlService);
   }
   @Get('profile')
   async getTenantMemberProfile(
@@ -67,9 +52,7 @@ export class TenantMembersController {
   @Get('roles')
   @Public()
   getTenantMemberRoles() {
-    const roles = Object.values(TenantMemberRole).filter(
-      (role) => role !== TenantMemberRole.OWNER,
-    );
+    const roles = Object.values(TenantMemberRole).filter((role) => role !== TenantMemberRole.OWNER);
     return roles.map((role) => ({
       value: role,
       label: role.charAt(0).toUpperCase() + role.slice(1),
@@ -81,10 +64,7 @@ export class TenantMembersController {
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
   ): Promise<ITenantMemberResponseDto> {
-    const result = await this.tenantMembersService.getTenantMember(
-      memberId,
-      tenantId,
-    );
+    const result = await this.tenantMembersService.getTenantMember(memberId, tenantId);
     return TenantMemberMapper.toResponse(result, this.fileUrlService);
   }
   @Delete('/members/:memberId')
@@ -102,37 +82,34 @@ export class TenantMembersController {
     @Param('memberId') memberId: string,
     @Body() updateDto: UpdateTenantMemberStatusDto,
   ) {
-    const updatedMember =
-      await this.tenantMembersService.updateTenantMemberStatus(
-        memberId,
-        tenantId,
-        updateDto.isActive,
-      );
+    const updatedMember = await this.tenantMembersService.updateTenantMemberStatus(
+      memberId,
+      tenantId,
+      updateDto.isActive,
+    );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }
   @Patch('/members/:memberId')
   @UseGuards(TenantRoleGuard)
-    @ApiOperation({
+  @ApiOperation({
     summary: 'Update tenant member details',
-    description:
-      'Update tenant member information such as department and reports to',
+    description: 'Update tenant member information such as department and reports to',
   })
   @ApiResponse({
     status: 200,
     description: 'Tenant member updated successfully',
     type: TenantMemberResponseDto,
   })
-    async updateTenantMember(
+  async updateTenantMember(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
     @Body() updateDto: UpdateTenantMemberDto,
   ): Promise<ITenantMemberResponseDto> {
-    const updatedMember =
-      await this.tenantMembersService.updateTenantMemberById(
-        memberId,
-        tenantId,
-        updateDto,
-      );
+    const updatedMember = await this.tenantMembersService.updateTenantMemberById(
+      memberId,
+      tenantId,
+      updateDto,
+    );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }
   @Get('new-hires')
@@ -143,11 +120,9 @@ export class TenantMembersController {
   @ApiResponse({
     status: 200,
     description: 'New hires retrieved successfully',
-    type: [Object], 
+    type: [Object],
   })
-  async getNewHires(
-    @Param('tenantId') tenantId: string,
-  ): Promise<INewHiresResponseDto[]> {
+  async getNewHires(@Param('tenantId') tenantId: string): Promise<INewHiresResponseDto[]> {
     return this.tenantMembersService.getNewHires(tenantId);
   }
   @Get('celebrations')
@@ -159,11 +134,9 @@ export class TenantMembersController {
   @ApiResponse({
     status: 200,
     description: 'Celebrations retrieved successfully',
-    type: [Object], 
+    type: [Object],
   })
-  async getCelebrations(
-    @Param('tenantId') tenantId: string,
-  ): Promise<ICelebrationResponseDto[]> {
+  async getCelebrations(@Param('tenantId') tenantId: string): Promise<ICelebrationResponseDto[]> {
     return this.tenantMembersService.getUpcomingCelebrations(tenantId);
   }
 }

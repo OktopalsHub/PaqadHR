@@ -1,24 +1,10 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Users,
-  Target,
-  Calendar,
-  DollarSign,
-  TrendingUp,
-  MessageSquare,
-  FileText,
-} from "lucide-react";
+import { DollarSign, Target, TrendingUp, Users } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TeamDetailDialogProps {
   open: boolean;
@@ -39,62 +25,58 @@ interface TeamDetailDialogProps {
   } | null;
 }
 
-export function TeamDetailDialog({
-  open,
-  onOpenChange,
-  team,
-}: TeamDetailDialogProps) {
+export function TeamDetailDialog({ open, onOpenChange, team }: TeamDetailDialogProps) {
   if (!team) return null;
 
   const teamMembers = [
     {
-      name: "Alice Johnson",
-      role: "Senior Developer",
-      avatar: "",
-      initials: "AJ",
+      name: 'Alice Johnson',
+      role: 'Senior Developer',
+      avatar: '',
+      initials: 'AJ',
       performance: 95,
     },
     {
-      name: "Bob Smith",
-      role: "Developer",
-      avatar: "",
-      initials: "BS",
+      name: 'Bob Smith',
+      role: 'Developer',
+      avatar: '',
+      initials: 'BS',
       performance: 88,
     },
     {
-      name: "Carol Davis",
-      role: "UI/UX Designer",
-      avatar: "",
-      initials: "CD",
+      name: 'Carol Davis',
+      role: 'UI/UX Designer',
+      avatar: '',
+      initials: 'CD',
       performance: 92,
     },
     {
-      name: "David Wilson",
-      role: "Developer",
-      avatar: "",
-      initials: "DW",
+      name: 'David Wilson',
+      role: 'Developer',
+      avatar: '',
+      initials: 'DW',
       performance: 87,
     },
   ];
 
   const projects = [
     {
-      name: "E-commerce Platform",
-      status: "In Progress",
+      name: 'E-commerce Platform',
+      status: 'In Progress',
       progress: 75,
-      deadline: "2024-04-15",
+      deadline: '2024-04-15',
     },
     {
-      name: "Mobile App Redesign",
-      status: "Planning",
+      name: 'Mobile App Redesign',
+      status: 'Planning',
       progress: 25,
-      deadline: "2024-05-01",
+      deadline: '2024-05-01',
     },
     {
-      name: "API Integration",
-      status: "Completed",
+      name: 'API Integration',
+      status: 'Completed',
       progress: 100,
-      deadline: "2024-03-20",
+      deadline: '2024-03-20',
     },
   ];
 
@@ -107,9 +89,7 @@ export function TeamDetailDialog({
               <DialogTitle className="text-2xl">{team.name}</DialogTitle>
               <div className="flex items-center gap-2 mt-2">
                 <Badge variant="outline">{team.department}</Badge>
-                <span className="text-sm text-muted-foreground">
-                  Led by {team.lead.name}
-                </span>
+                <span className="text-sm text-muted-foreground">Led by {team.lead.name}</span>
               </div>
             </div>
           </div>
@@ -181,18 +161,12 @@ export function TeamDetailDialog({
                         </Avatar>
                         <div>
                           <p className="font-medium">{member.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {member.role}
-                          </p>
+                          <p className="text-sm text-muted-foreground">{member.role}</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-medium">
-                          {member.performance}%
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Performance
-                        </p>
+                        <p className="text-sm font-medium">{member.performance}%</p>
+                        <p className="text-xs text-muted-foreground">Performance</p>
                       </div>
                     </div>
                     <Progress value={member.performance} className="mt-3 h-2" />
@@ -216,11 +190,11 @@ export function TeamDetailDialog({
                       </div>
                       <Badge
                         variant={
-                          project.status === "Completed"
-                            ? "default"
-                            : project.status === "In Progress"
-                              ? "secondary"
-                              : "outline"
+                          project.status === 'Completed'
+                            ? 'default'
+                            : project.status === 'In Progress'
+                              ? 'secondary'
+                              : 'outline'
                         }
                       >
                         {project.status}

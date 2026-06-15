@@ -1,6 +1,6 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { SimplePayrollInput } from "../../../../common/interfaces/simple-payroll-input.interface";
-import { SimplePayrollResult } from "../../../../common/interfaces/simple-payroll-result.interface";
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { SimplePayrollInput } from '../../../../common/interfaces/simple-payroll-input.interface';
+import type { SimplePayrollResult } from '../../../../common/interfaces/simple-payroll-result.interface';
 
 @Injectable()
 export class PayrollCalculationService {
@@ -8,12 +8,8 @@ export class PayrollCalculationService {
   constructor() {
     this.logger.log('Simple payroll calculation service initialized');
   }
-  async calculateSimplePayroll(
-    input: SimplePayrollInput,
-  ): Promise<SimplePayrollResult> {
-    this.logger.log(
-      `Calculating simple payroll for employee ${input.memberId}`,
-    );
+  async calculateSimplePayroll(input: SimplePayrollInput): Promise<SimplePayrollResult> {
+    this.logger.log(`Calculating simple payroll for employee ${input.memberId}`);
     const grossAmount = input.baseSalary;
     const adjustments = input.adjustments || 0;
     const deductions = input.deductions || 0;
@@ -37,7 +33,7 @@ export class PayrollCalculationService {
     if (input.baseSalary <= 0) {
       throw new BadRequestException('Base salary must be greater than zero');
     }
-    if (!input.currency || input.currency.length !== 3) {
+    if (input.currency?.length !== 3) {
       throw new BadRequestException('Valid 3-letter currency code is required');
     }
     return true;

@@ -1,23 +1,17 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { Building2, CreditCard, UserCircle } from "lucide-react";
-import { AppPage } from "@/components/app-page";
-import { ContentCard } from "@/components/content-card";
-import { LoadingBlock } from "@/components/loading-block";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useAuth } from "@/hooks/use-auth";
-import { useBillingStatus } from "@/hooks/queries/use-billing";
-import { useTenant } from "@/providers/tenant-provider";
+import { Building2, CreditCard, UserCircle } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { AppPage } from '@/components/app-page';
+import { ContentCard } from '@/components/content-card';
+import { LoadingBlock } from '@/components/loading-block';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { useBillingStatus } from '@/hooks/queries/use-billing';
+import { useAuth } from '@/hooks/use-auth';
+import { useTenant } from '@/providers/tenant-provider';
 
-function SettingsRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ReactNode;
-}) {
+function SettingsRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
       <dt className="text-muted-foreground">{label}</dt>
@@ -45,7 +39,7 @@ export function SettingsPage() {
         <Alert variant="destructive">
           <AlertTitle>Unable to load settings</AlertTitle>
           <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong"}
+            {error instanceof Error ? error.message : 'Something went wrong'}
           </AlertDescription>
         </Alert>
       </AppPage>
@@ -61,14 +55,10 @@ export function SettingsPage() {
           bodyClassName="divide-y divide-border/60"
         >
           <dl>
-            <SettingsRow label="Email" value={user?.email ?? "—"} />
+            <SettingsRow label="Email" value={user?.email ?? '—'} />
             <SettingsRow
               label="Role"
-              value={
-                <span className="capitalize">
-                  {user?.role?.replace("_", " ") ?? "—"}
-                </span>
-              }
+              value={<span className="capitalize">{user?.role?.replace('_', ' ') ?? '—'}</span>}
             />
           </dl>
         </ContentCard>
@@ -79,8 +69,8 @@ export function SettingsPage() {
           bodyClassName="divide-y divide-border/60"
         >
           <dl>
-            <SettingsRow label="Name" value={tenant?.name ?? "—"} />
-            <SettingsRow label="Slug" value={tenant?.slug ?? "—"} />
+            <SettingsRow label="Name" value={tenant?.name ?? '—'} />
+            <SettingsRow label="Slug" value={tenant?.slug ?? '—'} />
           </dl>
         </ContentCard>
 
@@ -93,17 +83,13 @@ export function SettingsPage() {
           <dl>
             <SettingsRow
               label="Mode"
-              value={
-                <span className="capitalize">{billing?.billingMode ?? "—"}</span>
-              }
+              value={<span className="capitalize">{billing?.billingMode ?? '—'}</span>}
             />
             <SettingsRow
               label="Card payments"
               value={
-                <Badge
-                  variant={billing?.paymentsEnabled ? "default" : "secondary"}
-                >
-                  {billing?.paymentsEnabled ? "Enabled" : "Disabled"}
+                <Badge variant={billing?.paymentsEnabled ? 'default' : 'secondary'}>
+                  {billing?.paymentsEnabled ? 'Enabled' : 'Disabled'}
                 </Badge>
               }
             />
@@ -111,19 +97,11 @@ export function SettingsPage() {
               <>
                 <SettingsRow
                   label="Plan"
-                  value={
-                    <span className="capitalize">
-                      {billing.subscription.plan}
-                    </span>
-                  }
+                  value={<span className="capitalize">{billing.subscription.plan}</span>}
                 />
                 <SettingsRow
                   label="Status"
-                  value={
-                    <span className="capitalize">
-                      {billing.subscription.status}
-                    </span>
-                  }
+                  value={<span className="capitalize">{billing.subscription.status}</span>}
                 />
                 {billing.subscription.daysRemaining != null ? (
                   <SettingsRow
@@ -135,8 +113,8 @@ export function SettingsPage() {
             ) : null}
           </dl>
           <p className="pt-3 text-xs text-muted-foreground">
-            Billing is manual during beta. Contact your admin to extend trial or
-            activate a paid plan.
+            Billing is manual during beta. Contact your admin to extend trial or activate a paid
+            plan.
           </p>
         </ContentCard>
       </div>

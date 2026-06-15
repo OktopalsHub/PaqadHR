@@ -1,16 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ShoutoutPointsModule } from '../shoutouts/shoutout-points.module';
+import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
-import { ShoutoutPointsModule } from '../shoutouts/shoutout-points.module';
-import { TenantConfigModule } from './tenant-config.module';
-import { TenantSettingsInitializationService } from './services/tenant-settings-initialization.service';
-import { TenantSettingsService } from './services/tenant-settings.service';
-import { TenantSettings } from './entities/tenant-settings.entity';
-import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantSettingsController } from './controllers/tenant-settings.controller';
-import { TenantSettingRepository } from './services/tenant-setting.repository';
+import { TenantSettings } from './entities/tenant-settings.entity';
 import { TenantSettingsListener } from './listeners/tenant-settings.listener';
+import { TenantSettingRepository } from './services/tenant-setting.repository';
+import { TenantSettingsService } from './services/tenant-settings.service';
+import { TenantSettingsInitializationService } from './services/tenant-settings-initialization.service';
+import { TenantConfigModule } from './tenant-config.module';
 
 @Module({
   imports: [
@@ -27,10 +27,6 @@ import { TenantSettingsListener } from './listeners/tenant-settings.listener';
     TenantSettingRepository,
     TenantSettingsListener,
   ],
-  exports: [
-    TenantSettingsService,
-    TenantSettingsInitializationService,
-    TenantConfigModule,
-  ],
+  exports: [TenantSettingsService, TenantSettingsInitializationService, TenantConfigModule],
 })
 export class TenantSettingsModule {}

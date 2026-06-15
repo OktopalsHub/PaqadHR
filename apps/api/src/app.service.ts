@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import type { DataSource } from 'typeorm';
 
 export interface HealthCheckResult {
   status: 'ok' | 'healthy' | 'unhealthy';

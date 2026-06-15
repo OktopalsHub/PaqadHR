@@ -1,31 +1,28 @@
-"use client";
+'use client';
 
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
   closestCenter,
+  DndContext,
+  type DragEndEvent,
+  DragOverlay,
+  type DragStartEvent,
+  PointerSensor,
   useDroppable,
   useSensor,
   useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { useMemo, useState } from "react";
+} from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useMemo, useState } from 'react';
 import {
   BOARD_COLUMNS,
-  columnForStatus,
-  isDisqualified,
   type BoardColumnId,
   type CandidateStatus,
-} from "./board-columns";
-import {
-  CandidateKanbanCard,
-  type CandidateCardData,
-} from "./candidate-kanban-card";
-import { RecruitmentKanbanColumn } from "./recruitment-kanban-column";
+  columnForStatus,
+  isDisqualified,
+} from './board-columns';
+import { type CandidateCardData, CandidateKanbanCard } from './candidate-kanban-card';
+import { RecruitmentKanbanColumn } from './recruitment-kanban-column';
 
 export type BoardCandidate = CandidateCardData & {
   status: CandidateStatus;
@@ -34,10 +31,7 @@ export type BoardCandidate = CandidateCardData & {
 type RecruitmentKanbanBoardProps = {
   candidates: BoardCandidate[];
   interactive?: boolean;
-  onMoveCandidate?: (
-    candidateId: string,
-    status: CandidateStatus,
-  ) => void;
+  onMoveCandidate?: (candidateId: string, status: CandidateStatus) => void;
 };
 
 function DroppableColumn({
@@ -56,10 +50,7 @@ function DroppableColumn({
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
 
   return (
-    <div
-      ref={setNodeRef}
-      className={isOver ? "rounded-xl ring-2 ring-primary/30" : undefined}
-    >
+    <div ref={setNodeRef} className={isOver ? 'rounded-xl ring-2 ring-primary/30' : undefined}>
       <RecruitmentKanbanColumn
         title={title}
         count={count}
@@ -78,8 +69,9 @@ function DroppableColumn({
 }
 
 function SortableCard({ candidate }: { candidate: BoardCandidate }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: candidate.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: candidate.id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -99,9 +91,7 @@ export function RecruitmentKanbanBoard({
   onMoveCandidate,
 }: RecruitmentKanbanBoardProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const activeCandidates = candidates.filter((c) => !isDisqualified(c.status));
 
@@ -141,9 +131,7 @@ export function RecruitmentKanbanBoard({
     const overId = String(over.id) as BoardColumnId | string;
     const targetColumn =
       BOARD_COLUMNS.find((col) => col.id === overId) ??
-      BOARD_COLUMNS.find((col) =>
-        grouped[col.id].some((item) => item.id === overId),
-      );
+      BOARD_COLUMNS.find((col) => grouped[col.id].some((item) => item.id === overId));
 
     if (!targetColumn) return;
 
@@ -180,9 +168,7 @@ export function RecruitmentKanbanBoard({
     >
       {columns}
       <DragOverlay>
-        {activeCandidate ? (
-          <CandidateKanbanCard candidate={activeCandidate} isDragging />
-        ) : null}
+        {activeCandidate ? <CandidateKanbanCard candidate={activeCandidate} isDragging /> : null}
       </DragOverlay>
     </DndContext>
   );

@@ -1,16 +1,10 @@
-import { EmploymentType, JobStatus, LocationType } from 'src/common/enums';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany } from 'typeorm';
+import { type EmploymentType, JobStatus, type LocationType } from 'src/common/enums';
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Department } from '../../departments/entities/department.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Candidate } from './candidate.entity';
 import { Interview } from './interview.entity';
-import { Department } from "../../departments/entities/department.entity";
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity()
 export class JobOpening extends BaseEntity {
@@ -72,12 +66,21 @@ export class JobOpening extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => TenantMember, (tenantMember) => tenantMember.jobOpenings)
+  @ManyToOne(
+    () => TenantMember,
+    (tenantMember) => tenantMember.jobOpenings,
+  )
   @JoinColumn({ name: 'tenant_member_id' })
   createdBy: TenantMember;
-  @OneToMany(() => Candidate, (candidate) => candidate.jobOpening)
+  @OneToMany(
+    () => Candidate,
+    (candidate) => candidate.jobOpening,
+  )
   candidates: Candidate[];
-  @OneToMany(() => Interview, (interview) => interview.jobOpening)
+  @OneToMany(
+    () => Interview,
+    (interview) => interview.jobOpening,
+  )
   interviews: Interview[];
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

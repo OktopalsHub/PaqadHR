@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { PositionMember } from "../entities/position-member.entity";
+import { PositionMember } from '../entities/position-member.entity';
 
 @Injectable()
 export class PositionMemberRepository extends Repository<PositionMember> {
@@ -9,7 +9,11 @@ export class PositionMemberRepository extends Repository<PositionMember> {
     @InjectRepository(PositionMember)
     private readonly positionMemberRepository: Repository<PositionMember>,
   ) {
-    super(positionMemberRepository.target, positionMemberRepository.manager, positionMemberRepository.queryRunner);
+    super(
+      positionMemberRepository.target,
+      positionMemberRepository.manager,
+      positionMemberRepository.queryRunner,
+    );
   }
 
   async findAll(where?: Record<string, unknown>): Promise<PositionMember[]> {
@@ -34,10 +38,7 @@ export class PositionMemberRepository extends Repository<PositionMember> {
     });
     return this.positionMemberRepository.save(assignment);
   }
-  async getPositionHistory(
-    tenantId: string,
-    tenantMemberId: string,
-  ): Promise<PositionMember[]> {
+  async getPositionHistory(tenantId: string, tenantMemberId: string): Promise<PositionMember[]> {
     return this.positionMemberRepository.find({
       where: { tenantMemberId },
       relations: ['position'],

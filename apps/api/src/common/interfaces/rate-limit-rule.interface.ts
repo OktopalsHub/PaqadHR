@@ -1,4 +1,4 @@
 export interface RateLimitRule {
-    windowMs: number;
-    maxRequests: number;
+  windowMs: number;
+  maxRequests: number;
 }

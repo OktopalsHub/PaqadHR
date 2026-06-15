@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Plus } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -11,34 +12,30 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { useCreateLeave, useLeaveBalances } from "@/hooks/queries/use-leaves";
-import { toast } from "sonner";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useCreateLeave, useLeaveBalances } from '@/hooks/queries/use-leaves';
 
 interface LeaveRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function LeaveRequestDialog({
-  open,
-  onOpenChange,
-}: LeaveRequestDialogProps) {
+export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogProps) {
   const createLeave = useCreateLeave();
   const { data: balances = [], isLoading: balancesLoading } = useLeaveBalances();
-  const [leaveTypeId, setLeaveTypeId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [reason, setReason] = useState("");
+  const [leaveTypeId, setLeaveTypeId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [reason, setReason] = useState('');
 
   useEffect(() => {
     if (!leaveTypeId && balances.length > 0) {
@@ -48,7 +45,7 @@ export function LeaveRequestDialog({
 
   const handleSubmit = async () => {
     if (!leaveTypeId) {
-      toast.error("Select a leave type before submitting.");
+      toast.error('Select a leave type before submitting.');
       return;
     }
 
@@ -59,15 +56,13 @@ export function LeaveRequestDialog({
         endDate,
         reason,
       });
-      toast.success("Leave request submitted");
+      toast.success('Leave request submitted');
       onOpenChange(false);
-      setStartDate("");
-      setEndDate("");
-      setReason("");
+      setStartDate('');
+      setEndDate('');
+      setReason('');
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to submit leave request",
-      );
+      toast.error(error instanceof Error ? error.message : 'Failed to submit leave request');
     }
   };
 
@@ -83,8 +78,7 @@ export function LeaveRequestDialog({
         <DialogHeader>
           <DialogTitle>Request Leave</DialogTitle>
           <DialogDescription>
-            Fill in the leave request details. Click submit when you&apos;re
-            done.
+            Fill in the leave request details. Click submit when you&apos;re done.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -101,10 +95,10 @@ export function LeaveRequestDialog({
                 <SelectValue
                   placeholder={
                     balancesLoading
-                      ? "Loading leave types..."
+                      ? 'Loading leave types...'
                       : balances.length === 0
-                        ? "No leave types available"
-                        : "Select leave type"
+                        ? 'No leave types available'
+                        : 'Select leave type'
                   }
                 />
               </SelectTrigger>
@@ -155,11 +149,7 @@ export function LeaveRequestDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-          >
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button

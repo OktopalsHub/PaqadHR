@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { AssetAssignmentStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
-import { Asset } from "../entities/asset.entity";
-import { QueryAssetsDto } from "../dto/query-assets.dto";
+import type { QueryAssetsDto } from '../dto/query-assets.dto';
+import { Asset } from '../entities/asset.entity';
 
 @Injectable()
 export class AssetRepository extends Repository<Asset> {
@@ -59,17 +59,11 @@ export class AssetRepository extends Repository<Asset> {
         search: `%${search}%`,
       });
     }
-    queryBuilder = queryBuilder
-      .orderBy('asset.createdAt', 'DESC')
-      .skip(skip)
-      .take(limit);
+    queryBuilder = queryBuilder.orderBy('asset.createdAt', 'DESC').skip(skip).take(limit);
     const [assets, total] = await queryBuilder.getManyAndCount();
     return { assets, total };
   }
-  async findAssignedAssets(
-    tenantId: string,
-    memberId: string,
-  ): Promise<Asset[]> {
+  async findAssignedAssets(tenantId: string, memberId: string): Promise<Asset[]> {
     return this.assetRepository.find({
       where: {
         tenantId,
@@ -94,13 +88,14 @@ export class AssetRepository extends Repository<Asset> {
       )
       .getMany();
   }
-  async getAssetsByCategory(
-    tenantId: string,
-    categoryId: string,
-  ): Promise<Asset[]> {
-    return this.find({ withDeleted: false, where: {
-                tenantId,
-                categoryId,
-              }, relations: ['category'] });
+  async getAssetsByCategory(tenantId: string, categoryId: string): Promise<Asset[]> {
+    return this.find({
+      withDeleted: false,
+      where: {
+        tenantId,
+        categoryId,
+      },
+      relations: ['category'],
+    });
   }
 }

@@ -1,24 +1,17 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import { DateTimeHelper } from 'src/common/helpers';
-import { IPaginationOption } from 'src/common/interfaces/pagination.interface';
-import {
-  getPaginationSummary,
-  normalizePaginationLimit,
-} from 'src/common/utils/pagination.util';
-import { FindOptionsWhere } from 'typeorm';
-import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
-import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
-import { LeaveRepository } from './leave.repository';
-import { CreateLeaveDto } from "./dto/create-leave.dto";
-import { UpdateLeaveDto } from "./dto/update-leave.dto";
-import { Leave } from "./entities/leave.entity";
-import { LeaveResponseDto } from "./dto/leave-response.dto";
-import { LeaveMemberMapper } from "./dto/leave-member-response.dto";
+import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
+import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
+import type { FindOptionsWhere } from 'typeorm';
+import type { LeaveBalanceService } from '../leave-balance/leave-balance.service';
+import type { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
+import type { CreateLeaveDto } from './dto/create-leave.dto';
+import { LeaveMemberMapper } from './dto/leave-member-response.dto';
+import type { LeaveResponseDto } from './dto/leave-response.dto';
+import type { UpdateLeaveDto } from './dto/update-leave.dto';
+import type { Leave } from './entities/leave.entity';
+import type { LeaveRepository } from './leave.repository';
 
 @Injectable()
 export class LeaveService {
@@ -28,15 +21,13 @@ export class LeaveService {
     private readonly tenantSettingsService: TenantSettingsService,
   ) {}
   async createLeave(tenantId: string, memberId: string, dto: CreateLeaveDto) {
-    const tenantSettings =
-      await this.tenantSettingsService.getTenantSettings(tenantId);
+    const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const holidaySettings = tenantSettings?.settings?.holidays;
-    const { durationInDays, workingDays, startDate, endDate } =
-      DateTimeHelper.calculateDuration(
-        dto.startDate,
-        dto.endDate,
-        holidaySettings,
-      );
+    const { durationInDays, workingDays, startDate, endDate } = DateTimeHelper.calculateDuration(
+      dto.startDate,
+      dto.endDate,
+      holidaySettings,
+    );
     const daysToCheck = workingDays ?? durationInDays;
     await this.checkLeaveBalance(
       tenantId,
@@ -85,17 +76,9 @@ export class LeaveService {
     }
     return balance;
   }
-  async getLeaveBalanceForMember(
-    tenantId: string,
-    memberId: string,
-    year?: number,
-  ) {
+  async getLeaveBalanceForMember(tenantId: string, memberId: string, year?: number) {
     const currentYear = year || new Date().getFullYear();
-    return this.leaveBalanceService.getBalancesByMember(
-      tenantId,
-      memberId,
-      currentYear,
-    );
+    return this.leaveBalanceService.getBalancesByMember(tenantId, memberId, currentYear);
   }
   async getLeaveBalanceForMemberByType(
     tenantId: string,
@@ -127,10 +110,7 @@ export class LeaveService {
     'leaveTypes',
   ] as const;
 
-  private async findLeaveEntity(
-    tenantId: string,
-    leaveId: string,
-  ): Promise<Leave | null> {
+  private async findLeaveEntity(tenantId: string, leaveId: string): Promise<Leave | null> {
     return this.leaveRepository.findOne({
       where: { id: leaveId, tenantId },
       relations: [...this.leaveRelations],
@@ -156,23 +136,14 @@ export class LeaveService {
     const paginated = await getPaginationSummary(records, total, pagination, name);
     return {
       ...paginated,
-      records: paginated.records.map((leave) =>
-        this.toLeaveResponseDto(leave as Leave),
-      ),
+      records: paginated.records.map((leave) => this.toLeaveResponseDto(leave as Leave)),
     };
   }
 
-  async listLeavesByTenant(
-    tenantId: string,
-    pagination: IPaginationOption,
-  ) {
+  async listLeavesByTenant(tenantId: string, pagination: IPaginationOption) {
     return this.listLeavesPaginated(tenantId, pagination, {}, 'leaves');
   }
-  async getLeavesByMember(
-    tenantId: string,
-    memberId: string,
-    pagination: IPaginationOption,
-  ) {
+  async getLeavesByMember(tenantId: string, memberId: string, pagination: IPaginationOption) {
     return this.listLeavesPaginated(
       tenantId,
       pagination,
@@ -190,8 +161,7 @@ export class LeaveService {
   async updateLeave(tenantId: string, leaveId: string, dto: UpdateLeaveDto) {
     const existing = await this.getLeave(tenantId, leaveId);
     if (dto.startDate || dto.endDate) {
-      const tenantSettings =
-        await this.tenantSettingsService.getTenantSettings(tenantId);
+      const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
       const holidaySettings = tenantSettings?.settings?.holidays;
       const { durationInDays, workingDays } = DateTimeHelper.calculateDuration(
         dto.startDate || existing.startDate,
@@ -215,12 +185,7 @@ export class LeaveService {
     const existing = await this.getLeave(tenantId, leaveId);
     return this.leaveRepository.softDelete(existing.id);
   }
-  async approveLeave(
-    tenantId: string,
-    leaveId: string,
-    approverId: string,
-    comments?: string,
-  ) {
+  async approveLeave(tenantId: string, leaveId: string, approverId: string, comments?: string) {
     const leave = await this.findLeaveEntity(tenantId, leaveId);
     if (!leave) {
       throw new NotFoundException('Leave not found');
@@ -245,22 +210,14 @@ export class LeaveService {
     if (!updatedLeave) {
       throw new NotFoundException('Updated leave not found');
     }
-    await this.leaveBalanceService.applyLeaveImpact(
-      updatedLeave,
-      LeaveStatus.PENDING,
-    );
+    await this.leaveBalanceService.applyLeaveImpact(updatedLeave, LeaveStatus.PENDING);
     const updated = await this.findLeaveEntity(tenantId, leaveId);
     if (!updated) {
       throw new NotFoundException('Updated leave not found');
     }
     return this.toLeaveResponseDto(updated);
   }
-  async rejectLeave(
-    tenantId: string,
-    leaveId: string,
-    approverId: string,
-    comments: string,
-  ) {
+  async rejectLeave(tenantId: string, leaveId: string, approverId: string, comments: string) {
     const leave = await this.findLeaveEntity(tenantId, leaveId);
     if (!leave) {
       throw new NotFoundException('Leave not found');
@@ -278,10 +235,7 @@ export class LeaveService {
     if (!updatedLeave) {
       throw new NotFoundException('Updated leave not found');
     }
-    await this.leaveBalanceService.applyLeaveImpact(
-      updatedLeave,
-      LeaveStatus.PENDING,
-    );
+    await this.leaveBalanceService.applyLeaveImpact(updatedLeave, LeaveStatus.PENDING);
     const updated = await this.findLeaveEntity(tenantId, leaveId);
     if (!updated) {
       throw new NotFoundException('Updated leave not found');
@@ -307,12 +261,8 @@ export class LeaveService {
             description: leave.leaveTypes.description,
           }
         : null,
-      requester: leave.requester
-        ? LeaveMemberMapper.toResponse(leave.requester)
-        : null,
-      approver: leave.approver
-        ? LeaveMemberMapper.toResponse(leave.approver)
-        : null,
+      requester: leave.requester ? LeaveMemberMapper.toResponse(leave.requester) : null,
+      approver: leave.approver ? LeaveMemberMapper.toResponse(leave.approver) : null,
     };
   }
 }

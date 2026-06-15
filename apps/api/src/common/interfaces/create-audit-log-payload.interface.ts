@@ -1,8 +1,4 @@
-import {
-  AuditAction,
-  AuditSeverity,
-  AuditStatus,
-} from '../enums/audit-action.enum';
+import type { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
 
 export interface CreateAuditLogPayload {
   action: AuditAction;

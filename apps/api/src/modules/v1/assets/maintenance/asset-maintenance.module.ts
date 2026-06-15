@@ -6,7 +6,7 @@ import { AssetsModule } from '../assets.module';
 import { AssetMaintenanceController } from './asset-maintenance.controller';
 import { AssetMaintenanceRepository } from './asset-maintenance.repository';
 import { AssetMaintenanceService } from './asset-maintenance.service';
-import { AssetMaintenance } from "./entities/asset-maintenance.entity";
+import { AssetMaintenance } from './entities/asset-maintenance.entity';
 
 @Module({
   imports: [

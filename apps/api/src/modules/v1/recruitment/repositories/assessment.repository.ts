@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Assessment } from "../entities/assessment.entity";
+import { Assessment } from '../entities/assessment.entity';
 
 @Injectable()
 export class AssessmentRepository extends Repository<Assessment> {
@@ -9,7 +9,11 @@ export class AssessmentRepository extends Repository<Assessment> {
     @InjectRepository(Assessment)
     private readonly assessmentRepository: Repository<Assessment>,
   ) {
-    super(assessmentRepository.target, assessmentRepository.manager, assessmentRepository.queryRunner);
+    super(
+      assessmentRepository.target,
+      assessmentRepository.manager,
+      assessmentRepository.queryRunner,
+    );
   }
   async findByTenantMemberAndId(
     tenantId: string,

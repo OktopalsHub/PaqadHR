@@ -12,10 +12,10 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
-import { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
-import { JwtPayload } from 'src/common/interfaces';
-import { AuthService } from './auth.service';
+import type { JwtPayload } from 'src/common/interfaces';
+import type { AuthService } from './auth.service';
 
 interface AuthResponse {
   accessToken: string;
@@ -46,10 +46,7 @@ export class AuthController {
       body.password,
       typeof ipAddress === 'string' ? ipAddress : '',
     );
-    const { accessToken, refreshToken } = await this.authService.login(
-      user,
-      ip,
-    );
+    const { accessToken, refreshToken } = await this.authService.login(user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
       accessToken,
@@ -71,10 +68,7 @@ export class AuthController {
     @Ip() ip: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
-    const { accessToken, refreshToken } = await this.authService.login(
-      req.user,
-      ip,
-    );
+    const { accessToken, refreshToken } = await this.authService.login(req.user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
       accessToken,
@@ -100,10 +94,7 @@ export class AuthController {
     @Ip() ip: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResponse> {
-    const { accessToken, refreshToken } = await this.authService.login(
-      req.user,
-      ip,
-    );
+    const { accessToken, refreshToken } = await this.authService.login(req.user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
       accessToken,
@@ -123,7 +114,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const refreshToken = body.refreshToken || req.cookies['refresh_token'];
+    const refreshToken = body.refreshToken || req.cookies.refresh_token;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
@@ -147,7 +138,7 @@ export class AuthController {
 
   @Post('logout')
   async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const refreshToken = req.cookies['refresh_token'];
+    const refreshToken = req.cookies.refresh_token;
     const user = req.user as JwtPayload | undefined;
     if (refreshToken) {
       await this.authService.logoutByRefreshToken(refreshToken);
@@ -159,10 +150,7 @@ export class AuthController {
   }
 
   @Post('logout-all')
-  async logoutAllDevices(
-    @Req() req: Request,
-    @Res() res: Response,
-  ): Promise<void> {
+  async logoutAllDevices(@Req() req: Request, @Res() res: Response): Promise<void> {
     const user = req.user as JwtPayload | undefined;
     if (!user?.principalId) {
       throw new UnauthorizedException('Not authenticated');
@@ -178,9 +166,7 @@ export class AuthController {
     if (!user?.principalId) {
       throw new UnauthorizedException('Not authenticated');
     }
-    const sessions = await this.authService.getActiveSessionsForUser(
-      user.principalId,
-    );
+    const sessions = await this.authService.getActiveSessionsForUser(user.principalId);
     return {
       sessions: sessions.map((session) => ({
         id: session.id,
@@ -192,11 +178,7 @@ export class AuthController {
     };
   }
 
-  private setAuthCookies(
-    res: Response,
-    accessToken: string,
-    refreshToken: string,
-  ) {
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const accessMaxAge = 24 * 60 * 60 * 1000;
     const refreshMaxAge = 7 * 24 * 60 * 60 * 1000;
     const isLocal = process.env.NODE_ENV !== 'production';

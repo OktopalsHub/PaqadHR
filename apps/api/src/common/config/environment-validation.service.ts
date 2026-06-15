@@ -1,6 +1,6 @@
 import { Logger } from '@nestjs/common';
+import type { EnvironmentValidationConfig } from '../interfaces/environment-validation-config.interface';
 import { resolveTrustedOrigins } from './trusted-origins';
-import { EnvironmentValidationConfig } from "../interfaces/environment-validation-config.interface";
 
 export class EnvironmentValidationService {
   private readonly logger = new Logger(EnvironmentValidationService.name);
@@ -19,10 +19,7 @@ export class EnvironmentValidationService {
       'GOOGLE_CALLBACK_URL',
       'TRUSTED_ORIGINS',
     ],
-    productionRequired: [
-      'ZEPTOMAIL_API_KEY',
-      'DEFAULT_FROM_EMAIL',
-    ],
+    productionRequired: ['ZEPTOMAIL_API_KEY', 'DEFAULT_FROM_EMAIL'],
     neverAllowFallbacks: [
       'DATABASE_URL',
       'ACCESS_SECRET',
@@ -38,18 +35,14 @@ export class EnvironmentValidationService {
       'GOOGLE_CALLBACK_URL',
     ],
     customValidations: {
-      DATABASE_URL: (value) =>
-        value.startsWith('postgresql://') || value.startsWith('postgres://'),
-      BASE_URL: (value) =>
-        value.startsWith('http://') || value.startsWith('https://'),
-      FRONTEND_URL: (value) =>
-        value.startsWith('http://') || value.startsWith('https://'),
+      DATABASE_URL: (value) => value.startsWith('postgresql://') || value.startsWith('postgres://'),
+      BASE_URL: (value) => value.startsWith('http://') || value.startsWith('https://'),
+      FRONTEND_URL: (value) => value.startsWith('http://') || value.startsWith('https://'),
       NODE_ENV: (value) => ['development', 'production'].includes(value),
       ENCRYPTION_KEY: (value) => value.length >= 32,
       DEFAULT_FROM_EMAIL: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
 
-      PORT: (value) =>
-        !isNaN(Number(value)) && Number(value) > 0 && Number(value) < 65536,
+      PORT: (value) => !Number.isNaN(Number(value)) && Number(value) > 0 && Number(value) < 65536,
     },
     minLengthRequirements: {
       ACCESS_SECRET: 32,
@@ -64,9 +57,7 @@ export class EnvironmentValidationService {
     const isProduction = nodeEnv === 'production';
     const errors: string[] = [];
     const warnings: string[] = [];
-    this.logger.log(
-      `Validating environment variables for ${nodeEnv} environment...`,
-    );
+    this.logger.log(`Validating environment variables for ${nodeEnv} environment...`);
     this.validateCriticalVariables(errors);
     if (isProduction) {
       this.validateProductionVariables(errors, warnings);
@@ -78,7 +69,9 @@ export class EnvironmentValidationService {
       this.validatePaymentProviders(warnings);
     }
     if (warnings.length > 0) {
-      warnings.forEach((warning) => this.logger.warn(warning));
+      for (const warning of warnings) {
+        this.logger.warn(warning);
+      }
     }
     if (errors.length > 0) {
       const errorMessage = `Environment validation failed:\n${errors.map((e) => `  - ${e}`).join('\n')}`;
@@ -91,12 +84,8 @@ export class EnvironmentValidationService {
   private logValidationSummary(): void {
     const nodeEnv = process.env.NODE_ENV || 'development';
     const isProduction = nodeEnv === 'production';
-    this.logger.log(
-      `📋 Environment Validation Summary for ${nodeEnv.toUpperCase()}:`,
-    );
-    this.logger.log(
-      `   ✅ Critical variables: ${this.validationConfig.critical.length} validated`,
-    );
+    this.logger.log(`📋 Environment Validation Summary for ${nodeEnv.toUpperCase()}:`);
+    this.logger.log(`   ✅ Critical variables: ${this.validationConfig.critical.length} validated`);
     this.logger.log(
       `   ✅ No-fallback variables: ${this.validationConfig.neverAllowFallbacks.length} validated`,
     );
@@ -112,16 +101,12 @@ export class EnvironmentValidationService {
       `   ✅ Minimum length requirements: ${Object.keys(this.validationConfig.minLengthRequirements).length} validated`,
     );
     const configuredIntegrations: string[] = [];
-    if (process.env.GOOGLE_CLIENT_ID)
-      configuredIntegrations.push('Google OAuth');
+    if (process.env.GOOGLE_CLIENT_ID) configuredIntegrations.push('Google OAuth');
     if (process.env.SLACK_CLIENT_ID) configuredIntegrations.push('Slack');
-    if (process.env.ZEPTOMAIL_API_KEY)
-      configuredIntegrations.push('Email (Zeptomail)');
+    if (process.env.ZEPTOMAIL_API_KEY) configuredIntegrations.push('Email (Zeptomail)');
 
     if (configuredIntegrations.length > 0) {
-      this.logger.log(
-        `   🔌 Configured integrations: ${configuredIntegrations.join(', ')}`,
-      );
+      this.logger.log(`   🔌 Configured integrations: ${configuredIntegrations.join(', ')}`);
     }
   }
   private validateCriticalVariables(errors: string[]): void {
@@ -140,10 +125,7 @@ export class EnvironmentValidationService {
       }
     }
   }
-  private validateProductionVariables(
-    errors: string[],
-    warnings: string[],
-  ): void {
+  private validateProductionVariables(errors: string[], warnings: string[]): void {
     for (const variable of this.validationConfig.productionRequired) {
       const value = process.env[variable];
       if (!value || value.trim() === '') {
@@ -162,11 +144,7 @@ export class EnvironmentValidationService {
     ];
     Object.keys(process.env).forEach((key) => {
       const value = process.env[key] || '';
-      if (
-        suspiciousValues.some((suspicious) =>
-          value.toLowerCase().includes(suspicious),
-        )
-      ) {
+      if (suspiciousValues.some((suspicious) => value.toLowerCase().includes(suspicious))) {
         warnings.push(
           `Environment variable ${key} contains suspicious value that looks like a placeholder: ${value}`,
         );
@@ -174,28 +152,22 @@ export class EnvironmentValidationService {
     });
   }
   private validateCustomRules(errors: string[]): void {
-    Object.entries(this.validationConfig.customValidations).forEach(
-      ([variable, validator]) => {
-        const value = process.env[variable];
-        if (value && !validator(value)) {
-          errors.push(
-            `Environment variable ${variable} has invalid format: ${value}`,
-          );
-        }
-      },
-    );
+    Object.entries(this.validationConfig.customValidations).forEach(([variable, validator]) => {
+      const value = process.env[variable];
+      if (value && !validator(value)) {
+        errors.push(`Environment variable ${variable} has invalid format: ${value}`);
+      }
+    });
   }
   private validateMinimumLengths(errors: string[]): void {
-    Object.entries(this.validationConfig.minLengthRequirements).forEach(
-      ([variable, minLength]) => {
-        const value = process.env[variable];
-        if (value && value.length < minLength) {
-          errors.push(
-            `Environment variable ${variable} must be at least ${minLength} characters long (current: ${value.length})`,
-          );
-        }
-      },
-    );
+    Object.entries(this.validationConfig.minLengthRequirements).forEach(([variable, minLength]) => {
+      const value = process.env[variable];
+      if (value && value.length < minLength) {
+        errors.push(
+          `Environment variable ${variable} must be at least ${minLength} characters long (current: ${value.length})`,
+        );
+      }
+    });
   }
   private validateNoFallbackValues(errors: string[], warnings: string[]): void {
     const nodeEnv = process.env.NODE_ENV || 'development';
@@ -213,11 +185,7 @@ export class EnvironmentValidationService {
       'secret-here',
       'key-here',
     ];
-    const productionOnlyPatterns = [
-      'localhost:3000',
-      'localhost:9001',
-      'localhost',
-    ];
+    const productionOnlyPatterns = ['localhost:3000', 'localhost:9001', 'localhost'];
     this.validationConfig.neverAllowFallbacks.forEach((variable) => {
       if (variable === 'TRUSTED_ORIGINS') {
         const origins = resolveTrustedOrigins();
@@ -252,8 +220,8 @@ export class EnvironmentValidationService {
         } else if (variable === 'GOOGLE_CALLBACK_URL') {
           hasProductionSuspiciousPattern = lowerValue.includes('localhost');
         } else {
-          hasProductionSuspiciousPattern = productionOnlyPatterns.some(
-            (pattern) => lowerValue.includes(pattern.toLowerCase()),
+          hasProductionSuspiciousPattern = productionOnlyPatterns.some((pattern) =>
+            lowerValue.includes(pattern.toLowerCase()),
           );
         }
       }
@@ -284,8 +252,7 @@ export class EnvironmentValidationService {
       }
     });
   }
-  private validatePaymentProviders(_warnings: string[]): void {
-  }
+  private validatePaymentProviders(_warnings: string[]): void {}
   getRequired(key: string): string {
     const value = process.env[key];
     if (!value || value.trim() === '') {
@@ -299,10 +266,8 @@ export class EnvironmentValidationService {
   getRequiredNumber(key: string): number {
     const value = this.getRequired(key);
     const num = Number(value);
-    if (isNaN(num)) {
-      throw new Error(
-        `Environment variable ${key} must be a valid number, got: ${value}`,
-      );
+    if (Number.isNaN(num)) {
+      throw new Error(`Environment variable ${key} must be a valid number, got: ${value}`);
     }
     return num;
   }
@@ -312,10 +277,8 @@ export class EnvironmentValidationService {
       return defaultValue;
     }
     const num = Number(value);
-    if (isNaN(num)) {
-      throw new Error(
-        `Environment variable ${key} must be a valid number, got: ${value}`,
-      );
+    if (Number.isNaN(num)) {
+      throw new Error(`Environment variable ${key} must be a valid number, got: ${value}`);
     }
     return num;
   }
@@ -334,18 +297,16 @@ export class EnvironmentValidationService {
     const nodeEnv = process.env.NODE_ENV || 'development';
     const isProduction = nodeEnv === 'production';
     let checklist = `\n🔧 REQUIRED ENVIRONMENT VARIABLES CHECKLIST (${nodeEnv.toUpperCase()})\n`;
-    checklist += '='.repeat(60) + '\n\n';
+    checklist += `${'='.repeat(60)}\n\n`;
     checklist += '📋 CRITICAL VARIABLES (Required in ALL environments):\n';
     this.validationConfig.critical.forEach((variable) => {
-      const isSet =
-        process.env[variable] && process.env[variable].trim() !== '';
+      const isSet = process.env[variable] && process.env[variable].trim() !== '';
       checklist += `   ${isSet ? '✅' : '❌'} ${variable}\n`;
     });
     if (isProduction) {
       checklist += '\n🏭 PRODUCTION-ONLY VARIABLES:\n';
       this.validationConfig.productionRequired.forEach((variable) => {
-        const isSet =
-          process.env[variable] && process.env[variable].trim() !== '';
+        const isSet = process.env[variable] && process.env[variable].trim() !== '';
         checklist += `   ${isSet ? '✅' : '❌'} ${variable}\n`;
       });
     }
@@ -355,11 +316,8 @@ export class EnvironmentValidationService {
       const isSet = value && value.trim() !== '';
       const hasPlaceholder =
         value &&
-        ['your-', 'changeme', 'example'].some((pattern) =>
-          value.toLowerCase().includes(pattern),
-        );
-      const hasLocalhostInProd =
-        isProduction && value && value.toLowerCase().includes('localhost');
+        ['your-', 'changeme', 'example'].some((pattern) => value.toLowerCase().includes(pattern));
+      const hasLocalhostInProd = isProduction && value?.toLowerCase().includes('localhost');
       if (!isSet) {
         checklist += `   ❌ ${variable} - NOT SET\n`;
       } else if (hasPlaceholder) {
@@ -370,8 +328,7 @@ export class EnvironmentValidationService {
         checklist += `   ✅ ${variable}\n`;
       }
     });
-    checklist +=
-      '\n💡 TIP: Copy .env.example to .env and fill in all required values\n';
+    checklist += '\n💡 TIP: Copy .env.example to .env and fill in all required values\n';
     checklist += '💡 TIP: Use strong, unique values for all secrets\n';
     checklist += '💡 TIP: Never commit real secrets to version control\n';
     return checklist;

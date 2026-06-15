@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { fadeUp, stagger } from "../../constants/landing-motion";
+import { motion, useInView } from 'framer-motion';
+import Link from 'next/link';
+import { useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { fadeUp, stagger } from '../../constants/landing-motion';
 
 export const LandingCta = () => {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
+  const inView = useInView(ref, { once: true, margin: '-60px' });
 
   return (
     <section id="pricing" ref={ref} className="py-24 md:py-32">
       <motion.div
         className="mx-auto max-w-6xl px-6"
         initial="hidden"
-        animate={inView ? "show" : "hidden"}
+        animate={inView ? 'show' : 'hidden'}
         variants={stagger}
       >
         <div className="rounded-3xl border border-border bg-muted/40 px-8 py-16 text-center md:px-16 md:py-20">

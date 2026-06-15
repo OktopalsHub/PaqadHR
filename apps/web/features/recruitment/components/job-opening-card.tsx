@@ -1,24 +1,24 @@
-"use client";
+'use client';
 
-import { useRouter } from "next/navigation";
-import { ChevronRight, Info } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import type { JobOpening } from "@/lib/schemas/recruitment";
-import { formatDate } from "@/lib/format-date";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
+import { ChevronRight, Info } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { formatDate } from '@/lib/format-date';
+import type { JobOpening } from '@/lib/schemas/recruitment';
 
 function statusVariant(status: string) {
   switch (status) {
-    case "ACTIVE":
-      return "default";
-    case "DRAFT":
-      return "secondary";
-    case "CLOSED":
-    case "ARCHIVED":
-      return "outline";
+    case 'ACTIVE':
+      return 'default';
+    case 'DRAFT':
+      return 'secondary';
+    case 'CLOSED':
+    case 'ARCHIVED':
+      return 'outline';
     default:
-      return "outline";
+      return 'outline';
   }
 }
 
@@ -38,11 +38,9 @@ export function JobOpeningCard({
 
   return (
     <article
-      role="button"
-      tabIndex={0}
       onClick={() => router.push(tenantHref(`recruitment/roles/${job.id}`))}
       onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
+        if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
           router.push(tenantHref(`recruitment/roles/${job.id}`));
         }
@@ -60,15 +58,12 @@ export function JobOpeningCard({
             ) : null}
           </div>
           <p className="text-sm text-muted-foreground">
-            {[job.departmentName, job.position, job.employmentType]
-              .filter(Boolean)
-              .join(" · ") || "No department"}
+            {[job.departmentName, job.position, job.employmentType].filter(Boolean).join(' · ') ||
+              'No department'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={statusVariant(job.status)}>
-            {formatStatus(job.status)}
-          </Badge>
+          <Badge variant={statusVariant(job.status)}>{formatStatus(job.status)}</Badge>
           {onSelectDetails ? (
             <Button
               type="button"
@@ -88,15 +83,9 @@ export function JobOpeningCard({
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-        {job.numberOfOpenings != null ? (
-          <span>{job.numberOfOpenings} opening(s)</span>
-        ) : null}
-        {job.applicationDeadline ? (
-          <span>Closes {formatDate(job.applicationDeadline)}</span>
-        ) : null}
-        {job.publishedAt ? (
-          <span>Published {formatDate(job.publishedAt)}</span>
-        ) : null}
+        {job.numberOfOpenings != null ? <span>{job.numberOfOpenings} opening(s)</span> : null}
+        {job.applicationDeadline ? <span>Closes {formatDate(job.applicationDeadline)}</span> : null}
+        {job.publishedAt ? <span>Published {formatDate(job.publishedAt)}</span> : null}
       </div>
     </article>
   );

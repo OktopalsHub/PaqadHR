@@ -1,7 +1,6 @@
-import { PartialType } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { IsOptional, IsUUID } from 'class-validator';
-import { CreateTenantMemberDto } from "./index";
+import { CreateTenantMemberDto } from './index';
 
 export class UpdateTenantMemberDto extends PartialType(CreateTenantMemberDto) {
   @IsUUID()

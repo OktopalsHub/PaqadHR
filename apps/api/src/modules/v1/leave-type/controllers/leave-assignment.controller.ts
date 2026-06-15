@@ -1,26 +1,13 @@
-import {
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Query,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { TenantMemberRole } from 'src/common/enums';
-import {
-  TenantRoleGuard,
-  Roles,
-} from 'src/common/guards/tenant-member-role.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { LeaveTypeAssignmentService } from '../leave-type-assignment.service';
+import type { LeaveTypeAssignmentService } from '../leave-type-assignment.service';
 
 @Controller('tenants/:tenantId/leave-assignments')
 @UseGuards(TenantMemberGuard, TenantRoleGuard)
 export class LeaveAssignmentController {
-  constructor(
-    private readonly leaveAssignmentService: LeaveTypeAssignmentService,
-  ) {}
+  constructor(private readonly leaveAssignmentService: LeaveTypeAssignmentService) {}
 
   @Post('sync')
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
@@ -28,10 +15,7 @@ export class LeaveAssignmentController {
     @Param('tenantId') tenantId: string,
     @Query('year') year?: number,
   ) {
-    return this.leaveAssignmentService.syncAllLeaveTypeAssignments(
-      tenantId,
-      year,
-    );
+    return this.leaveAssignmentService.syncAllLeaveTypeAssignments(tenantId, year);
   }
 
   @Post('assign-existing')
@@ -40,10 +24,7 @@ export class LeaveAssignmentController {
     @Param('tenantId') tenantId: string,
     @Query('year') year?: number,
   ) {
-    return this.leaveAssignmentService.assignExistingLeaveTypesToUsers(
-      tenantId,
-      year,
-    );
+    return this.leaveAssignmentService.assignExistingLeaveTypesToUsers(tenantId, year);
   }
 
   @Post('assign-leave-type/:leaveTypeId')
@@ -53,11 +34,7 @@ export class LeaveAssignmentController {
     @Param('leaveTypeId') leaveTypeId: string,
     @Query('year') year?: number,
   ) {
-    return this.leaveAssignmentService.assignLeaveTypeToAllUsers(
-      tenantId,
-      leaveTypeId,
-      year,
-    );
+    return this.leaveAssignmentService.assignLeaveTypeToAllUsers(tenantId, leaveTypeId, year);
   }
 
   @Delete('remove-leave-type/:leaveTypeId')
@@ -67,19 +44,12 @@ export class LeaveAssignmentController {
     @Param('leaveTypeId') leaveTypeId: string,
     @Query('year') year?: number,
   ) {
-    return this.leaveAssignmentService.removeLeaveTypeAssignments(
-      tenantId,
-      leaveTypeId,
-      year,
-    );
+    return this.leaveAssignmentService.removeLeaveTypeAssignments(tenantId, leaveTypeId, year);
   }
 
   @Get('report')
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
-  async getAssignmentReport(
-    @Param('tenantId') tenantId: string,
-    @Query('year') year?: number,
-  ) {
+  async getAssignmentReport(@Param('tenantId') tenantId: string, @Query('year') year?: number) {
     return this.leaveAssignmentService.getAssignmentReport(tenantId, year);
   }
 }

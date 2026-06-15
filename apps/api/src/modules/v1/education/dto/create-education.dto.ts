@@ -1,12 +1,5 @@
-import {
-  IsDateString,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { DegreeType } from 'src/common/enums';
 export class CreateEducationDto {
   @IsUUID()

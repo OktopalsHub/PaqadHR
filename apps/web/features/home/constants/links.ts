@@ -1,74 +1,74 @@
 export const links = {
   products: [
     {
-      placeHolder: "Features",
-      link: "/#",
+      placeHolder: 'Features',
+      link: '/#',
     },
     {
-      placeHolder: "Pricing",
-      link: "/#",
+      placeHolder: 'Pricing',
+      link: '/#',
     },
     {
-      placeHolder: "API",
-      link: "/#",
+      placeHolder: 'API',
+      link: '/#',
     },
     {
-      placeHolder: "Integration",
-      link: "/#",
+      placeHolder: 'Integration',
+      link: '/#',
     },
   ],
   solutions: [
     {
-      placeHolder: "Startups",
-      link: "/#",
+      placeHolder: 'Startups',
+      link: '/#',
     },
     {
-      placeHolder: "Enterprise",
-      link: "/#",
+      placeHolder: 'Enterprise',
+      link: '/#',
     },
     {
-      placeHolder: "Remote Teams",
-      link: "/#",
+      placeHolder: 'Remote Teams',
+      link: '/#',
     },
     {
-      placeHolder: "Global Payroll",
-      link: "/#",
+      placeHolder: 'Global Payroll',
+      link: '/#',
     },
   ],
   resources: [
     {
-      placeHolder: "Documentation",
-      link: "/#",
+      placeHolder: 'Documentation',
+      link: '/#',
     },
     {
-      placeHolder: "Help Center",
-      link: "/#",
+      placeHolder: 'Help Center',
+      link: '/#',
     },
     {
-      placeHolder: "Blog",
-      link: "/#",
+      placeHolder: 'Blog',
+      link: '/#',
     },
     {
-      placeHolder: "Community",
-      link: "/#",
+      placeHolder: 'Community',
+      link: '/#',
     },
   ],
   company: [
     {
-      placeHolder: "About Us",
-      link: "/#",
+      placeHolder: 'About Us',
+      link: '/#',
     },
     {
-      placeHolder: "Carears",
-      link: "/#",
+      placeHolder: 'Carears',
+      link: '/#',
     },
     {
-      placeHolder: "Press",
-      link: "/#",
+      placeHolder: 'Press',
+      link: '/#',
     },
     {
-      placeHolder: "Contact",
-      link: "/#",
+      placeHolder: 'Contact',
+      link: '/#',
     },
   ],
 };

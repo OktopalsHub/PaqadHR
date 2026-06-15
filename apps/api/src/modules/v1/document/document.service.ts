@@ -1,25 +1,24 @@
-import { Document } from './entities/document.entity';
-import { Employment } from '../employment/entities/employment.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DocumentRepository } from './document.repository';
-import {
-  getDocumentCategory,
-  getDocumentAccessLevel,
-} from './entities/document.entity';
-import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
-import { FileService } from 'src/common/services/file.service';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
-import { CreateDocumentDto } from "./dto/create-document.dto";
-import { UpdateDocumentDto } from "./dto/update-document.dto";
-import { DocumentType } from "../../../common/enums/document-type.enum";
-import { DocumentCategory } from "../../../common/enums/document-category.enum";
-import { DocumentAccessLevel } from "../../../common/enums/document-access-level.enum";
+import type { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
+import type { FileService } from 'src/common/services/file.service';
+import { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
+import type { DocumentCategory } from '../../../common/enums/document-category.enum';
+import { DocumentType } from '../../../common/enums/document-type.enum';
+import type { DocumentRepository } from './document.repository';
+import type { CreateDocumentDto } from './dto/create-document.dto';
+import type { UpdateDocumentDto } from './dto/update-document.dto';
+import {
+  type Document,
+  getDocumentAccessLevel,
+  getDocumentCategory,
+} from './entities/document.entity';
 
 @Injectable()
 export class DocumentService {
   constructor(
     private readonly documentRepository: DocumentRepository,
-    private readonly r2Service: CloudflareR2Service,
+    readonly _r2Service: CloudflareR2Service,
     private readonly fileService: FileService,
   ) {}
   async createDocument(
@@ -27,26 +26,16 @@ export class DocumentService {
     tenantMemberId: string,
     createDocumentDto: CreateDocumentDto,
   ): Promise<Document> {
-    return this.documentRepository.createDocument(
-      createDocumentDto,
-      tenantId,
-      tenantMemberId,
-    );
+    return this.documentRepository.createDocument(createDocumentDto, tenantId, tenantMemberId);
   }
   async listDocuments(tenantId: string): Promise<Document[]> {
     return this.documentRepository.listDocuments(tenantId);
   }
-  async getDocumentsByMemberId(
-    memberId: string,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByMemberId(memberId: string, tenantId: string): Promise<Document[]> {
     return this.documentRepository.getDocumentsByMemberId(memberId, tenantId);
   }
   async getDocument(id: string, tenantId: string): Promise<Document> {
-    const document = await this.documentRepository.getDocument(
-      id,
-      tenantId,
-    );
+    const document = await this.documentRepository.getDocument(id, tenantId);
     if (!document) {
       throw new NotFoundException(`Document with ID "${id}" not found`);
     }
@@ -57,12 +46,8 @@ export class DocumentService {
     updateDocumentDto: UpdateDocumentDto,
     tenantId: string,
   ): Promise<Document> {
-    await this.getDocument(id, tenantId); 
-    return this.documentRepository.updateDocument(
-      id,
-      updateDocumentDto,
-      tenantId,
-    );
+    await this.getDocument(id, tenantId);
+    return this.documentRepository.updateDocument(id, updateDocumentDto, tenantId);
   }
   async deleteDocument(id: string, tenantId: string): Promise<void> {
     await this.documentRepository.softDeleteDocument(id, tenantId);
@@ -71,10 +56,7 @@ export class DocumentService {
     await this.documentRepository.restoreDocument(id, tenantId);
     return this.getDocument(id, tenantId);
   }
-  async getDocumentsByType(
-    type: DocumentType,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByType(type: DocumentType, tenantId: string): Promise<Document[]> {
     return this.documentRepository.getDocumentsByType(type, tenantId);
   }
   async getEmployeeDocumentsByType(
@@ -83,32 +65,19 @@ export class DocumentService {
     tenantId: string,
   ): Promise<Document[]> {
     await this.getDocument(memberId, tenantId);
-    const documents = await this.documentRepository.getDocumentsByType(
-      type,
-      tenantId,
-    );
+    const documents = await this.documentRepository.getDocumentsByType(type, tenantId);
     return documents.filter((doc) => doc.tenantMemberId === memberId);
   }
-  async verifyDocument(
-    id: string,
-    tenantId: string,
-    isVerified: boolean,
-  ): Promise<Document> {
+  async verifyDocument(id: string, tenantId: string, isVerified: boolean): Promise<Document> {
     return this.updateDocument(id, { isVerified }, tenantId);
   }
   async getDocumentsByVerificationStatus(
     tenantId: string,
     isVerified: boolean,
   ): Promise<Document[]> {
-    return this.documentRepository.getDocumentsByVerificationStatus(
-      tenantId,
-      isVerified,
-    );
+    return this.documentRepository.getDocumentsByVerificationStatus(tenantId, isVerified);
   }
-  async getExpiringDocuments(
-    tenantId: string,
-    days: number,
-  ): Promise<Document[]> {
+  async getExpiringDocuments(tenantId: string, days: number): Promise<Document[]> {
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + days);
     return this.documentRepository.getExpiringDocuments(tenantId, futureDate);
@@ -121,11 +90,7 @@ export class DocumentService {
     const updatedDocuments: Document[] = [];
     for (const documentId of documentIds) {
       try {
-        const updatedDoc = await this.verifyDocument(
-          documentId,
-          tenantId,
-          isVerified,
-        );
+        const updatedDoc = await this.verifyDocument(documentId, tenantId, isVerified);
         updatedDocuments.push(updatedDoc);
       } catch (error) {
         console.error(`Failed to verify document ${documentId}:`, error);
@@ -133,10 +98,7 @@ export class DocumentService {
     }
     return updatedDocuments;
   }
-  async bulkDeleteDocuments(
-    tenantId: string,
-    documentIds: string[],
-  ): Promise<void> {
+  async bulkDeleteDocuments(tenantId: string, documentIds: string[]): Promise<void> {
     for (const documentId of documentIds) {
       try {
         await this.deleteDocument(documentId, tenantId);
@@ -145,11 +107,8 @@ export class DocumentService {
       }
     }
   }
-  async getDocumentAccessLogs(
-    tenantId: string,
-    documentId: string,
-  ): Promise<unknown[]> {
-    await this.getDocument(documentId, tenantId); 
+  async getDocumentAccessLogs(tenantId: string, documentId: string): Promise<unknown[]> {
+    await this.getDocument(documentId, tenantId);
     return [];
   }
   async logDocumentAccess(
@@ -159,9 +118,7 @@ export class DocumentService {
     action: string,
   ): Promise<void> {
     await this.getDocument(documentId, tenantId);
-    console.log(
-      `Document ${documentId} accessed by member ${memberId}: ${action}`,
-    );
+    console.log(`Document ${documentId} accessed by member ${memberId}: ${action}`);
   }
   async getDocumentTemplates(tenantId: string): Promise<unknown[]> {
     return [
@@ -190,35 +147,26 @@ export class DocumentService {
     documentId: string,
     signerEmails: string[],
   ): Promise<unknown> {
-    const document = await this.getDocument(documentId, tenantId);
+    const _document = await this.getDocument(documentId, tenantId);
     return {
       documentId,
       status: 'pending',
       signers: signerEmails.map((email) => ({ email, status: 'sent' })),
       signatureUrl: `https://signature-service.com/sign/${documentId}`,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     };
   }
-  async getDocumentsByTypes(
-    types: DocumentType[],
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByTypes(types: DocumentType[], tenantId: string): Promise<Document[]> {
     return this.documentRepository.getDocumentsByTypes(types, tenantId);
   }
-  async getDocumentsByCategory(
-    category: DocumentCategory,
-    tenantId: string,
-  ): Promise<Document[]> {
+  async getDocumentsByCategory(category: DocumentCategory, tenantId: string): Promise<Document[]> {
     return this.documentRepository.getDocumentsByCategory(category, tenantId);
   }
   async getDocumentsByAccessLevel(
     accessLevel: DocumentAccessLevel,
     tenantId: string,
   ): Promise<Document[]> {
-    return this.documentRepository.getDocumentsByAccessLevel(
-      accessLevel,
-      tenantId,
-    );
+    return this.documentRepository.getDocumentsByAccessLevel(accessLevel, tenantId);
   }
   async getDocumentStatistics(tenantId: string): Promise<unknown> {
     const allDocuments = await this.listDocuments(tenantId);
@@ -230,18 +178,12 @@ export class DocumentService {
       unverified: 0,
     };
     const now = new Date();
-    const thirtyDaysFromNow = new Date(
-      now.getTime() + 30 * 24 * 60 * 60 * 1000,
-    );
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     for (const doc of allDocuments) {
       const category = getDocumentCategory(doc.type);
       stats.byCategory[category] = (stats.byCategory[category] || 0) + 1;
       stats.byType[doc.type] = (stats.byType[doc.type] || 0) + 1;
-      if (
-        doc.expiryDate &&
-        doc.expiryDate <= thirtyDaysFromNow &&
-        doc.expiryDate > now
-      ) {
+      if (doc.expiryDate && doc.expiryDate <= thirtyDaysFromNow && doc.expiryDate > now) {
         stats.expiringSoon++;
       }
       if (!doc.isVerified) {
@@ -282,8 +224,8 @@ export class DocumentService {
       tenantId,
       FileUploadLocation.DOCUMENTS,
       document.fileKey,
-      undefined, 
-      document.name, 
+      undefined,
+      document.name,
     );
   }
 }

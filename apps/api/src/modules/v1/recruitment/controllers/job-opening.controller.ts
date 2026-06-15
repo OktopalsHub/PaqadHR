@@ -1,5 +1,3 @@
-import { Department } from '../../departments/entities/department.entity';
-import { JobOpeningService } from '../services/job-opening.service';
 import {
   Body,
   Controller,
@@ -12,18 +10,20 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { EmploymentType, JobStatus } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
-import { MemberContext } from 'src/common/interfaces';
+import type { MemberContext } from 'src/common/interfaces';
+import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { JobOpening } from "../entities/job-opening.entity";
-import { CreateJobOpeningDto } from "../dto/index";
-import { UpdateJobOpeningDto } from "../dto/update-job-opening.dto";
-import { JobFilterOptions } from "../../../../common/interfaces/job-filter-options.interface";
+import type { CreateJobOpeningDto } from '../dto/index';
+import type { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
+import { JobOpening } from '../entities/job-opening.entity';
+import type { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Job Openings')
 @Controller('tenants/:tenantId/jobs')
@@ -42,8 +42,7 @@ export class JobOpeningController {
   })
   @ApiResponse({
     status: 400,
-    description:
-      'Invalid request data - check required fields and data formats',
+    description: 'Invalid request data - check required fields and data formats',
     schema: {
       type: 'object',
       properties: {
@@ -57,9 +56,7 @@ export class JobOpeningController {
           type: 'object',
           example: {
             title: ['Title is required and cannot be empty'],
-            experienceLevel: [
-              'Experience Level is required and cannot be empty',
-            ],
+            experienceLevel: ['Experience Level is required and cannot be empty'],
           },
         },
         traceId: { type: 'string', example: 'uuid-trace-id' },
@@ -69,22 +66,13 @@ export class JobOpeningController {
   async createJob(
     @Param('tenantId') tenantId: string,
     @Body() createJobOpeningDto: CreateJobOpeningDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<JobOpening> {
     try {
-      this.logger.log(
-        `Creating job opening for tenant ${tenantId} by member ${member.id}`,
-      );
-      return await this.jobOpeningService.createJob(
-        tenantId,
-        member.id,
-        createJobOpeningDto,
-      );
+      this.logger.log(`Creating job opening for tenant ${tenantId} by member ${member.id}`);
+      return await this.jobOpeningService.createJob(tenantId, member.id, createJobOpeningDto);
     } catch (error) {
-      this.logger.error(
-        `Failed to create job opening for tenant ${tenantId}:`,
-        error,
-      );
+      this.logger.error(`Failed to create job opening for tenant ${tenantId}:`, error);
       throw error;
     }
   }
@@ -123,8 +111,7 @@ export class JobOpeningController {
     name: 'experienceLevel',
     type: String,
     required: false,
-    description:
-      'Experience level (e.g., "Entry Level", "Mid-Level", "Senior")',
+    description: 'Experience level (e.g., "Entry Level", "Mid-Level", "Senior")',
   })
   @ApiQuery({ name: 'location', type: String, required: false })
   @ApiQuery({ name: 'search', type: String, required: false })
@@ -134,7 +121,7 @@ export class JobOpeningController {
   async getJobsByTenant(
     @Param('tenantId') tenantId: string,
     @Query() filters: JobFilterOptions,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<{ jobs: JobOpening[]; total: number }> {
     return this.jobOpeningService.getJobsByTenant(tenantId, member.id, filters);
   }
@@ -154,8 +141,8 @@ export class JobOpeningController {
   async getJob(
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<JobOpening> {
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<JobOpening> {
     return this.jobOpeningService.getJob(jobId, tenantId, member.id);
   }
   @Patch(':jobId')
@@ -181,9 +168,7 @@ export class JobOpeningController {
           type: 'object',
           example: {
             minimumSalary: ['Minimum Salary must be a number'],
-            maximumSalary: [
-              'Maximum Salary must be greater than minimum salary',
-            ],
+            maximumSalary: ['Maximum Salary must be greater than minimum salary'],
           },
         },
       },
@@ -194,7 +179,7 @@ export class JobOpeningController {
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
     @Body() updateJobOpeningDto: UpdateJobOpeningDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<JobOpening> {
     try {
       this.logger.log(`Updating job opening ${jobId} for tenant ${tenantId}`);
@@ -213,8 +198,8 @@ export class JobOpeningController {
   async deleteJob(
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<void> {
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<void> {
     return this.jobOpeningService.deleteJob(jobId, tenantId, member.id);
   }
   @Patch(':jobId/activate')
@@ -223,8 +208,8 @@ export class JobOpeningController {
   async activateJob(
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<JobOpening> {
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<JobOpening> {
     return this.jobOpeningService.activateJob(jobId, tenantId, member.id);
   }
   @Patch(':jobId/deactivate')
@@ -233,8 +218,8 @@ export class JobOpeningController {
   async deactivateJob(
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<JobOpening> {
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<JobOpening> {
     return this.jobOpeningService.deactivateJob(jobId, tenantId, member.id);
   }
   @Patch(':jobId/close')
@@ -243,8 +228,8 @@ export class JobOpeningController {
   async closeJob(
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<JobOpening> {
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<JobOpening> {
     return this.jobOpeningService.closeJob(jobId, tenantId, member.id);
   }
   @Patch(':jobId/archive')
@@ -253,8 +238,8 @@ export class JobOpeningController {
   async archiveJob(
     @Param('jobId') jobId: string,
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ): Promise<JobOpening> {
+    @CurrentTenantMember() member: MemberContext,
+  ): Promise<JobOpening> {
     return this.jobOpeningService.archiveJob(jobId, tenantId, member.id);
   }
 }

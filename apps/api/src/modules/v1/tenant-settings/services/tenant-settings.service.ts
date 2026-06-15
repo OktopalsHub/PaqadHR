@@ -1,19 +1,17 @@
-import { UpdateTenantSettingsDto, AssignPointsDto } from '../dto/tenant-settings.dto';
-import { TenantSettings } from '../entities/tenant-settings.entity';
-import { TenantSettingsInitializationService } from './tenant-settings-initialization.service';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
-import { TenantSettingRepository } from './tenant-setting.repository';
-import { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
-import { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
+import type { DataSource } from 'typeorm';
+import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
+import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
+import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
+import type { TenantSettings } from '../entities/tenant-settings.entity';
+import type { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantSettingsService {
   private readonly logger = new Logger(TenantSettingsService.name);
   constructor(
     private readonly tenantSettingsRepository: TenantSettingRepository,
-    private readonly dataSource: DataSource,
+    readonly _dataSource: DataSource,
   ) {}
   async getTenantSettings(tenantId: string): Promise<TenantSettings> {
     const settings = await this.tenantSettingsRepository.findOne({
@@ -79,17 +77,12 @@ export class TenantSettingsService {
     return result;
   }
   private validatePointsSettings(pointsSettings: PointsSettings): void {
-    if (
-      pointsSettings.minPointsPerShoutout > pointsSettings.maxPointsPerShoutout
-    ) {
+    if (pointsSettings.minPointsPerShoutout > pointsSettings.maxPointsPerShoutout) {
       throw new BadRequestException(
         'Minimum points per shoutout cannot be greater than maximum points per shoutout',
       );
     }
-    if (
-      pointsSettings.autoAssignPoints &&
-      pointsSettings.autoAssignAmount <= 0
-    ) {
+    if (pointsSettings.autoAssignPoints && pointsSettings.autoAssignAmount <= 0) {
       throw new BadRequestException(
         'Auto-assign amount must be greater than 0 when auto-assign is enabled',
       );

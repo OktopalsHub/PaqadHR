@@ -1,13 +1,17 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
+import { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { PayrollRun } from './payroll-run.entity';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { PaymentMethod } from "../../payment-method/entities/payment-method.entity";
-import { PayrollItemStatus } from "../../../../common/enums/payroll-item-status.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'payroll_items' })
 export class PayrollItem extends BaseEntity {
-  @ManyToOne(() => PayrollRun, (run) => run.items, { onDelete: 'CASCADE' })
+  @ManyToOne(
+    () => PayrollRun,
+    (run) => run.items,
+    { onDelete: 'CASCADE' },
+  )
   @JoinColumn({ name: 'payroll_run_id' })
   payrollRun: PayrollRun;
   @Column({ name: 'payroll_run_id' })
@@ -29,7 +33,7 @@ export class PayrollItem extends BaseEntity {
     precision: 15,
     scale: 2,
     comment: 'Base salary amount',
-    })
+  })
   baseSalary: number;
   @Column({
     type: 'varchar',
@@ -42,7 +46,7 @@ export class PayrollItem extends BaseEntity {
     precision: 15,
     scale: 2,
     comment: 'Gross amount in base currency',
-    })
+  })
   grossAmount: number;
   @Column({
     type: 'decimal',
@@ -50,7 +54,7 @@ export class PayrollItem extends BaseEntity {
     scale: 2,
     default: 0,
     comment: 'Manual adjustments (bonuses, overtime, etc.)',
-    })
+  })
   adjustments: number;
   @Column({
     type: 'decimal',
@@ -58,14 +62,14 @@ export class PayrollItem extends BaseEntity {
     scale: 2,
     default: 0,
     comment: 'Manual deductions',
-    })
+  })
   deductions: number;
   @Column({
     type: 'decimal',
     precision: 15,
     scale: 2,
     comment: 'Net amount in base currency',
-    })
+  })
   netAmount: number;
   @Column({
     type: 'varchar',
@@ -78,7 +82,7 @@ export class PayrollItem extends BaseEntity {
     precision: 15,
     scale: 8,
     comment: 'Net amount in payment currency',
-    })
+  })
   paymentAmount: number;
   @Column({
     type: 'decimal',

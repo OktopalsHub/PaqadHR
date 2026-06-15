@@ -1,17 +1,11 @@
-import {
-  Entity,
-  Column,
-  ManyToOne,
-  JoinColumn,
-  Index,
-} from 'typeorm';
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { NotificationType } from "../../../../common/enums/notification-type.enum";
-import { NotificationChannel } from "../../../../common/enums/notification-channel.enum";
-import { NotificationPriority } from "../../../../common/enums/notification-priority.enum";
-import { NotificationStatus } from "../../../../common/enums/notification-status.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
+import { NotificationStatus } from '../../../../common/enums/notification-status.enum';
+import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('notifications')
 @Index(['tenantId', 'recipientId', 'status'])

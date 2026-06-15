@@ -1,13 +1,12 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
+import { BadRequestException, Injectable } from '@nestjs/common';
 @Injectable()
 export class EncryptionService {
   private readonly algorithm = 'aes-256-gcm';
   private readonly ivLength = 16;
   private readonly encryptionKey: Buffer;
   constructor() {
-    const key =
-      process.env.ENCRYPTION_KEY || 'default-32-char-key-for-testing!';
+    const key = process.env.ENCRYPTION_KEY || 'default-32-char-key-for-testing!';
     if (key.length !== 32) {
       throw new BadRequestException('Encryption key must be exactly 32 characters long');
     }
@@ -19,11 +18,7 @@ export class EncryptionService {
     }
     try {
       const iv = crypto.randomBytes(this.ivLength);
-      const cipher = crypto.createCipheriv(
-        this.algorithm,
-        this.encryptionKey,
-        iv,
-      );
+      const cipher = crypto.createCipheriv(this.algorithm, this.encryptionKey, iv);
       let encrypted = cipher.update(text, 'utf8', 'base64');
       encrypted += cipher.final('base64');
       const tag = cipher.getAuthTag();
@@ -44,11 +39,7 @@ export class EncryptionService {
       const iv = Buffer.from(parts[0], 'base64');
       const tag = Buffer.from(parts[1], 'base64');
       const encrypted = parts[2];
-      const decipher = crypto.createDecipheriv(
-        this.algorithm,
-        this.encryptionKey,
-        iv,
-      );
+      const decipher = crypto.createDecipheriv(this.algorithm, this.encryptionKey, iv);
       decipher.setAuthTag(tag);
       let decrypted = decipher.update(encrypted, 'base64', 'utf8');
       decrypted += decipher.final('utf8');

@@ -1,19 +1,16 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { EmployeeDetailState } from "../../lib/employee-detail-state";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import type { EmployeeDetailState } from '../../lib/employee-detail-state';
 
 interface EmployeeDetailSidebarProps {
   employee: EmployeeDetailState;
   onInputChange: (field: string, value: string) => void;
 }
 
-export function EmployeeDetailSidebar({
-  employee,
-  onInputChange,
-}: EmployeeDetailSidebarProps) {
+export function EmployeeDetailSidebar({ employee, onInputChange }: EmployeeDetailSidebarProps) {
   return (
     <div className="md:w-1/3">
       <Card>
@@ -22,7 +19,7 @@ export function EmployeeDetailSidebar({
             <CardTitle>{employee.name}</CardTitle>
             <CardDescription>{employee.position}</CardDescription>
           </div>
-          <Badge variant={employee.status === "Active" ? "default" : "outline"}>
+          <Badge variant={employee.status === 'Active' ? 'default' : 'outline'}>
             {employee.status}
           </Badge>
         </CardHeader>
@@ -33,9 +30,9 @@ export function EmployeeDetailSidebar({
             ) : (
               <AvatarFallback className="text-4xl">
                 {employee.name
-                  .split(" ")
+                  .split(' ')
                   .map((n) => n[0])
-                  .join("")}
+                  .join('')}
               </AvatarFallback>
             )}
           </Avatar>
@@ -46,7 +43,7 @@ export function EmployeeDetailSidebar({
               <Input
                 id="preferred-name"
                 value={employee.preferredName}
-                onChange={(e) => onInputChange("preferredName", e.target.value)}
+                onChange={(e) => onInputChange('preferredName', e.target.value)}
                 placeholder="Enter preferred name"
               />
             </div>

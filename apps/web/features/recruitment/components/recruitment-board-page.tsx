@@ -1,46 +1,43 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { AppPage } from "@/components/app-page";
-import { LoadingBlock } from "@/components/loading-block";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { AppPage } from '@/components/app-page';
+import { LoadingBlock } from '@/components/loading-block';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   useCandidatesByJob,
   useJobOpening,
   useUpdateCandidateStatus,
-} from "@/hooks/queries/use-recruitment";
-import { useBreadcrumbTail } from "@/providers/breadcrumb-provider";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
-import type { CandidateStatus } from "@/lib/schemas/recruitment";
-import { RecruitmentBoardToolbar } from "./board/recruitment-board-toolbar";
-import { RecruitmentCandidateList } from "./board/recruitment-candidate-list";
-import {
-  RecruitmentViewToggle,
-  type RecruitmentViewMode,
-} from "./board/recruitment-view-toggle";
-import {
-  RecruitmentKanbanBoard,
-  candidatesToBoardData,
-} from "./board/recruitment-kanban-board";
-import { isDisqualified } from "./board/board-columns";
+} from '@/hooks/queries/use-recruitment';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import type { CandidateStatus } from '@/lib/schemas/recruitment';
+import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
+import { isDisqualified } from './board/board-columns';
+import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
+import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
+import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
+import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
 
 type RecruitmentBoardPageProps = {
   jobId: string;
 };
 
-const PREVIEW_JOB_ID = "preview";
+const PREVIEW_JOB_ID = 'preview';
 
 export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
   const router = useRouter();
   const tenantHref = useTenantHref();
   const isPreviewJob = jobId === PREVIEW_JOB_ID;
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<RecruitmentViewMode>("kanban");
+  const [search, setSearch] = useState('');
+  const [view, setView] = useState<RecruitmentViewMode>('kanban');
 
-  const { data: job, isLoading: jobLoading, isError: jobError } =
-    useJobOpening(isPreviewJob ? null : jobId);
+  const {
+    data: job,
+    isLoading: jobLoading,
+    isError: jobError,
+  } = useJobOpening(isPreviewJob ? null : jobId);
   const {
     data: apiCandidates = [],
     isLoading: candidatesLoading,
@@ -52,9 +49,21 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
 
   useEffect(() => {
     if (isPreviewJob) {
-      router.replace(tenantHref("recruitment"));
+      router.replace(tenantHref('recruitment'));
     }
   }, [isPreviewJob, router, tenantHref]);
+
+  const boardCandidates = useMemo(() => {
+    const items = candidatesToBoardData(apiCandidates);
+    const term = search.trim().toLowerCase();
+    if (!term) return items;
+
+    return items.filter((candidate) => {
+      const haystack =
+        `${candidate.firstName} ${candidate.lastName} ${candidate.email} ${candidate.summary ?? ''}`.toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [apiCandidates, search]);
 
   if (isPreviewJob) {
     return (
@@ -66,35 +75,16 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
 
   const candidates = apiCandidates;
 
-  const boardCandidates = useMemo(() => {
-    const items = candidatesToBoardData(candidates);
-    const term = search.trim().toLowerCase();
-    if (!term) return items;
-
-    return items.filter((candidate) => {
-      const haystack =
-        `${candidate.firstName} ${candidate.lastName} ${candidate.email} ${candidate.summary ?? ""}`.toLowerCase();
-      return haystack.includes(term);
-    });
-  }, [candidates, search]);
-
-  const qualifiedCount = candidates.filter(
-    (candidate) => !isDisqualified(candidate.status),
-  ).length;
+  const qualifiedCount = candidates.filter((candidate) => !isDisqualified(candidate.status)).length;
   const disqualifiedCount = candidates.filter((candidate) =>
     isDisqualified(candidate.status),
   ).length;
 
-  const handleMoveCandidate = async (
-    candidateId: string,
-    status: CandidateStatus,
-  ) => {
+  const handleMoveCandidate = async (candidateId: string, status: CandidateStatus) => {
     try {
       await updateStatus.mutateAsync({ candidateId, status });
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to update candidate",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to update candidate');
     }
   };
 
@@ -112,8 +102,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
         <Alert variant="destructive">
           <AlertTitle>Unable to load recruitment board</AlertTitle>
           <AlertDescription>
-            Could not load this job opening. Go back to Recruitment and try
-            again.
+            Could not load this job opening. Go back to Recruitment and try again.
           </AlertDescription>
         </Alert>
       </AppPage>
@@ -137,9 +126,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
         disqualifiedCount={disqualifiedCount}
         search={search}
         onSearchChange={setSearch}
-        viewToggle={
-          <RecruitmentViewToggle view={view} onViewChange={setView} />
-        }
+        viewToggle={<RecruitmentViewToggle view={view} onViewChange={setView} />}
       />
 
       {candidates.length === 0 ? (
@@ -149,7 +136,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
             Applications for this role will appear here once candidates apply.
           </p>
         </div>
-      ) : view === "kanban" ? (
+      ) : view === 'kanban' ? (
         <RecruitmentKanbanBoard
           candidates={boardCandidates}
           interactive

@@ -1,19 +1,11 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { MemberContext } from 'src/common/interfaces';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { AddressService } from './address.service';
-import { CreateAddressDto } from "./dto/create-address.dto";
-import { UpdateAddressDto } from "./dto/update-address.dto";
+import type { AddressService } from './address.service';
+import type { CreateAddressDto } from './dto/create-address.dto';
+import type { UpdateAddressDto } from './dto/update-address.dto';
 
 @ApiTags('Addresses')
 @UseGuards(TenantMemberGuard)
@@ -21,42 +13,34 @@ import { UpdateAddressDto } from "./dto/update-address.dto";
 export class AddressController {
   constructor(private readonly addressService: AddressService) {}
   @Post()
-    async createAddress(
+  async createAddress(
     @Param('tenantId') tenantId: string,
     @Body() createAddressDto: CreateAddressDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.createAddress(
-      tenantId,
-      member.id,
-      createAddressDto,
-    );
+    return this.addressService.createAddress(tenantId, member.id, createAddressDto);
   }
   @Get()
   async listAddresses(
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.addressService.listAddresses(tenantId, member.id);
   }
   @Patch(':addressId')
-    async updateAddress(
+  async updateAddress(
     @Param('tenantId') tenantId: string,
     @Param('addressId') addressId: string,
     @Body() updateAddressDto: UpdateAddressDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.updateAddress(
-      member.id,
-      addressId,
-      updateAddressDto,
-    );
+    return this.addressService.updateAddress(member.id, addressId, updateAddressDto);
   }
   @Delete(':addressId')
-    async deleteAddress(
+  async deleteAddress(
     @Param('tenantId') tenantId: string,
     @Param('addressId') addressId: string,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.addressService.deleteAddress(member.id, addressId);
   }

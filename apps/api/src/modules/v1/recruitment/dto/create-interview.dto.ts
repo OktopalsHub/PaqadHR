@@ -1,20 +1,19 @@
-import { Candidate } from '../entities/candidate.entity';
-import { Interview } from '../entities/interview.entity';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
-  IsString,
-  IsNotEmpty,
-  IsEnum,
   IsArray,
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
-  IsDateString,
+  IsString,
   IsUUID,
-  Min,
   Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
 class InterviewerDto {
   @ApiProperty({
     description: 'Interviewer user ID',

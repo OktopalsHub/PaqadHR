@@ -1,10 +1,9 @@
 import { SetMetadata } from '@nestjs/common';
-import { RateLimitConfig } from '../interfaces/rate-limit-config.interface';
+import type { RateLimitConfig } from '../interfaces/rate-limit-config.interface';
 
 export const RATE_LIMIT_KEY = 'rateLimit';
 
-export const RateLimit = (config: RateLimitConfig) =>
-  SetMetadata(RATE_LIMIT_KEY, config);
+export const RateLimit = (config: RateLimitConfig) => SetMetadata(RATE_LIMIT_KEY, config);
 
 export const RateLimitPresets: Record<string, RateLimitConfig> = {
   SENSITIVE: {

@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { PayrollItem } from '../entities/payroll-item.entity';
-import { PayrollRun } from '../entities/payroll-run.entity';
-import { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
+import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
-import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { AuditService } from './audit.service';
+import type { PayrollItem } from '../entities/payroll-item.entity';
+import type { PayrollRun } from '../entities/payroll-run.entity';
+import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import type { AuditService } from './audit.service';
 
 @Injectable()
 export class ManualDisbursementService {
@@ -46,8 +46,7 @@ export class ManualDisbursementService {
         paidCount++;
       } catch (error) {
         failedCount++;
-        const message =
-          error instanceof Error ? error.message : 'Manual disbursement failed';
+        const message = error instanceof Error ? error.message : 'Manual disbursement failed';
         item.status = PayrollItemStatus.FAILED;
         item.failureReason = message;
         await this.payrollItemRepository.save(item);
@@ -64,9 +63,7 @@ export class ManualDisbursementService {
     }
 
     payrollRun.status =
-      failedCount > 0 && paidCount === 0
-        ? PayrollStatus.FAILED
-        : PayrollStatus.COMPLETED;
+      failedCount > 0 && paidCount === 0 ? PayrollStatus.FAILED : PayrollStatus.COMPLETED;
     payrollRun.processedAt = new Date();
     payrollRun.metadata = {
       ...payrollRun.metadata,
@@ -100,9 +97,7 @@ export class ManualDisbursementService {
     auditContext: AuditContext,
   ): Promise<void> {
     if (!payrollItem.paymentAmount || payrollItem.paymentAmount <= 0) {
-      throw new BadRequestException(
-        `Invalid payment amount for employee ${payrollItem.memberId}`,
-      );
+      throw new BadRequestException(`Invalid payment amount for employee ${payrollItem.memberId}`);
     }
 
     if (payrollItem.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
@@ -111,9 +106,7 @@ export class ManualDisbursementService {
       );
     }
 
-    if (
-      payrollItem.paymentAmount >= PAYROLL_SECURITY_CONFIG.LARGE_PAYMENT_THRESHOLD
-    ) {
+    if (payrollItem.paymentAmount >= PAYROLL_SECURITY_CONFIG.LARGE_PAYMENT_THRESHOLD) {
       await this.auditService.logLargePaymentDetected(
         { ...auditContext, memberId: payrollItem.memberId },
         {

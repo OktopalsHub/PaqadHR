@@ -1,4 +1,4 @@
-import { stats } from "../../constants";
+import { stats } from '../../constants';
 
 export const LandingStats = () => {
   return (
@@ -10,9 +10,7 @@ export const LandingStats = () => {
               <div className="mx-auto mb-4 flex size-11 items-center justify-center rounded-xl bg-primary/15 text-primary">
                 <stat.icon className="size-5" />
               </div>
-              <p className="text-2xl font-semibold tracking-tight md:text-3xl">
-                {stat.value}
-              </p>
+              <p className="text-2xl font-semibold tracking-tight md:text-3xl">{stat.value}</p>
               <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
             </div>
           ))}

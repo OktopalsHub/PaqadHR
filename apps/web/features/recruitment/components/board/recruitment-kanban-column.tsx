@@ -1,10 +1,7 @@
-import type { ReactNode } from "react";
-import { Plus } from "lucide-react";
-import { cn } from "@/lib/utils";
-import {
-  CandidateKanbanCard,
-  type CandidateCardData,
-} from "./candidate-kanban-card";
+import { Plus } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import { type CandidateCardData, CandidateKanbanCard } from './candidate-kanban-card';
 
 type RecruitmentKanbanColumnProps = {
   title: string;
@@ -24,12 +21,7 @@ export function RecruitmentKanbanColumn({
   showAdd = false,
 }: RecruitmentKanbanColumnProps) {
   return (
-    <div
-      className={cn(
-        "flex w-[260px] shrink-0 flex-col rounded-xl bg-muted/40 p-2.5",
-        className,
-      )}
-    >
+    <div className={cn('flex w-[260px] shrink-0 flex-col rounded-xl bg-muted/40 p-2.5', className)}>
       <div className="mb-2.5 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <h3 className="text-xs font-semibold">{title}</h3>
@@ -50,9 +42,7 @@ export function RecruitmentKanbanColumn({
 
       <div className="flex flex-col gap-2">
         {candidates.length === 0 ? (
-          <p className="px-1 py-6 text-center text-xs text-muted-foreground">
-            No candidates
-          </p>
+          <p className="px-1 py-6 text-center text-xs text-muted-foreground">No candidates</p>
         ) : (
           candidates.map((candidate) =>
             renderCard ? (

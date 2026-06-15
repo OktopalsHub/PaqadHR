@@ -1,6 +1,6 @@
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
-import { IPaginationOption } from '../interfaces/pagination.interface';
+import type { IPaginationOption } from '../interfaces/pagination.interface';
 
 export class PaginationDto implements IPaginationOption {
   @IsOptional()

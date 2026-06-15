@@ -1,5 +1,5 @@
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { PlanRegionalConfig } from 'src/common/interfaces/plan-regional-config.interface';
+import type { PlanRegionalConfig } from 'src/common/interfaces/plan-regional-config.interface';
 
 export interface DefaultPlanSeed {
   slug: string;

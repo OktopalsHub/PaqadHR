@@ -1,15 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { TabsContent } from "@/components/ui/tabs";
-import type { EmployeeDetailForm } from "../../../hooks/use-employee-detail-form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { TabsContent } from '@/components/ui/tabs';
+import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
 interface PersonalInfoTabProps {
   form: EmployeeDetailForm;
@@ -23,9 +17,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
       <Card>
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
-          <CardDescription>
-            Employee's personal and contact details
-          </CardDescription>
+          <CardDescription>Employee's personal and contact details</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -34,7 +26,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
               <Input
                 id="full-name"
                 value={employee.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
+                onChange={(e) => handleInputChange('name', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -43,7 +35,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 id="email"
                 type="email"
                 value={employee.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
+                onChange={(e) => handleInputChange('email', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -51,7 +43,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
               <Input
                 id="phone"
                 value={employee.phone}
-                onChange={(e) => handleInputChange("phone", e.target.value)}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -60,9 +52,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 id="dob"
                 type="date"
                 value={employee.dateOfBirth}
-                onChange={(e) =>
-                  handleInputChange("dateOfBirth", e.target.value)
-                }
+                onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
               />
             </div>
 
@@ -71,13 +61,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
               <Input
                 id="gender"
                 value={employee.personalInfo.gender}
-                onChange={(e) =>
-                  handleNestedInputChange(
-                    "personalInfo",
-                    "gender",
-                    e.target.value,
-                  )
-                }
+                onChange={(e) => handleNestedInputChange('personalInfo', 'gender', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -86,11 +70,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 id="marital-status"
                 value={employee.personalInfo.maritalStatus}
                 onChange={(e) =>
-                  handleNestedInputChange(
-                    "personalInfo",
-                    "maritalStatus",
-                    e.target.value,
-                  )
+                  handleNestedInputChange('personalInfo', 'maritalStatus', e.target.value)
                 }
               />
             </div>
@@ -100,11 +80,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 id="nationality"
                 value={employee.personalInfo.nationality}
                 onChange={(e) =>
-                  handleNestedInputChange(
-                    "personalInfo",
-                    "nationality",
-                    e.target.value,
-                  )
+                  handleNestedInputChange('personalInfo', 'nationality', e.target.value)
                 }
               />
             </div>
@@ -114,11 +90,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 id="blood-group"
                 value={employee.personalInfo.bloodGroup}
                 onChange={(e) =>
-                  handleNestedInputChange(
-                    "personalInfo",
-                    "bloodGroup",
-                    e.target.value,
-                  )
+                  handleNestedInputChange('personalInfo', 'bloodGroup', e.target.value)
                 }
               />
             </div>
@@ -134,9 +106,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 <Input
                   id="street"
                   value={employee.address.street}
-                  onChange={(e) =>
-                    handleNestedInputChange("address", "street", e.target.value)
-                  }
+                  onChange={(e) => handleNestedInputChange('address', 'street', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -144,9 +114,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 <Input
                   id="city"
                   value={employee.address.city}
-                  onChange={(e) =>
-                    handleNestedInputChange("address", "city", e.target.value)
-                  }
+                  onChange={(e) => handleNestedInputChange('address', 'city', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -154,9 +122,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 <Input
                   id="state"
                   value={employee.address.state}
-                  onChange={(e) =>
-                    handleNestedInputChange("address", "state", e.target.value)
-                  }
+                  onChange={(e) => handleNestedInputChange('address', 'state', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -164,13 +130,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 <Input
                   id="zip"
                   value={employee.address.zipCode}
-                  onChange={(e) =>
-                    handleNestedInputChange(
-                      "address",
-                      "zipCode",
-                      e.target.value,
-                    )
-                  }
+                  onChange={(e) => handleNestedInputChange('address', 'zipCode', e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -178,13 +138,7 @@ export function PersonalInfoTab({ form }: PersonalInfoTabProps) {
                 <Input
                   id="country"
                   value={employee.address.country}
-                  onChange={(e) =>
-                    handleNestedInputChange(
-                      "address",
-                      "country",
-                      e.target.value,
-                    )
-                  }
+                  onChange={(e) => handleNestedInputChange('address', 'country', e.target.value)}
                 />
               </div>
             </div>

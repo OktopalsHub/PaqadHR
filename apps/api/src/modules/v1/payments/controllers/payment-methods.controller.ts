@@ -1,4 +1,3 @@
-import { CreatePaymentMethodDto, UpdatePaymentMethodDto, PasscodeChangeDto } from '../../payment-method/dto/payment-method.dto';
 import {
   Body,
   Controller,
@@ -6,25 +5,28 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Logger,
   Param,
   Post,
   Put,
   Query,
-  UseGuards } from '@nestjs/common';
-import { MemberContext } from 'src/common/interfaces';
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
+import type { MemberContext } from 'src/common/interfaces';
+import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
+import type {
+  CreatePaymentMethodDto,
+  PasscodeChangeDto,
+  UpdatePaymentMethodDto,
+} from '../../payment-method/dto/payment-method.dto';
+import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
-import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
-import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
 @Controller('tenants/:tenantId/payment-methods')
 @UseGuards(TenantGuard)
 export class PaymentMethodsController {
-  private readonly logger = new Logger(PaymentMethodsController.name);
   constructor(private readonly paymentMethodService: PaymentMethodService) {}
   @Post()
   @UseGuards(TenantMemberGuard)
@@ -64,13 +66,9 @@ export class PaymentMethodsController {
   async createPaymentMethod(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreatePaymentMethodDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.createPaymentMethod(
-      tenantId,
-      member.id,
-      dto,
-    );
+    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, dto);
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -84,11 +82,7 @@ export class PaymentMethodsController {
     @CurrentTenantMember() member: MemberContext,
     @Query('currency') currency?: string,
   ) {
-    return this.paymentMethodService.getPaymentMethods(
-      tenantId,
-      member.id,
-      currency,
-    );
+    return this.paymentMethodService.getPaymentMethods(tenantId, member.id, currency);
   }
   @Get('primary/:currency')
   @UseGuards(TenantMemberGuard)
@@ -97,13 +91,9 @@ export class PaymentMethodsController {
   async getPrimaryPaymentMethod(
     @Param('tenantId') tenantId: string,
     @Param('currency') currency: string,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.getPrimaryPaymentMethod(
-      tenantId,
-      member.id,
-      currency,
-    );
+    return this.paymentMethodService.getPrimaryPaymentMethod(tenantId, member.id, currency);
   }
   @Put(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
@@ -139,14 +129,9 @@ export class PaymentMethodsController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: UpdatePaymentMethodDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.updatePaymentMethod(
-      paymentMethodId,
-      tenantId,
-      member.id,
-      dto,
-    );
+    return this.paymentMethodService.updatePaymentMethod(paymentMethodId, tenantId, member.id, dto);
   }
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)
@@ -167,14 +152,9 @@ export class PaymentMethodsController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: PasscodeChangeDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    await this.paymentMethodService.changePasscode(
-      paymentMethodId,
-      tenantId,
-      member.id,
-      dto,
-    );
+    await this.paymentMethodService.changePasscode(paymentMethodId, tenantId, member.id, dto);
   }
   @Delete(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
@@ -200,7 +180,7 @@ export class PaymentMethodsController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { passcode: string },
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
     await this.paymentMethodService.deletePaymentMethod(
       paymentMethodId,
@@ -219,13 +199,9 @@ export class PaymentMethodsController {
   async getPasscodeHistory(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.getPasscodeHistory(
-      paymentMethodId,
-      tenantId,
-      member.id,
-    );
+    return this.paymentMethodService.getPasscodeHistory(paymentMethodId, tenantId, member.id);
   }
   @Post(':paymentMethodId/verify')
   @ApiOperation({ summary: 'Manually verify payment method (Admin only)' })

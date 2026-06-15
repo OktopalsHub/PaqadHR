@@ -1,15 +1,12 @@
-import { User } from '../../modules/v1/users/entities/user.entity';
+import * as crypto from 'node:crypto';
 import { Logger } from '@nestjs/common';
-import * as crypto from 'crypto';
-import {
-  PaymentProviderError
-} from './payment-provider.interface';
-import { PaymentProviderInterface } from "../interfaces/payment-provider-interface.interface";
-import { CreatePaymentData } from "../interfaces/create-payment-data.interface";
-import { WebhookResult } from "../interfaces/webhook-result.interface";
-import { CurrencyConfig } from "../interfaces/currency-config.interface";
-import { TransactionStatus } from "../enums/transaction-status.enum";
-import { PaymentResult } from "../interfaces/payment-result.interface";
+import type { TransactionStatus } from '../enums/transaction-status.enum';
+import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
+import type { CurrencyConfig } from '../interfaces/currency-config.interface';
+import type { PaymentProviderInterface } from '../interfaces/payment-provider-interface.interface';
+import type { PaymentResult } from '../interfaces/payment-result.interface';
+import type { WebhookResult } from '../interfaces/webhook-result.interface';
+import { PaymentProviderError } from './payment-provider.interface';
 
 export abstract class BasePaymentProvider implements PaymentProviderInterface {
   protected readonly logger: Logger;
@@ -28,15 +25,10 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     this.initializeCurrencyConfigs();
   }
   abstract createPayment(data: CreatePaymentData): Promise<PaymentResult>;
-  abstract processWebhook(
-    payload: unknown,
-    signature: string,
-  ): Promise<WebhookResult>;
+  abstract processWebhook(payload: unknown, signature: string): Promise<WebhookResult>;
   abstract getSupportedCurrencies(): Promise<string[]>;
   abstract validateSignature(payload: unknown, signature: string): boolean;
-  abstract getTransactionStatus(
-    transactionId: string,
-  ): Promise<TransactionStatus>;
+  abstract getTransactionStatus(transactionId: string): Promise<TransactionStatus>;
   protected abstract getDefaultBaseUrl(): string;
   protected abstract initializeCurrencyConfigs(): void;
   async validateCurrency(currency: string): Promise<boolean> {
@@ -51,12 +43,10 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
   formatAmount(amount: number, currency: string): number {
     const config = this.currencyConfigs.get(currency.toUpperCase());
     if (!config) {
-      this.logger.warn(
-        `No config found for currency ${currency}, using default 2 decimals`,
-      );
+      this.logger.warn(`No config found for currency ${currency}, using default 2 decimals`);
       return Math.round(amount * 100);
     }
-    const multiplier = Math.pow(10, config.decimals);
+    const multiplier = 10 ** config.decimals;
     return Math.round(amount * multiplier);
   }
   async isHealthy(): Promise<boolean> {
@@ -91,7 +81,7 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
         if (response.ok || attempt === retries) {
           return response;
         }
-        await this.delay(Math.pow(2, attempt) * 1000);
+        await this.delay(2 ** attempt * 1000);
       } catch (error) {
         if (attempt === retries) {
           throw new PaymentProviderError(
@@ -101,7 +91,7 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
             error,
           );
         }
-        await this.delay(Math.pow(2, attempt) * 1000);
+        await this.delay(2 ** attempt * 1000);
       }
     }
     throw new PaymentProviderError(
@@ -118,8 +108,8 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
   }
   protected async checkRateLimit(): Promise<void> {
     const now = Date.now();
-    const windowMs = 60000; 
-    const maxRequests = 100; 
+    const windowMs = 60000;
+    const maxRequests = 100;
     const requests = this.rateLimiter.get(this.name) || [];
     const recentRequests = requests.filter((time) => now - time < windowMs);
     if (recentRequests.length >= maxRequests) {
@@ -141,11 +131,7 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
   protected validateAmount(amount: number, currency: string): void {
     const config = this.currencyConfigs.get(currency.toUpperCase());
     if (amount <= 0) {
-      throw new PaymentProviderError(
-        'Amount must be greater than zero',
-        'INVALID_AMOUNT',
-        false,
-      );
+      throw new PaymentProviderError('Amount must be greater than zero', 'INVALID_AMOUNT', false);
     }
     if (config?.minAmount && amount < config.minAmount) {
       throw new PaymentProviderError(
@@ -166,9 +152,7 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
-  protected sanitizeMetadata(
-    metadata: Record<string, any>,
-  ): Record<string, any> {
+  protected sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
     const sanitized: Record<string, any> = {};
     for (const [key, value] of Object.entries(metadata)) {
       if (this.isSensitiveKey(key)) {
@@ -195,15 +179,9 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
       'cvv',
       'cvc',
     ];
-    return sensitiveKeys.some((sensitive) =>
-      key.toLowerCase().includes(sensitive),
-    );
+    return sensitiveKeys.some((sensitive) => key.toLowerCase().includes(sensitive));
   }
-  protected createSecureHash(
-    data: string,
-    secret: string,
-    algorithm = 'sha256',
-  ): string {
+  protected createSecureHash(data: string, secret: string, algorithm = 'sha256'): string {
     return crypto.createHmac(algorithm, secret).update(data).digest('hex');
   }
   protected verifySecureHash(

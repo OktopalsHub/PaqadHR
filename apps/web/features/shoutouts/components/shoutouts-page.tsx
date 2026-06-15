@@ -1,29 +1,29 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { Heart, Sparkles, Trophy, Users } from "lucide-react";
-import { toast } from "sonner";
-import { AppPage } from "@/components/app-page";
-import { ContentCard } from "@/components/content-card";
-import { EmptyState } from "@/components/empty-state";
-import { LoadingBlock } from "@/components/loading-block";
-import { StatCard } from "@/components/stat-card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useEmployees } from "@/hooks/queries/use-employees";
+import { Heart, Sparkles, Trophy, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { AppPage } from '@/components/app-page';
+import { ContentCard } from '@/components/content-card';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingBlock } from '@/components/loading-block';
+import { StatCard } from '@/components/stat-card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useEmployees } from '@/hooks/queries/use-employees';
 import {
   useCreateShoutout,
   useMyPointsBalance,
   useShoutoutCategories,
   useShoutouts,
-} from "@/hooks/queries/use-shoutouts";
-import { ShoutoutCard } from "./shoutout-card";
-import { ShoutoutComposer } from "./shoutout-composer";
+} from '@/hooks/queries/use-shoutouts';
+import { ShoutoutCard } from './shoutout-card';
+import { ShoutoutComposer } from './shoutout-composer';
 
 export function ShoutoutsPage() {
-  const [message, setMessage] = useState("");
-  const [points, setPoints] = useState("10");
-  const [recipientId, setRecipientId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [message, setMessage] = useState('');
+  const [points, setPoints] = useState('10');
+  const [recipientId, setRecipientId] = useState('');
+  const [categoryId, setCategoryId] = useState('');
 
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useShoutoutCategories();
@@ -31,8 +31,7 @@ export function ShoutoutsPage() {
   const { data, isLoading, isError, error } = useShoutouts();
   const createShoutout = useCreateShoutout();
 
-  const items =
-    data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
+  const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
 
   const totalPointsGiven = useMemo(
     () => items.reduce((sum, item) => sum + item.totalPoints, 0),
@@ -47,14 +46,11 @@ export function ShoutoutsPage() {
 
   const handleCreate = async () => {
     if (!recipientId || !message.trim()) {
-      toast.error("Select a recipient and write a message");
+      toast.error('Select a recipient and write a message');
       return;
     }
     const pointsNum = Number(points) || 10;
-    if (
-      pointsBalance &&
-      pointsNum > pointsBalance.remainingAllowance
-    ) {
+    if (pointsBalance && pointsNum > pointsBalance.remainingAllowance) {
       toast.error("You don't have enough points left this month");
       return;
     }
@@ -65,11 +61,11 @@ export function ShoutoutsPage() {
         message: message.trim(),
         categoryIds: categoryId ? [categoryId] : undefined,
       });
-      setMessage("");
-      setRecipientId("");
-      toast.success("Shoutout sent");
+      setMessage('');
+      setRecipientId('');
+      toast.success('Shoutout sent');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to send");
+      toast.error(err instanceof Error ? err.message : 'Failed to send');
     }
   };
 
@@ -87,7 +83,7 @@ export function ShoutoutsPage() {
         <Alert variant="destructive">
           <AlertTitle>Unable to load shoutouts</AlertTitle>
           <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong"}
+            {error instanceof Error ? error.message : 'Something went wrong'}
           </AlertDescription>
         </Alert>
       </AppPage>
@@ -111,12 +107,8 @@ export function ShoutoutsPage() {
         />
         <StatCard
           label="Given this month"
-          value={pointsBalance?.monthlyGiven ?? "—"}
-          hint={
-            pointsBalance
-              ? `${pointsBalance.remainingAllowance} left to give`
-              : undefined
-          }
+          value={pointsBalance?.monthlyGiven ?? '—'}
+          hint={pointsBalance ? `${pointsBalance.remainingAllowance} left to give` : undefined}
           icon={Heart}
         />
         <StatCard
@@ -140,9 +132,7 @@ export function ShoutoutsPage() {
               description="Be the first to recognize someone on your team."
             />
           ) : (
-            items.map((shoutout) => (
-              <ShoutoutCard key={shoutout.id} shoutout={shoutout} />
-            ))
+            items.map((shoutout) => <ShoutoutCard key={shoutout.id} shoutout={shoutout} />)
           )}
         </ContentCard>
 
@@ -171,17 +161,10 @@ export function ShoutoutsPage() {
               </p>
               <ul className="mt-3 space-y-2">
                 {categories.map((category) => (
-                  <li
-                    key={category.id}
-                    className="flex items-center gap-2 text-sm"
-                  >
+                  <li key={category.id} className="flex items-center gap-2 text-sm">
                     <span
                       className="size-2 shrink-0 rounded-full bg-primary"
-                      style={
-                        category.color
-                          ? { backgroundColor: category.color }
-                          : undefined
-                      }
+                      style={category.color ? { backgroundColor: category.color } : undefined}
                     />
                     {category.name}
                   </li>

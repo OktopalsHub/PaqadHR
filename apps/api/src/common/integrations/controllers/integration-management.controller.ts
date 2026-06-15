@@ -1,18 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  ParseUUIDPipe,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
-import { MemberContext } from 'src/common/interfaces';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
-import { IntegrationSetupService } from '../services/integration-setup.service';
-import { UserSyncService } from '../services/user-sync.service';
+import type { IntegrationSetupService } from '../services/integration-setup.service';
+import type { UserSyncService } from '../services/user-sync.service';
 @ApiTags('Integration Management')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/integrations')
@@ -26,21 +18,14 @@ export class IntegrationManagementController {
     @TenantId() tenantId: string,
     @Param('integrationId', ParseUUIDPipe) integrationId: string,
   ) {
-    return this.integrationSetupService.triggerUserSync(
-      integrationId,
-      tenantId,
-    );
+    return this.integrationSetupService.triggerUserSync(integrationId, tenantId);
   }
   @Get(':integrationId/sync-status')
-  async getSyncStatus(
-    @Param('integrationId', ParseUUIDPipe) integrationId: string,
-  ) {
+  async getSyncStatus(@Param('integrationId', ParseUUIDPipe) integrationId: string) {
     return this.integrationSetupService.getIntegrationStatus(integrationId);
   }
   @Get(':integrationId/unmatched-users')
-  async getUnmatchedUsers(
-    @Param('integrationId', ParseUUIDPipe) integrationId: string,
-  ) {
+  async getUnmatchedUsers(@Param('integrationId', ParseUUIDPipe) integrationId: string) {
     return this.userSyncService.getUnmatchedUsers(integrationId);
   }
   @Post(':integrationId/match-user')
@@ -64,10 +49,6 @@ export class IntegrationManagementController {
     @Param('integrationId', ParseUUIDPipe) integrationId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.userSyncService.bulkInviteUnmatchedUsers(
-      integrationId,
-      tenantId,
-      member.id,
-    );
+    return this.userSyncService.bulkInviteUnmatchedUsers(integrationId, tenantId, member.id);
   }
 }

@@ -1,8 +1,5 @@
-import { navItemDefs } from "@/features/navigations/constants/nav-items";
-import {
-  getTenantSlugFromPath,
-  tenantRoot,
-} from "@/lib/navigation/tenant-routes";
+import { navItemDefs } from '@/features/navigations/constants/nav-items';
+import { getTenantSlugFromPath, tenantRoot } from '@/lib/navigation/tenant-routes';
 
 export type BreadcrumbSegment = {
   label: string;
@@ -10,7 +7,7 @@ export type BreadcrumbSegment = {
 };
 
 const navLabelBySegment = Object.fromEntries(
-  navItemDefs.map((item) => [item.segment || "", item.name]),
+  navItemDefs.map((item) => [item.segment || '', item.name]),
 );
 
 function labelForSegment(segment: string): string {
@@ -18,8 +15,7 @@ function labelForSegment(segment: string): string {
   return segment.charAt(0).toUpperCase() + segment.slice(1);
 }
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function getBreadcrumbs(
   pathname: string,
@@ -29,12 +25,12 @@ export function getBreadcrumbs(
   const tenantSlug = getTenantSlugFromPath(pathname);
   if (!tenantSlug) return [];
 
-  const parts = pathname.split("/").filter(Boolean);
+  const parts = pathname.split('/').filter(Boolean);
   if (parts.length <= 1) return [];
 
   const segments: BreadcrumbSegment[] = [
     {
-      label: workspaceLabel?.trim() || "Workspace",
+      label: workspaceLabel?.trim() || 'Workspace',
       href: tenantRoot(tenantSlug),
     },
   ];
@@ -47,7 +43,7 @@ export function getBreadcrumbs(
 
     if (isDynamic) {
       if (isLast) {
-        segments.push({ label: tailLabel?.trim() || "Details" });
+        segments.push({ label: tailLabel?.trim() || 'Details' });
       }
       continue;
     }

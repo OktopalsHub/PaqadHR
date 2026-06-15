@@ -1,7 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { Position } from "./position.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Position } from './position.entity';
 
 @Entity('tenant_member_positions')
 export class PositionMember extends BaseEntity {

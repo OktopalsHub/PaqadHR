@@ -1,30 +1,24 @@
-"use client";
+'use client';
 
-import { Cell, Pie, PieChart } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { ContentCard } from "@/components/content-card";
-import type { DepartmentChartPoint } from "../../lib/recruitment-dashboard-metrics";
+import { Cell, Pie, PieChart } from 'recharts';
+import { ContentCard } from '@/components/content-card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import type { DepartmentChartPoint } from '../../lib/recruitment-dashboard-metrics';
 
 const COLORS = [
-  "var(--primary)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-  "var(--muted-foreground)",
+  'var(--primary)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--muted-foreground)',
 ];
 
 type RecruitmentDepartmentChartProps = {
   data: DepartmentChartPoint[];
 };
 
-export function RecruitmentDepartmentChart({
-  data,
-}: RecruitmentDepartmentChartProps) {
+export function RecruitmentDepartmentChart({ data }: RecruitmentDepartmentChartProps) {
   const config = Object.fromEntries(
     data.map((item, index) => [
       item.name,
@@ -46,10 +40,7 @@ export function RecruitmentDepartmentChart({
             paddingAngle={2}
           >
             {data.map((entry, index) => (
-              <Cell
-                key={entry.name}
-                fill={COLORS[index % COLORS.length]}
-              />
+              <Cell key={entry.name} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
         </PieChart>

@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 type AppPageProps = {
   children: ReactNode;
@@ -7,7 +7,5 @@ type AppPageProps = {
 };
 
 export function AppPage({ children, className }: AppPageProps) {
-  return (
-    <div className={cn("w-full space-y-5", className)}>{children}</div>
-  );
+  return <div className={cn('w-full space-y-5', className)}>{children}</div>;
 }

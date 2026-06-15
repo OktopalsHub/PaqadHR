@@ -1,54 +1,50 @@
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Users, Clock, Zap, Calendar, X } from "lucide-react";
-import { WidgetType } from "../types";
+import { BarChart3, Calendar, Clock, Users, X, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { WidgetType } from '../types';
 
 interface WidgetSelectorProps {
   onAddWidget: (type: WidgetType) => void;
   onClose: () => void;
 }
 
-export const WidgetSelector = ({
-  onAddWidget,
-  onClose,
-}: WidgetSelectorProps) => {
+export const WidgetSelector = ({ onAddWidget, onClose }: WidgetSelectorProps) => {
   const widgetTypes = [
     {
-      type: "kpi",
-      name: "KPI Overview",
+      type: 'kpi',
+      name: 'KPI Overview',
       icon: BarChart3,
-      description: "Key performance indicators",
+      description: 'Key performance indicators',
     },
     {
-      type: "metrics",
-      name: "Metrics",
+      type: 'metrics',
+      name: 'Metrics',
       icon: Users,
-      description: "Employee metrics and stats",
+      description: 'Employee metrics and stats',
     },
     {
-      type: "chart",
-      name: "Charts",
+      type: 'chart',
+      name: 'Charts',
       icon: BarChart3,
-      description: "Visual data representations",
+      description: 'Visual data representations',
     },
     {
-      type: "quickActions",
-      name: "Quick Actions",
+      type: 'quickActions',
+      name: 'Quick Actions',
       icon: Zap,
-      description: "Common HR actions",
+      description: 'Common HR actions',
     },
     {
-      type: "attendance",
-      name: "Attendance",
+      type: 'attendance',
+      name: 'Attendance',
       icon: Clock,
-      description: "Time tracking overview",
+      description: 'Time tracking overview',
     },
     {
-      type: "calendar",
-      name: "Calendar",
+      type: 'calendar',
+      name: 'Calendar',
       icon: Calendar,
-      description: "Upcoming events and deadlines",
+      description: 'Upcoming events and deadlines',
     },
   ];
 

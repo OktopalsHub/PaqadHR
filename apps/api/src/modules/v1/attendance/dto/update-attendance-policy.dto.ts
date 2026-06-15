@@ -1,11 +1,8 @@
-import { PartialType } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsOptional } from 'class-validator';
-import { CreateAttendancePolicyDto } from "./create-attendance-policy.dto";
+import { CreateAttendancePolicyDto } from './create-attendance-policy.dto';
 
-export class UpdateAttendancePolicyDto extends PartialType(
-  CreateAttendancePolicyDto,
-) {
+export class UpdateAttendancePolicyDto extends PartialType(CreateAttendancePolicyDto) {
   @IsBoolean()
   @ApiProperty({
     description: 'is active',

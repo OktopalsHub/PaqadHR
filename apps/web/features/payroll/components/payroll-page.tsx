@@ -1,47 +1,47 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { CalendarDays, Download, FileText, Plus, Wallet } from "lucide-react";
-import { toast } from "sonner";
-import { AppPage } from "@/components/app-page";
-import { ContentCard } from "@/components/content-card";
-import { PageActions } from "@/components/page-actions";
-import { EmptyState } from "@/components/empty-state";
-import { LoadingBlock } from "@/components/loading-block";
-import { StatCard } from "@/components/stat-card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { AppPage } from '@/components/app-page';
+import { ContentCard } from '@/components/content-card';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingBlock } from '@/components/loading-block';
+import { PageActions } from '@/components/page-actions';
+import { StatCard } from '@/components/stat-card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { useEmployees } from "@/hooks/queries/use-employees";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useEmployees } from '@/hooks/queries/use-employees';
 import {
   useCreatePayrollRun,
   usePayrollActions,
   usePayrollRuns,
-} from "@/hooks/queries/use-payroll";
-import type { PayrollRun } from "@/lib/schemas/payroll";
-import { formatDate } from "@/lib/format-date";
+} from '@/hooks/queries/use-payroll';
+import { formatDate } from '@/lib/format-date';
+import type { PayrollRun } from '@/lib/schemas/payroll';
 
 function statusVariant(status: string) {
   switch (status) {
-    case "completed":
-      return "default";
-    case "approved":
-      return "secondary";
-    case "processing":
-      return "outline";
-    case "failed":
-      return "destructive";
+    case 'completed':
+      return 'default';
+    case 'approved':
+      return 'secondary';
+    case 'processing':
+      return 'outline';
+    case 'failed':
+      return 'destructive';
     default:
-      return "outline";
+      return 'outline';
   }
 }
 
@@ -62,49 +62,44 @@ function PayrollRunRow({
           <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          {formatDate(run.periodStart)} – {formatDate(run.periodEnd)} ·{" "}
-          {run.baseCurrency}
+          {formatDate(run.periodStart)} – {formatDate(run.periodEnd)} · {run.baseCurrency}
           {run.totalNetAmount != null
             ? ` · Net ${Number(run.totalNetAmount).toLocaleString()}`
-            : ""}
+            : ''}
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {run.status === "draft" ? (
+        {run.status === 'draft' ? (
           <Button
             size="sm"
             variant="outline"
             disabled={busy}
-            onClick={() => onAction("calculate", run.id)}
+            onClick={() => onAction('calculate', run.id)}
           >
             Calculate
           </Button>
         ) : null}
-        {run.status === "processing" ? (
+        {run.status === 'processing' ? (
           <Button
             size="sm"
             variant="outline"
             disabled={busy}
-            onClick={() => onAction("approve", run.id)}
+            onClick={() => onAction('approve', run.id)}
           >
             Approve
           </Button>
         ) : null}
-        {run.status === "approved" ? (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() => onAction("disburse", run.id)}
-          >
+        {run.status === 'approved' ? (
+          <Button size="sm" disabled={busy} onClick={() => onAction('disburse', run.id)}>
             Mark paid
           </Button>
         ) : null}
-        {["processing", "approved", "completed"].includes(run.status) ? (
+        {['processing', 'approved', 'completed'].includes(run.status) ? (
           <Button
             size="sm"
             variant="outline"
             disabled={busy}
-            onClick={() => onAction("export", run.id)}
+            onClick={() => onAction('export', run.id)}
           >
             <Download className="mr-1 size-4" />
             CSV
@@ -117,7 +112,7 @@ function PayrollRunRow({
 
 export function PayrollPage() {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState('');
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -135,45 +130,45 @@ export function PayrollPage() {
     actions.disburse.isPending ||
     actions.exportCsv.isPending;
 
-  const activeEmployees = employees.filter((e) => e.status === "Active");
+  const activeEmployees = employees.filter((e) => e.status === 'Active');
 
   const handleCreate = async () => {
     if (!title.trim()) {
-      toast.error("Enter a payroll title");
+      toast.error('Enter a payroll title');
       return;
     }
     const activeIds = activeEmployees.map((e) => e.id);
     if (!activeIds.length) {
-      toast.error("No active employees to include");
+      toast.error('No active employees to include');
       return;
     }
     try {
       await createRun.mutateAsync({
         title: title.trim(),
-        frequency: "monthly",
+        frequency: 'monthly',
         periodStart: monthStart.toISOString(),
         periodEnd: monthEnd.toISOString(),
         paymentDate: paymentDate.toISOString(),
-        baseCurrency: "NGN",
+        baseCurrency: 'NGN',
         employeeIds: activeIds,
       });
       setOpen(false);
-      setTitle("");
-      toast.success("Payroll run created");
+      setTitle('');
+      toast.success('Payroll run created');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create run");
+      toast.error(err instanceof Error ? err.message : 'Failed to create run');
     }
   };
 
   const handleAction = async (action: string, id: string) => {
     try {
-      if (action === "calculate") await actions.calculate.mutateAsync(id);
-      if (action === "approve") await actions.approve.mutateAsync(id);
-      if (action === "disburse") await actions.disburse.mutateAsync(id);
-      if (action === "export") await actions.exportCsv.mutateAsync(id);
+      if (action === 'calculate') await actions.calculate.mutateAsync(id);
+      if (action === 'approve') await actions.approve.mutateAsync(id);
+      if (action === 'disburse') await actions.disburse.mutateAsync(id);
+      if (action === 'export') await actions.exportCsv.mutateAsync(id);
       toast.success(`Payroll ${action} completed`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Action failed");
+      toast.error(err instanceof Error ? err.message : 'Action failed');
     }
   };
 
@@ -191,7 +186,7 @@ export function PayrollPage() {
         <Alert variant="destructive">
           <AlertTitle>Unable to load payroll</AlertTitle>
           <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong"}
+            {error instanceof Error ? error.message : 'Something went wrong'}
           </AlertDescription>
         </Alert>
       </AppPage>
@@ -199,9 +194,9 @@ export function PayrollPage() {
   }
 
   const runs = data?.runs ?? [];
-  const completedRuns = runs.filter((r) => r.status === "completed").length;
+  const completedRuns = runs.filter((r) => r.status === 'completed').length;
   const pendingRuns = runs.filter((r) =>
-    ["draft", "processing", "approved"].includes(r.status),
+    ['draft', 'processing', 'approved'].includes(r.status),
   ).length;
 
   return (
@@ -228,19 +223,14 @@ export function PayrollPage() {
                 />
               </div>
               <p className="text-sm text-muted-foreground">
-                Includes {activeEmployees.length} active employees for the
-                current month.
-                </p>
-                <Button
-                  className="w-full"
-                  disabled={createRun.isPending}
-                  onClick={handleCreate}
-                >
-                  Create run
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+                Includes {activeEmployees.length} active employees for the current month.
+              </p>
+              <Button className="w-full" disabled={createRun.isPending} onClick={handleCreate}>
+                Create run
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </PageActions>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -283,12 +273,7 @@ export function PayrollPage() {
           />
         ) : (
           runs.map((run) => (
-            <PayrollRunRow
-              key={run.id}
-              run={run}
-              busy={busy}
-              onAction={handleAction}
-            />
+            <PayrollRunRow key={run.id} run={run} busy={busy} onAction={handleAction} />
           ))
         )}
       </ContentCard>

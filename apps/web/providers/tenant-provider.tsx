@@ -1,24 +1,20 @@
-"use client";
+'use client';
 
+import { useRouter } from 'next/navigation';
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
-} from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/providers/auth-provider";
-import { useUserTenants } from "@/hooks/queries/use-tenants";
-import {
-  persistTenantId,
-  persistTenantSlug,
-  readTenantId,
-} from "@/lib/session";
-import { tenantRoot } from "@/lib/navigation/tenant-routes";
-import type { Tenant } from "@/lib/schemas/tenant";
+} from 'react';
+import { useUserTenants } from '@/hooks/queries/use-tenants';
+import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import type { Tenant } from '@/lib/schemas/tenant';
+import { persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
+import { useAuth } from '@/providers/auth-provider';
 
 interface TenantContextValue {
   tenants: Tenant[];
@@ -37,7 +33,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     enabled: isAuthenticated,
   });
   const [selectedId, setSelectedId] = useState<string | null>(() =>
-    typeof window !== "undefined" ? readTenantId() : null,
+    typeof window !== 'undefined' ? readTenantId() : null,
   );
 
   const tenant = useMemo(() => {
@@ -79,15 +75,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     [tenants, tenant, setTenantId, isLoading, isAuthenticated],
   );
 
-  return (
-    <TenantContext.Provider value={value}>{children}</TenantContext.Provider>
-  );
+  return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 }
 
 export function useTenant() {
   const context = useContext(TenantContext);
   if (!context) {
-    throw new Error("useTenant must be used within a TenantProvider");
+    throw new Error('useTenant must be used within a TenantProvider');
   }
   return context;
 }

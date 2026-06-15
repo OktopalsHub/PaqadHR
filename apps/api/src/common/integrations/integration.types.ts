@@ -1,4 +1,4 @@
-import { IntegrationType } from 'src/common/enums';
+import type { IntegrationType } from 'src/common/enums';
 
 export interface PlatformUserData {
   id: string;

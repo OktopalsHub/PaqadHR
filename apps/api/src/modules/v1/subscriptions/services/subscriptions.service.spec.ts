@@ -1,10 +1,10 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
-import { SubscriptionsService } from './subscriptions.service';
-import { TenantSubscription } from '../entities/tenant-subscription.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { PlansService } from '../../plans/services/plans.service';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { TenantSubscription } from '../entities/tenant-subscription.entity';
+import { SubscriptionsService } from './subscriptions.service';
 
 describe('SubscriptionsService', () => {
   let service: SubscriptionsService;
@@ -69,9 +69,7 @@ describe('SubscriptionsService', () => {
   describe('hasFeatureAccess', () => {
     it('grants all features when billing mode is open', async () => {
       process.env.BILLING_MODE = 'open';
-      const allowed = await service.hasFeatureAccess('tenant-1', [
-        FeatureAccess.PAYROLL,
-      ]);
+      const allowed = await service.hasFeatureAccess('tenant-1', [FeatureAccess.PAYROLL]);
       expect(allowed).toBe(true);
     });
 
@@ -82,9 +80,7 @@ describe('SubscriptionsService', () => {
         plan: { features: { [FeatureAccess.BASIC_HR]: true } },
       });
 
-      const allowed = await service.hasFeatureAccess('tenant-1', [
-        FeatureAccess.PAYROLL,
-      ]);
+      const allowed = await service.hasFeatureAccess('tenant-1', [FeatureAccess.PAYROLL]);
       expect(allowed).toBe(false);
     });
   });

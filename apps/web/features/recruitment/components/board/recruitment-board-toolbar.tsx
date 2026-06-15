@@ -1,9 +1,9 @@
-import { Download, Filter, Search, Settings2 } from "lucide-react";
-import type { ReactNode } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { Download, Filter, Search, Settings2 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 type RecruitmentBoardToolbarProps = {
   title?: string;
@@ -31,21 +31,15 @@ export function RecruitmentBoardToolbar({
   className,
 }: RecruitmentBoardToolbarProps) {
   return (
-    <div className={cn("space-y-3 border-b border-border/60 pb-4", className)}>
+    <div className={cn('space-y-3 border-b border-border/60 pb-4', className)}>
       {title || titleAction ? (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          {title ? (
-            <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
-          ) : (
-            <span />
-          )}
+          {title ? <h3 className="text-sm font-semibold tracking-tight">{title}</h3> : <span />}
           {titleAction}
         </div>
       ) : null}
 
-      {description ? (
-        <p className="text-xs text-muted-foreground">{description}</p>
-      ) : null}
+      {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-2">
@@ -65,25 +59,15 @@ export function RecruitmentBoardToolbar({
               <Input
                 placeholder="Search candidates…"
                 className="h-8 rounded-lg pl-8 text-xs"
-                value={search ?? ""}
+                value={search ?? ''}
                 onChange={(e) => onSearchChange?.(e.target.value)}
                 readOnly={!onSearchChange}
               />
             </div>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8 shrink-0"
-              disabled
-            >
+            <Button variant="outline" size="icon" className="size-8 shrink-0" disabled>
               <Filter className="size-3.5" />
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="size-8 shrink-0"
-              disabled
-            >
+            <Button variant="outline" size="icon" className="size-8 shrink-0" disabled>
               <Settings2 className="size-3.5" />
             </Button>
             <Button size="sm" className="h-8 rounded-lg text-xs" disabled>

@@ -1,9 +1,9 @@
-import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { AuditContext } from '../../../../common/interfaces/audit-context.interface';
-import { AuditLogEntry } from '../../../../common/interfaces/audit-log-entry.interface';
+import type { Repository } from 'typeorm';
+import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
+import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
+import type { AuditLogEntry } from '../../../../common/interfaces/audit-log-entry.interface';
 import { PayrollAuditLog } from '../entities/payroll-audit.entity';
 
 @Injectable()
@@ -13,10 +13,7 @@ export class AuditService {
     @InjectRepository(PayrollAuditLog)
     private auditLogRepository: Repository<PayrollAuditLog>,
   ) {}
-  async logEvent(
-    context: AuditContext,
-    entry: AuditLogEntry,
-  ): Promise<PayrollAuditLog> {
+  async logEvent(context: AuditContext, entry: AuditLogEntry): Promise<PayrollAuditLog> {
     try {
       const auditLog = this.auditLogRepository.create({
         payrollRunId: context.payrollRunId || null,
@@ -32,9 +29,7 @@ export class AuditService {
         metadata: entry.metadata || null,
       });
       const savedLog = await this.auditLogRepository.save(auditLog);
-      this.logger.log(
-        `Audit event logged: ${entry.eventType} - ${entry.description}`,
-      );
+      this.logger.log(`Audit event logged: ${entry.eventType} - ${entry.description}`);
       return savedLog;
     } catch (error) {
       this.logger.error('Failed to log audit event:', error);
@@ -73,10 +68,7 @@ export class AuditService {
     });
   }
 
-  async logManualDisbursement(
-    context: AuditContext,
-    results: Record<string, any>,
-  ): Promise<void> {
+  async logManualDisbursement(context: AuditContext, results: Record<string, any>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_DISBURSED_MANUAL,
       description: `Payroll manually disbursed: ${results.title}`,
@@ -94,10 +86,7 @@ export class AuditService {
     });
   }
 
-  async logPayrollExported(
-    context: AuditContext,
-    exportData: Record<string, any>,
-  ): Promise<void> {
+  async logPayrollExported(context: AuditContext, exportData: Record<string, any>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYROLL_EXPORTED,
       description: `Payroll export generated: ${exportData.exportType}`,
@@ -128,10 +117,7 @@ export class AuditService {
       },
     });
   }
-  async logPaymentSent(
-    context: AuditContext,
-    paymentData: Record<string, any>,
-  ): Promise<void> {
+  async logPaymentSent(context: AuditContext, paymentData: Record<string, any>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_SENT,
       description: `Payment sent to employee ${context.memberId}`,
@@ -161,10 +147,7 @@ export class AuditService {
       },
     });
   }
-  async logTaxCalculated(
-    context: AuditContext,
-    taxData: Record<string, any>,
-  ): Promise<void> {
+  async logTaxCalculated(context: AuditContext, taxData: Record<string, any>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.TAX_CALCULATED,
       description: `Tax calculated for employee ${context.memberId}`,
@@ -192,12 +175,9 @@ export class AuditService {
       },
     });
   }
-  async logPaymentAttempt(
-    context: AuditContext,
-    paymentData: Record<string, any>,
-  ): Promise<void> {
+  async logPaymentAttempt(context: AuditContext, paymentData: Record<string, any>): Promise<void> {
     await this.logEvent(context, {
-      eventType: AuditEventType.PAYMENT_SENT, 
+      eventType: AuditEventType.PAYMENT_SENT,
       description: `Payment attempt for employee ${context.memberId}`,
       afterData: paymentData,
       metadata: {
@@ -213,7 +193,7 @@ export class AuditService {
     paymentData: Record<string, any>,
   ): Promise<void> {
     await this.logEvent(context, {
-      eventType: AuditEventType.PAYMENT_SENT, 
+      eventType: AuditEventType.PAYMENT_SENT,
       description: `Large payment detected for employee ${context.memberId}`,
       afterData: paymentData,
       metadata: {
@@ -225,12 +205,9 @@ export class AuditService {
       },
     });
   }
-  async logSalaryCalculated(
-    context: AuditContext,
-    salaryData: Record<string, any>,
-  ): Promise<void> {
+  async logSalaryCalculated(context: AuditContext, salaryData: Record<string, any>): Promise<void> {
     await this.logEvent(context, {
-      eventType: AuditEventType.TAX_CALCULATED, 
+      eventType: AuditEventType.TAX_CALCULATED,
       description: `Salary calculated for employee ${context.memberId}`,
       afterData: salaryData,
       metadata: {
@@ -249,7 +226,7 @@ export class AuditService {
     adjustmentData: Record<string, any>,
   ): Promise<void> {
     await this.logEvent(context, {
-      eventType: AuditEventType.TAX_CALCULATED, 
+      eventType: AuditEventType.TAX_CALCULATED,
       description: `Payroll adjustment calculated for employee ${context.memberId}`,
       afterData: adjustmentData,
       metadata: {
@@ -267,7 +244,7 @@ export class AuditService {
     summaryData: Record<string, any>,
   ): Promise<void> {
     await this.logEvent(context, {
-      eventType: AuditEventType.PAYROLL_PROCESSED, 
+      eventType: AuditEventType.PAYROLL_PROCESSED,
       description: `Payroll adjustment summary for payroll run ${context.payrollRunId}`,
       afterData: summaryData,
       metadata: {

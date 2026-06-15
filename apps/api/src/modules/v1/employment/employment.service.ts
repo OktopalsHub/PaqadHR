@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { EmploymentRepository } from './employment.repository';
-import { Tenant } from "../tenants/entities/tenant.entity";
-import { CreateEmploymentDto } from "./dto/create-employment.dto";
-import { Employment } from "./entities/employment.entity";
-import { UpdateEmploymentDto } from "./dto/update-employment.dto";
+import type { Repository } from 'typeorm';
+import { Tenant } from '../tenants/entities/tenant.entity';
+import type { CreateEmploymentDto } from './dto/create-employment.dto';
+import type { UpdateEmploymentDto } from './dto/update-employment.dto';
+import type { EmploymentRepository } from './employment.repository';
+import type { Employment } from './entities/employment.entity';
 
 @Injectable()
 export class EmploymentService {
@@ -30,20 +30,11 @@ export class EmploymentService {
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.listEmployments(tenantId);
   }
-  async getEmploymentsByMemberId(
-    tenantId: string,
-    memberId: string,
-  ): Promise<Employment[]> {
-    return this.employmentRepository.findEmploymentsByMemberId(
-      tenantId,
-      memberId,
-    );
+  async getEmploymentsByMemberId(tenantId: string, memberId: string): Promise<Employment[]> {
+    return this.employmentRepository.findEmploymentsByMemberId(tenantId, memberId);
   }
   async getEmployment(id: string, tenantId: string): Promise<Employment> {
-    const employment = await this.employmentRepository.getEmployment(
-      id,
-      tenantId,
-    );
+    const employment = await this.employmentRepository.getEmployment(id, tenantId);
     if (!employment) {
       throw new NotFoundException(`Employment with ID "${id}" not found`);
     }
@@ -54,21 +45,14 @@ export class EmploymentService {
     updateEmploymentDto: UpdateEmploymentDto,
     tenantId: string,
   ): Promise<Employment> {
-    await this.getEmployment(id, tenantId); 
-    return this.employmentRepository.updateEmployment(
-      id,
-      updateEmploymentDto,
-      tenantId,
-    );
+    await this.getEmployment(id, tenantId);
+    return this.employmentRepository.updateEmployment(id, updateEmploymentDto, tenantId);
   }
   async deleteEmployment(id: string, tenantId: string): Promise<void> {
     await this.getEmployment(id, tenantId);
     await this.employmentRepository.deleteEmployment(id, tenantId);
   }
-  async getCurrentEmployment(
-    tenantMemberId: string,
-    tenantId: string,
-  ): Promise<Employment> {
+  async getCurrentEmployment(tenantMemberId: string, tenantId: string): Promise<Employment> {
     const employment = await this.employmentRepository.getCurrentEmployment(
       tenantMemberId,
       tenantId,
@@ -90,10 +74,7 @@ export class EmploymentService {
     paySchedule: string;
     currency: string;
   }> {
-    const employment = await this.getCurrentEmployment(
-      tenantMemberId,
-      tenantId,
-    );
+    const employment = await this.getCurrentEmployment(tenantMemberId, tenantId);
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
     });
@@ -124,16 +105,10 @@ export class EmploymentService {
     const salaryMap = new Map();
     for (const memberId of tenantMemberIds) {
       try {
-        const salaryInfo = await this.getEmploymentSalaryInfo(
-          memberId,
-          tenantId,
-        );
+        const salaryInfo = await this.getEmploymentSalaryInfo(memberId, tenantId);
         salaryMap.set(memberId, salaryInfo);
       } catch (error) {
-        console.warn(
-          `Could not get salary info for employee ${memberId}:`,
-          error.message,
-        );
+        console.warn(`Could not get salary info for employee ${memberId}:`, error.message);
       }
     }
     return salaryMap;

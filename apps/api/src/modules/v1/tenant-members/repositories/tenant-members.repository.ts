@@ -1,12 +1,10 @@
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { FileUrlService } from 'src/common/services/file-url.service';
-import { TenantMember } from "../entities/tenant-member.entity";
-import { CelebrationResponseDto } from '../dto/celebrations-response.dto';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
-import { FindOneOptions, MoreThanOrEqual } from 'typeorm';
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import { type FindOneOptions, MoreThanOrEqual, Repository } from 'typeorm';
+import type { CelebrationResponseDto } from '../dto/celebrations-response.dto';
+import { TenantMember } from '../entities/tenant-member.entity';
 
 @Injectable()
 export class TenantMemberRepository extends Repository<TenantMember> {
@@ -15,7 +13,11 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     private readonly tenantMemberRepository: Repository<TenantMember>,
     private readonly fileUrlService: FileUrlService,
   ) {
-    super(tenantMemberRepository.target, tenantMemberRepository.manager, tenantMemberRepository.queryRunner);
+    super(
+      tenantMemberRepository.target,
+      tenantMemberRepository.manager,
+      tenantMemberRepository.queryRunner,
+    );
   }
   async findByUserId(userId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
@@ -135,15 +137,10 @@ export class TenantMemberRepository extends Repository<TenantMember> {
       },
     });
   }
-  async findOne(
-    options: FindOneOptions<TenantMember>,
-  ): Promise<TenantMember | null> {
+  async findOne(options: FindOneOptions<TenantMember>): Promise<TenantMember | null> {
     return this.tenantMemberRepository.findOne(options);
   }
-  async findByUserAndTenantId(
-    userId: string,
-    tenantId: string,
-  ): Promise<TenantMember> {
+  async findByUserAndTenantId(userId: string, tenantId: string): Promise<TenantMember> {
     const tenantMember = await this.tenantMemberRepository.findOne({
       where: { userId, tenantId },
       relations: [
@@ -168,10 +165,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
       where: { userId, tenantId },
     });
   }
-  async findByTenantAndMemberId(
-    tenantId: string,
-    memberId: string,
-  ): Promise<TenantMember> {
+  async findByTenantAndMemberId(tenantId: string, memberId: string): Promise<TenantMember> {
     const member = await this.tenantMemberRepository.findOne({
       where: { id: memberId, tenantId, isActive: true },
     });
@@ -241,17 +235,11 @@ export class TenantMemberRepository extends Repository<TenantMember> {
       order: { joinDate: 'DESC' },
     });
   }
-  async findUpcomingCelebrations(
-    tenantId: string,
-  ): Promise<CelebrationResponseDto[]> {
+  async findUpcomingCelebrations(tenantId: string): Promise<CelebrationResponseDto[]> {
     const now = new Date();
     const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const months = [
-      currentMonth,
-      (currentMonth + 1) % 12,
-      (currentMonth + 2) % 12,
-    ];
+    const _currentYear = now.getFullYear();
+    const months = [currentMonth, (currentMonth + 1) % 12, (currentMonth + 2) % 12];
     const birthdayQuery = this.tenantMemberRepository
       .createQueryBuilder('member')
       .leftJoin('member.user', 'user')
@@ -259,12 +247,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         isCurrent: true,
       })
       .leftJoin('ph.position', 'position')
-      .leftJoin(
-        'member.departmentMemberships',
-        'dm',
-        'dm.isActive = :isActive',
-        { isActive: true },
-      )
+      .leftJoin('member.departmentMemberships', 'dm', 'dm.isActive = :isActive', { isActive: true })
       .leftJoin('dm.department', 'department')
       .select([
         'member.id',
@@ -292,12 +275,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         isCurrent: true,
       })
       .leftJoin('ph.position', 'position')
-      .leftJoin(
-        'member.departmentMemberships',
-        'dm',
-        'dm.isActive = :isActive',
-        { isActive: true },
-      )
+      .leftJoin('member.departmentMemberships', 'dm', 'dm.isActive = :isActive', { isActive: true })
       .leftJoin('dm.department', 'department')
       .select([
         'member.id',
@@ -331,10 +309,8 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         employeeNumber: b.member_employeeNumber,
         avatarUrl:
           b.member_avatarKey && b.member_tenantId
-            ? this.fileUrlService.getMemberAvatarUrl(
-                b.member_tenantId,
-                b.member_avatarKey,
-              ) || undefined
+            ? this.fileUrlService.getMemberAvatarUrl(b.member_tenantId, b.member_avatarKey) ||
+              undefined
             : undefined,
         positionTitle: b.positionTitle,
         departmentName: b.departmentName,
@@ -353,10 +329,8 @@ export class TenantMemberRepository extends Repository<TenantMember> {
           employeeNumber: a.member_employeeNumber,
           avatarUrl:
             a.member_avatarKey && a.member_tenantId
-              ? this.fileUrlService.getMemberAvatarUrl(
-                  a.member_tenantId,
-                  a.member_avatarKey,
-                ) || undefined
+              ? this.fileUrlService.getMemberAvatarUrl(a.member_tenantId, a.member_avatarKey) ||
+                undefined
               : undefined,
           positionTitle: a.positionTitle,
           departmentName: a.departmentName,
@@ -366,8 +340,6 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         };
       }),
     ];
-    return celebrations.sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
+    return celebrations.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 }

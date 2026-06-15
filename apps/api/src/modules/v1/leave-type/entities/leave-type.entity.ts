@@ -1,14 +1,9 @@
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany } from 'typeorm';
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { Leave } from "../../leave/entities/leave.entity";
-import { LeaveBalance } from "../../leave-balance/entities/leave-balance.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { Column, DeleteDateColumn, Entity, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Leave } from '../../leave/entities/leave.entity';
+import { LeaveBalance } from '../../leave-balance/entities/leave-balance.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('leave_types')
 export class LeaveType extends BaseEntity {
@@ -22,15 +17,27 @@ export class LeaveType extends BaseEntity {
   isActive: boolean;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => Tenant, (tenant) => tenant.leaveTypes)
+  @ManyToOne(
+    () => Tenant,
+    (tenant) => tenant.leaveTypes,
+  )
   tenant: Tenant;
   @Column({ name: 'tenant_member_id' })
   tenantMemberId: string;
-  @ManyToOne(() => TenantMember, (tenantMember) => tenantMember.leaveTypes)
+  @ManyToOne(
+    () => TenantMember,
+    (tenantMember) => tenantMember.leaveTypes,
+  )
   tenantMember: TenantMember;
-  @OneToMany(() => Leave, (leave) => leave.leaveTypes)
+  @OneToMany(
+    () => Leave,
+    (leave) => leave.leaveTypes,
+  )
   leaves: Leave[];
-  @OneToMany(() => LeaveBalance, (leaveBalance) => leaveBalance.leaveType)
+  @OneToMany(
+    () => LeaveBalance,
+    (leaveBalance) => leaveBalance.leaveType,
+  )
   leaveBalances: Leave[];
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

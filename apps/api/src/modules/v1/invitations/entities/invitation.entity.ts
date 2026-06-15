@@ -1,14 +1,9 @@
 import { InvitationStatus } from 'src/common/enums';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne } from 'typeorm';
-import { Department } from "../../departments/entities/department.entity";
-import { Position } from "../../position/entities/position.entity";
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Department } from '../../departments/entities/department.entity';
+import { Position } from '../../position/entities/position.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
 @Entity({ name: 'invitations' })
 export class Invitation extends BaseEntity {

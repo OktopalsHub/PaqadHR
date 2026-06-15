@@ -1,15 +1,17 @@
-import { CreateNotificationDto, CreateBulkNotificationDto } from '../dto/create-notification.dto';
-import { Notification } from '../entities/notification.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, In, IsNull } from 'typeorm';
-import { ZeptomailEmailService } from './zeptomail-email.service';
-import { SSENotificationService } from './sse-notification.service';
-import { NotificationPreference } from "../entities/notification-preference.entity";
-import { NotificationType } from "../../../../common/enums/notification-type.enum";
-import { NotificationChannel } from "../../../../common/enums/notification-channel.enum";
-import { NotificationStatus } from "../../../../common/enums/notification-status.enum";
+import { type FindOptionsWhere, In, IsNull, type Repository } from 'typeorm';
+import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationStatus } from '../../../../common/enums/notification-status.enum';
+import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import type {
+  CreateBulkNotificationDto,
+  CreateNotificationDto,
+} from '../dto/create-notification.dto';
+import { Notification } from '../entities/notification.entity';
+import { NotificationPreference } from '../entities/notification-preference.entity';
+import type { SSENotificationService } from './sse-notification.service';
+import type { ZeptomailEmailService } from './zeptomail-email.service';
 
 @Injectable()
 export class NotificationService {
@@ -18,24 +20,17 @@ export class NotificationService {
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     @InjectRepository(NotificationPreference)
-    private preferenceRepository: Repository<NotificationPreference>,
+    _preferenceRepository: Repository<NotificationPreference>,
     private emailService: ZeptomailEmailService,
     private sseNotificationService: SSENotificationService,
   ) {}
-  async createNotification(
-    createNotificationDto: CreateNotificationDto,
-  ): Promise<Notification> {
-    const notification = this.notificationRepository.create(
-      createNotificationDto,
-    );
-    const savedNotification =
-      await this.notificationRepository.save(notification);
+  async createNotification(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    const notification = this.notificationRepository.create(createNotificationDto);
+    const savedNotification = await this.notificationRepository.save(notification);
     await this.sendNotification(savedNotification);
     return savedNotification;
   }
-  async createBulkNotifications(
-    createBulkDto: CreateBulkNotificationDto,
-  ): Promise<Notification[]> {
+  async createBulkNotifications(createBulkDto: CreateBulkNotificationDto): Promise<Notification[]> {
     const notifications = createBulkDto.recipientIds.map((recipientId) =>
       this.notificationRepository.create({
         ...createBulkDto,
@@ -43,12 +38,9 @@ export class NotificationService {
         recipientId,
       }),
     );
-    const savedNotifications =
-      await this.notificationRepository.save(notifications);
+    const savedNotifications = await this.notificationRepository.save(notifications);
     await Promise.allSettled(
-      savedNotifications.map((notification) =>
-        this.sendNotification(notification),
-      ),
+      savedNotifications.map((notification) => this.sendNotification(notification)),
     );
     return savedNotifications;
   }
@@ -58,7 +50,7 @@ export class NotificationService {
     channel: NotificationChannel = NotificationChannel.IN_APP,
     metadata?: Record<string, any>,
   ): Promise<void> {
-    const notification = await this.createNotification({
+    const _notification = await this.createNotification({
       type: NotificationType.SYSTEM,
       channel,
       title,
@@ -76,7 +68,7 @@ export class NotificationService {
     channel: NotificationChannel = NotificationChannel.IN_APP,
     metadata?: Record<string, any>,
   ): Promise<void> {
-    const notification = await this.createNotification({
+    const _notification = await this.createNotification({
       type: NotificationType.TENANT,
       channel,
       title,
@@ -97,17 +89,15 @@ export class NotificationService {
       unreadOnly?: boolean;
     },
   ): Promise<{ notifications: Notification[]; total: number }> {
-    const where: FindOptionsWhere<Notification>[] = [
-      { recipientId: userId }, 
-    ];
+    const where: FindOptionsWhere<Notification>[] = [{ recipientId: userId }];
     if (tenantId) {
       where.push(
-        { tenantId, recipientId: IsNull() }, 
+        { tenantId, recipientId: IsNull() },
         {
           type: NotificationType.SYSTEM,
           tenantId: IsNull(),
           recipientId: IsNull(),
-        }, 
+        },
       );
     } else {
       where.push({
@@ -144,10 +134,7 @@ export class NotificationService {
       },
     );
   }
-  async markMultipleAsRead(
-    notificationIds: string[],
-    userId: string,
-  ): Promise<void> {
+  async markMultipleAsRead(notificationIds: string[], userId: string): Promise<void> {
     await this.notificationRepository.update(
       {
         id: In(notificationIds),
@@ -170,9 +157,7 @@ export class NotificationService {
     });
   }
   async getUnreadCount(userId: string, tenantId?: string): Promise<number> {
-    const where: FindOptionsWhere<Notification>[] = [
-      { recipientId: userId, readAt: IsNull() },
-    ];
+    const where: FindOptionsWhere<Notification>[] = [{ recipientId: userId, readAt: IsNull() }];
     if (tenantId) {
       where.push(
         { tenantId, recipientId: IsNull(), readAt: IsNull() },
@@ -193,10 +178,7 @@ export class NotificationService {
     }
     return await this.notificationRepository.count({ where });
   }
-  async deleteNotification(
-    notificationId: string,
-    userId: string,
-  ): Promise<void> {
+  async deleteNotification(notificationId: string, userId: string): Promise<void> {
     const result = await this.notificationRepository.delete({
       id: notificationId,
       recipientId: userId,
@@ -224,10 +206,7 @@ export class NotificationService {
         sentAt: new Date(),
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to send notification ${notification.id}:`,
-        error,
-      );
+      this.logger.error(`Failed to send notification ${notification.id}:`, error);
       await this.notificationRepository.update(notification.id, {
         status: NotificationStatus.FAILED,
         errorMessage: error.message,
@@ -235,16 +214,12 @@ export class NotificationService {
       });
     }
   }
-  private async sendEmailNotification(
-    notification: Notification,
-  ): Promise<void> {
+  private async sendEmailNotification(notification: Notification): Promise<void> {
     if (!notification.recipientId) {
       this.logger.warn('Cannot send email notification without recipient');
       return;
     }
-    const recipientEmail = await this.getRecipientEmail(
-      notification.recipientId,
-    );
+    const recipientEmail = await this.getRecipientEmail(notification.recipientId);
     if (!recipientEmail) {
       throw new NotFoundException('Recipient email not found');
     }
@@ -278,9 +253,7 @@ export class NotificationService {
       });
     }
   }
-  private async sendInAppNotification(
-    notification: Notification,
-  ): Promise<void> {
+  private async sendInAppNotification(notification: Notification): Promise<void> {
     if (notification.type === NotificationType.SYSTEM) {
       this.sseNotificationService.sendSystemNotification({
         id: notification.id,
@@ -290,10 +263,7 @@ export class NotificationService {
         metadata: notification.metadata,
         actionData: notification.actionData,
       });
-    } else if (
-      notification.type === NotificationType.TENANT &&
-      notification.tenantId
-    ) {
+    } else if (notification.type === NotificationType.TENANT && notification.tenantId) {
       this.sseNotificationService.sendToTenant(notification.tenantId, {
         id: notification.id,
         type: notification.type,
@@ -317,10 +287,7 @@ export class NotificationService {
     try {
       return `user-${recipientId}@example.com`;
     } catch (error) {
-      this.logger.error(
-        `Failed to get recipient email for ${recipientId}:`,
-        error,
-      );
+      this.logger.error(`Failed to get recipient email for ${recipientId}:`, error);
       return null;
     }
   }

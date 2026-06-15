@@ -1,17 +1,11 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
-import { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
-import { ShoutoutCategoriesRepository } from '../repositories/shoutout-categories.repository';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
+import type { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
+import type { ShoutoutCategoriesRepository } from '../repositories/shoutout-categories.repository';
 
 @Injectable()
 export class ShoutoutCategoriesService {
-  constructor(
-    private readonly categoriesRepository: ShoutoutCategoriesRepository,
-  ) {}
+  constructor(private readonly categoriesRepository: ShoutoutCategoriesRepository) {}
 
   async listCategories(tenantId: string) {
     return this.categoriesRepository.listByTenant(tenantId);
@@ -28,11 +22,7 @@ export class ShoutoutCategoriesService {
     return this.categoriesRepository.save(category);
   }
 
-  async updateCategory(
-    tenantId: string,
-    id: string,
-    dto: UpdateShoutoutCategoryDto,
-  ) {
+  async updateCategory(tenantId: string, id: string, dto: UpdateShoutoutCategoryDto) {
     const category = await this.categoriesRepository.getById(tenantId, id);
     if (!category) {
       throw new NotFoundException('Category not found');
@@ -66,10 +56,7 @@ export class ShoutoutCategoriesService {
         'At least one category is required when categories are enabled',
       );
     }
-    const categories = await this.categoriesRepository.listByIds(
-      tenantId,
-      categoryIds,
-    );
+    const categories = await this.categoriesRepository.listByIds(tenantId, categoryIds);
     if (categories.length !== categoryIds.length) {
       throw new BadRequestException('One or more categories are invalid');
     }

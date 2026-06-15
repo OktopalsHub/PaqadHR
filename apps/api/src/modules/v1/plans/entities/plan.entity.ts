@@ -1,6 +1,6 @@
 import { Column, Entity, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { PlanPrice } from './plan-price.entity';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'plans' })
 export class Plan extends BaseEntity {
@@ -18,6 +18,9 @@ export class Plan extends BaseEntity {
   sortOrder: number;
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
-  @OneToMany(() => PlanPrice, (price) => price.plan)
+  @OneToMany(
+    () => PlanPrice,
+    (price) => price.plan,
+  )
   prices: PlanPrice[];
 }

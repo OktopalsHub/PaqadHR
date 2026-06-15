@@ -1,9 +1,9 @@
 import {
   registerDecorator,
-  ValidationOptions,
-  ValidationArguments,
+  type ValidationArguments,
+  type ValidationOptions,
   ValidatorConstraint,
-  ValidatorConstraintInterface,
+  type ValidatorConstraintInterface,
 } from 'class-validator';
 
 @ValidatorConstraint({ name: 'isNotFuture', async: false })
@@ -45,9 +45,7 @@ export class IsValidPayrollPeriodConstraint implements ValidatorConstraintInterf
     if (!startDate || !frequency) return false;
     const start = new Date(startDate as string);
     const end = new Date(endDate as string);
-    const diffDays = Math.ceil(
-      (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
     switch (frequency) {
       case 'weekly':
         return diffDays >= 6 && diffDays <= 8;
@@ -71,7 +69,7 @@ export class IsValidPayrollPeriodConstraint implements ValidatorConstraintInterf
 }
 
 export function IsNotFuture(validationOptions?: ValidationOptions) {
-  return function (object: object, propertyName: string) {
+  return (object: object, propertyName: string) => {
     registerDecorator({
       target: object.constructor,
       propertyName,
@@ -82,11 +80,8 @@ export function IsNotFuture(validationOptions?: ValidationOptions) {
   };
 }
 
-export function IsAfterStartDate(
-  property: string,
-  validationOptions?: ValidationOptions,
-) {
-  return function (object: object, propertyName: string) {
+export function IsAfterStartDate(property: string, validationOptions?: ValidationOptions) {
+  return (object: object, propertyName: string) => {
     registerDecorator({
       target: object.constructor,
       propertyName,
@@ -98,7 +93,7 @@ export function IsAfterStartDate(
 }
 
 export function IsValidPayrollPeriod(validationOptions?: ValidationOptions) {
-  return function (object: object, propertyName: string) {
+  return (object: object, propertyName: string) => {
     registerDecorator({
       target: object.constructor,
       propertyName,

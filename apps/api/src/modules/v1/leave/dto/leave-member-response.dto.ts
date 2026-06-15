@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 export class LeaveMemberPositionDto {
   @ApiProperty({ description: 'Position ID' })
   id: string;
@@ -39,9 +39,7 @@ export class LeaveMemberResponseDto {
 export class LeaveMemberMapper {
   static toResponse(member: TenantMember): LeaveMemberResponseDto {
     const currentPosition = member.positionHistory?.find((p) => p.isCurrent);
-    const activeDepartmentMembership = member.departmentMemberships?.find(
-      (dm) => dm.isActive,
-    );
+    const activeDepartmentMembership = member.departmentMemberships?.find((dm) => dm.isActive);
     return {
       id: member.id,
       firstName: member.firstName ?? '',

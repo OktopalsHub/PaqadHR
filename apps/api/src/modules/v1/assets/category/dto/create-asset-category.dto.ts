@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsNumber, IsOptional, IsString } from 'class-validator';
 export class CreateAssetCategoryDto {
   @ApiProperty({
     description: 'name',
@@ -21,7 +21,7 @@ export class CreateAssetCategoryDto {
   depreciationRate?: number;
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInt(value, 10))
   maintenanceFrequencyMonths?: number;
   @IsOptional()
   @ApiProperty({

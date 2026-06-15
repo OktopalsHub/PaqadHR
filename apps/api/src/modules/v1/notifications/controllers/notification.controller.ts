@@ -1,37 +1,31 @@
-import { CreateNotificationDto, CreateBulkNotificationDto } from '../dto/create-notification.dto';
-import { Notification } from '../entities/notification.entity';
+import { randomBytes } from 'node:crypto';
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Param,
-  Query,
-  Patch,
+  Controller,
   Delete,
-  UseGuards,
+  Get,
+  type MessageEvent,
+  Param,
+  Patch,
+  Post,
+  Query,
   Req,
   Sse,
-  MessageEvent,
+  UseGuards,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
-import { Observable, interval, map } from 'rxjs';
-import { randomBytes } from 'crypto';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { interval, map, Observable } from 'rxjs';
 import { CurrentTenant } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
+import type { IAuthenticatedUserRequest, TenantContext } from 'src/common/interfaces';
 import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
-import {
-  IAuthenticatedUserRequest,
-  TenantContext,
-} from 'src/common/interfaces';
-import { NotificationService } from '../services/notification.service';
-import { SSENotificationService } from '../services/sse-notification.service';
+import type {
+  CreateBulkNotificationDto,
+  CreateNotificationDto,
+} from '../dto/create-notification.dto';
+import type { Notification } from '../entities/notification.entity';
+import type { NotificationService } from '../services/notification.service';
+import type { SSENotificationService } from '../services/sse-notification.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
@@ -80,11 +74,11 @@ export class NotificationController {
     @Query('offset') offset?: number,
     @Query('unreadOnly') unreadOnly?: boolean,
   ): Promise<{ notifications: Notification[]; total: number }> {
-    return this.notificationService.getUserNotifications(
-      req.auth.principalId,
-      tenant?.id,
-      { limit, offset, unreadOnly },
-    );
+    return this.notificationService.getUserNotifications(req.auth.principalId, tenant?.id, {
+      limit,
+      offset,
+      unreadOnly,
+    });
   }
   @Get('unread-count')
   @ApiOperation({ summary: 'Get unread notification count' })
@@ -96,10 +90,7 @@ export class NotificationController {
     @Req() req: IAuthenticatedUserRequest,
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ count: number }> {
-    const count = await this.notificationService.getUnreadCount(
-      req.auth.principalId,
-      tenant?.id,
-    );
+    const count = await this.notificationService.getUnreadCount(req.auth.principalId, tenant?.id);
     return { count };
   }
   @Patch(':id/read')
@@ -119,10 +110,7 @@ export class NotificationController {
     @Body() body: { notificationIds: string[] },
     @Req() req: IAuthenticatedUserRequest,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markMultipleAsRead(
-      body.notificationIds,
-      req.auth.principalId,
-    );
+    await this.notificationService.markMultipleAsRead(body.notificationIds, req.auth.principalId);
     return { success: true };
   }
   @Patch('read-all')
@@ -132,10 +120,7 @@ export class NotificationController {
     @Req() req: IAuthenticatedUserRequest,
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markAllAsRead(
-      req.auth.principalId,
-      tenant?.id,
-    );
+    await this.notificationService.markAllAsRead(req.auth.principalId, tenant?.id);
     return { success: true };
   }
   @Delete(':id')
@@ -160,11 +145,7 @@ export class NotificationController {
   ): Observable<MessageEvent> {
     const userId = req.auth.principalId;
     const connectionId = `${userId}-${Date.now()}-${randomBytes(8).toString('hex')}`;
-    this.sseNotificationService.registerConnection(
-      connectionId,
-      userId,
-      tenant?.id,
-    );
+    this.sseNotificationService.registerConnection(connectionId, userId, tenant?.id);
     req.on('close', () => {
       this.sseNotificationService.unregisterConnection(connectionId);
     });

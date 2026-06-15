@@ -1,18 +1,12 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Employee } from "../types/";
-import { getInitials } from "@/lib/utils";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
-import { getStatusStyles } from "../utils/";
+import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { getInitials } from '@/lib/utils';
+import type { Employee } from '../types/';
+import { getStatusStyles } from '../utils/';
 
 interface EmployeeCardsProps {
   employees: Employee[];
@@ -30,19 +24,12 @@ export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage
-                      src={employee.avatar || "/placeholder.svg"}
-                      alt={employee.name}
-                    />
-                    <AvatarFallback>
-                      {getInitials(employee.name)}
-                    </AvatarFallback>
+                    <AvatarImage src={employee.avatar || '/placeholder.svg'} alt={employee.name} />
+                    <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">{employee.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {employee.role}
-                    </p>
+                    <p className="text-sm text-muted-foreground">{employee.role}</p>
                   </div>
                 </div>
               </CardHeader>
@@ -50,9 +37,7 @@ export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
                 <div className="grid gap-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium truncate max-w-[180px]">
-                      {employee.email}
-                    </span>
+                    <span className="font-medium truncate max-w-[180px]">{employee.email}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Department:</span>

@@ -1,19 +1,13 @@
-"use client";
+'use client';
 
-import { useCallback, useMemo } from "react";
-import { useTenant } from "@/providers/tenant-provider";
-import {
-  getNavItems,
-  type NavItem,
-} from "@/features/navigations/constants/nav-items";
-import { tenantPath } from "@/lib/navigation/tenant-routes";
+import { useCallback, useMemo } from 'react';
+import { getNavItems, type NavItem } from '@/features/navigations/constants/nav-items';
+import { tenantPath } from '@/lib/navigation/tenant-routes';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function useTenantNavItems(): NavItem[] {
   const { tenant } = useTenant();
-  return useMemo(
-    () => (tenant?.slug ? getNavItems(tenant.slug) : []),
-    [tenant?.slug],
-  );
+  return useMemo(() => (tenant?.slug ? getNavItems(tenant.slug) : []), [tenant?.slug]);
 }
 
 export function useTenantHref() {
@@ -21,7 +15,7 @@ export function useTenantHref() {
 
   return useCallback(
     (segment?: string) => {
-      if (!tenant?.slug) return "#";
+      if (!tenant?.slug) return '#';
       return tenantPath(tenant.slug, segment);
     },
     [tenant?.slug],

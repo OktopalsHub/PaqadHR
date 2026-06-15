@@ -1,8 +1,8 @@
-import { LandingNav } from "./sections/landing-nav";
-import { LandingHero } from "./sections/landing-hero";
-import { LandingCapabilities } from "./sections/landing-capabilities";
-import { LandingCta } from "./sections/landing-cta";
-import { LandingFooter } from "./sections/landing-footer";
+import { LandingCapabilities } from './sections/landing-capabilities';
+import { LandingCta } from './sections/landing-cta';
+import { LandingFooter } from './sections/landing-footer';
+import { LandingHero } from './sections/landing-hero';
+import { LandingNav } from './sections/landing-nav';
 
 export const LandingPage = () => {
   return (

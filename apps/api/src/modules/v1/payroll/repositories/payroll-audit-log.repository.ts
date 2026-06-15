@@ -9,7 +9,11 @@ export class PayrollAuditLogRepository extends Repository<PayrollAuditLog> {
     @InjectRepository(PayrollAuditLog)
     private readonly payrollAuditLogRepository: Repository<PayrollAuditLog>,
   ) {
-    super(payrollAuditLogRepository.target, payrollAuditLogRepository.manager, payrollAuditLogRepository.queryRunner);
+    super(
+      payrollAuditLogRepository.target,
+      payrollAuditLogRepository.manager,
+      payrollAuditLogRepository.queryRunner,
+    );
   }
   async findByPayrollRunId(payrollRunId: string): Promise<PayrollAuditLog[]> {
     return this.payrollAuditLogRepository.find({

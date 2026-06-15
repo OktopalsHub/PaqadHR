@@ -1,14 +1,8 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany
-} from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { ShoutoutCategoryAssignment } from './shoutout-category-assignment.entity';
 import { ShoutoutRecipient } from './shoutout-recipient.entity';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity('shoutouts')
 export class Shoutout extends BaseEntity {
@@ -28,7 +22,10 @@ export class Shoutout extends BaseEntity {
   @Column({ type: 'text' })
   message: string;
 
-  @OneToMany(() => ShoutoutRecipient, (recipient) => recipient.shoutout)
+  @OneToMany(
+    () => ShoutoutRecipient,
+    (recipient) => recipient.shoutout,
+  )
   recipients: ShoutoutRecipient[];
 
   @OneToMany(

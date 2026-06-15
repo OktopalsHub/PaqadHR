@@ -1,4 +1,3 @@
-import { Asset } from '../entities/asset.entity';
 import {
   Body,
   Controller,
@@ -9,43 +8,33 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import { FileUrlService } from 'src/common/services/file-url.service';
-import { AssetDocumentService } from './asset-document.service';
-import { CreateAssetDocumentDto } from "./dto/create-asset-document.dto";
-import { AssetDocumentMapper } from "./dto/asset-document-response.dto";
-import { UpdateAssetDocumentDto } from "./dto/update-asset-document.dto";
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import type { AssetDocumentService } from './asset-document.service';
+import { AssetDocumentMapper } from './dto/asset-document-response.dto';
+import type { CreateAssetDocumentDto } from './dto/create-asset-document.dto';
+import type { UpdateAssetDocumentDto } from './dto/update-asset-document.dto';
 
 @Controller('tenants/:tenantId/asset-documents')
 export class AssetDocumentController {
   constructor(
     private readonly assetDocumentService: AssetDocumentService,
-    private readonly fileUrlService: FileUrlService,
+    readonly _fileUrlService: FileUrlService,
   ) {}
   @Post()
   createAssetDocument(
     @Param('tenantId') tenantId: string,
     @Body() createAssetDocumentDto: CreateAssetDocumentDto,
   ) {
-    return this.assetDocumentService.createAssetDocument(
-      tenantId,
-      createAssetDocumentDto,
-    );
+    return this.assetDocumentService.createAssetDocument(tenantId, createAssetDocumentDto);
   }
   @Get()
   async listAssetDocuments(@Param('tenantId') tenantId: string) {
-    const documents =
-      await this.assetDocumentService.listAssetDocuments(tenantId);
+    const documents = await this.assetDocumentService.listAssetDocuments(tenantId);
     return AssetDocumentMapper.toResponseList(documents);
   }
   @Get(':id')
-  async getAssetDocument(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    const document = await this.assetDocumentService.getAssetDocument(
-      tenantId,
-      id,
-    );
+  async getAssetDocument(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    const document = await this.assetDocumentService.getAssetDocument(tenantId, id);
     if (!document) {
       throw new NotFoundException('Asset document not found');
     }
@@ -57,28 +46,15 @@ export class AssetDocumentController {
     @Param('id') id: string,
     @Body() updateAssetDocumentDto: UpdateAssetDocumentDto,
   ) {
-    return this.assetDocumentService.updateAssetDocument(
-      tenantId,
-      id,
-      updateAssetDocumentDto,
-    );
+    return this.assetDocumentService.updateAssetDocument(tenantId, id, updateAssetDocumentDto);
   }
   @Get(':id/download')
-  async downloadAssetDocument(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
-    const downloadUrl = await this.assetDocumentService.downloadAssetDocument(
-      tenantId,
-      id,
-    );
+  async downloadAssetDocument(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    const downloadUrl = await this.assetDocumentService.downloadAssetDocument(tenantId, id);
     return { downloadUrl };
   }
   @Delete(':id')
-  deleteAssetDocument(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  deleteAssetDocument(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.assetDocumentService.deleteAssetDocument(tenantId, id);
   }
 }

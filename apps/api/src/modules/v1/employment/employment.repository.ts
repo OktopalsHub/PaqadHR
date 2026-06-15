@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
-import { Employment } from "./entities/employment.entity";
+import { Employment } from './entities/employment.entity';
 
 @Injectable()
 export class EmploymentRepository extends Repository<Employment> {
@@ -9,7 +9,11 @@ export class EmploymentRepository extends Repository<Employment> {
     @InjectRepository(Employment)
     private readonly employmentRepository: Repository<Employment>,
   ) {
-    super(employmentRepository.target, employmentRepository.manager, employmentRepository.queryRunner);
+    super(
+      employmentRepository.target,
+      employmentRepository.manager,
+      employmentRepository.queryRunner,
+    );
   }
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
@@ -19,20 +23,14 @@ export class EmploymentRepository extends Repository<Employment> {
       withDeleted: false,
     });
   }
-  async getEmployment(
-    id: string,
-    tenantId: string,
-  ): Promise<Employment | null> {
+  async getEmployment(id: string, tenantId: string): Promise<Employment | null> {
     return this.employmentRepository.findOne({
       where: { id, tenantId },
       relations: ['position', 'reportsTo', 'tenantMember'],
       withDeleted: false,
     });
   }
-  async findEmploymentsByMemberId(
-    tenantMemberId: string,
-    tenantId: string,
-  ): Promise<Employment[]> {
+  async findEmploymentsByMemberId(tenantMemberId: string, tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
       where: { tenantMemberId, tenantId },
       relations: ['position', 'reportsTo'],
@@ -40,10 +38,7 @@ export class EmploymentRepository extends Repository<Employment> {
       withDeleted: false,
     });
   }
-  async getCurrentEmployment(
-    tenantMemberId: string,
-    tenantId: string,
-  ): Promise<Employment | null> {
+  async getCurrentEmployment(tenantMemberId: string, tenantId: string): Promise<Employment | null> {
     return this.employmentRepository.findOne({
       where: {
         tenantMemberId,
@@ -61,15 +56,11 @@ export class EmploymentRepository extends Repository<Employment> {
   ): Promise<Employment> {
     await this.employmentRepository.update(
       { id, tenantId },
-      updateEmploymentDto as Parameters<
-        typeof this.employmentRepository.update
-      >[1],
+      updateEmploymentDto as Parameters<typeof this.employmentRepository.update>[1],
     );
     const updatedEmployment = await this.getEmployment(id, tenantId);
     if (!updatedEmployment) {
-      throw new NotFoundException(
-        `Employment with ID "${id}" not found after update`,
-      );
+      throw new NotFoundException(`Employment with ID "${id}" not found after update`);
     }
     return updatedEmployment;
   }
@@ -82,9 +73,7 @@ export class EmploymentRepository extends Repository<Employment> {
   async restoreEmployment(id: string, tenantId: string): Promise<void> {
     const result = await this.employmentRepository.restore({ id, tenantId });
     if (result.affected === 0) {
-      throw new NotFoundException(
-        `Employment with ID "${id}" not found or could not be restored`,
-      );
+      throw new NotFoundException(`Employment with ID "${id}" not found or could not be restored`);
     }
   }
   async endCurrentEmployment(
@@ -92,10 +81,7 @@ export class EmploymentRepository extends Repository<Employment> {
     endDate: Date,
     tenantId: string,
   ): Promise<Employment> {
-    const currentEmployment = await this.getCurrentEmployment(
-      tenantMemberId,
-      tenantId,
-    );
+    const currentEmployment = await this.getCurrentEmployment(tenantMemberId, tenantId);
     if (!currentEmployment) {
       throw new NotFoundException(
         `No active employment found for member with ID "${tenantMemberId}"`,

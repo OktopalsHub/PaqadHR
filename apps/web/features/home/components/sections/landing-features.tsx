@@ -1,4 +1,4 @@
-import { services } from "../../constants";
+import { services } from '../../constants';
 
 export const LandingFeatures = () => {
   return (
@@ -10,8 +10,8 @@ export const LandingFeatures = () => {
             Everything HR needs in one platform
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Modular tools that connect your people data, hiring pipeline, and
-            payroll workflow without the enterprise bloat.
+            Modular tools that connect your people data, hiring pipeline, and payroll workflow
+            without the enterprise bloat.
           </p>
         </div>
 

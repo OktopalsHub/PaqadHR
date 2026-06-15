@@ -1,5 +1,5 @@
-import { apiClient, tenantPath } from "@/lib/api/client";
-import { resolveTenantId } from "@/lib/api/tenants";
+import { apiClient, tenantPath } from '@/lib/api/client';
+import { resolveTenantId } from '@/lib/api/tenants';
 
 export type Interview = {
   id: string;
@@ -21,9 +21,7 @@ export type Interview = {
 
 export async function fetchInterviewsToday(): Promise<Interview[]> {
   const tenantId = await resolveTenantId();
-  const data = await apiClient<Interview[]>(
-    tenantPath(tenantId, "interviews/today"),
-  );
+  const data = await apiClient<Interview[]>(tenantPath(tenantId, 'interviews/today'));
   return Array.isArray(data) ? data : [];
 }
 

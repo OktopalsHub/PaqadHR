@@ -1,9 +1,9 @@
-import { apiClient, tenantPath } from "@/lib/api/client";
-import { persistTenantId, readTenantId } from "@/lib/session";
-import { paginatedTenantsSchema } from "@/lib/schemas/tenant";
+import { apiClient, tenantPath } from '@/lib/api/client';
+import { paginatedTenantsSchema } from '@/lib/schemas/tenant';
+import { persistTenantId, readTenantId } from '@/lib/session';
 
 export async function fetchUserTenants() {
-  const data = await apiClient<unknown>("/tenants/user/me?limit=50");
+  const data = await apiClient<unknown>('/tenants/user/me?limit=50');
   const parsed = paginatedTenantsSchema.parse(data);
   return parsed.records;
 }
@@ -16,7 +16,7 @@ export async function resolveTenantId(): Promise<string> {
   const active = tenants.find((t) => t.isActive) ?? tenants[0];
 
   if (!active) {
-    throw new Error("No tenant found for this account");
+    throw new Error('No tenant found for this account');
   }
 
   persistTenantId(active.id);

@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   SidebarGroup,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar";
-import type { NavItem } from "../constants/nav-items";
+} from '@/components/ui/sidebar';
+import type { NavItem } from '../constants/nav-items';
 
 export const NavMain = ({ items }: { items: NavItem[] }) => {
   const pathname = usePathname();
-  const dashboardHref = items.find((item) => item.segment === "")?.href;
-  const mainItems = items.filter((item) => item.segment !== "settings");
+  const dashboardHref = items.find((item) => item.segment === '')?.href;
+  const mainItems = items.filter((item) => item.segment !== 'settings');
 
   return (
     <SidebarGroup className="p-0">

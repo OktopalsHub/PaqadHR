@@ -1,13 +1,6 @@
-import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsDate,
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDate, IsEnum, IsNumber, IsOptional, IsString, IsUUID } from 'class-validator';
 import { EmploymentStatus, PaySchedule, PayType } from 'src/common/enums';
 export class UpdateEmploymentDto {
   @IsDate()

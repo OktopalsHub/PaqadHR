@@ -1,15 +1,10 @@
-"use client";
+'use client';
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
-import { LoadingBlock } from "@/components/loading-block";
-import { useJobOpening } from "@/hooks/queries/use-recruitment";
-import { formatDate } from "@/lib/format-date";
+import { LoadingBlock } from '@/components/loading-block';
+import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useJobOpening } from '@/hooks/queries/use-recruitment';
+import { formatDate } from '@/lib/format-date';
 
 type JobDetailSheetProps = {
   jobId: string | null;
@@ -18,23 +13,19 @@ type JobDetailSheetProps = {
 };
 
 function formatEmploymentType(value?: string) {
-  if (!value) return "—";
+  if (!value) return '—';
   return value
-    .split("_")
+    .split('_')
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join("-");
+    .join('-');
 }
 
 function formatLocationType(value?: string) {
-  if (!value) return "—";
+  if (!value) return '—';
   return value.charAt(0) + value.slice(1).toLowerCase();
 }
 
-export function JobDetailSheet({
-  jobId,
-  open,
-  onOpenChange,
-}: JobDetailSheetProps) {
+export function JobDetailSheet({ jobId, open, onOpenChange }: JobDetailSheetProps) {
   const { data: job, isLoading, isError } = useJobOpening(open ? jobId : null);
 
   return (
@@ -43,9 +34,7 @@ export function JobDetailSheet({
         {isLoading ? (
           <LoadingBlock />
         ) : isError || !job ? (
-          <p className="text-sm text-muted-foreground">
-            Unable to load job details.
-          </p>
+          <p className="text-sm text-muted-foreground">Unable to load job details.</p>
         ) : (
           <>
             <SheetHeader>
@@ -55,34 +44,26 @@ export function JobDetailSheet({
             <div className="mt-4 space-y-5">
               <div className="flex flex-wrap gap-2">
                 <Badge>{job.status.toLowerCase()}</Badge>
-                {job.isUrgent ? (
-                  <Badge variant="destructive">Urgent</Badge>
-                ) : null}
+                {job.isUrgent ? <Badge variant="destructive">Urgent</Badge> : null}
               </div>
 
               <dl className="space-y-3 text-sm">
                 <div>
                   <dt className="text-muted-foreground">Department</dt>
-                  <dd className="font-medium">
-                    {job.departmentName ?? "—"}
-                  </dd>
+                  <dd className="font-medium">{job.departmentName ?? '—'}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Position</dt>
-                  <dd className="font-medium">{job.position ?? "—"}</dd>
+                  <dd className="font-medium">{job.position ?? '—'}</dd>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <dt className="text-muted-foreground">Employment</dt>
-                    <dd className="font-medium">
-                      {formatEmploymentType(job.employmentType)}
-                    </dd>
+                    <dd className="font-medium">{formatEmploymentType(job.employmentType)}</dd>
                   </div>
                   <div>
                     <dt className="text-muted-foreground">Experience</dt>
-                    <dd className="font-medium">
-                      {job.experienceLevel ?? "—"}
-                    </dd>
+                    <dd className="font-medium">{job.experienceLevel ?? '—'}</dd>
                   </div>
                 </div>
                 {job.location ? (
@@ -90,9 +71,7 @@ export function JobDetailSheet({
                     <dt className="text-muted-foreground">Location</dt>
                     <dd className="font-medium">
                       {formatLocationType(job.location.type)}
-                      {[job.location.city, job.location.country]
-                        .filter(Boolean)
-                        .join(", ")}
+                      {[job.location.city, job.location.country].filter(Boolean).join(', ')}
                     </dd>
                   </div>
                 ) : null}
@@ -106,9 +85,7 @@ export function JobDetailSheet({
                   {job.applicationDeadline ? (
                     <div>
                       <dt className="text-muted-foreground">Deadline</dt>
-                      <dd className="font-medium">
-                        {formatDate(job.applicationDeadline)}
-                      </dd>
+                      <dd className="font-medium">{formatDate(job.applicationDeadline)}</dd>
                     </div>
                   ) : null}
                 </div>

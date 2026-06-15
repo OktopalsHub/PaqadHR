@@ -1,8 +1,8 @@
 import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { MemberContext } from 'src/common/interfaces';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { PositionMemberService } from '../services/position-member.service';
+import type { PositionMemberService } from '../services/position-member.service';
 @Controller('tenants/:tenantId/positions')
 @UseGuards(TenantMemberGuard)
 export class PositionMemberController {
@@ -10,8 +10,8 @@ export class PositionMemberController {
   @Get('member/:memberId/history')
   async getPositionHistory(
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.positionMemberService.getPositionHistory(tenantId, member.id);
   }
   @Get('position/:positionId/members')
@@ -19,21 +19,14 @@ export class PositionMemberController {
     @Param('tenantId') tenantId: string,
     @Param('positionId') positionId: string,
   ) {
-    return this.positionMemberService.getMembersByPosition(
-      tenantId,
-      positionId,
-    );
+    return this.positionMemberService.getMembersByPosition(tenantId, positionId);
   }
   @Post('assign')
-    async assignPosition(
+  async assignPosition(
     @Param('tenantId') tenantId: string,
     @Param('positionId') positionId: string,
-    @CurrentTenantMember() member: MemberContext
-    ) {
-    return this.positionMemberService.assignPosition(
-      tenantId,
-      member.id,
-      positionId,
-    );
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.positionMemberService.assignPosition(tenantId, member.id, positionId);
   }
 }

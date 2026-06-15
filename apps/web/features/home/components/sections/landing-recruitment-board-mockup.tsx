@@ -1,41 +1,37 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
-import { toast } from "sonner";
-import { scaleIn } from "@/features/home/constants/landing-motion";
-import { Button } from "@/components/ui/button";
-import { RecruitmentBoardFrame } from "@/features/recruitment/components/board/recruitment-board-frame";
-import { RecruitmentBoardToolbar } from "@/features/recruitment/components/board/recruitment-board-toolbar";
-import { RecruitmentCandidateList } from "@/features/recruitment/components/board/recruitment-candidate-list";
-import {
-  RecruitmentViewToggle,
-  type RecruitmentViewMode,
-} from "@/features/recruitment/components/board/recruitment-view-toggle";
+import { motion } from 'framer-motion';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { scaleIn } from '@/features/home/constants/landing-motion';
+import { isDisqualified } from '@/features/recruitment/components/board/board-columns';
 import {
   DEFAULT_LANDING_JOB_ID,
-  MOCK_JOBS,
   demoCandidatesForJob,
   getMockJob,
-} from "@/features/recruitment/components/board/board-mock-data";
-import { isDisqualified } from "@/features/recruitment/components/board/board-columns";
+  MOCK_JOBS,
+} from '@/features/recruitment/components/board/board-mock-data';
+import { RecruitmentBoardFrame } from '@/features/recruitment/components/board/recruitment-board-frame';
+import { RecruitmentBoardToolbar } from '@/features/recruitment/components/board/recruitment-board-toolbar';
+import { RecruitmentCandidateList } from '@/features/recruitment/components/board/recruitment-candidate-list';
 import {
-  RecruitmentKanbanBoard,
   candidatesToBoardData,
-} from "@/features/recruitment/components/board/recruitment-kanban-board";
-import type { Candidate, CandidateStatus } from "@/lib/schemas/recruitment";
+  RecruitmentKanbanBoard,
+} from '@/features/recruitment/components/board/recruitment-kanban-board';
+import {
+  type RecruitmentViewMode,
+  RecruitmentViewToggle,
+} from '@/features/recruitment/components/board/recruitment-view-toggle';
+import type { Candidate, CandidateStatus } from '@/lib/schemas/recruitment';
 
 export function LandingRecruitmentBoardMockup() {
   const [activeJobId, setActiveJobId] = useState(DEFAULT_LANDING_JOB_ID);
-  const [activeHref, setActiveHref] = useState("/app/recruitment");
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<RecruitmentViewMode>("kanban");
-  const [candidatesByJob, setCandidatesByJob] = useState<
-    Record<string, Candidate[]>
-  >(() =>
-    Object.fromEntries(
-      MOCK_JOBS.map((job) => [job.id, demoCandidatesForJob(job.id)]),
-    ),
+  const [activeHref, setActiveHref] = useState('/app/recruitment');
+  const [search, setSearch] = useState('');
+  const [view, setView] = useState<RecruitmentViewMode>('kanban');
+  const [candidatesByJob, setCandidatesByJob] = useState<Record<string, Candidate[]>>(() =>
+    Object.fromEntries(MOCK_JOBS.map((job) => [job.id, demoCandidatesForJob(job.id)])),
   );
 
   const activeJob = getMockJob(activeJobId);
@@ -48,27 +44,21 @@ export function LandingRecruitmentBoardMockup() {
 
     return items.filter((candidate) => {
       const haystack =
-        `${candidate.firstName} ${candidate.lastName} ${candidate.email} ${candidate.summary ?? ""}`.toLowerCase();
+        `${candidate.firstName} ${candidate.lastName} ${candidate.email} ${candidate.summary ?? ''}`.toLowerCase();
       return haystack.includes(term);
     });
   }, [candidates, search]);
 
-  const qualifiedCount = candidates.filter(
-    (candidate) => !isDisqualified(candidate.status),
-  ).length;
+  const qualifiedCount = candidates.filter((candidate) => !isDisqualified(candidate.status)).length;
   const disqualifiedCount = candidates.filter((candidate) =>
     isDisqualified(candidate.status),
   ).length;
 
-  const handleMoveCandidate = (
-    candidateId: string,
-    status: CandidateStatus,
-  ) => {
+  const handleMoveCandidate = (candidateId: string, status: CandidateStatus) => {
     setCandidatesByJob((prev) => ({
       ...prev,
-      [activeJobId]: (prev[activeJobId] ?? demoCandidatesForJob(activeJobId)).map(
-        (candidate) =>
-          candidate.id === candidateId ? { ...candidate, status } : candidate,
+      [activeJobId]: (prev[activeJobId] ?? demoCandidatesForJob(activeJobId)).map((candidate) =>
+        candidate.id === candidateId ? { ...candidate, status } : candidate,
       ),
     }));
   };
@@ -76,7 +66,7 @@ export function LandingRecruitmentBoardMockup() {
   const handleNavSelect = (href: string, name: string) => {
     setActiveHref(href);
 
-    if (href === "/app/recruitment") {
+    if (href === '/app/recruitment') {
       return;
     }
 
@@ -85,8 +75,8 @@ export function LandingRecruitmentBoardMockup() {
 
   const handleJobChange = (jobId: string) => {
     setActiveJobId(jobId);
-    setActiveHref("/app/recruitment");
-    setSearch("");
+    setActiveHref('/app/recruitment');
+    setSearch('');
   };
 
   return (
@@ -109,7 +99,7 @@ export function LandingRecruitmentBoardMockup() {
                 <Button
                   key={job.id}
                   type="button"
-                  variant={job.id === activeJobId ? "secondary" : "ghost"}
+                  variant={job.id === activeJobId ? 'secondary' : 'ghost'}
                   size="sm"
                   className="h-7 rounded-lg px-2.5 text-xs"
                   onClick={() => handleJobChange(job.id)}
@@ -125,13 +115,11 @@ export function LandingRecruitmentBoardMockup() {
           search={search}
           onSearchChange={setSearch}
           showActions
-          viewToggle={
-            <RecruitmentViewToggle view={view} onViewChange={setView} />
-          }
+          viewToggle={<RecruitmentViewToggle view={view} onViewChange={setView} />}
         />
 
         <div className="mt-4">
-          {view === "kanban" ? (
+          {view === 'kanban' ? (
             <RecruitmentKanbanBoard
               candidates={boardCandidates}
               interactive

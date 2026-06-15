@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsUUID, Min } from 'class-validator';
+import { IsInt, Min } from 'class-validator';
 export class CreateLeaveBalanceDto {
   @ApiProperty({
     description: 'Total days allocated for this leave type',

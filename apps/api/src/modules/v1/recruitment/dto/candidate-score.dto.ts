@@ -1,5 +1,3 @@
-import { Education } from '../../education/entities/education.entity';
-import { Candidate } from '../entities/candidate.entity';
 import { ApiProperty } from '@nestjs/swagger';
 export class ScoreBreakdownDto {
   @ApiProperty({ description: 'Skills match score (0-100)' })
@@ -26,7 +24,7 @@ export class CandidateScoreDto {
   gaps: string[];
   @ApiProperty({
     description: 'Recommendation for this candidate',
-    enum: ['strong_fit', 'good_fit', 'potential_fit', 'not_recommended']
+    enum: ['strong_fit', 'good_fit', 'potential_fit', 'not_recommended'],
   })
   recommendation: 'strong_fit' | 'good_fit' | 'potential_fit' | 'not_recommended';
 }

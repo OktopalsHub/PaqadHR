@@ -1,15 +1,11 @@
-import { apiClient, tenantPath } from "@/lib/api/client";
-import { resolveTenantId } from "@/lib/api/tenants";
+import { apiClient, tenantPath } from '@/lib/api/client';
+import { resolveTenantId } from '@/lib/api/tenants';
 import {
-  mapTenantMemberToEmployee,
-  mapTenantMembersToEmployees,
   type ApiTenantMember,
-} from "@/lib/mappers/employee";
-import {
-  employeeListSchema,
-  employeeSchema,
-  type Employee,
-} from "@/lib/schemas/employee";
+  mapTenantMembersToEmployees,
+  mapTenantMemberToEmployee,
+} from '@/lib/mappers/employee';
+import { type Employee, employeeListSchema, employeeSchema } from '@/lib/schemas/employee';
 
 export type UpdateEmployeeInput = {
   firstName?: string;
@@ -33,48 +29,34 @@ export type CreateEmployeeInviteInput = {
 
 export async function fetchEmployees(): Promise<Employee[]> {
   const tenantId = await resolveTenantId();
-  const members = await apiClient<ApiTenantMember[]>(
-    tenantPath(tenantId, "members"),
-  );
+  const members = await apiClient<ApiTenantMember[]>(tenantPath(tenantId, 'members'));
   return employeeListSchema.parse(mapTenantMembersToEmployees(members));
 }
 
 export async function fetchEmployeeById(id: string): Promise<Employee> {
   const tenantId = await resolveTenantId();
-  const member = await apiClient<ApiTenantMember>(
-    tenantPath(tenantId, `members/${id}`),
-  );
+  const member = await apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}`));
   return employeeSchema.parse(mapTenantMemberToEmployee(member));
 }
 
-export async function fetchTenantMemberById(
-  id: string,
-): Promise<ApiTenantMember> {
+export async function fetchTenantMemberById(id: string): Promise<ApiTenantMember> {
   const tenantId = await resolveTenantId();
   return apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}`));
 }
 
-export async function updateEmployee(
-  id: string,
-  input: UpdateEmployeeInput,
-): Promise<Employee> {
+export async function updateEmployee(id: string, input: UpdateEmployeeInput): Promise<Employee> {
   const tenantId = await resolveTenantId();
-  const member = await apiClient<ApiTenantMember>(
-    tenantPath(tenantId, `members/${id}`),
-    {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    },
-  );
+  const member = await apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
   return employeeSchema.parse(mapTenantMemberToEmployee(member));
 }
 
-export async function createEmployeeInvite(
-  input: CreateEmployeeInviteInput,
-): Promise<unknown> {
+export async function createEmployeeInvite(input: CreateEmployeeInviteInput): Promise<unknown> {
   const tenantId = await resolveTenantId();
-  return apiClient<unknown>(tenantPath(tenantId, "invites"), {
-    method: "POST",
+  return apiClient<unknown>(tenantPath(tenantId, 'invites'), {
+    method: 'POST',
     body: JSON.stringify(input),
   });
 }

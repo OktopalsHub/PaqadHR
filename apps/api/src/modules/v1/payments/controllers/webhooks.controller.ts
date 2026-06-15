@@ -1,12 +1,4 @@
-import {
-  Body,
-  Controller,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  Logger,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Headers, HttpCode, HttpStatus, Logger, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
 @ApiTags('Payment Webhooks')
@@ -22,9 +14,7 @@ export class WebhooksController {
     @Headers('x-nomba-signature') _signature: string,
     @Body() body: { event?: string; eventType?: string },
   ) {
-    this.logger.warn(
-      `Nomba webhook stub received: ${body.event ?? body.eventType ?? 'unknown'}`,
-    );
+    this.logger.warn(`Nomba webhook stub received: ${body.event ?? body.eventType ?? 'unknown'}`);
     return { received: true, stub: true };
   }
 }

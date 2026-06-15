@@ -1,8 +1,7 @@
-import { PartialType } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { IsDateString, IsEnum, IsOptional } from 'class-validator';
 import { MaintenanceStatus } from 'src/common/enums';
-import { CreateMaintenanceDto } from "./create-maintenance.dto";
+import { CreateMaintenanceDto } from './create-maintenance.dto';
 
 export class UpdateMaintenanceDto extends PartialType(CreateMaintenanceDto) {
   @IsOptional()

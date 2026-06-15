@@ -11,15 +11,15 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { MemberContext } from 'src/common/interfaces';
-import { TeamsService } from './teams.service';
-import { TenantMemberGuard } from "../tenant-members/guards/tenant-members.guards";
-import { CreateTeamDto } from "./dto/create-team.dto";
-import { UpdateTeamDto } from "./dto/update-team.dto";
-import { AddTeamMemberDto } from "./dto/add-team-member.dto";
-import { UpdateTeamMemberDto } from "./dto/update-team-member.dto";
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import type { MemberContext } from 'src/common/interfaces';
+import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
+import type { AddTeamMemberDto } from './dto/add-team-member.dto';
+import type { CreateTeamDto } from './dto/create-team.dto';
+import type { UpdateTeamDto } from './dto/update-team.dto';
+import type { UpdateTeamMemberDto } from './dto/update-team-member.dto';
+import type { TeamsService } from './teams.service';
 
 @ApiTags('Teams')
 @UseGuards(JwtAuthGuard, TenantMemberGuard)
@@ -34,10 +34,7 @@ export class TeamsController {
     return this.teamsService.getTeams(tenantId, query);
   }
   @Get(':id')
-  async getTeam(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async getTeam(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.teamsService.getTeam(tenantId, id);
   }
   @Post()
@@ -49,7 +46,7 @@ export class TeamsController {
     return this.teamsService.createTeam(tenantId, member.userId, dto);
   }
   @Put(':id')
-    async updateTeam(
+  async updateTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: UpdateTeamDto,
@@ -57,10 +54,7 @@ export class TeamsController {
     return this.teamsService.updateTeam(tenantId, id, dto);
   }
   @Delete(':id')
-    async deleteTeam(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async deleteTeam(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.teamsService.deleteTeam(tenantId, id);
   }
   @Get(':id/members')
@@ -72,7 +66,7 @@ export class TeamsController {
     return this.teamsService.getTeamMembers(tenantId, id, role);
   }
   @Post(':id/members')
-    async addTeamMember(
+  async addTeamMember(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: AddTeamMemberDto,
@@ -80,7 +74,7 @@ export class TeamsController {
     return this.teamsService.addTeamMember(tenantId, id, dto);
   }
   @Put(':id/members/:memberId')
-    async updateTeamMember(
+  async updateTeamMember(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
@@ -89,7 +83,7 @@ export class TeamsController {
     return this.teamsService.updateTeamMember(tenantId, id, memberId, dto);
   }
   @Delete(':id/members/:memberId')
-    async removeTeamMember(
+  async removeTeamMember(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
@@ -97,7 +91,7 @@ export class TeamsController {
     return this.teamsService.removeTeamMember(tenantId, id, memberId);
   }
   @Patch(':id/leader')
-    async assignTeamLeader(
+  async assignTeamLeader(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: { memberId: string },

@@ -1,4 +1,4 @@
-import { QuestionType } from '../enums';
+import type { QuestionType } from '../enums';
 export interface CustomQuestion {
   id: string;
   questionText: string;

@@ -1,11 +1,10 @@
-
 import { Logger, RequestMethod, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { NestExpressApplication } from '@nestjs/platform-express';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { setupSwagger } from './common/config/swagger.config';
-import { ExpressSetup } from './common/config/express.config';
 import { EnvironmentValidationService } from './common/config/environment-validation.service';
+import { ExpressSetup } from './common/config/express.config';
+import { setupSwagger } from './common/config/swagger.config';
 import { waitForDatabase } from './common/database/config/data-source';
 
 async function bootstrap() {
@@ -17,9 +16,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
-    logger: isProduction
-      ? ['error', 'warn', 'log']
-      : ['log', 'error', 'warn', 'debug', 'verbose'],
+    logger: isProduction ? ['error', 'warn', 'log'] : ['log', 'error', 'warn', 'debug', 'verbose'],
   });
 
   ExpressSetup(app);

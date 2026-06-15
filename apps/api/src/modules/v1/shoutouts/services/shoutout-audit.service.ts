@@ -4,8 +4,8 @@ import {
   AuditSeverity,
   AuditStatus,
 } from '../../../../common/enums/audit-action.enum';
-import { AuditLogsService } from '../../../../common/services/audit-logs.service';
-import { ShoutoutCreatedEventPayload } from '../events/shoutout.events';
+import type { AuditLogsService } from '../../../../common/services/audit-logs.service';
+import type { ShoutoutCreatedEventPayload } from '../events/shoutout.events';
 
 @Injectable()
 export class ShoutoutAuditService {
@@ -35,8 +35,6 @@ export class ShoutoutAuditService {
       },
     });
 
-    this.logger.log(
-      `Audit queued: shoutout ${payload.shoutoutId} by ${payload.senderMemberId}`,
-    );
+    this.logger.log(`Audit queued: shoutout ${payload.shoutoutId} by ${payload.senderMemberId}`);
   }
 }

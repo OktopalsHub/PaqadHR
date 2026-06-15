@@ -162,20 +162,15 @@
 @layer utilities {
   .marketing-glow {
     background:
-      radial-gradient(
-        ellipse 80% 50% at 50% -20%,
-        rgba(255, 204, 0, 0.08),
-        transparent
-      ),
+      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 204, 0, 0.08), transparent),
       var(--background);
   }
   .landing-beam {
-    background:
-      radial-gradient(
-        ellipse 55% 45% at 50% -5%,
-        rgba(255, 204, 0, 0.06),
-        transparent 70%
-      );
+    background: radial-gradient(
+      ellipse 55% 45% at 50% -5%,
+      rgba(255, 204, 0, 0.06),
+      transparent 70%
+    );
   }
   .text-gradient-brand {
     @apply bg-gradient-to-r from-primary to-amber-400 bg-clip-text text-transparent;

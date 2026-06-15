@@ -6,24 +6,22 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-
-import { FileUploadLocation } from '../enums/file-upload-location.enum';
-import { FileUploadOptions } from "../interfaces/file-upload-options.interface";
-import { PresignedUrlOptions } from "../interfaces/presigned-url-options.interface";
-import { FileInfo } from "../interfaces/file-info.interface";
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ENVIRONMENT } from '../config/env.config';
+import type { FileUploadLocation } from '../enums/file-upload-location.enum';
+import type { FileInfo } from '../interfaces/file-info.interface';
+import type { FileUploadOptions } from '../interfaces/file-upload-options.interface';
+import type { PresignedUrlOptions } from '../interfaces/presigned-url-options.interface';
 
 @Injectable()
 export class CloudflareR2Service {
   private readonly logger = new Logger(CloudflareR2Service.name);
   private s3Client: S3Client | null = null;
   private readonly bucketName: string;
-  private readonly accountId: string;
   private readonly publicId: string | null;
   private readonly customDomain: string | null;
   private readonly publicUrl: string | null;
-  private readonly presignedUrlExpires = 3600; 
+  private readonly presignedUrlExpires = 3600;
   constructor() {
     const { CLOUDFLARE_R2 } = ENVIRONMENT;
     const accountId = CLOUDFLARE_R2.ACCOUNT_ID;
@@ -32,7 +30,6 @@ export class CloudflareR2Service {
     const accessKeyId = CLOUDFLARE_R2.ACCESS_KEY_ID;
     const secretAccessKey = CLOUDFLARE_R2.SECRET_ACCESS_KEY;
     this.bucketName = CLOUDFLARE_R2.BUCKET_NAME;
-    this.accountId = accountId;
     this.publicId = publicId || null;
     this.customDomain = customDomain || null;
     if (this.customDomain) {
@@ -47,8 +44,7 @@ export class CloudflareR2Service {
         'No custom domain or public ID configured. Public URLs will not be available.',
       );
     }
-    const missingR2 =
-      !accountId || !accessKeyId || !secretAccessKey || !this.bucketName;
+    const missingR2 = !accountId || !accessKeyId || !secretAccessKey || !this.bucketName;
     if (missingR2) {
       const message =
         'Missing required Cloudflare R2 configuration (CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME)';
@@ -85,22 +81,18 @@ export class CloudflareR2Service {
     location: FileUploadLocation,
     fileName: string,
   ): string {
-    const sanitizedFileName = fileName.replace(/[\/\\]/g, '_');
+    const sanitizedFileName = fileName.replace(/[/\\]/g, '_');
     return `tenants/${tenantId}/${location}/${sanitizedFileName}`;
   }
   async generateUploadUrl(
     options: PresignedUrlOptions,
   ): Promise<{ uploadUrl: string; fileKey: string }> {
-    const fileKey = this.generateFileKey(
-      options.tenantId,
-      options.location,
-      options.fileName,
-    );
+    const fileKey = this.generateFileKey(options.tenantId, options.location, options.fileName);
     const command = new PutObjectCommand({
       Bucket: this.bucketName,
       Key: fileKey,
       ContentType: options.contentType,
-      ACL: 'public-read', 
+      ACL: 'public-read',
     });
     try {
       const uploadUrl = await getSignedUrl(this.getClient(), command, {
@@ -109,10 +101,7 @@ export class CloudflareR2Service {
       this.logger.debug(`Generated upload URL for key: ${fileKey}`);
       return { uploadUrl, fileKey };
     } catch (error) {
-      this.logger.error(
-        `Failed to generate upload URL for key: ${fileKey}`,
-        error,
-      );
+      this.logger.error(`Failed to generate upload URL for key: ${fileKey}`, error);
       throw new BadRequestException('Failed to generate upload URL');
     }
   }
@@ -137,10 +126,7 @@ export class CloudflareR2Service {
       );
       return downloadUrl;
     } catch (error) {
-      this.logger.error(
-        `Failed to generate download URL for key: ${fileKey}`,
-        error,
-      );
+      this.logger.error(`Failed to generate download URL for key: ${fileKey}`, error);
       throw new BadRequestException('Failed to generate download URL');
     }
   }
@@ -200,22 +186,12 @@ export class CloudflareR2Service {
       if (error.name === 'NotFound') {
         return false;
       }
-      this.logger.error(
-        `Failed to check file existence for key: ${fileKey}`,
-        error,
-      );
+      this.logger.error(`Failed to check file existence for key: ${fileKey}`, error);
       throw new BadRequestException('Failed to check file existence');
     }
   }
-  async uploadFile(
-    options: FileUploadOptions,
-    buffer: Buffer,
-  ): Promise<FileInfo> {
-    const fileKey = this.generateFileKey(
-      options.tenantId,
-      options.location,
-      options.fileName,
-    );
+  async uploadFile(options: FileUploadOptions, buffer: Buffer): Promise<FileInfo> {
+    const fileKey = this.generateFileKey(options.tenantId, options.location, options.fileName);
     try {
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
@@ -223,7 +199,7 @@ export class CloudflareR2Service {
         Body: buffer,
         ContentType: options.contentType,
         Metadata: options.metadata,
-        ACL: 'public-read', 
+        ACL: 'public-read',
       });
       await this.getClient().send(command);
       const downloadUrl = await this.generateDownloadUrl(fileKey);
@@ -241,10 +217,7 @@ export class CloudflareR2Service {
       throw new BadRequestException('Failed to upload file');
     }
   }
-  async listFiles(
-    tenantId: string,
-    location: FileUploadLocation,
-  ): Promise<FileInfo[]> {
+  async listFiles(tenantId: string, location: FileUploadLocation): Promise<FileInfo[]> {
     const prefix = `tenants/${tenantId}/${location}/`;
     try {
       const { ListObjectsV2Command } = await import('@aws-sdk/client-s3');

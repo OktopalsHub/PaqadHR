@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { DepartmentMember } from "../../departments/entities/department-member.entity";
-import { DepartmentInfo } from "../../../../common/interfaces/department-info.interface";
+import type { Repository } from 'typeorm';
+import type { DepartmentInfo } from '../../../../common/interfaces/department-info.interface';
+import { DepartmentMember } from '../../departments/entities/department-member.entity';
 
 @Injectable()
 export class DepartmentUtils {
@@ -10,17 +10,14 @@ export class DepartmentUtils {
     @InjectRepository(DepartmentMember)
     private readonly departmentMemberRepository: Repository<DepartmentMember>,
   ) {}
-  async getMemberDepartment(
-    tenantId: string,
-    memberId: string
-  ): Promise<DepartmentInfo | null> {
+  async getMemberDepartment(tenantId: string, memberId: string): Promise<DepartmentInfo | null> {
     try {
       const departmentMembership = await this.departmentMemberRepository.findOne({
         where: {
           memberId,
           isActive: true,
           department: {
-            tenantId, 
+            tenantId,
           },
         },
         relations: ['department'],
@@ -37,8 +34,8 @@ export class DepartmentUtils {
           name: departmentMembership.department.name,
         };
       }
-      return null; 
-    } catch (error) {
+      return null;
+    } catch (_error) {
       return null;
     }
   }

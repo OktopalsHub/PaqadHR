@@ -1,12 +1,11 @@
-import { User } from '../../modules/v1/users/entities/user.entity';
 import { Injectable, Logger } from '@nestjs/common';
-import { AnomalyIndicator } from '../interfaces/anomaly-indicator.interface';
-import { SecurityAuditService } from './security-audit.service';
+import type { AnomalyIndicator } from '../interfaces/anomaly-indicator.interface';
+import type { SecurityAuditService } from './security-audit.service';
 
 @Injectable()
 export class AnomalyDetectionService {
   private readonly logger = new Logger(AnomalyDetectionService.name);
-  constructor(private readonly securityAuditService: SecurityAuditService) {}
+  constructor(readonly _securityAuditService: SecurityAuditService) {}
   async analyzeUserBehavior(
     userId: string,
     tenantId: string,
@@ -28,7 +27,7 @@ export class AnomalyDetectionService {
     context: unknown,
   ): Promise<AnomalyIndicator[]> {
     const indicators: AnomalyIndicator[] = [];
-    if (amount > 1000000) { 
+    if (amount > 1000000) {
       indicators.push({
         type: 'SUSPICIOUS_PATTERN',
         severity: 'HIGH',

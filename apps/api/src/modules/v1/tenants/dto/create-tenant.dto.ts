@@ -11,8 +11,7 @@ export class CreateTenantDto {
   @MinLength(3)
   name: string;
   @ApiProperty({
-    description:
-      'Unique slug identifier for the tenant (auto-generated if not provided)',
+    description: 'Unique slug identifier for the tenant (auto-generated if not provided)',
     example: 'acme-corp',
     required: false,
   })

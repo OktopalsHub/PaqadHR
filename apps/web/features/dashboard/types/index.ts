@@ -1,10 +1,4 @@
-export type WidgetType =
-  | "kpi"
-  | "metrics"
-  | "chart"
-  | "quickActions"
-  | "attendance"
-  | "calendar";
+export type WidgetType = 'kpi' | 'metrics' | 'chart' | 'quickActions' | 'attendance' | 'calendar';
 
 export interface Widget {
   id: string;

@@ -1,37 +1,36 @@
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Calendar, Gift, User, Clock } from "lucide-react";
+import { Calendar, Clock, Gift, User } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const UpcomingReminders = () => {
   const reminders = [
     {
-      type: "birthday",
+      type: 'birthday',
       title: "Sarah Johnson's Birthday",
-      date: "Tomorrow",
+      date: 'Tomorrow',
       icon: <Gift className="w-4 h-4" />,
-      color: "bg-pink-500",
+      color: 'bg-pink-500',
     },
     {
-      type: "anniversary",
-      title: "Mike Chen - 2 Year Anniversary",
-      date: "March 15",
+      type: 'anniversary',
+      title: 'Mike Chen - 2 Year Anniversary',
+      date: 'March 15',
       icon: <Calendar className="w-4 h-4" />,
-      color: "bg-purple-500",
+      color: 'bg-purple-500',
     },
     {
-      type: "review",
-      title: "Performance Review - Lisa R.",
-      date: "March 18",
+      type: 'review',
+      title: 'Performance Review - Lisa R.',
+      date: 'March 18',
       icon: <User className="w-4 h-4" />,
-      color: "bg-blue-500",
+      color: 'bg-blue-500',
     },
     {
-      type: "probation",
-      title: "End of Probation - Tom B.",
-      date: "March 20",
+      type: 'probation',
+      title: 'End of Probation - Tom B.',
+      date: 'March 20',
       icon: <Clock className="w-4 h-4" />,
-      color: "bg-orange-500",
+      color: 'bg-orange-500',
     },
   ];
 
@@ -56,9 +55,7 @@ export const UpcomingReminders = () => {
                 {reminder.icon}
               </div>
               <div className="flex-1">
-                <p className="font-medium text-slate-700 text-sm">
-                  {reminder.title}
-                </p>
+                <p className="font-medium text-slate-700 text-sm">{reminder.title}</p>
                 <p className="text-xs text-slate-500">{reminder.date}</p>
               </div>
               <Badge variant="outline" className="text-xs">

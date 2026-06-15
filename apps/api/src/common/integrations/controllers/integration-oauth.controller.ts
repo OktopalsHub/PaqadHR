@@ -1,29 +1,29 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
+  Logger,
   Param,
+  Post,
   Query,
   Redirect,
   Req,
   UseGuards,
-  Version,
   VERSION_NEUTRAL,
-  BadRequestException,
-  Logger,
+  Version,
 } from '@nestjs/common';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { ENVIRONMENT } from 'src/common/config/env.config';
-import { CurrentTenantMember, Public } from 'src/common/decorators';
+import { Public } from 'src/common/decorators';
 import { IntegrationType } from 'src/common/enums';
-import { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
-import { TenantsService } from '../../../modules/v1/tenants/tenants.service';
-import { OAuthIntegrationService } from '../services/oauth-integration.service';
-import { ChannelManagementService } from '../services/channel-management.service';
-import { PlatformIntegrationService } from '../services/platform-integration.service';
-import { OAuthStateData } from '../integration.types';
+import type { TenantsService } from '../../../modules/v1/tenants/tenants.service';
+import type { OAuthStateData } from '../integration.types';
+import type { ChannelManagementService } from '../services/channel-management.service';
+import type { OAuthIntegrationService } from '../services/oauth-integration.service';
+import type { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Controller()
 export class OAuthIntegrationController {
@@ -47,12 +47,7 @@ export class OAuthIntegrationController {
       throw new BadRequestException(`Invalid platform type: ${platform}`);
     }
     const redirectUri = this.getRedirectUri(request, platform);
-    const oauthUrl = this.oauthService.generateOAuthUrl(
-      tenantId,
-      platform,
-      member.id,
-      redirectUri,
-    );
+    const oauthUrl = this.oauthService.generateOAuthUrl(tenantId, platform, member.id, redirectUri);
     this.logger.debug(`Generated OAuth URL for ${platform}`, {
       platform,
       tenantId,
@@ -165,19 +160,11 @@ export class OAuthIntegrationController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    const userToken = await this.oauthService.getUserToken(
-      integrationId,
-      member.id,
-    );
+    const userToken = await this.oauthService.getUserToken(integrationId, member.id);
     if (!userToken?.userAccessToken) {
-      throw new BadRequestException(
-        'User token not found. Re-authorize integration.',
-      );
+      throw new BadRequestException('User token not found. Re-authorize integration.');
     }
-    return this.channelService.getAvailableChannels(
-      integrationId,
-      userToken.userAccessToken,
-    );
+    return this.channelService.getAvailableChannels(integrationId, userToken.userAccessToken);
   }
   @Post('integrations/:integrationId/setup-channel')
   @UseGuards(TenantMemberGuard)
@@ -191,10 +178,7 @@ export class OAuthIntegrationController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    const userToken = await this.oauthService.getUserToken(
-      integrationId,
-      member.id,
-    );
+    const userToken = await this.oauthService.getUserToken(integrationId, member.id);
     await this.channelService.configureShoutoutChannel(
       integrationId,
       body.platformChannelId,
@@ -202,10 +186,7 @@ export class OAuthIntegrationController {
       member.id,
       userToken?.userAccessToken,
     );
-    await this.integrationService.syncUsers(
-      integrationId,
-      body.platformChannelId,
-    );
+    await this.integrationService.syncUsers(integrationId, body.platformChannelId);
     return {
       success: true,
       message: 'Channel configured and users synced!',
@@ -213,11 +194,9 @@ export class OAuthIntegrationController {
   }
   private getRedirectUri(request: Request, platform: IntegrationType): string {
     const isDevelopment =
-      ENVIRONMENT.APP.NODE_ENV === 'development' ||
-      request.get('host')?.includes('localhost');
+      ENVIRONMENT.APP.NODE_ENV === 'development' || request.get('host')?.includes('localhost');
     if (isDevelopment) {
-      const protocol =
-        request.get('x-forwarded-proto') || (request.secure ? 'https' : 'http');
+      const protocol = request.get('x-forwarded-proto') || (request.secure ? 'https' : 'http');
       const host = request.get('host');
       return `${protocol}://${host}/integrations/oauth/callback`;
     }

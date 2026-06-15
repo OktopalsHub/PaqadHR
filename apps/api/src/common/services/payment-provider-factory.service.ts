@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { NombaProvider } from '../providers/nomba.provider';
-import { CreatePaymentData } from '../interfaces/create-payment-data.interface';
-import { PaymentResult } from '../interfaces/payment-result.interface';
+import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
+import type { PaymentResult } from '../interfaces/payment-result.interface';
+import type { NombaProvider } from '../providers/nomba.provider';
 
 @Injectable()
 export class PaymentProviderFactoryService {

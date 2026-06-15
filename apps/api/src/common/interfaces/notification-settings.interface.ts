@@ -1,4 +1,4 @@
 export interface NotificationSettings {
-    emailNotifications: boolean;
-    slackNotifications: boolean;
+  emailNotifications: boolean;
+  slackNotifications: boolean;
 }

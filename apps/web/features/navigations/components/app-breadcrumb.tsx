@@ -1,8 +1,8 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Fragment } from "react";
-import { usePathname } from "next/navigation";
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Fragment } from 'react';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -10,20 +10,16 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
-import { getBreadcrumbs } from "@/lib/navigation/breadcrumbs";
-import { useTenant } from "@/providers/tenant-provider";
-import { useBreadcrumbContext } from "@/providers/breadcrumb-provider";
+} from '@/components/ui/breadcrumb';
+import { getBreadcrumbs } from '@/lib/navigation/breadcrumbs';
+import { useBreadcrumbContext } from '@/providers/breadcrumb-provider';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function AppBreadcrumb() {
   const pathname = usePathname();
   const { tenant } = useTenant();
   const context = useBreadcrumbContext();
-  const segments = getBreadcrumbs(
-    pathname,
-    context?.tailLabel,
-    tenant?.name,
-  );
+  const segments = getBreadcrumbs(pathname, context?.tailLabel, tenant?.name);
 
   if (segments.length === 0) return null;
 
@@ -38,9 +34,7 @@ export function AppBreadcrumb() {
               {index > 0 ? <BreadcrumbSeparator /> : null}
               <BreadcrumbItem>
                 {isLast || !segment.href ? (
-                  <BreadcrumbPage className="truncate font-medium">
-                    {segment.label}
-                  </BreadcrumbPage>
+                  <BreadcrumbPage className="truncate font-medium">{segment.label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
                     <Link href={segment.href}>{segment.label}</Link>

@@ -1,9 +1,6 @@
-import type { CalendarEvent } from "@/lib/schemas/calendar";
-import {
-  getEventsForDay,
-  parseEventDate,
-} from "@/features/calenders/lib/calendar-utils";
-import type { ScheduleEvent } from "./recruitment-types";
+import { getEventsForDay, parseEventDate } from '@/features/calenders/lib/calendar-utils';
+import type { CalendarEvent } from '@/lib/schemas/calendar';
+import type { ScheduleEvent } from './recruitment-types';
 
 export function calendarEventsToSchedule(
   events: CalendarEvent[],
@@ -11,7 +8,7 @@ export function calendarEventsToSchedule(
 ): ScheduleEvent[] {
   return getEventsForDay(events, day).map((event) => ({
     id: event.id,
-    time: event.time ?? "All day",
+    time: event.time ?? 'All day',
     title: event.title,
     type: event.type,
   }));

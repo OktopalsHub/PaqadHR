@@ -1,18 +1,17 @@
-import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
 import {
-  CanActivate,
-  ExecutionContext,
+  type CanActivate,
+  type ExecutionContext,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import type { Reflector } from '@nestjs/core';
+import { tenantContext } from '../context/tenant.context';
 import {
   AUTH_ONLY_KEY,
   IS_MEMBER_OPTIONAL_KEY,
   IS_PUBLIC_KEY,
   REQUIRE_TENANT_KEY,
 } from '../decorators';
-import { tenantContext } from '../context/tenant.context';
 @Injectable()
 export class TenantGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -22,10 +21,10 @@ export class TenantGuard implements CanActivate {
       context.getClass(),
     ]);
     if (isPublic) return true;
-    const isAuthOnly = this.reflector.getAllAndOverride<boolean>(
-      AUTH_ONLY_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const isAuthOnly = this.reflector.getAllAndOverride<boolean>(AUTH_ONLY_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (isAuthOnly) {
       const request = context.switchToHttp().getRequest();
       if (!request.user) {
@@ -33,10 +32,10 @@ export class TenantGuard implements CanActivate {
       }
       return true;
     }
-    const isMemberOptional = this.reflector.getAllAndOverride<boolean>(
-      IS_MEMBER_OPTIONAL_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const _isMemberOptional = this.reflector.getAllAndOverride<boolean>(IS_MEMBER_OPTIONAL_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     const requireTenant =
       this.reflector.getAllAndOverride<boolean>(REQUIRE_TENANT_KEY, [
         context.getHandler(),

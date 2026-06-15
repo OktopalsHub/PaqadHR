@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsEnum, IsString, IsNumber } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { AssetType, AssetStatus, AssetCondition } from 'src/common/enums';
+import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { AssetCondition, AssetStatus, AssetType } from 'src/common/enums';
 export class QueryAssetsDto {
   @IsOptional()
   @ApiProperty({
@@ -52,10 +52,10 @@ export class QueryAssetsDto {
   search?: string;
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInt(value, 10))
   page?: number = 1;
   @IsOptional()
   @IsNumber()
-  @Transform(({ value }) => parseInt(value))
+  @Transform(({ value }) => parseInt(value, 10))
   limit?: number = 10;
 }

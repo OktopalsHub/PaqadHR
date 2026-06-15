@@ -1,7 +1,4 @@
 import { PartialType } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
-import { CreateAssetDocumentDto } from "./create-asset-document.dto";
+import { CreateAssetDocumentDto } from './create-asset-document.dto';
 
-export class UpdateAssetDocumentDto extends PartialType(
-  CreateAssetDocumentDto,
-) {}
+export class UpdateAssetDocumentDto extends PartialType(CreateAssetDocumentDto) {}

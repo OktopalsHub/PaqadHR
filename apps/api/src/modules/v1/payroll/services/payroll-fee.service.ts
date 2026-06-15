@@ -1,14 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { SubscriptionsService } from "../../subscriptions/services/subscriptions.service";
+import type { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 
 @Injectable()
 export class PayrollFeeService {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
   async getPayrollFeePercentage(tenantId: string): Promise<number> {
-    const subscription =
-      await this.subscriptionsService.getTenantSubscription(tenantId);
-    const fromPrice =
-      subscription?.planPrice?.regionalConfig?.payrollFeePercentage;
+    const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
+    const fromPrice = subscription?.planPrice?.regionalConfig?.payrollFeePercentage;
     if (fromPrice != null) return Number(fromPrice);
     return 3;
   }
@@ -18,8 +16,7 @@ export class PayrollFeeService {
     tenantId: string;
   }) {
     const feePercentage = await this.getPayrollFeePercentage(params.tenantId);
-    const platformFee =
-      Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
+    const platformFee = Math.round(params.totalPayrollAmount * (feePercentage / 100) * 100) / 100;
     return {
       originalAmount: params.totalPayrollAmount,
       currency: params.currency,
@@ -44,8 +41,7 @@ export class PayrollFeeService {
       feePercentage: number;
       breakdown: { employeePayments: number; platformFee: number };
     }> = [];
-    const totals: Record<string, { original: number; fee: number; charge: number }> =
-      {};
+    const totals: Record<string, { original: number; fee: number; charge: number }> = {};
     for (const item of payrollItems) {
       const calc = await this.calculatePayrollFee({
         totalPayrollAmount: item.amount,

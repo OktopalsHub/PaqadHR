@@ -1,33 +1,25 @@
-"use client";
+'use client';
 
-import {
-  Briefcase,
-  CalendarClock,
-  Heart,
-  Target,
-  TrendingUp,
-  Users,
-  Wallet,
-} from "lucide-react";
-import { AppPage } from "@/components/app-page";
-import { LoadingBlock } from "@/components/loading-block";
-import { StatCard } from "@/components/stat-card";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { useAnalyticsOverview } from "@/hooks/queries/use-analytics";
-import { formatDate } from "@/lib/format-date";
-import { AnalyticsCharts } from "./analytics-charts";
+import { Briefcase, CalendarClock, Heart, Target, TrendingUp, Users, Wallet } from 'lucide-react';
+import { AppPage } from '@/components/app-page';
+import { LoadingBlock } from '@/components/loading-block';
+import { StatCard } from '@/components/stat-card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
+import { formatDate } from '@/lib/format-date';
+import { AnalyticsCharts } from './analytics-charts';
 
 function formatCurrency(amount: number | null, currency: string | null) {
-  if (amount == null) return "—";
+  if (amount == null) return '—';
   try {
     return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency: currency ?? "USD",
+      style: 'currency',
+      currency: currency ?? 'USD',
       maximumFractionDigits: 0,
     }).format(amount);
   } catch {
-    return `${currency ?? ""} ${amount.toLocaleString()}`.trim();
+    return `${currency ?? ''} ${amount.toLocaleString()}`.trim();
   }
 }
 
@@ -48,7 +40,7 @@ export const Analytics = () => {
         <Alert variant="destructive">
           <AlertTitle>Unable to load analytics</AlertTitle>
           <AlertDescription>
-            {error instanceof Error ? error.message : "Something went wrong"}
+            {error instanceof Error ? error.message : 'Something went wrong'}
           </AlertDescription>
         </Alert>
       </AppPage>
@@ -89,10 +81,7 @@ export const Analytics = () => {
         />
         <StatCard
           label="Last payroll"
-          value={formatCurrency(
-            data.payroll.lastRunAmount,
-            data.payroll.lastRunCurrency,
-          )}
+          value={formatCurrency(data.payroll.lastRunAmount, data.payroll.lastRunCurrency)}
           hint={
             data.payroll.lastRunTitle
               ? data.payroll.lastRunTitle
@@ -106,9 +95,7 @@ export const Analytics = () => {
         <StatCard
           label="Attendance rate"
           value={
-            data.attendance.attendanceRate != null
-              ? `${data.attendance.attendanceRate}%`
-              : "—"
+            data.attendance.attendanceRate != null ? `${data.attendance.attendanceRate}%` : '—'
           }
           hint={`Last ${data.attendance.periodDays} days`}
           icon={Target}

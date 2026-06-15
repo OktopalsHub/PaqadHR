@@ -7,19 +7,20 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { PaginationDto } from 'src/common/dto/pagination.dto';
-import { MemberContext } from 'src/common/interfaces';
-import { IPaginatedData } from 'src/common/interfaces/pagination.interface';
-import { TeamsService } from '../teams/teams.service';
-import { DepartmentsService } from './departments.service';
-import { TenantMemberGuard } from "../tenant-members/guards/tenant-members.guards";
-import { DepartmentResponseDto } from "./dto/department-response.dto";
-import { CreateDepartmentDto } from "./dto/create-department.dto";
-import { UpdateDepartmentDto } from "./dto/update-department.dto";
-import { CreateTeamDto } from "../teams/dto/create-team.dto";
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { PaginationDto } from 'src/common/dto/pagination.dto';
+import type { MemberContext } from 'src/common/interfaces';
+import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
+import type { CreateTeamDto } from '../teams/dto/create-team.dto';
+import type { TeamsService } from '../teams/teams.service';
+import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
+import type { DepartmentsService } from './departments.service';
+import type { CreateDepartmentDto } from './dto/create-department.dto';
+import { DepartmentResponseDto } from './dto/department-response.dto';
+import type { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @ApiTags('Departments')
 @UseGuards(TenantMemberGuard)
@@ -53,22 +54,19 @@ export class DepartmentsController {
     );
   }
   @Get(':id')
-  async getDepartment(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async getDepartment(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.departmentsService.getDepartment(tenantId, id);
   }
   @Post()
-    async createDepartment(
+  async createDepartment(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateDepartmentDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.departmentsService.createDepartment(tenantId, member.id, dto);
   }
   @Patch(':id')
-    async updateDepartment(
+  async updateDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: UpdateDepartmentDto,
@@ -76,25 +74,19 @@ export class DepartmentsController {
     return this.departmentsService.updateDepartment(tenantId, id, dto);
   }
   @Delete(':id')
-    async deleteDepartment(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async deleteDepartment(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.departmentsService.deleteDepartment(tenantId, id);
   }
   @Get(':id/teams')
-  async getDepartmentTeams(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async getDepartmentTeams(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.teamsService.getTeams(tenantId, { departmentId: id });
   }
   @Post(':id/teams')
-    async createDepartmentTeam(
+  async createDepartmentTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: CreateTeamDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.teamsService.createTeam(tenantId, member.id, {
       ...dto,
@@ -102,7 +94,7 @@ export class DepartmentsController {
     });
   }
   @Patch(':id/manager')
-    async assignDepartmentManager(
+  async assignDepartmentManager(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: { managerId: string },
@@ -112,34 +104,23 @@ export class DepartmentsController {
     });
   }
   @Post(':id/members')
-    async addMemberToDepartment(
+  async addMemberToDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: { memberId: string },
   ) {
-    return this.departmentsService.addMemberToDepartment(
-      tenantId,
-      id,
-      dto.memberId,
-    );
+    return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId);
   }
   @Delete(':id/members/:memberId')
-    async removeMemberFromDepartment(
+  async removeMemberFromDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
   ) {
-    return this.departmentsService.removeMemberFromDepartment(
-      tenantId,
-      id,
-      memberId,
-    );
+    return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId);
   }
   @Get(':id/members')
-  async getDepartmentMembers(
-    @Param('tenantId') tenantId: string,
-    @Param('id') id: string,
-  ) {
+  async getDepartmentMembers(@Param('tenantId') tenantId: string, @Param('id') id: string) {
     return this.departmentsService.getDepartmentMembers(tenantId, id);
   }
 }

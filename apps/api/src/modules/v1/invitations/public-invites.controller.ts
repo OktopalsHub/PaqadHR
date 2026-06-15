@@ -1,4 +1,3 @@
-import { Invitation } from './entities/invitation.entity';
 import {
   BadRequestException,
   Body,
@@ -13,7 +12,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { StringUtility } from 'src/common/utils';
 import { Public } from '../../../common/decorators';
-import { InvitationsService } from './invitations.service';
+import type { InvitationsService } from './invitations.service';
 
 class AcceptInvitationDto {
   token: string;
@@ -35,10 +34,7 @@ export class PublicInvitesController {
   }
   @Get('details')
   @Public()
-  async getInvitationDetails(
-    @Query('token') token: string,
-    @Query('email') email: string,
-  ) {
+  async getInvitationDetails(@Query('token') token: string, @Query('email') email: string) {
     if (!token || !email) {
       this.logger.warn('Missing required parameters', {
         token: !!token,
@@ -51,24 +47,14 @@ export class PublicInvitesController {
       throw new BadRequestException(validationError);
     }
     try {
-      const invitation =
-        await this.invitationsService.getInvitationByTokenAndEmail(
-          token,
-          email,
-        );
+      const invitation = await this.invitationsService.getInvitationByTokenAndEmail(token, email);
       if (!invitation) {
         throw new NotFoundException('Invitation not found');
       }
       return invitation;
     } catch (error) {
-      if (
-        error.message?.includes(
-          'The email address does not match the invited user email',
-        )
-      ) {
-        throw new BadRequestException(
-          'The email address does not match the invited user email',
-        );
+      if (error.message?.includes('The email address does not match the invited user email')) {
+        throw new BadRequestException('The email address does not match the invited user email');
       }
       throw error;
     }
@@ -82,12 +68,12 @@ export class PublicInvitesController {
       throw new BadRequestException('Token and email are required');
     }
     try {
-      const result = await this.invitationsService.acceptInvitation(
-        token,
-        normalizedEmail,
-        { password, firstName, lastName },
-      );
-      if (!result || !result.invitation) {
+      const result = await this.invitationsService.acceptInvitation(token, normalizedEmail, {
+        password,
+        firstName,
+        lastName,
+      });
+      if (!result?.invitation) {
         throw new InternalServerErrorException('Failed to process invitation');
       }
       return {
@@ -104,14 +90,8 @@ export class PublicInvitesController {
         },
       };
     } catch (error) {
-      if (
-        error.message?.includes(
-          'The email address does not match the invited user email',
-        )
-      ) {
-        throw new BadRequestException(
-          'The email address does not match the invited user email',
-        );
+      if (error.message?.includes('The email address does not match the invited user email')) {
+        throw new BadRequestException('The email address does not match the invited user email');
       }
       throw error;
     }
@@ -131,7 +111,7 @@ export class PublicInvitesController {
     }
     this.logger.log('Processing invitation decline', {
       email,
-      token: token.substring(0, 8) + '...',
+      token: `${token.substring(0, 8)}...`,
     });
     const validationError = this.validateEmail(email);
     if (validationError) {
@@ -139,16 +119,10 @@ export class PublicInvitesController {
       throw new BadRequestException(validationError);
     }
     try {
-      const result =
-        await this.invitationsService.declineInvitationByTokenAndEmail(
-          token,
-          email,
-        );
+      const result = await this.invitationsService.declineInvitationByTokenAndEmail(token, email);
       if (!result) {
         this.logger.error('Failed to decline invitation', { email });
-        throw new InternalServerErrorException(
-          'Failed to process invitation decline',
-        );
+        throw new InternalServerErrorException('Failed to process invitation decline');
       }
       this.logger.log('Invitation declined successfully', {
         email,
@@ -160,14 +134,8 @@ export class PublicInvitesController {
         data: result,
       };
     } catch (error) {
-      if (
-        error.message?.includes(
-          'The email address does not match the invited user email',
-        )
-      ) {
-        throw new BadRequestException(
-          'The email address does not match the invited user email',
-        );
+      if (error.message?.includes('The email address does not match the invited user email')) {
+        throw new BadRequestException('The email address does not match the invited user email');
       }
       throw error;
     }

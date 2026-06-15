@@ -1,7 +1,7 @@
-import { FileUploadLocation } from "../enums/file-upload-location.enum";
+import type { FileUploadLocation } from '../enums/file-upload-location.enum';
 
 export interface FileUrlOptions {
-    tenantId: string;
-    location: FileUploadLocation;
-    fileName: string;
+  tenantId: string;
+  location: FileUploadLocation;
+  fileName: string;
 }

@@ -1,15 +1,9 @@
-import { z } from "zod";
+import { z } from 'zod';
 
-export const jobStatusSchema = z.enum([
-  "DRAFT",
-  "ACTIVE",
-  "INACTIVE",
-  "CLOSED",
-  "ARCHIVED",
-]);
+export const jobStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE', 'CLOSED', 'ARCHIVED']);
 
 const jobLocationSchema = z.object({
-  type: z.enum(["ONSITE", "REMOTE", "HYBRID"]),
+  type: z.enum(['ONSITE', 'REMOTE', 'HYBRID']),
   address: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -40,13 +34,7 @@ export const createJobOpeningInputSchema = z.object({
   title: z.string().min(2),
   departmentId: z.string().uuid().optional(),
   position: z.string().min(1),
-  employmentType: z.enum([
-    "FULL_TIME",
-    "PART_TIME",
-    "CONTRACT",
-    "INTERNSHIP",
-    "TEMPORARY",
-  ]),
+  employmentType: z.enum(['FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERNSHIP', 'TEMPORARY']),
   experienceLevel: z.string().min(1),
   location: jobLocationSchema,
   description: z.string().min(10),
@@ -64,22 +52,22 @@ export type JobOpening = z.infer<typeof jobOpeningSchema>;
 export type JobStatus = z.infer<typeof jobStatusSchema>;
 
 export const candidateStatusSchema = z.enum([
-  "APPLIED",
-  "SCREENING",
-  "UNDER_REVIEW",
-  "INTERVIEW",
-  "OFFER",
-  "HIRED",
-  "REJECTED",
-  "WITHDRAWN",
+  'APPLIED',
+  'SCREENING',
+  'UNDER_REVIEW',
+  'INTERVIEW',
+  'OFFER',
+  'HIRED',
+  'REJECTED',
+  'WITHDRAWN',
 ]);
 
 export const candidateSourceSchema = z.enum([
-  "INTERNAL",
-  "PUBLIC_WEBSITE",
-  "LINKEDIN",
-  "INDEED",
-  "OTHER",
+  'INTERNAL',
+  'PUBLIC_WEBSITE',
+  'LINKEDIN',
+  'INDEED',
+  'OTHER',
 ]);
 
 export const candidateSchema = z.object({
@@ -111,8 +99,8 @@ export const createCandidateInputSchema = z.object({
   jobOpeningId: z.string().uuid(),
   skills: z.string().optional(),
   source: candidateSourceSchema.optional(),
-  linkedinUrl: z.string().url().optional().or(z.literal("")),
-  portfolioUrl: z.string().url().optional().or(z.literal("")),
+  linkedinUrl: z.string().url().optional().or(z.literal('')),
+  portfolioUrl: z.string().url().optional().or(z.literal('')),
 });
 
 export type CreateCandidateInput = z.infer<typeof createCandidateInputSchema>;

@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchMemberProfile } from "@/lib/api/member-profile";
-import { queryKeys } from "@/lib/query/keys";
-import { getInitials } from "@/lib/utils";
-import { useTenant } from "@/providers/tenant-provider";
+import { useQuery } from '@tanstack/react-query';
+import { fetchMemberProfile } from '@/lib/api/member-profile';
+import { queryKeys } from '@/lib/query/keys';
+import { getInitials } from '@/lib/utils';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function useMemberProfile() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: queryKeys.member.profile(tenantId ?? ""),
+    queryKey: queryKeys.member.profile(tenantId ?? ''),
     queryFn: fetchMemberProfile,
     enabled: !tenantLoading && Boolean(tenantId),
   });
@@ -18,20 +18,20 @@ export function useMemberProfile() {
 
 function splitFullName(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return { firstName: "", lastName: "" };
-  if (parts.length === 1) return { firstName: parts[0], lastName: "" };
-  return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+  if (parts.length === 0) return { firstName: '', lastName: '' };
+  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
 }
 
 export function memberFullName(
   profile?: { firstName?: string; lastName?: string },
   fallbackName?: string | null,
 ) {
-  const first = profile?.firstName?.trim() ?? "";
-  const last = profile?.lastName?.trim() ?? "";
-  if (first || last) return [first, last].filter(Boolean).join(" ");
+  const first = profile?.firstName?.trim() ?? '';
+  const last = profile?.lastName?.trim() ?? '';
+  if (first || last) return [first, last].filter(Boolean).join(' ');
   if (fallbackName?.trim()) return fallbackName.trim();
-  return "Member";
+  return 'Member';
 }
 
 export function memberPreferredOrFirstName(
@@ -44,7 +44,7 @@ export function memberPreferredOrFirstName(
     const { firstName } = splitFullName(fallbackName);
     return firstName || fallbackName.trim();
   }
-  return "there";
+  return 'there';
 }
 
 export function memberInitials(
@@ -55,8 +55,8 @@ export function memberInitials(
   const last = profile?.lastName?.trim();
   if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
   if (first) return first.slice(0, 2).toUpperCase();
-  if (fallbackName?.trim()) return getInitials(fallbackName) ?? "M";
-  return "M";
+  if (fallbackName?.trim()) return getInitials(fallbackName) ?? 'M';
+  return 'M';
 }
 
 /** @deprecated Use memberFullName or memberPreferredOrFirstName instead */

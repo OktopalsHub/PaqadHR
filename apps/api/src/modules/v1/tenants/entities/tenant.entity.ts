@@ -1,28 +1,22 @@
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Attendance } from '../../attendance/entities/attendance.entity';
+import { AttendanceException } from '../../attendance/entities/attendance-exception.entity';
+import { AttendancePolicy } from '../../attendance/entities/attendance-policy.entity';
 import { Department } from '../../departments/entities/department.entity';
 import { Document } from '../../document/entities/document.entity';
+import { Education } from '../../education/entities/education.entity';
+import { EmergencyContact } from '../../emergency-contact/entities/emergency-contact.entity';
+import { Employment } from '../../employment/entities/employment.entity';
 import { Leave } from '../../leave/entities/leave.entity';
 import { LeaveBalance } from '../../leave-balance/entities/leave-balance.entity';
+import { LeavePolicy } from '../../leave-policy/entities/leave-policy.entity';
 import { LeaveType } from '../../leave-type/entities/leave-type.entity';
 import { Position } from '../../position/entities/position.entity';
+import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
+import { Team } from '../../teams/entities/team.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { User } from '../../users/entities/user.entity';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany } from 'typeorm';
-import { LeavePolicy } from "../../leave-policy/entities/leave-policy.entity";
-import { Team } from "../../teams/entities/team.entity";
-import { AttendancePolicy } from "../../attendance/entities/attendance-policy.entity";
-import { Attendance } from "../../attendance/entities/attendance.entity";
-import { AttendanceException } from "../../attendance/entities/attendance-exception.entity";
-import { EmergencyContact } from "../../emergency-contact/entities/emergency-contact.entity";
-import { Employment } from "../../employment/entities/employment.entity";
-import { Education } from "../../education/entities/education.entity";
-import { TenantSubscription } from "../../subscriptions/entities/tenant-subscription.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'tenants' })
 export class Tenant extends BaseEntity {
@@ -57,29 +51,56 @@ export class Tenant extends BaseEntity {
   preferredCurrency: string | null;
   @Column({ name: 'pricing_locked', type: 'boolean', default: false })
   pricingLocked: boolean;
-  @ManyToOne(() => User, (user) => user.tenants)
+  @ManyToOne(
+    () => User,
+    (user) => user.tenants,
+  )
   @JoinColumn({ name: 'created_by' })
   createdBy: User;
-  @OneToMany(() => TenantMember, (tenantMember) => tenantMember.tenant)
+  @OneToMany(
+    () => TenantMember,
+    (tenantMember) => tenantMember.tenant,
+  )
   tenantMembers: TenantMember[];
-  @OneToMany(() => LeaveType, (leaveType) => leaveType.tenant)
+  @OneToMany(
+    () => LeaveType,
+    (leaveType) => leaveType.tenant,
+  )
   leaveTypes: LeaveType[];
-  @OneToMany(() => Leave, (leave) => leave.tenant)
+  @OneToMany(
+    () => Leave,
+    (leave) => leave.tenant,
+  )
   leaves: Leave[];
-  @OneToMany(() => LeavePolicy, (leavePolicy) => leavePolicy.tenant)
+  @OneToMany(
+    () => LeavePolicy,
+    (leavePolicy) => leavePolicy.tenant,
+  )
   leavePolicies: LeavePolicy[];
-  @OneToMany(() => LeaveBalance, (leaveBalance) => leaveBalance.tenant)
+  @OneToMany(
+    () => LeaveBalance,
+    (leaveBalance) => leaveBalance.tenant,
+  )
   leaveBalances: LeaveBalance[];
-  @OneToMany(() => Department, (department) => department.tenant)
+  @OneToMany(
+    () => Department,
+    (department) => department.tenant,
+  )
   departments: Department[];
-  @OneToMany(() => Team, (team) => team.tenant)
+  @OneToMany(
+    () => Team,
+    (team) => team.tenant,
+  )
   teams: Team[];
   @OneToMany(
     () => AttendancePolicy,
     (attendancePolicy) => attendancePolicy.tenant,
   )
   attendancePolicies: AttendancePolicy[];
-  @OneToMany(() => Attendance, (attendance) => attendance.tenant)
+  @OneToMany(
+    () => Attendance,
+    (attendance) => attendance.tenant,
+  )
   attendances: Attendance[];
   @OneToMany(
     () => AttendanceException,
@@ -92,17 +113,33 @@ export class Tenant extends BaseEntity {
     { cascade: true },
   )
   emergencyContacts: EmergencyContact[];
-  @OneToMany(() => Document, (document) => document.tenant, { cascade: true })
+  @OneToMany(
+    () => Document,
+    (document) => document.tenant,
+    { cascade: true },
+  )
   documents: Document[];
-  @OneToMany(() => Employment, (employment) => employment.tenant, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => Employment,
+    (employment) => employment.tenant,
+    {
+      cascade: true,
+    },
+  )
   employments: Employment[];
-  @OneToMany(() => Position, (position) => position.tenant, { cascade: true })
+  @OneToMany(
+    () => Position,
+    (position) => position.tenant,
+    { cascade: true },
+  )
   positions: Position[];
-  @OneToMany(() => Education, (education) => education.tenant, {
-    cascade: true,
-  })
+  @OneToMany(
+    () => Education,
+    (education) => education.tenant,
+    {
+      cascade: true,
+    },
+  )
   educations: Education[];
   @OneToMany(
     () => TenantSubscription,

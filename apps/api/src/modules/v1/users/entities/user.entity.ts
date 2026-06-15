@@ -1,16 +1,11 @@
 import { Exclude } from 'class-transformer';
 import { UserRole } from 'src/common/enums';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  OneToMany,
-} from 'typeorm';
+import { Column, DeleteDateColumn, Entity, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Account } from '../../auth/entities/account.entity';
 import { Session } from '../../auth/entities/session.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity('user')
 export class User extends BaseEntity {
@@ -39,16 +34,28 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 20, default: UserRole.BASIC })
   role: string;
 
-  @OneToMany(() => Session, (session) => session.user)
+  @OneToMany(
+    () => Session,
+    (session) => session.user,
+  )
   sessions: Session[];
 
-  @OneToMany(() => Account, (account) => account.user)
+  @OneToMany(
+    () => Account,
+    (account) => account.user,
+  )
   accounts: Account[];
 
-  @OneToMany(() => Tenant, (tenant) => tenant.createdBy)
+  @OneToMany(
+    () => Tenant,
+    (tenant) => tenant.createdBy,
+  )
   tenants: Tenant[];
 
-  @OneToMany(() => TenantMember, (tenantMember) => tenantMember.user)
+  @OneToMany(
+    () => TenantMember,
+    (tenantMember) => tenantMember.user,
+  )
   tenantMembers: TenantMember[];
 
   @DeleteDateColumn({

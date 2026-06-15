@@ -1,17 +1,15 @@
-import { Repository, In } from 'typeorm';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import type { IPaginatedData } from 'src/common/interfaces';
 import {
-  DeepPartial,
-  DeleteResult,
-  FindManyOptions,
-  FindOneOptions,
-  FindOptionsWhere,
-  UpdateResult,
+  type DeepPartial,
+  type FindManyOptions,
+  type FindOptionsWhere,
+  In,
+  Repository,
 } from 'typeorm';
-import { IPaginatedData } from 'src/common/interfaces';
-import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
+import { PayrollRun } from '../entities/payroll-run.entity';
 
 @Injectable()
 export class PayrollRunRepository extends Repository<PayrollRun> {
@@ -28,13 +26,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
   async findByIdWithItems(id: string): Promise<PayrollRun | null> {
     return this.findOne({
       where: { id },
-      relations: [
-        'items',
-        'items.employee',
-        'items.deductions',
-        'items.bonuses',
-        'createdBy',
-      ],
+      relations: ['items', 'items.employee', 'items.deductions', 'items.bonuses', 'createdBy'],
     });
   }
   async findByTenantId(tenantId: string): Promise<PayrollRun[]> {
@@ -91,10 +83,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     const entity = super.create(data);
     return this.save(entity);
   }
-  async updateAndReturn(
-    id: string,
-    data: DeepPartial<PayrollRun>,
-  ): Promise<PayrollRun | null> {
+  async updateAndReturn(id: string, data: DeepPartial<PayrollRun>): Promise<PayrollRun | null> {
     await super.update(id, data as Parameters<Repository<PayrollRun>['update']>[1]);
     return this.findById(id);
   }
@@ -130,8 +119,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
     options: FindManyOptions<PayrollRun>,
   ): Promise<{ data: PayrollRun[]; total: number }> {
     try {
-      const [data, total] =
-        await this.payrollRunRepository.findAndCount(options);
+      const [data, total] = await this.payrollRunRepository.findAndCount(options);
       return { data, total };
     } catch (error) {
       console.error('Payroll pagination error:', error);

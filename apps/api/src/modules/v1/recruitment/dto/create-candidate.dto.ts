@@ -109,11 +109,7 @@ export class CreateCandidateDto {
   })
   @IsString()
   @Transform(({ value }) => {
-    if (
-      typeof value === 'object' &&
-      value &&
-      typeof value.filename === 'string'
-    ) {
+    if (typeof value === 'object' && value && typeof value.filename === 'string') {
       return value.filename;
     }
     if (typeof value === 'string') {
@@ -125,8 +121,7 @@ export class CreateCandidateDto {
   resumeFilename: string;
   @ApiPropertyOptional({
     description: 'Cover letter as plain text (alternative to file upload)',
-    example:
-      'Dear Hiring Manager, I am excited to apply for the Software Engineer position...',
+    example: 'Dear Hiring Manager, I am excited to apply for the Software Engineer position...',
   })
   @IsOptional()
   @IsString()
@@ -138,11 +133,7 @@ export class CreateCandidateDto {
   @IsOptional()
   @IsString()
   @Transform(({ value }) => {
-    if (
-      typeof value === 'object' &&
-      value &&
-      typeof value.filename === 'string'
-    ) {
+    if (typeof value === 'object' && value && typeof value.filename === 'string') {
       return value.filename;
     }
     if (typeof value === 'string') {

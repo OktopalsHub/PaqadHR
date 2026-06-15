@@ -1,17 +1,17 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { ChevronDown, Menu, X } from "lucide-react";
-import { motion } from "framer-motion";
-import { PaqadLogo } from "@/components/paqad-logo";
-import { Button } from "@/components/ui/button";
-import { fadeIn } from "../../constants/landing-motion";
+import { motion } from 'framer-motion';
+import { ChevronDown, Menu, X } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
+import { PaqadLogo } from '@/components/paqad-logo';
+import { Button } from '@/components/ui/button';
+import { fadeIn } from '../../constants/landing-motion';
 
 const navLinks = [
-  { label: "Home", href: "/" },
-  { label: "Product", href: "#product" },
-  { label: "Features", href: "#product" },
+  { label: 'Home', href: '/' },
+  { label: 'Product', href: '#product' },
+  { label: 'Features', href: '#product' },
 ];
 
 export const LandingNav = () => {
@@ -37,9 +37,7 @@ export const LandingNav = () => {
               className="inline-flex items-center gap-1 text-sm text-foreground transition-colors hover:text-muted-foreground"
             >
               {link.label}
-              {link.label !== "Home" ? (
-                <ChevronDown className="size-3.5 opacity-50" />
-              ) : null}
+              {link.label !== 'Home' ? <ChevronDown className="size-3.5 opacity-50" /> : null}
             </a>
           ))}
         </nav>
@@ -65,7 +63,7 @@ export const LandingNav = () => {
           size="icon"
           className="col-start-3 justify-self-end md:hidden"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         >
           {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
         </Button>
@@ -87,10 +85,7 @@ export const LandingNav = () => {
             <Link href="/signin" className="text-sm font-medium">
               Sign in
             </Link>
-            <Button
-              asChild
-              className="w-full rounded-full bg-foreground text-background"
-            >
+            <Button asChild className="w-full rounded-full bg-foreground text-background">
               <Link href="/signup">Sign up</Link>
             </Button>
           </div>

@@ -1,9 +1,9 @@
 import { Injectable, NotImplementedException } from '@nestjs/common';
+import type { TransactionStatus } from '../enums/transaction-status.enum';
+import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
+import type { PaymentResult } from '../interfaces/payment-result.interface';
+import type { WebhookResult } from '../interfaces/webhook-result.interface';
 import { BasePaymentProvider } from './base-payment.provider';
-import { CreatePaymentData } from "../interfaces/create-payment-data.interface";
-import { WebhookResult } from "../interfaces/webhook-result.interface";
-import { TransactionStatus } from "../enums/transaction-status.enum";
-import { PaymentResult } from "../interfaces/payment-result.interface";
 
 @Injectable()
 export class NombaProvider extends BasePaymentProvider {
@@ -33,10 +33,7 @@ export class NombaProvider extends BasePaymentProvider {
       retryable: false,
     };
   }
-  async processWebhook(
-    _payload: unknown,
-    _signature: string,
-  ): Promise<WebhookResult> {
+  async processWebhook(_payload: unknown, _signature: string): Promise<WebhookResult> {
     this.logger.warn('NombaProvider.processWebhook stub called');
     return { success: false, error: 'Nomba webhooks are not configured' };
   }

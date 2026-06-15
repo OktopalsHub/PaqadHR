@@ -1,14 +1,10 @@
-import { Leave } from '../../leave/entities/leave.entity';
 import { ApiProperty } from '@nestjs/swagger';
-import { Tenant } from '../entities/tenant.entity';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
-import { FileUrlService } from 'src/common/services/file-url.service';
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import type { Tenant } from '../entities/tenant.entity';
 
 export class TenantResponseDto {
-  static toResponse(
-    tenant: Tenant,
-    fileUrlService?: FileUrlService,
-  ): TenantResponseDto {
+  static toResponse(tenant: Tenant, fileUrlService?: FileUrlService): TenantResponseDto {
     const response = new TenantResponseDto();
     response.id = tenant.id;
     response.name = tenant.name;
@@ -20,9 +16,11 @@ export class TenantResponseDto {
     response.companySize = tenant.companySize || undefined;
     response.location = tenant.location || undefined;
     response.logoKey = tenant.logoKey || undefined;
-    response.createdAt = tenant.createdAt ? tenant.createdAt.toISOString() : new Date().toISOString();
+    response.createdAt = tenant.createdAt
+      ? tenant.createdAt.toISOString()
+      : new Date().toISOString();
     response.updatedAt = tenant.updatedAt ? tenant.updatedAt.toISOString() : undefined;
-    
+
     if (fileUrlService && tenant.logoKey) {
       response.logoUrl =
         FileUrlMapper.mapTenantLogo(tenant.logoKey, {
@@ -33,11 +31,8 @@ export class TenantResponseDto {
     return response;
   }
 
-  static toResponseList(
-    tenants: Tenant[],
-    fileUrlService?: FileUrlService,
-  ): TenantResponseDto[] {
-    return tenants.map((tenant) => this.toResponse(tenant, fileUrlService));
+  static toResponseList(tenants: Tenant[], fileUrlService?: FileUrlService): TenantResponseDto[] {
+    return tenants.map((tenant) => TenantResponseDto.toResponse(tenant, fileUrlService));
   }
 
   @ApiProperty({
@@ -97,8 +92,7 @@ export class TenantResponseDto {
   logoKey?: string;
   @ApiProperty({
     description: 'Logo URL (constructed from logoKey)',
-    example:
-      'https://custom-domain.com/tenants/123/logo/company-logo_1731668445123.png',
+    example: 'https://custom-domain.com/tenants/123/logo/company-logo_1731668445123.png',
     required: false,
   })
   logoUrl?: string;
@@ -240,8 +234,7 @@ export class TenantMemberInfoDto {
   isActive: boolean;
   @ApiProperty({
     description: 'Avatar URL',
-    example:
-      'https://files.domain.com/tenants/123/employees-avatar/avatar_123456.jpg',
+    example: 'https://files.domain.com/tenants/123/employees-avatar/avatar_123456.jpg',
     required: false,
   })
   avatarUrl?: string;
@@ -310,8 +303,7 @@ export class UserTenantWithMembershipDto {
   location?: string;
   @ApiProperty({
     description: 'Logo URL',
-    example:
-      'https://custom-domain.com/tenants/123/logo/company-logo_1731668445123.png',
+    example: 'https://custom-domain.com/tenants/123/logo/company-logo_1731668445123.png',
     required: false,
   })
   logoUrl?: string;

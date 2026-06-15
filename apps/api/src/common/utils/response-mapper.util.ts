@@ -2,10 +2,7 @@ export class ResponseMapper {
   static mapArray<T, R>(entities: T[], mapperFn: (entity: T) => R): R[] {
     return entities.map(mapperFn);
   }
-  static mapSingle<T, R>(
-    entity: T | null | undefined,
-    mapperFn: (entity: T) => R,
-  ): R | null {
+  static mapSingle<T, R>(entity: T | null | undefined, mapperFn: (entity: T) => R): R | null {
     return entity ? mapperFn(entity) : null;
   }
   static mapPaginated<T, R>(
@@ -19,7 +16,7 @@ export class ResponseMapper {
     totalPages: number;
   } {
     return {
-      data: this.mapArray(data.data, mapperFn),
+      data: ResponseMapper.mapArray(data.data, mapperFn),
       total: data.total,
       page: data.page,
       limit: data.limit,
@@ -70,11 +67,7 @@ export class ResponseMapper {
   }
 }
 export function ResponseTransform<T, R>(transformer: (data: T) => R) {
-  return function (
-    target: unknown,
-    propertyName: string,
-    descriptor: PropertyDescriptor,
-  ) {
+  return (target: unknown, propertyName: string, descriptor: PropertyDescriptor) => {
     const method = descriptor.value;
     descriptor.value = async function (...args: unknown[]) {
       const result = await method.apply(this, args);

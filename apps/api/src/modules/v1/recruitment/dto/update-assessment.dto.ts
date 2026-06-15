@@ -1,4 +1,3 @@
-import { Assessment } from '../entities/assessment.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -11,11 +10,11 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+
 class UpdateQuestionDto {
   @ApiPropertyOptional({
     description: 'Question text',
-    example:
-      'What is the difference between let, const, and var in JavaScript? ',
+    example: 'What is the difference between let, const, and var in JavaScript? ',
   })
   @IsString()
   @ApiProperty({
@@ -39,11 +38,7 @@ class UpdateQuestionDto {
   @ApiPropertyOptional({
     description: 'Answer options for multiple choice questions',
     type: [String],
-    example: [
-      'let is block-scoped',
-      'const is block-scoped',
-      'var is function-scoped',
-    ],
+    example: ['let is block-scoped', 'const is block-scoped', 'var is function-scoped'],
   })
   @IsArray()
   @IsString({ each: true })
@@ -90,8 +85,7 @@ export class UpdateAssessmentDto {
   title?: string;
   @ApiPropertyOptional({
     description: 'Assessment description',
-    example:
-      'Test covering JavaScript fundamentals including variables, functions, and objects',
+    example: 'Test covering JavaScript fundamentals including variables, functions, and objects',
   })
   @IsString()
   @ApiProperty({

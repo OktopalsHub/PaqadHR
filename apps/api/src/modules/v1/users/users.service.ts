@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { Session } from '../auth/entities/session.entity';
-import { UserRepository } from './repositories/users.repository';
-import { User } from './entities/user.entity';
+import type { User } from './entities/user.entity';
+import type { UserRepository } from './repositories/users.repository';
 
 @Injectable()
 export class UsersService {
@@ -51,10 +51,7 @@ export class UsersService {
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
     await this.getUser(id);
-    await this.userRepository.update(
-      id,
-      data as Parameters<UserRepository['update']>[1],
-    );
+    await this.userRepository.update(id, data as Parameters<UserRepository['update']>[1]);
     return this.getUser(id);
   }
 }

@@ -1,5 +1,5 @@
-import { UserRole } from 'src/common/enums';
-import { User } from '../entities/user.entity';
+import type { UserRole } from 'src/common/enums';
+import type { User } from '../entities/user.entity';
 
 export class UserResponseDto {
   id: string;
@@ -21,6 +21,6 @@ export class UserResponseDto {
   }
 
   static toResponseList(users: User[]): UserResponseDto[] {
-    return users.map((user) => this.toResponse(user));
+    return users.map((user) => UserResponseDto.toResponse(user));
   }
 }

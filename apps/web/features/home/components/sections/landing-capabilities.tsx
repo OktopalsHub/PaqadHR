@@ -1,46 +1,43 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
-import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
-import { fadeUp, stagger } from "../../constants/landing-motion";
+import { motion, useInView } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
+import Link from 'next/link';
+import { useRef } from 'react';
+import { fadeUp, stagger } from '../../constants/landing-motion';
 
 const capabilities = [
   {
-    title: "Recruitment",
-    line: "Publish roles. Track every candidate.",
-    href: "/signup",
+    title: 'Recruitment',
+    line: 'Publish roles. Track every candidate.',
+    href: '/signup',
   },
   {
-    title: "Payroll",
-    line: "Calculate runs. Export. Mark paid.",
-    href: "/signup",
+    title: 'Payroll',
+    line: 'Calculate runs. Export. Mark paid.',
+    href: '/signup',
   },
   {
-    title: "Leave",
-    line: "Requests and balances, kept current.",
-    href: "/signup",
+    title: 'Leave',
+    line: 'Requests and balances, kept current.',
+    href: '/signup',
   },
 ];
 
 export const LandingCapabilities = () => {
   const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: "-80px" });
+  const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
     <section id="product" ref={ref} className="border-t border-border py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-6">
         <motion.div
           initial="hidden"
-          animate={inView ? "show" : "hidden"}
+          animate={inView ? 'show' : 'hidden'}
           variants={stagger}
           className="mb-16 max-w-xl"
         >
-          <motion.p
-            variants={fadeUp}
-            className="text-sm font-medium text-muted-foreground"
-          >
+          <motion.p variants={fadeUp} className="text-sm font-medium text-muted-foreground">
             Product
           </motion.p>
           <motion.h2
@@ -53,7 +50,7 @@ export const LandingCapabilities = () => {
 
         <motion.div
           initial="hidden"
-          animate={inView ? "show" : "hidden"}
+          animate={inView ? 'show' : 'hidden'}
           variants={stagger}
           className="divide-y divide-border border-y border-border"
         >

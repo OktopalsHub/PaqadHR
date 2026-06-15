@@ -1,32 +1,18 @@
-import {
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
+import type { MemberPointsService } from '../../shoutouts/services/member-points.service';
+import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import type { TenantsService } from '../../tenants/tenants.service';
+import type {
   AssignPointsDto,
   HolidayDto,
   HolidaySettingsDto,
   UpdateTenantSettingsDto,
 } from '../dto/tenant-settings.dto';
-import { HolidayService } from '../services/holiday.service';
-import { Tenant } from '../../tenants/entities/tenant.entity';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import {
-  CurrentTenantMember,
-  TenantId,
-} from 'src/common/decorators';
-import { MemberContext } from 'src/common/interfaces';
-import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
-import { TenantSettingsService } from '../services/tenant-settings.service';
-import { TenantsService } from '../../tenants/tenants.service';
-import { MemberPointsService } from '../../shoutouts/services/member-points.service';
+import type { TenantSettingsService } from '../services/tenant-settings.service';
+import type { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
 @ApiTags('Tenant Settings')
 @Controller('tenants/:tenantId/settings')
 @UseGuards(TenantMemberGuard)
@@ -42,7 +28,7 @@ export class TenantSettingsController {
     return this.tenantSettingsService.getTenantSettings(tenantId);
   }
   @Patch()
-    async updateTenantSettings(
+  async updateTenantSettings(
     @TenantId() tenantId: string,
     @Body() updateDto: UpdateTenantSettingsDto,
   ) {
@@ -66,7 +52,7 @@ export class TenantSettingsController {
     return this.memberPointsService.listMembersWithPoints(tenantId);
   }
   @Post('initialize')
-    async initializeTenantSettings(
+  async initializeTenantSettings(
     @TenantId() tenantId: string,
     @Body()
     initData: {
@@ -108,7 +94,7 @@ export class TenantSettingsController {
     }
   }
   @Post('initialize-workspace')
-    async initializeTenantWorkspace(
+  async initializeTenantWorkspace(
     @TenantId() tenantId: string,
     @Body()
     initData: {
@@ -153,11 +139,10 @@ export class TenantSettingsController {
     } else {
       settings = customSettings || {};
     }
-    const result =
-      await this.tenantSettingsInitializationService.initializeTenantWorkspace(
-        tenantId,
-        settings,
-      );
+    const result = await this.tenantSettingsInitializationService.initializeTenantWorkspace(
+      tenantId,
+      settings,
+    );
     if (initializeMemberPoints) {
       const pointsResult = await this.memberPointsService.initializeAllMembers(
         tenantId,
@@ -170,8 +155,7 @@ export class TenantSettingsController {
 
   @Get('holidays')
   async getHolidaySettings(@TenantId() tenantId: string) {
-    const settings =
-      await this.tenantSettingsService.getTenantSettings(tenantId);
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     return settings.settings.holidays;
   }
   @Get('holidays/countries')
@@ -183,10 +167,7 @@ export class TenantSettingsController {
     };
   }
   @Get('holidays/calendar/:year')
-  async getHolidaysForYear(
-    @TenantId() tenantId: string,
-    @Param('year') year: string,
-  ) {
+  async getHolidaysForYear(@TenantId() tenantId: string, @Param('year') year: string) {
     const [settings, tenant] = await Promise.all([
       this.tenantSettingsService.getTenantSettings(tenantId),
       this.tenantsService.getTenant(tenantId),
@@ -194,7 +175,7 @@ export class TenantSettingsController {
     const { HolidayService } = await import('../services/holiday.service');
     const holidayService = new HolidayService();
     return holidayService.getHolidaysForYear(
-      parseInt(year),
+      parseInt(year, 10),
       tenant.countryCode || '',
       settings.settings.holidays,
     );
@@ -209,7 +190,7 @@ export class TenantSettingsController {
     };
   }
   @Patch('holidays')
-    async updateHolidaySettings(
+  async updateHolidaySettings(
     @TenantId() tenantId: string,
     @Body() holidaySettings: HolidaySettingsDto,
   ) {
@@ -218,12 +199,11 @@ export class TenantSettingsController {
     });
   }
   @Post('holidays/custom')
-    async addCustomHoliday(
+  async addCustomHoliday(
     @TenantId() tenantId: string,
     @Body() holidayData: Omit<HolidayDto, 'id'>,
   ) {
-    const settings =
-      await this.tenantSettingsService.getTenantSettings(tenantId);
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];
     const newHoliday: HolidayDto = {
       ...holidayData,
@@ -238,12 +218,8 @@ export class TenantSettingsController {
     });
   }
   @Delete('holidays/custom/:holidayId')
-    async removeCustomHoliday(
-    @TenantId() tenantId: string,
-    @Param('holidayId') holidayId: string,
-  ) {
-    const settings =
-      await this.tenantSettingsService.getTenantSettings(tenantId);
+  async removeCustomHoliday(@TenantId() tenantId: string, @Param('holidayId') holidayId: string) {
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];
     const updatedHolidays = currentHolidays.filter((h) => h.id !== holidayId);
     return this.tenantSettingsService.updateTenantSettings(tenantId, {

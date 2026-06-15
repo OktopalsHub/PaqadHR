@@ -1,17 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { type FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
-import { Repository } from 'typeorm';
-import { PlansService } from '../../plans/services/plans.service';
+import type { Repository } from 'typeorm';
+import type { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import {
   getBillingMode,
   isBillingGatewayEnabled,
   isFeatureGatingEnabled,
 } from '../config/billing.config';
-import { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
+import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
+import { TenantSubscription } from '../entities/tenant-subscription.entity';
 
 @Injectable()
 export class SubscriptionsService {
@@ -23,9 +23,7 @@ export class SubscriptionsService {
     private readonly plansService: PlansService,
   ) {}
 
-  async getTenantSubscription(
-    tenantId: string,
-  ): Promise<TenantSubscription | null> {
+  async getTenantSubscription(tenantId: string): Promise<TenantSubscription | null> {
     return this.subscriptionRepository.findOne({
       where: { tenantId },
       relations: ['tenant', 'plan', 'planPrice', 'planPrice.plan'],
@@ -44,10 +42,7 @@ export class SubscriptionsService {
     return this.subscriptionRepository.save(subscription);
   }
 
-  async hasFeatureAccess(
-    tenantId: string,
-    features: FeatureAccess[],
-  ): Promise<boolean> {
+  async hasFeatureAccess(tenantId: string, features: FeatureAccess[]): Promise<boolean> {
     if (!isFeatureGatingEnabled()) {
       return true;
     }
@@ -109,10 +104,7 @@ export class SubscriptionsService {
       featureGatingEnabled: isFeatureGatingEnabled(),
       subscription: {
         status: subscription.status,
-        plan:
-          subscription.plan?.slug ??
-          subscription.plan?.name ??
-          'starter',
+        plan: subscription.plan?.slug ?? subscription.plan?.name ?? 'starter',
         trialEndsAt: subscription.trialEndsAt,
         isOnTrial: subscription.isOnTrial,
         daysRemaining,
@@ -185,10 +177,7 @@ export class SubscriptionsService {
     return loaded ?? saved;
   }
 
-  async extendTrial(
-    tenantId: string,
-    additionalDays: number,
-  ): Promise<TenantSubscription> {
+  async extendTrial(tenantId: string, additionalDays: number): Promise<TenantSubscription> {
     const subscription = await this.getTenantSubscription(tenantId);
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
@@ -217,11 +206,7 @@ export class SubscriptionsService {
   async getCurrentUsage(tenantId: string, usageType: string): Promise<number> {
     const subscription = await this.getTenantSubscription(tenantId);
     if (!subscription?.usageMetrics) return 0;
-    return (
-      subscription.usageMetrics[
-        usageType as keyof typeof subscription.usageMetrics
-      ] ?? 0
-    );
+    return subscription.usageMetrics[usageType as keyof typeof subscription.usageMetrics] ?? 0;
   }
 
   async setTenantRegion(
@@ -275,8 +260,7 @@ export class SubscriptionsService {
       detectionMethod = 'user_selected';
     } else {
       countryCode = await GeoLocationHelper.getCountryCode(ipAddress);
-      detectionMethod =
-        countryCode === 'GLOBAL' ? 'default' : 'ip_detected';
+      detectionMethod = countryCode === 'GLOBAL' ? 'default' : 'ip_detected';
     }
 
     const updatedTenant = await this.setTenantRegion(tenantId, { countryCode });

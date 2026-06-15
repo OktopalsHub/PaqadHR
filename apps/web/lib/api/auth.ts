@@ -1,13 +1,13 @@
-import { apiClient, clearCsrfToken } from "@/lib/api/client";
-import { fetchUserTenants } from "@/lib/api/tenants";
+import { apiClient, clearCsrfToken } from '@/lib/api/client';
+import { fetchUserTenants } from '@/lib/api/tenants';
+import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
+import { userSchema } from '@/lib/schemas/auth';
 import {
   clearSessionStorage,
   persistSession,
   persistTenantId,
   persistTenantSlug,
-} from "@/lib/session";
-import type { LoginInput, SignupInput, User } from "@/lib/schemas/auth";
-import { userSchema } from "@/lib/schemas/auth";
+} from '@/lib/session';
 
 type AuthResponse = {
   user: { id: string; email: string; role: string };
@@ -20,13 +20,13 @@ type ProfileResponse = {
 };
 
 function mapAuthUser(
-  user: AuthResponse["user"] | ProfileResponse,
+  user: AuthResponse['user'] | ProfileResponse,
   needsOnboarding?: boolean,
 ): User {
   return userSchema.parse({
     id: user.id,
     email: user.email,
-    name: user.email.split("@")[0],
+    name: user.email.split('@')[0],
     role: user.role,
     needsOnboarding,
   });
@@ -43,10 +43,10 @@ async function syncTenantFromApi(): Promise<boolean> {
 }
 
 export async function getSession(): Promise<User | null> {
-  if (typeof window === "undefined") return null;
+  if (typeof window === 'undefined') return null;
 
   try {
-    const profile = await apiClient<ProfileResponse>("/users/profile");
+    const profile = await apiClient<ProfileResponse>('/users/profile');
     const needsOnboarding = await syncTenantFromApi();
     const user = mapAuthUser(profile, needsOnboarding);
     persistSession(user);
@@ -57,8 +57,8 @@ export async function getSession(): Promise<User | null> {
 }
 
 export async function login(input: LoginInput): Promise<User> {
-  const response = await apiClient<AuthResponse>("/auth/login", {
-    method: "POST",
+  const response = await apiClient<AuthResponse>('/auth/login', {
+    method: 'POST',
     body: JSON.stringify({
       email: input.email,
       password: input.password,
@@ -73,8 +73,8 @@ export async function login(input: LoginInput): Promise<User> {
 }
 
 export async function register(input: SignupInput): Promise<User> {
-  const response = await apiClient<AuthResponse>("/auth/register", {
-    method: "POST",
+  const response = await apiClient<AuthResponse>('/auth/register', {
+    method: 'POST',
     body: JSON.stringify({
       email: input.email,
       password: input.password,
@@ -89,7 +89,7 @@ export async function register(input: SignupInput): Promise<User> {
 
 export async function logoutRequest(): Promise<void> {
   try {
-    await apiClient("/auth/logout", { method: "POST" });
+    await apiClient('/auth/logout', { method: 'POST' });
   } catch {
     // Cookie may already be cleared
   } finally {
@@ -98,10 +98,10 @@ export async function logoutRequest(): Promise<void> {
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  if (!email) throw new Error("Email is required");
+  if (!email) throw new Error('Email is required');
 
-  await apiClient<{ message: string }>("/auth/forgot-password", {
-    method: "POST",
+  await apiClient<{ message: string }>('/auth/forgot-password', {
+    method: 'POST',
     body: JSON.stringify({ email }),
     skipCsrf: true,
   });

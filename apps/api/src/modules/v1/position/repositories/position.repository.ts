@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Position } from "../entities/position.entity";
+import { Position } from '../entities/position.entity';
 
 @Injectable()
 export class PositionRepository extends Repository<Position> {
@@ -16,10 +16,7 @@ export class PositionRepository extends Repository<Position> {
       where: { tenantId },
     });
   }
-  async getPosition(
-    id: string,
-    tenantId: string,
-  ): Promise<Position | null> {
+  async getPosition(id: string, tenantId: string): Promise<Position | null> {
     return this.positionRepository.findOne({
       where: { id, tenantId },
     });
@@ -41,9 +38,7 @@ export class PositionRepository extends Repository<Position> {
     );
     const updatedPosition = await this.getPosition(id, tenantId);
     if (!updatedPosition) {
-      throw new NotFoundException(
-        `Position with ID "${id}" not found after update`,
-      );
+      throw new NotFoundException(`Position with ID "${id}" not found after update`);
     }
     return updatedPosition;
   }
@@ -56,9 +51,7 @@ export class PositionRepository extends Repository<Position> {
   async restorePosition(id: string, tenantId: string): Promise<void> {
     const result = await this.positionRepository.restore({ id, tenantId });
     if (result.affected === 0) {
-      throw new NotFoundException(
-        `Position with ID "${id}" not found or could not be restored`,
-      );
+      throw new NotFoundException(`Position with ID "${id}" not found or could not be restored`);
     }
   }
 }

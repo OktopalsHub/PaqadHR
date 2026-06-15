@@ -1,15 +1,14 @@
-import { Leave } from '../leave/entities/leave.entity';
 import { Injectable } from '@nestjs/common';
-import {
+import type {
   AssignmentResult,
   AssignmentToAllUsersResult,
   MissingAssignment,
   MissingLeaveType,
   RemovalResult,
 } from 'src/common/interfaces';
-import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
-import { LeaveTypeService } from '../leave-type/leave-type.service';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import type { LeaveBalanceService } from '../leave-balance/leave-balance.service';
+import type { LeaveTypeService } from '../leave-type/leave-type.service';
+import type { TenantMembersService } from '../tenant-members/tenant-members.service';
 @Injectable()
 export class LeaveTypeAssignmentService {
   constructor(
@@ -21,8 +20,7 @@ export class LeaveTypeAssignmentService {
     const currentYear = year || new Date().getFullYear();
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
     const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive);
-    const members =
-      await this.tenantMemberService.listActiveTenantMembers(tenantId);
+    const members = await this.tenantMemberService.listActiveTenantMembers(tenantId);
     const assignments: AssignmentResult[] = [];
     for (const member of members) {
       for (const leaveType of activeLeaveTypes) {
@@ -61,18 +59,10 @@ export class LeaveTypeAssignmentService {
       assignments,
     };
   }
-  async assignLeaveTypeToAllUsers(
-    tenantId: string,
-    leaveTypeId: string,
-    year?: number,
-  ) {
+  async assignLeaveTypeToAllUsers(tenantId: string, leaveTypeId: string, year?: number) {
     const currentYear = year || new Date().getFullYear();
-    const leaveType = await this.leaveTypeService.getLeaveType(
-      tenantId,
-      leaveTypeId,
-    );
-    const members =
-      await this.tenantMemberService.listActiveTenantMembers(tenantId);
+    const leaveType = await this.leaveTypeService.getLeaveType(tenantId, leaveTypeId);
+    const members = await this.tenantMemberService.listActiveTenantMembers(tenantId);
     const assignments: AssignmentToAllUsersResult[] = [];
     for (const member of members) {
       const existingBalance = await this.leaveBalanceService.findByCriteria({
@@ -107,20 +97,10 @@ export class LeaveTypeAssignmentService {
       assignments,
     };
   }
-  async removeLeaveTypeAssignments(
-    tenantId: string,
-    leaveTypeId: string,
-    year?: number,
-  ) {
+  async removeLeaveTypeAssignments(tenantId: string, leaveTypeId: string, year?: number) {
     const currentYear = year || new Date().getFullYear();
-    const balances = await this.leaveBalanceService.getBalancesByMember(
-      tenantId,
-      '',
-      currentYear,
-    );
-    const targetBalances = balances.filter(
-      (b) => b.leaveTypeId === leaveTypeId,
-    );
+    const balances = await this.leaveBalanceService.getBalancesByMember(tenantId, '', currentYear);
+    const targetBalances = balances.filter((b) => b.leaveTypeId === leaveTypeId);
     const removals: RemovalResult[] = [];
     for (const balance of targetBalances) {
       if (balance.usedDays === 0) {
@@ -141,10 +121,7 @@ export class LeaveTypeAssignmentService {
   }
   async syncAllLeaveTypeAssignments(tenantId: string, year?: number) {
     const currentYear = year || new Date().getFullYear();
-    const result = await this.assignExistingLeaveTypesToUsers(
-      tenantId,
-      currentYear,
-    );
+    const result = await this.assignExistingLeaveTypesToUsers(tenantId, currentYear);
     return {
       message: 'Leave type assignments synced successfully',
       ...result,
@@ -154,8 +131,7 @@ export class LeaveTypeAssignmentService {
     const currentYear = year || new Date().getFullYear();
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
     const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive);
-    const members =
-      await this.tenantMemberService.listActiveTenantMembers(tenantId);
+    const members = await this.tenantMemberService.listActiveTenantMembers(tenantId);
     const report = {
       tenantId,
       year: currentYear,

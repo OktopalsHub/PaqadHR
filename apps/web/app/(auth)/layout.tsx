@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { PaqadLogo } from "@/components/paqad-logo";
+import type { ReactNode } from 'react';
+import { PaqadLogo } from '@/components/paqad-logo';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -15,9 +15,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               Hire, pay, and support your team in a workspace built for focus.
             </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            14 days free · No card required
-          </p>
+          <p className="text-xs text-muted-foreground">14 days free · No card required</p>
         </div>
         <div className="flex flex-col justify-center px-6 py-12 sm:px-12">
           <div className="mb-8 lg:hidden">

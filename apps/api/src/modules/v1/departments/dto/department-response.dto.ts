@@ -1,6 +1,3 @@
-import { Department } from '../entities/department.entity';
-import { Position } from '../../position/entities/position.entity';
-import { Team } from '../../teams/entities/team.entity';
 import { ApiProperty } from '@nestjs/swagger';
 export class DepartmentMemberDto {
   @ApiProperty({ description: 'Member ID' })

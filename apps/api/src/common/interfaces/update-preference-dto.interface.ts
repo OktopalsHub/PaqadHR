@@ -1,11 +1,11 @@
-import { NotificationChannel } from "../enums/notification-channel.enum";
+import type { NotificationChannel } from '../enums/notification-channel.enum';
 
 export interface UpdatePreferenceDto {
-    preferredChannel?: NotificationChannel;
-    isEnabled?: boolean;
-    emailEnabled?: boolean;
-    inAppEnabled?: boolean;
-    quietHoursStart?: string;
-    quietHoursEnd?: string;
-    quietDays?: string[];
+  preferredChannel?: NotificationChannel;
+  isEnabled?: boolean;
+  emailEnabled?: boolean;
+  inAppEnabled?: boolean;
+  quietHoursStart?: string;
+  quietHoursEnd?: string;
+  quietDays?: string[];
 }

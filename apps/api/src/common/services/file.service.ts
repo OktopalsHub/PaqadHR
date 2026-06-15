@@ -1,22 +1,16 @@
-import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
-import {
-  Injectable,
-  Logger,
-  BadRequestException,
-  UnauthorizedException,
-} from '@nestjs/common';
-import * as path from 'path';
-import { CloudflareR2Service } from './cloudflare-r2.service';
-import { FileUploadLocation } from '../enums/file-upload-location.enum';
-import { GenerateUploadUrlRequest } from "../interfaces/generate-upload-url-request.interface";
-import { GenerateUploadUrlResponse } from "../interfaces/generate-upload-url-response.interface";
-import { FileUrlResponse } from "../interfaces/file-url-response.interface";
+import * as path from 'node:path';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ENVIRONMENT } from '../config/env.config';
+import type { FileUploadLocation } from '../enums/file-upload-location.enum';
+import type { FileUrlResponse } from '../interfaces/file-url-response.interface';
+import type { GenerateUploadUrlRequest } from '../interfaces/generate-upload-url-request.interface';
+import type { GenerateUploadUrlResponse } from '../interfaces/generate-upload-url-response.interface';
+import type { CloudflareR2Service } from './cloudflare-r2.service';
 
 @Injectable()
 export class FileService {
   private readonly logger = new Logger(FileService.name);
-  private readonly defaultExpiresIn = 3600; 
+  private readonly defaultExpiresIn = 3600;
   private readonly publicUrl: string | null;
   constructor(private readonly r2Service: CloudflareR2Service) {
     const { CLOUDFLARE_R2 } = ENVIRONMENT;
@@ -28,11 +22,8 @@ export class FileService {
       this.publicUrl = null;
     }
   }
-  async generateUploadUrl(
-    request: GenerateUploadUrlRequest,
-  ): Promise<GenerateUploadUrlResponse> {
-    const { tenantId, location, originalName, contentType, expiresIn } =
-      request;
+  async generateUploadUrl(request: GenerateUploadUrlRequest): Promise<GenerateUploadUrlResponse> {
+    const { tenantId, location, originalName, contentType, expiresIn } = request;
     if (!tenantId) {
       throw new UnauthorizedException('Tenant ID is required');
     }
@@ -40,12 +31,11 @@ export class FileService {
       throw new BadRequestException('Invalid filename');
     }
     const sanitizedOriginalName = this.sanitizeFilename(originalName);
-    const timestamp = Date.now(); 
+    const timestamp = Date.now();
     const fileExtension = path.extname(sanitizedOriginalName);
     const baseName = path.basename(sanitizedOriginalName, fileExtension);
     const fileName = `${baseName}_${timestamp}${fileExtension}`;
-    const finalContentType =
-      contentType || this.getContentType(sanitizedOriginalName);
+    const finalContentType = contentType || this.getContentType(sanitizedOriginalName);
     const expires = expiresIn || this.defaultExpiresIn;
     try {
       const { uploadUrl, fileKey } = await this.r2Service.generateUploadUrl({
@@ -68,10 +58,7 @@ export class FileService {
         expiresAt,
       };
     } catch (error) {
-      this.logger.error(
-        `Failed to generate upload URL for file: ${sanitizedOriginalName}`,
-        error,
-      );
+      this.logger.error(`Failed to generate upload URL for file: ${sanitizedOriginalName}`, error);
       throw new BadRequestException('Failed to generate upload URL');
     }
   }
@@ -102,10 +89,7 @@ export class FileService {
         fileName,
       );
     } catch (error) {
-      this.logger.warn(
-        `Failed to generate download URL for ${fileName}`,
-        error,
-      );
+      this.logger.warn(`Failed to generate download URL for ${fileName}`, error);
     }
     return {
       publicUrl,
@@ -129,10 +113,7 @@ export class FileService {
         useOriginalName,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to generate download URL for file: ${fileName}`,
-        error,
-      );
+      this.logger.error(`Failed to generate download URL for file: ${fileName}`, error);
       throw new BadRequestException('Failed to generate download URL');
     }
   }
@@ -187,11 +168,7 @@ export class FileService {
       for (const file of files) {
         const parsedKey = this.parseFileKey(file.key);
         if (parsedKey) {
-          const publicUrl = this.generatePublicUrl(
-            tenantId,
-            location,
-            parsedKey.filename,
-          );
+          const publicUrl = this.generatePublicUrl(tenantId, location, parsedKey.filename);
           result.push({
             fileName: parsedKey.filename,
             publicUrl,
@@ -235,7 +212,7 @@ export class FileService {
   }
   private validateFilename(filename: string): boolean {
     const dangerousPatterns = [
-      /\.\./, 
+      /\.\./,
       /[<>:"|?*]/, // Windows invalid characters
       /^\.+$/, // Only dots
       /\/$|\\$/, // Ends with slash
@@ -248,10 +225,10 @@ export class FileService {
   private sanitizeFilename(filename: string): string {
     // Remove or replace dangerous characters
     return filename
-      .replace(/[<>:"|?*]/g, '_') 
-      .replace(/\.\./g, '_') 
-      .replace(/^\.+/, '_') 
-      .replace(/[\/\\]+$/, '') 
+      .replace(/[<>:"|?*]/g, '_')
+      .replace(/\.\./g, '_')
+      .replace(/^\.+/, '_')
+      .replace(/[/\\]+$/, '')
       .trim();
   }
   private getContentType(filename: string): string {

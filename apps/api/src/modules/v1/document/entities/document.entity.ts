@@ -1,11 +1,11 @@
 import { Column, Entity, ManyToOne } from 'typeorm';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { DocumentType } from "../../../../common/enums/document-type.enum";
-import { DocumentCategory } from "../../../../common/enums/document-category.enum";
-import { DocumentAccessLevel } from "../../../../common/enums/document-access-level.enum";
-import { DocumentRetentionPolicy } from "../../../../common/enums/document-retention-policy.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { DocumentAccessLevel } from '../../../../common/enums/document-access-level.enum';
+import { DocumentCategory } from '../../../../common/enums/document-category.enum';
+import { DocumentRetentionPolicy } from '../../../../common/enums/document-retention-policy.enum';
+import { DocumentType } from '../../../../common/enums/document-type.enum';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 export function getDocumentCategory(type: DocumentType): DocumentCategory {
   const categoryMap: Record<DocumentType, DocumentCategory> = {
@@ -89,9 +89,7 @@ export function getDocumentCategory(type: DocumentType): DocumentCategory {
   };
   return categoryMap[type] || DocumentCategory.MISCELLANEOUS;
 }
-export function getDocumentAccessLevel(
-  type: DocumentType,
-): DocumentAccessLevel {
+export function getDocumentAccessLevel(type: DocumentType): DocumentAccessLevel {
   const accessMap: Record<DocumentType, DocumentAccessLevel> = {
     [DocumentType.EMPLOYEE_HANDBOOK]: DocumentAccessLevel.PUBLIC,
     [DocumentType.CODE_OF_CONDUCT]: DocumentAccessLevel.PUBLIC,
@@ -133,8 +131,7 @@ export function getDocumentAccessLevel(
     [DocumentType.RETIREMENT_PLAN]: DocumentAccessLevel.EMPLOYEE_ONLY,
     [DocumentType.FLEXIBLE_SPENDING]: DocumentAccessLevel.EMPLOYEE_ONLY,
     [DocumentType.TRAINING_CERTIFICATE]: DocumentAccessLevel.EMPLOYEE_ONLY,
-    [DocumentType.PROFESSIONAL_CERTIFICATION]:
-      DocumentAccessLevel.EMPLOYEE_ONLY,
+    [DocumentType.PROFESSIONAL_CERTIFICATION]: DocumentAccessLevel.EMPLOYEE_ONLY,
     [DocumentType.EDUCATION_DEGREE]: DocumentAccessLevel.EMPLOYEE_ONLY,
     [DocumentType.SKILLS_ASSESSMENT]: DocumentAccessLevel.EMPLOYEE_ONLY,
     [DocumentType.COMPETENCY_FRAMEWORK]: DocumentAccessLevel.EMPLOYEE_ONLY,
@@ -174,9 +171,7 @@ export function getDocumentAccessLevel(
   };
   return accessMap[type] || DocumentAccessLevel.EMPLOYEE_ONLY;
 }
-export function getDocumentRetentionPolicy(
-  type: DocumentType,
-): DocumentRetentionPolicy {
+export function getDocumentRetentionPolicy(type: DocumentType): DocumentRetentionPolicy {
   const retentionMap: Record<DocumentType, DocumentRetentionPolicy> = {
     [DocumentType.EMPLOYMENT_CONTRACT]: DocumentRetentionPolicy.PERMANENT,
     [DocumentType.NON_DISCLOSURE_AGREEMENT]: DocumentRetentionPolicy.PERMANENT,
@@ -185,12 +180,9 @@ export function getDocumentRetentionPolicy(
     [DocumentType.SEVERANCE_AGREEMENT]: DocumentRetentionPolicy.PERMANENT,
     [DocumentType.TAX_FORMS]: DocumentRetentionPolicy.LEGAL_REQUIREMENT,
     [DocumentType.I9_FORM]: DocumentRetentionPolicy.LEGAL_REQUIREMENT,
-    [DocumentType.WORKERS_COMP_CLAIM]:
-      DocumentRetentionPolicy.LEGAL_REQUIREMENT,
-    [DocumentType.UNEMPLOYMENT_CLAIMS]:
-      DocumentRetentionPolicy.LEGAL_REQUIREMENT,
-    [DocumentType.PERFORMANCE_REVIEW]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.WORKERS_COMP_CLAIM]: DocumentRetentionPolicy.LEGAL_REQUIREMENT,
+    [DocumentType.UNEMPLOYMENT_CLAIMS]: DocumentRetentionPolicy.LEGAL_REQUIREMENT,
+    [DocumentType.PERFORMANCE_REVIEW]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.PAY_STUB]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.BACKGROUND_CHECK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.EXPENSE_REPORT]: DocumentRetentionPolicy.TEMPORARY,
@@ -204,27 +196,21 @@ export function getDocumentRetentionPolicy(
     [DocumentType.VISA_WORK_PERMIT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.RESUME_CV]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.OFFER_LETTER]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.PROBATION_AGREEMENT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PROBATION_AGREEMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.ACCEPTANCE_LETTER]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.CERTIFICATE_OF_CONDUCT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.CERTIFICATE_OF_CONDUCT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.HEALTH_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.DENTAL_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.VISION_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.LIFE_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.DISABILITY_INSURANCE]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DISABILITY_INSURANCE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.RETIREMENT_PLAN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.FLEXIBLE_SPENDING]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.TRAINING_CERTIFICATE]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.PROFESSIONAL_CERTIFICATION]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.TRAINING_CERTIFICATE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.PROFESSIONAL_CERTIFICATION]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.EDUCATION_DEGREE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.SKILLS_ASSESSMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.COMPETENCY_FRAMEWORK]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.COMPETENCY_FRAMEWORK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.DEVELOPMENT_PLAN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.GOAL_SETTING]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.MID_YEAR_REVIEW]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
@@ -235,13 +221,10 @@ export function getDocumentRetentionPolicy(
     [DocumentType.STOCK_OPTIONS]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.COMMISSION_PLAN]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.OVERTIME_RECORDS]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.MEDICAL_CERTIFICATE]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.MEDICAL_CERTIFICATE]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.FITNESS_FOR_DUTY]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.ACCOMMODATION_REQUEST]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.VACCINATION_RECORD]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.ACCOMMODATION_REQUEST]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.VACCINATION_RECORD]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.EMERGENCY_CONTACT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.EXIT_INTERVIEW]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.FINAL_PAYCHECK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
@@ -250,30 +233,23 @@ export function getDocumentRetentionPolicy(
     [DocumentType.NON_DISPARAGEMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.CODE_OF_CONDUCT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.EMPLOYEE_HANDBOOK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.POLICY_ACKNOWLEDGMENT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.REMOTE_WORK_AGREEMENT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.DATA_PRIVACY_CONSENT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.POLICY_ACKNOWLEDGMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.REMOTE_WORK_AGREEMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DATA_PRIVACY_CONSENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.TAX_WITHHOLDING]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.DIRECT_DEPOSIT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.BENEFIT_ELECTION]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.FORM_1099]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.CONTRACTOR_AGREEMENT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.CONTRACTOR_AGREEMENT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.VENDOR_CONTRACT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.SUBCONTRACTOR_CERT]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.INDEPENDENT_CONTRACTOR]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.SUBCONTRACTOR_CERT]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.INDEPENDENT_CONTRACTOR]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.PURCHASE_REQUEST]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.EQUIPMENT_REQUEST]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.OTHER]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.DRUG_TEST_RESULTS]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
     [DocumentType.REFERENCE_CHECK]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
-    [DocumentType.DISCIPLINARY_ACTION]:
-      DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
+    [DocumentType.DISCIPLINARY_ACTION]: DocumentRetentionPolicy.EMPLOYMENT_PERIOD,
   };
   return retentionMap[type] || DocumentRetentionPolicy.EMPLOYMENT_PERIOD;
 }
@@ -297,12 +273,20 @@ export class Document extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => TenantMember, (member) => member.documents, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(
+    () => TenantMember,
+    (member) => member.documents,
+    {
+      onDelete: 'CASCADE',
+    },
+  )
   tenantMember: TenantMember;
-  @ManyToOne(() => Tenant, (tenant) => tenant.documents, {
-    onDelete: 'CASCADE',
-  })
+  @ManyToOne(
+    () => Tenant,
+    (tenant) => tenant.documents,
+    {
+      onDelete: 'CASCADE',
+    },
+  )
   tenant: Tenant;
 }

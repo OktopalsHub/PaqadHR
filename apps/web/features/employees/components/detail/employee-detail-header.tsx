@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
 
 type EmployeeDetailHeaderProps = {
   isDirty: boolean;
@@ -6,11 +6,7 @@ type EmployeeDetailHeaderProps = {
   onSave: () => void;
 };
 
-export function EmployeeDetailHeader({
-  isDirty,
-  isSaving,
-  onSave,
-}: EmployeeDetailHeaderProps) {
+export function EmployeeDetailHeader({ isDirty, isSaving, onSave }: EmployeeDetailHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
@@ -19,12 +15,8 @@ export function EmployeeDetailHeader({
           View and update employee information from your workspace
         </p>
       </div>
-      <Button
-        size="sm"
-        disabled={!isDirty || isSaving}
-        onClick={onSave}
-      >
-        {isSaving ? "Saving…" : "Save changes"}
+      <Button size="sm" disabled={!isDirty || isSaving} onClick={onSave}>
+        {isSaving ? 'Saving…' : 'Save changes'}
       </Button>
     </div>
   );

@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useAuth } from "@/hooks/use-auth";
-import { AppBreadcrumb } from "./app-breadcrumb";
-import { AccountSetting } from "./account-setting";
-import { NotificationBell } from "./notification-bell";
-import { QuickActionsMenu } from "./quick-actions-menu";
+import { SidebarTrigger } from '@/components/ui/sidebar';
+import { useAuth } from '@/hooks/use-auth';
+import { AccountSetting } from './account-setting';
+import { AppBreadcrumb } from './app-breadcrumb';
+import { NotificationBell } from './notification-bell';
+import { QuickActionsMenu } from './quick-actions-menu';
 
 export const AppTopBar = () => {
   const { logout } = useAuth();
@@ -21,10 +21,7 @@ export const AppTopBar = () => {
           <NotificationBell />
           <QuickActionsMenu />
         </div>
-        <div
-          className="mx-3 hidden h-6 w-px bg-border/80 sm:block"
-          aria-hidden
-        />
+        <div className="mx-3 hidden h-6 w-px bg-border/80 sm:block" aria-hidden />
         <AccountSetting logout={logout} />
       </div>
     </header>

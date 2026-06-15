@@ -1,5 +1,5 @@
-import { AuditEventType } from '../enums/audit-event-type.enum';
-import { AuditContext } from './audit-context.interface';
+import type { AuditEventType } from '../enums/audit-event-type.enum';
+import type { AuditContext } from './audit-context.interface';
 
 export interface ProcessPayrollDto {
   tenantId: string;

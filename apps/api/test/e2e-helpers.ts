@@ -1,5 +1,5 @@
-import { INestApplication } from '@nestjs/common';
-import request, { Test } from 'supertest';
+import type { INestApplication } from '@nestjs/common';
+import request, { type Test } from 'supertest';
 import { uniqueEmail } from './e2e-bootstrap';
 
 export type E2eAuthContext = {

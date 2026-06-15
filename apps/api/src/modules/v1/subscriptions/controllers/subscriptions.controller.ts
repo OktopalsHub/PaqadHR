@@ -1,17 +1,10 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Req,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
+import type { Request } from 'express';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { SubscriptionsService } from '../services/subscriptions.service';
+import type { SubscriptionsService } from '../services/subscriptions.service';
+
 class SetTenantRegionDto {
   countryCode: string;
   timezone?: string;
@@ -32,10 +25,7 @@ export class SubscriptionsController {
   @Post('tenant/:tenantId/set-region')
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Lock tenant billing country (once)' })
-  setTenantRegion(
-    @Param('tenantId') tenantId: string,
-    @Body() dto: SetTenantRegionDto,
-  ) {
+  setTenantRegion(@Param('tenantId') tenantId: string, @Body() dto: SetTenantRegionDto) {
     return this.subscriptionsService.setTenantRegion(tenantId, dto);
   }
   @Post('tenant/:tenantId/onboarding-region')
@@ -71,16 +61,9 @@ export class SubscriptionsController {
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get tenant plan prices for locked country' })
   getTenantPricing(@Param('tenantId') tenantId: string, @Req() req: Request) {
-    return this.subscriptionsService.getTenantPricing(
-      tenantId,
-      this.getClientIP(req),
-    );
+    return this.subscriptionsService.getTenantPricing(tenantId, this.getClientIP(req));
   }
   private getClientIP(req: Request): string {
-    return GeoLocationHelper.resolveClientIp(
-      req.headers,
-      req.socket.remoteAddress,
-      req.ip,
-    );
+    return GeoLocationHelper.resolveClientIp(req.headers, req.socket.remoteAddress, req.ip);
   }
 }

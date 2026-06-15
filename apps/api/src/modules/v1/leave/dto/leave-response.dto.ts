@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { LeaveMemberResponseDto } from "./leave-member-response.dto";
+import { LeaveMemberResponseDto } from './leave-member-response.dto';
 
 export class LeaveTypeResponseDto {
   @ApiProperty() id: string;

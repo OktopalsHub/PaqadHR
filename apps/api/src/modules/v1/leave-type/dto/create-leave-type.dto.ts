@@ -1,6 +1,5 @@
-import { Leave } from '../../leave/entities/leave.entity';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsInt, Min, MaxLength } from 'class-validator';
+import { IsInt, IsString, MaxLength, Min } from 'class-validator';
 export class CreateLeaveTypeDto {
   @ApiProperty({
     description: 'Leave type name',

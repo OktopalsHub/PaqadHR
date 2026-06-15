@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 type MemberLike = {
   firstName?: string | null;
@@ -10,9 +10,9 @@ type MemberLike = {
 
 function memberLabel(member: MemberLike) {
   return (
-    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+    [member.firstName, member.lastName].filter(Boolean).join(' ') ||
     member.preferredName ||
-    "Team member"
+    'Team member'
   );
 }
 
@@ -24,7 +24,7 @@ function memberInitials(member: MemberLike) {
   if (member.preferredName?.trim()) {
     return member.preferredName.trim().slice(0, 2).toUpperCase();
   }
-  return "TM";
+  return 'TM';
 }
 
 type MemberAvatarProps = {
@@ -33,21 +33,14 @@ type MemberAvatarProps = {
   fallbackClassName?: string;
 };
 
-export function MemberAvatar({
-  member,
-  className,
-  fallbackClassName,
-}: MemberAvatarProps) {
+export function MemberAvatar({ member, className, fallbackClassName }: MemberAvatarProps) {
   const label = memberLabel(member);
 
   return (
-    <Avatar className={cn("size-9 shrink-0", className)}>
+    <Avatar className={cn('size-9 shrink-0', className)}>
       <AvatarImage src={member.avatarUrl ?? undefined} alt={label} />
       <AvatarFallback
-        className={cn(
-          "bg-primary/10 text-xs font-medium text-primary",
-          fallbackClassName,
-        )}
+        className={cn('bg-primary/10 text-xs font-medium text-primary', fallbackClassName)}
       >
         {memberInitials(member)}
       </AvatarFallback>
@@ -55,4 +48,4 @@ export function MemberAvatar({
   );
 }
 
-export { memberLabel, memberInitials };
+export { memberInitials, memberLabel };

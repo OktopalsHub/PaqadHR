@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  type CreateDepartmentInput,
   createDepartment,
   fetchDepartments,
-  type CreateDepartmentInput,
-} from "@/lib/api/departments";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
+} from '@/lib/api/departments';
+import { queryKeys } from '@/lib/query/keys';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function useDepartments() {
   const { tenantId, isLoading: tenantLoading } = useTenant();

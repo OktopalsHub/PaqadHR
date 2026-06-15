@@ -8,6 +8,7 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
+      - 'biome.json'
       - '.github/workflows/api-ci.yml'
   pull_request:
     branches: [main, develop]
@@ -66,11 +67,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check (API)
-        run: pnpm --filter api format:check
-
-      - name: Lint API
-        run: pnpm --filter api lint
+      - name: Biome check
+        run: pnpm check
 
       - name: Build API
         run: pnpm --filter api build

@@ -1,11 +1,12 @@
-"use client";
+'use client';
 
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Mail } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { ArrowLeft, Mail } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { ToastMessage } from '@/components/toast-message';
+import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
@@ -13,14 +14,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { ToastMessage } from "@/components/toast-message";
-import { requestPasswordReset } from "@/lib/api/auth";
-import {
-  forgotPasswordSchema,
-  type ForgotPasswordInput,
-} from "@/lib/schemas/auth";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { requestPasswordReset } from '@/lib/api/auth';
+import { type ForgotPasswordInput, forgotPasswordSchema } from '@/lib/schemas/auth';
 
 interface ForgotPasswordFormProps {
   onBack: () => void;
@@ -29,12 +26,11 @@ interface ForgotPasswordFormProps {
 export const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
   const form = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: { email: "" },
+    defaultValues: { email: '' },
   });
 
   const resetMutation = useMutation({
-    mutationFn: (input: ForgotPasswordInput) =>
-      requestPasswordReset(input.email),
+    mutationFn: (input: ForgotPasswordInput) => requestPasswordReset(input.email),
     onSuccess: () => {
       toast.success(
         <ToastMessage
@@ -45,10 +41,7 @@ export const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
     },
     onError: () => {
       toast.error(
-        <ToastMessage
-          title="Error"
-          description="Failed to send reset email. Please try again."
-        />,
+        <ToastMessage title="Error" description="Failed to send reset email. Please try again." />,
       );
     },
   });
@@ -99,24 +92,15 @@ export const ForgotPasswordForm = ({ onBack }: ForgotPasswordFormProps) => {
               <FormItem>
                 <FormLabel>Email address</FormLabel>
                 <FormControl>
-                  <Input
-                    type="email"
-                    placeholder="Enter your email"
-                    className="h-11"
-                    {...field}
-                  />
+                  <Input type="email" placeholder="Enter your email" className="h-11" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <Button
-            type="submit"
-            className="w-full h-11"
-            disabled={resetMutation.isPending}
-          >
-            {resetMutation.isPending ? "Sending..." : "Send reset link"}
+          <Button type="submit" className="w-full h-11" disabled={resetMutation.isPending}>
+            {resetMutation.isPending ? 'Sending...' : 'Send reset link'}
           </Button>
         </form>
       </Form>

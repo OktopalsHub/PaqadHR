@@ -1,13 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsOptional,
-  IsUUID,
-  IsNotEmpty,
-  IsString,
-  IsEnum,
-  IsBoolean,
   IsArray,
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
   IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
 } from 'class-validator';
 import { QuestionType } from 'src/common/enums';
 export class CustomQuestionDto {

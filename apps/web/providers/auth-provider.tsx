@@ -1,28 +1,22 @@
-"use client";
+'use client';
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  type ReactNode,
-} from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
-import { ToastMessage } from "@/components/toast-message";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
+import { toast } from 'sonner';
+import { ToastMessage } from '@/components/toast-message';
 import {
   clearSession,
   getSession,
   login as loginRequest,
   logoutRequest,
   register as registerRequest,
-} from "@/lib/api/auth";
-import { bootstrapCsrf, clearCsrfToken } from "@/lib/api/client";
-import { fetchUserTenants } from "@/lib/api/tenants";
-import { getPostAuthPath } from "@/lib/navigation/tenant-routes";
-import { queryKeys } from "@/lib/query/keys";
-import type { LoginInput, SignupInput, User } from "@/lib/schemas/auth";
+} from '@/lib/api/auth';
+import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
+import { fetchUserTenants } from '@/lib/api/tenants';
+import { getPostAuthPath } from '@/lib/navigation/tenant-routes';
+import { queryKeys } from '@/lib/query/keys';
+import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -36,8 +30,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 function readRedirectParam(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("redirect");
+  if (typeof window === 'undefined') return null;
+  return new URLSearchParams(window.location.search).get('redirect');
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -62,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const redirect = readRedirectParam();
       const destination =
         user.needsOnboarding || tenants.length === 0
-          ? "/onboarding"
+          ? '/onboarding'
           : getPostAuthPath(tenants, redirect);
 
       router.push(destination);
@@ -75,15 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: async (user) => {
       queryClient.setQueryData(queryKeys.auth.session, user);
       await bootstrapCsrf();
-      toast.success(
-        <ToastMessage title="Login Successful" description="Welcome back!" />,
-      );
+      toast.success(<ToastMessage title="Login Successful" description="Welcome back!" />);
       await navigateAfterAuth(user);
     },
     onError: (error: Error) => {
-      toast.error(
-        <ToastMessage title="Login Failed" description={error.message} />,
-      );
+      toast.error(<ToastMessage title="Login Failed" description={error.message} />);
     },
   });
 
@@ -101,9 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await navigateAfterAuth(user);
     },
     onError: (error: Error) => {
-      toast.error(
-        <ToastMessage title="Registration Failed" description={error.message} />,
-      );
+      toast.error(<ToastMessage title="Registration Failed" description={error.message} />);
     },
   });
 
@@ -114,13 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
     });
-    router.push("/signin");
-    toast(
-      <ToastMessage
-        title="Logout Successful"
-        description="You have been logged out"
-      />,
-    );
+    router.push('/signin');
+    toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
   }, [queryClient, router]);
 
   const value = useMemo<AuthContextType>(
@@ -134,18 +117,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       logout,
       isAuthenticated: Boolean(sessionQuery.data),
-      isLoading:
-        sessionQuery.isLoading ||
-        loginMutation.isPending ||
-        registerMutation.isPending,
+      isLoading: sessionQuery.isLoading || loginMutation.isPending || registerMutation.isPending,
     }),
-    [
-      sessionQuery.data,
-      sessionQuery.isLoading,
-      loginMutation,
-      registerMutation,
-      logout,
-    ],
+    [sessionQuery.data, sessionQuery.isLoading, loginMutation, registerMutation, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -154,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

@@ -1,47 +1,47 @@
-import { StatCard } from "@/components/stat-card";
-import { ContentCard } from "@/components/content-card";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Users, DollarSign, Calendar, Target } from "lucide-react";
+import { Calendar, DollarSign, Target, Users } from 'lucide-react';
+import { ContentCard } from '@/components/content-card';
+import { StatCard } from '@/components/stat-card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 
 export function CompanyAnalytics() {
   const metrics = [
     {
-      title: "Total Employees",
-      value: "284",
-      change: "+12.5%",
-      trend: "up" as const,
+      title: 'Total Employees',
+      value: '284',
+      change: '+12.5%',
+      trend: 'up' as const,
       icon: Users,
     },
     {
-      title: "Monthly Payroll",
-      value: "$1.2M",
-      change: "+8.2%",
-      trend: "up" as const,
+      title: 'Monthly Payroll',
+      value: '$1.2M',
+      change: '+8.2%',
+      trend: 'up' as const,
       icon: DollarSign,
     },
     {
-      title: "Avg. Attendance",
-      value: "94.8%",
-      change: "-2.1%",
-      trend: "down" as const,
+      title: 'Avg. Attendance',
+      value: '94.8%',
+      change: '-2.1%',
+      trend: 'down' as const,
       icon: Calendar,
     },
     {
-      title: "Performance Score",
-      value: "87.3",
-      change: "+5.7%",
-      trend: "up" as const,
+      title: 'Performance Score',
+      value: '87.3',
+      change: '+5.7%',
+      trend: 'up' as const,
       icon: Target,
     },
   ];
 
   const departmentData = [
-    { name: "Engineering", employees: 85, budget: 425000, performance: 92 },
-    { name: "Sales", employees: 42, budget: 210000, performance: 88 },
-    { name: "Marketing", employees: 28, budget: 140000, performance: 85 },
-    { name: "HR", employees: 15, budget: 75000, performance: 91 },
-    { name: "Operations", employees: 35, budget: 175000, performance: 87 },
+    { name: 'Engineering', employees: 85, budget: 425000, performance: 92 },
+    { name: 'Sales', employees: 42, budget: 210000, performance: 88 },
+    { name: 'Marketing', employees: 28, budget: 140000, performance: 85 },
+    { name: 'HR', employees: 15, budget: 75000, performance: 91 },
+    { name: 'Operations', employees: 35, budget: 175000, performance: 87 },
   ];
 
   return (
@@ -55,7 +55,7 @@ export function CompanyAnalytics() {
             icon={metric.icon}
             trend={{
               value: metric.change,
-              positive: metric.trend === "up",
+              positive: metric.trend === 'up',
             }}
           />
         ))}
@@ -67,13 +67,10 @@ export function CompanyAnalytics() {
       >
         <div className="space-y-4">
           {departmentData.map((dept) => (
-            <div
-              key={dept.name}
-              className="rounded-xl border border-border/60 bg-muted/20 p-4"
-            >
+            <div key={dept.name} className="rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="mb-2 flex items-center justify-between">
                 <h4 className="font-medium">{dept.name}</h4>
-                <Badge variant={dept.performance >= 90 ? "default" : "secondary"}>
+                <Badge variant={dept.performance >= 90 ? 'default' : 'secondary'}>
                   {dept.performance}% performance
                 </Badge>
               </div>

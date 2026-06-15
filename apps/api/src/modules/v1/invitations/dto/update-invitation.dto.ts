@@ -1,6 +1,5 @@
-import { PartialType } from '@nestjs/swagger';
-import { ApiProperty } from '@nestjs/swagger';
-import { CreateInvitationDto } from "./index";
+import { ApiProperty, PartialType } from '@nestjs/swagger';
+import { CreateInvitationDto } from './index';
 
 export class UpdateInvitationDto extends PartialType(CreateInvitationDto) {
   @ApiProperty({

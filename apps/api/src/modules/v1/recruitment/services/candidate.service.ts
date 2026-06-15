@@ -1,16 +1,12 @@
-import { CreateCandidateDto } from '../dto/create-candidate.dto';
-import { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
-import { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
-import { UpdateCandidateDto } from '../dto/update-candidate.dto';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
-import { JobOpeningService } from './job-opening.service';
-import { CandidateRepository } from "../repositories/index";
-import { Candidate } from "../entities/candidate.entity";
+import type { CreateCandidateDto } from '../dto/create-candidate.dto';
+import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
+import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
+import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
+import type { Candidate } from '../entities/candidate.entity';
+import type { CandidateRepository } from '../repositories/index';
+import type { JobOpeningService } from './job-opening.service';
 
 @Injectable()
 export class CandidateService {
@@ -31,9 +27,7 @@ export class CandidateService {
       dto.jobOpeningId,
     );
     if (existing) {
-      throw new BadRequestException(
-        'This candidate has already applied for this role.',
-      );
+      throw new BadRequestException('This candidate has already applied for this role.');
     }
 
     const entity = this.candidateRepository.create({
@@ -63,16 +57,12 @@ export class CandidateService {
     return this.candidateRepository.save(entity);
   }
 
-  async applyForJob(
-    jobId: string,
-    createCandidateDto: CreateCandidateDto,
-  ): Promise<Candidate> {
+  async applyForJob(jobId: string, createCandidateDto: CreateCandidateDto): Promise<Candidate> {
     const job = await this.jobOpeningService.getActiveJob(jobId);
-    const existingApplication =
-      await this.candidateRepository.findByEmailAndJob(
-        createCandidateDto.email,
-        jobId,
-      );
+    const existingApplication = await this.candidateRepository.findByEmailAndJob(
+      createCandidateDto.email,
+      jobId,
+    );
     if (existingApplication) {
       throw new BadRequestException(
         'You have already applied for this position. You can check your application status or withdraw if needed.',
@@ -100,7 +90,7 @@ export class CandidateService {
         name: 'Applied',
         startedAt: new Date(),
       },
-      tenantId: job.tenantId, 
+      tenantId: job.tenantId,
       appliedAt: new Date(),
       location: createCandidateDto.location,
       portfolioUrl: createCandidateDto.portfolioUrl,
@@ -114,14 +104,8 @@ export class CandidateService {
   async getCandidatesByTenant(tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByTenantOnly(tenantId);
   }
-  async getCandidate(
-    candidateId: string,
-    tenantId: string,
-  ): Promise<Candidate> {
-    const candidate = await this.candidateRepository.findByTenantAndId(
-      tenantId,
-      candidateId,
-    );
+  async getCandidate(candidateId: string, tenantId: string): Promise<Candidate> {
+    const candidate = await this.candidateRepository.findByTenantAndId(tenantId, candidateId);
     if (!candidate) {
       throw new NotFoundException('Candidate not found');
     }
@@ -152,42 +136,26 @@ export class CandidateService {
     }
     return updatedCandidate;
   }
-  async getCandidatesByJob(
-    jobId: string,
-    tenantId: string,
-  ): Promise<Candidate[]> {
+  async getCandidatesByJob(jobId: string, tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByJobOpening(jobId, tenantId);
   }
-  async getApplicationStatus(
-    applicationId: string,
-    email: string,
-  ): Promise<Candidate> {
-    const candidate =
-      await this.candidateRepository.findByApplicationIdAndEmail(
-        applicationId,
-        email,
-      );
+  async getApplicationStatus(applicationId: string, email: string): Promise<Candidate> {
+    const candidate = await this.candidateRepository.findByApplicationIdAndEmail(
+      applicationId,
+      email,
+    );
     if (!candidate) {
       throw new NotFoundException('Application not found');
     }
     return candidate;
   }
-  async withdrawApplication(
-    applicationId: string,
-    email: string,
-  ): Promise<Candidate> {
+  async withdrawApplication(applicationId: string, email: string): Promise<Candidate> {
     const candidate = await this.getApplicationStatus(applicationId, email);
     if (candidate.status === CandidateStatus.WITHDRAWN) {
       throw new BadRequestException('Application has already been withdrawn');
     }
-    if (
-      [CandidateStatus.HIRED, CandidateStatus.REJECTED].includes(
-        candidate.status,
-      )
-    ) {
-      throw new BadRequestException(
-        'Cannot withdraw application in current status',
-      );
+    if ([CandidateStatus.HIRED, CandidateStatus.REJECTED].includes(candidate.status)) {
+      throw new BadRequestException('Cannot withdraw application in current status');
     }
     const updateData = {
       status: CandidateStatus.WITHDRAWN,
@@ -197,9 +165,7 @@ export class CandidateService {
         startedAt: new Date(),
       },
     };
-    await this.candidateRepository.update(applicationId, 
-      updateData,
-    );
+    await this.candidateRepository.update(applicationId, updateData);
     const updatedCandidate = await this.candidateRepository.findOne({
       where: { id: applicationId },
     });
@@ -214,28 +180,17 @@ export class CandidateService {
     updateDto: UpdateCandidateDto,
   ): Promise<Candidate> {
     const candidate = await this.getApplicationStatus(applicationId, email);
-    if (
-      ![CandidateStatus.APPLIED, CandidateStatus.UNDER_REVIEW].includes(
-        candidate.status,
-      )
-    ) {
-      throw new BadRequestException(
-        'Application cannot be updated in current status',
-      );
+    if (![CandidateStatus.APPLIED, CandidateStatus.UNDER_REVIEW].includes(candidate.status)) {
+      throw new BadRequestException('Application cannot be updated in current status');
     }
     const updateData: Record<string, unknown> = {};
     if (updateDto.phone !== undefined) updateData.phone = updateDto.phone;
-    if (updateDto.location !== undefined)
-      updateData.location = updateDto.location;
-    if (updateDto.portfolioUrl !== undefined)
-      updateData.portfolioUrl = updateDto.portfolioUrl;
-    if (updateDto.linkedinUrl !== undefined)
-      updateData.linkedinUrl = updateDto.linkedinUrl;
-    if (updateDto.githubUrl !== undefined)
-      updateData.githubUrl = updateDto.githubUrl;
+    if (updateDto.location !== undefined) updateData.location = updateDto.location;
+    if (updateDto.portfolioUrl !== undefined) updateData.portfolioUrl = updateDto.portfolioUrl;
+    if (updateDto.linkedinUrl !== undefined) updateData.linkedinUrl = updateDto.linkedinUrl;
+    if (updateDto.githubUrl !== undefined) updateData.githubUrl = updateDto.githubUrl;
     if (updateDto.skills !== undefined) updateData.skills = updateDto.skills;
-    if (updateDto.experience !== undefined)
-      updateData.experience = updateDto.experience;
+    if (updateDto.experience !== undefined) updateData.experience = updateDto.experience;
     if (updateDto.resumeFilename) {
       updateData.resume = {
         filename: updateDto.resumeFilename,

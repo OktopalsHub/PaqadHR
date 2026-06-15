@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
-import { LoadingBlock } from "@/components/loading-block";
-import { useTenant } from "@/providers/tenant-provider";
-import { tenantRoot } from "@/lib/navigation/tenant-routes";
+import { useParams, usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { LoadingBlock } from '@/components/loading-block';
+import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { useTenant } from '@/providers/tenant-provider';
 
 /** Ensures the URL tenant slug matches the active workspace. */
 export function TenantSlugGate({ children }: { children: React.ReactNode }) {
@@ -18,12 +18,12 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     if (isLoading) return;
 
     if (tenants.length === 0) {
-      router.replace("/onboarding");
+      router.replace('/onboarding');
       return;
     }
 
     if (tenant && tenant.slug !== tenantSlug) {
-      const suffix = pathname.replace(`/${tenantSlug}`, "") || "";
+      const suffix = pathname.replace(`/${tenantSlug}`, '') || '';
       router.replace(`${tenantRoot(tenant.slug)}${suffix}`);
     }
   }, [isLoading, tenant, tenantSlug, tenants.length, pathname, router]);

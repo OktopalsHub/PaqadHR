@@ -1,25 +1,24 @@
-import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
-import { NestExpressApplication } from '@nestjs/platform-express';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import csurf from 'csurf';
-import express, { NextFunction, Request, Response } from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import helmet, { HelmetOptions } from 'helmet';
+import helmet, { type HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
 import passport from 'passport';
 import { resolveTrustedOrigins } from './trusted-origins';
 
 export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(cookieParser());
-  app.use(express.json({ limit: '10mb' })); 
-  app.use(express.urlencoded({ limit: '10mb', extended: true })); 
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
   const csrfProtection = csurf({
     cookie: {
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', 
-      secure: process.env.NODE_ENV === 'production', 
-      maxAge: 3600000, 
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 3600000,
     },
     ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
   });
@@ -40,27 +39,19 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       '/health',
       '/metrics',
     ];
-    const isExcludedPath = excludedPaths.some((path) =>
-      req.path.startsWith(path),
-    );
+    const isExcludedPath = excludedPaths.some((path) => req.path.startsWith(path));
     if (isExcludedPath) {
       return next();
     }
     csrfProtection(req, res, next);
   });
   app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
-    if (
-      err &&
-      typeof err === 'object' &&
-      'code' in err &&
-      err.code === 'EBADCSRFTOKEN'
-    ) {
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'EBADCSRFTOKEN') {
       return res.status(403).json({
         message: 'Invalid CSRF token',
         error: 'Forbidden',
         statusCode: 403,
-        details:
-          'CSRF token validation failed. Please refresh the page and try again.',
+        details: 'CSRF token validation failed. Please refresh the page and try again.',
       });
     }
     next(err);
@@ -93,10 +84,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
           }
         }
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        console.warn(
-          `CORS rejected origin: ${origin}. Allowed origins:`,
-          allowedOrigins,
-        );
+        console.warn(`CORS rejected origin: ${origin}. Allowed origins:`, allowedOrigins);
         callback(new Error(`Not allowed by CORS: ${origin}`), false);
       },
       credentials: true,
@@ -127,7 +115,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
         'x-csrf-token',
         'X-CSRF-Token',
       ],
-      optionsSuccessStatus: 200, 
+      optionsSuccessStatus: 200,
     }),
   );
   const contentSecurityPolicy = {
@@ -143,7 +131,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   };
   app.use(
     helmet({
-      contentSecurityPolicy: false, 
+      contentSecurityPolicy: false,
     }),
   );
   app.use(helmetCsp(contentSecurityPolicy));
@@ -160,8 +148,8 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(helmet.dnsPrefetchControl());
   app.use(helmet.permittedCrossDomainPolicies());
   const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 100, 
+    windowMs: 15 * 60 * 1000,
+    max: 100,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
@@ -174,22 +162,20 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       const skipPaths = ['/health', '/metrics', '/csrf/token'];
       const securityProbes = ['/.git/', '/admin', '/wp-admin', '/.env'];
       return (
-        skipPaths.includes(req.path) ||
-        securityProbes.some((probe) => req.path.includes(probe))
+        skipPaths.includes(req.path) || securityProbes.some((probe) => req.path.includes(probe))
       );
     },
   });
   app.use(limiter);
   const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 5, 
+    windowMs: 15 * 60 * 1000,
+    max: 5,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
     message: {
       error: 'Too Many Authentication Attempts',
-      message:
-        'Too many authentication attempts from this IP, please try again later.',
+      message: 'Too many authentication attempts from this IP, please try again later.',
       statusCode: 429,
     },
   });
@@ -199,15 +185,14 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use('/api/v1/auth/forgot-password', authLimiter);
   app.use('/api/v1/auth/reset-password', authLimiter);
   const webhookLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000, 
-    max: 50, 
+    windowMs: 1 * 60 * 1000,
+    max: 50,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
     message: {
       error: 'Too Many Webhook Requests',
-      message:
-        'Too many webhook requests, please check your webhook configuration.',
+      message: 'Too many webhook requests, please check your webhook configuration.',
       statusCode: 429,
     },
   });

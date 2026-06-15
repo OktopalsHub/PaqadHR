@@ -1,6 +1,3 @@
-import { Candidate } from '../entities/candidate.entity';
-import { Interview } from '../entities/interview.entity';
-import { User } from '../../users/entities/user.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
@@ -24,8 +21,7 @@ export class InterviewerDto {
   @IsUUID()
   userId: string;
   @ApiProperty({
-    description:
-      'Role of the interviewer (e.g., "Technical Lead", "HR Manager")',
+    description: 'Role of the interviewer (e.g., "Technical Lead", "HR Manager")',
   })
   @IsNotEmpty()
   @IsString()

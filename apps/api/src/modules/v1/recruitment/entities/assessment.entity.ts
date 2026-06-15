@@ -1,11 +1,6 @@
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { CandidateAssessment } from './candidate-assessment.entity';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity()
 export class Assessment extends BaseEntity {
@@ -23,7 +18,7 @@ export class Assessment extends BaseEntity {
     correctAnswer?: string;
   }[];
   @Column()
-  duration: number; 
+  duration: number;
   @Column({ name: 'passing_score' })
   passingScore: number;
   @Column({ name: 'is_active', default: true })

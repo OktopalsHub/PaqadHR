@@ -1,5 +1,5 @@
-import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import {
   IsDate,
   IsEnum,
@@ -36,9 +36,7 @@ export class CreateEmploymentDto {
   })
   @IsOptional()
   endDate?: Date;
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(EmploymentStatus)
   @ApiProperty({
     description: 'status',
@@ -61,9 +59,7 @@ export class CreateEmploymentDto {
   })
   @IsOptional()
   reportsToId?: string;
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(PayType)
   @ApiProperty({
     description: 'pay type',
@@ -71,9 +67,7 @@ export class CreateEmploymentDto {
   })
   @IsOptional()
   payType?: PayType = PayType.SALARY;
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(PaySchedule)
   @ApiProperty({
     description: 'pay schedule',

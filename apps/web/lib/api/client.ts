@@ -1,17 +1,16 @@
-const RAW_API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:9001/api/v1";
+const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001/api/v1';
 
 /** Ensures API paths resolve under /api/v1; CSRF and docs stay at server root. */
 function normalizeApiV1Base(url: string): string {
-  const trimmed = url.replace(/\/$/, "");
-  if (trimmed.endsWith("/api/v1")) return trimmed;
-  if (trimmed.endsWith("/api")) return `${trimmed}/v1`;
+  const trimmed = url.replace(/\/$/, '');
+  if (trimmed.endsWith('/api/v1')) return trimmed;
+  if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
   return `${trimmed}/api/v1`;
 }
 
 const API_V1_BASE = normalizeApiV1Base(RAW_API_BASE);
 
-const CSRF_HEADER = "x-csrf-token";
+const CSRF_HEADER = 'x-csrf-token';
 
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
@@ -23,7 +22,7 @@ export class ApiError extends Error {
     readonly code?: string,
   ) {
     super(message);
-    this.name = "ApiError";
+    this.name = 'ApiError';
   }
 }
 
@@ -33,21 +32,19 @@ export function getApiV1Base() {
 
 /** Server origin for routes outside /api/v1 (e.g. /csrf/token, /docs). */
 export function getApiOrigin() {
-  return API_V1_BASE.replace(/\/api\/v1$/, "");
+  return API_V1_BASE.replace(/\/api\/v1$/, '');
 }
 
-export function tenantPath(tenantId: string, path = "") {
-  const suffix = path.startsWith("/") ? path : path ? `/${path}` : "";
+export function tenantPath(tenantId: string, path = '') {
+  const suffix = path.startsWith('/') ? path : path ? `/${path}` : '';
   return `/tenants/${tenantId}${suffix}`;
 }
 
 function isCsrfError(status: number, payload: unknown): boolean {
   if (status !== 403) return false;
-  if (!payload || typeof payload !== "object") return false;
-  const message = String(
-    (payload as { message?: string }).message ?? "",
-  ).toLowerCase();
-  return message.includes("csrf");
+  if (!payload || typeof payload !== 'object') return false;
+  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
+  return message.includes('csrf');
 }
 
 export async function ensureCsrfToken(force = false): Promise<string> {
@@ -56,17 +53,17 @@ export async function ensureCsrfToken(force = false): Promise<string> {
 
   csrfTokenPromise = (async () => {
     const response = await fetch(`${getApiOrigin()}/csrf/token`, {
-      credentials: "include",
-      cache: "no-store",
+      credentials: 'include',
+      cache: 'no-store',
     });
 
     if (!response.ok) {
-      throw new ApiError("Failed to fetch CSRF token", response.status);
+      throw new ApiError('Failed to fetch CSRF token', response.status);
     }
 
     const data = (await response.json()) as { csrfToken: string };
     if (!data.csrfToken) {
-      throw new ApiError("CSRF token missing in response", response.status);
+      throw new ApiError('CSRF token missing in response', response.status);
     }
 
     csrfToken = data.csrfToken;
@@ -106,10 +103,8 @@ export async function fetchWithCsrf(
   url: string,
   init?: RequestInit & { skipCsrf?: boolean },
 ): Promise<Response> {
-  const method = (init?.method ?? "GET").toUpperCase();
-  const needsCsrf =
-    !init?.skipCsrf &&
-    ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   const headers = new Headers(init?.headers);
   if (needsCsrf) {
@@ -119,7 +114,7 @@ export async function fetchWithCsrf(
   let response = await fetch(url, {
     ...init,
     method,
-    credentials: "include",
+    credentials: 'include',
     headers,
   });
 
@@ -129,7 +124,7 @@ export async function fetchWithCsrf(
     response = await fetch(url, {
       ...init,
       method,
-      credentials: "include",
+      credentials: 'include',
       headers,
     });
   }
@@ -137,17 +132,14 @@ export async function fetchWithCsrf(
   return response;
 }
 
-export async function apiClient<T>(
-  path: string,
-  init?: ApiClientOptions,
-): Promise<T> {
+export async function apiClient<T>(path: string, init?: ApiClientOptions): Promise<T> {
   const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
   const headers = new Headers(init?.headers);
-  if (!headers.has("Content-Type") && init?.body) {
-    headers.set("Content-Type", "application/json");
+  if (!headers.has('Content-Type') && init?.body) {
+    headers.set('Content-Type', 'application/json');
   }
   if (tenantMatch?.[1]) {
-    headers.set("x-tenant-id", tenantMatch[1]);
+    headers.set('x-tenant-id', tenantMatch[1]);
   }
 
   const response = await fetchWithCsrf(`${API_V1_BASE}${path}`, {
@@ -155,10 +147,7 @@ export async function apiClient<T>(
     headers,
   }).catch((error: unknown) => {
     if (error instanceof TypeError) {
-      throw new ApiError(
-        "Could not reach the server. Check your connection and try again.",
-        0,
-      );
+      throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
     }
     throw error;
   });
@@ -166,9 +155,8 @@ export async function apiClient<T>(
   if (!response.ok) {
     const payload = await parseErrorPayload(response);
     const message =
-      (Array.isArray(payload?.message)
-        ? payload.message.join(", ")
-        : payload?.message) ?? `Request failed (${response.status})`;
+      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
+      `Request failed (${response.status})`;
     throw new ApiError(message, response.status, payload?.code);
   }
 

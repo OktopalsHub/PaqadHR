@@ -1,5 +1,4 @@
-import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
+import type { INestApplication } from '@nestjs/common';
 import { createE2eApp, uniqueEmail } from './e2e-bootstrap';
 import {
   acceptInvitation,
@@ -49,15 +48,11 @@ describe('HR flows (e2e)', () => {
     expect(employeeMember).toBeDefined();
 
     const leaveTypes = await owner
-      .withAuth(
-        owner.agent.get(`/api/v1/tenants/${owner.tenantId}/leave-types`),
-      )
+      .withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/leave-types`))
       .expect(200);
     expect(leaveTypes.body.length).toBeGreaterThan(0);
 
-    const ptoType = leaveTypes.body.find(
-      (lt: { name: string }) => lt.name === 'PTO',
-    );
+    const ptoType = leaveTypes.body.find((lt: { name: string }) => lt.name === 'PTO');
     expect(ptoType).toBeDefined();
 
     const leaveDay = nextWeekdayDate();
@@ -80,18 +75,12 @@ describe('HR flows (e2e)', () => {
     expect(leaves.body.records?.length).toBeGreaterThan(0);
 
     const category = await owner
-      .withAuth(
-        owner.agent.post(
-          `/api/v1/tenants/${owner.tenantId}/shoutout-categories`,
-        ),
-      )
+      .withAuth(owner.agent.post(`/api/v1/tenants/${owner.tenantId}/shoutout-categories`))
       .send({ name: 'Teamwork', description: 'Great collaboration' })
       .expect(201);
 
     const shoutout = await owner
-      .withAuth(
-        owner.agent.post(`/api/v1/tenants/${owner.tenantId}/shoutouts`),
-      )
+      .withAuth(owner.agent.post(`/api/v1/tenants/${owner.tenantId}/shoutouts`))
       .send({
         recipientIds: [employeeMember.id],
         pointsPerRecipient: 10,
@@ -104,9 +93,7 @@ describe('HR flows (e2e)', () => {
     expect(shoutout.body.message).toContain('onboarding testing');
 
     const feed = await owner
-      .withAuth(
-        owner.agent.get(`/api/v1/tenants/${owner.tenantId}/shoutouts?limit=10`),
-      )
+      .withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/shoutouts?limit=10`))
       .expect(200);
     expect(feed.body.records?.length).toBeGreaterThan(0);
   });

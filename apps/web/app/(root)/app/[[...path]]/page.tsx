@@ -1,12 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useTenant } from "@/providers/tenant-provider";
-import {
-  rewriteLegacyAppPath,
-  tenantRoot,
-} from "@/lib/navigation/tenant-routes";
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
+import { useTenant } from '@/providers/tenant-provider';
 
 /** Redirect legacy `/app/*` URLs to `/{tenantSlug}/*`. */
 export default function LegacyAppRedirectPage() {
@@ -18,14 +15,14 @@ export default function LegacyAppRedirectPage() {
     if (isLoading) return;
 
     if (tenants.length === 0) {
-      router.replace("/onboarding");
+      router.replace('/onboarding');
       return;
     }
 
     const slug = tenant?.slug ?? tenants[0]?.slug;
     if (!slug) return;
 
-    const suffix = params.path?.length ? `/${params.path.join("/")}` : "";
+    const suffix = params.path?.length ? `/${params.path.join('/')}` : '';
     const legacyPath = `/app${suffix}`;
     router.replace(rewriteLegacyAppPath(legacyPath, slug));
   }, [isLoading, tenant, tenants, params.path, router]);

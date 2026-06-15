@@ -1,12 +1,12 @@
-import { Leave } from '../leave/entities/leave.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
-import { CarryoverExpirationResult } from 'src/common/interfaces';
-import { LeavePolicyService } from '../leave-policy/leave-policy.service';
-import { LeaveBalanceRepository } from './leave-balance.repository';
-import { CreateLeaveBalanceDto } from "./dto/create-leave-balance.dto";
-import { LeaveBalance } from "./entities/leave-balance.entity";
-import { UpdateLeaveBalanceDto } from "./dto/update-leave-balance.dto";
+import type { CarryoverExpirationResult } from 'src/common/interfaces';
+import type { Leave } from '../leave/entities/leave.entity';
+import type { LeavePolicyService } from '../leave-policy/leave-policy.service';
+import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
+import type { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
+import type { LeaveBalance } from './entities/leave-balance.entity';
+import type { LeaveBalanceRepository } from './leave-balance.repository';
 
 @Injectable()
 export class LeaveBalanceService {
@@ -35,16 +35,12 @@ export class LeaveBalanceService {
       where: { id: balanceId, tenantId },
     });
   }
-  async updateLeaveBalance(
-    balanceId: string,
-    dto: UpdateLeaveBalanceDto,
-    tenantId: string,
-  ) {
+  async updateLeaveBalance(balanceId: string, dto: UpdateLeaveBalanceDto, tenantId: string) {
     const existingBalance = await this.getLeaveBalance(balanceId, tenantId);
     if (!existingBalance) {
       throw new NotFoundException('Leave balance not found or access denied');
     }
-    await this.leaveBalanceRepository.update(balanceId,  dto);
+    await this.leaveBalanceRepository.update(balanceId, dto);
     return this.leaveBalanceRepository.findOne({
       where: { id: balanceId, tenantId },
     });
@@ -81,25 +77,13 @@ export class LeaveBalanceService {
       throw new NotFoundException('Leave balance not found');
     }
     let usedDaysChange = 0;
-    if (
-      previousStatus === LeaveStatus.PENDING &&
-      leave.status === LeaveStatus.APPROVED
-    ) {
+    if (previousStatus === LeaveStatus.PENDING && leave.status === LeaveStatus.APPROVED) {
       usedDaysChange = leave.duration;
-    } else if (
-      previousStatus === LeaveStatus.APPROVED &&
-      leave.status === LeaveStatus.REJECTED
-    ) {
+    } else if (previousStatus === LeaveStatus.APPROVED && leave.status === LeaveStatus.REJECTED) {
       usedDaysChange = -leave.duration;
-    } else if (
-      previousStatus === LeaveStatus.APPROVED &&
-      leave.status === LeaveStatus.CANCELLED
-    ) {
+    } else if (previousStatus === LeaveStatus.APPROVED && leave.status === LeaveStatus.CANCELLED) {
       usedDaysChange = -leave.duration;
-    } else if (
-      previousStatus === LeaveStatus.PENDING &&
-      leave.status === LeaveStatus.REJECTED
-    ) {
+    } else if (previousStatus === LeaveStatus.PENDING && leave.status === LeaveStatus.REJECTED) {
       usedDaysChange = 0;
     }
     if (usedDaysChange !== 0) {
@@ -142,11 +126,7 @@ export class LeaveBalanceService {
   }
   async getBalanceSummary(tenantId: string, memberId: string, year?: number) {
     const currentYear = year || new Date().getFullYear();
-    const balances = await this.getBalancesByMember(
-      tenantId,
-      memberId,
-      currentYear,
-    );
+    const balances = await this.getBalancesByMember(tenantId, memberId, currentYear);
     return balances.map((balance) => ({
       leaveTypeId: balance.leaveTypeId,
       leaveTypeName: balance.leaveType?.name,
@@ -154,9 +134,7 @@ export class LeaveBalanceService {
       usedDays: balance.usedDays,
       remainingDays: balance.remainingDays,
       utilizationPercentage:
-        balance.totalDays > 0
-          ? Math.round((balance.usedDays / balance.totalDays) * 100)
-          : 0,
+        balance.totalDays > 0 ? Math.round((balance.usedDays / balance.totalDays) * 100) : 0,
     }));
   }
   async hasInsufficientBalance(
@@ -176,10 +154,7 @@ export class LeaveBalanceService {
   }
   async getOrganizationBalanceStats(tenantId: string, year?: number) {
     const currentYear = year || new Date().getFullYear();
-    return this.leaveBalanceRepository.getBalanceStatsByTenant(
-      tenantId,
-      currentYear,
-    );
+    return this.leaveBalanceRepository.getBalanceStatsByTenant(tenantId, currentYear);
   }
   async resetBalancesForNewYear(
     tenantId: string,
@@ -226,10 +201,8 @@ export class LeaveBalanceService {
     const results: (LeaveBalance | null)[] = [];
     for (const update of updates) {
       const { balanceId, ...updateData } = update;
-      await this.leaveBalanceRepository.update(balanceId, 
-        updateData,
-      );
-    const updatedBalance = await this.leaveBalanceRepository.findOne({
+      await this.leaveBalanceRepository.update(balanceId, updateData);
+      const updatedBalance = await this.leaveBalanceRepository.findOne({
         where: { id: balanceId },
       });
       results.push(updatedBalance);
@@ -242,9 +215,8 @@ export class LeaveBalanceService {
     leaveTypeId: string,
     previousYear: number,
   ): Promise<{ carryoverDays: number; expiryDate: Date | null }> {
-    const tenantPolicy =
-      await this.leavePolicyService.getTenantPolicy(tenantId);
-    if (!tenantPolicy || !tenantPolicy.allowCarryover) {
+    const tenantPolicy = await this.leavePolicyService.getTenantPolicy(tenantId);
+    if (!tenantPolicy?.allowCarryover) {
       return { carryoverDays: 0, expiryDate: null };
     }
     const previousBalance = await this.findByCriteria({
@@ -256,20 +228,12 @@ export class LeaveBalanceService {
     if (!previousBalance || previousBalance.remainingDays <= 0) {
       return { carryoverDays: 0, expiryDate: null };
     }
-    const carryoverDays = Math.min(
-      previousBalance.remainingDays,
-      tenantPolicy.maxCarryoverDays,
-    );
+    const carryoverDays = Math.min(previousBalance.remainingDays, tenantPolicy.maxCarryoverDays);
     let expiryDate: Date | null = null;
-    if (
-      tenantPolicy.carryoverExpiryMonths &&
-      tenantPolicy.carryoverExpiryMonths > 0
-    ) {
+    if (tenantPolicy.carryoverExpiryMonths && tenantPolicy.carryoverExpiryMonths > 0) {
       expiryDate = new Date();
-      expiryDate.setFullYear(previousYear + 1); 
-      expiryDate.setMonth(
-        expiryDate.getMonth() + tenantPolicy.carryoverExpiryMonths,
-      );
+      expiryDate.setFullYear(previousYear + 1);
+      expiryDate.setMonth(expiryDate.getMonth() + tenantPolicy.carryoverExpiryMonths);
     }
     return { carryoverDays, expiryDate };
   }
@@ -279,7 +243,7 @@ export class LeaveBalanceService {
     leaveTypeId: string,
     dto: {
       year: number;
-      regularDays: number; 
+      regularDays: number;
       carryoverDays?: number;
       carryoverExpiryDate?: Date | null;
     },
@@ -306,45 +270,35 @@ export class LeaveBalanceService {
     if (!balance) {
       throw new NotFoundException('Leave balance not found');
     }
-    const availableCarryover = this.getAvailableCarryoverDays(
-      balance,
-      leaveDate,
-    );
+    const availableCarryover = this.getAvailableCarryoverDays(balance, leaveDate);
     let carryoverUsed = 0;
-    let regularUsed = 0;
+    let _regularUsed = 0;
     if (availableCarryover > 0) {
       carryoverUsed = Math.min(daysToUse, availableCarryover);
-      regularUsed = Math.max(0, daysToUse - carryoverUsed);
+      _regularUsed = Math.max(0, daysToUse - carryoverUsed);
     } else {
-      regularUsed = daysToUse;
+      _regularUsed = daysToUse;
     }
     const newCarryoverUsed = balance.carryoverUsed + carryoverUsed;
     const newUsedDays = balance.usedDays + daysToUse;
     const newRemainingDays = balance.totalDays - newUsedDays;
-    await this.leaveBalanceRepository.update(balanceId,  {
+    await this.leaveBalanceRepository.update(balanceId, {
       usedDays: newUsedDays,
       remainingDays: newRemainingDays,
       carryoverUsed: newCarryoverUsed,
     });
     return this.leaveBalanceRepository.findOne({ where: { id: balanceId } });
   }
-  private getAvailableCarryoverDays(
-    balance: LeaveBalance,
-    currentDate: Date,
-  ): number {
+  private getAvailableCarryoverDays(balance: LeaveBalance, currentDate: Date): number {
     if (balance.carryoverDays === 0) return 0;
-    if (
-      balance.carryoverExpiryDate &&
-      currentDate > balance.carryoverExpiryDate
-    ) {
+    if (balance.carryoverExpiryDate && currentDate > balance.carryoverExpiryDate) {
       return 0;
     }
     return Math.max(0, balance.carryoverDays - balance.carryoverUsed);
   }
   async expireCarryoverDays(tenantId: string, year: number) {
-    const tenantPolicy =
-      await this.leavePolicyService.getTenantPolicy(tenantId);
-    if (!tenantPolicy || !tenantPolicy.carryoverExpiryMonths) {
+    const tenantPolicy = await this.leavePolicyService.getTenantPolicy(tenantId);
+    if (!tenantPolicy?.carryoverExpiryMonths) {
       return { expiredBalances: 0, totalExpiredDays: 0 };
     }
     const currentDate = new Date();
@@ -354,22 +308,16 @@ export class LeaveBalanceService {
     let expiredBalances = 0;
     let totalExpiredDays = 0;
     for (const balance of balancesToExpire) {
-      if (
-        balance.carryoverExpiryDate &&
-        currentDate > balance.carryoverExpiryDate
-      ) {
+      if (balance.carryoverExpiryDate && currentDate > balance.carryoverExpiryDate) {
         const unusedCarryover = balance.carryoverDays - balance.carryoverUsed;
         if (unusedCarryover > 0) {
           const newTotalDays = balance.totalDays - unusedCarryover;
-          const newRemainingDays = Math.max(
-            0,
-            balance.remainingDays - unusedCarryover,
-          );
+          const newRemainingDays = Math.max(0, balance.remainingDays - unusedCarryover);
           await this.leaveBalanceRepository.update(balance.id, {
             totalDays: newTotalDays,
             remainingDays: newRemainingDays,
-            carryoverDays: balance.carryoverUsed, 
-            carryoverExpiryDate: null, 
+            carryoverDays: balance.carryoverUsed,
+            carryoverExpiryDate: null,
           });
           expiredBalances++;
           totalExpiredDays += unusedCarryover;
@@ -378,12 +326,7 @@ export class LeaveBalanceService {
     }
     return { expiredBalances, totalExpiredDays };
   }
-  async getDetailedBalance(
-    tenantId: string,
-    memberId: string,
-    leaveTypeId: string,
-    year: number,
-  ) {
+  async getDetailedBalance(tenantId: string, memberId: string, leaveTypeId: string, year: number) {
     const balance = await this.findByCriteria({
       tenantId,
       memberId,
@@ -392,12 +335,8 @@ export class LeaveBalanceService {
     });
     if (!balance) return null;
     const currentDate = new Date();
-    const availableCarryover = this.getAvailableCarryoverDays(
-      balance,
-      currentDate,
-    );
-    const expiredCarryover =
-      balance.carryoverDays - balance.carryoverUsed - availableCarryover;
+    const availableCarryover = this.getAvailableCarryoverDays(balance, currentDate);
+    const expiredCarryover = balance.carryoverDays - balance.carryoverUsed - availableCarryover;
     return {
       ...balance,
       availableCarryover,
@@ -410,8 +349,7 @@ export class LeaveBalanceService {
   }
   async bulkExpireCarryoverDays() {
     const currentYear = new Date().getFullYear();
-    const tenantsWithCarryover =
-      await this.leavePolicyService.getTenantIdsWithCarryoverPolicy();
+    const tenantsWithCarryover = await this.leavePolicyService.getTenantIdsWithCarryoverPolicy();
     const results: CarryoverExpirationResult[] = [];
     for (const tenantId of tenantsWithCarryover) {
       const result = await this.expireCarryoverDays(tenantId, currentYear);
@@ -436,16 +374,11 @@ export class LeaveBalanceService {
       leaveTypeId,
       newYear - 1,
     );
-    return this.createLeaveBalanceWithCarryover(
-      tenantId,
-      memberId,
-      leaveTypeId,
-      {
-        year: newYear,
-        regularDays: regularDaysAllocation,
-        carryoverDays: carryoverInfo.carryoverDays,
-        carryoverExpiryDate: carryoverInfo.expiryDate,
-      },
-    );
+    return this.createLeaveBalanceWithCarryover(tenantId, memberId, leaveTypeId, {
+      year: newYear,
+      regularDays: regularDaysAllocation,
+      carryoverDays: carryoverInfo.carryoverDays,
+      carryoverExpiryDate: carryoverInfo.expiryDate,
+    });
   }
 }

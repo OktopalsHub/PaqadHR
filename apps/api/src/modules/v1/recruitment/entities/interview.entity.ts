@@ -1,13 +1,9 @@
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  ManyToOne } from 'typeorm';
-import { JobOpening } from './job-opening.entity';
+import { InterviewStatus, InterviewType } from 'src/common/enums';
+import { Column, DeleteDateColumn, Entity, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Candidate } from './candidate.entity';
-import { InterviewType, InterviewStatus } from 'src/common/enums';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { JobOpening } from './job-opening.entity';
 
 @Entity()
 export class Interview extends BaseEntity {
@@ -29,7 +25,7 @@ export class Interview extends BaseEntity {
   @Column()
   date: Date;
   @Column()
-  duration: number; 
+  duration: number;
   @Column({ type: 'json' })
   interviewers: {
     userId: string;
@@ -52,11 +48,20 @@ export class Interview extends BaseEntity {
   tenantMemberId: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => TenantMember, (tenantMember) => tenantMember.interviews)
+  @ManyToOne(
+    () => TenantMember,
+    (tenantMember) => tenantMember.interviews,
+  )
   tenantMember: TenantMember;
-  @ManyToOne(() => Candidate, (candidate) => candidate.interviews)
+  @ManyToOne(
+    () => Candidate,
+    (candidate) => candidate.interviews,
+  )
   candidate: Candidate;
-  @ManyToOne(() => JobOpening, (jobOpening) => jobOpening.interviews)
+  @ManyToOne(
+    () => JobOpening,
+    (jobOpening) => jobOpening.interviews,
+  )
   jobOpening: JobOpening;
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

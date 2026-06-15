@@ -1,32 +1,32 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
 import { IsNull, Not } from 'typeorm';
-import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
-import { UserSyncService } from './user-sync.service';
-import { PlatformUserRepository } from "../repositories/platform-user.repository";
-import { PlatformIntegrationRepository } from "../repositories/platform-integration.repository";
-import { ShoutoutsService } from '../../../modules/v1/shoutouts/services/shoutouts.service';
-import { PlatformIntegration } from '../entities/platform-integration.entity';
-import {
+import type { ShoutoutsService } from '../../../modules/v1/shoutouts/services/shoutouts.service';
+import type { TenantMember } from '../../../modules/v1/tenant-members/entities/tenant-member.entity';
+import type { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
+import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import type {
   SlackEvent,
   SlackEventPayload,
   SlackInteractivePayload,
   SlackSlashCommandPayload,
 } from '../integration.types';
-import { TenantMember } from '../../../modules/v1/tenant-members/entities/tenant-member.entity';
+import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import type { PlatformUserRepository } from '../repositories/platform-user.repository';
+import type { UserSyncService } from './user-sync.service';
 
 @Injectable()
 export class SlackWebhookService {
   private readonly logger = new Logger(SlackWebhookService.name);
   constructor(
-    private readonly eventEmitter: EventEmitter2,
+    readonly _eventEmitter: EventEmitter2,
     private readonly userSyncService: UserSyncService,
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly integrationRepo: PlatformIntegrationRepository,
-    private readonly tenantMembersService: TenantMembersService,
+    readonly _tenantMembersService: TenantMembersService,
     private readonly shoutoutsService: ShoutoutsService,
   ) {}
   async verifySlackSignature(
@@ -51,10 +51,7 @@ export class SlackWebhookService {
         .createHmac('sha256', slackSigningSecret)
         .update(sigBasestring, 'utf8')
         .digest('hex')}`;
-      return crypto.timingSafeEqual(
-        Buffer.from(expectedSignature),
-        Buffer.from(signature),
-      );
+      return crypto.timingSafeEqual(Buffer.from(expectedSignature), Buffer.from(signature));
     } catch (error) {
       this.logger.error('Error verifying Slack signature:', error);
       return false;
@@ -64,9 +61,7 @@ export class SlackWebhookService {
     try {
       const { event, team_id } = eventPayload;
       if (!event) return;
-      this.logger.log(
-        `Handling Slack event: ${event.type} for team: ${team_id}`,
-      );
+      this.logger.log(`Handling Slack event: ${event.type} for team: ${team_id}`);
       switch (event.type) {
         case 'user_change':
           await this.handleUserChange(event, team_id ?? '');
@@ -90,9 +85,7 @@ export class SlackWebhookService {
   async handleInteractiveComponent(payload: SlackInteractivePayload): Promise<void> {
     try {
       const { type, user, team, actions } = payload;
-      this.logger.log(
-        `Handling interactive component: ${type} from user: ${user.id}`,
-      );
+      this.logger.log(`Handling interactive component: ${type} from user: ${user.id}`);
       switch (type) {
         case 'block_actions':
           await this.handleBlockActions(payload);
@@ -113,24 +106,12 @@ export class SlackWebhookService {
   async handleSlashCommand(commandPayload: SlackSlashCommandPayload): Promise<unknown> {
     try {
       const { command, text, user_id, team_id, channel_id } = commandPayload;
-      this.logger.log(
-        `Handling slash command: ${command} from user: ${user_id}`,
-      );
+      this.logger.log(`Handling slash command: ${command} from user: ${user_id}`);
       switch (command) {
         case '/shoutout':
-          return await this.handleShoutoutCommand(
-            text,
-            user_id,
-            team_id,
-            channel_id,
-          );
+          return await this.handleShoutoutCommand(text, user_id, team_id, channel_id);
         case '/kudos':
-          return await this.handleShoutoutCommand(
-            text,
-            user_id,
-            team_id,
-            channel_id,
-          );
+          return await this.handleShoutoutCommand(text, user_id, team_id, channel_id);
         default:
           return {
             response_type: 'ephemeral',
@@ -167,16 +148,10 @@ export class SlackWebhookService {
   private async handleTeamJoin(event: SlackEvent, teamId: string): Promise<void> {
     const integration = await this.findIntegrationByTeamId(teamId);
     if (!integration) return;
-    await this.userSyncService.syncAllUsers(
-      integration.id,
-      integration.tenantId,
-    );
+    await this.userSyncService.syncAllUsers(integration.id, integration.tenantId);
     this.logger.log(`Auto-synced new team member: ${event.user?.id}`);
   }
-  private async handleUserProfileChanged(
-    event: SlackEvent,
-    teamId: string,
-  ): Promise<void> {
+  private async handleUserProfileChanged(event: SlackEvent, teamId: string): Promise<void> {
     await this.handleUserChange(event, teamId);
   }
   private async handleAppHomeOpened(event: SlackEvent, teamId: string): Promise<void> {
@@ -237,7 +212,7 @@ export class SlackWebhookService {
       };
     }
     let message = text.replace(mentionRegex, '').trim();
-    let points = 10; 
+    let points = 10;
     const pointsMatch = message.match(/\((\d+)\s*points?\)/i);
     if (pointsMatch) {
       points = parseInt(pointsMatch[1], 10);
@@ -250,10 +225,7 @@ export class SlackWebhookService {
       };
     }
     try {
-      const sender = await this.findTenantMemberBySlackUser(
-        userId,
-        integration.id,
-      );
+      const sender = await this.findTenantMemberBySlackUser(userId, integration.id);
       if (!sender) {
         return {
           response_type: 'ephemeral',
@@ -263,10 +235,7 @@ export class SlackWebhookService {
       const recipientIds: string[] = [];
       for (const mention of mentions) {
         const slackUserId = mention[1];
-        const recipient = await this.findTenantMemberBySlackUser(
-          slackUserId,
-          integration.id,
-        );
+        const recipient = await this.findTenantMemberBySlackUser(slackUserId, integration.id);
         if (recipient && recipient.id !== sender.id) {
           recipientIds.push(recipient.id);
         }
@@ -278,19 +247,18 @@ export class SlackWebhookService {
           text: 'None of the mentioned users are linked to PaqadHR accounts.',
         };
       }
-      const shoutout = await this.shoutoutsService.createShoutout(
-        integration.tenantId,
-        sender.id,
-        {
-          recipientIds: uniqueRecipientIds,
-          pointsPerRecipient: points,
-          message,
-          categoryIds: [],
-          source: 'slack',
-        },
-      );
+      const shoutout = await this.shoutoutsService.createShoutout(integration.tenantId, sender.id, {
+        recipientIds: uniqueRecipientIds,
+        pointsPerRecipient: points,
+        message,
+        categoryIds: [],
+        source: 'slack',
+      });
       const recipientNames = shoutout.recipients
-        .map((r) => r.preferredName || [r.firstName, r.lastName].filter(Boolean).join(' ') || 'Someone')
+        .map(
+          (r) =>
+            r.preferredName || [r.firstName, r.lastName].filter(Boolean).join(' ') || 'Someone',
+        )
         .join(', ');
       return {
         response_type: 'ephemeral',
@@ -308,10 +276,7 @@ export class SlackWebhookService {
     const teamId = payload.team.id;
     const integration = await this.findIntegrationByTeamId(teamId);
     if (integration) {
-      await this.userSyncService.syncAllUsers(
-        integration.id,
-        integration.tenantId,
-      );
+      await this.userSyncService.syncAllUsers(integration.id, integration.tenantId);
     }
   }
   private async handleMatchUserAction(_payload: SlackInteractivePayload): Promise<void> {
@@ -323,9 +288,7 @@ export class SlackWebhookService {
   private async handleCreateShoutoutShortcut(_payload: SlackInteractivePayload): Promise<void> {
     this.logger.log('Create shoutout shortcut triggered');
   }
-  private async findIntegrationByTeamId(
-    teamId: string,
-  ): Promise<PlatformIntegration | null> {
+  private async findIntegrationByTeamId(teamId: string): Promise<PlatformIntegration | null> {
     return this.integrationRepo.findOne({
       where: {
         platformTeamId: teamId,

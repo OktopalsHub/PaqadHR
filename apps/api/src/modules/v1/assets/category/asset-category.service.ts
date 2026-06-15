@@ -1,19 +1,12 @@
-import { Asset } from '../entities/asset.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { AssetCategoryRepository } from './asset-category.repository';
-import { CreateAssetCategoryDto } from "./dto/create-asset-category.dto";
-import { UpdateAssetCategoryDto } from "./dto/update-asset-category.dto";
+import type { AssetCategoryRepository } from './asset-category.repository';
+import type { CreateAssetCategoryDto } from './dto/create-asset-category.dto';
+import type { UpdateAssetCategoryDto } from './dto/update-asset-category.dto';
 
 @Injectable()
 export class AssetCategoryService {
-  constructor(
-    private readonly assetCategoryRepository: AssetCategoryRepository,
-  ) {}
-  async createAssetCategory(
-    tenantId: string,
-    memberId: string,
-    dto: CreateAssetCategoryDto,
-  ) {
+  constructor(private readonly assetCategoryRepository: AssetCategoryRepository) {}
+  async createAssetCategory(tenantId: string, memberId: string, dto: CreateAssetCategoryDto) {
     return this.assetCategoryRepository.create({
       ...dto,
       name: dto.name.toLowerCase().trim(),
@@ -41,11 +34,7 @@ export class AssetCategoryService {
     }
     return category;
   }
-  async updateAssetCategory(
-    tenantId: string,
-    categoryId: string,
-    dto: UpdateAssetCategoryDto,
-  ) {
+  async updateAssetCategory(tenantId: string, categoryId: string, dto: UpdateAssetCategoryDto) {
     const existing = await this.getCategory(tenantId, categoryId);
     return this.assetCategoryRepository.update(existing.id, dto);
   }

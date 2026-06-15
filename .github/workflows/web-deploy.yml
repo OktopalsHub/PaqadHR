@@ -7,6 +7,7 @@ on:
       - 'apps/web/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'biome.json'
       - '.github/workflows/web-deploy.yml'
   pull_request:
     branches: [main, develop]
@@ -31,11 +32,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Format check (web)
-        run: pnpm --filter web format:check
-
-      - name: Lint web
-        run: pnpm --filter web lint
+      - name: Biome check
+        run: pnpm check
 
       - name: Build web (PR)
         if: github.event_name == 'pull_request'

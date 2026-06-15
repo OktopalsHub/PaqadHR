@@ -1,16 +1,16 @@
-"use client";
+'use client';
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveLeave,
   createLeave,
   fetchLeaves,
   fetchMyLeaveBalances,
   rejectLeave,
-} from "@/lib/api/leaves";
-import type { CreateLeaveInput } from "@/lib/schemas/leave";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
+} from '@/lib/api/leaves';
+import { queryKeys } from '@/lib/query/keys';
+import type { CreateLeaveInput } from '@/lib/schemas/leave';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function useLeaves() {
   const { tenantId, isLoading: tenantLoading } = useTenant();

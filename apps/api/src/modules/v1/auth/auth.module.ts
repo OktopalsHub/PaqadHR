@@ -3,19 +3,18 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
-import { UsersService } from '../users/users.service';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
-import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
 import { InvitationsModule } from '../invitations/invitations.module';
-import { UsersModule } from '../users/users.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
+import { UsersModule } from '../users/users.module';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
+import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
 
 @Module({
   imports: [
@@ -34,13 +33,7 @@ import { Verification } from './entities/verification.entity';
     TenantMembersModule,
     TenantsModule,
   ],
-  providers: [
-    AuthService,
-    UserRepository,
-    JwtStrategy,
-    LocalStrategy,
-    GoogleStrategy,
-  ],
+  providers: [AuthService, UserRepository, JwtStrategy, LocalStrategy, GoogleStrategy],
   exports: [AuthService],
   controllers: [AuthController],
 })

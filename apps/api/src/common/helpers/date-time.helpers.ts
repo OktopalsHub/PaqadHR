@@ -1,8 +1,8 @@
 import { UnprocessableEntityException } from '@nestjs/common';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
-import { HolidayService } from "../../modules/v1/tenant-settings/services/holiday.service";
-import { HolidaySettings } from "../interfaces/holiday-settings.interface";
+import { HolidayService } from '../../modules/v1/tenant-settings/services/holiday.service';
+import type { HolidaySettings } from '../interfaces/holiday-settings.interface';
 
 dayjs.extend(duration);
 export class DateTimeHelper {
@@ -24,14 +24,12 @@ export class DateTimeHelper {
       throw new UnprocessableEntityException('Invalid date format');
     }
     if (end.isBefore(start)) {
-      throw new UnprocessableEntityException(
-        'End date cannot be before start date',
-      );
+      throw new UnprocessableEntityException('End date cannot be before start date');
     }
     const durationInDays = end.diff(start, 'day') + 1;
     let workingDays: number | undefined;
     if (holidaySettings) {
-      workingDays = this.calculateWorkingDays(
+      workingDays = DateTimeHelper.calculateWorkingDays(
         startDate,
         endDate,
         holidaySettings,
@@ -55,7 +53,7 @@ export class DateTimeHelper {
     const end = new Date(endDate);
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
-    return this.holidayService.calculateWorkingDays(
+    return DateTimeHelper.holidayService.calculateWorkingDays(
       start,
       end,
       countryCode,
@@ -68,16 +66,9 @@ export class DateTimeHelper {
     countryCode?: string,
   ): boolean {
     const dateObj = new Date(date);
-    return this.holidayService.isHoliday(
-      dateObj,
-      countryCode || '',
-      holidaySettings,
-    );
+    return DateTimeHelper.holidayService.isHoliday(dateObj, countryCode || '', holidaySettings);
   }
-  static isWeekend(
-    date: Date | string,
-    weekendDays: number[] = [0, 6],
-  ): boolean {
+  static isWeekend(date: Date | string, weekendDays: number[] = [0, 6]): boolean {
     const dateObj = new Date(date);
     return weekendDays.includes(dateObj.getDay());
   }

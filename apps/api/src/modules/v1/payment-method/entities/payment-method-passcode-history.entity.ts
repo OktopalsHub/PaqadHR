@@ -1,9 +1,8 @@
-import { User } from '../../users/entities/user.entity';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { PaymentMethod } from './payment-method.entity';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { PasscodeChangeReason } from "../../../../common/enums/passcode-change-reason.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'payment_method_passcode_history' })
 @Index(['paymentMethodId', 'changedAt'])

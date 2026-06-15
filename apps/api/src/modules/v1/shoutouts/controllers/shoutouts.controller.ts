@@ -10,13 +10,13 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
-import { MemberContext } from 'src/common/interfaces';
+import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
-import { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { CreateShoutoutDto } from '../dto/create-shoutout.dto';
-import { ShoutoutResponseDto, ShoutoutPaginatedResponseDto } from '../dto/shoutout-response.dto';
-import { ShoutoutsService } from '../services/shoutouts.service';
+import type { CreateShoutoutDto } from '../dto/create-shoutout.dto';
+import type { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
+import { ShoutoutPaginatedResponseDto, ShoutoutResponseDto } from '../dto/shoutout-response.dto';
+import type { ShoutoutsService } from '../services/shoutouts.service';
 
 @ApiTags('shoutouts')
 @UseGuards(TenantMemberGuard)
@@ -45,19 +45,14 @@ export class ShoutoutsController {
   @Get()
   @ApiOperation({ summary: 'List tenant shoutout feed' })
   @ApiResponse({ status: HttpStatus.OK, type: ShoutoutPaginatedResponseDto })
-  async listShoutouts(
-    @TenantId() tenantId: string,
-    @Query() query: ListShoutoutsQueryDto,
-  ) {
+  async listShoutouts(@TenantId() tenantId: string, @Query() query: ListShoutoutsQueryDto) {
     const { page, limit } = PaginationUtil.parsePaginationOptions(query);
     return this.shoutoutsService.listShoutouts(tenantId, {
       page,
       limit,
       senderId: query.senderId,
       recipientId: query.recipientId,
-      categoryIds: query.categoryIds
-        ? query.categoryIds.split(',').filter(Boolean)
-        : undefined,
+      categoryIds: query.categoryIds ? query.categoryIds.split(',').filter(Boolean) : undefined,
     });
   }
 }

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,15 +9,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/hooks/use-auth";
+} from '@/components/ui/dropdown-menu';
 import {
   memberFullName,
   memberInitials,
   useMemberProfile,
-} from "@/hooks/queries/use-member-profile";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
-import { ThemeMenuItem } from "./theme-switcher";
+} from '@/hooks/queries/use-member-profile';
+import { useAuth } from '@/hooks/use-auth';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { ThemeMenuItem } from './theme-switcher';
 
 export const AccountSetting = ({ logout }: { logout: () => void }) => {
   const { user } = useAuth();
@@ -25,7 +25,7 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
   const name = memberFullName(profile, user?.name);
   const initials = memberInitials(profile, user?.name);
   const position = profile?.position?.title?.trim();
-  const settingsHref = useTenantHref()("settings");
+  const settingsHref = useTenantHref()('settings');
 
   return (
     <DropdownMenu>
@@ -41,22 +41,14 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
             </AvatarFallback>
           </Avatar>
           <div className="hidden min-w-0 max-w-[140px] text-left lg:block">
-            <p className="truncate text-sm font-semibold leading-tight">
-              {name}
-            </p>
+            <p className="truncate text-sm font-semibold leading-tight">{name}</p>
             {position ? (
-              <p className="truncate text-xs leading-tight text-muted-foreground">
-                {position}
-              </p>
+              <p className="truncate text-xs leading-tight text-muted-foreground">{position}</p>
             ) : null}
           </div>
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        className="min-w-56 rounded-xl"
-        align="end"
-        sideOffset={4}
-      >
+      <DropdownMenuContent className="min-w-56 rounded-xl" align="end" sideOffset={4}>
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href={settingsHref}>Settings</Link>

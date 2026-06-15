@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class Session1781241202635 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -18,7 +18,9 @@ export class Session1781241202635 implements MigrationInterface {
     `);
 
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_session_user_id ON session(user_id);`);
-    await queryRunner.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_session_token ON session(token);`);
+    await queryRunner.query(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_session_token ON session(token);`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

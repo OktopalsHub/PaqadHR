@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, Repository } from 'typeorm';
-import { EmergencyContact } from "./entities/emergency-contact.entity";
-import { CreateEmergencyContactDto } from "./dto/create-emergency-contact.dto";
-import { UpdateEmergencyContactDto } from "./dto/update-emergency-contact.dto";
-import { IEmergencyContactRepository } from "../../../common/interfaces/iemergency-contact-repository.interface";
+import { type FindOptionsWhere, Repository } from 'typeorm';
+import type { IEmergencyContactRepository } from '../../../common/interfaces/iemergency-contact-repository.interface';
+import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
+import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
+import { EmergencyContact } from './entities/emergency-contact.entity';
 
 @Injectable()
 export class EmergencyContactRepository
@@ -41,18 +41,13 @@ export class EmergencyContactRepository
     }
     return this.find({ withDeleted: false, where: where });
   }
-  async getEmergencyContact(
-    id: string,
-    tenantId: string,
-  ): Promise<EmergencyContact> {
+  async getEmergencyContact(id: string, tenantId: string): Promise<EmergencyContact> {
     const contact = await this.findOne({
       where: { id, tenantId } as FindOptionsWhere<EmergencyContact>,
       withDeleted: false,
     });
     if (!contact) {
-      throw new NotFoundException(
-        `Emergency contact with ID "${id}" not found`,
-      );
+      throw new NotFoundException(`Emergency contact with ID "${id}" not found`);
     }
     return contact;
   }
@@ -70,9 +65,7 @@ export class EmergencyContactRepository
     await this.update(id, updateEmergencyContactDto);
     const updatedContact = await this.getEmergencyContact(id, tenantId);
     if (!updatedContact) {
-      throw new NotFoundException(
-        `Emergency contact with ID "${id}" not found`,
-      );
+      throw new NotFoundException(`Emergency contact with ID "${id}" not found`);
     }
     return updatedContact;
   }
@@ -80,9 +73,7 @@ export class EmergencyContactRepository
     await this.getEmergencyContact(id, tenantId);
     const result = await this.delete(id);
     if (result.affected === 0) {
-      throw new NotFoundException(
-        `Emergency contact with ID "${id}" not found`,
-      );
+      throw new NotFoundException(`Emergency contact with ID "${id}" not found`);
     }
   }
   async getPrimaryEmergencyContact(
@@ -104,21 +95,19 @@ export class EmergencyContactRepository
     await this.update(id, { isPrimary: true });
     const updatedContact = await this.getEmergencyContact(id, tenantId);
     if (!updatedContact) {
-      throw new NotFoundException(
-        `Emergency contact with ID "${id}" not found after update`,
-      );
+      throw new NotFoundException(`Emergency contact with ID "${id}" not found after update`);
     }
     return updatedContact;
   }
-  private async unsetExistingPrimary(
-    tenantMemberId: string,
-    tenantId: string,
-  ): Promise<void> {
-    const primaryContacts = await this.find({ withDeleted: true, where: {
-              tenantMemberId,
-              tenantId,
-              isPrimary: true,
-            } as FindOptionsWhere<EmergencyContact> });
+  private async unsetExistingPrimary(tenantMemberId: string, tenantId: string): Promise<void> {
+    const primaryContacts = await this.find({
+      withDeleted: true,
+      where: {
+        tenantMemberId,
+        tenantId,
+        isPrimary: true,
+      } as FindOptionsWhere<EmergencyContact>,
+    });
     for (const contact of primaryContacts) {
       await this.update(contact.id, { isPrimary: false });
     }

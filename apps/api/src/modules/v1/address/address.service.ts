@@ -1,17 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { AddressRepository } from './address.repository';
-import { CreateAddressDto } from './dto/create-address.dto';
-import { UpdateAddressDto } from './dto/update-address.dto';
+import type { AddressRepository } from './address.repository';
+import type { CreateAddressDto } from './dto/create-address.dto';
+import type { UpdateAddressDto } from './dto/update-address.dto';
 
 @Injectable()
 export class AddressService {
   constructor(private readonly addressRepository: AddressRepository) {}
 
-  async createAddress(
-    _tenantId: string,
-    memberId: string,
-    dto: CreateAddressDto,
-  ) {
+  async createAddress(_tenantId: string, memberId: string, dto: CreateAddressDto) {
     return this.addressRepository.create({
       ...dto,
       tenantMemberId: memberId,
@@ -22,13 +18,9 @@ export class AddressService {
     return this.addressRepository.listAddresses(memberId);
   }
 
-  async updateAddress(
-    memberId: string,
-    addressId: string,
-    dto: UpdateAddressDto,
-  ) {
+  async updateAddress(memberId: string, addressId: string, dto: UpdateAddressDto) {
     await this.getAddress(memberId, addressId);
-    await this.addressRepository.update(addressId,  dto);
+    await this.addressRepository.update(addressId, dto);
     return this.addressRepository.findOne({ where: { id: addressId } });
   }
 

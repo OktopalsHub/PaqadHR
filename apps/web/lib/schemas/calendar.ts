@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const calendarEventTypeSchema = z.enum([
-  "leave",
-  "holiday",
-  "meeting",
-  "review",
-  "celebration",
+  'leave',
+  'holiday',
+  'meeting',
+  'review',
+  'celebration',
 ]);
 
 export const calendarEventSchema = z.object({

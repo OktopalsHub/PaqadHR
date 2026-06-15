@@ -1,13 +1,16 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
-import { PlatformIntegration } from './platform-integration.entity';
 import { ChannelType } from 'src/common/enums';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../database/entities/base.entity';
+import { PlatformIntegration } from './platform-integration.entity';
 
 @Entity('integration_channels')
 export class IntegrationChannel extends BaseEntity {
   @Column({ name: 'integration_id' })
   integrationId: string;
-  @ManyToOne(() => PlatformIntegration, (integration) => integration.channels)
+  @ManyToOne(
+    () => PlatformIntegration,
+    (integration) => integration.channels,
+  )
   @JoinColumn({ name: 'integration_id' })
   integration: PlatformIntegration;
   @Column({ name: 'platform_channel_id' })
@@ -19,15 +22,15 @@ export class IntegrationChannel extends BaseEntity {
   @Column({ name: 'is_primary', default: false })
   isPrimary: boolean;
   @Column({ name: 'team_id', nullable: true })
-  teamId: string; 
+  teamId: string;
   @Column({ name: 'department_id', nullable: true })
-  departmentId: string; 
+  departmentId: string;
   @Column({ name: 'category_filter', type: 'json', nullable: true })
-  categoryFilter: string[]; 
+  categoryFilter: string[];
   @Column({ name: 'min_points_threshold', default: 0 })
-  minPointsThreshold: number; 
+  minPointsThreshold: number;
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
   @Column({ name: 'created_by' })
-  createdBy: string; 
+  createdBy: string;
 }

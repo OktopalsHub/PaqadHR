@@ -1,13 +1,9 @@
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { Building, ChevronDown, ChevronRight, Mail, Phone } from "lucide-react";
-import type { Department } from "@/lib/schemas/department";
+import { Building, ChevronDown, ChevronRight, Mail, Phone } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import type { Department } from '@/lib/schemas/department';
 
 interface DepartmentCardProps {
   department: Department;
@@ -15,11 +11,7 @@ interface DepartmentCardProps {
   onToggle: () => void;
 }
 
-export function DepartmentCard({
-  department,
-  isExpanded,
-  onToggle,
-}: DepartmentCardProps) {
+export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentCardProps) {
   const memberCount = department.members.length + (department.manager ? 1 : 0);
 
   return (
@@ -29,16 +21,12 @@ export function DepartmentCard({
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div
-                  className={`${department.color} p-3 rounded-lg text-white`}
-                >
+                <div className={`${department.color} p-3 rounded-lg text-white`}>
                   <Building size={20} />
                 </div>
                 <div>
                   <CardTitle className="text-lg">{department.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {department.description}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{department.description}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -77,9 +65,7 @@ export function DepartmentCard({
                       )}
                     </div>
                   </div>
-                  <Badge className={`${department.color} text-white`}>
-                    Manager
-                  </Badge>
+                  <Badge className={`${department.color} text-white`}>Manager</Badge>
                 </div>
               </div>
             )}
@@ -94,18 +80,14 @@ export function DepartmentCard({
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={member.avatar} />
-                      <AvatarFallback className="text-sm">
-                        {member.initials}
-                      </AvatarFallback>
+                      <AvatarFallback className="text-sm">{member.initials}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{member.name}</p>
                       <p className="text-sm text-muted-foreground truncate">
                         {member.role ?? member.position}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {member.email}
-                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{member.email}</p>
                     </div>
                   </div>
                 ))}

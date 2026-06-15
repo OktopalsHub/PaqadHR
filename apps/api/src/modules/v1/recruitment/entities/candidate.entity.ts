@@ -1,17 +1,8 @@
-import {
-  CandidateSource,
-  CandidateStatus,
-  InterviewType,
-} from 'src/common/enums';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  ManyToOne,
-  OneToMany } from 'typeorm';
+import { CandidateSource, CandidateStatus, type InterviewType } from 'src/common/enums';
+import { Column, DeleteDateColumn, Entity, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Interview } from './interview.entity';
 import { JobOpening } from './job-opening.entity';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity()
 export class Candidate extends BaseEntity {
@@ -98,9 +89,15 @@ export class Candidate extends BaseEntity {
     expectedSalary?: string;
     availabilityDate?: Date;
   };
-  @ManyToOne(() => JobOpening, (jobOpening) => jobOpening.candidates)
+  @ManyToOne(
+    () => JobOpening,
+    (jobOpening) => jobOpening.candidates,
+  )
   jobOpening: JobOpening;
-  @OneToMany(() => Interview, (interview) => interview.candidate)
+  @OneToMany(
+    () => Interview,
+    (interview) => interview.candidate,
+  )
   interviews: Interview[];
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

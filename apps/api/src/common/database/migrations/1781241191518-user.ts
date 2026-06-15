@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class User1781241191518 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -24,7 +24,9 @@ export class User1781241191518 implements MigrationInterface {
     `);
 
     await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_email ON "user"(email);`);
-    await queryRunner.query(`CREATE INDEX IF NOT EXISTS idx_user_country_code ON "user"(country_code);`);
+    await queryRunner.query(
+      `CREATE INDEX IF NOT EXISTS idx_user_country_code ON "user"(country_code);`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

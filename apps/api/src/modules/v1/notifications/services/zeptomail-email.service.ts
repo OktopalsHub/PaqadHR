@@ -1,5 +1,5 @@
-import { Invitation } from '../../invitations/entities/invitation.entity';
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+
 interface EmailData {
   to: string | string[];
   subject: string;
@@ -39,10 +39,10 @@ export class ZeptomailEmailService {
           address: emailData.from || this.defaultFromEmail,
           name: 'TeamLyf',
         },
-        to: toArray.map(email => ({
+        to: toArray.map((email) => ({
           email_address: {
             address: email,
-          }
+          },
         })),
         subject: emailData.subject,
         htmlbody: emailData.html,
@@ -50,9 +50,7 @@ export class ZeptomailEmailService {
         reply_to: emailData.replyTo ? [{ address: emailData.replyTo }] : undefined,
         attachments: emailData.attachments?.map((att) => ({
           name: att.filename,
-          content: Buffer.isBuffer(att.content)
-            ? att.content.toString('base64')
-            : att.content,
+          content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
           mime_type: att.contentType,
         })),
       };
@@ -81,9 +79,7 @@ export class ZeptomailEmailService {
   async sendBulkEmails(
     emails: EmailData[],
   ): Promise<Array<{ success: boolean; messageId?: string; error?: string }>> {
-    const results = await Promise.allSettled(
-      emails.map((email) => this.sendEmail(email)),
-    );
+    const results = await Promise.allSettled(emails.map((email) => this.sendEmail(email)));
     return results.map((result) =>
       result.status === 'fulfilled'
         ? result.value

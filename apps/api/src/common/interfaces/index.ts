@@ -1,6 +1,6 @@
-export * from './base-repository.interface';
 export * from './authenticated-member.interface';
 export * from './authenticated-user.interface';
+export * from './base-repository.interface';
 export * from './context.interface';
 export * from './integration.interface';
 export * from './interview-filters.interface';

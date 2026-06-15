@@ -1,4 +1,3 @@
-import { Candidate } from '../entities/candidate.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 export class CandidateNoteDto {
@@ -6,8 +5,7 @@ export class CandidateNoteDto {
     description: 'Note content',
     minLength: 1,
     maxLength: 1000,
-    example:
-      'Candidate showed excellent problem-solving skills during the technical interview.',
+    example: 'Candidate showed excellent problem-solving skills during the technical interview.',
   })
   @IsString()
   @IsNotEmpty()

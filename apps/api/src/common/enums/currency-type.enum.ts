@@ -1,4 +1,4 @@
 export enum CurrencyType {
-    FIAT = 'fiat',
-    CRYPTO = 'crypto'
+  FIAT = 'fiat',
+  CRYPTO = 'crypto',
 }

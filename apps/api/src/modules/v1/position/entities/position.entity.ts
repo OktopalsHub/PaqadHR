@@ -1,8 +1,8 @@
 import { Column, Entity, ManyToOne, OneToMany } from 'typeorm';
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { PositionMember } from "./position-member.entity";
-import { Employment } from "../../employment/entities/employment.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import type { Employment } from '../../employment/entities/employment.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { PositionMember } from './position-member.entity';
 
 @Entity()
 export class Position extends BaseEntity {
@@ -16,9 +16,15 @@ export class Position extends BaseEntity {
   isActive: boolean;
   @Column({ name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => Tenant, (tenant) => tenant.positions)
+  @ManyToOne(
+    () => Tenant,
+    (tenant) => tenant.positions,
+  )
   tenant: Tenant;
-  @OneToMany(() => PositionMember, (memberPosition) => memberPosition.position)
+  @OneToMany(
+    () => PositionMember,
+    (memberPosition) => memberPosition.position,
+  )
   memberPositions: PositionMember[];
   @OneToMany('Employment', 'position')
   members: Employment[];

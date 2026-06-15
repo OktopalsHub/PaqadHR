@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { NombaProvider } from './nomba.provider';
 import { PaymentProviderFactoryService } from '../services/payment-provider-factory.service';
+import { NombaProvider } from './nomba.provider';
 
 @Module({
   providers: [NombaProvider, PaymentProviderFactoryService],

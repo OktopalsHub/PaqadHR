@@ -1,5 +1,4 @@
-import React from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from '@/components/ui/card';
 
 interface MetricCardProps {
   title: string;
@@ -10,14 +9,7 @@ interface MetricCardProps {
   color: string;
 }
 
-export const MetricCard = ({
-  title,
-  value,
-  trend,
-  subtext,
-  icon,
-  color,
-}: MetricCardProps) => {
+export const MetricCard = ({ title, value, trend, subtext, icon, color }: MetricCardProps) => {
   return (
     <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
       <CardContent className="p-4">
@@ -34,9 +26,7 @@ export const MetricCard = ({
         <p className="text-2xl font-bold text-slate-800 mb-1">{value}</p>
         {subtext && <p className="text-xs text-slate-500">{subtext}</p>}
 
-        <div
-          className={`w-full h-1 bg-gradient-to-r ${color} rounded-full mt-3 opacity-60`}
-        ></div>
+        <div className={`w-full h-1 bg-gradient-to-r ${color} rounded-full mt-3 opacity-60`}></div>
       </CardContent>
     </Card>
   );

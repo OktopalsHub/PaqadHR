@@ -1,22 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { type EntityManager, Repository } from 'typeorm';
+import { Shoutout } from '../entities/shoutout.entity';
 import { ShoutoutCategoryAssignment } from '../entities/shoutout-category-assignment.entity';
 import { ShoutoutRecipient } from '../entities/shoutout-recipient.entity';
-import { Shoutout } from '../entities/shoutout.entity';
-import { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
+import type { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
 
 @Injectable()
 export class ShoutoutsRepository extends Repository<Shoutout> {
-  constructor(
-    @InjectRepository(Shoutout)
-    private readonly shoutoutRepository: Repository<Shoutout>,
-  ) {
-    super(
-      shoutoutRepository.target,
-      shoutoutRepository.manager,
-      shoutoutRepository.queryRunner,
-    );
+  constructor(@InjectRepository(Shoutout) readonly shoutoutRepository: Repository<Shoutout>) {
+    super(shoutoutRepository.target, shoutoutRepository.manager, shoutoutRepository.queryRunner);
   }
 
   async listPaginated(

@@ -1,18 +1,18 @@
-import { PayrollItem } from '../entities/payroll-item.entity';
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
-import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
-import { DataSource } from 'typeorm';
-import { NombaProvider } from 'src/common/providers/nomba.provider';
-import { AuditContext } from 'src/common/interfaces/audit-context.interface';
-import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
-import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { PayrollRun } from '../entities/payroll-run.entity';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
+import type { NombaProvider } from 'src/common/providers/nomba.provider';
+import type { DataSource } from 'typeorm';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
-import { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
-import { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
-import { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
+import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
+import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
+import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
+import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
+import type { PayrollItem } from '../entities/payroll-item.entity';
+import type { PayrollRun } from '../entities/payroll-run.entity';
+import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 interface PaymentSummary {
   fiatSuccess: number;
@@ -26,7 +26,7 @@ export class MultiPaymentService {
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly paymentMethodService: PaymentMethodService,
-    private readonly dataSource: DataSource,
+    readonly _dataSource: DataSource,
     private readonly nombaProvider: NombaProvider,
   ) {}
   async processMultiPaymentPayroll(
@@ -52,9 +52,7 @@ export class MultiPaymentService {
       );
     }
     const paymentBatch = await this.categorizePayments(payrollRun.items);
-    this.logger.log(
-      `Processing payment batch: ${paymentBatch.fiatPayments.length} bank payments`,
-    );
+    this.logger.log(`Processing payment batch: ${paymentBatch.fiatPayments.length} bank payments`);
     const fiatPaymentResults = await this.processFiatPayments(
       paymentBatch.fiatPayments,
       auditContext,
@@ -77,9 +75,7 @@ export class MultiPaymentService {
     specificItemIds?: string[],
   ): Promise<BatchPaymentResult> {
     if (isManualPayrollDisbursement()) {
-      throw new BadRequestException(
-        'Payment retry is unavailable in manual disbursement mode.',
-      );
+      throw new BadRequestException('Payment retry is unavailable in manual disbursement mode.');
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -88,13 +84,9 @@ export class MultiPaymentService {
     if (!payrollRun) {
       throw new NotFoundException('Payroll run not found');
     }
-    let failedItems = payrollRun.items.filter(
-      (item) => item.status === PayrollItemStatus.FAILED,
-    );
+    let failedItems = payrollRun.items.filter((item) => item.status === PayrollItemStatus.FAILED);
     if (specificItemIds && specificItemIds.length > 0) {
-      failedItems = failedItems.filter((item) =>
-        specificItemIds.includes(item.id),
-      );
+      failedItems = failedItems.filter((item) => specificItemIds.includes(item.id));
     }
     if (failedItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
@@ -126,8 +118,7 @@ export class MultiPaymentService {
     return result;
   }
   async getPaymentStatusSummary(payrollRunId: string, tenantId: string) {
-    const items =
-      await this.payrollItemRepository.findByPayrollRunId(payrollRunId);
+    const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId);
     const statusCounts = items.reduce(
       (acc, item) => {
         acc[item.status] = (acc[item.status] || 0) + 1;
@@ -146,18 +137,12 @@ export class MultiPaymentService {
         statusCounts[PayrollItemStatus.PENDING] === 0,
     };
   }
-  private async categorizePayments(
-    items: PayrollItem[],
-  ): Promise<PaymentBatch> {
+  private async categorizePayments(items: PayrollItem[]): Promise<PaymentBatch> {
     const fiatPayments: PayrollItem[] = [];
     for (const item of items) {
-      const paymentMethod = await this.paymentMethodService.findByMemberId(
-        item.memberId,
-      );
+      const paymentMethod = await this.paymentMethodService.findByMemberId(item.memberId);
       if (!paymentMethod) {
-        this.logger.warn(
-          `No payment method found for member ${item.memberId}, skipping`,
-        );
+        this.logger.warn(`No payment method found for member ${item.memberId}, skipping`);
         continue;
       }
       fiatPayments.push(item);
@@ -174,9 +159,7 @@ export class MultiPaymentService {
         await this.payrollItemRepository.update(item.id, {
           status: PayrollItemStatus.PROCESSING,
         });
-        const paymentMethod = await this.paymentMethodService.findByMemberId(
-          item.memberId,
-        );
+        const _paymentMethod = await this.paymentMethodService.findByMemberId(item.memberId);
         const provider = this.nombaProvider;
         const paymentData = {
           amount: item.paymentAmount,
@@ -203,7 +186,7 @@ export class MultiPaymentService {
             transactionId: result.transactionId,
             provider: provider.constructor.name,
           });
-          } else {
+        } else {
           throw new BadRequestException(result.error || 'Payment failed');
         }
       } catch (error) {
@@ -215,7 +198,7 @@ export class MultiPaymentService {
           success: false,
           error: error.message,
         });
-        }
+      }
     }
     return results;
   }
@@ -232,7 +215,7 @@ export class MultiPaymentService {
   ): Promise<void> {
     const totalSuccess = summary.fiatSuccess;
     const totalFailed = summary.fiatFailed;
-    const totalItems = totalSuccess + totalFailed;
+    const _totalItems = totalSuccess + totalFailed;
     if (totalFailed === 0) {
       payrollRun.status = PayrollStatus.COMPLETED;
       payrollRun.processedAt = new Date();
@@ -242,7 +225,7 @@ export class MultiPaymentService {
       payrollRun.status = PayrollStatus.PROCESSING;
     }
     await this.payrollRunRepository.save(payrollRun);
-    }
+  }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
     for (const item of items) {
       await this.payrollItemRepository.update(item.id, {

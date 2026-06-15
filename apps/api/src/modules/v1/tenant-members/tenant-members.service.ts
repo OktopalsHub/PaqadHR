@@ -1,8 +1,3 @@
-import { Invitation } from '../invitations/entities/invitation.entity';
-import { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
-import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
-import { Tenant } from '../tenants/entities/tenant.entity';
-import { User } from '../users/entities/user.entity';
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,19 +6,20 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { TenantMemberRole } from 'src/common/enums';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { TenantMemberRole } from 'src/common/enums';
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import type { QueryDeepPartialEntity, Repository } from 'typeorm';
+import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
+import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
+import { TenantMemberCreatedEvent } from '../leave/events/leave.events';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
-import { FileUrlService } from 'src/common/services/file-url.service';
-import { TenantMember } from './entities/tenant-member.entity';
-import { TenantCounterRepository } from './repositories/tenant-counter.repository';
-import { TenantMemberRepository } from './repositories/tenant-members.repository';
-import { QueryDeepPartialEntity } from 'typeorm';
-import { TenantMemberCreatedEvent } from "../leave/events/leave.events";
-import { ICelebrationResponseDto } from "../../../common/interfaces/icelebration-response-dto.interface";
-import { INewHiresResponseDto } from "../../../common/interfaces/inew-hires-response-dto.interface";
+import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
+import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
+import type { TenantMember } from './entities/tenant-member.entity';
+import type { TenantCounterRepository } from './repositories/tenant-counter.repository';
+import type { TenantMemberRepository } from './repositories/tenant-members.repository';
 
 interface EmailQueueService {
   sendInvitationEmail(
@@ -52,15 +48,12 @@ export class TenantMembersService {
     createDto: CreateTenantMemberDto,
   ): Promise<TenantMember> {
     try {
-      const existingMember =
-        await this.tenantMemberRepository.findMembershipByUserAndTenant(
-          userId,
-          tenantId,
-        );
+      const existingMember = await this.tenantMemberRepository.findMembershipByUserAndTenant(
+        userId,
+        tenantId,
+      );
       if (existingMember) {
-        throw new BadRequestException(
-          'User is already a member of this tenant',
-        );
+        throw new BadRequestException('User is already a member of this tenant');
       }
       const employeeNumber = await this.getNextEmployeeNumber(tenantId);
       const memberData: Partial<TenantMember> = {
@@ -79,18 +72,11 @@ export class TenantMembersService {
         if (createDto.role !== TenantMemberRole.OWNER) {
           this.eventEmitter.emit(
             'tenant.member.created',
-            new TenantMemberCreatedEvent(
-              tenantId,
-              savedMember.id,
-              savedMember.joinDate,
-            ),
+            new TenantMemberCreatedEvent(tenantId, savedMember.id, savedMember.joinDate),
           );
         }
       } catch (eventError) {
-        this.logger.error(
-          'Error emitting tenant member created event:',
-          eventError,
-        );
+        this.logger.error('Error emitting tenant member created event:', eventError);
       }
       return savedMember;
     } catch (error) {
@@ -99,14 +85,10 @@ export class TenantMembersService {
         throw error;
       }
       if (error.message?.includes('employee number')) {
-        throw new BadRequestException(
-          'Failed to generate employee number for tenant member',
-        );
+        throw new BadRequestException('Failed to generate employee number for tenant member');
       }
       if (error.message?.includes('counter')) {
-        throw new BadRequestException(
-          'Failed to initialize employee counter for tenant',
-        );
+        throw new BadRequestException('Failed to initialize employee counter for tenant');
       }
       throw new BadRequestException(
         `Failed to create tenant member: ${error.message || 'Unknown error'}`,
@@ -119,40 +101,27 @@ export class TenantMembersService {
   async listActiveTenantMembers(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.findTenantActiveMembers(tenantId);
   }
-  async getTenantMemberId(
-    tenantId: string,
-    memberId: string,
-  ): Promise<TenantMember> {
-    return this.tenantMemberRepository.findByTenantAndMemberId(
-      tenantId,
-      memberId,
-    );
+  async getTenantMemberId(tenantId: string, memberId: string): Promise<TenantMember> {
+    return this.tenantMemberRepository.findByTenantAndMemberId(tenantId, memberId);
   }
   async getTenantMembersCount(tenantId: string): Promise<number> {
     return this.tenantMemberRepository.countByTenantId(tenantId);
   }
-  async getTenantMemberProfile(
-    userId: string,
-    tenantId: string,
-  ): Promise<TenantMember> {
+  async getTenantMemberProfile(userId: string, tenantId: string): Promise<TenantMember> {
     return this.checkUserTenantMembership(userId, tenantId);
   }
-  async getTenantMember(
-    id: string,
-    tenantId: string,
-  ): Promise<TenantMember> {
-    const member: TenantMember | null =
-      await this.tenantMemberRepository.findOne({
-        where: { id },
-        relations: [
-          'user',
-          'positionHistory',
-          'positionHistory.position',
-          'departmentMemberships',
-          'departmentMemberships.department',
-          'employments',
-        ],
-      });
+  async getTenantMember(id: string, tenantId: string): Promise<TenantMember> {
+    const member: TenantMember | null = await this.tenantMemberRepository.findOne({
+      where: { id },
+      relations: [
+        'user',
+        'positionHistory',
+        'positionHistory.position',
+        'departmentMemberships',
+        'departmentMemberships.department',
+        'employments',
+      ],
+    });
     if (!member) {
       throw new NotFoundException('Tenant member not found');
     }
@@ -250,10 +219,7 @@ export class TenantMembersService {
       throw new NotFoundException('Tenant Member not found');
     }
   }
-  async checkUserTenantMembership(
-    userId: string,
-    tenantId: string,
-  ): Promise<TenantMember> {
+  async checkUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberRepository.findByUserAndTenantId(userId, tenantId);
   }
   async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
@@ -265,9 +231,7 @@ export class TenantMembersService {
   async listTenantMembers(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.findAllMembersByTenantId(tenantId);
   }
-  async getTenantMembersByDepartment(
-    departmentId: string,
-  ): Promise<TenantMember[]> {
+  async getTenantMembersByDepartment(departmentId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: {
         departmentMemberships: {
@@ -314,22 +278,17 @@ export class TenantMembersService {
       await this.tenantCounterRepository.getOrCreateCounter(
         tenantId,
         'employee_number',
-        0, 
+        0,
         numberPrefix,
-        undefined, 
+        undefined,
         numberPadding,
       );
-      await this.tenantCounterRepository.incrementCounter(
-        tenantId,
-        'employee_number',
-      );
+      await this.tenantCounterRepository.incrementCounter(tenantId, 'employee_number');
       const currentValue = await this.tenantCounterRepository.getCurrentValue(
         tenantId,
         'employee_number',
       );
-      return currentValue
-        .toString()
-        .padStart(numberPadding, '0');
+      return currentValue.toString().padStart(numberPadding, '0');
     } catch (error) {
       this.logger.error('Error generating employee number:', error);
       throw new BadRequestException('Failed to generate employee number');
@@ -349,9 +308,7 @@ export class TenantMembersService {
     try {
       const existingMember = await this.findByEmail(inviteData.email);
       if (existingMember && existingMember.tenantId === tenantId) {
-        throw new BadRequestException(
-          'User is already a member of this tenant',
-        );
+        throw new BadRequestException('User is already a member of this tenant');
       }
       const employeeNumber = await this.getNextEmployeeNumber(tenantId);
       const invitationData = {
@@ -363,31 +320,26 @@ export class TenantMembersService {
         employeeNumber,
         invitedBy,
         invitedAt: new Date(),
-        status: 'pending', 
+        status: 'pending',
       };
-      const { randomBytes } = await import('crypto');
+      const { randomBytes } = await import('node:crypto');
       const invitation = {
         id: `inv_${Date.now()}_${randomBytes(8).toString('hex')}`,
         ...invitationData,
       };
-      this.logger.log(
-        `Invitation created for ${inviteData.email} to tenant ${tenantId}`,
-      );
+      this.logger.log(`Invitation created for ${inviteData.email} to tenant ${tenantId}`);
       if (inviteData.sendWelcomeEmail && this.emailQueueService) {
         try {
           const inviteLink = `${process.env.FRONTEND_URL || 'https://app.teamlyf.com'}/accept-invitation/${invitation.id}`;
           await this.emailQueueService.sendInvitationEmail(
             inviteData.email,
             invitedBy,
-            tenantId, 
+            tenantId,
             inviteLink,
           );
           this.logger.log(`Invitation email sent to ${inviteData.email}`);
         } catch (emailError) {
-          this.logger.error(
-            `Failed to send invitation email to ${inviteData.email}:`,
-            emailError,
-          );
+          this.logger.error(`Failed to send invitation email to ${inviteData.email}:`, emailError);
         }
       }
       return invitation;
@@ -396,24 +348,14 @@ export class TenantMembersService {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException(
-        `Failed to create invitation: ${error.message}`,
-      );
+      throw new BadRequestException(`Failed to create invitation: ${error.message}`);
     }
   }
-  async getNewHires(
-    tenantId: string,
-    months: number = 2,
-  ): Promise<INewHiresResponseDto[]> {
-    const members = await this.tenantMemberRepository.findNewHires(
-      tenantId,
-      months,
-    );
+  async getNewHires(tenantId: string, months: number = 2): Promise<INewHiresResponseDto[]> {
+    const members = await this.tenantMemberRepository.findNewHires(tenantId, months);
     return (members as TenantMember[]).map((member) => {
       const currentPosition = member.positionHistory?.find((p) => p.isCurrent);
-      const activeDepartmentMembership = member.departmentMemberships?.find(
-        (dm) => dm.isActive,
-      );
+      const activeDepartmentMembership = member.departmentMemberships?.find((dm) => dm.isActive);
       return {
         id: member.id,
         firstName: member.firstName ?? '',
@@ -423,19 +365,14 @@ export class TenantMembersService {
         joinDate: member.joinDate,
         avatarUrl:
           member.avatarKey && member.tenantId
-            ? this.fileUrlService.getMemberAvatarUrl(
-                member.tenantId,
-                member.avatarKey,
-              ) || undefined
+            ? this.fileUrlService.getMemberAvatarUrl(member.tenantId, member.avatarKey) || undefined
             : undefined,
         positionTitle: currentPosition?.position?.title,
         departmentName: activeDepartmentMembership?.department?.name,
       };
     });
   }
-  async getUpcomingCelebrations(
-    tenantId: string,
-  ): Promise<ICelebrationResponseDto[]> {
+  async getUpcomingCelebrations(tenantId: string): Promise<ICelebrationResponseDto[]> {
     return this.tenantMemberRepository.findUpcomingCelebrations(tenantId);
   }
 }

@@ -1,42 +1,39 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useCreateDepartment } from "@/hooks/queries/use-departments";
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useCreateDepartment } from '@/hooks/queries/use-departments';
 
 type CreateDepartmentDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-export function CreateDepartmentDialog({
-  open,
-  onOpenChange,
-}: CreateDepartmentDialogProps) {
+export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentDialogProps) {
   const createDepartment = useCreateDepartment();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
 
   const reset = () => {
-    setName("");
-    setDescription("");
+    setName('');
+    setDescription('');
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (name.trim().length < 2) {
-      toast.error("Department name must be at least 2 characters");
+      toast.error('Department name must be at least 2 characters');
       return;
     }
 
@@ -45,13 +42,11 @@ export function CreateDepartmentDialog({
         name: name.trim(),
         description: description.trim() || undefined,
       });
-      toast.success("Department created");
+      toast.success('Department created');
       reset();
       onOpenChange(false);
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Unable to create department",
-      );
+      toast.error(error instanceof Error ? error.message : 'Unable to create department');
     }
   };
 
@@ -80,10 +75,7 @@ export function CreateDepartmentDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="department-description">
-                Description{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional)
-                </span>
+                Description <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
                 id="department-description"
@@ -94,15 +86,11 @@ export function CreateDepartmentDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-            >
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={createDepartment.isPending}>
-              {createDepartment.isPending ? "Creating..." : "Create"}
+              {createDepartment.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </form>

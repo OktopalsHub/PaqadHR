@@ -1,21 +1,21 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { motion } from "framer-motion";
-import { fadeUp } from "../../constants/landing-motion";
+import { motion } from 'framer-motion';
+import Image from 'next/image';
+import { fadeUp } from '../../constants/landing-motion';
 
 const gallery = [
   {
-    src: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80",
-    alt: "Team collaborating in an office",
+    src: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
+    alt: 'Team collaborating in an office',
   },
   {
-    src: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80",
-    alt: "Professional at work",
+    src: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=800&q=80',
+    alt: 'Professional at work',
   },
   {
-    src: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80",
-    alt: "Business team meeting",
+    src: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80',
+    alt: 'Business team meeting',
   },
 ];
 

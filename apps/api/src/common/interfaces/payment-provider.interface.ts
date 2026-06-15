@@ -1,4 +1,4 @@
-import { PaymentProvider } from 'src/common/enums';
+import type { PaymentProvider } from 'src/common/enums';
 export interface CreateSubscriptionPayload {
   customerEmail: string;
   customerId?: string;

@@ -1,30 +1,21 @@
-import {
-  BadRequestException,
-  Injectable,
-  Inject,
-  forwardRef,
-} from '@nestjs/common';
-import { In } from 'typeorm';
+import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import {
-  ChannelType,
-  IntegrationType,
-  TenantMemberRole,
-} from 'src/common/enums';
-import { IPlatformClient } from 'src/common/interfaces';
+import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
+import type { IPlatformClient } from 'src/common/interfaces';
+import { In } from 'typeorm';
+import type { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
-import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
-import { UserSyncService } from './user-sync.service';
-import { PlatformIntegrationRepository } from "../repositories/platform-integration.repository";
-import { PlatformUserRepository } from "../repositories/platform-user.repository";
-import { IntegrationChannelRepository } from "../repositories/integration-channel.repository";
-import { PlatformIntegration } from "../entities/platform-integration.entity";
-import {
+import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import type {
   IntegrationConfig,
   PlatformUserData,
   PlatformUserSaveData,
   ShoutoutBroadcast,
 } from '../integration.types';
+import type { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
+import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import type { PlatformUserRepository } from '../repositories/platform-user.repository';
+import { UserSyncService } from './user-sync.service';
 
 @Injectable()
 export class PlatformIntegrationService {
@@ -83,14 +74,17 @@ export class PlatformIntegrationService {
     if (channelId) {
       users = await client.getChannelMembers(channelId);
     } else {
-      users = await client.listUsers() as PlatformUserData[];
+      users = (await client.listUsers()) as PlatformUserData[];
     }
     for (const user of users) {
       await this.upsertPlatformUser(integration.id, user);
     }
   }
   @OnEvent('shoutout.created')
-  async handleShoutoutCreated(event: { tenantId: string; shoutout: ShoutoutBroadcast }): Promise<void> {
+  async handleShoutoutCreated(event: {
+    tenantId: string;
+    shoutout: ShoutoutBroadcast;
+  }): Promise<void> {
     await this.broadcastShoutout(event.tenantId, event.shoutout);
   }
 
@@ -99,11 +93,7 @@ export class PlatformIntegrationService {
     const promises = integrations.map(async (integration) => {
       try {
         const client = this.createClient(integration);
-        const message = await this.formatShoutoutMessage(
-          client,
-          shoutout,
-          integration.id,
-        );
+        const message = await this.formatShoutoutMessage(client, shoutout, integration.id);
         const channels = await this.channelRepo.find({
           where: {
             integrationId: integration.id,
@@ -113,8 +103,7 @@ export class PlatformIntegrationService {
         for (const channel of channels) {
           await client.sendMessage(channel.platformChannelId, message);
         }
-      } catch (error) {
-      }
+      } catch (_error) {}
     });
     await Promise.allSettled(promises);
   }
@@ -123,15 +112,10 @@ export class PlatformIntegrationService {
       case IntegrationType.SLACK:
         return new SlackClient(integration.botToken);
       default:
-        throw new BadRequestException(
-          `Unsupported integration type: ${integration.type}`,
-        );
+        throw new BadRequestException(`Unsupported integration type: ${integration.type}`);
     }
   }
-  private async upsertPlatformUser(
-    integrationId: string,
-    platformUserData: PlatformUserData,
-  ) {
+  private async upsertPlatformUser(integrationId: string, platformUserData: PlatformUserData) {
     const existingUser = await this.platformUserRepo.findOne({
       where: {
         integrationId,
@@ -141,14 +125,11 @@ export class PlatformIntegrationService {
     let tenantMemberId: string | null = null;
     if (platformUserData.email) {
       try {
-        const tenantMember = await this.tenantMembersService.findByEmail(
-          platformUserData.email,
-        );
+        const tenantMember = await this.tenantMembersService.findByEmail(platformUserData.email);
         if (tenantMember) {
           tenantMemberId = tenantMember.id;
         }
-      } catch (error) {
-      }
+      } catch (_error) {}
     }
     const platformUserDataToSave: PlatformUserSaveData = {
       integrationId,
@@ -162,10 +143,7 @@ export class PlatformIntegrationService {
       platformUserDataToSave.tenantMemberId = tenantMemberId;
     }
     if (existingUser) {
-      await this.platformUserRepo.update(
-        existingUser.id,
-        platformUserDataToSave,
-      );
+      await this.platformUserRepo.update(existingUser.id, platformUserDataToSave);
       return this.platformUserRepo.findOne({ where: { id: existingUser.id } });
     }
     return this.platformUserRepo.create(platformUserDataToSave);
@@ -194,27 +172,11 @@ export class PlatformIntegrationService {
     };
     let message = `*Shoutout!*\n`;
     message += `${getMention(shoutout.creator.tenantMemberId)} gave kudos to `;
-    message +=
-      shoutout.recipients
-        .map((r) => getMention(r.tenantMemberId))
-        .join(', ') + '!\n';
+    message += `${shoutout.recipients.map((r) => getMention(r.tenantMemberId)).join(', ')}!\n`;
     message += `> ${shoutout.message}\n(${shoutout.total_points} points)`;
     return message;
   }
-  private async determineChannelForShoutout(
-    integration: PlatformIntegration,
-    _shoutout: ShoutoutBroadcast,
-  ): Promise<string | null> {
-    const primary = await this.channelRepo.findOne({
-      where: { integrationId: integration.id, isPrimary: true, isActive: true },
-    });
-    return primary ? primary.platformChannelId : integration.platformTeamId;
-  }
-  async disconnectIntegration(
-    tenantId: string,
-    integrationId: string,
-    memberId: string,
-  ) {
+  async disconnectIntegration(tenantId: string, integrationId: string, memberId: string) {
     const integration = await this.integrationRepo.findOne({
       where: { id: integrationId, tenantId },
     });
@@ -243,11 +205,7 @@ export class PlatformIntegrationService {
       disconnectedAt: new Date(),
     };
   }
-  async reconnectIntegration(
-    tenantId: string,
-    integrationId: string,
-    memberId: string,
-  ) {
+  async reconnectIntegration(tenantId: string, integrationId: string, memberId: string) {
     const integration = await this.integrationRepo.findOne({
       where: { id: integrationId, tenantId },
     });
@@ -285,10 +243,8 @@ export class PlatformIntegrationService {
     if (!integration) {
       throw new BadRequestException('Integration not found');
     }
-    const activeChannels =
-      integration.channels?.filter((c) => c.isActive) || [];
-    const activePlatformUsers =
-      integration.platformUsers?.filter((u) => u.isActive) || [];
+    const activeChannels = integration.channels?.filter((c) => c.isActive) || [];
+    const activePlatformUsers = integration.platformUsers?.filter((u) => u.isActive) || [];
     return {
       integration: {
         id: integration.id,
@@ -325,14 +281,10 @@ export class PlatformIntegrationService {
   ) {
     let usersToInvite;
     if (userIds && userIds.length > 0) {
-      const unmatchedUsers =
-        await this.userSyncService.getUnmatchedUsers(integrationId);
-      usersToInvite = unmatchedUsers.filter((user) =>
-        userIds.includes(user.platformUserId),
-      );
+      const unmatchedUsers = await this.userSyncService.getUnmatchedUsers(integrationId);
+      usersToInvite = unmatchedUsers.filter((user) => userIds.includes(user.platformUserId));
     } else {
-      usersToInvite =
-        await this.userSyncService.getUnmatchedUsers(integrationId);
+      usersToInvite = await this.userSyncService.getUnmatchedUsers(integrationId);
     }
     const inviteResults = {
       sent: 0,
@@ -347,14 +299,9 @@ export class PlatformIntegrationService {
             tenantId,
             {
               email: platformUser.platformEmail,
-              firstName:
-                platformUser.platformDisplayName?.split(' ')[0] || 'User',
-              lastName:
-                platformUser.platformDisplayName
-                  ?.split(' ')
-                  .slice(1)
-                  .join(' ') || '',
-              role: TenantMemberRole.MEMBER, 
+              firstName: platformUser.platformDisplayName?.split(' ')[0] || 'User',
+              lastName: platformUser.platformDisplayName?.split(' ').slice(1).join(' ') || '',
+              role: TenantMemberRole.MEMBER,
               sendWelcomeEmail,
             },
             invitedBy,
@@ -368,9 +315,7 @@ export class PlatformIntegrationService {
           });
         } else {
           inviteResults.failed++;
-          inviteResults.errors.push(
-            `${platformUser.platformUsername}: No email address available`,
-          );
+          inviteResults.errors.push(`${platformUser.platformUsername}: No email address available`);
         }
       } catch (error) {
         inviteResults.failed++;
@@ -385,15 +330,7 @@ export class PlatformIntegrationService {
       results: inviteResults,
     };
   }
-  async manualUserMatch(
-    integrationId: string,
-    platformUserId: string,
-    tenantMemberId: string,
-  ) {
-    return this.userSyncService.manualUserMatch(
-      integrationId,
-      platformUserId,
-      tenantMemberId,
-    );
+  async manualUserMatch(integrationId: string, platformUserId: string, tenantMemberId: string) {
+    return this.userSyncService.manualUserMatch(integrationId, platformUserId, tenantMemberId);
   }
 }

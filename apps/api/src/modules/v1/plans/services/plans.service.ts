@@ -1,9 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Plan } from "../entities/plan.entity";
-import { PlanPrice } from "../entities/plan-price.entity";
-import { PlanRegionalConfig } from "../../../../common/interfaces/plan-regional-config.interface";
+import type { Repository } from 'typeorm';
+import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
+import { Plan } from '../entities/plan.entity';
+import { PlanPrice } from '../entities/plan-price.entity';
 
 @Injectable()
 export class PlansService {
@@ -75,10 +75,7 @@ export class PlansService {
     const price = this.planPriceRepository.create(data);
     return this.planPriceRepository.save(price);
   }
-  async updatePlanPrice(
-    id: string,
-    updates: Partial<PlanPrice>,
-  ): Promise<PlanPrice> {
+  async updatePlanPrice(id: string, updates: Partial<PlanPrice>): Promise<PlanPrice> {
     await this.planPriceRepository.update(
       id,
       updates as Parameters<typeof this.planPriceRepository.update>[1],

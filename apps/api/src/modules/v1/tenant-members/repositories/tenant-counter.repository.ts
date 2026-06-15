@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { TenantCounter } from "../entities/tenant-counter.entity";
+import { TenantCounter } from '../entities/tenant-counter.entity';
 
 @Injectable()
 export class TenantCounterRepository extends Repository<TenantCounter> {
@@ -9,7 +9,11 @@ export class TenantCounterRepository extends Repository<TenantCounter> {
     @InjectRepository(TenantCounter)
     private readonly tenantCounterRepository: Repository<TenantCounter>,
   ) {
-    super(tenantCounterRepository.target, tenantCounterRepository.manager, tenantCounterRepository.queryRunner);
+    super(
+      tenantCounterRepository.target,
+      tenantCounterRepository.manager,
+      tenantCounterRepository.queryRunner,
+    );
   }
   async getOrCreateCounter(
     tenantId: string,
@@ -23,21 +27,20 @@ export class TenantCounterRepository extends Repository<TenantCounter> {
       where: { tenantId, counterType },
     });
     if (!counter || counter.length === 0) {
-      counter = [await this.save({
-        tenantId,
-        counterType,
-        currentValue: initialValue,
-        prefix,
-        suffix,
-        paddingLength,
-      })];
+      counter = [
+        await this.save({
+          tenantId,
+          counterType,
+          currentValue: initialValue,
+          prefix,
+          suffix,
+          paddingLength,
+        }),
+      ];
     }
     return counter[0];
   }
-  async incrementCounter(
-    tenantId: string,
-    counterType: string,
-  ): Promise<string> {
+  async incrementCounter(tenantId: string, counterType: string): Promise<string> {
     return this.tenantCounterRepository.manager.transaction(async (manager) => {
       const counter = await manager
         .createQueryBuilder(TenantCounter, 'counter')
@@ -73,10 +76,7 @@ export class TenantCounterRepository extends Repository<TenantCounter> {
     await this.update(counter.id, { currentValue: newValue });
     return this.findOne({ where: { id: counter.id } });
   }
-  async getCurrentValue(
-    tenantId: string,
-    counterType: string,
-  ): Promise<number> {
+  async getCurrentValue(tenantId: string, counterType: string): Promise<number> {
     const counter = await this.getOrCreateCounter(tenantId, counterType);
     return counter.currentValue;
   }

@@ -1,10 +1,10 @@
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { EmployeeDetailForm } from "../../../hooks/use-employee-detail-form";
-import { DocumentsTab } from "./documents-tab";
-import { EducationTab } from "./education-tab";
-import { EmergencyContactsTab } from "./emergency-contacts-tab";
-import { EmploymentTab } from "./employment-tab";
-import { PersonalInfoTab } from "./personal-info-tab";
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
+import { DocumentsTab } from './documents-tab';
+import { EducationTab } from './education-tab';
+import { EmergencyContactsTab } from './emergency-contacts-tab';
+import { EmploymentTab } from './employment-tab';
+import { PersonalInfoTab } from './personal-info-tab';
 
 interface EmployeeDetailTabsProps {
   form: EmployeeDetailForm;

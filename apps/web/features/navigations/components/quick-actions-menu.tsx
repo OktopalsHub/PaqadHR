@@ -1,23 +1,23 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Briefcase, Heart, Plus, UserPlus, Wallet } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Briefcase, Heart, Plus, UserPlus, Wallet } from 'lucide-react';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
+} from '@/components/ui/dropdown-menu';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 
 export function QuickActionsMenu() {
   const tenantHref = useTenantHref();
   const actions = [
-    { label: "Add employee", segment: "employees", icon: UserPlus },
-    { label: "Open roles", segment: "recruitment", icon: Briefcase },
-    { label: "Run payroll", segment: "payroll", icon: Wallet },
-    { label: "Send shoutout", segment: "shoutouts", icon: Heart },
+    { label: 'Add employee', segment: 'employees', icon: UserPlus },
+    { label: 'Open roles', segment: 'recruitment', icon: Briefcase },
+    { label: 'Run payroll', segment: 'payroll', icon: Wallet },
+    { label: 'Send shoutout', segment: 'shoutouts', icon: Heart },
   ] as const;
 
   return (

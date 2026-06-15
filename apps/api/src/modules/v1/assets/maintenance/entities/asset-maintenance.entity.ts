@@ -1,13 +1,8 @@
 import { MaintenanceStatus, MaintenanceType } from 'src/common/enums';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne } from 'typeorm';
-import { Asset } from "../../entities/asset.entity";
-import { TenantMember } from "../../../tenant-members/entities/tenant-member.entity";
-import { BaseEntity } from "../../../../../common/database/entities/base.entity";
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../../common/database/entities/base.entity';
+import { TenantMember } from '../../../tenant-members/entities/tenant-member.entity';
+import { Asset } from '../../entities/asset.entity';
 
 @Entity({ name: 'asset_maintenance' })
 export class AssetMaintenance extends BaseEntity {
@@ -35,7 +30,10 @@ export class AssetMaintenance extends BaseEntity {
   notes?: string;
   @Column({ name: 'asset_id' })
   assetId: string;
-  @ManyToOne(() => Asset, (asset) => asset.maintenanceHistory)
+  @ManyToOne(
+    () => Asset,
+    (asset) => asset.maintenanceHistory,
+  )
   @JoinColumn({ name: 'asset_id' })
   asset: Asset;
   @Column({ name: 'scheduled_by_id' })

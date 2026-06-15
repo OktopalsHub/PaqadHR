@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Settings } from 'lucide-react';
+import Link from 'next/link';
 import {
   Sidebar,
   SidebarContent,
@@ -11,17 +11,15 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
-} from "@/components/ui/sidebar";
-import { useTenantHref, useTenantNavItems } from "@/hooks/use-tenant-nav-items";
-import { NavMain } from "./nav-main";
-import { WorkspaceSwitcher } from "./workspace-switcher";
+} from '@/components/ui/sidebar';
+import { useTenantHref, useTenantNavItems } from '@/hooks/use-tenant-nav-items';
+import { NavMain } from './nav-main';
+import { WorkspaceSwitcher } from './workspace-switcher';
 
-export const AppSidebar = ({
-  ...props
-}: React.ComponentProps<typeof Sidebar>) => {
+export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
   const navItems = useTenantNavItems();
   const tenantHref = useTenantHref();
-  const settingsHref = tenantHref("settings");
+  const settingsHref = tenantHref('settings');
 
   return (
     <Sidebar

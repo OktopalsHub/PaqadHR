@@ -1,18 +1,10 @@
-import { Department } from '../../departments/entities/department.entity';
-import { JobOpeningService } from '../services/job-opening.service';
-import {
-  Controller,
-  Get,
-  Param,
-  Query,
-  ParseUUIDPipe,
-  BadRequestException,
-} from '@nestjs/common';
+import { BadRequestException, Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { EmploymentType } from 'src/common/enums';
 import { Public } from 'src/common/decorators';
-import { JobOpening } from "../entities/job-opening.entity";
-import { JobFilterOptions } from "../../../../common/interfaces/job-filter-options.interface";
+import { EmploymentType } from 'src/common/enums';
+import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
+import { JobOpening } from '../entities/job-opening.entity';
+import type { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Public Jobs')
 @Controller('jobs')
@@ -70,9 +62,7 @@ export class PublicJobController {
       },
     },
   })
-  async getDepartmentsWithActiveJobs(): Promise<
-    { id: string; name: string }[]
-  > {
+  async getDepartmentsWithActiveJobs(): Promise<{ id: string; name: string }[]> {
     return this.jobOpeningService.getActiveDepartments();
   }
   @Get('locations/list')
@@ -185,9 +175,7 @@ export class PublicJobController {
     description: 'Job not found or not available',
   })
   @Public()
-  async getActiveJob(
-    @Param('jobId', ParseUUIDPipe) jobId: string,
-  ): Promise<JobOpening> {
+  async getActiveJob(@Param('jobId', ParseUUIDPipe) jobId: string): Promise<JobOpening> {
     return this.jobOpeningService.getActiveJob(jobId);
   }
 }

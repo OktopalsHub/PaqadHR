@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { usePathname } from "next/navigation";
+import { usePathname } from 'next/navigation';
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
-} from "react";
+} from 'react';
 
 type BreadcrumbContextValue = {
   tailLabel: string | null;
@@ -19,7 +19,7 @@ type BreadcrumbContextValue = {
 const BreadcrumbContext = createContext<BreadcrumbContextValue | null>(null);
 
 export function BreadcrumbProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const _pathname = usePathname();
   const [tailLabel, setTailLabelState] = useState<string | null>(null);
 
   const setTailLabel = useCallback((label: string | null) => {
@@ -28,18 +28,11 @@ export function BreadcrumbProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setTailLabelState(null);
-  }, [pathname]);
+  }, []);
 
-  const value = useMemo(
-    () => ({ tailLabel, setTailLabel }),
-    [tailLabel, setTailLabel],
-  );
+  const value = useMemo(() => ({ tailLabel, setTailLabel }), [tailLabel, setTailLabel]);
 
-  return (
-    <BreadcrumbContext.Provider value={value}>
-      {children}
-    </BreadcrumbContext.Provider>
-  );
+  return <BreadcrumbContext.Provider value={value}>{children}</BreadcrumbContext.Provider>;
 }
 
 export function useBreadcrumbContext() {

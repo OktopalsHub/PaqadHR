@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ContentCard } from "@/components/content-card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Users, UserPlus, Settings, MoreHorizontal, Target } from "lucide-react";
-import { TeamDetailDialog } from "@/features/teams/components/team-detail-dialog";
+import { MoreHorizontal, Settings, Target, UserPlus, Users } from 'lucide-react';
+import { useState } from 'react';
+import { ContentCard } from '@/components/content-card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { TeamDetailDialog } from '@/features/teams/components/team-detail-dialog';
 
 interface Team {
   id: string;
@@ -30,40 +30,40 @@ export function TeamManagement() {
 
   const teams: Team[] = [
     {
-      id: "1",
-      name: "Frontend Development",
-      department: "Engineering",
-      lead: { name: "Sarah Chen", initials: "SC" },
+      id: '1',
+      name: 'Frontend Development',
+      department: 'Engineering',
+      lead: { name: 'Sarah Chen', initials: 'SC' },
       members: 8,
       performance: 94,
       projects: 3,
       budget: 240000,
     },
     {
-      id: "2",
-      name: "Backend Infrastructure",
-      department: "Engineering",
-      lead: { name: "Mike Johnson", initials: "MJ" },
+      id: '2',
+      name: 'Backend Infrastructure',
+      department: 'Engineering',
+      lead: { name: 'Mike Johnson', initials: 'MJ' },
       members: 6,
       performance: 91,
       projects: 2,
       budget: 180000,
     },
     {
-      id: "3",
-      name: "Digital Marketing",
-      department: "Marketing",
-      lead: { name: "Lisa Wang", initials: "LW" },
+      id: '3',
+      name: 'Digital Marketing',
+      department: 'Marketing',
+      lead: { name: 'Lisa Wang', initials: 'LW' },
       members: 5,
       performance: 87,
       projects: 4,
       budget: 120000,
     },
     {
-      id: "4",
-      name: "Sales Operations",
-      department: "Sales",
-      lead: { name: "Tom Brown", initials: "TB" },
+      id: '4',
+      name: 'Sales Operations',
+      department: 'Sales',
+      lead: { name: 'Tom Brown', initials: 'TB' },
       members: 7,
       performance: 89,
       projects: 5,
@@ -107,9 +107,7 @@ export function TeamManagement() {
               <div className="mt-3 flex items-center gap-3">
                 <Avatar className="size-8">
                   <AvatarImage src={team.lead.avatar} />
-                  <AvatarFallback className="text-xs">
-                    {team.lead.initials}
-                  </AvatarFallback>
+                  <AvatarFallback className="text-xs">{team.lead.initials}</AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="text-sm font-medium">{team.lead.name}</p>
@@ -138,9 +136,7 @@ export function TeamManagement() {
 
               <div className="mt-3 flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Budget</span>
-                <span className="font-medium">
-                  ${team.budget.toLocaleString()}
-                </span>
+                <span className="font-medium">${team.budget.toLocaleString()}</span>
               </div>
 
               <div className="mt-4 flex gap-2">

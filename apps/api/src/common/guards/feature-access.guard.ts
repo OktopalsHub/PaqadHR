@@ -1,13 +1,13 @@
 import {
-  CanActivate,
-  ExecutionContext,
+  type CanActivate,
+  type ExecutionContext,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
-import { FeatureAccess } from '../enums/subscription.enum';
+import type { Reflector } from '@nestjs/core';
+import type { SubscriptionsService } from '../../modules/v1/subscriptions/services/subscriptions.service';
 import { FEATURES_KEY } from '../decorators/feature-access.decorator';
-import { SubscriptionsService } from '../../modules/v1/subscriptions/services/subscriptions.service';
+import type { FeatureAccess } from '../enums/subscription.enum';
 
 @Injectable()
 export class FeatureAccessGuard implements CanActivate {
@@ -17,25 +17,21 @@ export class FeatureAccessGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredFeatures = this.reflector.getAllAndOverride<FeatureAccess[]>(
-      FEATURES_KEY,
-      [context.getHandler(), context.getClass()],
-    );
+    const requiredFeatures = this.reflector.getAllAndOverride<FeatureAccess[]>(FEATURES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
     if (!requiredFeatures?.length) {
       return true;
     }
 
     const request = context.switchToHttp().getRequest();
-    const tenantId: string | undefined =
-      request.params?.tenantId ?? request.tenant?.id;
+    const tenantId: string | undefined = request.params?.tenantId ?? request.tenant?.id;
     if (!tenantId) {
       throw new ForbiddenException('Tenant context required for this feature');
     }
 
-    const hasAccess = await this.subscriptionsService.hasFeatureAccess(
-      tenantId,
-      requiredFeatures,
-    );
+    const hasAccess = await this.subscriptionsService.hasFeatureAccess(tenantId, requiredFeatures);
     if (!hasAccess) {
       throw new ForbiddenException({
         message: 'This feature is not available on your current plan or trial',

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const payrollRunSchema = z.object({
   id: z.string(),
@@ -27,7 +27,7 @@ export type PayrollRunsResponse = z.infer<typeof payrollRunsResponseSchema>;
 
 export const createPayrollRunInputSchema = z.object({
   title: z.string().min(3),
-  frequency: z.enum(["weekly", "biweekly", "monthly", "quarterly", "annually"]),
+  frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']),
   periodStart: z.string(),
   periodEnd: z.string(),
   paymentDate: z.string(),

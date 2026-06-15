@@ -1,14 +1,5 @@
-import { Candidate } from '../entities/candidate.entity';
-import { Interview } from '../entities/interview.entity';
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsArray,
-  IsNotEmpty,
-  IsNumber,
-  IsString,
-  Max,
-  Min,
-} from 'class-validator';
+import { IsArray, IsNotEmpty, IsNumber, IsString, Max, Min } from 'class-validator';
 export class InterviewFeedbackDto {
   @ApiProperty({
     description: 'Interview rating (1-10)',
@@ -23,11 +14,7 @@ export class InterviewFeedbackDto {
   @ApiProperty({
     description: 'Candidate strengths',
     type: [String],
-    example: [
-      'Strong technical skills',
-      'Good communication',
-      'Problem-solving ability',
-    ],
+    example: ['Strong technical skills', 'Good communication', 'Problem-solving ability'],
   })
   @IsArray()
   @ApiProperty({
@@ -48,8 +35,7 @@ export class InterviewFeedbackDto {
   weaknesses: string[];
   @ApiProperty({
     description: 'Additional notes',
-    example:
-      'Candidate shows potential but needs more experience with our tech stack.',
+    example: 'Candidate shows potential but needs more experience with our tech stack.',
   })
   @IsString()
   @ApiProperty({

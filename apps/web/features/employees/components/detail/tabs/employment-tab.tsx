@@ -1,15 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { TabsContent } from "@/components/ui/tabs";
-import type { EmployeeDetailForm } from "../../../hooks/use-employee-detail-form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { TabsContent } from '@/components/ui/tabs';
+import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
 interface EmploymentTabProps {
   form: EmployeeDetailForm;
@@ -41,7 +35,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
               <Input
                 id="job-title"
                 value={employee.position}
-                onChange={(e) => handleInputChange("position", e.target.value)}
+                onChange={(e) => handleInputChange('position', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -49,9 +43,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
               <Input
                 id="department"
                 value={employee.department}
-                onChange={(e) =>
-                  handleInputChange("department", e.target.value)
-                }
+                onChange={(e) => handleInputChange('department', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -59,9 +51,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
               <Input
                 id="team"
                 value={employee.employment.team}
-                onChange={(e) =>
-                  handleNestedInputChange("employment", "team", e.target.value)
-                }
+                onChange={(e) => handleNestedInputChange('employment', 'team', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -70,11 +60,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
                 id="type"
                 value={employee.employment.employeeType}
                 onChange={(e) =>
-                  handleNestedInputChange(
-                    "employment",
-                    "employeeType",
-                    e.target.value,
-                  )
+                  handleNestedInputChange('employment', 'employeeType', e.target.value)
                 }
               />
             </div>
@@ -84,13 +70,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
                 id="join-date"
                 type="date"
                 value={employee.employment.joinDate}
-                onChange={(e) =>
-                  handleNestedInputChange(
-                    "employment",
-                    "joinDate",
-                    e.target.value,
-                  )
-                }
+                onChange={(e) => handleNestedInputChange('employment', 'joinDate', e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -99,11 +79,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
                 id="work-location"
                 value={employee.employment.workLocation}
                 onChange={(e) =>
-                  handleNestedInputChange(
-                    "employment",
-                    "workLocation",
-                    e.target.value,
-                  )
+                  handleNestedInputChange('employment', 'workLocation', e.target.value)
                 }
               />
             </div>
@@ -113,11 +89,7 @@ export function EmploymentTab({ form }: EmploymentTabProps) {
                 id="reporting-to"
                 value={employee.employment.reportingTo}
                 onChange={(e) =>
-                  handleNestedInputChange(
-                    "employment",
-                    "reportingTo",
-                    e.target.value,
-                  )
+                  handleNestedInputChange('employment', 'reportingTo', e.target.value)
                 }
               />
             </div>

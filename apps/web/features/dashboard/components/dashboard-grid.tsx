@@ -1,12 +1,11 @@
-import React from "react";
-import { Responsive, WidthProvider } from "react-grid-layout/legacy";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
-import { KPIWidget } from "./widgets/kpi-widget";
-import { MetricWidget } from "./widgets/metric-widget";
-import { ChartWidget } from "./widgets/chart-widget";
-import { QuickActionsWidget } from "./widgets/quick-actions-widget";
-import { Widget, LayoutItem } from "../types";
+import { X } from 'lucide-react';
+import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
+import { Button } from '@/components/ui/button';
+import type { LayoutItem, Widget } from '../types';
+import { ChartWidget } from './widgets/chart-widget';
+import { KPIWidget } from './widgets/kpi-widget';
+import { MetricWidget } from './widgets/metric-widget';
+import { QuickActionsWidget } from './widgets/quick-actions-widget';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -26,21 +25,21 @@ export const DashboardGrid = ({
   const renderWidget = (widget: Widget) => {
     const baseProps = {
       key: widget.id,
-      className: `transition-all duration-200 ${isCustomizing ? "ring-2 ring-blue-200 ring-opacity-50" : ""}`,
+      className: `transition-all duration-200 ${isCustomizing ? 'ring-2 ring-blue-200 ring-opacity-50' : ''}`,
     };
 
     let content;
     switch (widget.type) {
-      case "kpi":
+      case 'kpi':
         content = <KPIWidget />;
         break;
-      case "metrics":
+      case 'metrics':
         content = <MetricWidget />;
         break;
-      case "chart":
+      case 'chart':
         content = <ChartWidget />;
         break;
-      case "quickActions":
+      case 'quickActions':
         content = <QuickActionsWidget />;
         break;
       default:
@@ -85,9 +84,7 @@ export const DashboardGrid = ({
       rowHeight={120}
       isDraggable={isCustomizing}
       isResizable={isCustomizing}
-      onLayoutChange={(currentLayout) =>
-        onLayoutChange([...currentLayout] as LayoutItem[])
-      }
+      onLayoutChange={(currentLayout) => onLayoutChange([...currentLayout] as LayoutItem[])}
       margin={[16, 16]}
     >
       {widgets.map(renderWidget)}

@@ -2,22 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
   SHOUTOUT_CREATED_EVENT,
-  ShoutoutCreatedEventPayload,
+  type ShoutoutCreatedEventPayload,
 } from '../../../modules/v1/shoutouts/events/shoutout.events';
-import { PlatformIntegrationService } from '../services/platform-integration.service';
+import type { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Injectable()
 export class ShoutoutIntegrationListener {
   private readonly logger = new Logger(ShoutoutIntegrationListener.name);
 
-  constructor(
-    private readonly platformIntegrationService: PlatformIntegrationService,
-  ) {}
+  constructor(private readonly platformIntegrationService: PlatformIntegrationService) {}
 
   @OnEvent(SHOUTOUT_CREATED_EVENT)
-  async handleShoutoutCreated(
-    payload: ShoutoutCreatedEventPayload,
-  ): Promise<void> {
+  async handleShoutoutCreated(payload: ShoutoutCreatedEventPayload): Promise<void> {
     try {
       await this.platformIntegrationService.broadcastShoutout(payload.tenantId, {
         message: payload.message,

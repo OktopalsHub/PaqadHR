@@ -1,10 +1,10 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { LoadingBlock } from "@/components/loading-block";
-import { useTenant } from "@/providers/tenant-provider";
-import { tenantRoot } from "@/lib/navigation/tenant-routes";
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { LoadingBlock } from '@/components/loading-block';
+import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { useTenant } from '@/providers/tenant-provider';
 
 /** Skip setup when the user already has a workspace. */
 export function OnboardingGate({ children }: { children: React.ReactNode }) {

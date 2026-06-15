@@ -1,20 +1,20 @@
-"use client";
+'use client';
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
-import { fetchTenantMemberById } from "@/lib/api/employees";
-import { fetchEducationRecords } from "@/lib/api/education";
-import { fetchEmergencyContacts } from "@/lib/api/emergency-contacts";
-import { useQuery } from "@tanstack/react-query";
-import { useBreadcrumbTail } from "@/providers/breadcrumb-provider";
-import { useParams } from "next/navigation";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
-import { EmployeeDetailHeader } from "./detail/employee-detail-header";
-import { EmployeeDetailSidebar } from "./detail/employee-detail-sidebar";
-import { EmployeeDetailTabs } from "./detail/tabs/employee-detail-tabs";
-import { useEmployeeDetailForm } from "../hooks/use-employee-detail-form";
-import type { ApiTenantMember } from "@/lib/mappers/employee";
+import { useQuery } from '@tanstack/react-query';
+import { useParams } from 'next/navigation';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
+import { fetchEducationRecords } from '@/lib/api/education';
+import { fetchEmergencyContacts } from '@/lib/api/emergency-contacts';
+import { fetchTenantMemberById } from '@/lib/api/employees';
+import type { ApiTenantMember } from '@/lib/mappers/employee';
+import { queryKeys } from '@/lib/query/keys';
+import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
+import { useTenant } from '@/providers/tenant-provider';
+import { useEmployeeDetailForm } from '../hooks/use-employee-detail-form';
+import { EmployeeDetailHeader } from './detail/employee-detail-header';
+import { EmployeeDetailSidebar } from './detail/employee-detail-sidebar';
+import { EmployeeDetailTabs } from './detail/tabs/employee-detail-tabs';
 
 function EmployeeDetailFormView({
   member,
@@ -25,7 +25,7 @@ function EmployeeDetailFormView({
 }) {
   const { tenantId } = useTenant();
   const { data: records, isLoading: recordsLoading } = useQuery({
-    queryKey: [...queryKeys.employees.detail(memberId), tenantId, "records"],
+    queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'records'],
     queryFn: async () => {
       const [emergencyContacts, education] = await Promise.all([
         fetchEmergencyContacts(memberId),
@@ -74,10 +74,7 @@ function EmployeeDetailFormReady({
       />
 
       <div className="flex flex-col md:flex-row gap-6">
-        <EmployeeDetailSidebar
-          employee={form.employee}
-          onInputChange={form.handleInputChange}
-        />
+        <EmployeeDetailSidebar employee={form.employee} onInputChange={form.handleInputChange} />
         <EmployeeDetailTabs form={form} />
       </div>
     </div>
@@ -87,15 +84,19 @@ function EmployeeDetailFormReady({
 const EmployeeDetail = () => {
   const { employeeID: id } = useParams<{ employeeID: string }>();
   const { tenantId } = useTenant();
-  const { data: member, isLoading, isError, error } = useQuery({
-    queryKey: [...queryKeys.employees.detail(id ?? ""), tenantId, "member"],
+  const {
+    data: member,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: [...queryKeys.employees.detail(id ?? ''), tenantId, 'member'],
     queryFn: () => fetchTenantMemberById(id!),
     enabled: Boolean(id) && Boolean(tenantId),
   });
 
   const displayName = member
-    ? [member.firstName, member.lastName].filter(Boolean).join(" ") ||
-      member.preferredName
+    ? [member.firstName, member.lastName].filter(Boolean).join(' ') || member.preferredName
     : null;
 
   useBreadcrumbTail(displayName ?? null);
@@ -114,7 +115,7 @@ const EmployeeDetail = () => {
       <Alert variant="destructive">
         <AlertTitle>Unable to load employee</AlertTitle>
         <AlertDescription>
-          {error instanceof Error ? error.message : "Employee not found"}
+          {error instanceof Error ? error.message : 'Employee not found'}
         </AlertDescription>
       </Alert>
     );

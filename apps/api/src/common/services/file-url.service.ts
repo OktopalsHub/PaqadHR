@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ENVIRONMENT } from '../config/env.config';
 import { FileUploadLocation } from '../enums/file-upload-location.enum';
-import { FileUrlOptions } from "../interfaces/file-url-options.interface";
-import { FileUrlResponse } from "../interfaces/file-url-response.interface";
+import type { FileUrlOptions } from '../interfaces/file-url-options.interface';
+import type { FileUrlResponse } from '../interfaces/file-url-response.interface';
 
 @Injectable()
 export class FileUrlService {

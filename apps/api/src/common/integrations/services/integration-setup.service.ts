@@ -1,13 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { IntegrationType } from 'src/common/enums';
-import { PlatformUser } from '../entities/platform-user.entity';
-import {
-  IntegrationConfig,
-  IntegrationSyncStatus,
-} from '../integration.types';
-import { PlatformIntegrationService } from './platform-integration.service';
-import { UserSyncService } from './user-sync.service';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
+import type { IntegrationType } from 'src/common/enums';
+import type { PlatformUser } from '../entities/platform-user.entity';
+import type { IntegrationConfig, IntegrationSyncStatus } from '../integration.types';
+import type { PlatformIntegrationService } from './platform-integration.service';
+import type { UserSyncService } from './user-sync.service';
 @Injectable()
 export class IntegrationSetupService {
   private readonly logger = new Logger(IntegrationSetupService.name);
@@ -24,13 +21,12 @@ export class IntegrationSetupService {
   ) {
     this.logger.log(`Setting up ${type} integration for tenant: ${tenantId}`);
     try {
-      const integration =
-        await this.platformIntegrationService.createIntegration(
-          tenantId,
-          type,
-          config,
-          memberId,
-        );
+      const integration = await this.platformIntegrationService.createIntegration(
+        tenantId,
+        type,
+        config,
+        memberId,
+      );
       this.logger.log(`Integration created: ${integration.id}`);
       this.eventEmitter.emit('integration.connected', {
         integrationId: integration.id,
@@ -39,9 +35,7 @@ export class IntegrationSetupService {
       });
       setTimeout(async () => {
         try {
-          const syncStatus = await this.userSyncService.getSyncStatus(
-            integration.id,
-          );
+          const syncStatus = await this.userSyncService.getSyncStatus(integration.id);
           this.logger.log(`Initial sync completed:`, syncStatus);
         } catch (error) {
           this.logger.error('Error getting sync status:', error);
@@ -49,8 +43,7 @@ export class IntegrationSetupService {
       }, 2000);
       return {
         integration,
-        message:
-          'Integration setup completed. User sync is running in the background.',
+        message: 'Integration setup completed. User sync is running in the background.',
       };
     } catch (error) {
       this.logger.error(`Failed to setup ${type} integration:`, error);
@@ -58,14 +51,9 @@ export class IntegrationSetupService {
     }
   }
   async triggerUserSync(integrationId: string, tenantId: string) {
-    this.logger.log(
-      `Manually triggering user sync for integration: ${integrationId}`,
-    );
+    this.logger.log(`Manually triggering user sync for integration: ${integrationId}`);
     try {
-      const syncResults = await this.userSyncService.syncAllUsers(
-        integrationId,
-        tenantId,
-      );
+      const syncResults = await this.userSyncService.syncAllUsers(integrationId, tenantId);
       this.logger.log(`Manual sync completed:`, syncResults);
       return {
         success: true,
@@ -85,11 +73,8 @@ export class IntegrationSetupService {
       ]);
       return {
         syncStatus,
-        unmatchedUsers: unmatchedUsers.slice(0, 10), 
-        recommendations: this.generateRecommendations(
-          syncStatus,
-          unmatchedUsers,
-        ),
+        unmatchedUsers: unmatchedUsers.slice(0, 10),
+        recommendations: this.generateRecommendations(syncStatus, unmatchedUsers),
       };
     } catch (error) {
       this.logger.error('Error getting integration status:', error);
@@ -108,8 +93,7 @@ export class IntegrationSetupService {
     if (syncStatus.matchRate < 50) {
       recommendations.push({
         type: 'warning',
-        message:
-          'Low match rate detected. Consider manual user matching or email verification.',
+        message: 'Low match rate detected. Consider manual user matching or email verification.',
         action: 'review_unmatched_users',
       });
     }

@@ -11,7 +11,7 @@ const COUNTRY_DEFAULTS: Record<string, { currency: string; timezone: string }> =
 export class GeoLocationHelper {
   static isPrivateIp(ip: string): boolean {
     if (!ip || ip === 'localhost') return true;
-    const normalized = this.normalizeIp(ip);
+    const normalized = GeoLocationHelper.normalizeIp(ip);
     return (
       normalized === '127.0.0.1' ||
       normalized.startsWith('10.') ||
@@ -22,7 +22,7 @@ export class GeoLocationHelper {
 
   /** @deprecated use isPrivateIp */
   static isLocalhost(ip: string): boolean {
-    return this.isPrivateIp(ip);
+    return GeoLocationHelper.isPrivateIp(ip);
   }
 
   static normalizeIp(ip: string): string {
@@ -39,23 +39,22 @@ export class GeoLocationHelper {
     const cf = headers['cf-connecting-ip'];
     const realIp = headers['x-real-ip'];
     const forwarded = headers['x-forwarded-for'];
-    const pick = (v: string | string[] | undefined) =>
-      Array.isArray(v) ? v[0] : v;
+    const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
     const raw =
       pick(cf) ||
       pick(realIp) ||
-      (pick(forwarded)?.split(',')[0]?.trim()) ||
+      pick(forwarded)?.split(',')[0]?.trim() ||
       reqIp ||
       socketRemoteAddress ||
       '127.0.0.1';
 
-    return this.normalizeIp(raw);
+    return GeoLocationHelper.normalizeIp(raw);
   }
 
   static async getCountryCode(ip: string): Promise<string> {
-    const normalized = this.normalizeIp(ip);
-    if (this.isPrivateIp(normalized)) {
+    const normalized = GeoLocationHelper.normalizeIp(ip);
+    if (GeoLocationHelper.isPrivateIp(normalized)) {
       return DEFAULT_COUNTRY;
     }
     try {
@@ -71,7 +70,7 @@ export class GeoLocationHelper {
     stored?: string | null;
   }): Promise<string> {
     if (options.stored) return options.stored.toUpperCase();
-    if (options.ip) return this.getCountryCode(options.ip);
+    if (options.ip) return GeoLocationHelper.getCountryCode(options.ip);
     return DEFAULT_COUNTRY;
   }
 
@@ -92,7 +91,7 @@ export class GeoLocationHelper {
 
   /** Pricing/plan lookup key — falls back to GLOBAL for non ISO codes. */
   static toPricingRegion(code: string | null | undefined): string {
-    const stored = this.toStoredCountryCode(code);
+    const stored = GeoLocationHelper.toStoredCountryCode(code);
     return stored ?? DEFAULT_COUNTRY;
   }
 }

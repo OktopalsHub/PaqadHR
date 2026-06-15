@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchUserTenants } from "@/lib/api/tenants";
-import { queryKeys } from "@/lib/query/keys";
-import { readTenantId } from "@/lib/session";
+import { useQuery } from '@tanstack/react-query';
+import { fetchUserTenants } from '@/lib/api/tenants';
+import { queryKeys } from '@/lib/query/keys';
+import { readTenantId } from '@/lib/session';
 
 export function useUserTenants(options?: { enabled?: boolean }) {
   return useQuery({
@@ -15,7 +15,7 @@ export function useUserTenants(options?: { enabled?: boolean }) {
 
 export function useCurrentTenantId() {
   const { data: tenants = [], isLoading } = useUserTenants();
-  const stored = typeof window !== "undefined" ? readTenantId() : null;
+  const stored = typeof window !== 'undefined' ? readTenantId() : null;
   const tenant =
     tenants.find((item) => item.id === stored) ??
     tenants.find((item) => item.isActive) ??

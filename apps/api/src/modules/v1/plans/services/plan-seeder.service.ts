@@ -1,10 +1,10 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import type { Repository } from 'typeorm';
 import { DEFAULT_PLANS } from '../data/default-plans.data';
-import { PlanPrice } from '../entities/plan-price.entity';
 import { Plan } from '../entities/plan.entity';
-import { PlansService } from './plans.service';
+import type { PlanPrice } from '../entities/plan-price.entity';
+import type { PlansService } from './plans.service';
 
 @Injectable()
 export class PlanSeederService implements OnApplicationBootstrap {
@@ -44,9 +44,7 @@ export class PlanSeederService implements OnApplicationBootstrap {
           regionalConfig: priceData.regionalConfig,
         });
         prices.push(price);
-        this.logger.log(
-          `Seeded ${planData.name} (${priceData.countryCode}/${priceData.currency})`,
-        );
+        this.logger.log(`Seeded ${planData.name} (${priceData.countryCode}/${priceData.currency})`);
       }
     }
 

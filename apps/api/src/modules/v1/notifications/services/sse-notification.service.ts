@@ -1,8 +1,7 @@
-import { Notification } from '../entities/notification.entity';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { Subject, Observable } from 'rxjs';
+import { type Observable, Subject } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
-import { SSENotificationData } from "../../../../common/interfaces/ssenotification-data.interface";
+import type { SSENotificationData } from '../../../../common/interfaces/ssenotification-data.interface';
 
 interface SSEConnection {
   userId: string;
@@ -15,15 +14,11 @@ export class SSENotificationService {
   private readonly logger = new Logger(SSENotificationService.name);
   private readonly notificationSubject = new Subject<SSENotificationData>();
   private readonly connections = new Map<string, SSEConnection>();
-  private readonly userConnections = new Map<string, Set<string>>(); 
+  private readonly userConnections = new Map<string, Set<string>>();
   constructor() {
     setInterval(() => this.cleanupStaleConnections(), 5 * 60 * 1000);
   }
-  registerConnection(
-    connectionId: string,
-    userId: string,
-    tenantId?: string,
-  ): void {
+  registerConnection(connectionId: string, userId: string, tenantId?: string): void {
     const connection: SSEConnection = {
       userId,
       tenantId,
@@ -36,9 +31,7 @@ export class SSENotificationService {
     }
     this.userConnections.get(userId)!.add(connectionId);
     if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(
-        `SSE connection registered: ${connectionId} for user ${userId}`,
-      );
+      this.logger.log(`SSE connection registered: ${connectionId} for user ${userId}`);
     }
   }
   unregisterConnection(connectionId: string): void {
@@ -69,9 +62,7 @@ export class SSENotificationService {
       throw new NotFoundException('Connection not found');
     }
     return this.notificationSubject.pipe(
-      filter((notification) =>
-        this.shouldReceiveNotification(notification, connection),
-      ),
+      filter((notification) => this.shouldReceiveNotification(notification, connection)),
       map((notification) => this.formatSSEMessage(notification)),
     );
   }
@@ -86,9 +77,7 @@ export class SSENotificationService {
     };
     this.notificationSubject.next(notificationData);
     if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(
-        `Notification sent to user ${userId}: ${notification.title}`,
-      );
+      this.logger.log(`Notification sent to user ${userId}: ${notification.title}`);
     }
   }
   sendToTenant(
@@ -102,14 +91,10 @@ export class SSENotificationService {
     };
     this.notificationSubject.next(notificationData);
     if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(
-        `Notification sent to tenant ${tenantId}: ${notification.title}`,
-      );
+      this.logger.log(`Notification sent to tenant ${tenantId}: ${notification.title}`);
     }
   }
-  sendSystemNotification(
-    notification: Omit<SSENotificationData, 'timestamp'>,
-  ): void {
+  sendSystemNotification(notification: Omit<SSENotificationData, 'timestamp'>): void {
     const notificationData: SSENotificationData = {
       ...notification,
       timestamp: new Date(),
@@ -145,10 +130,7 @@ export class SSENotificationService {
     if (!notification.tenantId && !notification.recipientId) {
       return true;
     }
-    if (
-      notification.recipientId &&
-      notification.recipientId === connection.userId
-    ) {
+    if (notification.recipientId && notification.recipientId === connection.userId) {
       return true;
     }
     if (
@@ -173,7 +155,7 @@ export class SSENotificationService {
     return `data: ${JSON.stringify(data)}\n\n`;
   }
   private cleanupStaleConnections(): void {
-    const staleThreshold = new Date(Date.now() - 10 * 60 * 1000); 
+    const staleThreshold = new Date(Date.now() - 10 * 60 * 1000);
     const staleConnections: string[] = [];
     for (const [connectionId, connection] of this.connections.entries()) {
       if (connection.lastPing < staleThreshold) {
@@ -185,9 +167,7 @@ export class SSENotificationService {
     });
     if (staleConnections.length > 0) {
       if (process.env.LOG_LEVEL !== 'error') {
-        this.logger.log(
-          `Cleaned up ${staleConnections.length} stale SSE connections`,
-        );
+        this.logger.log(`Cleaned up ${staleConnections.length} stale SSE connections`);
       }
     }
   }

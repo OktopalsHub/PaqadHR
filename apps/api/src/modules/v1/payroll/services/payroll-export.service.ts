@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PayrollItem } from '../entities/payroll-item.entity';
-import { PayrollRun } from '../entities/payroll-run.entity';
-import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import type { PayrollItem } from '../entities/payroll-item.entity';
+import type { PayrollRun } from '../entities/payroll-run.entity';
+import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 export interface PayrollBankExportRow {
   employeeId: string;
@@ -23,10 +23,7 @@ export class PayrollExportService {
     private readonly paymentMethodService: PaymentMethodService,
   ) {}
 
-  async getPayrollRunForExport(
-    payrollRunId: string,
-    tenantId: string,
-  ): Promise<PayrollRun> {
+  async getPayrollRunForExport(payrollRunId: string, tenantId: string): Promise<PayrollRun> {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
       relations: ['items', 'items.employee'],
@@ -37,15 +34,11 @@ export class PayrollExportService {
     return run;
   }
 
-  async buildBankExportRows(
-    payrollRun: PayrollRun,
-  ): Promise<PayrollBankExportRow[]> {
+  async buildBankExportRows(payrollRun: PayrollRun): Promise<PayrollBankExportRow[]> {
     const rows: PayrollBankExportRow[] = [];
 
     for (const item of payrollRun.items ?? []) {
-      const paymentMethod = await this.paymentMethodService.findByMemberId(
-        item.memberId,
-      );
+      const paymentMethod = await this.paymentMethodService.findByMemberId(item.memberId);
       const employee = item.employee;
       const name = employee
         ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()
@@ -83,9 +76,8 @@ export class PayrollExportService {
       'period_end',
     ];
 
-    const escape = (value: string | number | Date) => {
-      const str =
-        value instanceof Date ? value.toISOString() : String(value ?? '');
+    const escapeCsv = (value: string | number | Date) => {
+      const str = value instanceof Date ? value.toISOString() : String(value ?? '');
       if (str.includes(',') || str.includes('"') || str.includes('\n')) {
         return `"${str.replace(/"/g, '""')}"`;
       }
@@ -109,7 +101,7 @@ export class PayrollExportService {
           payrollRun.periodStart,
           payrollRun.periodEnd,
         ]
-          .map(escape)
+          .map(escapeCsv)
           .join(','),
       ),
     ];

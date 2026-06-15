@@ -1,21 +1,24 @@
-import { CreateInterviewDto, InterviewFeedbackDto, AddFeedbackDto } from '../dto/interview.dto';
-import { UpdateInterviewDto } from '../dto/update-interview.dto';
-import { User } from '../../users/entities/user.entity';
 import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
-  BadRequestException,
-  ForbiddenException,
-  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { InterviewFilters } from 'src/common/interfaces';
 import { InterviewStatus } from 'src/common/enums';
-import { InterviewRepository } from "../repositories/interview.repository";
-import { Candidate } from "../entities/candidate.entity";
-import { JobOpening } from "../entities/job-opening.entity";
-import { Interview } from "../entities/interview.entity";
+import type { InterviewFilters } from 'src/common/interfaces';
+import type { Repository } from 'typeorm';
+import type {
+  AddFeedbackDto,
+  CreateInterviewDto,
+  InterviewFeedbackDto,
+} from '../dto/interview.dto';
+import type { UpdateInterviewDto } from '../dto/update-interview.dto';
+import { Candidate } from '../entities/candidate.entity';
+import type { Interview } from '../entities/interview.entity';
+import { JobOpening } from '../entities/job-opening.entity';
+import type { InterviewRepository } from '../repositories/interview.repository';
 
 @Injectable()
 export class InterviewService {
@@ -38,7 +41,9 @@ export class InterviewService {
       const hasConflict = await this.interviewRepository.checkInterviewConflict(
         tenantId,
         interviewer.userId,
-        typeof createInterviewDto.date === "string" ? new Date(createInterviewDto.date) : createInterviewDto.date,
+        typeof createInterviewDto.date === 'string'
+          ? new Date(createInterviewDto.date)
+          : createInterviewDto.date,
         createInterviewDto.duration,
       );
       if (hasConflict) {
@@ -51,17 +56,13 @@ export class InterviewService {
       where: { id: createInterviewDto.candidateId, tenantId },
     });
     if (!candidate) {
-      throw new NotFoundException(
-        'Candidate not found or does not belong to this tenant',
-      );
+      throw new NotFoundException('Candidate not found or does not belong to this tenant');
     }
     const jobOpening = await this.jobOpeningRepository.findOne({
       where: { id: createInterviewDto.jobOpeningId, tenantId },
     });
     if (!jobOpening) {
-      throw new NotFoundException(
-        'Job opening not found or does not belong to this tenant',
-      );
+      throw new NotFoundException('Job opening not found or does not belong to this tenant');
     }
     return this.interviewRepository.create({
       ...createInterviewDto,
@@ -93,11 +94,7 @@ export class InterviewService {
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Interview> {
-    return this.interviewRepository.findByTenantMemberAndId(
-      tenantId,
-      tenantMemberId,
-      interviewId,
-    );
+    return this.interviewRepository.findByTenantMemberAndId(tenantId, tenantMemberId, interviewId);
   }
   async updateInterview(
     interviewId: string,
@@ -105,44 +102,25 @@ export class InterviewService {
     tenantMemberId: string,
     updateInterviewDto: UpdateInterviewDto,
   ): Promise<Interview> {
-    const existingInterview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
-    if (
-      existingInterview.status !== 'SCHEDULED' &&
-      updateInterviewDto.status !== 'SCHEDULED'
-    ) {
-      throw new ForbiddenException(
-        'Cannot update completed or cancelled interviews',
-      );
+    const existingInterview = await this.getInterview(interviewId, tenantId, tenantMemberId);
+    if (existingInterview.status !== 'SCHEDULED' && updateInterviewDto.status !== 'SCHEDULED') {
+      throw new ForbiddenException('Cannot update completed or cancelled interviews');
     }
-    if (
-      updateInterviewDto.date &&
-      new Date(updateInterviewDto.date) <= new Date()
-    ) {
+    if (updateInterviewDto.date && new Date(updateInterviewDto.date) <= new Date()) {
       throw new BadRequestException('Interview date must be in the future');
     }
-    if (
-      updateInterviewDto.date ||
-      updateInterviewDto.duration ||
-      updateInterviewDto.interviewers
-    ) {
-      const interviewers =
-        updateInterviewDto.interviewers || existingInterview.interviewers;
+    if (updateInterviewDto.date || updateInterviewDto.duration || updateInterviewDto.interviewers) {
+      const interviewers = updateInterviewDto.interviewers || existingInterview.interviewers;
       const date = updateInterviewDto.date || existingInterview.date;
-      const duration =
-        updateInterviewDto.duration || existingInterview.duration;
+      const duration = updateInterviewDto.duration || existingInterview.duration;
       for (const interviewer of interviewers) {
-        const hasConflict =
-          await this.interviewRepository.checkInterviewConflict(
-            tenantId,
-            interviewer.userId,
-            typeof date === "string" ? new Date(date) : date,
-            duration,
-            interviewId, 
-          );
+        const hasConflict = await this.interviewRepository.checkInterviewConflict(
+          tenantId,
+          interviewer.userId,
+          typeof date === 'string' ? new Date(date) : date,
+          duration,
+          interviewId,
+        );
         if (hasConflict) {
           throw new ConflictException(
             `Interviewer ${interviewer.role} has a scheduling conflict at the requested time`,
@@ -167,15 +145,9 @@ export class InterviewService {
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Interview> {
-    const interview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
+    const interview = await this.getInterview(interviewId, tenantId, tenantMemberId);
     if (interview.status !== 'SCHEDULED') {
-      throw new ForbiddenException(
-        'Only scheduled interviews can be cancelled',
-      );
+      throw new ForbiddenException('Only scheduled interviews can be cancelled');
     }
     return this.updateInterview(interviewId, tenantId, tenantMemberId, {
       status: InterviewStatus.CANCELLED,
@@ -186,15 +158,9 @@ export class InterviewService {
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Interview> {
-    const interview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
+    const interview = await this.getInterview(interviewId, tenantId, tenantMemberId);
     if (interview.status !== 'SCHEDULED') {
-      throw new ForbiddenException(
-        'Only scheduled interviews can be completed',
-      );
+      throw new ForbiddenException('Only scheduled interviews can be completed');
     }
     if (new Date(interview.date) > new Date()) {
       throw new BadRequestException('Cannot complete future interviews');
@@ -210,15 +176,9 @@ export class InterviewService {
     userId: string,
     addFeedbackDto: AddFeedbackDto,
   ): Promise<Interview> {
-    const interview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
+    const interview = await this.getInterview(interviewId, tenantId, tenantMemberId);
     if (interview.status !== InterviewStatus.COMPLETED) {
-      throw new ForbiddenException(
-        'Can only add feedback to completed interviews',
-      );
+      throw new ForbiddenException('Can only add feedback to completed interviews');
     }
     const isInterviewer = interview.interviewers.some(
       (interviewer) => interviewer.userId === userId,
@@ -227,13 +187,9 @@ export class InterviewService {
       throw new ForbiddenException('Only interviewers can add feedback');
     }
     const existingFeedback = interview.feedback || [];
-    const hasExistingFeedback = existingFeedback.some(
-      (feedback) => feedback.userId === userId,
-    );
+    const hasExistingFeedback = existingFeedback.some((feedback) => feedback.userId === userId);
     if (hasExistingFeedback) {
-      throw new ConflictException(
-        'User has already provided feedback for this interview',
-      );
+      throw new ConflictException('User has already provided feedback for this interview');
     }
     const newFeedback: InterviewFeedbackDto = {
       userId,
@@ -241,11 +197,9 @@ export class InterviewService {
       submittedAt: new Date(),
     };
     const updatedFeedback = [...existingFeedback, newFeedback];
-    await this.interviewRepository.update(interviewId, 
-      {
-        feedback: updatedFeedback,
-      },
-    );
+    await this.interviewRepository.update(interviewId, {
+      feedback: updatedFeedback,
+    });
     const updatedInterview = await this.interviewRepository.findOne({
       where: { id: interviewId },
     });
@@ -261,20 +215,12 @@ export class InterviewService {
     userId: string,
     addFeedbackDto: AddFeedbackDto,
   ): Promise<Interview> {
-    const interview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
+    const interview = await this.getInterview(interviewId, tenantId, tenantMemberId);
     if (interview.status !== 'COMPLETED') {
-      throw new ForbiddenException(
-        'Can only update feedback for completed interviews',
-      );
+      throw new ForbiddenException('Can only update feedback for completed interviews');
     }
     const existingFeedback = interview.feedback || [];
-    const feedbackIndex = existingFeedback.findIndex(
-      (feedback) => feedback.userId === userId,
-    );
+    const feedbackIndex = existingFeedback.findIndex((feedback) => feedback.userId === userId);
     if (feedbackIndex === -1) {
       throw new NotFoundException('No existing feedback found for this user');
     }
@@ -284,11 +230,9 @@ export class InterviewService {
       ...addFeedbackDto,
       submittedAt: new Date(),
     };
-    await this.interviewRepository.update(interviewId, 
-      {
-        feedback: updatedFeedback,
-      },
-    );
+    await this.interviewRepository.update(interviewId, {
+      feedback: updatedFeedback,
+    });
     const updatedInterview = await this.interviewRepository.findOne({
       where: { id: interviewId },
     });
@@ -302,11 +246,7 @@ export class InterviewService {
     tenantId: string,
     tenantMemberId: string,
   ): Promise<void> {
-    const interview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
+    const interview = await this.getInterview(interviewId, tenantId, tenantMemberId);
     if (interview.status !== 'SCHEDULED') {
       throw new ForbiddenException('Only scheduled interviews can be deleted');
     }
@@ -317,42 +257,24 @@ export class InterviewService {
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Interview[]> {
-    return this.interviewRepository.findByCandidate(
-      candidateId,
-      tenantId,
-      tenantMemberId,
-    );
+    return this.interviewRepository.findByCandidate(candidateId, tenantId, tenantMemberId);
   }
   async getInterviewsByJobOpening(
     jobOpeningId: string,
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Interview[]> {
-    return this.interviewRepository.findByJobOpening(
-      jobOpeningId,
-      tenantId,
-      tenantMemberId,
-    );
+    return this.interviewRepository.findByJobOpening(jobOpeningId, tenantId, tenantMemberId);
   }
   async getUpcomingInterviews(
     tenantId: string,
     tenantMemberId: string,
     days: number = 7,
   ): Promise<Interview[]> {
-    return this.interviewRepository.findUpcomingInterviews(
-      tenantId,
-      tenantMemberId,
-      days,
-    );
+    return this.interviewRepository.findUpcomingInterviews(tenantId, tenantMemberId, days);
   }
-  async getTodaysInterviews(
-    tenantId: string,
-    tenantMemberId: string,
-  ): Promise<Interview[]> {
-    return this.interviewRepository.findTodaysInterviews(
-      tenantId,
-      tenantMemberId,
-    );
+  async getTodaysInterviews(tenantId: string, tenantMemberId: string): Promise<Interview[]> {
+    return this.interviewRepository.findTodaysInterviews(tenantId, tenantMemberId);
   }
   async getInterviewsByInterviewer(
     interviewerId: string,
@@ -360,21 +282,13 @@ export class InterviewService {
     dateFrom?: Date,
     dateTo?: Date,
   ): Promise<Interview[]> {
-    return this.interviewRepository.findByInterviewer(
-      interviewerId,
-      tenantId,
-      dateFrom,
-      dateTo,
-    );
+    return this.interviewRepository.findByInterviewer(interviewerId, tenantId, dateFrom, dateTo);
   }
   async getInterviewsRequiringFeedback(
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Interview[]> {
-    return this.interviewRepository.findInterviewsRequiringFeedback(
-      tenantId,
-      tenantMemberId,
-    );
+    return this.interviewRepository.findInterviewsRequiringFeedback(tenantId, tenantMemberId);
   }
   async getInterviewStatistics(
     tenantId: string,
@@ -398,21 +312,9 @@ export class InterviewService {
     cancelled: number;
   }> {
     const [scheduled, completed, cancelled] = await Promise.all([
-      this.interviewRepository.countByStatus(
-        tenantId,
-        tenantMemberId,
-        InterviewStatus.SCHEDULED,
-      ),
-      this.interviewRepository.countByStatus(
-        tenantId,
-        tenantMemberId,
-        InterviewStatus.COMPLETED,
-      ),
-      this.interviewRepository.countByStatus(
-        tenantId,
-        tenantMemberId,
-        InterviewStatus.CANCELLED,
-      ),
+      this.interviewRepository.countByStatus(tenantId, tenantMemberId, InterviewStatus.SCHEDULED),
+      this.interviewRepository.countByStatus(tenantId, tenantMemberId, InterviewStatus.COMPLETED),
+      this.interviewRepository.countByStatus(tenantId, tenantMemberId, InterviewStatus.CANCELLED),
     ]);
     return { scheduled, completed, cancelled };
   }
@@ -423,15 +325,9 @@ export class InterviewService {
     newDate: Date,
     newDuration?: number,
   ): Promise<Interview> {
-    const interview = await this.getInterview(
-      interviewId,
-      tenantId,
-      tenantMemberId,
-    );
+    const interview = await this.getInterview(interviewId, tenantId, tenantMemberId);
     if (interview.status !== 'SCHEDULED') {
-      throw new ForbiddenException(
-        'Only scheduled interviews can be rescheduled',
-      );
+      throw new ForbiddenException('Only scheduled interviews can be rescheduled');
     }
     if (newDate <= new Date()) {
       throw new BadRequestException('New interview date must be in the future');
@@ -452,10 +348,7 @@ export class InterviewService {
       }
     }
     return this.updateInterview(interviewId, tenantId, tenantMemberId, {
-      date:
-        typeof newDate === 'string'
-          ? newDate
-          : newDate.toISOString(),
+      date: typeof newDate === 'string' ? newDate : newDate.toISOString(),
       duration,
     });
   }
@@ -467,14 +360,9 @@ export class InterviewService {
     const results: Interview[] = [];
     for (const interviewId of interviewIds) {
       try {
-        const cancelled = await this.cancelInterview(
-          interviewId,
-          tenantId,
-          tenantMemberId,
-        );
+        const cancelled = await this.cancelInterview(interviewId, tenantId, tenantMemberId);
         results.push(cancelled);
-      } catch (error) {
-      }
+      } catch (_error) {}
     }
     return results;
   }
@@ -488,7 +376,7 @@ export class InterviewService {
     const hasConflict = await this.interviewRepository.checkInterviewConflict(
       tenantId,
       interviewerId,
-      typeof date === "string" ? new Date(date) : date,
+      typeof date === 'string' ? new Date(date) : date,
       duration,
       excludeInterviewId,
     );
@@ -500,11 +388,6 @@ export class InterviewService {
     dateFrom: Date,
     dateTo: Date,
   ): Promise<Interview[]> {
-    return this.interviewRepository.findByInterviewer(
-      interviewerId,
-      tenantId,
-      dateFrom,
-      dateTo,
-    );
+    return this.interviewRepository.findByInterviewer(interviewerId, tenantId, dateFrom, dateTo);
   }
 }

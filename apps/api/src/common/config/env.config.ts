@@ -107,8 +107,7 @@ export const ENVIRONMENT: IEnvironment = {
   },
   PAYROLL: {
     DISBURSEMENT_MODE:
-      (process.env.PAYROLL_DISBURSEMENT_MODE || 'manual').toLowerCase() ===
-      'gateway'
+      (process.env.PAYROLL_DISBURSEMENT_MODE || 'manual').toLowerCase() === 'gateway'
         ? 'gateway'
         : 'manual',
   },

@@ -1,16 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PointsSettings } from 'src/common/interfaces/points-settings.interface';
-import { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
+import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
+import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
-import { TenantSettingRepository } from './tenant-setting.repository';
+import type { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantConfigService {
   private readonly logger = new Logger(TenantConfigService.name);
 
-  constructor(
-    private readonly tenantSettingsRepository: TenantSettingRepository,
-  ) {}
+  constructor(private readonly tenantSettingsRepository: TenantSettingRepository) {}
 
   private async getSettingsRecord(tenantId: string) {
     return this.tenantSettingsRepository.findOne({ where: { tenantId } });
@@ -82,9 +80,7 @@ export class TenantConfigService {
   async getPaginationLimit(tenantId: string): Promise<number> {
     try {
       const settings = await this.getSettingsRecord(tenantId);
-      return (
-        settings?.settings.general?.paginationLimit ?? PAGINATION_DEFAULT_LIMIT
-      );
+      return settings?.settings.general?.paginationLimit ?? PAGINATION_DEFAULT_LIMIT;
     } catch (error) {
       this.logger.warn(
         `Failed to get pagination limit for tenant ${tenantId}, using default: ${error instanceof Error ? error.message : error}`,
@@ -123,9 +119,7 @@ export class TenantConfigService {
           monthlyLimit: settings.settings.points?.monthlyLimit || 1000,
         },
         general: {
-          paginationLimit:
-            settings.settings.general?.paginationLimit ??
-            PAGINATION_DEFAULT_LIMIT,
+          paginationLimit: settings.settings.general?.paginationLimit ?? PAGINATION_DEFAULT_LIMIT,
         },
       };
     } catch (error) {
@@ -149,10 +143,7 @@ export class TenantConfigService {
     }
   }
 
-  async generateEmployeeNumber(
-    tenantId: string,
-    employeeCount: number,
-  ): Promise<string> {
+  async generateEmployeeNumber(tenantId: string, employeeCount: number): Promise<string> {
     const prefix = await this.getEmployeeNumberPrefix(tenantId);
     const padding = await this.getEmployeeNumberPadding(tenantId);
     const paddedNumber = (employeeCount + 1).toString().padStart(padding, '0');
@@ -179,8 +170,7 @@ export class TenantConfigService {
     const dailyRemaining = Math.max(0, dailyLimit - currentDailyPoints);
     const monthlyRemaining = Math.max(0, monthlyLimit - currentMonthlyPoints);
     const wouldExceedDaily = currentDailyPoints + pointsToAdd > dailyLimit;
-    const wouldExceedMonthly =
-      currentMonthlyPoints + pointsToAdd > monthlyLimit;
+    const wouldExceedMonthly = currentMonthlyPoints + pointsToAdd > monthlyLimit;
     let isValid = true;
     let reason: string | undefined;
     if (wouldExceedDaily) {

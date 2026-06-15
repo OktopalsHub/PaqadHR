@@ -1,4 +1,4 @@
-import { RecruitmentBoardPage } from "@/features/recruitment/components/recruitment-board-page";
+import { RecruitmentBoardPage } from '@/features/recruitment/components/recruitment-board-page';
 
 type PageProps = {
   params: Promise<{ jobId: string }>;

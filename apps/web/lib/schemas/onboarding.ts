@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const pricingPreviewSchema = z.object({
   detectedCountry: z.string(),
@@ -22,7 +22,7 @@ export type PricingPreview = z.infer<typeof pricingPreviewSchema>;
 export const slugAvailabilitySchema = z.object({
   slug: z.string(),
   available: z.boolean(),
-  reason: z.enum(["invalid", "reserved", "taken"]).optional(),
+  reason: z.enum(['invalid', 'reserved', 'taken']).optional(),
 });
 
 export type SlugAvailability = z.infer<typeof slugAvailabilitySchema>;
@@ -40,9 +40,7 @@ export const onboardingCompleteInputSchema = z.object({
   planSlug: z.string().min(1).optional(),
 });
 
-export type OnboardingCompleteInput = z.infer<
-  typeof onboardingCompleteInputSchema
->;
+export type OnboardingCompleteInput = z.infer<typeof onboardingCompleteInputSchema>;
 
 export const onboardingResultSchema = z.object({
   tenant: z.object({

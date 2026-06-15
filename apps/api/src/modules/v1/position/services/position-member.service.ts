@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { PositionMemberRepository } from "../repositories/position-member.repository";
-import { PositionMember } from "../entities/position-member.entity";
+import type { PositionMember } from '../entities/position-member.entity';
+import type { PositionMemberRepository } from '../repositories/position-member.repository';
 
 @Injectable()
 export class PositionMemberService {
-  constructor(
-    private readonly positionMemberRepository: PositionMemberRepository,
-  ) {}
+  constructor(private readonly positionMemberRepository: PositionMemberRepository) {}
   assignPosition(
     tenantId: string,
     tenantMemberId: string,
@@ -20,19 +18,10 @@ export class PositionMemberService {
       assignedAt,
     );
   }
-  getPositionHistory(
-    tenantId: string,
-    tenantMemberId: string,
-  ): Promise<PositionMember[]> {
-    return this.positionMemberRepository.getPositionHistory(
-      tenantId,
-      tenantMemberId,
-    );
+  getPositionHistory(tenantId: string, tenantMemberId: string): Promise<PositionMember[]> {
+    return this.positionMemberRepository.getPositionHistory(tenantId, tenantMemberId);
   }
-  async getMembersByPosition(
-    tenantId: string,
-    positionId: string,
-  ): Promise<PositionMember[]> {
+  async getMembersByPosition(tenantId: string, positionId: string): Promise<PositionMember[]> {
     return this.positionMemberRepository.find({
       where: { positionId },
       relations: ['tenantMember'],

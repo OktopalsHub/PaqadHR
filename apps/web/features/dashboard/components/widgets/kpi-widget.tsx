@@ -1,49 +1,48 @@
-"use client";
-import React from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+'use client';
+import { Minus, TrendingDown, TrendingUp } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export const KPIWidget = () => {
   const kpiData = [
     {
-      title: "Total Employees",
-      value: "156",
-      change: "+12%",
-      trend: "up" as const,
-      icon: "👥",
-      color: "from-blue-500 to-blue-600",
+      title: 'Total Employees',
+      value: '156',
+      change: '+12%',
+      trend: 'up' as const,
+      icon: '👥',
+      color: 'from-blue-500 to-blue-600',
     },
     {
-      title: "New Hires",
-      value: "8",
-      change: "+3",
-      trend: "up" as const,
-      icon: "👶",
-      color: "from-green-500 to-green-600",
+      title: 'New Hires',
+      value: '8',
+      change: '+3',
+      trend: 'up' as const,
+      icon: '👶',
+      color: 'from-green-500 to-green-600',
     },
     {
-      title: "Open Positions",
-      value: "12",
-      change: "-2",
-      trend: "down" as const,
-      icon: "🧑‍💼",
-      color: "from-purple-500 to-purple-600",
+      title: 'Open Positions',
+      value: '12',
+      change: '-2',
+      trend: 'down' as const,
+      icon: '🧑‍💼',
+      color: 'from-purple-500 to-purple-600',
     },
     {
-      title: "Pending Leaves",
-      value: "5",
-      change: "+2",
-      trend: "up" as const,
-      icon: "🏖",
-      color: "from-amber-500 to-amber-600",
+      title: 'Pending Leaves',
+      value: '5',
+      change: '+2',
+      trend: 'up' as const,
+      icon: '🏖',
+      color: 'from-amber-500 to-amber-600',
     },
   ];
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
-      case "up":
+      case 'up':
         return <TrendingUp className="w-4 h-4 text-green-600" />;
-      case "down":
+      case 'down':
         return <TrendingDown className="w-4 h-4 text-red-600" />;
       default:
         return <Minus className="w-4 h-4 text-gray-600" />;
@@ -52,12 +51,12 @@ export const KPIWidget = () => {
 
   const getTrendColor = (trend: string) => {
     switch (trend) {
-      case "up":
-        return "text-green-600 bg-green-50";
-      case "down":
-        return "text-red-600 bg-red-50";
+      case 'up':
+        return 'text-green-600 bg-green-50';
+      case 'down':
+        return 'text-red-600 bg-red-50';
       default:
-        return "text-gray-600 bg-gray-50";
+        return 'text-gray-600 bg-gray-50';
     }
   };
 
@@ -82,9 +81,7 @@ export const KPIWidget = () => {
                   {kpi.change}
                 </div>
               </div>
-              <h3 className="text-sm font-medium text-gray-600 mb-1">
-                {kpi.title}
-              </h3>
+              <h3 className="text-sm font-medium text-gray-600 mb-1">{kpi.title}</h3>
               <p className="text-2xl font-bold text-gray-900">{kpi.value}</p>
               <div
                 className={`w-full h-1 bg-gradient-to-r ${kpi.color} rounded-full mt-2 opacity-60`}

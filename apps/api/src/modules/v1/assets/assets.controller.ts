@@ -7,16 +7,17 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
+  UseGuards,
+} from '@nestjs/common';
 import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { AssetService } from './assets.service';
-import { MemberContext } from 'src/common/interfaces';
-import { CreateAssetDto } from "./dto/create-asset.dto";
-import { QueryAssetsDto } from "./dto/query-assets.dto";
-import { UpdateAssetDto } from "./dto/update-asset.dto";
-import { AssignAssetDto } from "./assignment/dto/assign-asset.dto";
-import { ReturnAssetDto } from "./dto/return-asset.dto";
+import type { AssetService } from './assets.service';
+import type { AssignAssetDto } from './assignment/dto/assign-asset.dto';
+import type { CreateAssetDto } from './dto/create-asset.dto';
+import type { QueryAssetsDto } from './dto/query-assets.dto';
+import type { ReturnAssetDto } from './dto/return-asset.dto';
+import type { UpdateAssetDto } from './dto/update-asset.dto';
 
 @Controller('tenants/:tenantId/assets')
 @UseGuards(TenantMemberGuard)
@@ -26,22 +27,19 @@ export class AssetController {
   async createAsset(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateAssetDto,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.assetService.createAsset(tenantId, member.id, dto);
   }
   @Get()
-  async listAssets(
-    @Param('tenantId') tenantId: string,
-    @Query() query: QueryAssetsDto,
-  ) {
+  async listAssets(@Param('tenantId') tenantId: string, @Query() query: QueryAssetsDto) {
     return this.assetService.listAssetsByTenant(tenantId, query);
   }
   @Get('assigned/me')
   async getMyAssignedAssets(
     @Param('tenantId') tenantId: string,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.assetService.getAssignedAssets(tenantId, member.id);
   }
   @Get('maintenance-needed')
@@ -56,10 +54,7 @@ export class AssetController {
     return this.assetService.getAssetsByCategory(tenantId, categoryId);
   }
   @Get(':assetId')
-  async getAsset(
-    @Param('tenantId') tenantId: string,
-    @Param('assetId') assetId: string,
-  ) {
+  async getAsset(@Param('tenantId') tenantId: string, @Param('assetId') assetId: string) {
     return this.assetService.getAsset(tenantId, assetId);
   }
   @Patch(':assetId')
@@ -71,10 +66,7 @@ export class AssetController {
     return this.assetService.updateAsset(tenantId, assetId, dto);
   }
   @Delete(':assetId')
-  async deleteAsset(
-    @Param('tenantId') tenantId: string,
-    @Param('assetId') assetId: string,
-  ) {
+  async deleteAsset(@Param('tenantId') tenantId: string, @Param('assetId') assetId: string) {
     return this.assetService.deleteAsset(tenantId, assetId);
   }
   @Post(':assetId/assign')
@@ -82,8 +74,8 @@ export class AssetController {
     @Param('tenantId') tenantId: string,
     @Param('assetId') assetId: string,
     @Body() dto: AssignAssetDto,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.assetService.assignAsset(tenantId, assetId, member.id, dto);
   }
   @Post(':assetId/return')
@@ -91,8 +83,8 @@ export class AssetController {
     @Param('tenantId') tenantId: string,
     @Param('assetId') assetId: string,
     @Body() dto: ReturnAssetDto,
-    @CurrentTenantMember() member: MemberContext
-    ) {
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.assetService.returnAsset(tenantId, assetId, member.id, dto);
   }
 }

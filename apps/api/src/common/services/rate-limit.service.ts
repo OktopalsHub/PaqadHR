@@ -1,16 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { RateLimitRule } from "../interfaces/rate-limit-rule.interface";
-import { RateLimitConfig } from "../interfaces/rate-limit-config.interface";
-import { RateLimitResult } from "../interfaces/rate-limit-result.interface";
+import { Injectable } from '@nestjs/common';
+import type { RateLimitConfig } from '../interfaces/rate-limit-config.interface';
+import type { RateLimitResult } from '../interfaces/rate-limit-result.interface';
 
 @Injectable()
 export class RateLimitService {
-  private readonly logger = new Logger(RateLimitService.name);
   private readonly requestCounts = new Map<string, number[]>();
-  async checkRateLimit(
-    key: string,
-    config: RateLimitConfig,
-  ): Promise<RateLimitResult> {
+  async checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
     const now = Date.now();
     this.cleanupOldRequests(key, config.rules[0]?.windowMs || 60000);
     const currentCount = this.requestCounts.get(key)?.length || 0;
@@ -41,7 +36,7 @@ export class RateLimitService {
     const requests = this.requestCounts.get(key);
     if (!requests) return;
     const cutoff = Date.now() - windowMs;
-    const filtered = requests.filter(timestamp => timestamp > cutoff);
+    const filtered = requests.filter((timestamp) => timestamp > cutoff);
     if (filtered.length === 0) {
       this.requestCounts.delete(key);
     } else {

@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class ShoutoutCategories1781241316869 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

@@ -1,6 +1,6 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EnvironmentValidationService } from '../config/environment-validation.service';
-import { SecretConfig } from "../interfaces/secret-config.interface";
+import type { SecretConfig } from '../interfaces/secret-config.interface';
 
 @Injectable()
 export class SecretsService {
@@ -47,9 +47,7 @@ export class SecretsService {
           nomba: {
             apiKey: this.envValidator.getOptional('NOMBA_API_KEY'),
             secretKey: this.envValidator.getOptional('NOMBA_SECRET_KEY'),
-            webhookSecret: this.envValidator.getOptional(
-              'NOMBA_WEBHOOK_SECRET',
-            ),
+            webhookSecret: this.envValidator.getOptional('NOMBA_WEBHOOK_SECRET'),
           },
         },
       };
@@ -71,10 +69,7 @@ export class SecretsService {
     if (nodeEnv === 'production') {
       return this.envValidator.getRequired('DEFAULT_FROM_EMAIL');
     }
-    return this.envValidator.getOptional(
-      'DEFAULT_FROM_EMAIL',
-      'noreply@localhost',
-    );
+    return this.envValidator.getOptional('DEFAULT_FROM_EMAIL', 'noreply@localhost');
   }
   private validateSecrets(): void {
     const nodeEnv = process.env.NODE_ENV || 'development';
@@ -102,13 +97,8 @@ export class SecretsService {
   }
   private validateDatabaseUrl(): void {
     const dbUrl = this.secrets.database.url;
-    if (
-      !dbUrl.startsWith('postgresql://') &&
-      !dbUrl.startsWith('postgres://')
-    ) {
-      throw new BadRequestException(
-        'DATABASE_URL must be a valid PostgreSQL connection string',
-      );
+    if (!dbUrl.startsWith('postgresql://') && !dbUrl.startsWith('postgres://')) {
+      throw new BadRequestException('DATABASE_URL must be a valid PostgreSQL connection string');
     }
   }
   private validateEncryptionKey(): void {

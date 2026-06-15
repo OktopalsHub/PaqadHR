@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const employeeSchema = z.object({
   id: z.string(),
@@ -6,7 +6,7 @@ export const employeeSchema = z.object({
   email: z.string().email(),
   department: z.string(),
   role: z.string(),
-  status: z.enum(["Active", "On Leave", "Inactive"]),
+  status: z.enum(['Active', 'On Leave', 'Inactive']),
   joinDate: z.string(),
   avatar: z.string(),
 });

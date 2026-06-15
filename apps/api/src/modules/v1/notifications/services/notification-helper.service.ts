@@ -1,10 +1,8 @@
-import { Document } from '../../document/entities/document.entity';
-import { Leave } from '../../leave/entities/leave.entity';
 import { Injectable } from '@nestjs/common';
-import { NotificationService } from './notification.service';
-import { NotificationType } from "../../../../common/enums/notification-type.enum";
-import { NotificationChannel } from "../../../../common/enums/notification-channel.enum";
-import { NotificationPriority } from "../../../../common/enums/notification-priority.enum";
+import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
+import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import type { NotificationService } from './notification.service';
 
 @Injectable()
 export class NotificationHelperService {
@@ -27,8 +25,7 @@ export class NotificationHelperService {
   async sendInvitationNotification(
     email: string,
     variables: { inviterName: string; tenantName: string; inviteLink: string },
-  ): Promise<void> {
-  }
+  ): Promise<void> {}
   async sendPayrollNotification(
     recipientId: string,
     tenantId: string,
@@ -201,9 +198,7 @@ export class NotificationHelperService {
       type: NotificationType.USER,
       channel: NotificationChannel.BOTH,
       priority:
-        variables.status === 'rejected'
-          ? NotificationPriority.HIGH
-          : NotificationPriority.MEDIUM,
+        variables.status === 'rejected' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
       title: `Document ${variables.status === 'approved' ? 'Approved' : variables.status === 'rejected' ? 'Rejected' : 'Under Review'}`,
       message: `Your document "${variables.documentName}" ${statusMessages[variables.status]} by ${variables.reviewerName}${variables.comments ? `. Comments: ${variables.comments}` : ''}`,
       recipientId,

@@ -1,6 +1,6 @@
 export interface AmountValidationResult {
-    isValid: boolean;
-    formattedAmount: number;
-    errors: string[];
-    warnings: string[];
+  isValid: boolean;
+  formattedAmount: number;
+  errors: string[];
+  warnings: string[];
 }

@@ -1,12 +1,7 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne
-} from 'typeorm';
-import { ShoutoutCategory } from './shoutout-category.entity';
+import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Shoutout } from './shoutout.entity';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { ShoutoutCategory } from './shoutout-category.entity';
 
 @Entity('shoutout_category_assignments')
 export class ShoutoutCategoryAssignment extends BaseEntity {
@@ -16,7 +11,10 @@ export class ShoutoutCategoryAssignment extends BaseEntity {
   @Column({ name: 'shoutout_id', type: 'uuid' })
   shoutoutId: string;
 
-  @ManyToOne(() => Shoutout, (shoutout) => shoutout.categoryAssignments)
+  @ManyToOne(
+    () => Shoutout,
+    (shoutout) => shoutout.categoryAssignments,
+  )
   @JoinColumn({ name: 'shoutout_id' })
   shoutout: Shoutout;
 

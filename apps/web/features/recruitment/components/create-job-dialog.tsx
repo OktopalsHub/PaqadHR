@@ -1,56 +1,44 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { useCreateJobOpening } from "@/hooks/queries/use-recruitment";
-import { cn } from "@/lib/utils";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useCreateJobOpening } from '@/hooks/queries/use-recruitment';
+import { cn } from '@/lib/utils';
 
-const STEPS = ["Basics", "Details", "Publish"] as const;
+const STEPS = ['Basics', 'Details', 'Publish'] as const;
 
 const EMPLOYMENT_TYPES = [
-  { value: "FULL_TIME", label: "Full-time" },
-  { value: "PART_TIME", label: "Part-time" },
-  { value: "CONTRACT", label: "Contract" },
-  { value: "INTERNSHIP", label: "Internship" },
-  { value: "TEMPORARY", label: "Temporary" },
+  { value: 'FULL_TIME', label: 'Full-time' },
+  { value: 'PART_TIME', label: 'Part-time' },
+  { value: 'CONTRACT', label: 'Contract' },
+  { value: 'INTERNSHIP', label: 'Internship' },
+  { value: 'TEMPORARY', label: 'Temporary' },
 ] as const;
 
-const EXPERIENCE_LEVELS = [
-  "Entry Level",
-  "Junior",
-  "Mid-Level",
-  "Senior",
-  "Lead",
-  "Executive",
-];
+const EXPERIENCE_LEVELS = ['Entry Level', 'Junior', 'Mid-Level', 'Senior', 'Lead', 'Executive'];
 
 const LOCATION_TYPES = [
-  { value: "REMOTE", label: "Remote" },
-  { value: "HYBRID", label: "Hybrid" },
-  { value: "ONSITE", label: "On-site" },
+  { value: 'REMOTE', label: 'Remote' },
+  { value: 'HYBRID', label: 'Hybrid' },
+  { value: 'ONSITE', label: 'On-site' },
 ] as const;
 
 function linesToArray(text: string) {
   return text
-    .split("\n")
+    .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
 }
@@ -60,23 +48,20 @@ type CreateJobDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-export function CreateJobDialog({
-  open,
-  onOpenChange: setOpen,
-}: CreateJobDialogProps) {
+export function CreateJobDialog({ open, onOpenChange: setOpen }: CreateJobDialogProps) {
   const [step, setStep] = useState(0);
-  const [title, setTitle] = useState("");
-  const [position, setPosition] = useState("");
-  const [employmentType, setEmploymentType] = useState<string>("FULL_TIME");
-  const [experienceLevel, setExperienceLevel] = useState("Mid-Level");
-  const [description, setDescription] = useState("");
-  const [requirementsText, setRequirementsText] = useState("");
-  const [responsibilitiesText, setResponsibilitiesText] = useState("");
-  const [locationType, setLocationType] = useState<string>("REMOTE");
-  const [city, setCity] = useState("");
-  const [country, setCountry] = useState("");
-  const [numberOfOpenings, setNumberOfOpenings] = useState("1");
-  const [applicationDeadline, setApplicationDeadline] = useState("");
+  const [title, setTitle] = useState('');
+  const [position, setPosition] = useState('');
+  const [employmentType, setEmploymentType] = useState<string>('FULL_TIME');
+  const [experienceLevel, setExperienceLevel] = useState('Mid-Level');
+  const [description, setDescription] = useState('');
+  const [requirementsText, setRequirementsText] = useState('');
+  const [responsibilitiesText, setResponsibilitiesText] = useState('');
+  const [locationType, setLocationType] = useState<string>('REMOTE');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('');
+  const [numberOfOpenings, setNumberOfOpenings] = useState('1');
+  const [applicationDeadline, setApplicationDeadline] = useState('');
   const [isUrgent, setIsUrgent] = useState(false);
   const [publish, setPublish] = useState(true);
 
@@ -84,18 +69,18 @@ export function CreateJobDialog({
 
   const resetForm = () => {
     setStep(0);
-    setTitle("");
-    setPosition("");
-    setEmploymentType("FULL_TIME");
-    setExperienceLevel("Mid-Level");
-    setDescription("");
-    setRequirementsText("");
-    setResponsibilitiesText("");
-    setLocationType("REMOTE");
-    setCity("");
-    setCountry("");
-    setNumberOfOpenings("1");
-    setApplicationDeadline("");
+    setTitle('');
+    setPosition('');
+    setEmploymentType('FULL_TIME');
+    setExperienceLevel('Mid-Level');
+    setDescription('');
+    setRequirementsText('');
+    setResponsibilitiesText('');
+    setLocationType('REMOTE');
+    setCity('');
+    setCountry('');
+    setNumberOfOpenings('1');
+    setApplicationDeadline('');
     setIsUrgent(false);
     setPublish(true);
   };
@@ -104,8 +89,7 @@ export function CreateJobDialog({
     step === 0
       ? title.trim().length >= 2 && position.trim().length >= 1
       : step === 1
-        ? description.trim().length >= 10 &&
-          linesToArray(requirementsText).length >= 1
+        ? description.trim().length >= 10 && linesToArray(requirementsText).length >= 1
         : true;
 
   const handleSubmit = async () => {
@@ -113,10 +97,10 @@ export function CreateJobDialog({
       await createJob.mutateAsync({
         title: title.trim(),
         position: position.trim(),
-        employmentType: employmentType as "FULL_TIME",
+        employmentType: employmentType as 'FULL_TIME',
         experienceLevel,
         location: {
-          type: locationType as "REMOTE",
+          type: locationType as 'REMOTE',
           city: city.trim() || undefined,
           country: country.trim() || undefined,
         },
@@ -130,13 +114,11 @@ export function CreateJobDialog({
         isUrgent,
         publish,
       });
-      toast.success(publish ? "Role published" : "Draft saved");
+      toast.success(publish ? 'Role published' : 'Draft saved');
       setOpen(false);
       resetForm();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create role",
-      );
+      toast.error(error instanceof Error ? error.message : 'Failed to create role');
     }
   };
 
@@ -165,31 +147,24 @@ export function CreateJobDialog({
             <div key={label} className="flex items-center gap-2">
               <div
                 className={cn(
-                  "flex size-7 items-center justify-center rounded-full border text-xs font-medium",
+                  'flex size-7 items-center justify-center rounded-full border text-xs font-medium',
                   index <= step
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground",
+                    ? 'border-foreground bg-foreground text-background'
+                    : 'border-border text-muted-foreground',
                 )}
               >
                 {index + 1}
               </div>
               <span
                 className={cn(
-                  "hidden text-xs sm:inline",
-                  index <= step
-                    ? "text-foreground"
-                    : "text-muted-foreground",
+                  'hidden text-xs sm:inline',
+                  index <= step ? 'text-foreground' : 'text-muted-foreground',
                 )}
               >
                 {label}
               </span>
               {index < STEPS.length - 1 ? (
-                <div
-                  className={cn(
-                    "h-px w-4",
-                    index < step ? "bg-foreground" : "bg-border",
-                  )}
-                />
+                <div className={cn('h-px w-4', index < step ? 'bg-foreground' : 'bg-border')} />
               ) : null}
             </div>
           ))}
@@ -218,10 +193,7 @@ export function CreateJobDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label>Employment type</Label>
-                <Select
-                  value={employmentType}
-                  onValueChange={setEmploymentType}
-                >
+                <Select value={employmentType} onValueChange={setEmploymentType}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -236,10 +208,7 @@ export function CreateJobDialog({
               </div>
               <div className="space-y-2">
                 <Label>Experience level</Label>
-                <Select
-                  value={experienceLevel}
-                  onValueChange={setExperienceLevel}
-                >
+                <Select value={experienceLevel} onValueChange={setExperienceLevel}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -280,10 +249,8 @@ export function CreateJobDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="job-responsibilities">
-                Responsibilities{" "}
-                <span className="font-normal text-muted-foreground">
-                  (optional)
-                </span>
+                Responsibilities{' '}
+                <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
                 id="job-responsibilities"
@@ -386,18 +353,14 @@ export function CreateJobDialog({
           >
             Back
           </Button>
-          <Button
-            type="button"
-            disabled={!canContinue || createJob.isPending}
-            onClick={handleNext}
-          >
+          <Button type="button" disabled={!canContinue || createJob.isPending} onClick={handleNext}>
             {step === STEPS.length - 1
               ? createJob.isPending
-                ? "Saving..."
+                ? 'Saving...'
                 : publish
-                  ? "Publish role"
-                  : "Save draft"
-              : "Continue"}
+                  ? 'Publish role'
+                  : 'Save draft'
+              : 'Continue'}
           </Button>
         </div>
       </DialogContent>

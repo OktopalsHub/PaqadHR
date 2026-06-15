@@ -1,12 +1,6 @@
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne
-} from 'typeorm';
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity('shoutout_member_points')
 export class ShoutoutMemberPoints extends BaseEntity {

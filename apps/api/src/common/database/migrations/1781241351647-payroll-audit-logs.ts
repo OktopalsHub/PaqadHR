@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from 'typeorm';
+import type { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class PayrollAuditLogs1781241351647 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {

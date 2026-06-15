@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ContentCard } from "@/components/content-card";
-import { formatDistanceToNow } from "date-fns";
-import type { ActivityItem } from "../../lib/recruitment-types";
+import { formatDistanceToNow } from 'date-fns';
+import { ContentCard } from '@/components/content-card';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import type { ActivityItem } from '../../lib/recruitment-types';
 
 type RecruitmentActivityFeedProps = {
   items: ActivityItem[];
@@ -11,9 +11,9 @@ type RecruitmentActivityFeedProps = {
 
 function initials(name: string) {
   return name
-    .split(" ")
+    .split(' ')
     .map((part) => part.charAt(0))
-    .join("")
+    .join('')
     .slice(0, 2)
     .toUpperCase();
 }
@@ -35,7 +35,7 @@ export function RecruitmentActivityFeed({ items }: RecruitmentActivityFeedProps)
             </Avatar>
             <div className="min-w-0 flex-1">
               <p className="text-sm">
-                <span className="font-medium">{item.actor}</span>{" "}
+                <span className="font-medium">{item.actor}</span>{' '}
                 <span className="text-muted-foreground">{item.action}</span>
               </p>
               <p className="mt-0.5 text-[11px] text-muted-foreground">

@@ -1,4 +1,4 @@
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test, type TestingModule } from '@nestjs/testing';
 import { TenantConfigService } from './tenant-config.service';
 import { TenantSettingRepository } from './tenant-setting.repository';
 
@@ -29,22 +29,12 @@ describe('TenantConfigService (shoutout points)', () => {
   });
 
   it('allows points within daily and monthly limits', async () => {
-    const result = await service.validatePointsOperation(
-      'tenant-1',
-      10,
-      40,
-      5,
-    );
+    const result = await service.validatePointsOperation('tenant-1', 10, 40, 5);
     expect(result.isValid).toBe(true);
   });
 
   it('blocks when daily limit would be exceeded', async () => {
-    const result = await service.validatePointsOperation(
-      'tenant-1',
-      48,
-      40,
-      5,
-    );
+    const result = await service.validatePointsOperation('tenant-1', 48, 40, 5);
     expect(result.isValid).toBe(false);
     expect(result.reason).toContain('daily limit');
   });

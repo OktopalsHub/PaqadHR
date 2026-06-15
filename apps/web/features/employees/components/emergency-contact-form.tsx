@@ -1,25 +1,10 @@
-import { useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { ToastMessage } from '@/components/toast-message';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -27,20 +12,31 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { ToastMessage } from "@/components/toast-message";
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 // Form schema for emergency contact
 const formSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  relationship: z.string().min(1, { message: "Relationship is required" }),
-  phone: z.string().min(5, { message: "Phone number is required" }),
-  email: z
-    .string()
-    .email({ message: "Please enter a valid email" })
-    .optional()
-    .or(z.literal("")),
+  name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
+  relationship: z.string().min(1, { message: 'Relationship is required' }),
+  phone: z.string().min(5, { message: 'Phone number is required' }),
+  email: z.string().email({ message: 'Please enter a valid email' }).optional().or(z.literal('')),
   address: z.string().optional(),
   isEmergencyContact: z.boolean(),
   notes: z.string().optional(),
@@ -66,13 +62,13 @@ export function EmergencyContactForm({
   const [isLoading, setIsLoading] = useState(false);
 
   const initialValues = {
-    name: "",
-    relationship: "",
-    phone: "",
-    email: "",
-    address: "",
+    name: '',
+    relationship: '',
+    phone: '',
+    email: '',
+    address: '',
     isEmergencyContact: true,
-    notes: "",
+    notes: '',
     ...defaultValues,
   };
 
@@ -90,11 +86,9 @@ export function EmergencyContactForm({
 
       toast.success(
         <ToastMessage
-          title={editMode ? "Contact Updated" : "Contact Added"}
+          title={editMode ? 'Contact Updated' : 'Contact Added'}
           description={
-            editMode
-              ? "Emergency contact has been updated."
-              : "Emergency contact has been added."
+            editMode ? 'Emergency contact has been updated.' : 'Emergency contact has been added.'
           }
         />,
       );
@@ -102,7 +96,7 @@ export function EmergencyContactForm({
       onOpenChange(false);
       form.reset(initialValues);
     } catch (error) {
-      console.error("Error saving emergency contact:", error);
+      console.error('Error saving emergency contact:', error);
       toast.error(
         <ToastMessage
           title="Error"
@@ -118,20 +112,15 @@ export function EmergencyContactForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>
-            {editMode ? "Edit Emergency Contact" : "Add Emergency Contact"}
-          </DialogTitle>
+          <DialogTitle>{editMode ? 'Edit Emergency Contact' : 'Add Emergency Contact'}</DialogTitle>
           <DialogDescription>
             {editMode
-              ? "Update the emergency contact information below."
-              : "Add a new emergency contact for this employee."}
+              ? 'Update the emergency contact information below.'
+              : 'Add a new emergency contact for this employee.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -198,7 +187,7 @@ export function EmergencyContactForm({
                         type="email"
                         placeholder="e.g., name@example.com"
                         {...field}
-                        value={field.value || ""}
+                        value={field.value || ''}
                       />
                     </FormControl>
                     <FormMessage />
@@ -218,7 +207,7 @@ export function EmergencyContactForm({
                       placeholder="Enter address"
                       className="min-h-[100px]"
                       {...field}
-                      value={field.value || ""}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -236,7 +225,7 @@ export function EmergencyContactForm({
                     <Textarea
                       placeholder="Additional information"
                       {...field}
-                      value={field.value || ""}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -256,11 +245,7 @@ export function EmergencyContactForm({
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading
-                  ? "Saving..."
-                  : editMode
-                    ? "Update Contact"
-                    : "Add Contact"}
+                {isLoading ? 'Saving...' : editMode ? 'Update Contact' : 'Add Contact'}
               </Button>
             </DialogFooter>
           </form>

@@ -1,9 +1,9 @@
-import { FileUploadLocation } from "../enums/file-upload-location.enum";
+import type { FileUploadLocation } from '../enums/file-upload-location.enum';
 
 export interface PresignedUrlOptions {
-    tenantId: string;
-    location: FileUploadLocation;
-    fileName: string;
-    contentType?: string;
-    expiresIn?: number;
+  tenantId: string;
+  location: FileUploadLocation;
+  fileName: string;
+  contentType?: string;
+  expiresIn?: number;
 }

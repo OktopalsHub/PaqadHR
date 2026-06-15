@@ -1,8 +1,8 @@
 import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { PlansService } from '../services/plans.service';
-import { PlanPrice } from "../entities/plan-price.entity";
-import { PlanRegionalConfig } from "../../../../common/interfaces/plan-regional-config.interface";
+import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
+import type { PlanPrice } from '../entities/plan-price.entity';
+import type { PlansService } from '../services/plans.service';
 
 class UpsertPlanPriceDto {
   slug: string;
@@ -45,10 +45,7 @@ export class PlansAdminController {
   }
   @Put('prices/:id')
   @ApiOperation({ summary: 'Update plan price' })
-  async updatePlanPrice(
-    @Param('id') id: string,
-    @Body() updates: Partial<PlanPrice>,
-  ) {
+  async updatePlanPrice(@Param('id') id: string, @Body() updates: Partial<PlanPrice>) {
     return this.plansService.updatePlanPrice(id, updates);
   }
 }

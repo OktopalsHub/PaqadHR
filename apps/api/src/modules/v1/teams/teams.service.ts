@@ -1,12 +1,12 @@
-import { Team } from './entities/team.entity';
-import { TeamMember } from './entities/team-member.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FindOptionsWhere } from 'typeorm';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { TeamsRepository } from "./repositories/teams.repository";
-import { TeamMembersRepository } from "./repositories/team-members.repository";
-import { CreateTeamDto } from "./dto/create-team.dto";
-import { UpdateTeamDto } from "./dto/update-team.dto";
+import type { FindOptionsWhere } from 'typeorm';
+import type { TenantMembersService } from '../tenant-members/tenant-members.service';
+import type { CreateTeamDto } from './dto/create-team.dto';
+import type { UpdateTeamDto } from './dto/update-team.dto';
+import type { Team } from './entities/team.entity';
+import type { TeamMember } from './entities/team-member.entity';
+import type { TeamMembersRepository } from './repositories/team-members.repository';
+import type { TeamsRepository } from './repositories/teams.repository';
 
 @Injectable()
 export class TeamsService {
@@ -33,33 +33,29 @@ export class TeamsService {
     return team;
   }
   async createTeam(tenantId: string, memberId: string, dto: CreateTeamDto) {
-    try {
-      const { members, ...teamData } = dto;
-      const team = await this.teamsRepository.createTeam({
-        ...teamData,
-        tenantId,
-        createdBy: memberId,
-      });
-      if (members && members.length > 0) {
-        for (const memberId of members) {
-          await this.teamMembersRepository.create({
-            teamId: team.id,
-            memberId,
-          });
-        }
+    const { members, ...teamData } = dto;
+    const team = await this.teamsRepository.createTeam({
+      ...teamData,
+      tenantId,
+      createdBy: memberId,
+    });
+    if (members && members.length > 0) {
+      for (const memberId of members) {
+        await this.teamMembersRepository.create({
+          teamId: team.id,
+          memberId,
+        });
       }
-      return team;
-    } catch (error) {
-      throw error;
     }
+    return team;
   }
   async updateTeam(tenantId: string, id: string, dto: UpdateTeamDto) {
-    const team = await this.getTeam(tenantId, id);
-    await this.teamsRepository.update(id,  dto);
+    const _team = await this.getTeam(tenantId, id);
+    await this.teamsRepository.update(id, dto);
     return this.teamsRepository.findOne({ where: { id, tenantId } });
   }
   async deleteTeam(tenantId: string, id: string) {
-    const team = await this.getTeam(tenantId, id);
+    const _team = await this.getTeam(tenantId, id);
     return this.teamsRepository.delete(id);
   }
   async getTeamMembers(tenantId: string, teamId: string, role?: string) {
@@ -68,16 +64,9 @@ export class TeamsService {
     if (role) where.role = role;
     return this.teamMembersRepository.find({ where });
   }
-  async addTeamMember(
-    tenantId: string,
-    teamId: string,
-    dto: { memberId: string; role?: string },
-  ) {
+  async addTeamMember(tenantId: string, teamId: string, dto: { memberId: string; role?: string }) {
     await this.getTeam(tenantId, teamId);
-    const member = await this.tenantMembersService.getTenantMember(
-      dto.memberId,
-      tenantId,
-    );
+    const member = await this.tenantMembersService.getTenantMember(dto.memberId, tenantId);
     if (!member || member.tenantId !== tenantId) {
       throw new NotFoundException('Member not found');
     }
@@ -110,14 +99,11 @@ export class TeamsService {
   }
   async assignTeamLeader(tenantId: string, teamId: string, memberId: string) {
     await this.getTeam(tenantId, teamId);
-    const member = await this.tenantMembersService.getTenantMember(
-      memberId,
-      tenantId,
-    );
+    const member = await this.tenantMembersService.getTenantMember(memberId, tenantId);
     if (!member || member.tenantId !== tenantId) {
       throw new NotFoundException('Member not found');
     }
-    await this.teamsRepository.update(teamId,  { leadId: memberId });
+    await this.teamsRepository.update(teamId, { leadId: memberId });
     return this.teamsRepository.findOne({ where: { id: teamId, tenantId } });
   }
 }

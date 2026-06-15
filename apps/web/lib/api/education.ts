@@ -1,5 +1,5 @@
-import { apiClient, tenantPath } from "@/lib/api/client";
-import { resolveTenantId } from "@/lib/api/tenants";
+import { apiClient, tenantPath } from '@/lib/api/client';
+import { resolveTenantId } from '@/lib/api/tenants';
 
 export type ApiEducation = {
   id: string;
@@ -25,22 +25,18 @@ export type CreateEducationInput = {
   gpa?: string;
 };
 
-export async function fetchEducationRecords(
-  memberId: string,
-): Promise<ApiEducation[]> {
+export async function fetchEducationRecords(memberId: string): Promise<ApiEducation[]> {
   const tenantId = await resolveTenantId();
   const data = await apiClient<ApiEducation[]>(
-    `${tenantPath(tenantId, "education")}?memberId=${memberId}`,
+    `${tenantPath(tenantId, 'education')}?memberId=${memberId}`,
   );
   return Array.isArray(data) ? data : [];
 }
 
-export async function createEducationRecord(
-  input: CreateEducationInput,
-): Promise<ApiEducation> {
+export async function createEducationRecord(input: CreateEducationInput): Promise<ApiEducation> {
   const tenantId = await resolveTenantId();
-  return apiClient<ApiEducation>(tenantPath(tenantId, "education"), {
-    method: "POST",
+  return apiClient<ApiEducation>(tenantPath(tenantId, 'education'), {
+    method: 'POST',
     body: JSON.stringify(input),
   });
 }
@@ -48,6 +44,6 @@ export async function createEducationRecord(
 export async function deleteEducationRecord(id: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `education/${id}`), {
-    method: "DELETE",
+    method: 'DELETE',
   });
 }

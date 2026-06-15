@@ -1,17 +1,17 @@
 import {
   BarChart2,
   Briefcase,
+  Building,
   Calendar,
   CalendarClock,
   FileText,
   Heart,
   LayoutDashboard,
+  type LucideIcon,
   Settings,
   Users,
-  Building,
-  type LucideIcon,
-} from "lucide-react";
-import { tenantPath, tenantRoot } from "@/lib/navigation/tenant-routes";
+} from 'lucide-react';
+import { tenantPath, tenantRoot } from '@/lib/navigation/tenant-routes';
 
 export type NavItem = {
   name: string;
@@ -20,17 +20,17 @@ export type NavItem = {
   segment?: string;
 };
 
-export const navItemDefs: Omit<NavItem, "href">[] = [
-  { name: "Dashboard", segment: "", icon: LayoutDashboard },
-  { name: "Employees", segment: "employees", icon: Users },
-  { name: "Recruitment", segment: "recruitment", icon: Briefcase },
-  { name: "Teams", segment: "teams", icon: Building },
-  { name: "Schedule", segment: "schedule", icon: Calendar },
-  { name: "Leaves", segment: "leaves", icon: CalendarClock },
-  { name: "Payroll", segment: "payroll", icon: FileText },
-  { name: "Shoutouts", segment: "shoutouts", icon: Heart },
-  { name: "Analytics", segment: "analytics", icon: BarChart2 },
-  { name: "Settings", segment: "settings", icon: Settings },
+export const navItemDefs: Omit<NavItem, 'href'>[] = [
+  { name: 'Dashboard', segment: '', icon: LayoutDashboard },
+  { name: 'Employees', segment: 'employees', icon: Users },
+  { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },
+  { name: 'Teams', segment: 'teams', icon: Building },
+  { name: 'Schedule', segment: 'schedule', icon: Calendar },
+  { name: 'Leaves', segment: 'leaves', icon: CalendarClock },
+  { name: 'Payroll', segment: 'payroll', icon: FileText },
+  { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
+  { name: 'Analytics', segment: 'analytics', icon: BarChart2 },
+  { name: 'Settings', segment: 'settings', icon: Settings },
 ];
 
 export function getNavItems(slug: string): NavItem[] {
@@ -43,5 +43,5 @@ export function getNavItems(slug: string): NavItem[] {
 /** @deprecated Use getNavItems(slug) or useTenantNavItems() */
 export const navItems: NavItem[] = navItemDefs.map((item) => ({
   ...item,
-  href: item.segment ? `/app/${item.segment}` : "/app",
+  href: item.segment ? `/app/${item.segment}` : '/app',
 }));

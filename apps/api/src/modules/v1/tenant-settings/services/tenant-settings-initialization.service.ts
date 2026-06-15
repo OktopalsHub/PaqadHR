@@ -1,24 +1,13 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import {
-  TenantSettings
-} from '../entities/tenant-settings.entity';
-import { TenantSettingRepository } from './tenant-setting.repository';
-import { TenantSettingsData } from "../../../../common/interfaces/tenant-settings-data.interface";
-import { PartialTenantSettingsData } from "../../../../common/interfaces/partial-tenant-settings-data.interface";
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { PartialTenantSettingsData } from '../../../../common/interfaces/partial-tenant-settings-data.interface';
+import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
+import type { TenantSettings } from '../entities/tenant-settings.entity';
+import type { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantSettingsInitializationService {
-  private readonly logger = new Logger(
-    TenantSettingsInitializationService.name,
-  );
-  constructor(
-    private readonly tenantSettingsRepository: TenantSettingRepository,
-  ) {}
+  private readonly logger = new Logger(TenantSettingsInitializationService.name);
+  constructor(private readonly tenantSettingsRepository: TenantSettingRepository) {}
   async initializeTenantSettings(
     tenantId: string,
     customSettings: PartialTenantSettingsData,
@@ -91,8 +80,7 @@ export class TenantSettingsInitializationService {
       tenantId,
       settings: finalSettings,
     };
-    const savedSettings =
-      await this.tenantSettingsRepository.save(newSettings);
+    const savedSettings = await this.tenantSettingsRepository.save(newSettings);
     this.logger.log(`Initialized tenant settings for tenant: ${tenantId}`);
     return savedSettings;
   }
@@ -115,19 +103,14 @@ export class TenantSettingsInitializationService {
     }[] = [];
     for (const tenantId of tenantIds) {
       try {
-        const settings = await this.initializeTenantSettings(
-          tenantId,
-          customSettings,
-        );
+        const settings = await this.initializeTenantSettings(tenantId, customSettings);
         results.push({
           tenantId,
           success: true,
           settings,
         });
       } catch (error) {
-        this.logger.error(
-          `Failed to initialize settings for tenant ${tenantId}: ${error.message}`,
-        );
+        this.logger.error(`Failed to initialize settings for tenant ${tenantId}: ${error.message}`);
         results.push({
           tenantId,
           success: false,
@@ -182,9 +165,7 @@ export class TenantSettingsInitializationService {
       where: { tenantId },
     });
     if (!existingSettings) {
-      throw new NotFoundException(
-        `Tenant settings not found for tenant: ${tenantId}`,
-      );
+      throw new NotFoundException(`Tenant settings not found for tenant: ${tenantId}`);
     }
     const updatedSettings: TenantSettingsData = {
       points: { ...existingSettings.settings.points, ...updates.points },
@@ -209,21 +190,16 @@ export class TenantSettingsInitializationService {
     };
     this.validateSettings(updatedSettings);
     existingSettings.settings = updatedSettings;
-    const savedSettings =
-      await this.tenantSettingsRepository.create(existingSettings);
+    const savedSettings = await this.tenantSettingsRepository.create(existingSettings);
     this.logger.log(`Updated tenant settings for tenant: ${tenantId}`);
     return savedSettings;
   }
-  async resetTenantSettingsToDefaults(
-    tenantId: string,
-  ): Promise<TenantSettings> {
+  async resetTenantSettingsToDefaults(tenantId: string): Promise<TenantSettings> {
     const existingSettings = await this.tenantSettingsRepository.findOne({
       where: { tenantId },
     });
     if (!existingSettings) {
-      throw new NotFoundException(
-        `Tenant settings not found for tenant: ${tenantId}`,
-      );
+      throw new NotFoundException(`Tenant settings not found for tenant: ${tenantId}`);
     }
     const companyName = existingSettings.settings.general?.companyName || '';
     await this.tenantSettingsRepository.delete(existingSettings.id);
@@ -232,10 +208,7 @@ export class TenantSettingsInitializationService {
     });
   }
   private validateSettings(settings: TenantSettingsData): void {
-    if (
-      settings.points.minPointsPerShoutout >
-      settings.points.maxPointsPerShoutout
-    ) {
+    if (settings.points.minPointsPerShoutout > settings.points.maxPointsPerShoutout) {
       throw new BadRequestException(
         'Minimum points per shoutout cannot be greater than maximum points per shoutout',
       );
@@ -243,18 +216,13 @@ export class TenantSettingsInitializationService {
     if (settings.points.monthlyAllowance < 0) {
       throw new BadRequestException('Monthly allowance cannot be negative');
     }
-    if (
-      settings.points.autoAssignPoints &&
-      settings.points.autoAssignAmount <= 0
-    ) {
+    if (settings.points.autoAssignPoints && settings.points.autoAssignAmount <= 0) {
       throw new BadRequestException(
         'Auto-assign amount must be greater than 0 when auto-assign is enabled',
       );
     }
     if (settings.shoutouts.maxRecipientsPerShoutout < 1) {
-      throw new BadRequestException(
-        'Maximum recipients per shoutout must be at least 1',
-      );
+      throw new BadRequestException('Maximum recipients per shoutout must be at least 1');
     }
     if (!settings.general.timezone) {
       throw new BadRequestException('Timezone is required');
@@ -272,10 +240,7 @@ export class TenantSettingsInitializationService {
   ): Promise<{
     tenantSettings: TenantSettings;
   }> {
-    const tenantSettings = await this.initializeTenantSettings(
-      tenantId,
-      customSettings,
-    );
+    const tenantSettings = await this.initializeTenantSettings(tenantId, customSettings);
 
     return {
       tenantSettings,

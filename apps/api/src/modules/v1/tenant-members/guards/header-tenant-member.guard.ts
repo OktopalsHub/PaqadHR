@@ -1,17 +1,17 @@
 import {
-  CanActivate,
-  ExecutionContext,
+  type CanActivate,
+  type ExecutionContext,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TenantMemberRole } from 'src/common/enums';
 import { tenantContext } from 'src/common/context/tenant.context';
-import { IAuthenticatedMemberRequest } from 'src/common/interfaces';
-import { Repository } from 'typeorm';
+import type { TenantMemberRole } from 'src/common/enums';
+import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import type { Repository } from 'typeorm';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { TenantMembersService } from '../tenant-members.service';
+import type { TenantMembersService } from '../tenant-members.service';
 
 @Injectable()
 export class HeaderTenantMemberGuard implements CanActivate {
@@ -22,9 +22,7 @@ export class HeaderTenantMemberGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context
-      .switchToHttp()
-      .getRequest<IAuthenticatedMemberRequest>();
+    const request = context.switchToHttp().getRequest<IAuthenticatedMemberRequest>();
 
     const headerValue = request.headers['x-tenant-id'];
     const tenantId = Array.isArray(headerValue) ? headerValue[0] : headerValue;
@@ -45,10 +43,7 @@ export class HeaderTenantMemberGuard implements CanActivate {
       throw new NotFoundException('Tenant not found');
     }
 
-    const member = await this.tenantMemberService.checkUserTenantMembership(
-      userId,
-      tenantId,
-    );
+    const member = await this.tenantMemberService.checkUserTenantMembership(userId, tenantId);
     if (!member) {
       throw new ForbiddenException('You are not a member of this tenant');
     }

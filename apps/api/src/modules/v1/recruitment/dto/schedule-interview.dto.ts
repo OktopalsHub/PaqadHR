@@ -1,13 +1,5 @@
-import { Candidate } from '../entities/candidate.entity';
-import { Interview } from '../entities/interview.entity';
-import {
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsDateString,
-  IsUUID,
-} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { IsDateString, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 export class ScheduleInterviewDto {
   @ApiProperty({ description: 'Candidate ID' })
   @IsNotEmpty()

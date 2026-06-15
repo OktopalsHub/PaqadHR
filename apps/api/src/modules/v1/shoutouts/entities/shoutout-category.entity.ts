@@ -1,8 +1,5 @@
-import {
-  Column,
-  Entity
-} from 'typeorm';
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { Column, Entity } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 @Entity('shoutout_categories')
 export class ShoutoutCategory extends BaseEntity {

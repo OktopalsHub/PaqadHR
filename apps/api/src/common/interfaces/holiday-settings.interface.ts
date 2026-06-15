@@ -1,6 +1,6 @@
-import { Holiday } from "./holiday.interface";
+import type { Holiday } from './holiday.interface';
 
 export interface HolidaySettings {
-    customHolidays: Holiday[];
-    excludeWeekends: boolean;
+  customHolidays: Holiday[];
+  excludeWeekends: boolean;
 }

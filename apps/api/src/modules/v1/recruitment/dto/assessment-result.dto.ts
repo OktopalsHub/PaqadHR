@@ -1,5 +1,3 @@
-import { Assessment } from '../entities/assessment.entity';
-import { Candidate } from '../entities/candidate.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
@@ -12,6 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+
 class AnswerDto {
   @ApiProperty({
     description: 'Question ID',
@@ -56,8 +55,7 @@ export class AssessmentResultDto {
   answers: AnswerDto[];
   @ApiPropertyOptional({
     description: 'Additional feedback',
-    example:
-      'Candidate performed well on technical questions but struggled with system design.',
+    example: 'Candidate performed well on technical questions but struggled with system design.',
   })
   @IsString()
   @ApiProperty({

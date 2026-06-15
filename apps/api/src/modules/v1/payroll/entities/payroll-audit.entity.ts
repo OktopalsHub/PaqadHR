@@ -1,9 +1,8 @@
-import { User } from '../../users/entities/user.entity';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { PayrollRun } from './payroll-run.entity';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { AuditEventType } from "../../../../common/enums/audit-event-type.enum";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity({ name: 'payroll_audit_logs' })
 export class PayrollAuditLog extends BaseEntity {

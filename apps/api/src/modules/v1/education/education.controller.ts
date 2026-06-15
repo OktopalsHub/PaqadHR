@@ -10,15 +10,16 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { MemberContext } from 'src/common/interfaces';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { EducationService } from './education.service';
-import { CreateEducationDto } from "./dto/create-education.dto";
-import { Education } from "./entities/education.entity";
-import { UpdateEducationDto } from "./dto/update-education.dto";
+import type { CreateEducationDto } from './dto/create-education.dto';
+import type { UpdateEducationDto } from './dto/update-education.dto';
+import type { EducationService } from './education.service';
+import type { Education } from './entities/education.entity';
 
 @ApiTags('education')
 @UseGuards(TenantMemberGuard)
@@ -30,14 +31,10 @@ export class EducationController {
   async createEducation(
     @Param('tenantId') tenantId: string,
     @Body() createEducationDto: CreateEducationDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<Education> {
     const { memberId, ...educationData } = createEducationDto;
-    return this.educationService.createEducation(
-      tenantId,
-      memberId ?? member.id,
-      educationData,
-    );
+    return this.educationService.createEducation(tenantId, memberId ?? member.id, educationData);
   }
   @Get()
   @HttpCode(HttpStatus.OK)
@@ -65,11 +62,7 @@ export class EducationController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateEducationDto: UpdateEducationDto,
   ): Promise<Education> {
-    return this.educationService.updateEducation(
-      id,
-      updateEducationDto,
-      tenantId,
-    );
+    return this.educationService.updateEducation(id, updateEducationDto, tenantId);
   }
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

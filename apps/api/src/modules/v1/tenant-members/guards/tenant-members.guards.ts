@@ -1,20 +1,20 @@
 import {
-  CanActivate,
-  ExecutionContext,
+  type CanActivate,
+  type ExecutionContext,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import type { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TenantMemberRole } from 'src/common/enums';
-import { IAuthenticatedMemberRequest } from 'src/common/interfaces';
-import { Repository } from 'typeorm';
+import { tenantContext } from 'src/common/context/tenant.context';
+import type { TenantMemberRole } from 'src/common/enums';
+import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import type { Repository } from 'typeorm';
 import { firstRouteParam } from '../../../../common/utils/route-param.util';
 import { resolveTenantIdFromRequest } from '../../../../common/utils/tenant-request.util';
-import { tenantContext } from 'src/common/context/tenant.context';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { TenantMembersService } from '../tenant-members.service';
+import type { TenantMembersService } from '../tenant-members.service';
 
 @Injectable()
 export class TenantMemberGuard implements CanActivate {
@@ -22,17 +22,14 @@ export class TenantMemberGuard implements CanActivate {
     private readonly tenantMemberService: TenantMembersService,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
-    private readonly reflector: Reflector,
+    readonly _reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context
-      .switchToHttp()
-      .getRequest<IAuthenticatedMemberRequest>();
+    const request = context.switchToHttp().getRequest<IAuthenticatedMemberRequest>();
 
     const tenantId =
-      firstRouteParam(request.params.tenantId) ??
-      resolveTenantIdFromRequest(request);
+      firstRouteParam(request.params.tenantId) ?? resolveTenantIdFromRequest(request);
 
     if (!tenantId) {
       throw new ForbiddenException('Tenant ID not found');
@@ -50,10 +47,7 @@ export class TenantMemberGuard implements CanActivate {
       throw new NotFoundException('Tenant not found');
     }
 
-    const member = await this.tenantMemberService.checkUserTenantMembership(
-      userId,
-      tenantId,
-    );
+    const member = await this.tenantMemberService.checkUserTenantMembership(userId, tenantId);
     if (!member) {
       throw new ForbiddenException('You are not a member of this tenant');
     }

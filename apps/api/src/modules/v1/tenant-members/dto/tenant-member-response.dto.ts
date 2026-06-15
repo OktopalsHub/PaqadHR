@@ -1,13 +1,8 @@
-import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
-import { FileUrlService } from 'src/common/services/file-url.service';
-import { Department } from '../../departments/entities/department.entity';
-import { Leave } from '../../leave/entities/leave.entity';
-import { Position } from '../../position/entities/position.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
-import { User } from '../../users/entities/user.entity';
 import { ApiProperty } from '@nestjs/swagger';
-import { ITenantMemberResponseDto } from '../../../../common/interfaces/itenant-member-response-dto.interface';
-import { TenantMember } from '../entities/tenant-member.entity';
+import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import type { ITenantMemberResponseDto } from '../../../../common/interfaces/itenant-member-response-dto.interface';
+import type { TenantMember } from '../entities/tenant-member.entity';
 
 export class TenantMemberUserDto {
   @ApiProperty({ description: 'User ID' })
@@ -54,8 +49,7 @@ export class TenantMemberResponseDto {
   avatarKey?: string;
   @ApiProperty({
     description: 'Avatar URL (constructed from avatarKey)',
-    example:
-      'https://custom-domain.com/tenants/123/employees-avatar/avatar_1731668445123.jpg',
+    example: 'https://custom-domain.com/tenants/123/employees-avatar/avatar_1731668445123.jpg',
     required: false,
   })
   avatarUrl?: string;
@@ -91,12 +85,8 @@ export class TenantMemberMapper {
     fileUrlService?: FileUrlService,
   ): ITenantMemberResponseDto {
     const currentPosition = member.positionHistory?.find((p) => p.isCurrent);
-    const activeDepartmentMembership = member.departmentMemberships?.find(
-      (dm) => dm.isActive,
-    );
-    const currentEmployment = member.employments?.find(
-      (e) => e.status === 'active',
-    );
+    const activeDepartmentMembership = member.departmentMemberships?.find((dm) => dm.isActive);
+    const currentEmployment = member.employments?.find((e) => e.status === 'active');
     const response: ITenantMemberResponseDto = {
       id: member.id,
       firstName: member.firstName ?? '',
@@ -145,6 +135,6 @@ export class TenantMemberMapper {
     members: TenantMember[],
     fileUrlService?: FileUrlService,
   ): ITenantMemberResponseDto[] {
-    return members.map((member) => this.toResponse(member, fileUrlService));
+    return members.map((member) => TenantMemberMapper.toResponse(member, fileUrlService));
   }
 }

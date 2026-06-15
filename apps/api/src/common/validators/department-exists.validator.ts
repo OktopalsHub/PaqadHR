@@ -1,12 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
   registerDecorator,
-  ValidationOptions,
+  type ValidationOptions,
   ValidatorConstraint,
-  ValidatorConstraintInterface,
-  ValidationArguments,
+  type ValidatorConstraintInterface,
 } from 'class-validator';
-import { DataSource } from 'typeorm';
+import type { DataSource } from 'typeorm';
 import { Department } from '../../modules/v1/departments/entities/department.entity';
 
 @ValidatorConstraint({ name: 'DepartmentExists', async: true })
@@ -32,7 +31,7 @@ export class DepartmentExistsConstraint implements ValidatorConstraintInterface 
 }
 
 export function DepartmentExists(validationOptions?: ValidationOptions) {
-  return function (object: object, propertyName: string) {
+  return (object: object, propertyName: string) => {
     registerDecorator({
       target: object.constructor,
       propertyName,

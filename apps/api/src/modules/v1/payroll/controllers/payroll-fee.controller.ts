@@ -4,7 +4,7 @@ import { RequireFeatures } from 'src/common/decorators';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { PayrollFeeService } from '../services/payroll-fee.service';
+import type { PayrollFeeService } from '../services/payroll-fee.service';
 export class PayrollFeePreviewDto {
   payrollItems: Array<{ amount: number; currency: string }>;
 }
@@ -16,10 +16,7 @@ export class PayrollFeeController {
   constructor(private readonly payrollFeeService: PayrollFeeService) {}
   @Post('preview')
   @ApiOperation({ summary: 'Preview payroll fees before processing' })
-  previewPayrollFees(
-    @Body() dto: PayrollFeePreviewDto,
-    @Param('tenantId') tenantId: string,
-  ) {
+  previewPayrollFees(@Body() dto: PayrollFeePreviewDto, @Param('tenantId') tenantId: string) {
     return this.payrollFeeService.previewPayrollFees(dto.payrollItems, tenantId);
   }
   @Post('calculate')

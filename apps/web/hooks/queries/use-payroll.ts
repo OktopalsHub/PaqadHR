@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approvePayrollRun,
   calculatePayrollRun,
@@ -8,10 +8,10 @@ import {
   disbursePayrollRun,
   downloadPayrollBankFile,
   fetchPayrollRuns,
-} from "@/lib/api/payroll";
-import type { CreatePayrollRunInput } from "@/lib/schemas/payroll";
-import { queryKeys } from "@/lib/query/keys";
-import { useTenant } from "@/providers/tenant-provider";
+} from '@/lib/api/payroll';
+import { queryKeys } from '@/lib/query/keys';
+import type { CreatePayrollRunInput } from '@/lib/schemas/payroll';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function usePayrollRuns() {
   const { tenantId, isLoading: tenantLoading } = useTenant();

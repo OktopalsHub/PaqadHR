@@ -1,14 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { LeaveType } from "./entities/leave-type.entity";
+import { LeaveType } from './entities/leave-type.entity';
 
 @Injectable()
 export class LeaveTypeRepository extends Repository<LeaveType> {
-  constructor(
-    @InjectRepository(LeaveType)
-    private readonly repo: Repository<LeaveType>,
-  ) {
+  constructor(@InjectRepository(LeaveType) readonly repo: Repository<LeaveType>) {
     super(repo.target, repo.manager, repo.queryRunner);
   }
 
@@ -25,11 +22,7 @@ export class LeaveTypeRepository extends Repository<LeaveType> {
     });
   }
 
-  async findAll(
-    includeDeleted = false,
-    where?: Record<string, unknown>,
-    relations?: string[],
-  ) {
+  async findAll(includeDeleted = false, where?: Record<string, unknown>, relations?: string[]) {
     return this.find({ withDeleted: includeDeleted, where, relations });
   }
 }

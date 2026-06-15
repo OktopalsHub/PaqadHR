@@ -1,18 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
 import { CandidateStatus, JobStatus, LeaveStatus } from 'src/common/enums';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
-import { AttendanceService } from '../attendance/attendance.service';
-import { DepartmentMember } from '../departments/entities/department-member.entity';
+import { MoreThanOrEqual, type Repository } from 'typeorm';
+import type { AttendanceService } from '../attendance/attendance.service';
 import { Department } from '../departments/entities/department.entity';
+import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Leave } from '../leave/entities/leave.entity';
 import { PayrollRun } from '../payroll/entities/payroll-run.entity';
 import { Candidate } from '../recruitment/entities/candidate.entity';
 import { JobOpening } from '../recruitment/entities/job-opening.entity';
 import { Shoutout } from '../shoutouts/entities/shoutout.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
-import { AnalyticsOverviewDto } from './dto/analytics-overview.dto';
+import type { AnalyticsOverviewDto } from './dto/analytics-overview.dto';
 
 const MONTH_LABELS = [
   'Jan',
@@ -217,24 +217,18 @@ export class AnalyticsService {
     });
 
     const completedRuns = runs.filter(
-      (run) =>
-        run.status === PayrollStatus.COMPLETED ||
-        run.status === PayrollStatus.APPROVED,
+      (run) => run.status === PayrollStatus.COMPLETED || run.status === PayrollStatus.APPROVED,
     ).length;
 
     const lastCompleted =
       runs.find(
-        (run) =>
-          run.status === PayrollStatus.COMPLETED ||
-          run.status === PayrollStatus.APPROVED,
+        (run) => run.status === PayrollStatus.COMPLETED || run.status === PayrollStatus.APPROVED,
       ) ?? runs[0];
 
     return {
       totalRuns: runs.length,
       completedRuns,
-      lastRunAmount: lastCompleted
-        ? Number(lastCompleted.totalNetAmount)
-        : null,
+      lastRunAmount: lastCompleted ? Number(lastCompleted.totalNetAmount) : null,
       lastRunCurrency: lastCompleted?.baseCurrency ?? null,
       lastRunDate: lastCompleted
         ? (lastCompleted.processedAt ?? lastCompleted.createdAt).toISOString()
@@ -248,18 +242,11 @@ export class AnalyticsService {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30);
 
-    const stats = await this.attendanceService.getAttendanceStats(
-      tenantId,
-      startDate,
-      endDate,
-    );
+    const stats = await this.attendanceService.getAttendanceStats(tenantId, startDate, endDate);
 
-    const denominator =
-      stats.totalPresent + stats.totalAbsent + stats.totalLate;
+    const denominator = stats.totalPresent + stats.totalAbsent + stats.totalLate;
     const attendanceRate =
-      denominator > 0
-        ? Math.round((stats.totalPresent / denominator) * 1000) / 10
-        : null;
+      denominator > 0 ? Math.round((stats.totalPresent / denominator) * 1000) / 10 : null;
 
     return {
       attendanceRate,
@@ -286,10 +273,7 @@ export class AnalyticsService {
 
     return {
       shoutoutsThisMonth: shoutouts.length,
-      pointsAwardedThisMonth: shoutouts.reduce(
-        (sum, shoutout) => sum + shoutout.totalPoints,
-        0,
-      ),
+      pointsAwardedThisMonth: shoutouts.reduce((sum, shoutout) => sum + shoutout.totalPoints, 0),
     };
   }
 
@@ -379,9 +363,7 @@ export class AnalyticsService {
         999,
       );
 
-      const value = dates.filter(
-        (date) => date >= monthDate && date <= monthEnd,
-      ).length;
+      const value = dates.filter((date) => date >= monthDate && date <= monthEnd).length;
 
       points.push({
         label: MONTH_LABELS[monthDate.getMonth()],

@@ -1,7 +1,5 @@
-import { Department } from '../../departments/entities/department.entity';
-import { Employment } from '../../employment/entities/employment.entity';
 import { ApiProperty } from '@nestjs/swagger';
-import { InvitationStatus } from 'src/common/enums';
+import type { InvitationStatus } from 'src/common/enums';
 export class InvitationResponseDto {
   @ApiProperty({
     description: 'Unique identifier for the invitation',

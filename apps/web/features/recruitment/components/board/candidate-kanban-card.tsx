@@ -1,6 +1,6 @@
-import { FileText, Percent } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
+import { FileText, Percent } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 export type CandidateCardData = {
   id: string;
@@ -32,8 +32,8 @@ export function CandidateKanbanCard({
   return (
     <article
       className={cn(
-        "rounded-xl border border-border/60 bg-card p-3 shadow-sm transition-shadow",
-        isDragging && "shadow-lg ring-2 ring-primary/30",
+        'rounded-xl border border-border/60 bg-card p-3 shadow-sm transition-shadow',
+        isDragging && 'shadow-lg ring-2 ring-primary/30',
         className,
       )}
     >
@@ -45,9 +45,7 @@ export function CandidateKanbanCard({
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{fullName}</p>
-          <p className="truncate text-xs text-muted-foreground">
-            {candidate.email}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{candidate.email}</p>
         </div>
       </div>
 
@@ -62,7 +60,7 @@ export function CandidateKanbanCard({
           {candidate.fileCount != null ? (
             <span className="inline-flex items-center gap-1">
               <FileText className="size-3" />
-              {candidate.fileCount} file{candidate.fileCount === 1 ? "" : "s"}
+              {candidate.fileCount} file{candidate.fileCount === 1 ? '' : 's'}
             </span>
           ) : null}
           {candidate.matchScore != null ? (

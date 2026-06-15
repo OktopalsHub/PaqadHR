@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import Holidays from 'date-holidays';
-import { Holiday } from "../../../../common/interfaces/holiday.interface";
-import { HolidaySettings } from "../../../../common/interfaces/holiday-settings.interface";
+import type { Holiday } from '../../../../common/interfaces/holiday.interface';
+import type { HolidaySettings } from '../../../../common/interfaces/holiday-settings.interface';
 
 @Injectable()
 export class HolidayService {
@@ -22,11 +22,11 @@ export class HolidayService {
       return holidays.map((h) => ({
         id: `${countryCode.toLowerCase()}-${h.name.toLowerCase().replace(/\s+/g, '-')}`,
         name: h.name,
-        date: h.date.substring(5), 
+        date: h.date.substring(5),
         type: this.mapHolidayType(h.type),
-        recurring: true, 
+        recurring: true,
       }));
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -54,13 +54,9 @@ export class HolidayService {
     }
     return 'custom';
   }
-  isHoliday(
-    date: Date,
-    countryCode: string,
-    holidaySettings: HolidaySettings,
-  ): boolean {
-    const dateStr = date.toISOString().split('T')[0]; 
-    const monthDay = dateStr.substring(5); 
+  isHoliday(date: Date, countryCode: string, holidaySettings: HolidaySettings): boolean {
+    const dateStr = date.toISOString().split('T')[0];
+    const monthDay = dateStr.substring(5);
     for (const holiday of holidaySettings.customHolidays) {
       if (holiday.recurring) {
         if (holiday.date === monthDay) {
@@ -78,7 +74,7 @@ export class HolidayService {
         const year = date.getFullYear();
         const holidays = hd.getHolidays(year);
         return holidays.some((h) => h.date === dateStr);
-      } catch (error) {
+      } catch (_error) {
         return false;
       }
     }
@@ -89,7 +85,7 @@ export class HolidayService {
     endDate: Date,
     countryCode: string | undefined,
     holidaySettings: HolidaySettings,
-    weekendDays: number[] = [0, 6], 
+    weekendDays: number[] = [0, 6],
   ): number {
     let workingDays = 0;
     const current = new Date(startDate);
@@ -124,17 +120,16 @@ export class HolidayService {
             name: h.name,
             date: h.date,
             type: this.mapHolidayType(h.type),
-            recurring: true, 
+            recurring: true,
           });
         }
-      } catch (error) {
-      }
+      } catch (_error) {}
     }
     for (const holiday of holidaySettings.customHolidays) {
       if (holiday.recurring) {
         holidays.push({
           ...holiday,
-          date: `${year}-${holiday.date}`, 
+          date: `${year}-${holiday.date}`,
         });
       } else {
         holidays.push(holiday);

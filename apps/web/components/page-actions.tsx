@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
 export function PageActions({ children }: { children?: ReactNode }) {
   if (!children) return null;

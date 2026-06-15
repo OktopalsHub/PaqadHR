@@ -1,33 +1,24 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import { toast } from "sonner";
-import { ToastMessage } from "@/components/toast-message";
-import { updateEmployee } from "@/lib/api/employees";
-import {
-  createEmergencyContact,
-  deleteEmergencyContact,
-} from "@/lib/api/emergency-contacts";
-import {
-  createEducationRecord,
-  deleteEducationRecord,
-} from "@/lib/api/education";
-import type { ApiEducation } from "@/lib/api/education";
-import type { ApiEmergencyContact } from "@/lib/api/emergency-contacts";
-import type { ApiTenantMember } from "@/lib/mappers/employee";
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
+import { ToastMessage } from '@/components/toast-message';
+import type { ApiEducation } from '@/lib/api/education';
+import { createEducationRecord, deleteEducationRecord } from '@/lib/api/education';
+import type { ApiEmergencyContact } from '@/lib/api/emergency-contacts';
+import { createEmergencyContact, deleteEmergencyContact } from '@/lib/api/emergency-contacts';
+import { updateEmployee } from '@/lib/api/employees';
+import type { ApiTenantMember } from '@/lib/mappers/employee';
 import {
   inferDegreeType,
   mapApiEducationRecord,
   mapApiEmergencyContact,
   normalizePhoneNumber,
   normalizeRelationship,
-} from "@/lib/mappers/employee-records";
-import type { EmergencyContactFormValues } from "../components/emergency-contact-form";
-import type { EducationFormValues } from "../components/education-form";
-import {
-  createEmployeeDetailState,
-  type EmployeeDetailState,
-} from "../lib/employee-detail-state";
+} from '@/lib/mappers/employee-records';
+import type { EducationFormValues } from '../components/education-form';
+import type { EmergencyContactFormValues } from '../components/emergency-contact-form';
+import { createEmployeeDetailState, type EmployeeDetailState } from '../lib/employee-detail-state';
 
 type EmployeeRecords = {
   emergencyContacts: ApiEmergencyContact[];
@@ -40,8 +31,7 @@ export function useEmployeeDetailForm(
 ) {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [emergencyContactDialogOpen, setEmergencyContactDialogOpen] =
-    useState(false);
+  const [emergencyContactDialogOpen, setEmergencyContactDialogOpen] = useState(false);
   const [educationDialogOpen, setEducationDialogOpen] = useState(false);
   const initialState = useMemo(
     () =>
@@ -78,7 +68,7 @@ export function useEmployeeDetailForm(
     try {
       const nameParts = employee.name.trim().split(/\s+/);
       const firstName = nameParts[0] ?? employee.firstName;
-      const lastName = nameParts.slice(1).join(" ") || employee.lastName;
+      const lastName = nameParts.slice(1).join(' ') || employee.lastName;
 
       await updateEmployee(employee.id, {
         firstName,
@@ -97,17 +87,13 @@ export function useEmployeeDetailForm(
       );
       setIsDirty(false);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to save employee",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to save employee');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleAddEmergencyContact = async (
-    contact: EmergencyContactFormValues,
-  ) => {
+  const handleAddEmergencyContact = async (contact: EmergencyContactFormValues) => {
     try {
       const created = await createEmergencyContact({
         memberId: employee.id,
@@ -121,15 +107,10 @@ export function useEmployeeDetailForm(
 
       setEmployee((prev) => ({
         ...prev,
-        emergencyContacts: [
-          ...prev.emergencyContacts,
-          mapApiEmergencyContact(created),
-        ],
+        emergencyContacts: [...prev.emergencyContacts, mapApiEmergencyContact(created)],
       }));
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to add emergency contact",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to add emergency contact');
       throw err;
     }
   };
@@ -139,17 +120,11 @@ export function useEmployeeDetailForm(
       await deleteEmergencyContact(contactId);
       setEmployee((prev) => ({
         ...prev,
-        emergencyContacts: prev.emergencyContacts.filter(
-          (contact) => contact.id !== contactId,
-        ),
+        emergencyContacts: prev.emergencyContacts.filter((contact) => contact.id !== contactId),
       }));
-      toast.success("Emergency contact removed.");
+      toast.success('Emergency contact removed.');
     } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : "Failed to remove emergency contact",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to remove emergency contact');
     }
   };
 
@@ -171,9 +146,7 @@ export function useEmployeeDetailForm(
         education: [...prev.education, mapApiEducationRecord(created)],
       }));
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to add education record",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to add education record');
       throw err;
     }
   };
@@ -185,11 +158,9 @@ export function useEmployeeDetailForm(
         ...prev,
         education: prev.education.filter((record) => record.id !== educationId),
       }));
-      toast.success("Education record removed.");
+      toast.success('Education record removed.');
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to remove education record",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to remove education record');
     }
   };
 

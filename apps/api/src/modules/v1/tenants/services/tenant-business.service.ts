@@ -1,15 +1,15 @@
-import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
-import { User } from '../../users/entities/user.entity';
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { StringUtility } from 'src/common/utils';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
-import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import { UsersService } from '../../users/users.service';
-import { TenantRepository } from "../repositories/tenant.repository";
-import { CreateTenantDto } from "../dto/create-tenant.dto";
-import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { Tenant } from '../entities/tenant.entity';
+import { StringUtility } from 'src/common/utils';
+import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
+import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import type { User } from '../../users/entities/user.entity';
+import type { UsersService } from '../../users/users.service';
+import type { CreateTenantDto } from '../dto/create-tenant.dto';
+import type { Tenant } from '../entities/tenant.entity';
+import type { TenantRepository } from '../repositories/tenant.repository';
 
 @Injectable()
 export class TenantBusinessService {
@@ -43,31 +43,24 @@ export class TenantBusinessService {
   }
   private async generateUniqueSlug(name: string): Promise<string> {
     const baseSlug = StringUtility.slugify(name);
-    const existingSlugs =
-      await this.tenantRepository.findSlugsStartingWith(baseSlug);
+    const existingSlugs = await this.tenantRepository.findSlugsStartingWith(baseSlug);
     if (!existingSlugs.length) {
       return baseSlug;
     }
     const numbers = existingSlugs
       .map((slug) => slug.replace(`${baseSlug}-`, ''))
       .map((num) => parseInt(num, 10))
-      .filter((num) => !isNaN(num))
+      .filter((num) => !Number.isNaN(num))
       .sort((a, b) => a - b);
     const nextNumber = numbers.length ? numbers[numbers.length - 1] + 1 : 1;
     return `${baseSlug}-${nextNumber}`;
   }
   private validateSlugNotReserved(slug: string): void {
     if ((process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '').includes(slug.toLowerCase())) {
-      throw new BadRequestException(
-        `The subdomain "${slug}" is reserved and cannot be used.`,
-      );
+      throw new BadRequestException(`The subdomain "${slug}" is reserved and cannot be used.`);
     }
   }
-  private async createTenant(
-    user: User,
-    data: CreateTenantDto,
-    slug: string,
-  ): Promise<Tenant> {
+  private async createTenant(user: User, data: CreateTenantDto, slug: string): Promise<Tenant> {
     const inviteCode = StringUtility.generateInviteCode();
     const employeeCode = this.generateEmployeeCode(data.name);
     const tenantData: Partial<Tenant> = {
@@ -83,10 +76,7 @@ export class TenantBusinessService {
     };
     return this.tenantRepository.create(tenantData);
   }
-  private async createOwnerMembership(
-    userId: string,
-    tenantId: string,
-  ): Promise<TenantMember> {
+  private async createOwnerMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberService.createTenantMember(userId, tenantId, {
       role: TenantMemberRole.OWNER,
     });

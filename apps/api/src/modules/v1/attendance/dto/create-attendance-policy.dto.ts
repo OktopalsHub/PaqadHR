@@ -1,10 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsMilitaryTime,
-  IsNotEmpty,
-  IsNumber,
-  IsString,
-} from 'class-validator';
+import { IsMilitaryTime, IsNotEmpty, IsNumber, IsString } from 'class-validator';
 export class CreateAttendancePolicyDto {
   @IsString()
   @ApiProperty({

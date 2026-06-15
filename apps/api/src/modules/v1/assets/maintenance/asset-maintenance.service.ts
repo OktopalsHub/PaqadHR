@@ -1,10 +1,9 @@
-import { Asset } from '../entities/asset.entity';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MaintenanceStatus } from 'src/common/enums';
-import { AssetMaintenanceRepository } from './asset-maintenance.repository';
-import { AssetRepository } from "../repositories/asset.repository";
-import { CreateMaintenanceDto } from "./dto/create-maintenance.dto";
-import { UpdateMaintenanceDto } from "./dto/update-maintenance.dto";
+import type { AssetRepository } from '../repositories/asset.repository';
+import type { AssetMaintenanceRepository } from './asset-maintenance.repository';
+import type { CreateMaintenanceDto } from './dto/create-maintenance.dto';
+import type { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
 @Injectable()
 export class AssetMaintenanceService {
@@ -29,9 +28,7 @@ export class AssetMaintenanceService {
       assetId,
       scheduledById,
       maintenanceDate: new Date(dto.maintenanceDate),
-      nextMaintenanceDate: dto.nextMaintenanceDate
-        ? new Date(dto.nextMaintenanceDate)
-        : undefined,
+      nextMaintenanceDate: dto.nextMaintenanceDate ? new Date(dto.nextMaintenanceDate) : undefined,
     });
   }
   async listMaintenanceByTenant(tenantId: string) {
@@ -51,23 +48,13 @@ export class AssetMaintenanceService {
     }
     return maintenance;
   }
-  async updateMaintenance(
-    tenantId: string,
-    maintenanceId: string,
-    dto: UpdateMaintenanceDto,
-  ) {
+  async updateMaintenance(tenantId: string, maintenanceId: string, dto: UpdateMaintenanceDto) {
     const existing = await this.getMaintenance(tenantId, maintenanceId);
     const updateData = {
       ...dto,
-      maintenanceDate: dto.maintenanceDate
-        ? new Date(dto.maintenanceDate)
-        : undefined,
-      nextMaintenanceDate: dto.nextMaintenanceDate
-        ? new Date(dto.nextMaintenanceDate)
-        : undefined,
-      completionDate: dto.completionDate
-        ? new Date(dto.completionDate)
-        : undefined,
+      maintenanceDate: dto.maintenanceDate ? new Date(dto.maintenanceDate) : undefined,
+      nextMaintenanceDate: dto.nextMaintenanceDate ? new Date(dto.nextMaintenanceDate) : undefined,
+      completionDate: dto.completionDate ? new Date(dto.completionDate) : undefined,
     };
     return this.assetMaintenanceRepository.update(existing.id, updateData);
   }
@@ -92,22 +79,11 @@ export class AssetMaintenanceService {
   async getMaintenanceByAsset(assetId: string) {
     return this.assetMaintenanceRepository.findByAsset(assetId);
   }
-  async getScheduledMaintenance(
-    tenantId: string,
-    startDate: Date,
-    endDate: Date,
-  ) {
-    return this.assetMaintenanceRepository.findScheduledMaintenance(
-      tenantId,
-      startDate,
-      endDate,
-    );
+  async getScheduledMaintenance(tenantId: string, startDate: Date, endDate: Date) {
+    return this.assetMaintenanceRepository.findScheduledMaintenance(tenantId, startDate, endDate);
   }
   async getUpcomingMaintenance(tenantId: string, days: number = 30) {
-    return this.assetMaintenanceRepository.findUpcomingMaintenance(
-      tenantId,
-      days,
-    );
+    return this.assetMaintenanceRepository.findUpcomingMaintenance(tenantId, days);
   }
   async getOverdueMaintenance(tenantId: string) {
     return this.assetMaintenanceRepository.findOverdueMaintenance(tenantId);
@@ -119,12 +95,7 @@ export class AssetMaintenanceService {
       endDate,
     );
   }
-  async getMaintenanceByType(
-    tenantId: string,
-    type: string,
-    startDate?: Date,
-    endDate?: Date,
-  ) {
+  async getMaintenanceByType(tenantId: string, type: string, startDate?: Date, endDate?: Date) {
     return this.assetMaintenanceRepository.findMaintenanceByType(
       tenantId,
       type,

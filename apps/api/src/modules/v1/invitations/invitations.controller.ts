@@ -8,14 +8,15 @@ import {
   Post,
   Put,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { MemberContext } from '../../../common/interfaces';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from '../../../common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { InvitationsService } from './invitations.service';
-import { CreateInvitationDto } from "./dto/index";
-import { UpdateInvitationDto } from "./dto/update-invitation.dto";
+import type { CreateInvitationDto } from './dto/index';
+import type { UpdateInvitationDto } from './dto/update-invitation.dto';
+import type { InvitationsService } from './invitations.service';
 
 @ApiTags('Invitations')
 @Controller('tenants/:tenantId/invites')
@@ -40,38 +41,30 @@ export class InvitationsController {
     return this.invitationsService.getInvitation(id, tenantId);
   }
   @Post('')
-    async createInvitation(
+  async createInvitation(
     @Param('tenantId') tenantId: string,
     @Body() createInvitationDto: CreateInvitationDto,
-    @CurrentTenantMember() member: MemberContext
-    ) {
-    return this.invitationsService.createInvitation(
-      createInvitationDto,
-      tenantId,
-      member.id,
-    );
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.invitationsService.createInvitation(createInvitationDto, tenantId, member.id);
   }
   @Put(':id')
-    async updateInvitation(
+  async updateInvitation(
     @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() updateInvitationDto: UpdateInvitationDto,
   ) {
-    return this.invitationsService.updateInvitation(
-      id,
-      updateInvitationDto,
-      tenantId,
-    );
+    return this.invitationsService.updateInvitation(id, updateInvitationDto, tenantId);
   }
   @Delete(':id')
-    async deleteInvitation(
+  async deleteInvitation(
     @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {
     return this.invitationsService.deleteInvitation(id, tenantId);
   }
   @Post(':id/resend')
-    async resendInvitation(
+  async resendInvitation(
     @Param('tenantId', new ParseUUIDPipe()) tenantId: string,
     @Param('id', new ParseUUIDPipe()) id: string,
   ) {

@@ -1,17 +1,15 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { IntegrationType } from 'src/common/enums';
-import { MemberContext } from 'src/common/interfaces';
+import type { IntegrationType } from 'src/common/enums';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
-import { IntegrationConfig } from '../integration.types';
-import { PlatformIntegrationService } from '../services/platform-integration.service';
+import type { IntegrationConfig } from '../integration.types';
+import type { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Controller('tenants/:tenantId/integrations')
 @UseGuards(TenantMemberGuard)
 export class IntegrationController {
-  constructor(
-    private readonly integrationService: PlatformIntegrationService,
-  ) {}
+  constructor(private readonly integrationService: PlatformIntegrationService) {}
 
   @Post('/:type')
   async createIntegration(
@@ -20,12 +18,7 @@ export class IntegrationController {
     @Body() config: IntegrationConfig,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.integrationService.createIntegration(
-      tenantId,
-      type,
-      config,
-      member.id,
-    );
+    return this.integrationService.createIntegration(tenantId, type, config, member.id);
   }
 
   @Get()
@@ -34,10 +27,7 @@ export class IntegrationController {
   }
 
   @Post('/:id/sync-users')
-  async syncUsers(
-    @Param('id') integrationId: string,
-    @Body() body: { channelId?: string },
-  ) {
+  async syncUsers(@Param('id') integrationId: string, @Body() body: { channelId?: string }) {
     return this.integrationService.syncUsers(integrationId, body.channelId);
   }
 
@@ -47,11 +37,7 @@ export class IntegrationController {
     @Param('id') integrationId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.integrationService.disconnectIntegration(
-      tenantId,
-      integrationId,
-      member.id,
-    );
+    return this.integrationService.disconnectIntegration(tenantId, integrationId, member.id);
   }
 
   @Post('/:id/reconnect')
@@ -60,26 +46,16 @@ export class IntegrationController {
     @Param('id') integrationId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.integrationService.reconnectIntegration(
-      tenantId,
-      integrationId,
-      member.id,
-    );
+    return this.integrationService.reconnectIntegration(tenantId, integrationId, member.id);
   }
 
   @Get('/:id/unmatched-users')
-  async getUnmatchedUsers(
-    @Param('tenantId') tenantId: string,
-    @Param('id') integrationId: string,
-  ) {
+  async getUnmatchedUsers(@Param('tenantId') tenantId: string, @Param('id') integrationId: string) {
     return this.integrationService.getUnmatchedUsers(integrationId);
   }
 
   @Get('/:id/sync-status')
-  async getSyncStatus(
-    @Param('tenantId') tenantId: string,
-    @Param('id') integrationId: string,
-  ) {
+  async getSyncStatus(@Param('tenantId') tenantId: string, @Param('id') integrationId: string) {
     return this.integrationService.getSyncStatus(integrationId);
   }
 

@@ -1,15 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { RelationshipType } from 'src/common/enums';
-import { EmergencyContactRepository } from './emergency-contact.repository';
-import { CreateEmergencyContactDto } from "./dto/create-emergency-contact.dto";
-import { EmergencyContact } from "./entities/emergency-contact.entity";
-import { UpdateEmergencyContactDto } from "./dto/update-emergency-contact.dto";
+import type { RelationshipType } from 'src/common/enums';
+import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
+import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
+import type { EmergencyContactRepository } from './emergency-contact.repository';
+import type { EmergencyContact } from './entities/emergency-contact.entity';
 
 @Injectable()
 export class EmergencyContactService {
-  constructor(
-    private readonly emergencyContactRepository: EmergencyContactRepository,
-  ) {}
+  constructor(private readonly emergencyContactRepository: EmergencyContactRepository) {}
   async createEmergencyContact(
     tenantId: string,
     tenantMemberId: string,
@@ -25,19 +23,10 @@ export class EmergencyContactService {
     tenantId: string,
     tenantMemberId?: string,
   ): Promise<EmergencyContact[]> {
-    return this.emergencyContactRepository.listEmergencyContacts(
-      tenantId,
-      tenantMemberId,
-    );
+    return this.emergencyContactRepository.listEmergencyContacts(tenantId, tenantMemberId);
   }
-  async getEmergencyContact(
-    id: string,
-    tenantId: string,
-  ): Promise<EmergencyContact> {
-    return this.emergencyContactRepository.getEmergencyContact(
-      id,
-      tenantId,
-    );
+  async getEmergencyContact(id: string, tenantId: string): Promise<EmergencyContact> {
+    return this.emergencyContactRepository.getEmergencyContact(id, tenantId);
   }
   async updateEmergencyContact(
     id: string,
@@ -57,10 +46,7 @@ export class EmergencyContactService {
     tenantMemberId: string,
     tenantId: string,
   ): Promise<EmergencyContact | null> {
-    return this.emergencyContactRepository.getPrimaryEmergencyContact(
-      tenantMemberId,
-      tenantId,
-    );
+    return this.emergencyContactRepository.getPrimaryEmergencyContact(tenantMemberId, tenantId);
   }
   async setAsPrimary(id: string, tenantId: string): Promise<EmergencyContact> {
     return this.emergencyContactRepository.setAsPrimary(id, tenantId);
@@ -70,13 +56,10 @@ export class EmergencyContactService {
     tenantId: string,
     tenantMemberId?: string,
   ): Promise<EmergencyContact[]> {
-    const contacts =
-      await this.emergencyContactRepository.listEmergencyContacts(
-        tenantId,
-        tenantMemberId,
-      );
-    return contacts.filter(
-      (contact) => contact.relationship === relationshipType,
+    const contacts = await this.emergencyContactRepository.listEmergencyContacts(
+      tenantId,
+      tenantMemberId,
     );
+    return contacts.filter((contact) => contact.relationship === relationshipType);
   }
 }

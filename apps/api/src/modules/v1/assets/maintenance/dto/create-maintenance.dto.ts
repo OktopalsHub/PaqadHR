@@ -1,12 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsString,
-  IsOptional,
-  IsNumber,
-  IsDateString,
-} from 'class-validator';
 import { Transform } from 'class-transformer';
+import { IsDateString, IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 import { MaintenanceType } from 'src/common/enums';
 export class CreateMaintenanceDto {
   @ApiProperty({

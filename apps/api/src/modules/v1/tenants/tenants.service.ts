@@ -1,20 +1,15 @@
-import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
-import { User } from '../users/entities/user.entity';
-import {
-  Injectable,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
-import { StringUtility } from 'src/common/utils';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { UsersService } from '../users/users.service';
-import { FileUrlService } from 'src/common/services/file-url.service';
-import { TenantRepository } from "./repositories/tenant.repository";
-import { CreateTenantDto } from "./dto/create-tenant.dto";
-import { Tenant } from "./entities/tenant.entity";
-import { UpdateTenantDto } from "./dto/update-tenant.dto";
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import { StringUtility } from 'src/common/utils';
+import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
+import type { TenantMembersService } from '../tenant-members/tenant-members.service';
+import type { UsersService } from '../users/users.service';
+import type { CreateTenantDto } from './dto/create-tenant.dto';
+import type { UpdateTenantDto } from './dto/update-tenant.dto';
+import type { Tenant } from './entities/tenant.entity';
+import type { TenantRepository } from './repositories/tenant.repository';
 
 @Injectable()
 export class TenantsService {
@@ -23,12 +18,9 @@ export class TenantsService {
     private readonly tenantMemberService: TenantMembersService,
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly fileUrlService: FileUrlService,
+    readonly _fileUrlService: FileUrlService,
   ) {}
-  async createTenant(
-    creatorId: string,
-    data: CreateTenantDto,
-  ): Promise<Tenant> {
+  async createTenant(creatorId: string, data: CreateTenantDto): Promise<Tenant> {
     try {
       const [user, generatedSlug] = await Promise.all([
         this.userService.getUser(creatorId),
@@ -37,11 +29,7 @@ export class TenantsService {
       if (!user) {
         throw new UnprocessableEntityException('User not found');
       }
-      if (
-        (process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '').includes(
-          generatedSlug.toLowerCase(),
-        )
-      ) {
+      if ((process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '').includes(generatedSlug.toLowerCase())) {
         throw new UnprocessableEntityException(
           `The subdomain "${generatedSlug}" is reserved and cannot be used.`,
         );
@@ -74,11 +62,7 @@ export class TenantsService {
         );
         this.eventEmitter.emit(
           'tenant.member.created',
-          new TenantMemberCreatedEvent(
-            savedTenant.id,
-            tenantMember.id,
-            tenantMember.joinDate,
-          ),
+          new TenantMemberCreatedEvent(savedTenant.id, tenantMember.id, tenantMember.joinDate),
         );
         this.eventEmitter.emit('tenant.settings.initialize', {
           tenantId: savedTenant.id,
@@ -89,35 +73,31 @@ export class TenantsService {
               companyName: data.name,
             },
             attendance: {
-              weekends: [0, 6], 
+              weekends: [0, 6],
             },
           },
         });
-      } catch (eventError) {
-      }
+      } catch (_eventError) {}
       return savedTenant;
     } catch (error) {
       if (error instanceof UnprocessableEntityException) {
         throw error;
       }
-      throw new UnprocessableEntityException(
-        'Failed to create tenant. Please try again.',
-      );
+      throw new UnprocessableEntityException('Failed to create tenant. Please try again.');
     }
   }
   async listTenants(includeDeleted: boolean = false): Promise<Tenant[]> {
     return this.tenantRepository.find({ withDeleted: includeDeleted });
   }
   async getTenant(tenantId: string): Promise<Tenant> {
-    const tenant = await this.tenantRepository.findById(tenantId );
+    const tenant = await this.tenantRepository.findById(tenantId);
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
     return tenant;
   }
   async getUserTenants(userId: string): Promise<Tenant[]> {
-    const memberships =
-      await this.tenantMemberService.getUserMemberships(userId);
+    const memberships = await this.tenantMemberService.getUserMemberships(userId);
     const tenantIds = memberships?.map((member) => member.tenantId);
     if (!tenantIds?.length) {
       return [];
@@ -125,8 +105,7 @@ export class TenantsService {
     return this.tenantRepository.getTenantByIds(tenantIds);
   }
   async getUserTenantsWithDetails(userId: string) {
-    const memberships =
-      await this.tenantMemberService.getUserMemberships(userId);
+    const memberships = await this.tenantMemberService.getUserMemberships(userId);
     if (!memberships?.length) {
       return {
         tenants: [],
@@ -148,11 +127,8 @@ export class TenantsService {
   async getTenantMembers(tenantId: string): Promise<unknown[]> {
     return this.tenantMemberService.getTenantMembers(tenantId);
   }
-  async updateTenant(
-    tenantId: string,
-    updateTenantDto: UpdateTenantDto,
-  ): Promise<Tenant | null> {
-    const existingTenant = await this.tenantRepository.findById(tenantId );
+  async updateTenant(tenantId: string, updateTenantDto: UpdateTenantDto): Promise<Tenant | null> {
+    const existingTenant = await this.tenantRepository.findById(tenantId);
     if (!existingTenant) {
       throw new NotFoundException('Tenant does not exist');
     }
@@ -166,8 +142,7 @@ export class TenantsService {
       const incomingSlug = StringUtility.slugify(updateTenantDto.slug);
       const currentSlug = StringUtility.slugify(existingTenant.slug);
       if (incomingSlug !== currentSlug) {
-        const tenantWithSlug =
-          await this.tenantRepository.findBySlug(incomingSlug);
+        const tenantWithSlug = await this.tenantRepository.findBySlug(incomingSlug);
         if (tenantWithSlug && tenantWithSlug.id !== tenantId) {
           throw new UnprocessableEntityException('Slug already exists');
         }
@@ -178,7 +153,7 @@ export class TenantsService {
     } else {
       updateTenantDto.slug = existingTenant.slug;
     }
-    await this.tenantRepository.update(tenantId,  updateTenantDto);
+    await this.tenantRepository.update(tenantId, updateTenantDto);
     return this.tenantRepository.findOne({ where: { id: tenantId } });
   }
   async permanentDeleteTenant(tenantId: string): Promise<void> {
@@ -207,16 +182,15 @@ export class TenantsService {
   }
   private async generateSlug(slug: string): Promise<string> {
     const baseSlug = StringUtility.slugify(slug);
-    const existingSlugs =
-      await this.tenantRepository.findSlugsStartingWith(baseSlug);
+    const existingSlugs = await this.tenantRepository.findSlugsStartingWith(baseSlug);
     if (!existingSlugs.length) {
       return baseSlug;
     }
     const numbers = existingSlugs
-      .map((slug) => slug.replace(`${baseSlug}-`, '')) 
-      .map((num) => parseInt(num, 10)) 
-      .filter((num) => !isNaN(num)) 
-      .sort((a, b) => a - b); 
+      .map((slug) => slug.replace(`${baseSlug}-`, ''))
+      .map((num) => parseInt(num, 10))
+      .filter((num) => !Number.isNaN(num))
+      .sort((a, b) => a - b);
     const nextNumber = numbers.length ? numbers[numbers.length - 1] + 1 : 1;
     return `${baseSlug}-${nextNumber}`;
   }

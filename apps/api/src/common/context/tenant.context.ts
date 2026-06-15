@@ -1,8 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import {
-  MemberContext,
-  TenantContext,
-} from '../interfaces/context.interface';
+import type { MemberContext, TenantContext } from '../interfaces/context.interface';
 
 interface TenantContextStore {
   tenant?: TenantContext;

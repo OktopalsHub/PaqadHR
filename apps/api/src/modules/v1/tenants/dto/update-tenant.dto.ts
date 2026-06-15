@@ -1,11 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsBoolean,
-  IsOptional,
-  IsString,
-  MinLength,
-  IsIn,
-} from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 export class UpdateTenantDto {
   @ApiProperty({
     description: 'Name of the tenant/organization',

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { bootstrapCsrf } from "@/lib/api/client";
+import { useEffect } from 'react';
+import { bootstrapCsrf } from '@/lib/api/client';
 
 /** Ensures CSRF cookie/token exist before the user triggers mutations. */
 export function CsrfBootstrap() {
@@ -12,8 +12,8 @@ export function CsrfBootstrap() {
       void bootstrapCsrf();
     };
 
-    window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
   }, []);
 
   return null;

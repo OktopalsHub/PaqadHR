@@ -9,17 +9,16 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { UpdateResult } from 'typeorm';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { EmploymentService } from './employment.service';
-import { MemberContext } from 'src/common/interfaces';
-import { CreateEmploymentDto } from "./dto/create-employment.dto";
-import { Employment } from "./entities/employment.entity";
-import { UpdateEmploymentDto } from "./dto/update-employment.dto";
+import type { CreateEmploymentDto } from './dto/create-employment.dto';
+import type { UpdateEmploymentDto } from './dto/update-employment.dto';
+import type { EmploymentService } from './employment.service';
+import type { Employment } from './entities/employment.entity';
 
 @ApiTags('Employments')
 @UseGuards(TenantMemberGuard)
@@ -31,7 +30,7 @@ export class EmploymentController {
   async createEmployment(
     @Param('tenantId') tenantId: string,
     @Body() createEmploymentDto: CreateEmploymentDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<Employment> {
     return this.employmentService.createEmployment(
       tenantId,
@@ -63,11 +62,7 @@ export class EmploymentController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateEmploymentDto: UpdateEmploymentDto,
   ): Promise<Employment> {
-    return this.employmentService.updateEmployment(
-      id,
-      updateEmploymentDto,
-      tenantId,
-    );
+    return this.employmentService.updateEmployment(id, updateEmploymentDto, tenantId);
   }
   @Delete('employments/:id')
   @HttpCode(HttpStatus.NO_CONTENT)

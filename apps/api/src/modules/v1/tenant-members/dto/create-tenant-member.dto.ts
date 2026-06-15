@@ -1,12 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import {
-  IsDateString,
-  IsEnum,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString } from 'class-validator';
 import { Gender, TenantMemberRole } from 'src/common/enums';
 export class CreateTenantMemberDto {
   @IsString()
@@ -57,9 +51,7 @@ export class CreateTenantMemberDto {
   })
   @IsOptional()
   dateOfBirth?: Date;
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(Gender)
   @ApiProperty({
     description: 'gender',
@@ -67,9 +59,7 @@ export class CreateTenantMemberDto {
   })
   @IsOptional()
   gender?: Gender;
-  @Transform(({ value }) =>
-    typeof value === 'string' ? value.toLowerCase() : value,
-  )
+  @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
   @IsEnum(TenantMemberRole)
   @ApiProperty({
     description: 'role',

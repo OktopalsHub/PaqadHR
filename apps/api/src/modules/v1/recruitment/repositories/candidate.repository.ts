@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus } from 'src/common/enums';
-import { IPaginatedData } from 'src/common/interfaces/pagination.interface';
+import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { In, MoreThanOrEqual, Not, Repository } from 'typeorm';
 import { Candidate } from '../entities/candidate.entity';
 
@@ -11,16 +11,9 @@ export class CandidateRepository extends Repository<Candidate> {
     @InjectRepository(Candidate)
     private readonly candidateRepository: Repository<Candidate>,
   ) {
-    super(
-      candidateRepository.target,
-      candidateRepository.manager,
-      candidateRepository.queryRunner,
-    );
+    super(candidateRepository.target, candidateRepository.manager, candidateRepository.queryRunner);
   }
-  async findByTenantOnly(
-    tenantId: string,
-    includeDeleted = false,
-  ): Promise<Candidate[]> {
+  async findByTenantOnly(tenantId: string, includeDeleted = false): Promise<Candidate[]> {
     return this.find({
       withDeleted: includeDeleted,
       where: { tenantId },
@@ -49,10 +42,7 @@ export class CandidateRepository extends Repository<Candidate> {
       relations: ['jobOpening'],
     });
   }
-  async findByEmailAndJob(
-    email: string,
-    jobOpeningId: string,
-  ): Promise<Candidate | null> {
+  async findByEmailAndJob(email: string, jobOpeningId: string): Promise<Candidate | null> {
     return this.findOne({
       where: { email, jobOpeningId },
       relations: ['jobOpening'],
@@ -74,14 +64,7 @@ export class CandidateRepository extends Repository<Candidate> {
     limit?: number,
   ): Promise<Candidate[] | IPaginatedData<Candidate>> {
     if (page && limit) {
-      return this.listPaginated(
-        page,
-        limit,
-        false,
-        { tenantId },
-        ['jobOpening'],
-        'candidates',
-      );
+      return this.listPaginated(page, limit, false, { tenantId }, ['jobOpening'], 'candidates');
     }
     return this.find({
       withDeleted: false,
@@ -117,16 +100,10 @@ export class CandidateRepository extends Repository<Candidate> {
       records,
     };
   }
-  async countByStatus(
-    tenantId: string,
-    status: CandidateStatus,
-  ): Promise<number> {
+  async countByStatus(tenantId: string, status: CandidateStatus): Promise<number> {
     return this.count({ where: { tenantId, status } });
   }
-  async findRecentApplications(
-    tenantId: string,
-    days: number = 30,
-  ): Promise<Candidate[]> {
+  async findRecentApplications(tenantId: string, days: number = 30): Promise<Candidate[]> {
     const since = new Date();
     since.setDate(since.getDate() - days);
     return this.find({
@@ -150,20 +127,13 @@ export class CandidateRepository extends Repository<Candidate> {
       where: {
         email,
         status: Not(
-          In([
-            CandidateStatus.WITHDRAWN,
-            CandidateStatus.HIRED,
-            CandidateStatus.REJECTED,
-          ]),
+          In([CandidateStatus.WITHDRAWN, CandidateStatus.HIRED, CandidateStatus.REJECTED]),
         ),
       },
     });
     return count > 0;
   }
-  async findApplicationsByEmailAndTenant(
-    email: string,
-    tenantId: string,
-  ): Promise<Candidate[]> {
+  async findApplicationsByEmailAndTenant(email: string, tenantId: string): Promise<Candidate[]> {
     return this.find({
       where: { email, tenantId },
       relations: ['jobOpening'],

@@ -1,16 +1,10 @@
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { TabsContent } from "@/components/ui/tabs";
-import { Edit, PlusCircle, Trash } from "lucide-react";
-import { EmergencyContactForm } from "../../emergency-contact-form";
-import type { EmployeeDetailForm } from "../../../hooks/use-employee-detail-form";
+import { Edit, PlusCircle, Trash } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { TabsContent } from '@/components/ui/tabs';
+import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
+import { EmergencyContactForm } from '../../emergency-contact-form';
 
 interface EmergencyContactsTabProps {
   form: EmployeeDetailForm;
@@ -31,14 +25,9 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Emergency Contacts</CardTitle>
-            <CardDescription>
-              Employee's emergency contact information
-            </CardDescription>
+            <CardDescription>Employee's emergency contact information</CardDescription>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setEmergencyContactDialogOpen(true)}
-          >
+          <Button variant="outline" onClick={() => setEmergencyContactDialogOpen(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Add Contact
           </Button>
@@ -49,13 +38,9 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-medium">{contact.name}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {contact.relationship}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{contact.relationship}</p>
                 </div>
-                {contact.isEmergencyContact && (
-                  <Badge>Primary Contact</Badge>
-                )}
+                {contact.isEmergencyContact && <Badge>Primary Contact</Badge>}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -98,9 +83,7 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
 
           {employee.emergencyContacts.length === 0 && (
             <div className="bg-muted/50 p-6 rounded-lg text-center">
-              <p className="text-muted-foreground">
-                No emergency contacts added
-              </p>
+              <p className="text-muted-foreground">No emergency contacts added</p>
               <Button
                 variant="outline"
                 className="mt-4"

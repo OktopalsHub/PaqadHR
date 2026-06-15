@@ -1,4 +1,4 @@
 export interface EmployeeSettings {
-    numberPrefix: string;
-    numberPadding: number;
+  numberPrefix: string;
+  numberPadding: number;
 }

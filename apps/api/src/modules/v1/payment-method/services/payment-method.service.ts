@@ -1,6 +1,3 @@
-import { CreatePaymentMethodDto, UpdatePaymentMethodDto, PasscodeChangeDto } from '../dto/payment-method.dto';
-import { PaymentMethodPasscodeHistory } from '../entities/payment-method-passcode-history.entity';
-import { PaymentMethod } from '../entities/payment-method.entity';
 import {
   BadRequestException,
   Injectable,
@@ -9,13 +6,20 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { PasswordService } from 'src/common/utils';
 import { PaymentMethodType } from 'src/common/enums';
-import { Repository } from 'typeorm';
-import { PasscodeChangeReason } from "../../../../common/enums/passcode-change-reason.enum";
-import { PaymentMethodStatus } from "../../../../common/enums/payment-method-status.enum";
-import { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
-import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import { PasswordService } from 'src/common/utils';
+import type { Repository } from 'typeorm';
+import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
+import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
+import type { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
+import type { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import type {
+  CreatePaymentMethodDto,
+  PasscodeChangeDto,
+  UpdatePaymentMethodDto,
+} from '../dto/payment-method.dto';
+import { PaymentMethod } from '../entities/payment-method.entity';
+import { PaymentMethodPasscodeHistory } from '../entities/payment-method-passcode-history.entity';
 
 @Injectable()
 export class PaymentMethodService {
@@ -27,7 +31,7 @@ export class PaymentMethodService {
     private readonly paymentMethodRepository: Repository<PaymentMethod>,
     @InjectRepository(PaymentMethodPasscodeHistory)
     private readonly passcodeHistoryRepository: Repository<PaymentMethodPasscodeHistory>,
-    private readonly paymentProviderFactory: PaymentProviderFactoryService,
+    readonly _paymentProviderFactory: PaymentProviderFactoryService,
   ) {}
   async createPaymentMethod(
     tenantId: string,
@@ -37,9 +41,7 @@ export class PaymentMethodService {
     try {
       await this.validatePaymentMethodData(dto);
       if (!dto.passcode) {
-        throw new BadRequestException(
-          'Passcode is required to create payment method',
-        );
+        throw new BadRequestException('Passcode is required to create payment method');
       }
       if (dto.passcode.length !== 6) {
         throw new BadRequestException('Passcode must be exactly 6 characters');
@@ -66,17 +68,14 @@ export class PaymentMethodService {
         lastPasscodeChange: new Date(),
         metadata: dto.metadata,
       });
-      const savedMethod =
-        await this.paymentMethodRepository.save(paymentMethod);
+      const savedMethod = await this.paymentMethodRepository.save(paymentMethod);
       await this.trackPasscodeChange(
         savedMethod.id,
         memberId,
         PasscodeChangeReason.INITIAL_SETUP,
         'Initial passcode setup during payment method creation',
       );
-      this.logger.log(
-        `Payment method created for member ${memberId}: ${savedMethod.id}`,
-      );
+      this.logger.log(`Payment method created for member ${memberId}: ${savedMethod.id}`);
       return savedMethod;
     } catch (error) {
       this.logger.error('Error creating payment method:', error);
@@ -97,11 +96,7 @@ export class PaymentMethodService {
     }
     await this.verifyPasscode(paymentMethod, dto.currentPasscode);
     if (dto.isPrimary && !paymentMethod.isPrimary && paymentMethod.currency) {
-      await this.unsetPrimaryMethods(
-        tenantId,
-        memberId,
-        paymentMethod.currency,
-      );
+      await this.unsetPrimaryMethods(tenantId, memberId, paymentMethod.currency);
     }
     Object.assign(paymentMethod, {
       displayName: dto.displayName ?? paymentMethod.displayName,
@@ -115,13 +110,9 @@ export class PaymentMethodService {
     });
     if (dto.newPasscode) {
       if (dto.newPasscode.length !== 6) {
-        throw new BadRequestException(
-          'New passcode must be exactly 6 characters',
-        );
+        throw new BadRequestException('New passcode must be exactly 6 characters');
       }
-      paymentMethod.passcodeHash = await PasswordService.hashPassword(
-        dto.newPasscode,
-      );
+      paymentMethod.passcodeHash = await PasswordService.hashPassword(dto.newPasscode);
       paymentMethod.lastPasscodeChange = new Date();
       await this.trackPasscodeChange(
         paymentMethodId,
@@ -135,8 +126,7 @@ export class PaymentMethodService {
       paymentMethod.status = PaymentMethodStatus.PENDING_VERIFICATION;
       paymentMethod.verifiedAt = null;
     }
-    const updatedMethod =
-      await this.paymentMethodRepository.save(paymentMethod);
+    const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
     this.logger.log(`Payment method updated: ${paymentMethodId}`);
     return updatedMethod;
   }
@@ -154,13 +144,9 @@ export class PaymentMethodService {
     }
     await this.verifyPasscode(paymentMethod, dto.currentPasscode);
     if (dto.newPasscode.length !== 6) {
-      throw new BadRequestException(
-        'New passcode must be exactly 6 characters',
-      );
+      throw new BadRequestException('New passcode must be exactly 6 characters');
     }
-    paymentMethod.passcodeHash = await PasswordService.hashPassword(
-      dto.newPasscode,
-    );
+    paymentMethod.passcodeHash = await PasswordService.hashPassword(dto.newPasscode);
     paymentMethod.lastPasscodeChange = new Date();
     paymentMethod.failedPasscodeAttempts = 0;
     paymentMethod.lockedUntil = null;
@@ -233,9 +219,7 @@ export class PaymentMethodService {
     }
     if (paymentMethod.passcodeHash) {
       if (!passcode) {
-        throw new BadRequestException(
-          'Passcode is required to delete this payment method',
-        );
+        throw new BadRequestException('Passcode is required to delete this payment method');
       }
       await this.verifyPasscode(paymentMethod, passcode);
     }
@@ -262,16 +246,12 @@ export class PaymentMethodService {
     if (status === PaymentMethodStatus.VERIFIED) {
       paymentMethod.verifiedAt = new Date();
     }
-    const updatedMethod =
-      await this.paymentMethodRepository.save(paymentMethod);
+    const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
     this.logger.log(`Payment method ${status}: ${paymentMethodId}`);
     return updatedMethod;
   }
   async recordPaymentMethodUsage(paymentMethodId: string): Promise<void> {
-    await this.paymentMethodRepository.update(
-      { id: paymentMethodId },
-      { lastUsedAt: new Date() },
-    );
+    await this.paymentMethodRepository.update({ id: paymentMethodId }, { lastUsedAt: new Date() });
   }
   async findByMemberId(memberId: string): Promise<PaymentMethod | null> {
     try {
@@ -280,10 +260,7 @@ export class PaymentMethodService {
         order: { updatedAt: 'DESC' },
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to find payment method for member ${memberId}`,
-        error,
-      );
+      this.logger.error(`Failed to find payment method for member ${memberId}`, error);
       throw error;
     }
   }
@@ -297,10 +274,7 @@ export class PaymentMethodService {
       throw error;
     }
   }
-  private async verifyPasscode(
-    paymentMethod: PaymentMethod,
-    passcode: string,
-  ): Promise<void> {
+  private async verifyPasscode(paymentMethod: PaymentMethod, passcode: string): Promise<void> {
     if (
       !paymentMethod.passcodeHash ||
       paymentMethod.passcodeHash === null ||
@@ -318,16 +292,11 @@ export class PaymentMethodService {
         `Payment method is locked until ${paymentMethod.lockedUntil?.toISOString()}`,
       );
     }
-    const isValid = await PasswordService.verifyPassword(
-      paymentMethod.passcodeHash,
-      passcode,
-    );
+    const isValid = await PasswordService.verifyPassword(paymentMethod.passcodeHash, passcode);
     if (!isValid) {
       paymentMethod.failedPasscodeAttempts += 1;
       if (paymentMethod.failedPasscodeAttempts >= this.maxFailedAttempts) {
-        paymentMethod.lockedUntil = new Date(
-          Date.now() + this.lockDurationMinutes * 60 * 1000,
-        );
+        paymentMethod.lockedUntil = new Date(Date.now() + this.lockDurationMinutes * 60 * 1000);
         this.logger.warn(
           `Payment method ${paymentMethod.id} locked due to failed passcode attempts`,
         );
@@ -341,20 +310,11 @@ export class PaymentMethodService {
       await this.paymentMethodRepository.save(paymentMethod);
     }
   }
-  private async validatePaymentMethodData(
-    dto: CreatePaymentMethodDto,
-  ): Promise<void> {
+  private async validatePaymentMethodData(dto: CreatePaymentMethodDto): Promise<void> {
     if (dto.type && dto.type !== PaymentMethodType.BANK) {
-      throw new BadRequestException(
-        'Only BANK payment method type is supported',
-      );
+      throw new BadRequestException('Only BANK payment method type is supported');
     }
-    if (
-      !dto.accountNumber ||
-      !dto.accountName ||
-      !dto.bankName ||
-      !dto.country
-    ) {
+    if (!dto.accountNumber || !dto.accountName || !dto.bankName || !dto.country) {
       throw new BadRequestException(
         'Bank payment method requires account number, account name, bank name, and country',
       );
@@ -402,9 +362,7 @@ export class PaymentMethodService {
           reason === PasscodeChangeReason.ADMIN_RESET,
       });
       await this.passcodeHistoryRepository.save(passcodeHistory);
-      this.logger.log(
-        `Passcode change tracked for payment method ${paymentMethodId}: ${reason}`,
-      );
+      this.logger.log(`Passcode change tracked for payment method ${paymentMethodId}: ${reason}`);
     } catch (error) {
       this.logger.error(
         `Error tracking passcode change for payment method ${paymentMethodId}:`,

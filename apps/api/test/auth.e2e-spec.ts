@@ -1,4 +1,4 @@
-import { INestApplication } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { createE2eApp, uniqueEmail } from './e2e-bootstrap';
 
@@ -32,9 +32,7 @@ describe('Authentication (e2e)', () => {
     const password = 'password123';
 
     beforeAll(async () => {
-      await request(app.getHttpServer())
-        .post('/api/v1/auth/register')
-        .send({ email, password });
+      await request(app.getHttpServer()).post('/api/v1/auth/register').send({ email, password });
     });
 
     it('logs in with valid credentials', () => {

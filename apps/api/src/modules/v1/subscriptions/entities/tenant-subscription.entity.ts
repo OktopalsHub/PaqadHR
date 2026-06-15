@@ -1,9 +1,9 @@
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { Plan } from "../../plans/entities/plan.entity";
-import { PlanPrice } from "../../plans/entities/plan-price.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Plan } from '../../plans/entities/plan.entity';
+import { PlanPrice } from '../../plans/entities/plan-price.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 
 @Entity({ name: 'tenant_subscriptions' })
 @Index(['tenantId'], { unique: true })

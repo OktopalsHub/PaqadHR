@@ -1,14 +1,9 @@
-import {
-  Column,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { Team } from '../../teams/entities/team.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import { DepartmentMember } from './department-member.entity';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { Team } from "../../teams/entities/team.entity";
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
 
 @Entity('departments')
 export class Department extends BaseEntity {
@@ -25,20 +20,36 @@ export class Department extends BaseEntity {
   manager?: TenantMember;
   @Column({ type: 'uuid', nullable: true, name: 'parent_id' })
   parentId?: string;
-  @ManyToOne(() => Department, (department) => department.children, {
-    nullable: true,
-  })
+  @ManyToOne(
+    () => Department,
+    (department) => department.children,
+    {
+      nullable: true,
+    },
+  )
   @JoinColumn({ name: 'parent_id' })
   parent?: Department;
-  @OneToMany(() => Department, (department) => department.parent)
+  @OneToMany(
+    () => Department,
+    (department) => department.parent,
+  )
   children?: Department[];
-  @OneToMany(() => Team, (team) => team.department)
+  @OneToMany(
+    () => Team,
+    (team) => team.department,
+  )
   teams?: Team[];
-  @OneToMany(() => DepartmentMember, (member) => member.department)
+  @OneToMany(
+    () => DepartmentMember,
+    (member) => member.department,
+  )
   departmentMembers?: DepartmentMember[];
   @Column({ type: 'uuid', name: 'tenant_id' })
   tenantId: string;
-  @ManyToOne(() => Tenant, (tenant) => tenant.departments)
+  @ManyToOne(
+    () => Tenant,
+    (tenant) => tenant.departments,
+  )
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;
   @Column({ type: 'uuid', name: 'created_by' })

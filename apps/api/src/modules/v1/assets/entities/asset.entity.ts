@@ -1,18 +1,12 @@
 import { AssetCondition, AssetStatus, AssetType } from 'src/common/enums';
-import {
-  Column,
-  DeleteDateColumn,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany } from 'typeorm';
-import { TenantMember } from "../../tenant-members/entities/tenant-member.entity";
-import { Tenant } from "../../tenants/entities/tenant.entity";
-import { AssetCategory } from "../category/entities/asset-category.entity";
-import { AssetAssignment } from "../assignment/entities/asset-assignment.entity";
-import { AssetMaintenance } from "../maintenance/entities/asset-maintenance.entity";
-import { AssetDocument } from "../document/entities/asset-document.entity";
-import { BaseEntity } from "../../../../common/database/entities/base.entity";
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { AssetAssignment } from '../assignment/entities/asset-assignment.entity';
+import { AssetCategory } from '../category/entities/asset-category.entity';
+import { AssetDocument } from '../document/entities/asset-document.entity';
+import { AssetMaintenance } from '../maintenance/entities/asset-maintenance.entity';
 
 @Entity({ name: 'assets' })
 export class Asset extends BaseEntity {
@@ -60,17 +54,29 @@ export class Asset extends BaseEntity {
   categoryId: string;
   @Column({ name: 'created_by', nullable: true })
   createdBy?: string;
-  @ManyToOne(() => AssetCategory, (category) => category.assets)
+  @ManyToOne(
+    () => AssetCategory,
+    (category) => category.assets,
+  )
   @JoinColumn({ name: 'category_id' })
   category: AssetCategory;
   @ManyToOne(() => TenantMember, { nullable: true })
   @JoinColumn({ name: 'created_by' })
   creator?: TenantMember;
-  @OneToMany(() => AssetAssignment, (assignment) => assignment.asset)
+  @OneToMany(
+    () => AssetAssignment,
+    (assignment) => assignment.asset,
+  )
   assignments: AssetAssignment[];
-  @OneToMany(() => AssetMaintenance, (maintenance) => maintenance.asset)
+  @OneToMany(
+    () => AssetMaintenance,
+    (maintenance) => maintenance.asset,
+  )
   maintenanceHistory: AssetMaintenance[];
-  @OneToMany(() => AssetDocument, (document) => document.asset)
+  @OneToMany(
+    () => AssetDocument,
+    (document) => document.asset,
+  )
   documents: AssetDocument[];
   @DeleteDateColumn({ name: 'deleted_at', nullable: true })
   deletedAt: Date;

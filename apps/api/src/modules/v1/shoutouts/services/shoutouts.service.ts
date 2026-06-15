@@ -1,23 +1,19 @@
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DataSource } from 'typeorm';
-import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
-import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
+import type { DataSource } from 'typeorm';
+import type { NotificationHelperService } from '../../notifications/services/notification-helper.service';
+import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import type { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import {
   SHOUTOUT_CREATED_EVENT,
-  ShoutoutCreatedEventPayload,
+  type ShoutoutCreatedEventPayload,
 } from '../events/shoutout.events';
-import { ShoutoutsRepository } from '../repositories/shoutouts.repository';
-import { MemberPointsService } from './member-points.service';
-import { ShoutoutCategoriesService } from './shoutout-categories.service';
-import { CreateShoutoutInput } from '../interfaces/shoutout.interface';
-import { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
+import type { CreateShoutoutInput } from '../interfaces/shoutout.interface';
+import type { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
+import type { ShoutoutsRepository } from '../repositories/shoutouts.repository';
+import type { MemberPointsService } from './member-points.service';
+import type { ShoutoutCategoriesService } from './shoutout-categories.service';
 
 @Injectable()
 export class ShoutoutsService {
@@ -34,11 +30,7 @@ export class ShoutoutsService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async createShoutout(
-    tenantId: string,
-    senderMemberId: string,
-    input: CreateShoutoutInput,
-  ) {
+  async createShoutout(tenantId: string, senderMemberId: string, input: CreateShoutoutInput) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const { points, shoutouts: shoutoutSettings } = settings.settings;
 
@@ -67,9 +59,7 @@ export class ShoutoutsService {
       try {
         await this.tenantMembersService.getTenantMemberId(tenantId, recipientId);
       } catch {
-        throw new BadRequestException(
-          `Recipient ${recipientId} is not a member of this tenant`,
-        );
+        throw new BadRequestException(`Recipient ${recipientId} is not a member of this tenant`);
       }
     }
 
@@ -135,7 +125,7 @@ export class ShoutoutsService {
       pointsPerRecipient: input.pointsPerRecipient,
       message: full.message,
       categoryNames:
-        full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[] ?? [],
+        (full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[]) ?? [],
       source: input.source ?? 'api',
     };
 
@@ -148,10 +138,7 @@ export class ShoutoutsService {
   }
 
   async listShoutouts(tenantId: string, filters: ShoutoutFilters) {
-    const { records, total } = await this.shoutoutsRepository.listPaginated(
-      tenantId,
-      filters,
-    );
+    const { records, total } = await this.shoutoutsRepository.listPaginated(tenantId, filters);
     const mapped = records.map((s) => this.toShoutoutResponse(s));
     return getPaginationSummary(
       mapped,
@@ -170,15 +157,11 @@ export class ShoutoutsService {
     const senderName = this.formatMemberName(shoutout.creator);
 
     for (const recipient of shoutout.recipients) {
-      await this.notificationHelper.sendShoutoutNotification(
-        recipient.recipientId,
-        tenantId,
-        {
-          senderName,
-          message: shoutout.message,
-          points: recipient.points,
-        },
-      );
+      await this.notificationHelper.sendShoutoutNotification(recipient.recipientId, tenantId, {
+        senderName,
+        message: shoutout.message,
+        points: recipient.points,
+      });
     }
   }
 

@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv';
-import { DataSource, DataSourceOptions } from 'typeorm';
+import { DataSource, type DataSourceOptions } from 'typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 import * as Entities from '../entities';
 import * as Migrations from '../migrations';
@@ -19,9 +19,7 @@ const AppDataSource = {
   url: databaseUrl,
   synchronize: false,
   autoLoadEntities: true,
-  entities: Object.values(Entities).filter(
-    (entity) => typeof entity === 'function',
-  ),
+  entities: Object.values(Entities).filter((entity) => typeof entity === 'function'),
   migrations: [
     Migrations.User1781241191518,
     Migrations.Verification1781241195145,
@@ -93,10 +91,7 @@ const AppDataSource = {
 export const dataSourceOptions = AppDataSource;
 export default new DataSource(AppDataSource);
 
-export async function waitForDatabase(
-  maxRetries = 30,
-  retryIntervalMs = 1000,
-): Promise<void> {
+export async function waitForDatabase(maxRetries = 30, retryIntervalMs = 1000): Promise<void> {
   const { Client } = await import('pg');
 
   for (let i = 1; i <= maxRetries; i++) {

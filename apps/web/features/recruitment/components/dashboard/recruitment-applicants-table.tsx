@@ -1,25 +1,25 @@
-"use client";
+'use client';
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { ContentCard } from "@/components/content-card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import { ContentCard } from '@/components/content-card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { formatDate } from '@/lib/format-date';
 import {
+  type ApplicantRow,
   filterApplicantsByTab,
   formatEmploymentType,
   formatStatusLabel,
-  type ApplicantRow,
-} from "../../lib/recruitment-dashboard-metrics";
-import { formatDate } from "@/lib/format-date";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
+} from '../../lib/recruitment-dashboard-metrics';
 
 const TABS = [
-  { id: "all", label: "All applicants" },
-  { id: "screening", label: "Screening" },
-  { id: "shortlisted", label: "Shortlisted" },
-  { id: "interviewing", label: "Interviewing" },
-  { id: "offer", label: "Job offer" },
+  { id: 'all', label: 'All applicants' },
+  { id: 'screening', label: 'Screening' },
+  { id: 'shortlisted', label: 'Shortlisted' },
+  { id: 'interviewing', label: 'Interviewing' },
+  { id: 'offer', label: 'Job offer' },
 ] as const;
 
 type RecruitmentApplicantsTableProps = {
@@ -28,29 +28,24 @@ type RecruitmentApplicantsTableProps = {
 
 function statusVariant(status: string) {
   switch (status) {
-    case "HIRED":
-    case "OFFER":
-      return "default" as const;
-    case "INTERVIEW":
-      return "secondary" as const;
-    case "REJECTED":
-    case "WITHDRAWN":
-      return "destructive" as const;
+    case 'HIRED':
+    case 'OFFER':
+      return 'default' as const;
+    case 'INTERVIEW':
+      return 'secondary' as const;
+    case 'REJECTED':
+    case 'WITHDRAWN':
+      return 'destructive' as const;
     default:
-      return "outline" as const;
+      return 'outline' as const;
   }
 }
 
-export function RecruitmentApplicantsTable({
-  rows,
-}: RecruitmentApplicantsTableProps) {
-  const [tab, setTab] = useState<string>("all");
+export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableProps) {
+  const [tab, setTab] = useState<string>('all');
   const tenantHref = useTenantHref();
 
-  const filtered = useMemo(
-    () => filterApplicantsByTab(rows, tab),
-    [rows, tab],
-  );
+  const filtered = useMemo(() => filterApplicantsByTab(rows, tab), [rows, tab]);
 
   return (
     <ContentCard
@@ -86,42 +81,31 @@ export function RecruitmentApplicantsTable({
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td
-                  colSpan={5}
-                  className="py-8 text-center text-muted-foreground"
-                >
+                <td colSpan={5} className="py-8 text-center text-muted-foreground">
                   No applicants in this stage.
                 </td>
               </tr>
             ) : (
               filtered.slice(0, 12).map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-border/40 last:border-0"
-                >
+                <tr key={row.id} className="border-b border-border/40 last:border-0">
                   <td className="py-3">
                     <Link
                       href={tenantHref(`recruitment/roles/${row.jobOpeningId}`)}
                       className="block hover:text-primary"
                     >
                       <p className="font-medium">{row.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {row.email}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{row.email}</p>
                     </Link>
                   </td>
                   <td className="py-3 text-muted-foreground">{row.role}</td>
                   <td className="py-3 text-muted-foreground">
-                    {row.date ? formatDate(row.date) : "—"}
+                    {row.date ? formatDate(row.date) : '—'}
                   </td>
                   <td className="py-3 text-muted-foreground">
                     {formatEmploymentType(row.employmentType)}
                   </td>
                   <td className="py-3">
-                    <Badge
-                      variant={statusVariant(row.status)}
-                      className="text-[10px]"
-                    >
+                    <Badge variant={statusVariant(row.status)} className="text-[10px]">
                       {formatStatusLabel(row.status)}
                     </Badge>
                   </td>

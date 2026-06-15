@@ -1,11 +1,5 @@
 import { BaseEntity } from 'src/common/database/entities/base.entity';
-import {
-  Column,
-  Entity,
-  Index,
-  JoinColumn,
-  ManyToOne,
-} from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 
 @Entity('session')
@@ -27,7 +21,11 @@ export class Session extends BaseEntity {
   @Column({ name: 'user_agent', type: 'text', nullable: true })
   userAgent?: string | null;
 
-  @ManyToOne(() => User, (user) => user.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne(
+    () => User,
+    (user) => user.sessions,
+    { onDelete: 'CASCADE' },
+  )
   @JoinColumn({ name: 'user_id' })
   user: User;
 }

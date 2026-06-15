@@ -1,9 +1,11 @@
 // @ts-check
+
+import { createRequire } from 'node:module';
 import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
-import { createRequire } from 'module';
 import tseslint from 'typescript-eslint';
+
 const require = createRequire(import.meta.url);
 const customRules = require('./eslint-rules');
 

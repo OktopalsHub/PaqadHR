@@ -1,15 +1,9 @@
-import { Interview } from '../entities/interview.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { CandidateSource, CandidateStatus, type InterviewType } from 'src/common/enums';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
-import { FileUrlService } from 'src/common/services/file-url.service';
-import {
-  CandidateSource,
-  CandidateStatus,
-  InterviewType,
-} from 'src/common/enums';
-import { Candidate } from "../entities/candidate.entity";
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import type { Candidate } from '../entities/candidate.entity';
 
 export class CandidateResumeDto {
   @ApiProperty({ description: 'Resume filename' })
@@ -114,10 +108,7 @@ export class CandidateResponseDto {
   updatedAt: string;
 }
 export class CandidateMapper {
-  static toResponse(
-    candidate: Candidate,
-    fileUrlService?: FileUrlService,
-  ): CandidateResponseDto {
+  static toResponse(candidate: Candidate, fileUrlService?: FileUrlService): CandidateResponseDto {
     const response: CandidateResponseDto = {
       id: candidate.id,
       jobOpeningId: candidate.jobOpeningId,
@@ -147,14 +138,10 @@ export class CandidateMapper {
     };
     if (fileUrlService && candidate.resume.filename) {
       response.resume.url =
-        FileUrlMapper.mapFileByLocation(
-          candidate.resume.filename,
-          FileUploadLocation.RESUMES,
-          {
-            tenantId: candidate.tenantId,
-            fileUrlService,
-          },
-        ) || undefined;
+        FileUrlMapper.mapFileByLocation(candidate.resume.filename, FileUploadLocation.RESUMES, {
+          tenantId: candidate.tenantId,
+          fileUrlService,
+        }) || undefined;
     }
     if (candidate.coverLetter) {
       response.coverLetter = {
@@ -179,8 +166,6 @@ export class CandidateMapper {
     candidates: Candidate[],
     fileUrlService?: FileUrlService,
   ): CandidateResponseDto[] {
-    return candidates.map((candidate) =>
-      this.toResponse(candidate, fileUrlService),
-    );
+    return candidates.map((candidate) => CandidateMapper.toResponse(candidate, fileUrlService));
   }
 }

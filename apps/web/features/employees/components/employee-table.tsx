@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import Link from 'next/link';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 //TODO: create a reusable DataTable to be use accross the app;
 import {
   Table,
@@ -9,12 +10,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import type { Employee } from "../types/";
-import { getInitials } from "@/lib/utils";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
-import { getStatusStyles } from "../utils/";
+} from '@/components/ui/table';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { getInitials } from '@/lib/utils';
+import type { Employee } from '../types/';
+import { getStatusStyles } from '../utils/';
 
 interface EmployeeTableProps {
   employees: Employee[];
@@ -46,12 +46,8 @@ export const EmployeeTable = ({ employees }: EmployeeTableProps) => {
                     className="flex items-center gap-2 hover:underline"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={employee.avatar || "/placeholder.svg"}
-                      />
-                      <AvatarFallback>
-                        {getInitials(employee.name)}
-                      </AvatarFallback>
+                      <AvatarImage src={employee.avatar || '/placeholder.svg'} />
+                      <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
                     </Avatar>
                     {employee.name}
                   </Link>

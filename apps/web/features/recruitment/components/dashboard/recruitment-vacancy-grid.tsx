@@ -1,14 +1,12 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { MapPin, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { ContentCard } from "@/components/content-card";
-import type { JobOpening } from "@/lib/schemas/recruitment";
-import {
-  formatEmploymentType,
-} from "../../lib/recruitment-dashboard-metrics";
-import { useTenantHref } from "@/hooks/use-tenant-nav-items";
+import { MapPin, Users } from 'lucide-react';
+import Link from 'next/link';
+import { ContentCard } from '@/components/content-card';
+import { Badge } from '@/components/ui/badge';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import type { JobOpening } from '@/lib/schemas/recruitment';
+import { formatEmploymentType } from '../../lib/recruitment-dashboard-metrics';
 
 type RecruitmentVacancyGridProps = {
   jobs: JobOpening[];
@@ -17,9 +15,9 @@ type RecruitmentVacancyGridProps = {
 };
 
 function formatLocation(job: JobOpening) {
-  if (!job.location) return "—";
+  if (!job.location) return '—';
   const parts = [job.location.type, job.location.city].filter(Boolean);
-  return parts.join(" · ");
+  return parts.join(' · ');
 }
 
 export function RecruitmentVacancyGrid({
@@ -32,7 +30,7 @@ export function RecruitmentVacancyGrid({
   return (
     <ContentCard
       title="Current vacancies"
-      description={`${jobs.length} open role${jobs.length === 1 ? "" : "s"}`}
+      description={`${jobs.length} open role${jobs.length === 1 ? '' : 's'}`}
       bodyClassName="grid gap-3 sm:grid-cols-2"
     >
       {jobs.length === 0 ? (

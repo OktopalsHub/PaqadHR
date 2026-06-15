@@ -3,7 +3,7 @@ import type {
   CandidateSource,
   CandidateStatus,
   JobOpening,
-} from "@/lib/schemas/recruitment";
+} from '@/lib/schemas/recruitment';
 
 export type RecruitmentKpis = {
   applications: number;
@@ -46,21 +46,16 @@ export type ApplicantRow = {
   status: CandidateStatus;
 };
 
-const SHORTLISTED_STATUSES: CandidateStatus[] = [
-  "SCREENING",
-  "UNDER_REVIEW",
-  "INTERVIEW",
-  "OFFER",
-];
+const SHORTLISTED_STATUSES: CandidateStatus[] = ['SCREENING', 'UNDER_REVIEW', 'INTERVIEW', 'OFFER'];
 
-const REJECTED_STATUSES: CandidateStatus[] = ["REJECTED", "WITHDRAWN"];
+const REJECTED_STATUSES: CandidateStatus[] = ['REJECTED', 'WITHDRAWN'];
 
 const SOURCE_LABELS: Record<CandidateSource, string> = {
-  INTERNAL: "Employee referrals",
-  PUBLIC_WEBSITE: "Job boards",
-  LINKEDIN: "LinkedIn",
-  INDEED: "Indeed",
-  OTHER: "Other",
+  INTERNAL: 'Employee referrals',
+  PUBLIC_WEBSITE: 'Job boards',
+  LINKEDIN: 'LinkedIn',
+  INDEED: 'Indeed',
+  OTHER: 'Other',
 };
 
 function parseDate(value?: string) {
@@ -72,12 +67,12 @@ function parseDate(value?: string) {
 function trendPercent(current: number, previous: number) {
   if (previous === 0) {
     if (current === 0) return undefined;
-    return { value: "+100%", positive: true };
+    return { value: '+100%', positive: true };
   }
   const change = ((current - previous) / previous) * 100;
   const positive = change >= 0;
   return {
-    value: `${positive ? "+" : ""}${change.toFixed(2)}%`,
+    value: `${positive ? '+' : ''}${change.toFixed(2)}%`,
     positive,
   };
 }
@@ -95,17 +90,16 @@ function countInRange(
   }).length;
 }
 
-function computeTrends(candidates: Candidate[]): RecruitmentKpis["trends"] {
+function computeTrends(candidates: Candidate[]): RecruitmentKpis['trends'] {
   const now = new Date();
   const currentStart = new Date(now);
   currentStart.setDate(now.getDate() - 7);
   const previousStart = new Date(currentStart);
   previousStart.setDate(currentStart.getDate() - 7);
 
-  const isApplication = (c: Candidate) => c.status !== "WITHDRAWN";
-  const isShortlisted = (c: Candidate) =>
-    SHORTLISTED_STATUSES.includes(c.status);
-  const isHired = (c: Candidate) => c.status === "HIRED";
+  const isApplication = (c: Candidate) => c.status !== 'WITHDRAWN';
+  const isShortlisted = (c: Candidate) => SHORTLISTED_STATUSES.includes(c.status);
+  const isHired = (c: Candidate) => c.status === 'HIRED';
   const isRejected = (c: Candidate) => REJECTED_STATUSES.includes(c.status);
 
   return {
@@ -128,25 +122,19 @@ function computeTrends(candidates: Candidate[]): RecruitmentKpis["trends"] {
   };
 }
 
-export function computeRecruitmentKpis(
-  candidates: Candidate[],
-): RecruitmentKpis {
-  const active = candidates.filter((c) => c.status !== "WITHDRAWN");
+export function computeRecruitmentKpis(candidates: Candidate[]): RecruitmentKpis {
+  const active = candidates.filter((c) => c.status !== 'WITHDRAWN');
 
   return {
     applications: active.length,
-    shortlisted: active.filter((c) =>
-      SHORTLISTED_STATUSES.includes(c.status),
-    ).length,
-    hired: active.filter((c) => c.status === "HIRED").length,
+    shortlisted: active.filter((c) => SHORTLISTED_STATUSES.includes(c.status)).length,
+    hired: active.filter((c) => c.status === 'HIRED').length,
     rejected: active.filter((c) => REJECTED_STATUSES.includes(c.status)).length,
     trends: computeTrends(candidates),
   };
 }
 
-export function computeApplicationsChart(
-  candidates: Candidate[],
-): ApplicationsChartPoint[] {
+export function computeApplicationsChart(candidates: Candidate[]): ApplicationsChartPoint[] {
   const points: ApplicationsChartPoint[] = [];
   const now = new Date();
 
@@ -158,8 +146,8 @@ export function computeApplicationsChart(
     next.setDate(day.getDate() + 1);
 
     const label = day.toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
+      month: 'short',
+      day: 'numeric',
     });
 
     const dayCandidates = candidates.filter((candidate) => {
@@ -170,9 +158,7 @@ export function computeApplicationsChart(
     points.push({
       label,
       applied: dayCandidates.length,
-      shortlisted: dayCandidates.filter((c) =>
-        SHORTLISTED_STATUSES.includes(c.status),
-      ).length,
+      shortlisted: dayCandidates.filter((c) => SHORTLISTED_STATUSES.includes(c.status)).length,
     });
   }
 
@@ -187,8 +173,7 @@ export function computeDepartmentChart(
   const counts = new Map<string, number>();
 
   for (const candidate of candidates) {
-    const dept =
-      jobById[candidate.jobOpeningId]?.departmentName ?? "Unassigned";
+    const dept = jobById[candidate.jobOpeningId]?.departmentName ?? 'Unassigned';
     counts.set(dept, (counts.get(dept) ?? 0) + 1);
   }
 
@@ -197,13 +182,11 @@ export function computeDepartmentChart(
     .sort((a, b) => b.value - a.value);
 }
 
-export function computeSourceChart(
-  candidates: Candidate[],
-): SourceChartPoint[] {
+export function computeSourceChart(candidates: Candidate[]): SourceChartPoint[] {
   const counts = new Map<CandidateSource, number>();
 
   for (const candidate of candidates) {
-    const source = candidate.source ?? "OTHER";
+    const source = candidate.source ?? 'OTHER';
     counts.set(source, (counts.get(source) ?? 0) + 1);
   }
 
@@ -216,21 +199,15 @@ export function computeSourceChart(
     .sort((a, b) => b.value - a.value);
 }
 
-export function countApplicantsByJob(
-  candidates: Candidate[],
-): Record<string, number> {
+export function countApplicantsByJob(candidates: Candidate[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const candidate of candidates) {
-    counts[candidate.jobOpeningId] =
-      (counts[candidate.jobOpeningId] ?? 0) + 1;
+    counts[candidate.jobOpeningId] = (counts[candidate.jobOpeningId] ?? 0) + 1;
   }
   return counts;
 }
 
-export function toApplicantRows(
-  candidates: Candidate[],
-  jobs: JobOpening[],
-): ApplicantRow[] {
+export function toApplicantRows(candidates: Candidate[], jobs: JobOpening[]): ApplicantRow[] {
   const jobById = Object.fromEntries(jobs.map((job) => [job.id, job]));
 
   return candidates
@@ -241,45 +218,40 @@ export function toApplicantRows(
         jobOpeningId: candidate.jobOpeningId,
         name: `${candidate.firstName} ${candidate.lastName}`.trim(),
         email: candidate.email,
-        role: job?.title ?? "Unknown role",
-        date: candidate.appliedAt ?? candidate.createdAt ?? "",
-        employmentType: job?.employmentType ?? "—",
+        role: job?.title ?? 'Unknown role',
+        date: candidate.appliedAt ?? candidate.createdAt ?? '',
+        employmentType: job?.employmentType ?? '—',
         status: candidate.status,
       };
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 
-export function filterApplicantsByTab(
-  rows: ApplicantRow[],
-  tab: string,
-): ApplicantRow[] {
+export function filterApplicantsByTab(rows: ApplicantRow[], tab: string): ApplicantRow[] {
   switch (tab) {
-    case "screening":
-      return rows.filter((r) =>
-        ["APPLIED", "SCREENING", "UNDER_REVIEW"].includes(r.status),
-      );
-    case "shortlisted":
-      return rows.filter((r) => r.status === "INTERVIEW");
-    case "interviewing":
-      return rows.filter((r) => r.status === "INTERVIEW");
-    case "offer":
-      return rows.filter((r) => ["OFFER", "HIRED"].includes(r.status));
+    case 'screening':
+      return rows.filter((r) => ['APPLIED', 'SCREENING', 'UNDER_REVIEW'].includes(r.status));
+    case 'shortlisted':
+      return rows.filter((r) => r.status === 'INTERVIEW');
+    case 'interviewing':
+      return rows.filter((r) => r.status === 'INTERVIEW');
+    case 'offer':
+      return rows.filter((r) => ['OFFER', 'HIRED'].includes(r.status));
     default:
-      return rows.filter((r) => r.status !== "WITHDRAWN");
+      return rows.filter((r) => r.status !== 'WITHDRAWN');
   }
 }
 
 export function formatStatusLabel(status: CandidateStatus) {
-  if (status === "UNDER_REVIEW") return "Under review";
-  if (status === "OFFER") return "Job offer";
+  if (status === 'UNDER_REVIEW') return 'Under review';
+  if (status === 'OFFER') return 'Job offer';
   return status.charAt(0) + status.slice(1).toLowerCase();
 }
 
 export function formatEmploymentType(value?: string) {
-  if (!value) return "—";
+  if (!value) return '—';
   return value
-    .split("_")
+    .split('_')
     .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-    .join("-");
+    .join('-');
 }

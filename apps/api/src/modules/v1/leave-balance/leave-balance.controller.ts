@@ -1,4 +1,3 @@
-import { Leave } from '../leave/entities/leave.entity';
 import {
   Body,
   Controller,
@@ -8,14 +7,15 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { MemberContext } from 'src/common/interfaces';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { LeaveBalanceService } from './leave-balance.service';
-import { CreateLeaveBalanceDto } from "./dto/create-leave-balance.dto";
-import { UpdateLeaveBalanceDto } from "./dto/update-leave-balance.dto";
+import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
+import type { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
+import type { LeaveBalanceService } from './leave-balance.service';
 
 @ApiTags('Leave Balances')
 @Controller('tenants/:tenantId/leave-balances')
@@ -23,18 +23,13 @@ import { UpdateLeaveBalanceDto } from "./dto/update-leave-balance.dto";
 export class LeaveBalanceController {
   constructor(private readonly leaveBalanceService: LeaveBalanceService) {}
   @Post()
-    async createLeaveBalance(
+  async createLeaveBalance(
     @Param('tenantId') tenantId: string,
     @Param('leaveTypeId') leaveTypeId: string,
     @Body() dto: CreateLeaveBalanceDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.createLeaveBalance(
-      tenantId,
-      member.id,
-      leaveTypeId,
-      dto,
-    );
+    return this.leaveBalanceService.createLeaveBalance(tenantId, member.id, leaveTypeId, dto);
   }
   @Get()
   async listLeaveBalances(@Param('tenantId') tenantId: string) {
@@ -48,26 +43,22 @@ export class LeaveBalanceController {
     return this.leaveBalanceService.getLeaveBalance(balanceId, tenantId);
   }
   @Patch(':balanceId')
-    async updateLeaveBalance(
+  async updateLeaveBalance(
     @Param('tenantId') tenantId: string,
     @Param('balanceId') balanceId: string,
     @Body() dto: UpdateLeaveBalanceDto,
   ) {
-    return this.leaveBalanceService.updateLeaveBalance(
-      balanceId,
-      dto,
-      tenantId,
-    );
+    return this.leaveBalanceService.updateLeaveBalance(balanceId, dto, tenantId);
   }
   @Delete(':balanceId')
-    async deleteLeaveBalance(
+  async deleteLeaveBalance(
     @Param('tenantId') tenantId: string,
     @Param('balanceId') balanceId: string,
   ) {
     return this.leaveBalanceService.deleteLeaveBalance(tenantId, balanceId);
   }
   @Post('assign')
-    async assignLeaveBalance(
+  async assignLeaveBalance(
     @Param('tenantId') tenantId: string,
     @Body()
     dto: {
@@ -76,10 +67,9 @@ export class LeaveBalanceController {
       totalDays: number;
       year: number;
     },
-  ) {
-  }
+  ) {}
   @Post('assign/bulk')
-    async bulkAssignLeaveBalances(
+  async bulkAssignLeaveBalances(
     @Param('tenantId') tenantId: string,
     @Body()
     assignments: Array<{
@@ -88,15 +78,13 @@ export class LeaveBalanceController {
       totalDays: number;
       year: number;
     }>,
-  ) {
-  }
+  ) {}
   @Post('initialize/:memberId')
-    async initializeMemberBalances(
+  async initializeMemberBalances(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
     @Query('year') year?: number,
-  ) {
-  }
+  ) {}
   @Get('member/:memberId')
   async getMemberBalances(
     @Param('tenantId') tenantId: string,
@@ -104,10 +92,6 @@ export class LeaveBalanceController {
     @Query('year') year?: number,
   ) {
     const currentYear = year || new Date().getFullYear();
-    return this.leaveBalanceService.getBalancesByMember(
-      tenantId,
-      memberId,
-      currentYear,
-    );
+    return this.leaveBalanceService.getBalancesByMember(tenantId, memberId, currentYear);
   }
 }

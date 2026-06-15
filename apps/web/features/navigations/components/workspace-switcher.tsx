@@ -1,15 +1,15 @@
-"use client";
+'use client';
 
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronsUpDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useTenant } from "@/providers/tenant-provider";
+} from '@/components/ui/dropdown-menu';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useTenant } from '@/providers/tenant-provider';
 
 function WorkspaceMark() {
   return (
@@ -50,9 +50,7 @@ export const WorkspaceSwitcher = () => {
     >
       <WorkspaceMark />
       <div className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
-        <p className="truncate text-sm font-semibold tracking-tight">
-          {tenant?.name ?? "Paqad"}
-        </p>
+        <p className="truncate text-sm font-semibold tracking-tight">{tenant?.name ?? 'Paqad'}</p>
         <p className="truncate text-xs text-muted-foreground">Workspace</p>
       </div>
       {tenants.length > 1 ? (
@@ -73,7 +71,7 @@ export const WorkspaceSwitcher = () => {
           <DropdownMenuItem
             key={item.id}
             onClick={() => setTenantId(item.id)}
-            className={item.id === tenant?.id ? "bg-accent" : ""}
+            className={item.id === tenant?.id ? 'bg-accent' : ''}
           >
             {item.name}
           </DropdownMenuItem>

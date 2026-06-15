@@ -1,4 +1,4 @@
-export type { Employee } from "@/lib/schemas/employee";
+export type { Employee } from '@/lib/schemas/employee';
 
 export interface EmployeeFilters {
   searchTerm: string;
@@ -6,4 +6,4 @@ export interface EmployeeFilters {
   status: string;
 }
 
-export type ViewMode = "list" | "card";
+export type ViewMode = 'list' | 'card';

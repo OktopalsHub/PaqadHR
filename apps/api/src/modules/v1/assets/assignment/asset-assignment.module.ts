@@ -5,14 +5,10 @@ import { TenantsModule } from '../../tenants/tenants.module';
 import { AssetAssignmentController } from './asset-assignment.controller';
 import { AssetAssignmentRepository } from './asset-assignment.repository';
 import { AssetAssignmentService } from './asset-assignment.service';
-import { AssetAssignment } from "./entities/asset-assignment.entity";
+import { AssetAssignment } from './entities/asset-assignment.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([AssetAssignment]),
-    TenantsModule,
-    TenantMembersModule,
-  ],
+  imports: [TypeOrmModule.forFeature([AssetAssignment]), TenantsModule, TenantMembersModule],
   controllers: [AssetAssignmentController],
   providers: [AssetAssignmentService, AssetAssignmentRepository],
   exports: [AssetAssignmentService, AssetAssignmentRepository],

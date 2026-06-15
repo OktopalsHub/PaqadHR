@@ -1,25 +1,10 @@
-import { useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { ToastMessage } from '@/components/toast-message';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -27,17 +12,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { ToastMessage } from "@/components/toast-message";
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 // Form schema for education
 const formSchema = z.object({
-  degree: z
-    .string()
-    .min(2, { message: "Degree must be at least 2 characters" }),
-  institution: z.string().min(2, { message: "Institution is required" }),
-  year: z.string().min(4, { message: "Year is required" }),
+  degree: z.string().min(2, { message: 'Degree must be at least 2 characters' }),
+  institution: z.string().min(2, { message: 'Institution is required' }),
+  year: z.string().min(4, { message: 'Year is required' }),
   field: z.string().optional(),
   grade: z.string().optional(),
   description: z.string().optional(),
@@ -63,12 +54,12 @@ export function EducationForm({
   const [isLoading, setIsLoading] = useState(false);
 
   const initialValues = {
-    degree: "",
-    institution: "",
-    year: "",
-    field: "",
-    grade: "",
-    description: "",
+    degree: '',
+    institution: '',
+    year: '',
+    field: '',
+    grade: '',
+    description: '',
     ...defaultValues,
   };
 
@@ -86,11 +77,11 @@ export function EducationForm({
 
       toast.success(
         <ToastMessage
-          title={editMode ? "Education Updated" : "Education Added"}
+          title={editMode ? 'Education Updated' : 'Education Added'}
           description={
             editMode
-              ? "Education has been updated."
-              : "Education has been added to the employee record."
+              ? 'Education has been updated.'
+              : 'Education has been added to the employee record.'
           }
         />,
       );
@@ -98,12 +89,9 @@ export function EducationForm({
       onOpenChange(false);
       form.reset(initialValues);
     } catch (error) {
-      console.error("Error saving education:", error);
+      console.error('Error saving education:', error);
       toast.error(
-        <ToastMessage
-          title="Error"
-          description="Failed to save education. Please try again."
-        />,
+        <ToastMessage title="Error" description="Failed to save education. Please try again." />,
       );
     } finally {
       setIsLoading(false);
@@ -114,20 +102,15 @@ export function EducationForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>
-            {editMode ? "Edit Education" : "Add Education"}
-          </DialogTitle>
+          <DialogTitle>{editMode ? 'Edit Education' : 'Add Education'}</DialogTitle>
           <DialogDescription>
             {editMode
-              ? "Update the education information below."
-              : "Add new education details for this employee."}
+              ? 'Update the education information below.'
+              : 'Add new education details for this employee.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="degree"
@@ -135,10 +118,7 @@ export function EducationForm({
                 <FormItem>
                   <FormLabel>Degree/Certificate*</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="e.g., Bachelor of Science, MBA"
-                      {...field}
-                    />
+                    <Input placeholder="e.g., Bachelor of Science, MBA" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -153,10 +133,7 @@ export function EducationForm({
                   <FormItem>
                     <FormLabel>Institution*</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="e.g., University of California"
-                        {...field}
-                      />
+                      <Input placeholder="e.g., University of California" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -189,7 +166,7 @@ export function EducationForm({
                       <Input
                         placeholder="e.g., Computer Science"
                         {...field}
-                        value={field.value || ""}
+                        value={field.value || ''}
                       />
                     </FormControl>
                     <FormMessage />
@@ -207,7 +184,7 @@ export function EducationForm({
                       <Input
                         placeholder="e.g., 3.8/4.0, First Class"
                         {...field}
-                        value={field.value || ""}
+                        value={field.value || ''}
                       />
                     </FormControl>
                     <FormMessage />
@@ -226,7 +203,7 @@ export function EducationForm({
                     <Textarea
                       placeholder="Any additional details about this education"
                       {...field}
-                      value={field.value || ""}
+                      value={field.value || ''}
                     />
                   </FormControl>
                   <FormMessage />
@@ -246,11 +223,7 @@ export function EducationForm({
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading
-                  ? "Saving..."
-                  : editMode
-                    ? "Update Education"
-                    : "Add Education"}
+                {isLoading ? 'Saving...' : editMode ? 'Update Education' : 'Add Education'}
               </Button>
             </DialogFooter>
           </form>

@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsBoolean, IsNumber, IsOptional, Min, Max } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, Max, Min } from 'class-validator';
 export class CreateLeavePolicyDto {
   @IsOptional()
   @IsBoolean()

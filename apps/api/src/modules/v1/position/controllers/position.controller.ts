@@ -11,10 +11,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { PositionService } from '../services/position.service';
-import { CreatePositionDto } from "../dto/create-position.dto";
-import { Position } from "../entities/position.entity";
-import { UpdatePositionDto } from "../dto/update-position.dto";
+import type { CreatePositionDto } from '../dto/create-position.dto';
+import type { UpdatePositionDto } from '../dto/update-position.dto';
+import type { Position } from '../entities/position.entity';
+import type { PositionService } from '../services/position.service';
 
 @ApiTags('Positions')
 @UseGuards(TenantMemberGuard)
@@ -22,7 +22,7 @@ import { UpdatePositionDto } from "../dto/update-position.dto";
 export class PositionController {
   constructor(private readonly positionService: PositionService) {}
   @Post()
-    async createPosition(
+  async createPosition(
     @Param('tenantId') tenantId: string,
     @Body() createPositionDto: CreatePositionDto,
   ): Promise<Position> {
@@ -33,14 +33,11 @@ export class PositionController {
     return this.positionService.listPositions(tenantId);
   }
   @Get(':id')
-  async getPosition(
-    @Param('tenantId') tenantId: string,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  async getPosition(@Param('tenantId') tenantId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.positionService.getPosition(id, tenantId);
   }
   @Patch(':id')
-    async updatePosition(
+  async updatePosition(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updatePositionDto: UpdatePositionDto,
@@ -48,7 +45,7 @@ export class PositionController {
     return this.positionService.updatePosition(id, updatePositionDto, tenantId);
   }
   @Delete(':id')
-    async deletePosition(
+  async deletePosition(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {
@@ -56,7 +53,7 @@ export class PositionController {
     return { message: 'Position deleted successfully' };
   }
   @Post(':id/restore')
-    async restorePosition(
+  async restorePosition(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
   ) {

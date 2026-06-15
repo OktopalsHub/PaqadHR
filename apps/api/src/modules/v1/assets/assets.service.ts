@@ -1,25 +1,20 @@
-import { Asset } from './entities/asset.entity';
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AssetAssignmentStatus, AssetStatus } from 'src/common/enums';
-import { AssetAssignmentRepository } from '../assets/assignment/asset-assignment.repository';
-import { AssetCategoryService } from './category/asset-category.service';
-import { AssetRepository } from "./repositories/asset.repository";
-import { CreateAssetDto } from "./dto/create-asset.dto";
-import { QueryAssetsDto } from "./dto/query-assets.dto";
-import { UpdateAssetDto } from "./dto/update-asset.dto";
-import { AssignAssetDto } from "./assignment/dto/assign-asset.dto";
-import { ReturnAssetDto } from "./dto/return-asset.dto";
+import type { AssetAssignmentRepository } from '../assets/assignment/asset-assignment.repository';
+import type { AssignAssetDto } from './assignment/dto/assign-asset.dto';
+import type { AssetCategoryService } from './category/asset-category.service';
+import type { CreateAssetDto } from './dto/create-asset.dto';
+import type { QueryAssetsDto } from './dto/query-assets.dto';
+import type { ReturnAssetDto } from './dto/return-asset.dto';
+import type { UpdateAssetDto } from './dto/update-asset.dto';
+import type { AssetRepository } from './repositories/asset.repository';
 
 @Injectable()
 export class AssetService {
   constructor(
     private readonly assetRepository: AssetRepository,
     private readonly assetAssignmentRepository: AssetAssignmentRepository,
-    private readonly assetCategoryService: AssetCategoryService,
+    readonly _assetCategoryService: AssetCategoryService,
   ) {}
   async createAsset(tenantId: string, memberId: string, dto: CreateAssetDto) {
     const assetData = {
@@ -45,12 +40,7 @@ export class AssetService {
       {
         tenantId,
       },
-      [
-        'category',
-        'assignments',
-        'assignments.assignedTo',
-        'maintenanceHistory',
-      ],
+      ['category', 'assignments', 'assignments.assignedTo', 'maintenanceHistory'],
     );
     if (!asset) {
       throw new NotFoundException('Asset not found');
@@ -73,18 +63,11 @@ export class AssetService {
     const activeAssignment =
       await this.assetAssignmentRepository.findActiveAssignmentByAsset(assetId);
     if (activeAssignment) {
-      throw new BadRequestException(
-        'Cannot delete asset that is currently assigned',
-      );
+      throw new BadRequestException('Cannot delete asset that is currently assigned');
     }
     return this.assetRepository.softDelete(existing.id);
   }
-  async assignAsset(
-    tenantId: string,
-    assetId: string,
-    assignedById: string,
-    dto: AssignAssetDto,
-  ) {
+  async assignAsset(tenantId: string, assetId: string, assignedById: string, dto: AssignAssetDto) {
     const asset = await this.getAsset(tenantId, assetId);
     if (asset.status !== AssetStatus.AVAILABLE) {
       throw new BadRequestException('Asset is not available for assignment');
@@ -98,9 +81,7 @@ export class AssetService {
       assetId,
       assignedToId: dto.assignedToId,
       assignedById,
-      expectedReturnDate: dto.expectedReturnDate
-        ? new Date(dto.expectedReturnDate)
-        : undefined,
+      expectedReturnDate: dto.expectedReturnDate ? new Date(dto.expectedReturnDate) : undefined,
       assignmentNotes: dto.assignmentNotes,
     });
     await this.assetRepository.update(assetId, {
@@ -108,13 +89,8 @@ export class AssetService {
     });
     return assignment;
   }
-  async returnAsset(
-    tenantId: string,
-    assetId: string,
-    returnedById: string,
-    dto: ReturnAssetDto,
-  ) {
-    const asset = await this.getAsset(tenantId, assetId);
+  async returnAsset(tenantId: string, assetId: string, returnedById: string, dto: ReturnAssetDto) {
+    const _asset = await this.getAsset(tenantId, assetId);
     const activeAssignment =
       await this.assetAssignmentRepository.findActiveAssignmentByAsset(assetId);
     if (!activeAssignment) {

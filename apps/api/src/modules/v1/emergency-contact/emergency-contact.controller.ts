@@ -10,30 +10,29 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { RelationshipType } from 'src/common/enums';
+import { CurrentTenantMember } from 'src/common/decorators';
+import type { RelationshipType } from 'src/common/enums';
+import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { EmergencyContactService } from './emergency-contact.service';
-import { MemberContext } from 'src/common/interfaces';
-import { CreateEmergencyContactDto } from "./dto/create-emergency-contact.dto";
-import { EmergencyContact } from "./entities/emergency-contact.entity";
-import { UpdateEmergencyContactDto } from "./dto/update-emergency-contact.dto";
+import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
+import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
+import type { EmergencyContactService } from './emergency-contact.service';
+import type { EmergencyContact } from './entities/emergency-contact.entity';
 
 @ApiTags('emergency-contacts')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/emergency-contacts')
 export class EmergencyContactController {
-  constructor(
-    private readonly emergencyContactService: EmergencyContactService,
-  ) {}
+  constructor(private readonly emergencyContactService: EmergencyContactService) {}
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createEmergencyContact(
     @Param('tenantId') tenantId: string,
     @Body() createEmergencyContactDto: CreateEmergencyContactDto,
-    @CurrentTenantMember() member: MemberContext
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<EmergencyContact> {
     const { memberId, ...contactData } = createEmergencyContactDto;
     return this.emergencyContactService.createEmergencyContact(
@@ -48,10 +47,7 @@ export class EmergencyContactController {
     @Param('tenantId') tenantId: string,
     @Query('memberId') memberId?: string,
   ): Promise<EmergencyContact[]> {
-    return this.emergencyContactService.listEmergencyContacts(
-      tenantId,
-      memberId,
-    );
+    return this.emergencyContactService.listEmergencyContacts(tenantId, memberId);
   }
   @Get('relationships/:relationship')
   @HttpCode(HttpStatus.OK)

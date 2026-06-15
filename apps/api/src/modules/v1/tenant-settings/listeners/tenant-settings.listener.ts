@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { PartialTenantSettingsData } from '../../../../common/interfaces/partial-tenant-settings-data.interface';
-import { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
+import type { PartialTenantSettingsData } from '../../../../common/interfaces/partial-tenant-settings-data.interface';
+import type { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
 @Injectable()
 export class TenantSettingsListener {
   private readonly logger = new Logger(TenantSettingsListener.name);
@@ -16,9 +16,7 @@ export class TenantSettingsListener {
     defaultSettings: PartialTenantSettingsData;
   }) {
     try {
-      this.logger.log(
-        `Initializing tenant settings for tenant: ${payload.tenantId}`,
-      );
+      this.logger.log(`Initializing tenant settings for tenant: ${payload.tenantId}`);
       let settings: PartialTenantSettingsData = { ...payload.defaultSettings };
       if (payload.employeeCode) {
         settings = {
@@ -33,9 +31,7 @@ export class TenantSettingsListener {
         payload.tenantId,
         settings,
       );
-      this.logger.log(
-        `Successfully initialized tenant settings for tenant: ${payload.tenantId}`,
-      );
+      this.logger.log(`Successfully initialized tenant settings for tenant: ${payload.tenantId}`);
     } catch (error) {
       this.logger.error(
         `Failed to initialize tenant settings for tenant ${payload.tenantId}: ${error.message}`,

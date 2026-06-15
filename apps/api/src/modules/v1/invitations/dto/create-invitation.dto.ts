@@ -1,6 +1,3 @@
-import { Department } from '../../departments/entities/department.entity';
-import { Employment } from '../../employment/entities/employment.entity';
-import { Position } from '../../position/entities/position.entity';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 export class CreateInvitationDto {

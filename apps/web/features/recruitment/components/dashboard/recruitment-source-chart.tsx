@@ -1,30 +1,18 @@
-"use client";
+'use client';
 
-import { Cell, Pie, PieChart } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { ContentCard } from "@/components/content-card";
-import type { SourceChartPoint } from "../../lib/recruitment-dashboard-metrics";
+import { Cell, Pie, PieChart } from 'recharts';
+import { ContentCard } from '@/components/content-card';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import type { SourceChartPoint } from '../../lib/recruitment-dashboard-metrics';
 
-const COLORS = [
-  "var(--primary)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-];
+const COLORS = ['var(--primary)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)'];
 
 type RecruitmentSourceChartProps = {
   data: SourceChartPoint[];
   total?: number;
 };
 
-export function RecruitmentSourceChart({
-  data,
-  total,
-}: RecruitmentSourceChartProps) {
+export function RecruitmentSourceChart({ data, total }: RecruitmentSourceChartProps) {
   const sum = total ?? data.reduce((acc, item) => acc + item.value, 0);
   const config = Object.fromEntries(
     data.map((item, index) => [

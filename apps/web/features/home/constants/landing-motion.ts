@@ -38,7 +38,7 @@ export const float = {
     transition: {
       duration: 6,
       repeat: Number.POSITIVE_INFINITY,
-      ease: "easeInOut",
+      ease: 'easeInOut',
     },
   },
 };

@@ -10,14 +10,14 @@ describe('DateTimeHelper (leave duration)', () => {
   });
 
   it('rejects end date before start date', () => {
-    expect(() =>
-      DateTimeHelper.calculateDuration('2026-03-10', '2026-03-05'),
-    ).toThrow(UnprocessableEntityException);
+    expect(() => DateTimeHelper.calculateDuration('2026-03-10', '2026-03-05')).toThrow(
+      UnprocessableEntityException,
+    );
   });
 
   it('rejects invalid dates', () => {
-    expect(() =>
-      DateTimeHelper.calculateDuration('not-a-date', '2026-03-05'),
-    ).toThrow(UnprocessableEntityException);
+    expect(() => DateTimeHelper.calculateDuration('not-a-date', '2026-03-05')).toThrow(
+      UnprocessableEntityException,
+    );
   });
 });

@@ -1,17 +1,13 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { ConversationsListResponse } from '@slack/web-api';
 import { ChannelType } from 'src/common/enums';
-import { ChannelInfo, IPlatformClient } from 'src/common/interfaces';
+import type { ChannelInfo, IPlatformClient } from 'src/common/interfaces';
 import { SlackClient } from '../clients/slack.client';
-import { IntegrationChannelRepository } from "../repositories/integration-channel.repository";
-import { PlatformIntegrationRepository } from "../repositories/platform-integration.repository";
-import { IntegrationChannel } from "../entities/integration-channel.entity";
-import { PlatformIntegration } from "../entities/platform-integration.entity";
-import { ShoutoutBroadcast } from '../integration.types';
-import { ConversationsListResponse } from '@slack/web-api';
+import { IntegrationChannel } from '../entities/integration-channel.entity';
+import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import type { ShoutoutBroadcast } from '../integration.types';
+import type { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
+import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
 
 @Injectable()
 export class ChannelManagementService {
@@ -31,21 +27,17 @@ export class ChannelManagementService {
     }
     const client = this.createClientWithUserToken(integration, userAccessToken);
     switch (integration.type) {
-      case 'slack':
-        const slackChannels = await this.getSlackChannels(
-          client as SlackClient,
-        );
+      case 'slack': {
+        const slackChannels = await this.getSlackChannels(client as SlackClient);
         for (const ch of slackChannels.filter((c) => c.type === 'private')) {
           try {
             await (client as SlackClient).client.conversations.join({ channel: ch.id });
-          } catch (err) {
-          }
+          } catch (_err) {}
         }
         return slackChannels;
+      }
       default:
-        throw new BadRequestException(
-          `Channel listing not supported for ${integration.type}`,
-        );
+        throw new BadRequestException(`Channel listing not supported for ${integration.type}`);
     }
   }
   async configureShoutoutChannel(
@@ -118,10 +110,7 @@ export class ChannelManagementService {
       if (channel.teamId && !this.isShoutoutForTeam(shoutout, channel.teamId)) {
         return false;
       }
-      if (
-        channel.departmentId &&
-        !this.isShoutoutForDepartment(shoutout, channel.departmentId)
-      ) {
+      if (channel.departmentId && !this.isShoutoutForDepartment(shoutout, channel.departmentId)) {
         return false;
       }
       return true;
@@ -141,9 +130,7 @@ export class ChannelManagementService {
       case 'slack':
         return new SlackClient(token);
       default:
-        throw new BadRequestException(
-          `Unsupported platform: ${integration.type}`,
-        );
+        throw new BadRequestException(`Unsupported platform: ${integration.type}`);
     }
   }
   private async getSlackChannels(client: SlackClient): Promise<ChannelInfo[]> {
@@ -157,12 +144,12 @@ export class ChannelManagementService {
         response.channels?.map((channel) => ({
           id: channel.id ?? '',
           name: channel.name ?? '',
-          type: channel.is_private ? 'private' as const : 'public' as const,
+          type: channel.is_private ? ('private' as const) : ('public' as const),
           memberCount: channel.num_members,
           description: channel.purpose?.value || channel.topic?.value,
         })) || []
       );
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -170,23 +157,16 @@ export class ChannelManagementService {
     return (
       shoutout.recipients.some((r) =>
         r.recipient?.teamMemberships?.some((tm) => tm.teamId === teamId),
-      ) ||
-      shoutout.creator.teamMemberships?.some((tm) => tm.teamId === teamId) === true
+      ) || shoutout.creator.teamMemberships?.some((tm) => tm.teamId === teamId) === true
     );
   }
-  private isShoutoutForDepartment(
-    shoutout: ShoutoutBroadcast,
-    departmentId: string,
-  ): boolean {
+  private isShoutoutForDepartment(shoutout: ShoutoutBroadcast, departmentId: string): boolean {
     return (
       shoutout.recipients.some((r) =>
-        r.recipient?.departmentMemberships?.some(
-          (dm) => dm.departmentId === departmentId,
-        ),
+        r.recipient?.departmentMemberships?.some((dm) => dm.departmentId === departmentId),
       ) ||
-      shoutout.creator.departmentMemberships?.some(
-        (dm) => dm.departmentId === departmentId,
-      ) === true
+      shoutout.creator.departmentMemberships?.some((dm) => dm.departmentId === departmentId) ===
+        true
     );
   }
 }
