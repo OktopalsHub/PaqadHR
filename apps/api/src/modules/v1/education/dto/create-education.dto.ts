@@ -4,10 +4,18 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { DegreeType } from 'src/common/enums';
 export class CreateEducationDto {
+  @IsUUID()
+  @ApiProperty({
+    description: 'Target tenant member ID (defaults to current member)',
+    required: false,
+  })
+  @IsOptional()
+  memberId?: string;
   @ApiProperty({
     description: 'Degree name',
     example: 'Bachelor of Science in Computer Science',

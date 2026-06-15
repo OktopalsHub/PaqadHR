@@ -2,24 +2,28 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { LoadingBlock } from "@/components/loading-block";
 import { useTenant } from "@/providers/tenant-provider";
-import { markOnboardingComplete } from "@/lib/session";
+import { tenantRoot } from "@/lib/navigation/tenant-routes";
 
 /** Skip setup when the user already has a workspace. */
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { tenants, isLoading } = useTenant();
+  const { tenant, tenants, isLoading } = useTenant();
 
   useEffect(() => {
     if (isLoading) return;
-    if (tenants.length > 0) {
-      markOnboardingComplete();
-      router.replace("/app");
+    if (tenants.length > 0 && tenant?.slug) {
+      router.replace(tenantRoot(tenant.slug));
     }
-  }, [isLoading, tenants.length, router]);
+  }, [isLoading, tenant, tenants.length, router]);
 
   if (isLoading || tenants.length > 0) {
-    return null;
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6">
+        <LoadingBlock />
+      </div>
+    );
   }
 
   return <>{children}</>;

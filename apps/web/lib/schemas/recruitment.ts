@@ -38,7 +38,7 @@ export const jobOpeningSchema = z.object({
 
 export const createJobOpeningInputSchema = z.object({
   title: z.string().min(2),
-  departmentId: z.string().uuid(),
+  departmentId: z.string().uuid().optional(),
   position: z.string().min(1),
   employmentType: z.enum([
     "FULL_TIME",
@@ -102,6 +102,20 @@ export const candidateSchema = z.object({
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
+
+export const createCandidateInputSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string().optional(),
+  jobOpeningId: z.string().uuid(),
+  skills: z.string().optional(),
+  source: candidateSourceSchema.optional(),
+  linkedinUrl: z.string().url().optional().or(z.literal("")),
+  portfolioUrl: z.string().url().optional().or(z.literal("")),
+});
+
+export type CreateCandidateInput = z.infer<typeof createCandidateInputSchema>;
 
 export type Candidate = z.infer<typeof candidateSchema>;
 export type CandidateStatus = z.infer<typeof candidateStatusSchema>;

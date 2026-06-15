@@ -68,9 +68,9 @@ export interface IEnvironment {
 export const ENVIRONMENT: IEnvironment = {
   APP: {
     NODE_ENV: process.env.NODE_ENV || 'development',
-    PORT: envValidator.getOptionalNumber('PORT', 3000),
+    PORT: envValidator.getOptionalNumber('PORT', 9001),
     FRONTEND_URL: envValidator.getOptional('FRONTEND_URL', 'http://localhost:3000'),
-    BASE_URL: envValidator.getOptional('BASE_URL', 'http://localhost:4000'),
+    BASE_URL: envValidator.getOptional('BASE_URL', 'http://localhost:9001'),
     TRUSTED_ORIGINS: resolveTrustedOrigins(),
   },
   DB: {

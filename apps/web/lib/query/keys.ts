@@ -43,6 +43,11 @@ export const queryKeys = {
     profile: (tenantId: string) => ["member", "profile", tenantId] as const,
   },
   onboarding: {
-    pricing: (country?: string) => ["onboarding", "pricing", country] as const,
+    pricing: ["onboarding", "pricing"] as const,
+    slugAvailability: (slug: string) =>
+      ["onboarding", "slug-availability", slug] as const,
+  },
+  analytics: {
+    overview: ["analytics", "overview"] as const,
   },
 } as const;

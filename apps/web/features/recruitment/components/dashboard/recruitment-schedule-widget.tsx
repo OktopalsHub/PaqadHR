@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { ContentCard } from "@/components/content-card";
 import { cn } from "@/lib/utils";
-import type { ScheduleEvent } from "../../lib/recruitment-demo-dashboard";
+import type { ScheduleEvent } from "../../lib/recruitment-types";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 
 const TYPE_COLORS: Record<ScheduleEvent["type"], string> = {
   meeting: "border-l-primary bg-primary/5",
@@ -20,13 +21,15 @@ type RecruitmentScheduleWidgetProps = {
 export function RecruitmentScheduleWidget({
   events,
 }: RecruitmentScheduleWidgetProps) {
+  const tenantHref = useTenantHref();
+
   return (
     <ContentCard
       title="Schedule"
       description="Today"
       action={
         <Link
-          href="/app/schedule"
+          href={tenantHref("schedule")}
           className="text-xs font-medium text-primary hover:underline"
         >
           View all

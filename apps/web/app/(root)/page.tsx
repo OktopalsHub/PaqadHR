@@ -5,7 +5,7 @@ import { LandingJsonLd } from "@/features/home/components/landing-json-ld";
 export const metadata: Metadata = {
   title: "Paqad — People operations for modern teams",
   description:
-    "Hire, pay, and support your team with calm HR software. Recruitment, payroll, leave, and recognition in one workspace. Start your 14-day trial.",
+    "Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.",
   keywords: [
     "HR software",
     "people operations",
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Paqad — People operations for modern teams",
     description:
-      "Calm HR software for hiring, payroll, leave, and team recognition. Start your 14-day trial.",
+      "Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.",
     type: "website",
     siteName: "Paqad",
   },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Paqad — People operations for modern teams",
     description:
-      "Calm HR software for hiring, payroll, leave, and team recognition.",
+      "Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.",
   },
   robots: {
     index: true,

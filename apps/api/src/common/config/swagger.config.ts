@@ -53,7 +53,7 @@ export function setupSwagger(app: INestApplication): void {
 			"support@paqadhr.com",
 		)
 		.setLicense("MIT", "https://opensource.org/licenses/MIT")
-		.addServer("http://localhost:8001", "Development Server")
+		.addServer("http://localhost:9001", "Development Server")
 		.addServer("https://api.paqadhr.com", "Production Server")
 		.addBearerAuth(
 			{
@@ -75,6 +75,7 @@ export function setupSwagger(app: INestApplication): void {
 			},
 			"API-Key",
 		)
+		.addTag("Analytics", "Workforce insights and reporting")
 		.addTag("Authentication", "User authentication and authorization")
 		.addTag("Tenants", "Multi-tenant organization management")
 		.addTag("Users", "User account management")
@@ -99,7 +100,7 @@ export function setupSwagger(app: INestApplication): void {
 		altText: "PaqadHR Logo",
 	};
 
-	SwaggerModule.setup("api/docs", app, document, {
+	SwaggerModule.setup("docs", app, document, {
 		swaggerOptions: {
 			persistAuthorization: true,
 			displayRequestDuration: true,

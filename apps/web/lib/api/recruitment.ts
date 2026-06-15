@@ -1,15 +1,23 @@
 import { apiClient, tenantPath } from "@/lib/api/client";
 import { resolveTenantId } from "@/lib/api/tenants";
+import { mapApiCandidate, mapApiCandidates } from "@/lib/mappers/recruitment";
 import {
   jobOpeningSchema,
   jobsListResponseSchema,
-  candidatesListResponseSchema,
   candidateSchema,
   type CreateJobOpeningInput,
+  type CreateCandidateInput,
   type JobOpening,
   type Candidate,
   type CandidateStatus,
 } from "@/lib/schemas/recruitment";
+import { z } from "zod";
+
+function parseCandidates(data: unknown): Candidate[] {
+  const items = Array.isArray(data) ? data : [];
+  const mapped = mapApiCandidates(items as never);
+  return z.array(candidateSchema).parse(mapped);
+}
 
 export async function fetchJobOpenings(params?: {
   status?: string;
@@ -70,21 +78,29 @@ export async function fetchCandidatesByJob(
   const data = await apiClient<unknown>(
     tenantPath(tenantId, `candidates/jobs/${jobId}`),
   );
-  const parsed = candidatesListResponseSchema.safeParse(data);
-  if (!parsed.success) {
-    return [];
-  }
-  return parsed.data;
+  return parseCandidates(data);
 }
 
 export async function fetchAllCandidates(): Promise<Candidate[]> {
   const tenantId = await resolveTenantId();
   const data = await apiClient<unknown>(tenantPath(tenantId, "candidates"));
-  const parsed = candidatesListResponseSchema.safeParse(data);
-  if (!parsed.success) {
-    return [];
-  }
-  return parsed.data;
+  return parseCandidates(data);
+}
+
+export async function createCandidate(
+  input: CreateCandidateInput,
+): Promise<Candidate> {
+  const tenantId = await resolveTenantId();
+  const body = {
+    ...input,
+    linkedinUrl: input.linkedinUrl || undefined,
+    portfolioUrl: input.portfolioUrl || undefined,
+  };
+  const data = await apiClient<unknown>(tenantPath(tenantId, "candidates"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  return candidateSchema.parse(mapApiCandidate(data as never));
 }
 
 export async function updateCandidateStatus(

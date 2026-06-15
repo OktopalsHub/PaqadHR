@@ -12,15 +12,16 @@ import type { NavItem } from "../constants/nav-items";
 
 export const NavMain = ({ items }: { items: NavItem[] }) => {
   const pathname = usePathname();
-  const mainItems = items.filter((item) => item.href !== "/app/settings");
+  const dashboardHref = items.find((item) => item.segment === "")?.href;
+  const mainItems = items.filter((item) => item.segment !== "settings");
 
   return (
     <SidebarGroup className="p-0">
       <SidebarMenu className="gap-1">
         {mainItems.map((item) => {
           const isActive =
-            item.href === "/app"
-              ? pathname === "/app"
+            item.href === dashboardHref
+              ? pathname === dashboardHref
               : pathname.startsWith(item.href);
 
           return (

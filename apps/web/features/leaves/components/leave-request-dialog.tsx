@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCreateLeave } from "@/hooks/queries/use-leaves";
+import { useCreateLeave, useLeaveBalances } from "@/hooks/queries/use-leaves";
 import { toast } from "sonner";
 
 interface LeaveRequestDialogProps {
@@ -34,12 +34,24 @@ export function LeaveRequestDialog({
   onOpenChange,
 }: LeaveRequestDialogProps) {
   const createLeave = useCreateLeave();
-  const [leaveTypeId, setLeaveTypeId] = useState("annual");
+  const { data: balances = [], isLoading: balancesLoading } = useLeaveBalances();
+  const [leaveTypeId, setLeaveTypeId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [reason, setReason] = useState("");
 
+  useEffect(() => {
+    if (!leaveTypeId && balances.length > 0) {
+      setLeaveTypeId(balances[0].leaveTypeId);
+    }
+  }, [balances, leaveTypeId]);
+
   const handleSubmit = async () => {
+    if (!leaveTypeId) {
+      toast.error("Select a leave type before submitting.");
+      return;
+    }
+
     try {
       await createLeave.mutateAsync({
         leaveTypeId,
@@ -80,14 +92,28 @@ export function LeaveRequestDialog({
             <label htmlFor="leaveType" className="text-sm font-medium">
               Leave Type
             </label>
-            <Select value={leaveTypeId} onValueChange={setLeaveTypeId}>
+            <Select
+              value={leaveTypeId}
+              onValueChange={setLeaveTypeId}
+              disabled={balancesLoading || balances.length === 0}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select leave type" />
+                <SelectValue
+                  placeholder={
+                    balancesLoading
+                      ? "Loading leave types..."
+                      : balances.length === 0
+                        ? "No leave types available"
+                        : "Select leave type"
+                  }
+                />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="annual">Annual Leave</SelectItem>
-                <SelectItem value="sick">Sick Leave</SelectItem>
-                <SelectItem value="personal">Personal Leave</SelectItem>
+                {balances.map((balance) => (
+                  <SelectItem key={balance.leaveTypeId} value={balance.leaveTypeId}>
+                    {balance.leaveTypeName} ({balance.remaining} days left)
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -139,7 +165,7 @@ export function LeaveRequestDialog({
           <Button
             type="submit"
             onClick={handleSubmit}
-            disabled={createLeave.isPending}
+            disabled={createLeave.isPending || !leaveTypeId}
           >
             Submit Request
           </Button>

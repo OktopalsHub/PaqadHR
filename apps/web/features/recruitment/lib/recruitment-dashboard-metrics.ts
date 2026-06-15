@@ -37,7 +37,7 @@ export type SourceChartPoint = {
 
 export type ApplicantRow = {
   id: string;
-  jobOpeningId: string;
+  jobOpeningId?: string;
   name: string;
   email: string;
   role: string;

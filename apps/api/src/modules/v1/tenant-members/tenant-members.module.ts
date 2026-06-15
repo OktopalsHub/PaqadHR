@@ -10,6 +10,7 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantMemberRepository } from './repositories/tenant-members.repository';
 import { TenantCounterRepository } from './repositories/tenant-counter.repository';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
+import { HeaderTenantMemberGuard } from './guards/header-tenant-member.guard';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { FileModule } from '../../../common/modules/file.module';
 
@@ -25,7 +26,13 @@ import { FileModule } from '../../../common/modules/file.module';
     TenantMemberRepository,
     TenantCounterRepository,
     TenantMemberGuard,
+    HeaderTenantMemberGuard,
   ],
-  exports: [TenantMembersService, TenantMemberGuard, TypeOrmModule],
+  exports: [
+    TenantMembersService,
+    TenantMemberGuard,
+    HeaderTenantMemberGuard,
+    TypeOrmModule,
+  ],
 })
 export class TenantMembersModule {}

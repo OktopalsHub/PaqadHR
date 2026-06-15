@@ -3,11 +3,10 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ContentCard } from "@/components/content-card";
 import { formatDistanceToNow } from "date-fns";
-import type { ActivityItem } from "../../lib/recruitment-demo-dashboard";
+import type { ActivityItem } from "../../lib/recruitment-types";
 
 type RecruitmentActivityFeedProps = {
   items: ActivityItem[];
-  isPreview?: boolean;
 };
 
 function initials(name: string) {
@@ -19,18 +18,9 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-export function RecruitmentActivityFeed({
-  items,
-  isPreview,
-}: RecruitmentActivityFeedProps) {
+export function RecruitmentActivityFeed({ items }: RecruitmentActivityFeedProps) {
   return (
-    <ContentCard
-      title="Recent activity"
-      description={
-        isPreview ? "Preview — activity logging coming soon" : undefined
-      }
-      bodyClassName="space-y-3"
-    >
+    <ContentCard title="Recent activity" bodyClassName="space-y-3">
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Activity will appear here as your team works in Recruitment.

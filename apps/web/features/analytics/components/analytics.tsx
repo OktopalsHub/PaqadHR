@@ -1,47 +1,140 @@
 "use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Briefcase,
+  CalendarClock,
+  Heart,
+  Target,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { AppPage } from "@/components/app-page";
-import { CompanyAnalytics } from "./company-analytics";
-import { ReportsGenerator } from "./reports-generator";
-import { TeamManagement } from "@/components/team-management";
-import { LearningAnalytics } from "./learning-analytics";
+import { LoadingBlock } from "@/components/loading-block";
+import { StatCard } from "@/components/stat-card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { useAnalyticsOverview } from "@/hooks/queries/use-analytics";
+import { formatDate } from "@/lib/format-date";
+import { AnalyticsCharts } from "./analytics-charts";
+
+function formatCurrency(amount: number | null, currency: string | null) {
+  if (amount == null) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency ?? "USD",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency ?? ""} ${amount.toLocaleString()}`.trim();
+  }
+}
 
 export const Analytics = () => {
+  const { data, isLoading, isError, error } = useAnalyticsOverview();
+
+  if (isLoading) {
+    return (
+      <AppPage>
+        <LoadingBlock />
+      </AppPage>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <AppPage>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load analytics</AlertTitle>
+          <AlertDescription>
+            {error instanceof Error ? error.message : "Something went wrong"}
+          </AlertDescription>
+        </Alert>
+      </AppPage>
+    );
+  }
+
   return (
-    <AppPage>
-      <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="grid h-11 w-full max-w-2xl grid-cols-4 rounded-xl">
-          <TabsTrigger value="overview" className="rounded-lg">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="teams" className="rounded-lg">
-            Teams
-          </TabsTrigger>
-          <TabsTrigger value="learning" className="rounded-lg">
-            Learning
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="rounded-lg">
-            Reports
-          </TabsTrigger>
-        </TabsList>
+    <AppPage className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">
+            Live workforce, hiring, leave, payroll, and recognition insights.
+          </p>
+        </div>
+        <Badge variant="outline" className="font-normal">
+          Updated {formatDate(data.generatedAt)}
+        </Badge>
+      </div>
 
-        <TabsContent value="overview" className="space-y-5">
-          <CompanyAnalytics />
-        </TabsContent>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Active employees"
+          value={data.workforce.activeEmployees}
+          hint={`${data.workforce.totalEmployees} total · ${data.workforce.newHiresLast30Days} new this month`}
+          icon={Users}
+        />
+        <StatCard
+          label="Open roles"
+          value={data.recruitment.openRoles}
+          hint={`${data.recruitment.totalCandidates} candidates · ${data.recruitment.hired} hired`}
+          icon={Briefcase}
+        />
+        <StatCard
+          label="Pending leave"
+          value={data.leaves.pending}
+          hint={`${data.leaves.onLeaveNow} out today`}
+          icon={CalendarClock}
+        />
+        <StatCard
+          label="Last payroll"
+          value={formatCurrency(
+            data.payroll.lastRunAmount,
+            data.payroll.lastRunCurrency,
+          )}
+          hint={
+            data.payroll.lastRunTitle
+              ? data.payroll.lastRunTitle
+              : `${data.payroll.completedRuns} completed runs`
+          }
+          icon={Wallet}
+        />
+      </div>
 
-        <TabsContent value="teams" className="space-y-5">
-          <TeamManagement />
-        </TabsContent>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Attendance rate"
+          value={
+            data.attendance.attendanceRate != null
+              ? `${data.attendance.attendanceRate}%`
+              : "—"
+          }
+          hint={`Last ${data.attendance.periodDays} days`}
+          icon={Target}
+        />
+        <StatCard
+          label="Departments"
+          value={data.workforce.departmentCount}
+          hint="Organizational units"
+          icon={TrendingUp}
+        />
+        <StatCard
+          label="Shoutouts"
+          value={data.recognition.shoutoutsThisMonth}
+          hint={`${data.recognition.pointsAwardedThisMonth.toLocaleString()} points this month`}
+          icon={Heart}
+        />
+        <StatCard
+          label="Payroll runs"
+          value={data.payroll.totalRuns}
+          hint={`${data.payroll.completedRuns} completed`}
+          icon={Wallet}
+          iconClassName="bg-chart-2/15 text-chart-2"
+        />
+      </div>
 
-        <TabsContent value="learning" className="space-y-5">
-          <LearningAnalytics />
-        </TabsContent>
-
-        <TabsContent value="reports" className="space-y-5">
-          <ReportsGenerator />
-        </TabsContent>
-      </Tabs>
+      <AnalyticsCharts data={data} />
     </AppPage>
   );
 };

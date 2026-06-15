@@ -1,7 +1,10 @@
 "use client";
-//TODO: compose reusable Dialog/Modal with either redux,zustand or contextApi
+
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +12,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -18,7 +20,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { useDepartments } from "@/hooks/queries/use-departments";
+import { createEmployeeInvite } from "@/lib/api/employees";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query/keys";
+import { useTenant } from "@/providers/tenant-provider";
 
 interface AddEmployeeDialogProps {
   isOpen: boolean;
@@ -29,81 +35,120 @@ export const AddEmployeeDialog = ({
   isOpen,
   onOpenChange,
 }: AddEmployeeDialogProps) => {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const { data: departments = [] } = useDepartments();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetForm = () => {
+    setFirstName("");
+    setLastName("");
+    setEmail("");
+    setJobTitle("");
+    setDepartmentId("");
+  };
+
+  const handleSubmit = async () => {
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
+      toast.error("First name, last name, and email are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createEmployeeInvite({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        role: "member",
+        jobTitle: jobTitle.trim() || undefined,
+        departmentId: departmentId || undefined,
+      });
+
+      toast.success("Invitation sent successfully.");
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.employees.all, tenantId],
+      });
+      resetForm();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to send invitation",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
-          <Plus size={16} />
-          <span>Add Employee</span>
-        </Button>
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Employee</DialogTitle>
+          <DialogTitle>Invite employee</DialogTitle>
           <DialogDescription>
-            Enter employee details below. Click save when you&apos;re done.
+            Send an invitation to join your workspace. They will receive an email
+            to complete onboarding.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <label htmlFor="name" className="text-sm font-medium">
-              Full Name
-            </label>
-            <Input id="name" placeholder="John Doe" />
-          </div>
-          <div className="grid gap-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <Input id="email" type="email" placeholder="john@example.com" />
-          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <label htmlFor="department" className="text-sm font-medium">
-                Department
-              </label>
-              <Select>
-                <SelectTrigger id="department">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="engineering">Engineering</SelectItem>
-                  <SelectItem value="design">Design</SelectItem>
-                  <SelectItem value="marketing">Marketing</SelectItem>
-                  <SelectItem value="hr">HR</SelectItem>
-                  <SelectItem value="finance">Finance</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="first-name">First name</Label>
+              <Input
+                id="first-name"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="John"
+              />
             </div>
             <div className="grid gap-2">
-              <label htmlFor="role" className="text-sm font-medium">
-                Role
-              </label>
-              <Input id="role" placeholder="Frontend Developer" />
+              <Label htmlFor="last-name">Last name</Label>
+              <Input
+                id="last-name"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Doe"
+              />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <label htmlFor="status" className="text-sm font-medium">
-                Status
-              </label>
-              <Select>
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="on-leave">On Leave</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <label htmlFor="join-date" className="text-sm font-medium">
-                Join Date
-              </label>
-              <Input id="join-date" type="date" />
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="john@example.com"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="job-title">Job title (optional)</Label>
+            <Input
+              id="job-title"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="Frontend Developer"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="department">Department (optional)</Label>
+            <Select value={departmentId} onValueChange={setDepartmentId}>
+              <SelectTrigger id="department">
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((dept) => (
+                  <SelectItem key={dept.id} value={dept.id}>
+                    {dept.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>
@@ -111,11 +156,12 @@ export const AddEmployeeDialog = ({
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
           >
             Cancel
           </Button>
-          <Button type="submit" onClick={() => onOpenChange(false)}>
-            Save Employee
+          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? "Sending…" : "Send invitation"}
           </Button>
         </DialogFooter>
       </DialogContent>

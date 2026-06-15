@@ -13,6 +13,21 @@ export class InterviewRepository extends Repository<Interview> {
   ) {
     super(interviewRepository.target, interviewRepository.manager, interviewRepository.queryRunner);
   }
+
+  private applyInterviewerFilter(
+    queryBuilder: ReturnType<Repository<Interview>['createQueryBuilder']>,
+    interviewerId: string,
+  ) {
+    queryBuilder.andWhere(
+      `EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(interview.interviewers::jsonb) interviewer_elem
+        WHERE interviewer_elem->>'userId' = :interviewerId
+      )`,
+      { interviewerId },
+    );
+  }
+
   async findByTenantMemberAndId(
     tenantId: string,
     tenantMemberId: string,
@@ -69,10 +84,7 @@ export class InterviewRepository extends Repository<Interview> {
       });
     }
     if (filters?.interviewerId) {
-      queryBuilder.andWhere(
-        "JSON_EXTRACT(interview.interviewers, '$[*].userId') LIKE :interviewerId",
-        { interviewerId: `%${filters.interviewerId}%` },
-      );
+      this.applyInterviewerFilter(queryBuilder, filters.interviewerId);
     }
     if (filters?.dateFrom && filters?.dateTo) {
       queryBuilder.andWhere('interview.date BETWEEN :dateFrom AND :dateTo', {
@@ -128,7 +140,7 @@ export class InterviewRepository extends Repository<Interview> {
   }
   async findUpcomingInterviews(
     tenantId: string,
-    tenantMemberId: string,
+    _tenantMemberId: string,
     days: number = 7,
   ): Promise<Interview[]> {
     const now = new Date();
@@ -137,7 +149,6 @@ export class InterviewRepository extends Repository<Interview> {
     return this.interviewRepository.find({
       where: {
         tenantId,
-        tenantMemberId,
         status: InterviewStatus.SCHEDULED,
         date: Between(now, futureDate),
       },
@@ -147,15 +158,16 @@ export class InterviewRepository extends Repository<Interview> {
   }
   async findTodaysInterviews(
     tenantId: string,
-    tenantMemberId: string,
+    _tenantMemberId: string,
   ): Promise<Interview[]> {
     const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    const startOfDay = new Date(today);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(today);
+    endOfDay.setHours(23, 59, 59, 999);
     return this.interviewRepository.find({
       where: {
         tenantId,
-        tenantMemberId,
         date: Between(startOfDay, endOfDay),
       },
       relations: ['candidate', 'jobOpening'],
@@ -173,11 +185,8 @@ export class InterviewRepository extends Repository<Interview> {
       .leftJoinAndSelect('interview.candidate', 'candidate')
       .leftJoinAndSelect('interview.jobOpening', 'jobOpening')
       .where('interview.tenantId = :tenantId', { tenantId })
-      .andWhere(
-        "JSON_EXTRACT(interview.interviewers, '$[*].userId') LIKE :interviewerId",
-        { interviewerId: `%${interviewerId}%` },
-      )
       .andWhere('interview.deletedAt IS NULL');
+    this.applyInterviewerFilter(queryBuilder, interviewerId);
     if (dateFrom && dateTo) {
       queryBuilder.andWhere('interview.date BETWEEN :dateFrom AND :dateTo', {
         dateFrom,
@@ -218,7 +227,9 @@ export class InterviewRepository extends Repository<Interview> {
       .andWhere('interview.status = :status', { status: 'COMPLETED' })
       .andWhere('interview.deletedAt IS NULL')
       .andWhere(
-        '(interview.feedback IS NULL OR JSON_LENGTH(interview.feedback) = 0)',
+        `(interview.feedback IS NULL
+          OR interview.feedback::jsonb = '[]'::jsonb
+          OR jsonb_array_length(interview.feedback::jsonb) = 0)`,
       );
     return queryBuilder.orderBy('interview.date', 'DESC').getMany();
   }
@@ -229,20 +240,18 @@ export class InterviewRepository extends Repository<Interview> {
     duration: number,
     excludeInterviewId?: string,
   ): Promise<boolean> {
-    const endDate = new Date(startDate.getTime() + duration * 60000); 
+    const endDate = new Date(startDate.getTime() + duration * 60000);
     const queryBuilder = this.interviewRepository
       .createQueryBuilder('interview')
       .where('interview.tenantId = :tenantId', { tenantId })
       .andWhere('interview.status = :status', { status: 'SCHEDULED' })
-      .andWhere('interview.deletedAt IS NULL')
-      .andWhere(
-        "JSON_EXTRACT(interview.interviewers, '$[*].userId') LIKE :interviewerId",
-        { interviewerId: `%${interviewerId}%` },
-      )
-      .andWhere(
-        '(interview.date < :endDate AND DATE_ADD(interview.date, INTERVAL interview.duration MINUTE) > :startDate)',
-        { startDate, endDate },
-      );
+      .andWhere('interview.deletedAt IS NULL');
+    this.applyInterviewerFilter(queryBuilder, interviewerId);
+    queryBuilder.andWhere(
+      `(interview.date < :endDate
+        AND (interview.date + (interview.duration * interval '1 minute')) > :startDate)`,
+      { startDate, endDate },
+    );
     if (excludeInterviewId) {
       queryBuilder.andWhere('interview.id != :excludeInterviewId', {
         excludeInterviewId,

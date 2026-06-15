@@ -1,13 +1,13 @@
 import { apiClient, clearCsrfToken } from "@/lib/api/client";
+import { fetchUserTenants } from "@/lib/api/tenants";
 import {
   clearSessionStorage,
   persistSession,
-  readSession,
+  persistTenantId,
+  persistTenantSlug,
 } from "@/lib/session";
 import type { LoginInput, SignupInput, User } from "@/lib/schemas/auth";
 import { userSchema } from "@/lib/schemas/auth";
-
-const ONBOARDING_KEY = "onboarding_completed";
 
 type AuthResponse = {
   user: { id: string; email: string; role: string };
@@ -32,18 +32,27 @@ function mapAuthUser(
   });
 }
 
+async function syncTenantFromApi(): Promise<boolean> {
+  const tenants = await fetchUserTenants();
+  if (tenants.length === 0) return true;
+
+  const active = tenants.find((item) => item.isActive) ?? tenants[0];
+  persistTenantId(active.id);
+  if (active.slug) persistTenantSlug(active.slug);
+  return false;
+}
+
 export async function getSession(): Promise<User | null> {
   if (typeof window === "undefined") return null;
 
   try {
     const profile = await apiClient<ProfileResponse>("/users/profile");
-    if (!profile) return readSession();
-
-    const user = mapAuthUser(profile, !localStorage.getItem(ONBOARDING_KEY));
+    const needsOnboarding = await syncTenantFromApi();
+    const user = mapAuthUser(profile, needsOnboarding);
     persistSession(user);
     return user;
   } catch {
-    return readSession();
+    return null;
   }
 }
 
@@ -57,10 +66,8 @@ export async function login(input: LoginInput): Promise<User> {
     skipCsrf: true,
   });
 
-  const user = mapAuthUser(
-    response.user,
-    !localStorage.getItem(ONBOARDING_KEY),
-  );
+  const needsOnboarding = await syncTenantFromApi();
+  const user = mapAuthUser(response.user, needsOnboarding);
   persistSession(user);
   return user;
 }
@@ -92,6 +99,12 @@ export async function logoutRequest(): Promise<void> {
 
 export async function requestPasswordReset(email: string): Promise<void> {
   if (!email) throw new Error("Email is required");
+
+  await apiClient<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+    skipCsrf: true,
+  });
 }
 
 export function clearSession() {

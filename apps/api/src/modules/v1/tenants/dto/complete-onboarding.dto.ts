@@ -9,6 +9,17 @@ export class CompleteOnboardingDto {
   @MaxLength(50)
   name: string;
 
+  @ApiProperty({
+    example: 'acme-corp',
+    required: false,
+    description: 'Workspace URL slug (auto-generated if omitted)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(25)
+  slug?: string;
+
   @ApiProperty({ example: 'Technology', required: false })
   @IsOptional()
   @IsString()
@@ -55,4 +66,14 @@ export class CompleteOnboardingDto {
   @MinLength(2)
   @MaxLength(100)
   jobTitle: string;
+
+  @ApiProperty({
+    example: 'starter',
+    required: false,
+    description: 'Trial plan slug selected during onboarding',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  planSlug?: string;
 }

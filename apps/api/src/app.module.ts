@@ -42,6 +42,7 @@ import { TeamsModule } from "./modules/v1/teams/teams.module";
 import { WebhooksModule } from "./modules/v1/webhooks/webhooks.module";
 import { PaymentMethodModule } from "./modules/v1/payment-method/payment-method.module";
 import { ShoutoutsModule } from "./modules/v1/shoutouts/shoutouts.module";
+import { AnalyticsModule } from "./modules/v1/analytics/analytics.module";
 
 @Module({
   imports: [
@@ -82,6 +83,7 @@ import { ShoutoutsModule } from "./modules/v1/shoutouts/shoutouts.module";
     WebhooksModule,
     PaymentMethodModule,
     ShoutoutsModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [

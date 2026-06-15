@@ -11,6 +11,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Employee } from "../types/";
 import { getInitials } from "@/lib/utils";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 import { getStatusStyles } from "../utils/";
 
 interface EmployeeCardsProps {
@@ -18,11 +19,13 @@ interface EmployeeCardsProps {
 }
 
 export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
+  const tenantHref = useTenantHref();
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {employees.length > 0 ? (
         employees.map((employee) => (
-          <Link href={`/app/employees/${employee.id}`} key={employee.id}>
+          <Link href={tenantHref(`employees/${employee.id}`)} key={employee.id}>
             <Card className="overflow-hidden hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">

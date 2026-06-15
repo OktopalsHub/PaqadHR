@@ -3,7 +3,7 @@ import {
   getEventsForDay,
   parseEventDate,
 } from "@/features/calenders/lib/calendar-utils";
-import type { ScheduleEvent } from "./recruitment-demo-dashboard";
+import type { ScheduleEvent } from "./recruitment-types";
 
 export function calendarEventsToSchedule(
   events: CalendarEvent[],

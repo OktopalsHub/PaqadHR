@@ -8,6 +8,7 @@ import type { JobOpening } from "@/lib/schemas/recruitment";
 import {
   formatEmploymentType,
 } from "../../lib/recruitment-dashboard-metrics";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 
 type RecruitmentVacancyGridProps = {
   jobs: JobOpening[];
@@ -26,6 +27,8 @@ export function RecruitmentVacancyGrid({
   applicantCounts,
   onSelectDetails,
 }: RecruitmentVacancyGridProps) {
+  const tenantHref = useTenantHref();
+
   return (
     <ContentCard
       title="Current vacancies"
@@ -38,7 +41,7 @@ export function RecruitmentVacancyGrid({
         jobs.map((job) => (
           <Link
             key={job.id}
-            href={`/app/recruitment/${job.id}`}
+            href={tenantHref(`recruitment/roles/${job.id}`)}
             className="rounded-xl border border-border/60 bg-muted/20 p-4 transition-colors hover:border-primary/25"
           >
             <div className="flex items-start justify-between gap-2">

@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
-import { TenantsModule } from '../tenants/tenants.module';
 import { PositionMemberService } from './services/position-member.service';
 import { PositionService } from './services/position.service';
 import { Position } from "./entities/position.entity";
@@ -14,7 +13,6 @@ import { PositionRepository } from "./repositories/position.repository";
 @Module({
   imports: [
     TypeOrmModule.forFeature([Position, PositionMember]),
-    TenantsModule,
     TenantMembersModule,
   ],
   controllers: [PositionController, PositionMemberController],

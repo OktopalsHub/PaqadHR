@@ -27,13 +27,13 @@ export class CreateJobOpeningDto {
   @IsString({ message: 'Job title must be a text value' })
   @IsNotEmpty({ message: 'Job title is required' })
   title: string;
-  @ApiProperty({
-    description: 'Department ID',
+  @ApiPropertyOptional({
+    description: 'Department ID (optional — jobs are tenant-scoped)',
     example: 'uuid-of-department',
   })
+  @IsOptional()
   @IsUUID(4, { message: 'Department ID must be a valid UUID' })
-  @IsNotEmpty({ message: 'Department ID is required' })
-  departmentId: string;
+  departmentId?: string;
   @ApiProperty({
     description: 'Position name',
     example: 'Software Engineer',

@@ -7,7 +7,7 @@ const structuredData = {
   applicationCategory: "BusinessApplication",
   operatingSystem: "Web",
   description:
-    "People operations software for recruitment, payroll, leave management, and team recognition.",
+    "Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.",
   offers: {
     "@type": "Offer",
     price: "0",

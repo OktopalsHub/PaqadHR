@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +16,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/hooks/use-auth";
-import { completeOnboarding, fetchPricingPreview } from "@/lib/api/onboarding";
+import {
+  checkSlugAvailability,
+  completeOnboarding,
+} from "@/lib/api/onboarding";
+import { tenantRoot } from "@/lib/navigation/tenant-routes";
 import { queryKeys } from "@/lib/query/keys";
-import { markOnboardingComplete } from "@/lib/session";
+import {
+  getAppBaseUrl,
+  isSlugFormatValid,
+  slugifyInput,
+} from "@/lib/utils/slug";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Company", "You", "Region", "Launch"] as const;
+const STEPS = ["Company", "You", "Launch"] as const;
 
 const INDUSTRIES = [
   "Technology",
@@ -33,11 +42,6 @@ const INDUSTRIES = [
 ];
 
 const COMPANY_SIZES = ["1-10", "11-50", "51-200", "201-500", "500+"];
-
-const COUNTRIES = [
-  { code: "NG", label: "Nigeria" },
-  { code: "GLOBAL", label: "Global (USD)" },
-];
 
 function splitFullName(name?: string | null) {
   const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
@@ -52,13 +56,20 @@ export function OnboardingWizard() {
   const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [debouncedSlug, setDebouncedSlug] = useState("");
+  const [appBaseUrl, setAppBaseUrl] = useState("");
+  const slugTouchedRef = useRef(false);
   const [industry, setIndustry] = useState("");
   const [companySize, setCompanySize] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [preferredName, setPreferredName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
-  const [country, setCountry] = useState("NG");
+
+  useEffect(() => {
+    setAppBaseUrl(getAppBaseUrl());
+  }, []);
 
   useEffect(() => {
     if (!user?.name || firstName || lastName) return;
@@ -67,25 +78,62 @@ export function OnboardingWizard() {
     setLastName(parsed.lastName);
   }, [user?.name, firstName, lastName]);
 
-  const pricingQuery = useQuery({
-    queryKey: queryKeys.onboarding.pricing(country),
-    queryFn: () => fetchPricingPreview(country),
-    enabled: step >= 2,
+  useEffect(() => {
+    if (slugTouchedRef.current) return;
+    if (!name.trim()) {
+      setSlug("");
+      return;
+    }
+    setSlug(slugifyInput(name));
+  }, [name]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSlug(slug.trim());
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [slug]);
+
+  const slugFormatValid = isSlugFormatValid(slug.trim());
+  const debouncedSlugValid = isSlugFormatValid(debouncedSlug);
+
+  const slugAvailabilityQuery = useQuery({
+    queryKey: queryKeys.onboarding.slugAvailability(debouncedSlug),
+    queryFn: () => checkSlugAvailability(debouncedSlug),
+    enabled: debouncedSlug.length >= 2 && debouncedSlugValid,
+    retry: false,
+    staleTime: 30_000,
   });
+
+  const slugCheckPending =
+    slug.trim().length >= 2 &&
+    debouncedSlugValid &&
+    (debouncedSlug !== slug.trim() || slugAvailabilityQuery.isFetching);
+
+  const slugBlocked =
+    slug.trim().length >= 2 &&
+    debouncedSlug === slug.trim() &&
+    debouncedSlugValid &&
+    slugAvailabilityQuery.isSuccess &&
+    !slugAvailabilityQuery.data.available;
+
+  const canContinueStep0 =
+    name.trim().length >= 2 && slugFormatValid && !slugBlocked;
 
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
-    onSuccess: (result) => {
-      markOnboardingComplete();
-      void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
       if (result.tenant?.id) {
-        void queryClient.invalidateQueries({
+        await queryClient.invalidateQueries({
           queryKey: queryKeys.member.profile(result.tenant.id),
         });
       }
       toast.success(`Workspace "${result.tenant.name}" is ready`);
-      router.push("/app");
+      if (result.tenant.slug) {
+        router.push(tenantRoot(result.tenant.slug));
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -94,14 +142,12 @@ export function OnboardingWizard() {
 
   const canContinue =
     step === 0
-      ? name.trim().length >= 2
+      ? canContinueStep0
       : step === 1
         ? firstName.trim().length >= 1 &&
           lastName.trim().length >= 1 &&
           jobTitle.trim().length >= 2
-        : step === 2
-          ? Boolean(country)
-          : true;
+        : true;
 
   const handleNext = () => {
     if (step < STEPS.length - 1) {
@@ -110,9 +156,9 @@ export function OnboardingWizard() {
     }
     completeMutation.mutate({
       name: name.trim(),
+      slug: slugifyInput(slug.trim()),
       industry: industry || undefined,
       companySize: companySize || undefined,
-      businessCountry: country,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       preferredName: preferredName.trim() || undefined,
@@ -168,35 +214,98 @@ export function OnboardingWizard() {
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
+
               <div className="space-y-2">
-                <Label>Industry</Label>
-                <Select value={industry} onValueChange={setIndustry}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {INDUSTRIES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="workspace-slug">Workspace slug</Label>
+                <div className="flex overflow-hidden rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
+                  <span className="flex max-w-[55%] shrink-0 items-center border-r border-input bg-muted/50 px-3 text-xs text-muted-foreground sm:max-w-none sm:text-sm">
+                    {appBaseUrl || "…/"}
+                  </span>
+                  <Input
+                    id="workspace-slug"
+                    value={slug}
+                    onChange={(e) => {
+                      slugTouchedRef.current = true;
+                      setSlug(slugifyInput(e.target.value));
+                    }}
+                    placeholder="acme-inc"
+                    className="border-0 shadow-none focus-visible:ring-0"
+                    aria-describedby="workspace-slug-hint"
+                  />
+                </div>
+                <p
+                  id="workspace-slug-hint"
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs",
+                    slugCheckPending && "text-muted-foreground",
+                    slug.trim().length >= 2 &&
+                      !slugCheckPending &&
+                      slugAvailabilityQuery.data?.available &&
+                      "text-emerald-600 dark:text-emerald-400",
+                    slugBlocked && "text-destructive",
+                    slug.trim().length >= 2 && !slugFormatValid && "text-destructive",
+                    slug.trim().length < 2 && "text-muted-foreground",
+                  )}
+                >
+                  {slug.trim().length < 2 ? (
+                    "Pick a short slug for your workspace. It cannot be changed later."
+                  ) : !slugFormatValid ? (
+                    <>
+                      <XCircle className="size-3.5 shrink-0" />
+                      Use 2–25 lowercase letters, numbers, and hyphens.
+                    </>
+                  ) : slugCheckPending ? (
+                    "Checking availability…"
+                  ) : slugAvailabilityQuery.data?.available ? (
+                    <>
+                      <CheckCircle2 className="size-3.5 shrink-0" />
+                      This slug is available.
+                    </>
+                  ) : slugAvailabilityQuery.data?.reason === "taken" ? (
+                    <>
+                      <XCircle className="size-3.5 shrink-0" />
+                      This slug is already taken.
+                    </>
+                  ) : slugAvailabilityQuery.data?.reason === "reserved" ? (
+                    <>
+                      <XCircle className="size-3.5 shrink-0" />
+                      This slug is reserved.
+                    </>
+                  ) : null}
+                </p>
               </div>
-              <div className="space-y-2">
-                <Label>Company size</Label>
-                <Select value={companySize} onValueChange={setCompanySize}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {COMPANY_SIZES.map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item} employees
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Industry</Label>
+                  <Select value={industry} onValueChange={setIndustry}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INDUSTRIES.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Company size</Label>
+                  <Select value={companySize} onValueChange={setCompanySize}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {COMPANY_SIZES.map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {item} employees
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
           </div>
@@ -264,53 +373,6 @@ export function OnboardingWizard() {
           <div className="space-y-6">
             <div>
               <h2 className="text-xl font-semibold tracking-tight">
-                Billing region
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Pricing is locked to your business location. This cannot be
-                changed later.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Country</Label>
-              <Select value={country} onValueChange={setCountry}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {COUNTRIES.map((item) => (
-                    <SelectItem key={item.code} value={item.code}>
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {pricingQuery.data ? (
-              <div className="rounded-xl border bg-muted/40 p-4 text-sm">
-                <p className="font-medium">Starter plan preview</p>
-                <p className="mt-1 text-muted-foreground">
-                  Currency: {pricingQuery.data.currency} · 14-day free trial
-                </p>
-                {pricingQuery.data.pricing[0] ? (
-                  <p className="mt-2 text-foreground">
-                    From{" "}
-                    {pricingQuery.data.pricing[0].price.currency}{" "}
-                    {Number(
-                      pricingQuery.data.pricing[0].price.monthlyPrice,
-                    ).toLocaleString()}
-                    /mo after trial
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {step === 3 ? (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">
                 Ready to launch
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -321,6 +383,17 @@ export function OnboardingWizard() {
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Company</dt>
                 <dd className="font-medium">{name}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Slug</dt>
+                <dd className="font-medium">{slug}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Workspace path</dt>
+                <dd className="truncate font-medium">
+                  {appBaseUrl}
+                  {slug}
+                </dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">You</dt>
@@ -350,14 +423,6 @@ export function OnboardingWizard() {
                   <dd className="font-medium">{companySize}</dd>
                 </div>
               ) : null}
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Region</dt>
-                <dd className="font-medium">{country}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Trial</dt>
-                <dd className="font-medium">14 days, all core features</dd>
-              </div>
             </dl>
           </div>
         ) : null}

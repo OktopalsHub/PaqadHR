@@ -1,18 +1,20 @@
-import { navItems } from "@/features/navigations/constants/nav-items";
+import { navItemDefs } from "@/features/navigations/constants/nav-items";
+import {
+  getTenantSlugFromPath,
+  tenantRoot,
+} from "@/lib/navigation/tenant-routes";
 
 export type BreadcrumbSegment = {
   label: string;
   href?: string;
 };
 
-const navLabelByHref = Object.fromEntries(
-  navItems.map((item) => [item.href, item.name]),
+const navLabelBySegment = Object.fromEntries(
+  navItemDefs.map((item) => [item.segment || "", item.name]),
 );
 
 function labelForSegment(segment: string): string {
-  const basePath = `/app/${segment}`;
-  if (navLabelByHref[basePath]) return navLabelByHref[basePath];
-
+  if (navLabelBySegment[segment]) return navLabelBySegment[segment];
   return segment.charAt(0).toUpperCase() + segment.slice(1);
 }
 
@@ -22,19 +24,22 @@ const UUID_RE =
 export function getBreadcrumbs(
   pathname: string,
   tailLabel?: string | null,
+  workspaceLabel?: string | null,
 ): BreadcrumbSegment[] {
-  if (!pathname.startsWith("/app")) {
-    return [];
-  }
-
-  if (pathname === "/app") {
-    return [{ label: "Dashboard" }];
-  }
+  const tenantSlug = getTenantSlugFromPath(pathname);
+  if (!tenantSlug) return [];
 
   const parts = pathname.split("/").filter(Boolean);
-  const segments: BreadcrumbSegment[] = [{ label: "Dashboard", href: "/app" }];
+  if (parts.length <= 1) return [];
 
-  let currentPath = "/app";
+  const segments: BreadcrumbSegment[] = [
+    {
+      label: workspaceLabel?.trim() || "Workspace",
+      href: tenantRoot(tenantSlug),
+    },
+  ];
+
+  let currentPath = tenantRoot(tenantSlug);
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
     const isLast = i === parts.length - 1;

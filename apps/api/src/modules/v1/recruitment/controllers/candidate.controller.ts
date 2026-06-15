@@ -1,13 +1,15 @@
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { RequireFeatures } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { FileUrlService } from 'src/common/services/file-url.service';
+import { MemberContext } from 'src/common/interfaces';
 import { CandidateService } from '../services/candidate.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CandidateMapper } from "../dto/candidate-response.dto";
+import { CreatePipelineCandidateDto } from "../dto/create-pipeline-candidate.dto";
 import { UpdateCandidateStatusDto } from "../dto/update-candidate-status.dto";
 
 @ApiTags('Tenant Candidates')
@@ -19,6 +21,19 @@ export class CandidateController {
     private readonly candidateService: CandidateService,
     private readonly fileUrlService: FileUrlService,
   ) {}
+  @Post()
+  async createCandidate(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: CreatePipelineCandidateDto,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    const candidate = await this.candidateService.createPipelineCandidate(
+      tenantId,
+      member.id,
+      dto,
+    );
+    return CandidateMapper.toResponse(candidate, this.fileUrlService);
+  }
   @Get()
   async getCandidatesByTenant(@Param('tenantId') tenantId: string) {
     const candidates =

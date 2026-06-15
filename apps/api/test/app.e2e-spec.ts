@@ -34,3 +34,25 @@ describe('Health (e2e)', () => {
       });
   });
 });
+
+describe('CSRF token (e2e)', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    app = await createE2eApp({ withRateLimit: true });
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /csrf/token returns a CSRF token', () => {
+    return request(app.getHttpServer())
+      .get('/csrf/token')
+      .expect(200)
+      .expect((res) => {
+        expect(typeof res.body.csrfToken).toBe('string');
+        expect(res.body.csrfToken.length).toBeGreaterThan(0);
+      });
+  });
+});

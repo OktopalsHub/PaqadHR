@@ -1,18 +1,22 @@
 import type { Employee } from "@/lib/schemas/employee";
 
-type ApiTenantMember = {
+export type ApiTenantMember = {
   id: string;
   firstName: string;
   lastName: string;
   preferredName?: string;
   phone?: string;
   dateOfBirth?: string;
+  gender?: string;
+  employeeNumber?: string;
+  role: string;
   isActive: boolean;
   joinDate?: string;
   avatarUrl?: string;
+  reportsToId?: string;
   user: { email: string };
-  position?: { title: string };
-  department?: { name: string };
+  position?: { id: string; title: string };
+  department?: { name: string; role?: string };
 };
 
 function memberStatus(isActive: boolean): Employee["status"] {

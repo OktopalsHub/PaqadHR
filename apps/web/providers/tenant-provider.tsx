@@ -4,13 +4,20 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/providers/auth-provider";
 import { useUserTenants } from "@/hooks/queries/use-tenants";
-import { persistTenantId, readTenantId } from "@/lib/session";
+import {
+  persistTenantId,
+  persistTenantSlug,
+  readTenantId,
+} from "@/lib/session";
+import { tenantRoot } from "@/lib/navigation/tenant-routes";
 import type { Tenant } from "@/lib/schemas/tenant";
 
 interface TenantContextValue {
@@ -24,6 +31,7 @@ interface TenantContextValue {
 const TenantContext = createContext<TenantContextValue | null>(null);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { data: tenants = [], isLoading } = useUserTenants({
     enabled: isAuthenticated,
@@ -41,10 +49,24 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     );
   }, [tenants, selectedId]);
 
-  const setTenantId = useCallback((tenantId: string) => {
-    persistTenantId(tenantId);
-    setSelectedId(tenantId);
-  }, []);
+  useEffect(() => {
+    if (!tenant) return;
+    persistTenantId(tenant.id);
+    if (tenant.slug) persistTenantSlug(tenant.slug);
+  }, [tenant]);
+
+  const setTenantId = useCallback(
+    (tenantId: string) => {
+      const next = tenants.find((item) => item.id === tenantId);
+      persistTenantId(tenantId);
+      setSelectedId(tenantId);
+      if (next?.slug) {
+        persistTenantSlug(next.slug);
+        router.push(tenantRoot(next.slug));
+      }
+    },
+    [tenants, router],
+  );
 
   const value = useMemo<TenantContextValue>(
     () => ({

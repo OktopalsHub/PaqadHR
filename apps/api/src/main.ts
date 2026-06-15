@@ -38,13 +38,13 @@ async function bootstrap() {
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 9001;
   await app.listen(port, '::');
 
   if (isDevelopment) {
     logger.log(`Application is running on: http://localhost:${port}`);
     logger.log(`Environment: ${process.env.NODE_ENV}`);
-    logger.log(`API Documentation: http://localhost:${port}/docs`);
+    logger.log(`API Documentation: http://localhost:${port}/api/docs`);
   } else {
     logger.log(`Application is running on port ${port}`);
   }

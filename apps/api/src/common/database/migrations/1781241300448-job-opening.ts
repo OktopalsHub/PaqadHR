@@ -6,7 +6,7 @@ export class JobOpening1781241300448 implements MigrationInterface {
       CREATE TABLE job_opening (
         id UUID NOT NULL DEFAULT uuid_generate_v4(),
         title VARCHAR NOT NULL,
-        department_id UUID NOT NULL,
+        department_id UUID,
         position VARCHAR NOT NULL,
         employment_type VARCHAR(16) NOT NULL,
         experience_level VARCHAR(50) DEFAULT 'Mid-Level',

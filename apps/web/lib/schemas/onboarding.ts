@@ -11,18 +11,25 @@ export const pricingPreviewSchema = z.object({
         name: z.string(),
         description: z.string().nullable().optional(),
       }),
-      price: z.object({
-        monthlyPrice: z.union([z.number(), z.string()]),
-        currency: z.string(),
-      }),
+      currency: z.string(),
+      monthlyPrice: z.union([z.number(), z.string()]),
     }),
   ),
 });
 
 export type PricingPreview = z.infer<typeof pricingPreviewSchema>;
 
+export const slugAvailabilitySchema = z.object({
+  slug: z.string(),
+  available: z.boolean(),
+  reason: z.enum(["invalid", "reserved", "taken"]).optional(),
+});
+
+export type SlugAvailability = z.infer<typeof slugAvailabilitySchema>;
+
 export const onboardingCompleteInputSchema = z.object({
   name: z.string().min(2),
+  slug: z.string().min(2).max(25).optional(),
   industry: z.string().optional(),
   companySize: z.string().optional(),
   businessCountry: z.string().optional(),
@@ -30,6 +37,7 @@ export const onboardingCompleteInputSchema = z.object({
   lastName: z.string().min(1).optional(),
   preferredName: z.string().optional(),
   jobTitle: z.string().min(2),
+  planSlug: z.string().min(1).optional(),
 });
 
 export type OnboardingCompleteInput = z.infer<

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { ArrowUpRight, Briefcase, CalendarClock, Users } from "lucide-react";
 import { AppPage } from "@/components/app-page";
 import { ContentCard } from "@/components/content-card";
@@ -9,6 +10,7 @@ import { PageActions } from "@/components/page-actions";
 import { StatCard } from "@/components/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useEmployees } from "@/hooks/queries/use-employees";
 import { useLeaves } from "@/hooks/queries/use-leaves";
 import { useJobOpenings } from "@/hooks/queries/use-recruitment";
@@ -18,6 +20,14 @@ import {
   memberPreferredOrFirstName,
   useMemberProfile,
 } from "@/hooks/queries/use-member-profile";
+import type { JobOpening } from "@/lib/schemas/recruitment";
+import { RecruitmentVacancyGrid } from "@/features/recruitment/components/dashboard/recruitment-vacancy-grid";
+import { RecruitmentScheduleWidget } from "@/features/recruitment/components/dashboard/recruitment-schedule-widget";
+import { RecruitmentApplicantsTable } from "@/features/recruitment/components/dashboard/recruitment-applicants-table";
+import { RecruitmentActivityFeed } from "@/features/recruitment/components/dashboard/recruitment-activity-feed";
+import { JobDetailSheet } from "@/features/recruitment/components/job-detail-sheet";
+import { useRecruitmentOverview } from "@/features/recruitment/hooks/use-recruitment-overview";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 
 function leaveStatusVariant(status: string) {
   switch (status.toLowerCase()) {
@@ -35,15 +45,20 @@ function leaveStatusVariant(status: string) {
 export const Dashboard = () => {
   const { user } = useAuth();
   const { data: profile } = useMemberProfile();
-  const { data: employees = [], isLoading: employeesLoading } = useEmployees();
-  const { data: leaves = [], isLoading: leavesLoading } = useLeaves();
-  const { data: jobsData, isLoading: jobsLoading } = useJobOpenings();
+  const { data: employees = [], isLoading: employeesLoading, isError: employeesError } = useEmployees();
+  const { data: leaves = [], isLoading: leavesLoading, isError: leavesError } = useLeaves();
+  const { data: jobsData, isLoading: jobsLoading, isError: jobsError } = useJobOpenings();
+  const { overview, isLoading: overviewLoading, jobsError: overviewError } = useRecruitmentOverview();
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const tenantHref = useTenantHref();
 
-  const isLoading = employeesLoading || leavesLoading || jobsLoading;
+  const isLoading = employeesLoading || leavesLoading || jobsLoading || overviewLoading;
+  const hasError = employeesError || leavesError || jobsError || overviewError;
+
   const jobs = jobsData?.jobs ?? [];
-  const openRoles = jobs.filter((j) => j.status === "ACTIVE").length;
+  const openRoles = jobs.filter((job) => job.status === "ACTIVE").length;
   const pendingLeaves = leaves.filter(
-    (l) => l.status?.toLowerCase() === "pending",
+    (leave) => leave.status?.toLowerCase() === "pending",
   ).length;
   const recentLeaves = [...leaves]
     .sort(
@@ -52,18 +67,26 @@ export const Dashboard = () => {
     )
     .slice(0, 6);
 
-  const dashboardTitle = memberPreferredOrFirstName(profile, user?.name);
+  const dashboardTitle = useMemo(
+    () => memberPreferredOrFirstName(profile, user?.name),
+    [profile, user?.name],
+  );
+
   const departmentCount = new Set(
-    employees.map((e) => e.department).filter(Boolean),
+    employees.map((employee) => employee.department).filter(Boolean),
   ).size;
-  const activeJobs = jobs.filter((j) => j.status === "ACTIVE").slice(0, 4);
+
   const pipelineStages = [
-    { label: "Active", count: jobs.filter((j) => j.status === "ACTIVE").length },
-    { label: "Draft", count: jobs.filter((j) => j.status === "DRAFT").length },
-    { label: "Closed", count: jobs.filter((j) => j.status === "CLOSED").length },
-    { label: "Archived", count: jobs.filter((j) => j.status === "ARCHIVED").length },
+    { label: "Active", count: jobs.filter((job) => job.status === "ACTIVE").length },
+    { label: "Draft", count: jobs.filter((job) => job.status === "DRAFT").length },
+    { label: "Closed", count: jobs.filter((job) => job.status === "CLOSED").length },
+    { label: "Archived", count: jobs.filter((job) => job.status === "ARCHIVED").length },
   ];
-  const pipelineMax = Math.max(1, ...pipelineStages.map((s) => s.count));
+  const pipelineMax = Math.max(1, ...pipelineStages.map((stage) => stage.count));
+
+  const handleSelectJobDetails = (job: JobOpening) => {
+    setSelectedJobId(job.id);
+  };
 
   if (isLoading) {
     return (
@@ -73,12 +96,26 @@ export const Dashboard = () => {
     );
   }
 
+  if (hasError) {
+    return (
+      <AppPage>
+        <Alert variant="destructive">
+          <AlertTitle>Unable to load dashboard</AlertTitle>
+          <AlertDescription>
+            Some workspace data could not be loaded. Refresh the page or try
+            again shortly.
+          </AlertDescription>
+        </Alert>
+      </AppPage>
+    );
+  }
+
   return (
-    <AppPage>
+    <AppPage className="space-y-5">
       <PageActions>
         <Button asChild size="sm" className="h-8 rounded-lg text-xs">
-          <Link href="/app/recruitment">
-            View hiring pipeline
+          <Link href={tenantHref("recruitment")}>
+            View recruitment
             <ArrowUpRight className="ml-1.5 size-3.5" />
           </Link>
         </Button>
@@ -122,7 +159,7 @@ export const Dashboard = () => {
           title="Recent leave requests"
           action={
             <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-              <Link href="/app/leaves">View all</Link>
+              <Link href={tenantHref("leaves")}>View all</Link>
             </Button>
           }
           bodyClassName="p-0"
@@ -158,39 +195,15 @@ export const Dashboard = () => {
 
         <ContentCard
           className="xl:col-span-4"
-          title="Active openings"
+          title="Hiring pipeline"
           action={
             <Button asChild variant="ghost" size="sm" className="h-7 text-xs">
-              <Link href="/app/recruitment">Manage</Link>
+              <Link href={tenantHref("recruitment")}>Manage</Link>
             </Button>
           }
-          bodyClassName="space-y-2 p-3"
+          bodyClassName="p-4"
         >
-          {activeJobs.length === 0 ? (
-            <p className="py-3 text-center text-sm text-muted-foreground">
-              No active roles published.
-            </p>
-          ) : (
-            activeJobs.map((job) => (
-              <div
-                key={job.id}
-                className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5"
-              >
-                <p className="text-sm font-medium">{job.title}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {[job.departmentName, job.employmentType]
-                    .filter(Boolean)
-                    .join(" · ") || "No department"}
-                </p>
-              </div>
-            ))
-          )}
-        </ContentCard>
-      </div>
-
-      {jobs.length > 0 ? (
-        <ContentCard title="Hiring pipeline" bodyClassName="p-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3">
             {pipelineStages.map((stage) => (
               <div
                 key={stage.label}
@@ -223,7 +236,29 @@ export const Dashboard = () => {
             })}
           </div>
         </ContentCard>
-      ) : null}
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <RecruitmentVacancyGrid
+          jobs={overview.jobs.filter((job) => job.status === "ACTIVE")}
+          applicantCounts={overview.applicantCounts}
+          onSelectDetails={handleSelectJobDetails}
+        />
+        <RecruitmentScheduleWidget events={overview.schedule} />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <RecruitmentApplicantsTable rows={overview.applicantRows} />
+        <RecruitmentActivityFeed items={[...overview.activity]} />
+      </div>
+
+      <JobDetailSheet
+        jobId={selectedJobId}
+        open={Boolean(selectedJobId)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedJobId(null);
+        }}
+      />
     </AppPage>
   );
 };

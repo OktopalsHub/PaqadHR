@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/providers/auth-provider";
+import { CsrfBootstrap } from "@/providers/csrf-bootstrap";
 import { QueryProvider } from "@/providers/query-provider";
 import { TenantProvider } from "@/providers/tenant-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
     template: "%s · Paqad",
   },
   description:
-    "Calm HR software for hiring, payroll, leave, and team recognition. Start your 14-day trial.",
+    "Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.",
 };
 
 export default function RootLayout({
@@ -31,6 +32,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <AuthProvider>
+              <CsrfBootstrap />
               <TenantProvider>{children}</TenantProvider>
             </AuthProvider>
             <Toaster position="top-center" invert richColors closeButton />

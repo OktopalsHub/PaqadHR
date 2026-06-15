@@ -12,13 +12,17 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { useTenantHref, useTenantNavItems } from "@/hooks/use-tenant-nav-items";
 import { NavMain } from "./nav-main";
 import { WorkspaceSwitcher } from "./workspace-switcher";
-import { navItems } from "../constants/nav-items";
 
 export const AppSidebar = ({
   ...props
 }: React.ComponentProps<typeof Sidebar>) => {
+  const navItems = useTenantNavItems();
+  const tenantHref = useTenantHref();
+  const settingsHref = tenantHref("settings");
+
   return (
     <Sidebar
       collapsible="icon"
@@ -35,7 +39,7 @@ export const AppSidebar = ({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild tooltip="Settings">
-              <Link href="/app/settings">
+              <Link href={settingsHref}>
                 <Settings />
                 <span>Settings</span>
               </Link>

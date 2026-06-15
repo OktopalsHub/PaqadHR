@@ -3,7 +3,7 @@ import { userSchema } from "@/lib/schemas/auth";
 
 const SESSION_KEY = "paqad_session";
 const TENANT_KEY = "paqad_tenant_id";
-const ONBOARDING_KEY = "onboarding_completed";
+const TENANT_SLUG_KEY = "paqad_tenant_slug";
 
 export function persistSession(user: User) {
   if (typeof window === "undefined") return;
@@ -28,7 +28,8 @@ export function clearSessionStorage() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(TENANT_KEY);
-  localStorage.removeItem(ONBOARDING_KEY);
+  localStorage.removeItem(TENANT_SLUG_KEY);
+  document.cookie = "tenant_slug=; path=/; max-age=0; SameSite=Lax";
 }
 
 export function persistTenantId(tenantId: string) {
@@ -41,17 +42,20 @@ export function readTenantId(): string | null {
   return localStorage.getItem(TENANT_KEY);
 }
 
+export function persistTenantSlug(slug: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(TENANT_SLUG_KEY, slug);
+  document.cookie = `tenant_slug=${encodeURIComponent(slug)}; path=/; max-age=31536000; SameSite=Lax`;
+}
+
+export function readTenantSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TENANT_SLUG_KEY);
+}
+
 export function clearTenantId() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(TENANT_KEY);
-}
-
-export function markOnboardingComplete() {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ONBOARDING_KEY, "true");
-}
-
-export function isOnboardingComplete(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(ONBOARDING_KEY) === "true";
+  localStorage.removeItem(TENANT_SLUG_KEY);
+  document.cookie = "tenant_slug=; path=/; max-age=0; SameSite=Lax";
 }

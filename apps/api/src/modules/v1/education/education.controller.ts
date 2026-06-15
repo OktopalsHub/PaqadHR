@@ -32,10 +32,11 @@ export class EducationController {
     @Body() createEducationDto: CreateEducationDto,
     @CurrentTenantMember() member: MemberContext
   ): Promise<Education> {
+    const { memberId, ...educationData } = createEducationDto;
     return this.educationService.createEducation(
       tenantId,
-      member.id,
-      createEducationDto,
+      memberId ?? member.id,
+      educationData,
     );
   }
   @Get()

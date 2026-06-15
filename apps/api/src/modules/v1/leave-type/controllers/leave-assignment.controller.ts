@@ -8,15 +8,22 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { TenantMemberRole } from 'src/common/enums';
-import { RoleGuard, Roles } from 'src/common/guards/role.guard';
+import {
+  TenantRoleGuard,
+  Roles,
+} from 'src/common/guards/tenant-member-role.guard';
+import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { LeaveTypeAssignmentService } from '../leave-type-assignment.service';
+
 @Controller('tenants/:tenantId/leave-assignments')
-@UseGuards(RoleGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
 export class LeaveAssignmentController {
   constructor(
     private readonly leaveAssignmentService: LeaveTypeAssignmentService,
   ) {}
+
   @Post('sync')
+  @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
   async syncLeaveTypeAssignments(
     @Param('tenantId') tenantId: string,
     @Query('year') year?: number,
@@ -26,6 +33,7 @@ export class LeaveAssignmentController {
       year,
     );
   }
+
   @Post('assign-existing')
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
   async assignExistingLeaveTypes(
@@ -37,6 +45,7 @@ export class LeaveAssignmentController {
       year,
     );
   }
+
   @Post('assign-leave-type/:leaveTypeId')
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
   async assignLeaveTypeToAllUsers(
@@ -50,6 +59,7 @@ export class LeaveAssignmentController {
       year,
     );
   }
+
   @Delete('remove-leave-type/:leaveTypeId')
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
   async removeLeaveTypeAssignments(
@@ -63,6 +73,7 @@ export class LeaveAssignmentController {
       year,
     );
   }
+
   @Get('report')
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
   async getAssignmentReport(

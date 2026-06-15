@@ -2,17 +2,20 @@
 
 import { useMemo, useState } from "react";
 import { AppPage } from "@/components/app-page";
+import { EmptyState } from "@/components/empty-state";
 import { LoadingBlock } from "@/components/loading-block";
 import { PageActions } from "@/components/page-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Plus, Search } from "lucide-react";
+import { Building2, Plus, Search } from "lucide-react";
 import { useDepartments } from "@/hooks/queries/use-departments";
+import { CreateDepartmentDialog } from "./create-department-dialog";
 import { DepartmentCard } from "./department-card";
 
 export const Teams = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [expandedDepts, setExpandedDepts] = useState<string[]>([]);
   const { data: departments = [], isLoading, isError, error } = useDepartments();
 
@@ -49,11 +52,17 @@ export const Teams = () => {
   return (
     <AppPage>
       <PageActions>
-        <Button className="gap-2 rounded-lg" size="sm">
+        <Button
+          className="gap-2 rounded-lg"
+          size="sm"
+          onClick={() => setCreateOpen(true)}
+        >
           <Plus size={16} />
           Add department
         </Button>
       </PageActions>
+
+      <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {isError ? (
         <Alert variant="destructive">
@@ -73,16 +82,31 @@ export const Teams = () => {
               className="rounded-lg pl-9"
             />
           </div>
-          <div className="grid gap-4">
-            {filteredDepartments.map((dept) => (
-              <DepartmentCard
-                key={dept.id}
-                department={dept}
-                isExpanded={expandedDepts.includes(dept.id)}
-                onToggle={() => toggleDepartment(dept.id)}
-              />
-            ))}
-          </div>
+
+          {departments.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="No departments yet"
+              description="Create your first department to organize teams and members."
+            />
+          ) : filteredDepartments.length === 0 ? (
+            <EmptyState
+              icon={Building2}
+              title="No matches"
+              description="Try a different search term."
+            />
+          ) : (
+            <div className="grid gap-4">
+              {filteredDepartments.map((dept) => (
+                <DepartmentCard
+                  key={dept.id}
+                  department={dept}
+                  isExpanded={expandedDepts.includes(dept.id)}
+                  onToggle={() => toggleDepartment(dept.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </AppPage>

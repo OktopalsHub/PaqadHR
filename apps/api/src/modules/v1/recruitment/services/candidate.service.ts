@@ -1,4 +1,5 @@
 import { CreateCandidateDto } from '../dto/create-candidate.dto';
+import { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
 import { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
 import { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import {
@@ -6,7 +7,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CandidateStatus } from 'src/common/enums';
+import { CandidateSource, CandidateStatus } from 'src/common/enums';
 import { JobOpeningService } from './job-opening.service';
 import { CandidateRepository } from "../repositories/index";
 import { Candidate } from "../entities/candidate.entity";
@@ -17,6 +18,51 @@ export class CandidateService {
     private readonly candidateRepository: CandidateRepository,
     private readonly jobOpeningService: JobOpeningService,
   ) {}
+  async createPipelineCandidate(
+    tenantId: string,
+    memberId: string,
+    dto: CreatePipelineCandidateDto,
+  ): Promise<Candidate> {
+    await this.jobOpeningService.getJob(dto.jobOpeningId, tenantId, memberId);
+
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const existing = await this.candidateRepository.findByEmailAndJob(
+      normalizedEmail,
+      dto.jobOpeningId,
+    );
+    if (existing) {
+      throw new BadRequestException(
+        'This candidate has already applied for this role.',
+      );
+    }
+
+    const entity = this.candidateRepository.create({
+      jobOpeningId: dto.jobOpeningId,
+      firstName: dto.firstName.trim(),
+      lastName: dto.lastName.trim(),
+      email: normalizedEmail,
+      phone: dto.phone?.trim() || '',
+      resume: {
+        filename: 'manual-entry',
+        uploadedAt: new Date(),
+      },
+      status: CandidateStatus.APPLIED,
+      currentStage: {
+        name: 'Applied',
+        startedAt: new Date(),
+      },
+      tenantId,
+      source: dto.source ?? CandidateSource.INTERNAL,
+      appliedAt: new Date(),
+      location: dto.location,
+      portfolioUrl: dto.portfolioUrl,
+      linkedinUrl: dto.linkedinUrl,
+      skills: dto.skills,
+      experience: dto.experience,
+    });
+    return this.candidateRepository.save(entity);
+  }
+
   async applyForJob(
     jobId: string,
     createCandidateDto: CreateCandidateDto,
@@ -32,7 +78,7 @@ export class CandidateService {
         'You have already applied for this position. You can check your application status or withdraw if needed.',
       );
     }
-    return this.candidateRepository.create({
+    const entity = this.candidateRepository.create({
       jobOpeningId: jobId,
       firstName: createCandidateDto.firstName,
       lastName: createCandidateDto.lastName,
@@ -63,6 +109,7 @@ export class CandidateService {
       skills: createCandidateDto.skills,
       experience: createCandidateDto.experience,
     });
+    return this.candidateRepository.save(entity);
   }
   async getCandidatesByTenant(tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByTenantOnly(tenantId);

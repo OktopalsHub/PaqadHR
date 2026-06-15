@@ -7,9 +7,17 @@ import {
   IsOptional,
   IsPhoneNumber,
   IsString,
+  IsUUID,
 } from 'class-validator';
 import { RelationshipType } from 'src/common/enums';
 export class CreateEmergencyContactDto {
+  @IsUUID()
+  @ApiProperty({
+    description: 'Target tenant member ID (defaults to current member)',
+    required: false,
+  })
+  @IsOptional()
+  memberId?: string;
   @IsString()
   @ApiProperty({
     description: 'full name',

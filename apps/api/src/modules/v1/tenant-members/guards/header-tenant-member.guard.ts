@@ -1,0 +1,77 @@
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { TenantMemberRole } from 'src/common/enums';
+import { tenantContext } from 'src/common/context/tenant.context';
+import { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import { Repository } from 'typeorm';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { TenantMembersService } from '../tenant-members.service';
+
+@Injectable()
+export class HeaderTenantMemberGuard implements CanActivate {
+  constructor(
+    private readonly tenantMemberService: TenantMembersService,
+    @InjectRepository(Tenant)
+    private readonly tenantRepository: Repository<Tenant>,
+  ) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context
+      .switchToHttp()
+      .getRequest<IAuthenticatedMemberRequest>();
+
+    const headerValue = request.headers['x-tenant-id'];
+    const tenantId = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+
+    if (!tenantId) {
+      throw new ForbiddenException('x-tenant-id header is required');
+    }
+
+    const userId = request.auth?.principalId;
+    if (!userId) {
+      throw new ForbiddenException('Authentication required');
+    }
+
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+    });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const member = await this.tenantMemberService.checkUserTenantMembership(
+      userId,
+      tenantId,
+    );
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this tenant');
+    }
+
+    request.member = {
+      id: member.id,
+      role: member.role as TenantMemberRole,
+    };
+
+    tenantContext.updateContext({
+      tenant: {
+        id: tenantId,
+        slug: tenant.slug,
+        name: tenant.name,
+        isActive: tenant.isActive,
+      },
+      member: {
+        id: member.id,
+        role: member.role as TenantMemberRole,
+        userId: member.userId,
+      },
+    });
+
+    return true;
+  }
+}

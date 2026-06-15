@@ -25,7 +25,7 @@ import { Observable, interval, map } from 'rxjs';
 import { randomBytes } from 'crypto';
 import { CurrentTenant } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
-import { TenantGuard } from 'src/common/guards/tenant.guard';
+import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
 import {
   IAuthenticatedUserRequest,
   TenantContext,
@@ -35,7 +35,7 @@ import { SSENotificationService } from '../services/sse-notification.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, TenantGuard)
+@UseGuards(JwtAuthGuard, HeaderTenantMemberGuard)
 @Controller('notifications')
 export class NotificationController {
   constructor(

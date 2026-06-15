@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Fragment } from "react";
 import { usePathname } from "next/navigation";
 import {
   Breadcrumb,
@@ -11,12 +12,18 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { getBreadcrumbs } from "@/lib/navigation/breadcrumbs";
+import { useTenant } from "@/providers/tenant-provider";
 import { useBreadcrumbContext } from "@/providers/breadcrumb-provider";
 
 export function AppBreadcrumb() {
   const pathname = usePathname();
+  const { tenant } = useTenant();
   const context = useBreadcrumbContext();
-  const segments = getBreadcrumbs(pathname, context?.tailLabel);
+  const segments = getBreadcrumbs(
+    pathname,
+    context?.tailLabel,
+    tenant?.name,
+  );
 
   if (segments.length === 0) return null;
 
@@ -27,7 +34,7 @@ export function AppBreadcrumb() {
           const isLast = index === segments.length - 1;
 
           return (
-            <span key={`${segment.label}-${index}`} className="contents">
+            <Fragment key={`${segment.label}-${index}`}>
               {index > 0 ? <BreadcrumbSeparator /> : null}
               <BreadcrumbItem>
                 {isLast || !segment.href ? (
@@ -40,7 +47,7 @@ export function AppBreadcrumb() {
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
-            </span>
+            </Fragment>
           );
         })}
       </BreadcrumbList>

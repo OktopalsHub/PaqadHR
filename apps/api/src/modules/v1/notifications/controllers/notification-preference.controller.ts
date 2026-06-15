@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Post,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,12 +16,15 @@ import {
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { JwtAuthGuard } from 'src/common/guards';
+import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
 import { MemberContext } from 'src/common/interfaces';
 import { NotificationPreferenceType } from "../../../../common/enums/notification-preference-type.enum";
 import { UpdatePreferenceDto } from "../../../../common/interfaces/update-preference-dto.interface";
 
 @ApiTags('Notification Preferences')
 @ApiBearerAuth()
+@UseGuards(JwtAuthGuard, HeaderTenantMemberGuard)
 @Controller('notification-preferences')
 export class NotificationPreferenceController {
   constructor(

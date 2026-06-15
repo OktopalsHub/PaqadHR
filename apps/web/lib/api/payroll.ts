@@ -1,4 +1,4 @@
-import { apiClient, getApiV1Base, tenantPath, ensureCsrfToken } from "@/lib/api/client";
+import { apiClient, tenantPath, fetchWithCsrf, getApiV1Base } from "@/lib/api/client";
 import { resolveTenantId } from "@/lib/api/tenants";
 import type {
   CreatePayrollRunInput,
@@ -52,10 +52,8 @@ export async function disbursePayrollRun(id: string): Promise<void> {
 
 export async function downloadPayrollBankFile(id: string): Promise<void> {
   const tenantId = await resolveTenantId();
-  const token = await ensureCsrfToken();
-  const response = await fetch(
+  const response = await fetchWithCsrf(
     `${getApiV1Base()}${tenantPath(tenantId, `payroll/runs/${id}/export/bank-file`)}`,
-    { credentials: "include", headers: { "x-csrf-token": token } },
   );
   if (!response.ok) {
     throw new Error("Failed to export bank file");

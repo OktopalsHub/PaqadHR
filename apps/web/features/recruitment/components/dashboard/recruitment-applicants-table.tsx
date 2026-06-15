@@ -12,6 +12,7 @@ import {
   type ApplicantRow,
 } from "../../lib/recruitment-dashboard-metrics";
 import { formatDate } from "@/lib/format-date";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 
 const TABS = [
   { id: "all", label: "All applicants" },
@@ -44,6 +45,7 @@ export function RecruitmentApplicantsTable({
   rows,
 }: RecruitmentApplicantsTableProps) {
   const [tab, setTab] = useState<string>("all");
+  const tenantHref = useTenantHref();
 
   const filtered = useMemo(
     () => filterApplicantsByTab(rows, tab),
@@ -99,7 +101,7 @@ export function RecruitmentApplicantsTable({
                 >
                   <td className="py-3">
                     <Link
-                      href={`/app/recruitment/${row.jobOpeningId}`}
+                      href={tenantHref(`recruitment/roles/${row.jobOpeningId}`)}
                       className="block hover:text-primary"
                     >
                       <p className="font-medium">{row.name}</p>

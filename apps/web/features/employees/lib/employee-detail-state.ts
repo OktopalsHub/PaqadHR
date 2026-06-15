@@ -1,110 +1,111 @@
-import type { Employee } from "@/lib/schemas/employee";
+import type { ApiTenantMember } from "@/lib/mappers/employee";
+import {
+  mapApiEducationRecord,
+  mapApiEmergencyContact,
+} from "@/lib/mappers/employee-records";
+import type { ApiEducation } from "@/lib/api/education";
+import type { ApiEmergencyContact } from "@/lib/api/emergency-contacts";
 
 export type EmployeeDetailState = ReturnType<typeof createEmployeeDetailState>;
 
-export function createEmployeeDetailState(base: Employee) {
+type EmployeeRecordSeed = {
+  emergencyContacts?: ApiEmergencyContact[];
+  education?: ApiEducation[];
+};
+
+export function createEmployeeDetailState(
+  member: ApiTenantMember,
+  records: EmployeeRecordSeed = {},
+) {
+  const name =
+    [member.firstName, member.lastName].filter(Boolean).join(" ") ||
+    member.preferredName ||
+    "Unknown";
+
+  const hireDate = member.joinDate
+    ? new Date(member.joinDate).toISOString().slice(0, 10)
+    : "";
+
+  const dateOfBirth = member.dateOfBirth
+    ? new Date(member.dateOfBirth).toISOString().slice(0, 10)
+    : "";
+
   return {
-    id: base.id,
-    name: base.name,
-    preferredName: "",
-    position: base.role,
-    department: base.department,
-    email: base.email,
-    phone: "+1 (555) 123-4567",
-    dateOfBirth: "1985-03-15",
-    hireDate: base.joinDate,
-    status: base.status,
-    manager: "John Doe",
-    profileImage: base.avatar,
+    id: member.id,
+    firstName: member.firstName,
+    lastName: member.lastName,
+    name,
+    preferredName: member.preferredName ?? "",
+    position: member.position?.title ?? "Team Member",
+    department: member.department?.name ?? "Unassigned",
+    email: member.user.email,
+    phone: member.phone ?? "",
+    dateOfBirth,
+    hireDate,
+    status: member.isActive ? ("Active" as const) : ("Inactive" as const),
+    manager: "",
+    profileImage: member.avatarUrl ?? "",
+    gender: member.gender ?? "",
     address: {
-      street: "123 Main Street",
-      city: "San Francisco",
-      state: "CA",
-      zipCode: "94105",
-      country: "United States",
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "",
     },
-    emergencyContacts: [
-      {
-        name: "Michael Smith",
-        relationship: "Spouse",
-        phone: "+1 (555) 987-6543",
-        email: "michael.smith@example.com",
-        address: "123 Main Street, San Francisco, CA 94105",
-        isEmergencyContact: true,
-      },
-    ],
+    emergencyContacts: (records.emergencyContacts ?? []).map(
+      mapApiEmergencyContact,
+    ),
     personalInfo: {
-      gender: "Female",
-      maritalStatus: "Married",
-      nationality: "American",
-      bloodGroup: "O+",
+      gender: member.gender ?? "",
+      maritalStatus: "",
+      nationality: "",
+      bloodGroup: "",
     },
     employment: {
-      employeeId: `EMP-${base.id}`,
-      employeeType: "Full-Time",
-      division: "Product",
-      team: "User Experience",
-      workLocation: "San Francisco HQ",
-      joinDate: base.joinDate,
-      reportingTo: "John Doe",
-      payGrade: "L4",
-      workSchedule: "Monday - Friday, 9 AM - 5 PM",
+      employeeId: member.employeeNumber ?? member.id,
+      employeeType: "",
+      division: "",
+      team: "",
+      workLocation: "",
+      joinDate: hireDate,
+      reportingTo: "",
+      payGrade: "",
+      workSchedule: "",
     },
     compensation: {
-      salary: "$120,000",
-      payFrequency: "Monthly",
-      bonusPlan: "Performance-Based Annual",
+      salary: "",
+      payFrequency: "",
+      bonusPlan: "",
       lastIncrement: {
-        date: "2023-01-15",
-        percentage: "8%",
-        amount: "$9,600",
+        date: "",
+        percentage: "",
+        amount: "",
       },
-      benefits: [
-        "Health Insurance",
-        "Dental Insurance",
-        "401k with 5% match",
-        "Stock Options",
-      ],
+      benefits: [] as string[],
     },
-    documents: [
-      {
-        id: 1,
-        name: "Employment Contract",
-        type: "PDF",
-        dateUploaded: base.joinDate,
-        status: "Signed",
-      },
-      {
-        id: 2,
-        name: "Performance Review 2023",
-        type: "PDF",
-        dateUploaded: "2023-06-15",
-        status: "Approved",
-      },
-    ],
+    documents: [] as {
+      id: number;
+      name: string;
+      type: string;
+      dateUploaded: string;
+      status: string;
+    }[],
     timeOff: {
       availableBalance: {
-        vacation: 15,
-        sick: 8,
-        personal: 3,
+        vacation: 0,
+        sick: 0,
+        personal: 0,
       },
-      recentRequests: [
-        {
-          id: 1,
-          type: "Vacation",
-          dates: "July 10-15, 2023",
-          status: "Approved",
-          days: 5,
-        },
-      ],
+      recentRequests: [] as {
+        id: number;
+        type: string;
+        dates: string;
+        status: string;
+        days: number;
+      }[],
     },
-    skills: ["UX Design", "Figma", "User Research", "Prototyping", "UI Design"],
-    education: [
-      {
-        degree: "Master of Fine Arts in Design",
-        institution: "Rhode Island School of Design",
-        year: "2013",
-      },
-    ],
+    skills: [] as string[],
+    education: (records.education ?? []).map(mapApiEducationRecord),
   };
 }

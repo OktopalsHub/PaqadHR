@@ -35,10 +35,11 @@ export class EmergencyContactController {
     @Body() createEmergencyContactDto: CreateEmergencyContactDto,
     @CurrentTenantMember() member: MemberContext
   ): Promise<EmergencyContact> {
+    const { memberId, ...contactData } = createEmergencyContactDto;
     return this.emergencyContactService.createEmergencyContact(
       tenantId,
-      member.id,
-      createEmergencyContactDto,
+      memberId ?? member.id,
+      contactData,
     );
   }
   @Get()
@@ -48,6 +49,19 @@ export class EmergencyContactController {
     @Query('memberId') memberId?: string,
   ): Promise<EmergencyContact[]> {
     return this.emergencyContactService.listEmergencyContacts(
+      tenantId,
+      memberId,
+    );
+  }
+  @Get('relationships/:relationship')
+  @HttpCode(HttpStatus.OK)
+  async getEmergencyContactsByRelationship(
+    @Param('tenantId') tenantId: string,
+    @Param('relationship') relationship: RelationshipType,
+    @Query('memberId') memberId?: string,
+  ): Promise<EmergencyContact[]> {
+    return this.emergencyContactService.getEmergencyContactsByRelationship(
+      relationship,
       tenantId,
       memberId,
     );
@@ -80,19 +94,6 @@ export class EmergencyContactController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<EmergencyContact> {
     return this.emergencyContactService.setAsPrimary(id, tenantId);
-  }
-  @Get('relationships/:relationship')
-  @HttpCode(HttpStatus.OK)
-  async getEmergencyContactsByRelationship(
-    @Param('tenantId') tenantId: string,
-    @Param('relationship') relationship: RelationshipType,
-    @Query('memberId') memberId?: string,
-  ): Promise<EmergencyContact[]> {
-    return this.emergencyContactService.getEmergencyContactsByRelationship(
-      relationship,
-      tenantId,
-      memberId,
-    );
   }
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)

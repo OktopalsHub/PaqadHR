@@ -8,13 +8,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { TenantMemberRole } from 'src/common/enums';
-import { RoleGuard, Roles } from 'src/common/guards/role.guard';
+import {
+  TenantRoleGuard,
+  Roles,
+} from 'src/common/guards/tenant-member-role.guard';
+import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { LeavePolicyService } from './leave-policy.service';
 import { UpdateLeavePolicyDto } from "./dto/update-leave-policy.dto";
 import { CreateLeavePolicyDto } from "./dto/create-leave-policy.dto";
 
 @Controller('tenants/:tenantId/leave-policies')
-@UseGuards(RoleGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
 export class LeavePolicyController {
   constructor(private readonly leavePolicyService: LeavePolicyService) {}
   @Get()

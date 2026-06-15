@@ -28,7 +28,7 @@ export class InvitationsController {
     @Query('status') status?: string,
   ) {
     if (status) {
-      return this.invitationsService.listInvitations(status);
+      return this.invitationsService.getInvitationsByTenantId(tenantId, status);
     }
     return this.invitationsService.getInvitationsByTenantId(tenantId);
   }

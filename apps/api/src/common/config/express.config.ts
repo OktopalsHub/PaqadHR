@@ -171,7 +171,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       statusCode: 429,
     },
     skip: (req) => {
-      const skipPaths = ['/health', '/metrics'];
+      const skipPaths = ['/health', '/metrics', '/csrf/token'];
       const securityProbes = ['/.git/', '/admin', '/wp-admin', '/.env'];
       return (
         skipPaths.includes(req.path) ||

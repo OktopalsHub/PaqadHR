@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type RecruitmentBoardToolbarProps = {
+  title?: string;
+  titleAction?: ReactNode;
   description?: string;
   qualifiedCount: number;
   disqualifiedCount: number;
@@ -17,6 +19,8 @@ type RecruitmentBoardToolbarProps = {
 };
 
 export function RecruitmentBoardToolbar({
+  title,
+  titleAction,
   description,
   qualifiedCount,
   disqualifiedCount,
@@ -28,6 +32,17 @@ export function RecruitmentBoardToolbar({
 }: RecruitmentBoardToolbarProps) {
   return (
     <div className={cn("space-y-3 border-b border-border/60 pb-4", className)}>
+      {title || titleAction ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          {title ? (
+            <h3 className="text-sm font-semibold tracking-tight">{title}</h3>
+          ) : (
+            <span />
+          )}
+          {titleAction}
+        </div>
+      ) : null}
+
       {description ? (
         <p className="text-xs text-muted-foreground">{description}</p>
       ) : null}

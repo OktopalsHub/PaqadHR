@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createJobOpening,
+  createCandidate,
   fetchJobOpening,
   fetchJobOpenings,
   fetchCandidatesByJob,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/api/recruitment";
 import type {
   CreateJobOpeningInput,
+  CreateCandidateInput,
   CandidateStatus,
 } from "@/lib/schemas/recruitment";
 import { queryKeys } from "@/lib/query/keys";
@@ -46,6 +48,28 @@ export function useCreateJobOpening() {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.recruitment.jobs, tenantId],
       });
+    },
+  });
+}
+
+export function useCreateCandidate() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (input: CreateCandidateInput) => createCandidate(input),
+    onSuccess: (candidate) => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
+      if (candidate.jobOpeningId) {
+        void queryClient.invalidateQueries({
+          queryKey: [
+            ...queryKeys.recruitment.candidates(candidate.jobOpeningId),
+            tenantId,
+          ],
+        });
+      }
     },
   });
 }

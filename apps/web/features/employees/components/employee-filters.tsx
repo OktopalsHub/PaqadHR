@@ -1,5 +1,5 @@
 "use client";
-//TODO: This filter should be tied to the project sub header, need to verify
+
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -9,16 +9,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search } from "lucide-react";
-import { DEPARTMENTS, STATUSES } from "../constants/";
+import type { Department } from "@/lib/schemas/department";
+import { STATUSES } from "../constants/";
 import type { EmployeeFilters } from "../types/";
 
 interface EmployeeFiltersProps {
   filters: EmployeeFilters;
+  departments: Department[];
   onFilterChange: (key: keyof EmployeeFilters, value: string) => void;
 }
 
 export const EmployeeFiltersComponent = ({
   filters,
+  departments,
   onFilterChange,
 }: EmployeeFiltersProps) => {
   return (
@@ -36,16 +39,17 @@ export const EmployeeFiltersComponent = ({
       </div>
       <div>
         <Select
-          value={filters.department}
+          value={filters.department || "all_departments"}
           onValueChange={(value) => onFilterChange("department", value)}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Department" />
           </SelectTrigger>
           <SelectContent>
-            {DEPARTMENTS.map((dept) => (
-              <SelectItem key={dept.value} value={dept.value}>
-                {dept.label}
+            <SelectItem value="all_departments">All Departments</SelectItem>
+            {departments.map((dept) => (
+              <SelectItem key={dept.id} value={dept.name}>
+                {dept.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -53,7 +57,7 @@ export const EmployeeFiltersComponent = ({
       </div>
       <div>
         <Select
-          value={filters.status}
+          value={filters.status || "all_statuses"}
           onValueChange={(value) => onFilterChange("status", value)}
         >
           <SelectTrigger className="w-full">

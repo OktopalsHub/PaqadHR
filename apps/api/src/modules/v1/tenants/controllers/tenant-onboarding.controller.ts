@@ -34,6 +34,21 @@ export class TenantOnboardingController {
     const clientIp = this.getClientIP(req);
     return this.onboardingService.getPricingPreview(countryCode, clientIp);
   }
+
+  @Get('slug-availability')
+  @Public()
+  @ApiOperation({
+    summary: 'Check whether a workspace slug is available',
+  })
+  @ApiQuery({
+    name: 'slug',
+    required: true,
+    description: 'Desired workspace slug',
+  })
+  async checkSlugAvailability(@Query('slug') slug: string) {
+    return this.onboardingService.checkSlugAvailability(slug ?? '');
+  }
+
   @Post('complete')
   @ApiOperation({
     summary: 'Complete tenant onboarding with automatic pricing lock',
@@ -52,13 +67,14 @@ export class TenantOnboardingController {
     const clientIp = this.getClientIP(httpReq);
     const onboardingData: OnboardingData = {
       name: dto.name,
+      slug: dto.slug,
       industry: dto.industry,
       companySize: dto.companySize,
-      businessCountry: dto.businessCountry,
       firstName: dto.firstName,
       lastName: dto.lastName,
       preferredName: dto.preferredName,
       jobTitle: dto.jobTitle,
+      planSlug: dto.planSlug,
       createdBy: req.auth.principalId,
     };
     return this.onboardingService.completeTenantOnboarding(

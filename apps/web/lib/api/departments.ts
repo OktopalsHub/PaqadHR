@@ -8,6 +8,11 @@ type PaginatedDepartments = {
   records: unknown[];
 };
 
+export type CreateDepartmentInput = {
+  name: string;
+  description?: string;
+};
+
 export async function fetchDepartments(): Promise<Department[]> {
   const tenantId = await resolveTenantId();
   const data = await apiClient<PaginatedDepartments>(
@@ -21,4 +26,14 @@ export async function fetchDepartments(): Promise<Department[]> {
         mapApiDepartment(dept as never, index),
       ),
     );
+}
+
+export async function createDepartment(
+  input: CreateDepartmentInput,
+): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, "departments"), {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

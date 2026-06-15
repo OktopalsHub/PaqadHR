@@ -80,11 +80,8 @@ export function EducationForm({
   const handleSubmit = async (values: EducationFormValues) => {
     setIsLoading(true);
     try {
-      // Here you would typically submit to an API
-      console.log(values);
-
       if (onSubmit) {
-        onSubmit(values);
+        await onSubmit(values);
       }
 
       toast.success(

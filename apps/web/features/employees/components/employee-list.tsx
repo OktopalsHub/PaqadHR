@@ -4,19 +4,23 @@ import { useState } from "react";
 import { AppPage } from "@/components/app-page";
 import { LoadingBlock } from "@/components/loading-block";
 import { PageActions } from "@/components/page-actions";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { useEmployees } from "@/hooks/queries/use-employees";
+import { useDepartments } from "@/hooks/queries/use-departments";
+import { Plus } from "lucide-react";
 import { useEmployeeFilters } from "../hooks/";
 import { EmployeeFiltersComponent } from "./employee-filters";
 import { ViewModeToggle } from "./view-mode-toggle";
 import { EmployeeTable } from "./employee-table";
 import { EmployeeCards } from "./employee-card";
-import { AddEmployeeDialog } from "./add-employee-dialog";
 import { EmployeePagination } from "./employee-pagination";
-import { useEmployees } from "@/hooks/queries/use-employees";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AddEmployeeDialog } from "./add-employee-dialog";
 
 export const EmployeeList = () => {
-  const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const { data: employees = [], isLoading, isError, error } = useEmployees();
+  const { data: departments = [] } = useDepartments();
 
   const {
     filters,
@@ -55,14 +59,20 @@ export const EmployeeList = () => {
   return (
     <AppPage>
       <PageActions>
-        <AddEmployeeDialog
-          isOpen={isAddEmployeeOpen}
-          onOpenChange={setIsAddEmployeeOpen}
-        />
+        <Button
+          className="flex items-center gap-2"
+          onClick={() => setInviteOpen(true)}
+        >
+          <Plus size={16} />
+          <span>Add employee</span>
+        </Button>
       </PageActions>
+
+      <AddEmployeeDialog isOpen={inviteOpen} onOpenChange={setInviteOpen} />
 
       <EmployeeFiltersComponent
         filters={filters}
+        departments={departments}
         onFilterChange={updateFilter}
       />
 

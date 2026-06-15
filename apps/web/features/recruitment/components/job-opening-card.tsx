@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JobOpening } from "@/lib/schemas/recruitment";
 import { formatDate } from "@/lib/format-date";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 
 function statusVariant(status: string) {
   switch (status) {
@@ -33,16 +34,17 @@ export function JobOpeningCard({
   onSelectDetails?: (job: JobOpening) => void;
 }) {
   const router = useRouter();
+  const tenantHref = useTenantHref();
 
   return (
     <article
       role="button"
       tabIndex={0}
-      onClick={() => router.push(`/app/recruitment/${job.id}`)}
+      onClick={() => router.push(tenantHref(`recruitment/roles/${job.id}`))}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
-          router.push(`/app/recruitment/${job.id}`);
+          router.push(tenantHref(`recruitment/roles/${job.id}`));
         }
       }}
       className="rounded-lg border border-border/60 bg-muted/20 p-4 transition-colors hover:border-primary/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

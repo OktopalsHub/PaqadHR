@@ -138,6 +138,18 @@ export class JobOpeningController {
   ): Promise<{ jobs: JobOpening[]; total: number }> {
     return this.jobOpeningService.getJobsByTenant(tenantId, member.id, filters);
   }
+  @Get('stats')
+  @ApiOperation({ summary: 'Get job statistics for tenant' })
+  async getJobStats(@Param('tenantId') tenantId: string): Promise<{
+    total: number;
+    draft: number;
+    active: number;
+    inactive: number;
+    closed: number;
+    archived: number;
+  }> {
+    return this.jobOpeningService.getJobStats(tenantId);
+  }
   @Get(':jobId')
   async getJob(
     @Param('jobId') jobId: string,
@@ -244,17 +256,5 @@ export class JobOpeningController {
     @CurrentTenantMember() member: MemberContext
     ): Promise<JobOpening> {
     return this.jobOpeningService.archiveJob(jobId, tenantId, member.id);
-  }
-  @Get('stats')
-  @ApiOperation({ summary: 'Get job statistics for tenant' })
-  async getJobStats(@Param('tenantId') tenantId: string): Promise<{
-    total: number;
-    draft: number;
-    active: number;
-    inactive: number;
-    closed: number;
-    archived: number;
-  }> {
-    return this.jobOpeningService.getJobStats(tenantId);
   }
 }

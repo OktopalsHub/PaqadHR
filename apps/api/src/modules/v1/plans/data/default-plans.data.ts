@@ -52,6 +52,8 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       [FeatureAccess.LEAVE_MANAGEMENT]: true,
       [FeatureAccess.EMPLOYEE_SELF_SERVICE]: true,
       [FeatureAccess.ATTENDANCE]: true,
+      [FeatureAccess.PAYROLL]: true,
+      [FeatureAccess.RECRUITMENT]: true,
     },
     limits: { maxEmployees: 25 },
     prices: [

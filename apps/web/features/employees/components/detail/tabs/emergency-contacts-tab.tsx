@@ -22,6 +22,7 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
     emergencyContactDialogOpen,
     setEmergencyContactDialogOpen,
     handleAddEmergencyContact,
+    handleDeleteEmergencyContact,
   } = form;
 
   return (
@@ -43,8 +44,8 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {employee.emergencyContacts.map((contact, index) => (
-            <div key={index} className="border rounded-lg p-4">
+          {employee.emergencyContacts.map((contact) => (
+            <div key={contact.id} className="border rounded-lg p-4">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-medium">{contact.name}</h3>
@@ -82,7 +83,12 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
                   <Edit className="mr-2 h-3 w-3" />
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" className="text-red-500">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500"
+                  onClick={() => handleDeleteEmergencyContact(contact.id)}
+                >
                   <Trash className="mr-2 h-3 w-3" />
                   Remove
                 </Button>

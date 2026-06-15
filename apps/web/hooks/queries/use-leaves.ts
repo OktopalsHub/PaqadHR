@@ -2,9 +2,11 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  approveLeave,
   createLeave,
   fetchLeaves,
   fetchMyLeaveBalances,
+  rejectLeave,
 } from "@/lib/api/leaves";
 import type { CreateLeaveInput } from "@/lib/schemas/leave";
 import { queryKeys } from "@/lib/query/keys";
@@ -21,9 +23,12 @@ export function useLeaves() {
 }
 
 export function useLeaveBalances() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
   return useQuery({
-    queryKey: queryKeys.leaves.balances,
+    queryKey: [...queryKeys.leaves.balances, tenantId],
     queryFn: fetchMyLeaveBalances,
+    enabled: !tenantLoading && Boolean(tenantId),
   });
 }
 
@@ -32,6 +37,42 @@ export function useCreateLeave() {
 
   return useMutation({
     mutationFn: (input: CreateLeaveInput) => createLeave(input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.leaves.balances,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.calendar.events,
+      });
+    },
+  });
+}
+
+export function useApproveLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
+      approveLeave(leaveId, comments),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.leaves.balances,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.calendar.events,
+      });
+    },
+  });
+}
+
+export function useRejectLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
+      rejectLeave(leaveId, comments),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
       await queryClient.invalidateQueries({

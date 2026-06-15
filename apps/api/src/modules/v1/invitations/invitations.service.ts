@@ -84,9 +84,10 @@ export class InvitationsService {
   }
   async getInvitationsByTenantId(
     tenantId: string,
+    status?: string,
   ): Promise<IInvitationResponseDto[]> {
     const invitations =
-      await this.invitationsRepository.listInvitationsByTenant(tenantId);
+      await this.invitationsRepository.listInvitationsByTenant(tenantId, status);
     return Promise.all(
       invitations?.map((invitation) => this?.mapToResponseDto(invitation)),
     );

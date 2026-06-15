@@ -1,5 +1,7 @@
 export interface OnboardingData {
   name: string;
+  slug?: string;
+  planSlug?: string;
   industry?: string;
   companySize?: string;
   businessCountry?: string;

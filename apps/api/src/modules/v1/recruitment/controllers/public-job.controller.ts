@@ -53,23 +53,6 @@ export class PublicJobController {
     }
     return this.jobOpeningService.getActiveJobs(filters);
   }
-  @Get(':jobId')
-  @ApiOperation({ summary: 'Get a specific active job opening (public)' })
-  @ApiResponse({
-    status: 200,
-    description: 'Job opening details',
-    type: JobOpening,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Job not found or not available',
-  })
-  @Public()
-  async getActiveJob(
-    @Param('jobId', ParseUUIDPipe) jobId: string,
-  ): Promise<JobOpening> {
-    return this.jobOpeningService.getActiveJob(jobId);
-  }
   @Get('departments/list')
   @Public()
   @ApiOperation({ summary: 'Get list of departments with active jobs' })
@@ -189,5 +172,22 @@ export class PublicJobController {
     @Query('query') query: string,
   ): Promise<{ titles: string[]; positions: string[] }> {
     return this.jobOpeningService.getSearchSuggestions(query);
+  }
+  @Get(':jobId')
+  @ApiOperation({ summary: 'Get a specific active job opening (public)' })
+  @ApiResponse({
+    status: 200,
+    description: 'Job opening details',
+    type: JobOpening,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Job not found or not available',
+  })
+  @Public()
+  async getActiveJob(
+    @Param('jobId', ParseUUIDPipe) jobId: string,
+  ): Promise<JobOpening> {
+    return this.jobOpeningService.getActiveJob(jobId);
   }
 }

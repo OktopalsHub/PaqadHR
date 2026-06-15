@@ -1,4 +1,3 @@
-import { Notification } from './entities/notification.entity';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationService } from './services/notification.service';
@@ -9,9 +8,14 @@ import { NotificationHelperService } from './services/notification-helper.servic
 import { NotificationPreference } from "./entities/notification-preference.entity";
 import { NotificationController } from "./controllers/notification.controller";
 import { NotificationPreferenceController } from "./controllers/notification-preference.controller";
+import { TenantMembersModule } from '../tenant-members/tenant-members.module';
+import { Notification } from './entities/notification.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, NotificationPreference])],
+  imports: [
+    TypeOrmModule.forFeature([Notification, NotificationPreference]),
+    TenantMembersModule,
+  ],
   controllers: [NotificationController, NotificationPreferenceController],
   providers: [
     NotificationService,

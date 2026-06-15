@@ -16,6 +16,7 @@ import {
   memberInitials,
   useMemberProfile,
 } from "@/hooks/queries/use-member-profile";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 import { ThemeMenuItem } from "./theme-switcher";
 
 export const AccountSetting = ({ logout }: { logout: () => void }) => {
@@ -24,6 +25,7 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
   const name = memberFullName(profile, user?.name);
   const initials = memberInitials(profile, user?.name);
   const position = profile?.position?.title?.trim();
+  const settingsHref = useTenantHref()("settings");
 
   return (
     <DropdownMenu>
@@ -57,7 +59,7 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
       >
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/app/settings">Settings</Link>
+            <Link href={settingsHref}>Settings</Link>
           </DropdownMenuItem>
           <ThemeMenuItem />
         </DropdownMenuGroup>

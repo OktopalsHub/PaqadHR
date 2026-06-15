@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Employee } from "../types/";
 import { getInitials } from "@/lib/utils";
+import { useTenantHref } from "@/hooks/use-tenant-nav-items";
 import { getStatusStyles } from "../utils/";
 
 interface EmployeeTableProps {
@@ -20,6 +21,8 @@ interface EmployeeTableProps {
 }
 
 export const EmployeeTable = ({ employees }: EmployeeTableProps) => {
+  const tenantHref = useTenantHref();
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -39,7 +42,7 @@ export const EmployeeTable = ({ employees }: EmployeeTableProps) => {
               <TableRow key={employee.id}>
                 <TableCell className="font-medium">
                   <Link
-                    href={`/app/employees/${employee.id}`}
+                    href={tenantHref(`employees/${employee.id}`)}
                     className="flex items-center gap-2 hover:underline"
                   >
                     <Avatar className="h-8 w-8">

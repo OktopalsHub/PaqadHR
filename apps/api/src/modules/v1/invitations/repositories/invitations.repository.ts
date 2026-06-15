@@ -49,8 +49,19 @@ export class InvitationsRepository extends Repository<Invitation> {
     });
   }
 
-  async listInvitationsByTenant(tenantId: string): Promise<Invitation[]> {
-    return this.find({ withDeleted: false, where: { tenantId }, relations: ['department', 'position'] });
+  async listInvitationsByTenant(
+    tenantId: string,
+    status?: string,
+  ): Promise<Invitation[]> {
+    const where: Record<string, unknown> = { tenantId };
+    if (status) {
+      where.status = status as InvitationStatus;
+    }
+    return this.find({
+      withDeleted: false,
+      where,
+      relations: ['department', 'position'],
+    });
   }
 
   async findPendingInvitationByEmail(email: string): Promise<Invitation[]> {

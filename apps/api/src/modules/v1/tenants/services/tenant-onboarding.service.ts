@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomBytes } from 'crypto';
@@ -22,6 +22,16 @@ import {
 } from '../../leave/events/leave.events';
 import { OnboardingData } from "../../../../common/interfaces/onboarding-data.interface";
 import { OnboardingResult } from "../../../../common/interfaces/onboarding-result.interface";
+import { RESERVED_TENANT_SLUGS } from '../../../../common/constants/reserved-tenant-slugs';
+
+const SLUG_MAX_LENGTH = 25;
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export type SlugAvailabilityResult = {
+  slug: string;
+  available: boolean;
+  reason?: 'invalid' | 'reserved' | 'taken';
+};
 
 @Injectable()
 export class TenantOnboardingService {
@@ -73,10 +83,10 @@ export class TenantOnboardingService {
       await this.subscriptionsService.setTenantRegionOnboarding(
         tenant.id,
         userIpAddress,
-        data.businessCountry,
       );
     const subscription = await this.subscriptionsService.createTrialSubscription(
       pricingResult.tenant.id,
+      { planSlug: data.planSlug ?? 'starter' },
     );
 
     this.logger.log(
@@ -173,10 +183,30 @@ export class TenantOnboardingService {
     };
   }
 
+  async checkSlugAvailability(rawSlug: string): Promise<SlugAvailabilityResult> {
+    const slug = this.normalizeSlug(rawSlug);
+
+    if (!slug || slug.length < 2 || !SLUG_PATTERN.test(slug)) {
+      return { slug, available: false, reason: 'invalid' };
+    }
+
+    if (this.isSlugReserved(slug)) {
+      return { slug, available: false, reason: 'reserved' };
+    }
+
+    const existing = await this.tenantRepository.findOne({ where: { slug } });
+    if (existing) {
+      return { slug, available: false, reason: 'taken' };
+    }
+
+    return { slug, available: true };
+  }
+
   private async createTenant(data: OnboardingData): Promise<Tenant> {
+    const slug = await this.resolveSlug(data);
     const tenant = this.tenantRepository.create({
       name: data.name,
-      slug: this.generateSlug(data.name),
+      slug,
       industry: data.industry,
       companySize: data.companySize,
       inviteCode: this.generateInviteCode(),
@@ -229,6 +259,40 @@ export class TenantOnboardingService {
         attendance: { weekends: [0, 6] },
       },
     });
+  }
+
+  private async resolveSlug(data: OnboardingData): Promise<string> {
+    if (data.slug?.trim()) {
+      const availability = await this.checkSlugAvailability(data.slug);
+      if (!availability.available) {
+        const message =
+          availability.reason === 'taken'
+            ? 'This slug is already taken.'
+            : availability.reason === 'reserved'
+              ? 'This slug is reserved.'
+              : 'Use 2–25 lowercase letters, numbers, and hyphens.';
+        throw new BadRequestException(message);
+      }
+      return availability.slug;
+    }
+    return this.generateSlug(data.name);
+  }
+
+  private normalizeSlug(rawSlug: string): string {
+    return StringUtility.slugify(rawSlug)
+      .slice(0, SLUG_MAX_LENGTH)
+      .replace(/-+$/, '');
+  }
+
+  private isSlugReserved(slug: string): boolean {
+    if (RESERVED_TENANT_SLUGS.has(slug)) {
+      return true;
+    }
+    const excluded = (process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '')
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
+    return excluded.includes(slug);
   }
 
   private generateSlug(name: string): string {

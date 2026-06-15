@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -7,6 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  useApproveLeave,
+  useRejectLeave,
+} from "@/hooks/queries/use-leaves";
 import type { LeaveRequest } from "@/lib/schemas/leave";
 import { LeaveStatusBadge } from "./leave-status-badge";
 
@@ -15,22 +23,58 @@ interface LeaveRequestsTableProps {
 }
 
 export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
+  const approveLeave = useApproveLeave();
+  const rejectLeave = useRejectLeave();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const handleApprove = async (leaveId: string) => {
+    setPendingId(leaveId);
+    try {
+      await approveLeave.mutateAsync({ leaveId });
+      toast.success("Leave request approved");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to approve leave",
+      );
+    } finally {
+      setPendingId(null);
+    }
+  };
+
+  const handleReject = async (leaveId: string) => {
+    setPendingId(leaveId);
+    try {
+      await rejectLeave.mutateAsync({ leaveId });
+      toast.success("Leave request rejected");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to reject leave",
+      );
+    } finally {
+      setPendingId(null);
+    }
+  };
+
   return (
     <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Employee</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>From</TableHead>
-            <TableHead>To</TableHead>
-            <TableHead>Days</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Reason</TableHead>
-            <TableHead>Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {requests.map((request) => (
+      <TableHeader>
+        <TableRow>
+          <TableHead>Employee</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>From</TableHead>
+          <TableHead>To</TableHead>
+          <TableHead>Days</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Reason</TableHead>
+          <TableHead>Actions</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {requests.map((request) => {
+          const isPending = request.status.toLowerCase() === "pending";
+          const isBusy = pendingId === request.id;
+
+          return (
             <TableRow key={request.id}>
               <TableCell className="font-medium">{request.employee}</TableCell>
               <TableCell>{request.type}</TableCell>
@@ -44,28 +88,35 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
                 {request.reason}
               </TableCell>
               <TableCell>
-                {request.status.toLowerCase() === "pending" ? (
+                {isPending ? (
                   <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" className="h-8 px-2 text-xs">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2 text-xs"
+                      disabled={isBusy}
+                      onClick={() => void handleApprove(request.id)}
+                    >
                       Approve
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-8 px-2 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                      disabled={isBusy}
+                      onClick={() => void handleReject(request.id)}
                     >
                       Reject
                     </Button>
                   </div>
                 ) : (
-                  <Button size="sm" variant="ghost" className="h-8 px-2 text-xs">
-                    View
-                  </Button>
+                  <span className="text-xs text-muted-foreground">—</span>
                 )}
               </TableCell>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

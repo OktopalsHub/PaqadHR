@@ -19,8 +19,8 @@ export class JobOpeningResponseDto {
   id: string;
   @ApiProperty()
   title: string;
-  @ApiProperty()
-  departmentId: string;
+  @ApiProperty({ required: false })
+  departmentId?: string | null;
   @ApiProperty({ required: false })
   departmentName?: string;
   @ApiProperty()

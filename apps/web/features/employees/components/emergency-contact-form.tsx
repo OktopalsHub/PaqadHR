@@ -14,6 +14,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -77,11 +84,8 @@ export function EmergencyContactForm({
   const handleSubmit = async (values: EmergencyContactFormValues) => {
     setIsLoading(true);
     try {
-      // Here you would typically submit to an API
-      console.log(values);
-
       if (onSubmit) {
-        onSubmit(values);
+        await onSubmit(values);
       }
 
       toast.success(
@@ -149,9 +153,21 @@ export function EmergencyContactForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Relationship*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Spouse, Parent" {...field} />
-                    </FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select relationship" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="spouse">Spouse</SelectItem>
+                        <SelectItem value="parent">Parent</SelectItem>
+                        <SelectItem value="child">Child</SelectItem>
+                        <SelectItem value="sibling">Sibling</SelectItem>
+                        <SelectItem value="friend">Friend</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

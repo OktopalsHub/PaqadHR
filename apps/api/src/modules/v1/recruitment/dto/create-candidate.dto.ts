@@ -12,7 +12,7 @@ import {
   IsUrl,
   ValidateNested,
 } from 'class-validator';
-class CandidateLocationDto {
+export class CandidateLocationDto {
   @ApiPropertyOptional({
     description: 'Preferred city',
     example: 'Lagos',
@@ -35,7 +35,7 @@ class CandidateLocationDto {
   @IsBoolean()
   remote?: boolean;
 }
-class CandidateExperienceDto {
+export class CandidateExperienceDto {
   @ApiProperty({
     description: 'Years of professional experience',
     example: 5,

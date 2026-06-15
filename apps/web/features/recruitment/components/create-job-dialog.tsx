@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useDepartments } from "@/hooks/queries/use-departments";
 import { useCreateJobOpening } from "@/hooks/queries/use-recruitment";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +66,6 @@ export function CreateJobDialog({
 }: CreateJobDialogProps) {
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
-  const [departmentId, setDepartmentId] = useState("");
   const [position, setPosition] = useState("");
   const [employmentType, setEmploymentType] = useState<string>("FULL_TIME");
   const [experienceLevel, setExperienceLevel] = useState("Mid-Level");
@@ -82,13 +80,11 @@ export function CreateJobDialog({
   const [isUrgent, setIsUrgent] = useState(false);
   const [publish, setPublish] = useState(true);
 
-  const { data: departments = [] } = useDepartments();
   const createJob = useCreateJobOpening();
 
   const resetForm = () => {
     setStep(0);
     setTitle("");
-    setDepartmentId("");
     setPosition("");
     setEmploymentType("FULL_TIME");
     setExperienceLevel("Mid-Level");
@@ -106,9 +102,7 @@ export function CreateJobDialog({
 
   const canContinue =
     step === 0
-      ? title.trim().length >= 2 &&
-        departmentId &&
-        position.trim().length >= 1
+      ? title.trim().length >= 2 && position.trim().length >= 1
       : step === 1
         ? description.trim().length >= 10 &&
           linesToArray(requirementsText).length >= 1
@@ -118,7 +112,6 @@ export function CreateJobDialog({
     try {
       await createJob.mutateAsync({
         title: title.trim(),
-        departmentId,
         position: position.trim(),
         employmentType: employmentType as "FULL_TIME",
         experienceLevel,
@@ -212,21 +205,6 @@ export function CreateJobDialog({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Department</Label>
-              <Select value={departmentId} onValueChange={setDepartmentId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {departments.map((dept) => (
-                    <SelectItem key={dept.id} value={dept.id}>
-                      {dept.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="job-position">Position</Label>

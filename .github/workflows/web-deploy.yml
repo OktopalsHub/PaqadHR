@@ -64,7 +64,7 @@ jobs:
       - name: Build for Cloudflare
         run: pnpm --filter web cf:build
         env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL || 'http://localhost:9001/api/v1' }}
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3

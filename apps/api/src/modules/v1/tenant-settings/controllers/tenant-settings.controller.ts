@@ -182,6 +182,23 @@ export class TenantSettingsController {
       countries: holidayService.getSupportedCountries(),
     };
   }
+  @Get('holidays/calendar/:year')
+  async getHolidaysForYear(
+    @TenantId() tenantId: string,
+    @Param('year') year: string,
+  ) {
+    const [settings, tenant] = await Promise.all([
+      this.tenantSettingsService.getTenantSettings(tenantId),
+      this.tenantsService.getTenant(tenantId),
+    ]);
+    const { HolidayService } = await import('../services/holiday.service');
+    const holidayService = new HolidayService();
+    return holidayService.getHolidaysForYear(
+      parseInt(year),
+      tenant.countryCode || '',
+      settings.settings.holidays,
+    );
+  }
   @Get('holidays/:countryCode')
   async getCountryHolidays(@Param('countryCode') countryCode: string) {
     const { HolidayService } = await import('../services/holiday.service');
@@ -235,22 +252,5 @@ export class TenantSettingsController {
         customHolidays: updatedHolidays,
       },
     });
-  }
-  @Get('holidays/calendar/:year')
-  async getHolidaysForYear(
-    @TenantId() tenantId: string,
-    @Param('year') year: string,
-  ) {
-    const [settings, tenant] = await Promise.all([
-      this.tenantSettingsService.getTenantSettings(tenantId),
-      this.tenantsService.getTenant(tenantId),
-    ]);
-    const { HolidayService } = await import('../services/holiday.service');
-    const holidayService = new HolidayService();
-    return holidayService.getHolidaysForYear(
-      parseInt(year),
-      tenant.countryCode || '',
-      settings.settings.holidays,
-    );
   }
 }

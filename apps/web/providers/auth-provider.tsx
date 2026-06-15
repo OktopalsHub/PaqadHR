@@ -18,6 +18,9 @@ import {
   logoutRequest,
   register as registerRequest,
 } from "@/lib/api/auth";
+import { bootstrapCsrf, clearCsrfToken } from "@/lib/api/client";
+import { fetchUserTenants } from "@/lib/api/tenants";
+import { getPostAuthPath } from "@/lib/navigation/tenant-routes";
 import { queryKeys } from "@/lib/query/keys";
 import type { LoginInput, SignupInput, User } from "@/lib/schemas/auth";
 
@@ -32,6 +35,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function readRedirectParam(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get("redirect");
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -42,16 +50,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: Infinity,
   });
 
+  const navigateAfterAuth = useCallback(
+    async (user: User) => {
+      const tenants = await queryClient.fetchQuery({
+        queryKey: queryKeys.tenants.all,
+        queryFn: fetchUserTenants,
+      });
+
+      queryClient.setQueryData(queryKeys.tenants.all, tenants);
+
+      const redirect = readRedirectParam();
+      const destination =
+        user.needsOnboarding || tenants.length === 0
+          ? "/onboarding"
+          : getPostAuthPath(tenants, redirect);
+
+      router.push(destination);
+    },
+    [queryClient, router],
+  );
+
   const loginMutation = useMutation({
     mutationFn: loginRequest,
-    onSuccess: (user) => {
+    onSuccess: async (user) => {
       queryClient.setQueryData(queryKeys.auth.session, user);
+      await bootstrapCsrf();
       toast.success(
         <ToastMessage title="Login Successful" description="Welcome back!" />,
       );
-      router.push(
-        user.needsOnboarding ? "/onboarding" : "/app",
-      );
+      await navigateAfterAuth(user);
     },
     onError: (error: Error) => {
       toast.error(
@@ -62,15 +89,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: registerRequest,
-    onSuccess: (user) => {
+    onSuccess: async (user) => {
       queryClient.setQueryData(queryKeys.auth.session, user);
+      await bootstrapCsrf();
       toast.success(
         <ToastMessage
           title="Registration Successful"
           description="Your account has been created!"
         />,
       );
-      router.push(user.needsOnboarding ? "/onboarding" : "/app");
+      await navigateAfterAuth(user);
     },
     onError: (error: Error) => {
       toast.error(
@@ -82,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     void logoutRequest().finally(() => {
       clearSession();
+      clearCsrfToken();
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
     });

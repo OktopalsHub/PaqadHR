@@ -178,15 +178,29 @@ export class TenantMembersService {
   ): Promise<TenantMember> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
     if (!member) throw new NotFoundException('Tenant member not found');
+
     const updateData: Partial<TenantMember> = {};
-    if (updateDto.departmentId)
-      updateData['departmentId'] = updateDto.departmentId;
-    if (updateDto.reportsToId)
-      updateData['reportsToId'] = updateDto.reportsToId;
-    await this.tenantMemberRepository.update(member.id, {
-      ...updateDto,
-      ...updateData,
-    } as QueryDeepPartialEntity<TenantMember>);
+    if (updateDto.firstName !== undefined) updateData.firstName = updateDto.firstName;
+    if (updateDto.lastName !== undefined) updateData.lastName = updateDto.lastName;
+    if (updateDto.middleName !== undefined) updateData.middleName = updateDto.middleName;
+    if (updateDto.preferredName !== undefined) {
+      updateData.preferredName = updateDto.preferredName;
+    }
+    if (updateDto.phone !== undefined) updateData.phone = updateDto.phone;
+    if (updateDto.dateOfBirth !== undefined) {
+      updateData.dateOfBirth = updateDto.dateOfBirth;
+    }
+    if (updateDto.gender !== undefined) updateData.gender = updateDto.gender;
+    if (updateDto.role !== undefined) updateData.role = updateDto.role;
+    if (updateDto.avatarKey !== undefined) updateData.avatarKey = updateDto.avatarKey;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.tenantMemberRepository.update(
+        member.id,
+        updateData as QueryDeepPartialEntity<TenantMember>,
+      );
+    }
+
     return this.getTenantMember(member.id, tenantId);
   }
   async removeTenantMember(userId: string, tenantId: string): Promise<void> {

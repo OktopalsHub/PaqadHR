@@ -28,7 +28,7 @@ export class JobOpeningService {
   ): Promise<JobOpening> {
     const jobData = {
       title: createJobOpeningDto.title,
-      departmentId: createJobOpeningDto.departmentId,
+      departmentId: createJobOpeningDto.departmentId ?? null,
       position: createJobOpeningDto.position,
       employmentType: createJobOpeningDto.employmentType,
       experienceLevel: createJobOpeningDto.experienceLevel,

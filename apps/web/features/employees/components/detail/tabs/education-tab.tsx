@@ -22,6 +22,7 @@ export function EducationTab({ form }: EducationTabProps) {
     educationDialogOpen,
     setEducationDialogOpen,
     handleAddEducation,
+    handleDeleteEducation,
   } = form;
 
   return (
@@ -43,8 +44,8 @@ export function EducationTab({ form }: EducationTabProps) {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {employee.education.map((edu, index) => (
-            <div key={index} className="border rounded-lg p-4">
+          {employee.education.map((edu) => (
+            <div key={edu.id} className="border rounded-lg p-4">
               <div className="flex justify-between items-start">
                 <div>
                   <div className="flex items-center">
@@ -63,7 +64,12 @@ export function EducationTab({ form }: EducationTabProps) {
                   <Pencil className="mr-2 h-3 w-3" />
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" className="text-red-500">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500"
+                  onClick={() => handleDeleteEducation(edu.id)}
+                >
                   <Trash className="mr-2 h-3 w-3" />
                   Remove
                 </Button>

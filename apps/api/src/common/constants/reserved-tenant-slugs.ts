@@ -1,0 +1,15 @@
+export const RESERVED_TENANT_SLUGS = new Set([
+  'signin',
+  'signup',
+  'forgot-password',
+  'onboarding',
+  'app',
+  'api',
+  '_next',
+  'www',
+  'admin',
+  'dashboard',
+  'health',
+  'docs',
+  'metrics',
+]);

@@ -16,11 +16,11 @@ import { BaseEntity } from "../../../../common/database/entities/base.entity";
 export class JobOpening extends BaseEntity {
   @Column()
   title: string;
-  @Column({ name: 'department_id' })
-  departmentId: string;
-  @ManyToOne(() => Department, { eager: true })
+  @Column({ name: 'department_id', nullable: true })
+  departmentId?: string | null;
+  @ManyToOne(() => Department, { eager: true, nullable: true })
   @JoinColumn({ name: 'department_id' })
-  department: Department;
+  department?: Department | null;
   @Column()
   position: string;
   @Column({ type: 'varchar', length: 16 })
