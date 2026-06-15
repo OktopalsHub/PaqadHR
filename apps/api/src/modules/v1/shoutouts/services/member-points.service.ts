@@ -3,10 +3,10 @@ import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-tr
 import { DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { DataSource, EntityManager } from 'typeorm';
-import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import type { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
-import type { MemberPointsRepository } from '../repositories/member-points.repository';
+import { MemberPointsRepository } from '../repositories/member-points.repository';
 
 @Injectable()
 export class MemberPointsService {

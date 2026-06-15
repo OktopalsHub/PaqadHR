@@ -21,7 +21,7 @@ import type {
   PasscodeChangeDto,
   UpdatePaymentMethodDto,
 } from '../../payment-method/dto/payment-method.dto';
-import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 
 @Controller('tenants/:tenantId/payment-methods')

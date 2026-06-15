@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { AnomalyIndicator } from '../interfaces/anomaly-indicator.interface';
-import type { SecurityAuditService } from './security-audit.service';
+import { SecurityAuditService } from './security-audit.service';
 
 @Injectable()
 export class AnomalyDetectionService {

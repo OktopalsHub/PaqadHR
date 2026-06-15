@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AssetAssignmentStatus, AssetStatus } from 'src/common/enums';
-import type { AssetAssignmentRepository } from '../assets/assignment/asset-assignment.repository';
+import { AssetAssignmentRepository } from '../assets/assignment/asset-assignment.repository';
 import type { AssignAssetDto } from './assignment/dto/assign-asset.dto';
-import type { AssetCategoryService } from './category/asset-category.service';
+import { AssetCategoryService } from './category/asset-category.service';
 import type { CreateAssetDto } from './dto/create-asset.dto';
 import type { QueryAssetsDto } from './dto/query-assets.dto';
 import type { ReturnAssetDto } from './dto/return-asset.dto';
 import type { UpdateAssetDto } from './dto/update-asset.dto';
-import type { AssetRepository } from './repositories/asset.repository';
+import { AssetRepository } from './repositories/asset.repository';
 
 @Injectable()
 export class AssetService {

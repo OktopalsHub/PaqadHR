@@ -1,6 +1,6 @@
 import { Body, Controller, Param, Post } from '@nestjs/common';
 import type { SetPasscodeDto, VerifyPasscodeDto } from '../dto/paymemt-security.dto';
-import type { PaymentSecurityService } from '../services/payment-security.service';
+import { PaymentSecurityService } from '../services/payment-security.service';
 
 @Controller('payment-security')
 export class PaymentSecurityController {

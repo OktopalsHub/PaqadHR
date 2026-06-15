@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PasswordService } from 'src/common/utils';
 import type { PaymentSecurity } from '../entities/payment-security.entity';
-import type { PaymentSecurityRepository } from '../repositories/payment-security.repository';
+import { PaymentSecurityRepository } from '../repositories/payment-security.repository';
 
 @Injectable()
 export class PaymentSecurityService {

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, Repository } from 'typeorm';
-import type { IEmergencyContactRepository } from '../../../common/interfaces/iemergency-contact-repository.interface';
+import { IEmergencyContactRepository } from '../../../common/interfaces/iemergency-contact-repository.interface';
 import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
 import { EmergencyContact } from './entities/emergency-contact.entity';

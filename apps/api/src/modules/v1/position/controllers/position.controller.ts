@@ -14,7 +14,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import type { CreatePositionDto } from '../dto/create-position.dto';
 import type { UpdatePositionDto } from '../dto/update-position.dto';
 import type { Position } from '../entities/position.entity';
-import type { PositionService } from '../services/position.service';
+import { PositionService } from '../services/position.service';
 
 @ApiTags('Positions')
 @UseGuards(TenantMemberGuard)

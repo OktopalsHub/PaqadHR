@@ -7,8 +7,8 @@ import type { CreateDepartmentDto } from './dto/create-department.dto';
 import type { DepartmentMemberDto, DepartmentResponseDto } from './dto/department-response.dto';
 import type { UpdateDepartmentDto } from './dto/update-department.dto';
 import type { Department } from './entities/department.entity';
-import type { DepartmentMembersRepository } from './repositories/department-members.repository';
-import type { DepartmentsRepository } from './repositories/departments.repository';
+import { DepartmentMembersRepository } from './repositories/department-members.repository';
+import { DepartmentsRepository } from './repositories/departments.repository';
 
 @Injectable()
 export class DepartmentsService {

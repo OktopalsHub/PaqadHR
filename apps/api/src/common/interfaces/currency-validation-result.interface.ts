@@ -1,4 +1,4 @@
-import type { PaymentProvider } from 'src/common/enums';
+import { PaymentProvider } from 'src/common/enums';
 
 export interface CurrencyValidationResult {
   isValid: boolean;

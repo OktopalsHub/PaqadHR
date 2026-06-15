@@ -1,9 +1,9 @@
 import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
-import type { IPlatformClient } from 'src/common/interfaces';
+import { IPlatformClient } from 'src/common/interfaces';
 import { In } from 'typeorm';
-import type { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
+import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
 import type {
@@ -12,9 +12,9 @@ import type {
   PlatformUserSaveData,
   ShoutoutBroadcast,
 } from '../integration.types';
-import type { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
-import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
-import type { PlatformUserRepository } from '../repositories/platform-user.repository';
+import { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
+import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import { PlatformUserRepository } from '../repositories/platform-user.repository';
 import { UserSyncService } from './user-sync.service';
 
 @Injectable()

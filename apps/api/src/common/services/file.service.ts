@@ -5,7 +5,7 @@ import type { FileUploadLocation } from '../enums/file-upload-location.enum';
 import type { FileUrlResponse } from '../interfaces/file-url-response.interface';
 import type { GenerateUploadUrlRequest } from '../interfaces/generate-upload-url-request.interface';
 import type { GenerateUploadUrlResponse } from '../interfaces/generate-upload-url-response.interface';
-import type { CloudflareR2Service } from './cloudflare-r2.service';
+import { CloudflareR2Service } from './cloudflare-r2.service';
 
 @Injectable()
 export class FileService {

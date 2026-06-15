@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
-import type { FileService } from 'src/common/services/file.service';
-import type { Repository } from 'typeorm';
+import { FileService } from 'src/common/services/file.service';
+import { Repository } from 'typeorm';
 import type { CreateAssetDocumentDto } from './dto/create-asset-document.dto';
 import type { UpdateAssetDocumentDto } from './dto/update-asset-document.dto';
 import { AssetDocument } from './entities/asset-document.entity';

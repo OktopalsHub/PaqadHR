@@ -1,15 +1,15 @@
 import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
-import type { TenantMembersService } from '../tenant-members/tenant-members.service';
-import type { UsersService } from '../users/users.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { UsersService } from '../users/users.service';
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
 import type { Tenant } from './entities/tenant.entity';
-import type { TenantRepository } from './repositories/tenant.repository';
+import { TenantRepository } from './repositories/tenant.repository';
 
 @Injectable()
 export class TenantsService {

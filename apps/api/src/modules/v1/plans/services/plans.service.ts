@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
 import { Plan } from '../entities/plan.entity';
 import { PlanPrice } from '../entities/plan-price.entity';

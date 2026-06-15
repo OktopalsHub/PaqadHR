@@ -9,14 +9,14 @@ import {
 import { PasswordService } from 'src/common/utils';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
-import type { TenantMembersService } from '../tenant-members/tenant-members.service';
-import type { TenantsService } from '../tenants/tenants.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
-import type { UsersService } from '../users/users.service';
+import { UsersService } from '../users/users.service';
 import type { CreateInvitationDto } from './dto/index';
 import type { UpdateInvitationDto } from './dto/update-invitation.dto';
 import type { Invitation } from './entities/invitation.entity';
-import type { InvitationsRepository } from './repositories/invitations.repository';
+import { InvitationsRepository } from './repositories/invitations.repository';
 
 @Injectable()
 export class InvitationsService {

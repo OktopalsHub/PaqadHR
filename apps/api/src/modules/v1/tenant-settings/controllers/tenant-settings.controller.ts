@@ -2,17 +2,17 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@n
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
-import type { MemberPointsService } from '../../shoutouts/services/member-points.service';
+import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { TenantsService } from '../../tenants/tenants.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import type {
   AssignPointsDto,
   HolidayDto,
   HolidaySettingsDto,
   UpdateTenantSettingsDto,
 } from '../dto/tenant-settings.dto';
-import type { TenantSettingsService } from '../services/tenant-settings.service';
-import type { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
+import { TenantSettingsService } from '../services/tenant-settings.service';
+import { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
 @ApiTags('Tenant Settings')
 @Controller('tenants/:tenantId/settings')
 @UseGuards(TenantMemberGuard)

@@ -4,7 +4,7 @@ import { CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { Public } from '../../../common/decorators';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
@@ -13,7 +13,7 @@ import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member
 import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import type { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
-import type { TenantMembersService } from './tenant-members.service';
+import { TenantMembersService } from './tenant-members.service';
 
 @ApiTags('Tenant Members')
 @Controller('tenants/:tenantId')

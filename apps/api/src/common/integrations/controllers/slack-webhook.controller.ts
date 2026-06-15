@@ -16,7 +16,7 @@ import type {
   SlackSlashCommandPayload,
   SlackUrlVerificationPayload,
 } from '../integration.types';
-import type { SlackWebhookService } from '../services/slack-webhook.service';
+import { SlackWebhookService } from '../services/slack-webhook.service';
 
 @ApiTags('Slack Webhooks')
 @Controller('webhooks/slack')

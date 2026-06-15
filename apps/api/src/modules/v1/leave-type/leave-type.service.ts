@@ -3,7 +3,7 @@ import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { LeaveTypeCreatedEvent } from '../leave/events/leave.events';
 import type { CreateLeaveTypeDto } from './dto/create-leave-type.dto';
 import type { UpdateLeaveTypeDto } from './dto/update-leave-type.dto';
-import type { LeaveTypeRepository } from './leave-type.repository';
+import { LeaveTypeRepository } from './leave-type.repository';
 
 @Injectable()
 export class LeaveTypeService {

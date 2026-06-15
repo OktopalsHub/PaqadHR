@@ -12,7 +12,7 @@ import {
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { AssetService } from './assets.service';
+import { AssetService } from './assets.service';
 import type { AssignAssetDto } from './assignment/dto/assign-asset.dto';
 import type { CreateAssetDto } from './dto/create-asset.dto';
 import type { QueryAssetsDto } from './dto/query-assets.dto';

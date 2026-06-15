@@ -4,7 +4,7 @@ import {
   SHOUTOUT_CREATED_EVENT,
   type ShoutoutCreatedEventPayload,
 } from '../events/shoutout.events';
-import type { ShoutoutAuditService } from '../services/shoutout-audit.service';
+import { ShoutoutAuditService } from '../services/shoutout-audit.service';
 
 @Injectable()
 export class ShoutoutAuditListener {

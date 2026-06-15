@@ -9,8 +9,9 @@ import {
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
-import type { FileUrlService } from 'src/common/services/file-url.service';
-import type { QueryDeepPartialEntity, Repository } from 'typeorm';
+import { FileUrlService } from 'src/common/services/file-url.service';
+import type { QueryDeepPartialEntity } from 'typeorm';
+import { Repository } from 'typeorm';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
 import { TenantMemberCreatedEvent } from '../leave/events/leave.events';
@@ -18,8 +19,8 @@ import { TenantSettings } from '../tenant-settings/entities/tenant-settings.enti
 import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
 import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import type { TenantMember } from './entities/tenant-member.entity';
-import type { TenantCounterRepository } from './repositories/tenant-counter.repository';
-import type { TenantMemberRepository } from './repositories/tenant-members.repository';
+import { TenantCounterRepository } from './repositories/tenant-counter.repository';
+import { TenantMemberRepository } from './repositories/tenant-members.repository';
 
 interface EmailQueueService {
   sendInvitationEmail(

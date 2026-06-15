@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
+import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 
 @Injectable()
 export class PayrollFeeService {

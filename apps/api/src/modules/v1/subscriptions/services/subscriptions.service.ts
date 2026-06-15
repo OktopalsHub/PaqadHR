@@ -2,8 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
-import type { Repository } from 'typeorm';
-import type { PlansService } from '../../plans/services/plans.service';
+import { Repository } from 'typeorm';
+import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import {
   getBillingMode,

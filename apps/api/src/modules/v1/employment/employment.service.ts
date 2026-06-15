@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import type { CreateEmploymentDto } from './dto/create-employment.dto';
 import type { UpdateEmploymentDto } from './dto/update-employment.dto';
-import type { EmploymentRepository } from './employment.repository';
+import { EmploymentRepository } from './employment.repository';
 import type { Employment } from './entities/employment.entity';
 
 @Injectable()

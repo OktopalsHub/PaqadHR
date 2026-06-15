@@ -3,7 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { AddressService } from './address.service';
+import { AddressService } from './address.service';
 import type { CreateAddressDto } from './dto/create-address.dto';
 import type { UpdateAddressDto } from './dto/update-address.dto';
 

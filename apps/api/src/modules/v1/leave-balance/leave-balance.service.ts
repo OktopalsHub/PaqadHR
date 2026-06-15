@@ -2,11 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import type { CarryoverExpirationResult } from 'src/common/interfaces';
 import type { Leave } from '../leave/entities/leave.entity';
-import type { LeavePolicyService } from '../leave-policy/leave-policy.service';
+import { LeavePolicyService } from '../leave-policy/leave-policy.service';
 import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
 import type { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
 import type { LeaveBalance } from './entities/leave-balance.entity';
-import type { LeaveBalanceRepository } from './leave-balance.repository';
+import { LeaveBalanceRepository } from './leave-balance.repository';
 
 @Injectable()
 export class LeaveBalanceService {

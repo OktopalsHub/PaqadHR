@@ -5,7 +5,7 @@ import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import type { OnboardingData } from '../../../../common/interfaces/onboarding-data.interface';
 import type { CompleteOnboardingDto } from '../dto/complete-onboarding.dto';
-import type { TenantOnboardingService } from '../services/tenant-onboarding.service';
+import { TenantOnboardingService } from '../services/tenant-onboarding.service';
 
 @ApiTags('Tenant Onboarding')
 @Controller('onboarding')

@@ -5,7 +5,7 @@ import { UserRole } from 'src/common/enums';
 import { RoleGuard, Roles } from 'src/common/guards/role.guard';
 import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
 import type { ExtendTrialDto } from '../dto/extend-trial.dto';
-import type { SubscriptionsService } from '../services/subscriptions.service';
+import { SubscriptionsService } from '../services/subscriptions.service';
 
 @ApiTags('Subscriptions Admin')
 @Controller('admin/subscriptions')

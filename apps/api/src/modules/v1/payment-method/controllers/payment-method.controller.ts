@@ -23,7 +23,7 @@ import type {
   PasscodeChangeDto,
   UpdatePaymentMethodDto,
 } from '../dto/payment-method.dto';
-import type { PaymentMethodService } from '../services/payment-method.service';
+import { PaymentMethodService } from '../services/payment-method.service';
 
 @ApiTags('Payment Methods')
 @Controller('tenants/:tenantId/payment-methods')

@@ -4,7 +4,7 @@ import { RequireFeatures } from 'src/common/decorators';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { PayrollFeeService } from '../services/payroll-fee.service';
+import { PayrollFeeService } from '../services/payroll-fee.service';
 export class PayrollFeePreviewDto {
   payrollItems: Array<{ amount: number; currency: string }>;
 }

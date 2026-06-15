@@ -4,12 +4,12 @@ import { TenantMemberRole } from 'src/common/enums';
 import { StringUtility } from 'src/common/utils';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type { User } from '../../users/entities/user.entity';
-import type { UsersService } from '../../users/users.service';
+import { UsersService } from '../../users/users.service';
 import type { CreateTenantDto } from '../dto/create-tenant.dto';
 import type { Tenant } from '../entities/tenant.entity';
-import type { TenantRepository } from '../repositories/tenant.repository';
+import { TenantRepository } from '../repositories/tenant.repository';
 
 @Injectable()
 export class TenantBusinessService {

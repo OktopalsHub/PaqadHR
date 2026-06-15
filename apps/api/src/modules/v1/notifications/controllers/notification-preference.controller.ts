@@ -7,7 +7,7 @@ import type { NotificationPreferenceType } from '../../../../common/enums/notifi
 import type { UpdatePreferenceDto } from '../../../../common/interfaces/update-preference-dto.interface';
 import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
 import type { NotificationPreference } from '../entities/notification-preference.entity';
-import type { NotificationPreferenceService } from '../services/notification-preference.service';
+import { NotificationPreferenceService } from '../services/notification-preference.service';
 
 @ApiTags('Notification Preferences')
 @ApiBearerAuth()

@@ -1,5 +1,5 @@
 import { FileUploadLocation } from '../enums/file-upload-location.enum';
-import type { FileUrlService } from '../services/file-url.service';
+import { FileUrlService } from '../services/file-url.service';
 
 export interface FileUrlMappingOptions {
   tenantId: string;

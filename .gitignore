@@ -12,6 +12,7 @@ node_modules
 dist
 .next
 out
+.open-next
 build
 coverage
 

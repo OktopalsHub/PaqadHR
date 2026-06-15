@@ -4,12 +4,12 @@ import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import type { MemberContext } from 'src/common/interfaces';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CandidateMapper } from '../dto/candidate-response.dto';
 import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
 import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
-import type { CandidateService } from '../services/candidate.service';
+import { CandidateService } from '../services/candidate.service';
 
 @ApiTags('Tenant Candidates')
 @Controller('tenants/:tenantId/candidates')

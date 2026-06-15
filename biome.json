@@ -82,6 +82,9 @@
       },
       "linter": {
         "rules": {
+          "style": {
+            "useImportType": "off"
+          },
           "complexity": {
             "noStaticOnlyClass": "off"
           },

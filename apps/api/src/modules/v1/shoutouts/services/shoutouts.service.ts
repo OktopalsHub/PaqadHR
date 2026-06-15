@@ -2,18 +2,18 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { DataSource } from 'typeorm';
-import type { NotificationHelperService } from '../../notifications/services/notification-helper.service';
-import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import type { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import {
   SHOUTOUT_CREATED_EVENT,
   type ShoutoutCreatedEventPayload,
 } from '../events/shoutout.events';
 import type { CreateShoutoutInput } from '../interfaces/shoutout.interface';
 import type { ShoutoutFilters } from '../interfaces/shoutout-filters.interface';
-import type { ShoutoutsRepository } from '../repositories/shoutouts.repository';
-import type { MemberPointsService } from './member-points.service';
-import type { ShoutoutCategoriesService } from './shoutout-categories.service';
+import { ShoutoutsRepository } from '../repositories/shoutouts.repository';
+import { MemberPointsService } from './member-points.service';
+import { ShoutoutCategoriesService } from './shoutout-categories.service';
 
 @Injectable()
 export class ShoutoutsService {

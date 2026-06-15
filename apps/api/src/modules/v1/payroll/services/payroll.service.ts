@@ -2,16 +2,16 @@ import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/commo
 import type { DataSource } from 'typeorm';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
-import type { NombaProvider } from '../../../../common/providers/nomba.provider';
-import type { EmploymentService } from '../../employment/employment.service';
-import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { NombaProvider } from '../../../../common/providers/nomba.provider';
+import { EmploymentService } from '../../employment/employment.service';
+import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
-import type { AuditService } from './audit.service';
-import type { ManualDisbursementService } from './manual-disbursement.service';
-import type { PayrollCalculationService } from './payroll-calculation.service';
-import type { PayrollExportService } from './payroll-export.service';
+import { AuditService } from './audit.service';
+import { ManualDisbursementService } from './manual-disbursement.service';
+import { PayrollCalculationService } from './payroll-calculation.service';
+import { PayrollExportService } from './payroll-export.service';
 
 interface PayrollPreviewEmployee {
   employeeId: string;
@@ -40,8 +40,8 @@ import type { PaymentMethod } from '../../payment-method/entities/payment-method
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
-import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 @Injectable()
 export class PayrollService {
   private readonly logger = new Logger(PayrollService.name);

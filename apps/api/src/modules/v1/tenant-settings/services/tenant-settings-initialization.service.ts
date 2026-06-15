@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import type { PartialTenantSettingsData } from '../../../../common/interfaces/partial-tenant-settings-data.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
-import type { TenantSettingRepository } from './tenant-setting.repository';
+import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantSettingsInitializationService {

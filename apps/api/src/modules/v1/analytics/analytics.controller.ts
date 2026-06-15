@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { AnalyticsService } from './analytics.service';
+import { AnalyticsService } from './analytics.service';
 import type { AnalyticsOverviewDto } from './dto/analytics-overview.dto';
 
 @ApiTags('Analytics')

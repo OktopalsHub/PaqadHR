@@ -19,7 +19,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
-import type { EmergencyContactService } from './emergency-contact.service';
+import { EmergencyContactService } from './emergency-contact.service';
 import type { EmergencyContact } from './entities/emergency-contact.entity';
 
 @ApiTags('emergency-contacts')

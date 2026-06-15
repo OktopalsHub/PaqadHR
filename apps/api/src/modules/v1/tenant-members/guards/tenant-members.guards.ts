@@ -10,11 +10,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { tenantContext } from 'src/common/context/tenant.context';
 import type { TenantMemberRole } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { firstRouteParam } from '../../../../common/utils/route-param.util';
 import { resolveTenantIdFromRequest } from '../../../../common/utils/tenant-request.util';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import type { TenantMembersService } from '../tenant-members.service';
+import { TenantMembersService } from '../tenant-members.service';
 
 @Injectable()
 export class TenantMemberGuard implements CanActivate {

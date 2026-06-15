@@ -4,7 +4,7 @@ import type { PointsSettings } from '../../../../common/interfaces/points-settin
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
-import type { TenantSettingRepository } from './tenant-setting.repository';
+import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantSettingsService {

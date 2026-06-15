@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { AssetCategoryRepository } from './asset-category.repository';
+import { AssetCategoryRepository } from './asset-category.repository';
 import type { CreateAssetCategoryDto } from './dto/create-asset-category.dto';
 import type { UpdateAssetCategoryDto } from './dto/update-asset-category.dto';
 

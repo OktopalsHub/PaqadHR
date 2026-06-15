@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, Repository } from 'typeorm';
-import type { IEducationRepository } from '../../../common/interfaces/ieducation-repository.interface';
+import { IEducationRepository } from '../../../common/interfaces/ieducation-repository.interface';
 import type { CreateEducationDto } from './dto/create-education.dto';
 import type { UpdateEducationDto } from './dto/update-education.dto';
 import { Education } from './entities/education.entity';

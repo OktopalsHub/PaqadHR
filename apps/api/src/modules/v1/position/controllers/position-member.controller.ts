@@ -2,7 +2,7 @@ import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { PositionMemberService } from '../services/position-member.service';
+import { PositionMemberService } from '../services/position-member.service';
 @Controller('tenants/:tenantId/positions')
 @UseGuards(TenantMemberGuard)
 export class PositionMemberController {

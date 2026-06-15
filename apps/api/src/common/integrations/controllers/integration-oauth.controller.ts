@@ -19,11 +19,11 @@ import { Public } from 'src/common/decorators';
 import { IntegrationType } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
-import type { TenantsService } from '../../../modules/v1/tenants/tenants.service';
+import { TenantsService } from '../../../modules/v1/tenants/tenants.service';
 import type { OAuthStateData } from '../integration.types';
-import type { ChannelManagementService } from '../services/channel-management.service';
-import type { OAuthIntegrationService } from '../services/oauth-integration.service';
-import type { PlatformIntegrationService } from '../services/platform-integration.service';
+import { ChannelManagementService } from '../services/channel-management.service';
+import { OAuthIntegrationService } from '../services/oauth-integration.service';
+import { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Controller()
 export class OAuthIntegrationController {

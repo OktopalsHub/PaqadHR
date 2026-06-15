@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { ConversationsListResponse } from '@slack/web-api';
 import { ChannelType } from 'src/common/enums';
-import type { ChannelInfo, IPlatformClient } from 'src/common/interfaces';
+import type { ChannelInfo } from 'src/common/interfaces';
+import { IPlatformClient } from 'src/common/interfaces';
 import { SlackClient } from '../clients/slack.client';
 import { IntegrationChannel } from '../entities/integration-channel.entity';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
 import type { ShoutoutBroadcast } from '../integration.types';
-import type { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
-import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
+import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
 
 @Injectable()
 export class ChannelManagementService {

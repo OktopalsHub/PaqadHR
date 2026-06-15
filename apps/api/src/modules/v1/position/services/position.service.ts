@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreatePositionDto } from '../dto/create-position.dto';
 import type { UpdatePositionDto } from '../dto/update-position.dto';
 import type { Position } from '../entities/position.entity';
-import type { PositionRepository } from '../repositories/position.repository';
+import { PositionRepository } from '../repositories/position.repository';
 
 @Injectable()
 export class PositionService {

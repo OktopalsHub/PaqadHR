@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import type { PartialTenantSettingsData } from '../../../../common/interfaces/partial-tenant-settings-data.interface';
-import type { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
+import { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
 @Injectable()
 export class TenantSettingsListener {
   private readonly logger = new Logger(TenantSettingsListener.name);

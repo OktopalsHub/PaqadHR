@@ -6,9 +6,9 @@ import type {
   MissingLeaveType,
   RemovalResult,
 } from 'src/common/interfaces';
-import type { LeaveBalanceService } from '../leave-balance/leave-balance.service';
-import type { LeaveTypeService } from '../leave-type/leave-type.service';
-import type { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
+import { LeaveTypeService } from '../leave-type/leave-type.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
 @Injectable()
 export class LeaveTypeAssignmentService {
   constructor(

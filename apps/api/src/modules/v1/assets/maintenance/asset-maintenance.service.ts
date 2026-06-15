@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { MaintenanceStatus } from 'src/common/enums';
-import type { AssetRepository } from '../repositories/asset.repository';
-import type { AssetMaintenanceRepository } from './asset-maintenance.repository';
+import { AssetRepository } from '../repositories/asset.repository';
+import { AssetMaintenanceRepository } from './asset-maintenance.repository';
 import type { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import type { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 

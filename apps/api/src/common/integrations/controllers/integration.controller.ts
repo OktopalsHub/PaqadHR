@@ -4,7 +4,7 @@ import type { IntegrationType } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import type { IntegrationConfig } from '../integration.types';
-import type { PlatformIntegrationService } from '../services/platform-integration.service';
+import { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Controller('tenants/:tenantId/integrations')
 @UseGuards(TenantMemberGuard)

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type { DepartmentInfo } from '../../../../common/interfaces/department-info.interface';
 import { DepartmentMember } from '../../departments/entities/department-member.entity';
 

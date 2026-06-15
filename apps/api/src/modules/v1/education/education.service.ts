@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateEducationDto } from './dto/create-education.dto';
 import type { UpdateEducationDto } from './dto/update-education.dto';
-import type { EducationRepository } from './education.repository';
+import { EducationRepository } from './education.repository';
 import type { Education } from './entities/education.entity';
 
 @Injectable()

@@ -3,7 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { SubscriptionsService } from '../services/subscriptions.service';
+import { SubscriptionsService } from '../services/subscriptions.service';
 
 class SetTenantRegionDto {
   countryCode: string;

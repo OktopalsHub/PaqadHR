@@ -15,7 +15,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
-import type { AuthService } from './auth.service';
+import { AuthService } from './auth.service';
 
 interface AuthResponse {
   accessToken: string;

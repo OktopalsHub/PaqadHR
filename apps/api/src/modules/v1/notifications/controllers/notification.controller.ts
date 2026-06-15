@@ -24,8 +24,8 @@ import type {
   CreateNotificationDto,
 } from '../dto/create-notification.dto';
 import type { Notification } from '../entities/notification.entity';
-import type { NotificationService } from '../services/notification.service';
-import type { SSENotificationService } from '../services/sse-notification.service';
+import { NotificationService } from '../services/notification.service';
+import { SSENotificationService } from '../services/sse-notification.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()

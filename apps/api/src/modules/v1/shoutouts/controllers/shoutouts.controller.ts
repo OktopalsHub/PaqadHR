@@ -16,7 +16,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import type { CreateShoutoutDto } from '../dto/create-shoutout.dto';
 import type { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
 import { ShoutoutPaginatedResponseDto, ShoutoutResponseDto } from '../dto/shoutout-response.dto';
-import type { ShoutoutsService } from '../services/shoutouts.service';
+import { ShoutoutsService } from '../services/shoutouts.service';
 
 @ApiTags('shoutouts')
 @UseGuards(TenantMemberGuard)

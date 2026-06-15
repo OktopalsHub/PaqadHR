@@ -16,7 +16,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateLeaveDto } from './dto/create-leave.dto';
 import type { UpdateLeaveDto } from './dto/update-leave.dto';
-import type { LeaveService } from './leave.service';
+import { LeaveService } from './leave.service';
 
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leaves')

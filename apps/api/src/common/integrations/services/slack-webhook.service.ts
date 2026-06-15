@@ -4,9 +4,9 @@ import type { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
 import { IsNull, Not } from 'typeorm';
-import type { ShoutoutsService } from '../../../modules/v1/shoutouts/services/shoutouts.service';
+import { ShoutoutsService } from '../../../modules/v1/shoutouts/services/shoutouts.service';
 import type { TenantMember } from '../../../modules/v1/tenant-members/entities/tenant-member.entity';
-import type { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
+import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
 import type {
   SlackEvent,
@@ -14,9 +14,9 @@ import type {
   SlackInteractivePayload,
   SlackSlashCommandPayload,
 } from '../integration.types';
-import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
-import type { PlatformUserRepository } from '../repositories/platform-user.repository';
-import type { UserSyncService } from './user-sync.service';
+import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import { PlatformUserRepository } from '../repositories/platform-user.repository';
+import { UserSyncService } from './user-sync.service';
 
 @Injectable()
 export class SlackWebhookService {

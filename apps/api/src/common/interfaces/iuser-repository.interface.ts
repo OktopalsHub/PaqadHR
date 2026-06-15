@@ -1,4 +1,4 @@
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type { User } from '../../modules/v1/users/entities/user.entity';
 
 export interface IUserRepository extends Repository<User> {

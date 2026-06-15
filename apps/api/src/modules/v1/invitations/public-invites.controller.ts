@@ -12,7 +12,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { StringUtility } from 'src/common/utils';
 import { Public } from '../../../common/decorators';
-import type { InvitationsService } from './invitations.service';
+import { InvitationsService } from './invitations.service';
 
 class AcceptInvitationDto {
   token: string;

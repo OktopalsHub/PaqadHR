@@ -17,7 +17,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import type { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
 import { ShoutoutCategoryResponseDto } from '../dto/shoutout-category-response.dto';
 import type { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
-import type { ShoutoutCategoriesService } from '../services/shoutout-categories.service';
+import { ShoutoutCategoriesService } from '../services/shoutout-categories.service';
 
 @ApiTags('shoutout-categories')
 @UseGuards(TenantMemberGuard)

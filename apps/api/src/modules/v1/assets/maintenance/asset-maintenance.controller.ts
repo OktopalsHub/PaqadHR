@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@n
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { AssetMaintenanceService } from './asset-maintenance.service';
+import { AssetMaintenanceService } from './asset-maintenance.service';
 import type { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import type { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 

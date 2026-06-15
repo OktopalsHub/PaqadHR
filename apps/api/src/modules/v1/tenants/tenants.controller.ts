@@ -19,13 +19,13 @@ import { UserRole } from 'src/common/enums';
 import { Roles } from 'src/common/guards/role.guard';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import { TenantResponseDto, type UserTenantWithMembershipDto } from './dto/tenant-response.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
-import type { TenantsService } from './tenants.service';
+import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')
 @Controller('tenants')

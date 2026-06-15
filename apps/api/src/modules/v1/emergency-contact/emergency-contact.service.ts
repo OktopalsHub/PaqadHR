@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { RelationshipType } from 'src/common/enums';
 import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
-import type { EmergencyContactRepository } from './emergency-contact.repository';
+import { EmergencyContactRepository } from './emergency-contact.repository';
 import type { EmergencyContact } from './entities/emergency-contact.entity';
 
 @Injectable()

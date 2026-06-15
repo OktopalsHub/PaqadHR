@@ -3,8 +3,8 @@ import type { EventEmitter2 } from '@nestjs/event-emitter';
 import type { IntegrationType } from 'src/common/enums';
 import type { PlatformUser } from '../entities/platform-user.entity';
 import type { IntegrationConfig, IntegrationSyncStatus } from '../integration.types';
-import type { PlatformIntegrationService } from './platform-integration.service';
-import type { UserSyncService } from './user-sync.service';
+import { PlatformIntegrationService } from './platform-integration.service';
+import { UserSyncService } from './user-sync.service';
 @Injectable()
 export class IntegrationSetupService {
   private readonly logger = new Logger(IntegrationSetupService.name);

@@ -10,12 +10,12 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { IntegrationType } from 'src/common/enums';
 import type { IPlatformUser } from 'src/common/interfaces';
 import { IsNull } from 'typeorm';
-import type { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
+import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
 import type { PlatformUserData, PlatformUserSaveData } from '../integration.types';
-import type { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
-import type { PlatformUserRepository } from '../repositories/platform-user.repository';
+import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+import { PlatformUserRepository } from '../repositories/platform-user.repository';
 import { PlatformIntegrationService } from './platform-integration.service';
 
 @Injectable()

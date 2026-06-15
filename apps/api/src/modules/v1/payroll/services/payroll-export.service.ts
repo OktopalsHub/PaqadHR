@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
-import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 export interface PayrollBankExportRow {
   employeeId: string;

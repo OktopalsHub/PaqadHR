@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import type { DocumentType } from '../../../common/enums/document-type.enum';
-import type { IDocumentRepository } from '../../../common/interfaces/idocument-repository.interface';
+import { IDocumentRepository } from '../../../common/interfaces/idocument-repository.interface';
 import { Document, getDocumentAccessLevel, getDocumentCategory } from './entities/document.entity';
 
 @Injectable()

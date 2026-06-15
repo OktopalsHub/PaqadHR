@@ -25,9 +25,9 @@ import type {
   PayrollCalculationPreviewDto,
   UpdatePayrollRunDto,
 } from '../dto/payroll-adjustment.dto';
-import type { AuditService } from '../services/audit.service';
-import type { MultiPaymentService } from '../services/multi-payment.service';
-import type { PayrollService } from '../services/payroll.service';
+import { AuditService } from '../services/audit.service';
+import { MultiPaymentService } from '../services/multi-payment.service';
+import { PayrollService } from '../services/payroll.service';
 
 @Controller('tenants/:tenantId/payroll')
 @UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)

@@ -6,20 +6,20 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import type { JwtService } from '@nestjs/jwt';
+import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
 import { GeoLocationHelper, PasswordService, StringUtility } from 'src/common/utils';
-import type { Repository } from 'typeorm';
-import type { AuditLogsService } from '../../../common/services/audit-logs.service';
-import type { InvitationsService } from '../invitations/invitations.service';
-import type { TenantMembersService } from '../tenant-members/tenant-members.service';
-import type { TenantsService } from '../tenants/tenants.service';
+import { Repository } from 'typeorm';
+import { AuditLogsService } from '../../../common/services/audit-logs.service';
+import { InvitationsService } from '../invitations/invitations.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
-import type { UserRepository } from '../users/repositories/users.repository';
+import { UserRepository } from '../users/repositories/users.repository';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';

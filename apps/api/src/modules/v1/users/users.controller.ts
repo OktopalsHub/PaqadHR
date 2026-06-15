@@ -5,7 +5,7 @@ import { UserRole } from 'src/common/enums';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import { RoleGuard, Roles } from '../../../common/guards';
 import { UserResponseDto } from './dto/user-response.dto';
-import type { UsersService } from './users.service';
+import { UsersService } from './users.service';
 
 @ApiTags('Users')
 @Controller('users')

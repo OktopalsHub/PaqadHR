@@ -17,7 +17,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateEmploymentDto } from './dto/create-employment.dto';
 import type { UpdateEmploymentDto } from './dto/update-employment.dto';
-import type { EmploymentService } from './employment.service';
+import { EmploymentService } from './employment.service';
 import type { Employment } from './entities/employment.entity';
 
 @ApiTags('Employments')

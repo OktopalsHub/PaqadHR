@@ -4,7 +4,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateLeavePolicyDto } from './dto/create-leave-policy.dto';
 import type { UpdateLeavePolicyDto } from './dto/update-leave-policy.dto';
-import type { LeavePolicyService } from './leave-policy.service';
+import { LeavePolicyService } from './leave-policy.service';
 
 @Controller('tenants/:tenantId/leave-policies')
 @UseGuards(TenantMemberGuard, TenantRoleGuard)

@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { DetectedCountry } from 'src/common/decorators';
-import type { PlansService } from '../services/plans.service';
+import { PlansService } from '../services/plans.service';
 
 @ApiTags('Plans')
 @Controller('plans')

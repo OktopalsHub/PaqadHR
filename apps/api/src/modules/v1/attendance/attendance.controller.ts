@@ -14,7 +14,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { IAuthenticatedMemberRequest, MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { AttendanceService } from './attendance.service';
+import { AttendanceService } from './attendance.service';
 import type { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
 import type { ClockInDto } from './dto/clock-in.dto';
 import type { ClockOutDto } from './dto/clock-out.dto';

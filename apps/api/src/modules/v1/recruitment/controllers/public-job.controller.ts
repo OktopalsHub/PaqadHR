@@ -4,7 +4,7 @@ import { Public } from 'src/common/decorators';
 import { EmploymentType } from 'src/common/enums';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { JobOpening } from '../entities/job-opening.entity';
-import type { JobOpeningService } from '../services/job-opening.service';
+import { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Public Jobs')
 @Controller('jobs')

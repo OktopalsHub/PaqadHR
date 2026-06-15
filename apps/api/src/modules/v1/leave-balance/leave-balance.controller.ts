@@ -15,7 +15,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
 import type { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
-import type { LeaveBalanceService } from './leave-balance.service';
+import { LeaveBalanceService } from './leave-balance.service';
 
 @ApiTags('Leave Balances')
 @Controller('tenants/:tenantId/leave-balances')

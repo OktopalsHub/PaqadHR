@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateLeavePolicyDto } from './dto/create-leave-policy.dto';
 import type { UpdateLeavePolicyDto } from './dto/update-leave-policy.dto';
-import type { LeavePolicyRepository } from './leave-policy.repository';
+import { LeavePolicyRepository } from './leave-policy.repository';
 
 @Injectable()
 export class LeavePolicyService {

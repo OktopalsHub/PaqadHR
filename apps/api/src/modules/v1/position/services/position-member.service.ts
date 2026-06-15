@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { PositionMember } from '../entities/position-member.entity';
-import type { PositionMemberRepository } from '../repositories/position-member.repository';
+import { PositionMemberRepository } from '../repositories/position-member.repository';
 
 @Injectable()
 export class PositionMemberService {

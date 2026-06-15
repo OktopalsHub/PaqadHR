@@ -18,7 +18,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateEducationDto } from './dto/create-education.dto';
 import type { UpdateEducationDto } from './dto/update-education.dto';
-import type { EducationService } from './education.service';
+import { EducationService } from './education.service';
 import type { Education } from './entities/education.entity';
 
 @ApiTags('education')

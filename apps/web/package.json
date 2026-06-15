@@ -7,6 +7,8 @@
   },
   "scripts": {
     "dev": "next dev --turbopack",
+    "dev:clean": "rm -rf .next/dev/cache/turbopack .turbo && next dev --turbopack",
+    "clean": "rm -rf .next .turbo",
     "build": "next build",
     "start": "next start",
     "lint": "biome check .",
@@ -74,6 +76,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^25.9.2",
     "@types/react": "^19.2.17",

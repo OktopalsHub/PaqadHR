@@ -17,12 +17,12 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import type { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import type { DocumentType } from '../../../common/enums/document-type.enum';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { DocumentService } from './document.service';
+import { DocumentService } from './document.service';
 import type { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentMapper } from './dto/document-response.dto';
 import type { UpdateDocumentDto } from './dto/update-document.dto';

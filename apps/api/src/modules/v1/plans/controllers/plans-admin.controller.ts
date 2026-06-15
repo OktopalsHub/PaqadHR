@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
 import type { PlanPrice } from '../entities/plan-price.entity';
-import type { PlansService } from '../services/plans.service';
+import { PlansService } from '../services/plans.service';
 
 class UpsertPlanPriceDto {
   slug: string;

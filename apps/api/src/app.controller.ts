@@ -1,7 +1,7 @@
 import { Controller, Get, HttpStatus, Req, Res, VERSION_NEUTRAL } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import type { AppService } from './app.service';
+import { AppService } from './app.service';
 import { Public } from './common/decorators';
 
 type CsrfRequest = {

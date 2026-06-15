@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import type { Tenant } from '../entities/tenant.entity';
 
 export class TenantResponseDto {

@@ -4,7 +4,7 @@ import { Public } from 'src/common/decorators';
 import type { CreateCandidateDto } from '../dto/index';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
-import type { CandidateService } from '../services/candidate.service';
+import { CandidateService } from '../services/candidate.service';
 
 @ApiTags('Public Applications')
 @Public()

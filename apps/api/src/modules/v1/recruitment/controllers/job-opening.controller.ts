@@ -23,7 +23,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import type { CreateJobOpeningDto } from '../dto/index';
 import type { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
 import { JobOpening } from '../entities/job-opening.entity';
-import type { JobOpeningService } from '../services/job-opening.service';
+import { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Job Openings')
 @Controller('tenants/:tenantId/jobs')

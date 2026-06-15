@@ -2,7 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { CandidateSource, CandidateStatus, type InterviewType } from 'src/common/enums';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import type { Candidate } from '../entities/candidate.entity';
 
 export class CandidateResumeDto {

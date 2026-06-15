@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CandidateStatus, JobStatus, LeaveStatus } from 'src/common/enums';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { MoreThanOrEqual, type Repository } from 'typeorm';
-import type { AttendanceService } from '../attendance/attendance.service';
+import { AttendanceService } from '../attendance/attendance.service';
 import { Department } from '../departments/entities/department.entity';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Leave } from '../leave/entities/leave.entity';

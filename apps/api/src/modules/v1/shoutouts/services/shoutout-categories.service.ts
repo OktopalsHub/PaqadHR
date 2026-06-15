@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
 import type { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
-import type { ShoutoutCategoriesRepository } from '../repositories/shoutout-categories.repository';
+import { ShoutoutCategoriesRepository } from '../repositories/shoutout-categories.repository';
 
 @Injectable()
 export class ShoutoutCategoriesService {

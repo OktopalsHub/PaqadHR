@@ -4,7 +4,7 @@ import {
   SHOUTOUT_CREATED_EVENT,
   type ShoutoutCreatedEventPayload,
 } from '../../../modules/v1/shoutouts/events/shoutout.events';
-import type { PlatformIntegrationService } from '../services/platform-integration.service';
+import { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Injectable()
 export class ShoutoutIntegrationListener {

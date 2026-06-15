@@ -8,7 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { InterviewStatus } from 'src/common/enums';
 import type { InterviewFilters } from 'src/common/interfaces';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type {
   AddFeedbackDto,
   CreateInterviewDto,
@@ -18,7 +18,7 @@ import type { UpdateInterviewDto } from '../dto/update-interview.dto';
 import { Candidate } from '../entities/candidate.entity';
 import type { Interview } from '../entities/interview.entity';
 import { JobOpening } from '../entities/job-opening.entity';
-import type { InterviewRepository } from '../repositories/interview.repository';
+import { InterviewRepository } from '../repositories/interview.repository';
 
 @Injectable()
 export class InterviewService {

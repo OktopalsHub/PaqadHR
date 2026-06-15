@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
-import type { FileUrlService } from 'src/common/services/file-url.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { type FindOneOptions, MoreThanOrEqual, Repository } from 'typeorm';
 import type { CelebrationResponseDto } from '../dto/celebrations-response.dto';
 import { TenantMember } from '../entities/tenant-member.entity';

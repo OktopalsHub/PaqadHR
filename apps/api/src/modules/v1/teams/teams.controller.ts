@@ -19,7 +19,7 @@ import type { AddTeamMemberDto } from './dto/add-team-member.dto';
 import type { CreateTeamDto } from './dto/create-team.dto';
 import type { UpdateTeamDto } from './dto/update-team.dto';
 import type { UpdateTeamMemberDto } from './dto/update-team-member.dto';
-import type { TeamsService } from './teams.service';
+import { TeamsService } from './teams.service';
 
 @ApiTags('Teams')
 @UseGuards(JwtAuthGuard, TenantMemberGuard)

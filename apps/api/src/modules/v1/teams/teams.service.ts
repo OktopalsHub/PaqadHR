@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { FindOptionsWhere } from 'typeorm';
-import type { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import type { CreateTeamDto } from './dto/create-team.dto';
 import type { UpdateTeamDto } from './dto/update-team.dto';
 import type { Team } from './entities/team.entity';
 import type { TeamMember } from './entities/team-member.entity';
-import type { TeamMembersRepository } from './repositories/team-members.repository';
-import type { TeamsRepository } from './repositories/teams.repository';
+import { TeamMembersRepository } from './repositories/team-members.repository';
+import { TeamsRepository } from './repositories/teams.repository';
 
 @Injectable()
 export class TeamsService {

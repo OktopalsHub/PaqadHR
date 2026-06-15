@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import type { LeaveBalanceInitializationService } from '../../leave-balance/leave-balance-initialization.service';
-import type { LeavePolicyService } from '../../leave-policy/leave-policy.service';
-import type { LeaveTypeService } from '../../leave-type/leave-type.service';
-import type { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import { LeaveBalanceInitializationService } from '../../leave-balance/leave-balance-initialization.service';
+import { LeavePolicyService } from '../../leave-policy/leave-policy.service';
+import { LeaveTypeService } from '../../leave-type/leave-type.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type {
   LeaveTypeCreatedEvent,
   TenantCreatedEvent,

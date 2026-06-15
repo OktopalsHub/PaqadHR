@@ -12,7 +12,7 @@ import {
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { AssetCategoryService } from './asset-category.service';
+import { AssetCategoryService } from './asset-category.service';
 import type { CreateAssetCategoryDto } from './dto/create-asset-category.dto';
 import type { UpdateAssetCategoryDto } from './dto/update-asset-category.dto';
 

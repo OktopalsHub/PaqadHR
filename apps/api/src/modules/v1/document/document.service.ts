@@ -1,11 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
-import type { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
-import type { FileService } from 'src/common/services/file.service';
+import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
+import { FileService } from 'src/common/services/file.service';
 import { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { DocumentType } from '../../../common/enums/document-type.enum';
-import type { DocumentRepository } from './document.repository';
+import { DocumentRepository } from './document.repository';
 import type { CreateDocumentDto } from './dto/create-document.dto';
 import type { UpdateDocumentDto } from './dto/update-document.dto';
 import {

@@ -1,18 +1,18 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
-import type { NombaProvider } from 'src/common/providers/nomba.provider';
+import { NombaProvider } from 'src/common/providers/nomba.provider';
 import type { DataSource } from 'typeorm';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
 import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
-import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
-import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 interface PaymentSummary {
   fiatSuccess: number;

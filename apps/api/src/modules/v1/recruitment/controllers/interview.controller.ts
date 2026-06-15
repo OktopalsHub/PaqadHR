@@ -19,7 +19,7 @@ import type { InterviewFilters, MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import type { CreateInterviewDto } from '../dto/interview.dto';
 import type { UpdateInterviewDto } from '../dto/update-interview.dto';
-import type { InterviewService } from '../services/interview.service';
+import { InterviewService } from '../services/interview.service';
 
 @ApiTags('Interviews')
 @UseGuards(TenantMemberGuard, FeatureAccessGuard)

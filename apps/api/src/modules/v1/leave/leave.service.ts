@@ -4,14 +4,14 @@ import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
-import type { LeaveBalanceService } from '../leave-balance/leave-balance.service';
-import type { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
+import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
+import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { CreateLeaveDto } from './dto/create-leave.dto';
 import { LeaveMemberMapper } from './dto/leave-member-response.dto';
 import type { LeaveResponseDto } from './dto/leave-response.dto';
 import type { UpdateLeaveDto } from './dto/update-leave.dto';
 import type { Leave } from './entities/leave.entity';
-import type { LeaveRepository } from './leave.repository';
+import { LeaveRepository } from './leave.repository';
 
 @Injectable()
 export class LeaveService {

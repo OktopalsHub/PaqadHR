@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import type { AssetAssignmentService } from './asset-assignment.service';
+import { AssetAssignmentService } from './asset-assignment.service';
 import type { CreateAssetAssignmentDto } from './dto/create-asset-assignment.dto';
 import type { UpdateAssetAssignmentDto } from './dto/update-asset-assignment.dto';
 

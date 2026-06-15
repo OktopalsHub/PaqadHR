@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { AssetAssignmentRepository } from './assignment/asset-assignment.repository';
-import type { AssetMaintenanceRepository } from './maintenance/asset-maintenance.repository';
-import type { AssetRepository } from './repositories/asset.repository';
+import { AssetAssignmentRepository } from './assignment/asset-assignment.repository';
+import { AssetMaintenanceRepository } from './maintenance/asset-maintenance.repository';
+import { AssetRepository } from './repositories/asset.repository';
 
 @Injectable()
 export class AssetReportService {

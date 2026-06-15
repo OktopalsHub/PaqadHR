@@ -1,10 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotImplementedException } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums';
-import type {
-  CreateSubscriptionPayload,
-  CreateSubscriptionResponse,
-  IPaymentProvider,
-} from 'src/common/interfaces';
+import type { CreateSubscriptionPayload, CreateSubscriptionResponse } from 'src/common/interfaces';
+import { IPaymentProvider } from 'src/common/interfaces';
 import { isBillingGatewayEnabled } from '../config/billing.config';
 
 @Injectable()

@@ -16,7 +16,7 @@ import type { MemberContext } from '../../../common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateInvitationDto } from './dto/index';
 import type { UpdateInvitationDto } from './dto/update-invitation.dto';
-import type { InvitationsService } from './invitations.service';
+import { InvitationsService } from './invitations.service';
 
 @ApiTags('Invitations')
 @Controller('tenants/:tenantId/invites')

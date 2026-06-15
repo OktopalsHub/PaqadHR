@@ -4,7 +4,7 @@ import {
   AuditSeverity,
   AuditStatus,
 } from '../../../../common/enums/audit-action.enum';
-import type { AuditLogsService } from '../../../../common/services/audit-logs.service';
+import { AuditLogsService } from '../../../../common/services/audit-logs.service';
 import type { ShoutoutCreatedEventPayload } from '../events/shoutout.events';
 
 @Injectable()

@@ -8,11 +8,11 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodType } from 'src/common/enums';
 import { PasswordService } from 'src/common/utils';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import type { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
-import type { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import type {
   CreatePaymentMethodDto,
   PasscodeChangeDto,

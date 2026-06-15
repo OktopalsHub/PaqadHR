@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
-import type { TenantSettingRepository } from './tenant-setting.repository';
+import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantConfigService {

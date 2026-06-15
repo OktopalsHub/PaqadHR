@@ -9,9 +9,9 @@ import { type AttendanceStatus, EAttendanceExceptionStatus } from 'src/common/en
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { Between, type FindOptionsWhere } from 'typeorm';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
-import type { LeaveService } from '../leave/leave.service';
-import type { TenantMembersService } from '../tenant-members/tenant-members.service';
-import type { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
+import { LeaveService } from '../leave/leave.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
 import type { ClockInDto } from './dto/clock-in.dto';
 import type { ClockOutDto } from './dto/clock-out.dto';
@@ -22,9 +22,9 @@ import type { UpdateAttendanceDto } from './dto/update-attendance.dto';
 import type { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
 import type { Attendance } from './entities/attendance.entity';
 import type { AttendanceException } from './entities/attendance-exception.entity';
-import type { AttendanceRepository } from './repositories/attendance.repository';
-import type { AttendanceExceptionRepository } from './repositories/attendance-exception.repository';
-import type { AttendancePolicyRepository } from './repositories/attendance-policy.repository';
+import { AttendanceRepository } from './repositories/attendance.repository';
+import { AttendanceExceptionRepository } from './repositories/attendance-exception.repository';
+import { AttendancePolicyRepository } from './repositories/attendance-policy.repository';
 import type { DepartmentUtils } from './utils/department.utils';
 
 @Injectable()

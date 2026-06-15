@@ -8,8 +8,8 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
-import type { FileUrlService } from 'src/common/services/file-url.service';
-import type { AssetDocumentService } from './asset-document.service';
+import { FileUrlService } from 'src/common/services/file-url.service';
+import { AssetDocumentService } from './asset-document.service';
 import { AssetDocumentMapper } from './dto/asset-document-response.dto';
 import type { CreateAssetDocumentDto } from './dto/create-asset-document.dto';
 import type { UpdateAssetDocumentDto } from './dto/update-asset-document.dto';

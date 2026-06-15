@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import type { UpdatePreferenceDto } from '../../../../common/interfaces/update-preference-dto.interface';

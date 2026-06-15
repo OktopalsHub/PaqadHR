@@ -9,7 +9,7 @@ import {
   MemberPointsBalanceDto,
   MemberPointsTransactionPaginatedResponseDto,
 } from '../dto/member-points-response.dto';
-import type { MemberPointsService } from '../services/member-points.service';
+import { MemberPointsService } from '../services/member-points.service';
 
 @ApiTags('member-points')
 @UseGuards(TenantMemberGuard)

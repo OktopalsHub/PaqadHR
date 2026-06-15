@@ -10,8 +10,8 @@ import type {
 } from '../dto/create-notification.dto';
 import { Notification } from '../entities/notification.entity';
 import { NotificationPreference } from '../entities/notification-preference.entity';
-import type { SSENotificationService } from './sse-notification.service';
-import type { ZeptomailEmailService } from './zeptomail-email.service';
+import { SSENotificationService } from './sse-notification.service';
+import { ZeptomailEmailService } from './zeptomail-email.service';
 
 @Injectable()
 export class NotificationService {

@@ -5,8 +5,8 @@ import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidat
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
 import type { Candidate } from '../entities/candidate.entity';
-import type { CandidateRepository } from '../repositories/index';
-import type { JobOpeningService } from './job-opening.service';
+import { CandidateRepository } from '../repositories/index';
+import { JobOpeningService } from './job-opening.service';
 
 @Injectable()
 export class CandidateService {

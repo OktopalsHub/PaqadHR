@@ -5,9 +5,9 @@ import type { AuditContext } from '../../../../common/interfaces/audit-context.i
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
-import type { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import type { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import type { AuditService } from './audit.service';
+import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { AuditService } from './audit.service';
 
 @Injectable()
 export class ManualDisbursementService {

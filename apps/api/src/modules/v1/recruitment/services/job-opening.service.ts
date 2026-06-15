@@ -6,13 +6,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
-import type { Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { Department } from '../../departments/entities/department.entity';
 import type { CreateJobOpeningDto } from '../dto/index';
 import type { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
 import type { JobOpening } from '../entities/job-opening.entity';
-import type { JobOpeningRepository } from '../repositories/job-opening.repository';
+import { JobOpeningRepository } from '../repositories/job-opening.repository';
 
 @Injectable()
 export class JobOpeningService {
