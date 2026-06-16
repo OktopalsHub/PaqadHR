@@ -1,0 +1,27 @@
+export function getNombaBaseUrl(): string {
+  return (process.env.NOMBA_BASE_URL || 'https://api.nomba.com').replace(/\/$/, '');
+}
+
+export function getNombaClientId(): string {
+  return (process.env.NOMBA_CLIENT_ID || process.env.NOMBA_API_KEY || '').trim();
+}
+
+export function getNombaClientSecret(): string {
+  return (process.env.NOMBA_CLIENT_SECRET || process.env.NOMBA_SECRET_KEY || '').trim();
+}
+
+export function getNombaAccountId(): string {
+  return (process.env.NOMBA_ACCOUNT_ID || '').trim();
+}
+
+export function getNombaWebhookSecret(): string {
+  return (
+    process.env.NOMBA_WEBHOOK_SIGNATURE_KEY ||
+    process.env.NOMBA_WEBHOOK_SECRET ||
+    getNombaClientSecret()
+  ).trim();
+}
+
+export function isNombaConfigured(): boolean {
+  return !!(getNombaClientId() && getNombaClientSecret() && getNombaAccountId());
+}

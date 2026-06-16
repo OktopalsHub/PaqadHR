@@ -58,3 +58,4 @@ export * from './1781241354210-payment-method-passcode-history';
 export * from './1781241357044-notification-preferences';
 export * from './1781241359849-notifications';
 export * from './1781241362361-audit-logs';
+export * from './1781549462127-billing-events';

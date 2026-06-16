@@ -1,3 +1,5 @@
+import { isNombaConfigured } from './nomba.config';
+
 export type BillingMode = 'trial' | 'manual' | 'open';
 
 export function getBillingMode(): BillingMode {
@@ -13,9 +15,9 @@ export function isFeatureGatingEnabled(): boolean {
   return getBillingMode() !== 'open';
 }
 
-/** Card / Nomba charges — not enabled in trial or manual billing. */
+/** Card / Nomba charges — enabled only in open billing mode with Nomba configured. */
 export function isBillingGatewayEnabled(): boolean {
-  return false;
+  return getBillingMode() === 'open' && isNombaConfigured();
 }
 
 export function assertBillingGatewayAllowed(): void {

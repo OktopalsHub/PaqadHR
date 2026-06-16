@@ -37,6 +37,7 @@ export const queryKeys = {
   },
   billing: {
     status: (tenantId: string) => ['billing', tenantId] as const,
+    overview: (tenantId: string) => ['billing', 'overview', tenantId] as const,
   },
   member: {
     profile: (tenantId: string) => ['member', 'profile', tenantId] as const,

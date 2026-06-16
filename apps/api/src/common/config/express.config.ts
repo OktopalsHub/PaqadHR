@@ -9,9 +9,21 @@ import helmetCsp from 'helmet-csp';
 import passport from 'passport';
 import { resolveTrustedOrigins } from './trusted-origins';
 
+type RequestWithRawBody = Request & { rawBody?: Buffer };
+
 export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(cookieParser());
-  app.use(express.json({ limit: '10mb' }));
+  app.use(
+    express.json({
+      limit: '10mb',
+      verify: (req, _res, buf) => {
+        const path = (req as Request).originalUrl ?? (req as Request).url ?? '';
+        if (path.includes('/webhooks/')) {
+          (req as RequestWithRawBody).rawBody = buf;
+        }
+      },
+    }),
+  );
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
   const csrfProtection = csurf({
     cookie: {
@@ -36,6 +48,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       '/api/v1/invitations/accept',
       '/api/v1/invitations/decline',
       '/api/v1/webhooks',
+      '/api/v1/subscriptions/webhooks',
       '/health',
       '/metrics',
     ];
@@ -161,8 +174,11 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     skip: (req) => {
       const skipPaths = ['/health', '/metrics', '/csrf/token'];
       const securityProbes = ['/.git/', '/admin', '/wp-admin', '/.env'];
+      const isWebhook = req.path.includes('/webhooks/');
       return (
-        skipPaths.includes(req.path) || securityProbes.some((probe) => req.path.includes(probe))
+        isWebhook ||
+        skipPaths.includes(req.path) ||
+        securityProbes.some((probe) => req.path.includes(probe))
       );
     },
   });
@@ -197,6 +213,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     },
   });
   app.use('/api/v1/webhooks', webhookLimiter);
+  app.use('/api/v1/subscriptions/webhooks', webhookLimiter);
   const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
     .split(',')
     .map((s) => s.trim())

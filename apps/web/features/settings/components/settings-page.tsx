@@ -2,11 +2,12 @@
 
 import { Building2, CreditCard, UserCircle } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { Suspense } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { BillingSection } from '@/features/settings/components/billing-section';
 import { useBillingStatus } from '@/hooks/queries/use-billing';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
@@ -20,10 +21,10 @@ function SettingsRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-export function SettingsPage() {
+function SettingsPageContent() {
   const { user } = useAuth();
   const { tenant } = useTenant();
-  const { data: billing, isLoading, isError, error } = useBillingStatus();
+  const { isLoading, isError, error } = useBillingStatus();
 
   if (isLoading) {
     return (
@@ -76,46 +77,10 @@ export function SettingsPage() {
 
         <ContentCard
           title="Billing"
-          description="Plan and subscription status"
+          description="Plan, seats, and subscription checkout"
           className="lg:col-span-2"
-          bodyClassName="divide-y divide-border/60"
         >
-          <dl>
-            <SettingsRow
-              label="Mode"
-              value={<span className="capitalize">{billing?.billingMode ?? '—'}</span>}
-            />
-            <SettingsRow
-              label="Card payments"
-              value={
-                <Badge variant={billing?.paymentsEnabled ? 'default' : 'secondary'}>
-                  {billing?.paymentsEnabled ? 'Enabled' : 'Disabled'}
-                </Badge>
-              }
-            />
-            {billing?.subscription ? (
-              <>
-                <SettingsRow
-                  label="Plan"
-                  value={<span className="capitalize">{billing.subscription.plan}</span>}
-                />
-                <SettingsRow
-                  label="Status"
-                  value={<span className="capitalize">{billing.subscription.status}</span>}
-                />
-                {billing.subscription.daysRemaining != null ? (
-                  <SettingsRow
-                    label="Trial remaining"
-                    value={`${billing.subscription.daysRemaining} days`}
-                  />
-                ) : null}
-              </>
-            ) : null}
-          </dl>
-          <p className="pt-3 text-xs text-muted-foreground">
-            Billing is manual during beta. Contact your admin to extend trial or activate a paid
-            plan.
-          </p>
+          <BillingSection />
         </ContentCard>
       </div>
 
@@ -144,10 +109,24 @@ export function SettingsPage() {
           </div>
           <div>
             <p className="text-sm font-medium">Billing</p>
-            <p className="text-xs text-muted-foreground">Plan & invoices</p>
+            <p className="text-xs text-muted-foreground">Per-seat plans</p>
           </div>
         </div>
       </div>
     </AppPage>
+  );
+}
+
+export function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppPage>
+          <LoadingBlock />
+        </AppPage>
+      }
+    >
+      <SettingsPageContent />
+    </Suspense>
   );
 }

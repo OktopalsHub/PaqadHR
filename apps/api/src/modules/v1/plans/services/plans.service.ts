@@ -41,6 +41,13 @@ export class PlansService {
       order: { plan: { sortOrder: 'ASC' } },
     });
   }
+  async getPlanPriceById(planPriceId: string): Promise<PlanPrice | null> {
+    return this.planPriceRepository.findOne({
+      where: { id: planPriceId, isActive: true },
+      relations: ['plan'],
+    });
+  }
+
   async getPlanPrice(
     planSlug: string,
     countryCode: string,

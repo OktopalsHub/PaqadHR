@@ -14,7 +14,7 @@ import type { QueryDeepPartialEntity } from 'typeorm';
 import { Repository } from 'typeorm';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
-import { TenantMemberCreatedEvent } from '../leave/events/leave.events';
+import { TenantMemberCreatedEvent, TenantMemberChangedEvent } from '../leave/events/leave.events';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
 import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
@@ -70,12 +70,14 @@ export class TenantMembersService {
       };
       const savedMember = await this.tenantMemberRepository.save(memberData);
       try {
-        if (createDto.role !== TenantMemberRole.OWNER) {
-          this.eventEmitter.emit(
-            'tenant.member.created',
-            new TenantMemberCreatedEvent(tenantId, savedMember.id, savedMember.joinDate),
-          );
-        }
+        this.eventEmitter.emit(
+          'tenant.member.created',
+          new TenantMemberCreatedEvent(tenantId, savedMember.id, savedMember.joinDate),
+        );
+        this.eventEmitter.emit(
+          'tenant.member.changed',
+          new TenantMemberChangedEvent(tenantId),
+        );
       } catch (eventError) {
         this.logger.error('Error emitting tenant member created event:', eventError);
       }
@@ -179,6 +181,7 @@ export class TenantMembersService {
       isActive: false,
       leaveDate: new Date(),
     });
+    this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
   }
   async setTenantMemberStatus(
     userId: string,
@@ -196,6 +199,7 @@ export class TenantMembersService {
         leaveDate: () => 'NULL',
       } as QueryDeepPartialEntity<TenantMember>);
     }
+    this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
     return this.getTenantMember(member.id, tenantId);
   }
   async updateTenantMemberStatus(
