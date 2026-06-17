@@ -1,11 +1,14 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
+import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { NombaProvider } from '../../../../common/providers/nomba.provider';
 import { EmploymentService } from '../../employment/employment.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
-import { isManualPayrollDisbursement } from '../config/payroll-disbursement.config';
+import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 import { AuditService } from './audit.service';
@@ -42,6 +45,7 @@ import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
 @Injectable()
 export class PayrollService {
   private readonly logger = new Logger(PayrollService.name);
@@ -56,6 +60,7 @@ export class PayrollService {
     private readonly manualDisbursementService: ManualDisbursementService,
     private readonly payrollExportService: PayrollExportService,
     @Optional() private readonly nombaProvider?: NombaProvider,
+    @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
   async createPayrollRun(
     dto: CreatePayrollRunDto,
@@ -150,7 +155,7 @@ export class PayrollService {
     tenantId: string,
     auditContext: AuditContext,
     adjustments?: PayrollAdjustmentDto[],
-  ): Promise<void> {
+  ): Promise<{ warnings: string[]; readiness: PayrollPaymentReadiness[] }> {
     const payrollRun = await this.acquireProcessingLock(
       payrollRunId,
       tenantId,
@@ -192,11 +197,28 @@ export class PayrollService {
       let totalGrossAmount = 0;
       let totalDeductions = 0;
       let totalNetAmount = 0;
+      const warnings: string[] = [];
+      const readinessResults: PayrollPaymentReadiness[] = [];
       for (const item of payrollRun.items) {
-        const paymentMethod = await this.paymentMethodService.findByMemberId(item.memberId);
-        if (!paymentMethod) {
-          throw new BadRequestException(`Payment method not found for employee ${item.memberId}`);
+        const excluded = Boolean(item.metadata?.excludedFromRun);
+        const readiness = await this.paymentMethodService.assessPayrollReadiness(
+          tenantId,
+          item.memberId,
+          payrollRun.baseCurrency,
+          excluded,
+        );
+        readinessResults.push(readiness);
+        if (!readiness.ready && !excluded) {
+          warnings.push(readiness.message);
         }
+
+        const paymentMethod = readiness.paymentMethodId
+          ? await this.paymentMethodService.findById(readiness.paymentMethodId)
+          : await this.paymentMethodService.resolvePayrollPaymentMethod(
+              tenantId,
+              item.memberId,
+              payrollRun.baseCurrency,
+            );
         const salaryInfo = salaryInfoMap.get(item.memberId);
         if (!salaryInfo) {
           throw new BadRequestException(
@@ -229,11 +251,27 @@ export class PayrollService {
           payType: salaryInfo.payType,
           paySchedule: salaryInfo.paySchedule,
           employmentId: salaryInfo.employment.id,
+          paymentReadiness: readiness,
+          excludedFromRun: excluded,
         };
+        if (paymentMethod?.id) {
+          item.paymentMethodId = paymentMethod.id;
+        }
+        if (excluded || !readiness.ready) {
+          item.status = PayrollItemStatus.CANCELLED;
+          item.failureReason = excluded
+            ? 'Excluded from payroll run by administrator'
+            : readiness.message;
+        } else {
+          item.status = PayrollItemStatus.PENDING;
+          item.failureReason = null;
+        }
         await queryRunner.manager.save(item);
-        totalGrossAmount += calculation.grossAmount;
-        totalDeductions += calculation.deductions;
-        totalNetAmount += calculation.netAmount;
+        if (!excluded && readiness.ready) {
+          totalGrossAmount += calculation.grossAmount;
+          totalDeductions += calculation.deductions;
+          totalNetAmount += calculation.netAmount;
+        }
         this.logger.log(
           `Simple payment calculated for member ${item.memberId}: ${calculation.netAmount} ${calculation.currency}`,
         );
@@ -250,11 +288,14 @@ export class PayrollService {
         calculatedAt: new Date().toISOString(),
         calculatedBy: auditContext.performedById,
         paymentType: 'simple_gross_payment',
+        readinessWarnings: warnings,
+        readiness: readinessResults,
       };
       await queryRunner.manager.save(payrollRun);
       await queryRunner.commitTransaction();
       await this.releaseProcessingLock(payrollRunId);
       this.logger.log(`Simple payroll calculation completed for run ${payrollRunId}`);
+      return { warnings, readiness: readinessResults };
     } catch (error) {
       await queryRunner.rollbackTransaction();
       await this.releaseProcessingLock(payrollRunId);
@@ -281,6 +322,17 @@ export class PayrollService {
         `Payroll run must be calculated (PROCESSING) before approval. Current status: ${payrollRun.status}`,
       );
     }
+
+    const readiness = await this.getPayrollReadiness(payrollRunId, tenantId);
+    const notReady = readiness.items.filter(
+      (item) => !item.ready && !item.issues.includes(PayrollPaymentIssue.EXCLUDED_FROM_RUN),
+    );
+    if (notReady.length > 0) {
+      throw new BadRequestException(
+        `${notReady.length} employee(s) are not ready for payout. Remove them from the run or notify them to complete payment settings.`,
+      );
+    }
+
     payrollRun.status = PayrollStatus.APPROVED;
     payrollRun.metadata = {
       ...payrollRun.metadata,
@@ -300,11 +352,6 @@ export class PayrollService {
   async disburseManualPayroll(
     dto: ProcessPayrollWithAudit & { confirmed: boolean },
   ): Promise<{ paidCount: number; failedCount: number }> {
-    if (!isManualPayrollDisbursement()) {
-      throw new BadRequestException(
-        'Manual disbursement is disabled. Set PAYROLL_DISBURSEMENT_MODE=manual or use gateway process endpoint.',
-      );
-    }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: dto.payrollRunId, tenantId: dto.tenantId },
       relations: ['items', 'items.employee'],
@@ -358,19 +405,19 @@ export class PayrollService {
   }
 
   async processPayroll(dto: ProcessPayrollWithAudit): Promise<void> {
-    if (isManualPayrollDisbursement()) {
+    if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Manual disbursement mode: approve the run (POST /runs/:id/approve) then disburse with confirmation (POST /runs/:id/disburse).',
+        'Nomba payroll gateway is not configured. Use manual disburse or configure Nomba credentials.',
       );
     }
     if (!this.nombaProvider) {
       throw new BadRequestException(
-        'Gateway disbursement is not configured. Set PAYROLL_DISBURSEMENT_MODE=manual for offline payroll.',
+        'Nomba payroll gateway is not configured.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: dto.payrollRunId, tenantId: dto.tenantId },
-      relations: ['items', 'items.employee'],
+      relations: ['items', 'items.employee', 'tenant'],
     });
     if (!payrollRun) {
       throw new BadRequestException('Payroll run not found');
@@ -384,16 +431,21 @@ export class PayrollService {
         'Cannot process a failed payroll run. Please create a new run or reset this one.',
       );
     }
-    if (payrollRun.status !== PayrollStatus.PROCESSING) {
+    if (payrollRun.status !== PayrollStatus.APPROVED && payrollRun.status !== PayrollStatus.PROCESSING) {
       throw new BadRequestException(
-        `Payroll run must be in PROCESSING status to be processed. Current status: ${payrollRun.status}`,
+        `Payroll run must be approved before payout. Current status: ${payrollRun.status}`,
       );
     }
     this.logger.log('Payroll calculation completed - ready for payment processing');
     const startTime = Date.now();
     for (const item of payrollRun.items) {
       try {
-        await this.processEmployeePayment(item, dto.auditContext);
+        await this.processEmployeePayment(
+          item,
+          dto.auditContext,
+          dto.tenantId,
+          payrollRun.tenant?.name,
+        );
       } catch (error) {
         this.logger.error(`Failed to process payment for employee ${item.memberId}:`, error);
         item.status = PayrollItemStatus.FAILED;
@@ -429,8 +481,24 @@ export class PayrollService {
   private async processEmployeePayment(
     payrollItem: PayrollItem,
     auditContext: AuditContext,
+    tenantId: string,
+    tenantName?: string,
   ): Promise<void> {
-    const paymentMethod = await this.paymentMethodService.findByMemberId(payrollItem.memberId);
+    if (payrollItem.status === PayrollItemStatus.CANCELLED) {
+      return;
+    }
+
+    const readiness = await this.paymentMethodService.assessPayrollReadiness(
+      tenantId,
+      payrollItem.memberId,
+      payrollItem.paymentCurrency,
+      Boolean(payrollItem.metadata?.excludedFromRun),
+    );
+    if (!readiness.ready || !readiness.paymentMethodId) {
+      throw new BadRequestException(readiness.message);
+    }
+
+    const paymentMethod = await this.paymentMethodService.findById(readiness.paymentMethodId);
     if (!paymentMethod) {
       throw new BadRequestException('Payment method not found');
     }
@@ -468,22 +536,23 @@ export class PayrollService {
       },
     );
     const provider = this.getPaymentProvider(paymentMethod);
-    const paymentData = {
-      amount: payrollItem.paymentAmount,
-      currency: payrollItem.paymentCurrency,
-      description: `Payroll payment for ${payrollItem.employee?.firstName} ${payrollItem.employee?.lastName}`,
-      metadata: {
-        memberId: payrollItem.memberId,
-        payrollRunId: payrollItem.payrollRunId,
-        payrollItemId: payrollItem.id,
-      },
-    };
+    const employeeName = payrollItem.employee
+      ? `${payrollItem.employee.firstName ?? ''} ${payrollItem.employee.lastName ?? ''}`.trim()
+      : payrollItem.memberId;
+    const paymentData = buildPayrollPaymentData(
+      payrollItem,
+      paymentMethod,
+      employeeName,
+      tenantName,
+    );
     const result = await provider.createPayment(paymentData);
     if (result.success) {
       payrollItem.status = PayrollItemStatus.PAID;
       payrollItem.transactionId = result.transactionId ?? null;
-      payrollItem.paymentProvider = provider.constructor.name;
+      payrollItem.paymentProvider = 'Nomba';
+      payrollItem.paymentMethodId = paymentMethod.id;
       payrollItem.paidAt = new Date();
+      await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
       await this.auditService.logPaymentSent(
         { ...auditContext, memberId: payrollItem.memberId },
         {
@@ -493,6 +562,23 @@ export class PayrollService {
           transactionId: payrollItem.transactionId,
         },
       );
+      if (payrollItem.employee?.userId && this.notificationHelper) {
+        const payrollRun = await this.payrollRunRepository.findOne({
+          where: { id: payrollItem.payrollRunId },
+        });
+        await this.notificationHelper.sendPayrollNotification(
+          payrollItem.employee.userId,
+          tenantId,
+          {
+            employeeName,
+            payrollPeriod: payrollRun
+              ? `${payrollRun.periodStart.toISOString().slice(0, 10)} – ${payrollRun.periodEnd.toISOString().slice(0, 10)}`
+              : 'current period',
+            amount: Number(payrollItem.paymentAmount),
+            currency: payrollItem.paymentCurrency,
+          },
+        );
+      }
     } else {
       throw new BadRequestException(result.error || 'Payment failed');
     }
@@ -629,5 +715,160 @@ export class PayrollService {
       summary,
       warnings,
     };
+  }
+
+  async getPayrollReadiness(payrollRunId: string, tenantId: string) {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items', 'items.employee'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+
+    const items: Array<
+      PayrollPaymentReadiness & {
+        itemId: string;
+        employeeName: string;
+        netAmount: number;
+        status: PayrollItemStatus;
+      }
+    > = [];
+
+    for (const item of payrollRun.items ?? []) {
+      const employeeName = item.employee
+        ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
+        : item.memberId;
+      const readiness = await this.paymentMethodService.assessPayrollReadiness(
+        tenantId,
+        item.memberId,
+        payrollRun.baseCurrency,
+        Boolean(item.metadata?.excludedFromRun),
+      );
+      items.push({
+        ...readiness,
+        itemId: item.id,
+        employeeName: employeeName || 'Unknown',
+        netAmount: Number(item.netAmount ?? 0),
+        status: item.status,
+      });
+    }
+
+    const readyCount = items.filter((item) => item.ready).length;
+    const notReadyCount = items.length - readyCount;
+
+    return {
+      payrollRunId,
+      currency: payrollRun.baseCurrency,
+      totalEmployees: items.length,
+      readyCount,
+      notReadyCount,
+      canApprove: notReadyCount === 0,
+      items,
+    };
+  }
+
+  async removePayrollItem(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+  ): Promise<PayrollRun> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    if (![PayrollStatus.DRAFT, PayrollStatus.PROCESSING].includes(payrollRun.status)) {
+      throw new BadRequestException('Employees can only be removed before approval');
+    }
+
+    const item = payrollRun.items?.find((entry) => entry.id === itemId);
+    if (!item) {
+      throw new BadRequestException('Payroll item not found');
+    }
+
+    item.status = PayrollItemStatus.CANCELLED;
+    item.failureReason = 'Excluded from payroll run by administrator';
+    item.metadata = {
+      ...item.metadata,
+      excludedFromRun: true,
+    };
+    await this.payrollItemRepository.save(item);
+
+    const activeItems = (payrollRun.items ?? []).filter(
+      (entry) => entry.id !== itemId && entry.status !== PayrollItemStatus.CANCELLED,
+    );
+    payrollRun.employeeCount = activeItems.length;
+    payrollRun.totalGrossAmount = activeItems.reduce(
+      (sum, entry) => sum + Number(entry.grossAmount ?? 0),
+      0,
+    );
+    payrollRun.totalDeductions = activeItems.reduce(
+      (sum, entry) => sum + Number(entry.deductions ?? 0),
+      0,
+    );
+    payrollRun.totalNetAmount = activeItems.reduce(
+      (sum, entry) => sum + Number(entry.netAmount ?? 0),
+      0,
+    );
+    await this.payrollRunRepository.save(payrollRun);
+
+    await this.auditService.logAdjustmentCalculated(auditContext, {
+      action: 'remove_employee',
+      itemId,
+      memberId: item.memberId,
+    });
+
+    return payrollRun;
+  }
+
+  async notifyEmployeePaymentSetup(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+  ): Promise<{ notified: boolean }> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items', 'items.employee'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+
+    const item = payrollRun.items?.find((entry) => entry.id === itemId);
+    if (!item?.employee?.userId) {
+      throw new BadRequestException('Employee not found for notification');
+    }
+
+    const readiness = await this.paymentMethodService.assessPayrollReadiness(
+      tenantId,
+      item.memberId,
+      payrollRun.baseCurrency,
+      Boolean(item.metadata?.excludedFromRun),
+    );
+    if (readiness.ready) {
+      throw new BadRequestException('Employee payment settings are already complete');
+    }
+
+    if (!this.notificationHelper) {
+      throw new BadRequestException('Notification service is unavailable');
+    }
+
+    const employeeName =
+      `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim() || 'there';
+    await this.notificationHelper.sendPayrollPaymentSetupReminder(
+      item.employee.userId,
+      tenantId,
+      {
+        employeeName,
+        payrollPeriod: `${payrollRun.periodStart.toISOString().slice(0, 10)} – ${payrollRun.periodEnd.toISOString().slice(0, 10)}`,
+        message: readiness.message,
+      },
+    );
+
+    return { notified: true };
   }
 }

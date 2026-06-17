@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FeatureAccessGuard } from '../../../common/guards/feature-access.guard';
 import { PlansModule } from '../plans/plans.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -25,6 +26,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
   imports: [
     TypeOrmModule.forFeature([TenantSubscription, Tenant, User, TenantMember, BillingEvent]),
     PlansModule,
+    NotificationsModule,
     TenantMembersModule,
   ],
   controllers: [

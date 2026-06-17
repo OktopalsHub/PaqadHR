@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { createHmac } from 'node:crypto';
 import request, { type Test } from 'supertest';
 import { uniqueEmail } from './e2e-bootstrap';
 
@@ -15,15 +16,30 @@ export type E2eTenantContext = E2eAuthContext & {
   ownerMemberId: string;
 };
 
+export type E2eRequestOptions = {
+  /** Required when the app boots with ExpressSetup (CSRF + rawBody middleware). */
+  useCsrf?: boolean;
+};
+
+async function csrfHeaders(
+  agent: ReturnType<typeof request.agent>,
+): Promise<Record<string, string>> {
+  const csrf = await agent.get('/csrf/token').expect(200);
+  return { 'X-CSRF-Token': csrf.body.csrfToken as string };
+}
+
 export async function registerUser(
   app: INestApplication,
   prefix: string,
   password = 'password123',
+  options?: E2eRequestOptions,
 ): Promise<E2eAuthContext> {
   const agent = request.agent(app.getHttpServer());
   const email = uniqueEmail(prefix);
+  const headers = options?.useCsrf ? await csrfHeaders(agent) : {};
   const registerRes = await agent
     .post('/api/v1/auth/register')
+    .set(headers)
     .send({ email, password })
     .expect(201);
 
@@ -36,9 +52,12 @@ export async function registerUser(
 export async function onboardTenant(
   auth: E2eAuthContext,
   name?: string,
+  options?: E2eRequestOptions,
 ): Promise<E2eTenantContext> {
+  const headers = options?.useCsrf ? await csrfHeaders(auth.agent) : {};
   const onboarding = await auth
     .withAuth(auth.agent.post('/api/v1/onboarding/complete'))
+    .set(headers)
     .send({
       name: name ?? `E2E ${Date.now()}`,
       industry: 'Technology',
@@ -105,4 +124,23 @@ export function nextWeekdayDate(daysAhead = 7): string {
     date.setDate(date.getDate() + 1);
   }
   return date.toISOString().slice(0, 10);
+}
+
+export function signNombaWebhook(body: string, secret: string): string {
+  return createHmac('sha256', secret).update(body).digest('hex');
+}
+
+export function buildNombaTransferWebhook(params: {
+  merchantTxRef: string;
+  status?: string;
+  reference?: string;
+}): string {
+  return JSON.stringify({
+    event_type: 'transfer.success',
+    data: {
+      id: params.reference ?? 'txn-e2e',
+      status: params.status ?? 'SUCCESS',
+      meta: { merchantTxRef: params.merchantTxRef },
+    },
+  });
 }

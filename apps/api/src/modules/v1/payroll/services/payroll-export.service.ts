@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
@@ -38,7 +39,15 @@ export class PayrollExportService {
     const rows: PayrollBankExportRow[] = [];
 
     for (const item of payrollRun.items ?? []) {
-      const paymentMethod = await this.paymentMethodService.findByMemberId(item.memberId);
+      if (item.status === PayrollItemStatus.CANCELLED) {
+        continue;
+      }
+
+      const paymentMethod = await this.paymentMethodService.resolvePayrollPaymentMethod(
+        payrollRun.tenantId,
+        item.memberId,
+        payrollRun.baseCurrency,
+      );
       const employee = item.employee;
       const name = employee
         ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Logger,
@@ -112,8 +113,12 @@ export class PayrollController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    await this.payrollService.calculatePayroll(id, tenantId, auditContext);
-    return { message: 'Payroll calculation completed' };
+    const result = await this.payrollService.calculatePayroll(id, tenantId, auditContext);
+    return {
+      message: 'Payroll calculation completed',
+      warnings: result.warnings,
+      readiness: result.readiness,
+    };
   }
 
   @Post('runs/:id/calculate-with-adjustments')
@@ -148,6 +153,52 @@ export class PayrollController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.payrollService.previewPayrollCalculation(tenantId, previewDto, member.id);
+  }
+
+  @Get('runs/:id/readiness')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async getPayrollReadiness(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.payrollService.getPayrollReadiness(id, tenantId);
+  }
+
+  @Delete('runs/:id/items/:itemId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async removePayrollItem(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const run = await this.payrollService.removePayrollItem(id, itemId, tenantId, auditContext);
+    return {
+      message: 'Employee removed from payroll run',
+      payrollRunId: id,
+      employeeCount: run.employeeCount,
+    };
+  }
+
+  @Post('runs/:id/items/:itemId/notify-payment-setup')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async notifyEmployeePaymentSetup(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+  ) {
+    const result = await this.payrollService.notifyEmployeePaymentSetup(id, itemId, tenantId);
+    return {
+      message: 'Employee notified to complete payment settings',
+      ...result,
+    };
   }
 
   @Post('runs/:id/approve')

@@ -6,7 +6,6 @@ import { Repository } from 'typeorm';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import {
-  getBillingMode,
   isBillingGatewayEnabled,
   isFeatureGatingEnabled,
 } from '../config/billing.config';
@@ -70,7 +69,6 @@ export class SubscriptionsService {
   }
 
   async getBillingStatus(tenantId: string): Promise<{
-    billingMode: ReturnType<typeof getBillingMode>;
     paymentsEnabled: boolean;
     featureGatingEnabled: boolean;
     subscription: {
@@ -85,7 +83,6 @@ export class SubscriptionsService {
     const subscription = await this.getTenantSubscription(tenantId);
     if (!subscription) {
       return {
-        billingMode: getBillingMode(),
         paymentsEnabled: isBillingGatewayEnabled(),
         featureGatingEnabled: isFeatureGatingEnabled(),
         subscription: null,
@@ -99,7 +96,6 @@ export class SubscriptionsService {
     }
 
     return {
-      billingMode: getBillingMode(),
       paymentsEnabled: isBillingGatewayEnabled(),
       featureGatingEnabled: isFeatureGatingEnabled(),
       subscription: {

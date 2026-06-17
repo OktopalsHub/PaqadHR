@@ -82,10 +82,6 @@ export function BillingSection() {
 
       <dl className="divide-y divide-border/60">
         <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
-          <dt className="text-muted-foreground">Mode</dt>
-          <dd className="font-medium capitalize">{overview.billingMode}</dd>
-        </div>
-        <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
           <dt className="text-muted-foreground">Card payments</dt>
           <dd>
             <Badge variant={overview.paymentsEnabled ? 'default' : 'secondary'}>

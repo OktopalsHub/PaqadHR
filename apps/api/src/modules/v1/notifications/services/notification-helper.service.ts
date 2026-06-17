@@ -46,6 +46,46 @@ export class NotificationHelperService {
       tenantId,
     });
   }
+
+  async sendPayrollPaymentSetupReminder(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      employeeName: string;
+      payrollPeriod: string;
+      message: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Action required: payroll payment details',
+      message: `Hi ${variables.employeeName}, ${variables.message} Payroll period: ${variables.payrollPeriod}.`,
+      recipientId,
+      tenantId,
+    });
+  }
+
+  async sendBillingRenewalFailedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      tenantName: string;
+      reason: string;
+      status: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Subscription renewal failed',
+      message: `Billing renewal for ${variables.tenantName} could not be completed (${variables.status}). ${variables.reason} Update your payment method to avoid service interruption.`,
+      recipientId,
+      tenantId,
+    });
+  }
   async sendLeaveRequestNotification(
     recipientId: string,
     tenantId: string,

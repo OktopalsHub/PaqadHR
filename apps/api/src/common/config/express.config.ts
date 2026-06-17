@@ -49,6 +49,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       '/api/v1/invitations/decline',
       '/api/v1/webhooks',
       '/api/v1/subscriptions/webhooks',
+      '/api/v1/payroll/webhooks',
       '/health',
       '/metrics',
     ];

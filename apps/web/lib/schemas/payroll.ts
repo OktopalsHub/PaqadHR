@@ -25,6 +25,31 @@ export const payrollRunsResponseSchema = z.object({
 
 export type PayrollRunsResponse = z.infer<typeof payrollRunsResponseSchema>;
 
+export const payrollReadinessItemSchema = z.object({
+  itemId: z.string(),
+  memberId: z.string(),
+  employeeName: z.string(),
+  ready: z.boolean(),
+  issues: z.array(z.string()),
+  message: z.string(),
+  netAmount: z.number(),
+  status: z.string(),
+  paymentMethodId: z.string().optional(),
+  currency: z.string().optional(),
+});
+
+export const payrollReadinessSchema = z.object({
+  payrollRunId: z.string(),
+  currency: z.string(),
+  totalEmployees: z.number(),
+  readyCount: z.number(),
+  notReadyCount: z.number(),
+  canApprove: z.boolean(),
+  items: z.array(payrollReadinessItemSchema),
+});
+
+export type PayrollReadiness = z.infer<typeof payrollReadinessSchema>;
+
 export const createPayrollRunInputSchema = z.object({
   title: z.string().min(3),
   frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']),

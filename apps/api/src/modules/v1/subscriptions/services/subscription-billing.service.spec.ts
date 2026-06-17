@@ -2,7 +2,6 @@ import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { SubscriptionBillingService } from './subscription-billing.service';
 
 describe('SubscriptionBillingService renewal jobs', () => {
-  const originalBillingMode = process.env.BILLING_MODE;
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
   const originalNombaAccountId = process.env.NOMBA_ACCOUNT_ID;
@@ -43,15 +42,16 @@ describe('SubscriptionBillingService renewal jobs', () => {
   };
 
   afterEach(() => {
-    process.env.BILLING_MODE = originalBillingMode;
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
     process.env.NOMBA_ACCOUNT_ID = originalNombaAccountId;
     jest.restoreAllMocks();
   });
 
-  it('returns empty result when billing gateway is disabled', async () => {
-    process.env.BILLING_MODE = 'trial';
+  it('returns empty result when Nomba is not configured', async () => {
+    delete process.env.NOMBA_CLIENT_ID;
+    delete process.env.NOMBA_CLIENT_SECRET;
+    delete process.env.NOMBA_ACCOUNT_ID;
     const { service, nombaProvider } = createService();
 
     const result = await service.processDueRenewals();
@@ -61,7 +61,6 @@ describe('SubscriptionBillingService renewal jobs', () => {
   });
 
   it('aggregates outcomes across due renewals', async () => {
-    process.env.BILLING_MODE = 'open';
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_ACCOUNT_ID = 'account-id';
@@ -95,7 +94,6 @@ describe('SubscriptionBillingService renewal jobs', () => {
   });
 
   it('skips renewal charge when renewal attempt was already processed', async () => {
-    process.env.BILLING_MODE = 'open';
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_ACCOUNT_ID = 'account-id';

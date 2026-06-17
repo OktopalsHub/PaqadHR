@@ -1,13 +1,8 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, LessThan, Repository } from 'typeorm';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PlansService } from '../../plans/services/plans.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
@@ -66,6 +61,7 @@ export class SubscriptionBillingService {
     private readonly billingEventRepository: Repository<BillingEvent>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
 
   async getTenantSeatCount(tenantId: string): Promise<number> {
@@ -367,6 +363,14 @@ export class SubscriptionBillingService {
     const graceCutoff = new Date(now);
     graceCutoff.setDate(graceCutoff.getDate() - RENEWAL_GRACE_PERIOD_DAYS);
 
+    const toSuspend = await this.subscriptionRepository.find({
+      where: {
+        status: SubscriptionStatus.PAST_DUE,
+        nextBillingDate: LessThan(graceCutoff),
+      },
+      relations: ['tenant', 'tenant.createdBy'],
+    });
+
     const update = await this.subscriptionRepository
       .createQueryBuilder()
       .update(TenantSubscription)
@@ -375,7 +379,32 @@ export class SubscriptionBillingService {
       .andWhere('next_billing_date < :graceCutoff', { graceCutoff })
       .execute();
 
+    for (const subscription of toSuspend) {
+      await this.notifyRenewalIssue(
+        subscription,
+        'SUSPENDED',
+        'Renewal grace period expired. Subscription suspended.',
+      );
+    }
+
     return update.affected ?? 0;
+  }
+
+  private async notifyRenewalIssue(
+    subscription: TenantSubscription,
+    status: string,
+    reason: string,
+  ): Promise<void> {
+    const ownerId = subscription.tenant?.createdBy?.id;
+    if (!ownerId || !this.notificationHelper) {
+      return;
+    }
+
+    await this.notificationHelper.sendBillingRenewalFailedNotification(ownerId, subscription.tenantId, {
+      tenantName: subscription.tenant?.name ?? 'your workspace',
+      reason,
+      status,
+    });
   }
 
   private async markRenewalFailed(
@@ -400,6 +429,15 @@ export class SubscriptionBillingService {
       subscriptionId: subscription.id,
       reason,
     });
+
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: subscription.tenantId },
+      relations: ['createdBy'],
+    });
+    if (tenant) {
+      subscription.tenant = tenant;
+    }
+    await this.notifyRenewalIssue(subscription, 'PAST_DUE', reason);
   }
 
   private renewalAttemptEventId(subscriptionId: string, billingDate: Date): string {

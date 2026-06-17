@@ -14,7 +14,9 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -238,8 +240,17 @@ export class PaymentMethodController {
     this.logger.log(`Admin accessing payment method ${id} in tenant ${tenantId}`);
     return this.paymentMethodService.findById(id);
   }
+  @Get('admin/pending')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @ApiOperation({ summary: 'List payment methods awaiting admin verification' })
+  async listPendingVerification(@Param('tenantId') tenantId: string) {
+    return this.paymentMethodService.listPendingVerificationForTenant(tenantId);
+  }
+
   @Post(':paymentMethodId/verify')
-  @UseGuards(TenantGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Manually verify payment method (Admin only)' })
   @ApiResponse({
     status: 200,

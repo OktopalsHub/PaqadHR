@@ -1,6 +1,11 @@
 import { apiClient, fetchWithCsrf, getApiV1Base, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
-import type { CreatePayrollRunInput, PayrollRun, PayrollRunsResponse } from '@/lib/schemas/payroll';
+import type {
+  CreatePayrollRunInput,
+  PayrollReadiness,
+  PayrollRun,
+  PayrollRunsResponse,
+} from '@/lib/schemas/payroll';
 
 export async function fetchPayrollRuns(): Promise<PayrollRunsResponse> {
   const tenantId = await resolveTenantId();
@@ -20,9 +25,38 @@ export async function createPayrollRun(input: CreatePayrollRunInput): Promise<Pa
   });
 }
 
-export async function calculatePayrollRun(id: string): Promise<void> {
+export async function calculatePayrollRun(
+  id: string,
+): Promise<{ warnings: string[]; readiness: PayrollReadiness['items'] }> {
   const tenantId = await resolveTenantId();
-  await apiClient(tenantPath(tenantId, `payroll/runs/${id}/calculate`), {
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/calculate`), {
+    method: 'POST',
+  });
+}
+
+export async function fetchPayrollReadiness(id: string): Promise<PayrollReadiness> {
+  const tenantId = await resolveTenantId();
+  return apiClient<PayrollReadiness>(tenantPath(tenantId, `payroll/runs/${id}/readiness`));
+}
+
+export async function removePayrollItem(runId: string, itemId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payroll/runs/${runId}/items/${itemId}`), {
+    method: 'DELETE',
+  });
+}
+
+export async function notifyEmployeePaymentSetup(runId: string, itemId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(
+    tenantPath(tenantId, `payroll/runs/${runId}/items/${itemId}/notify-payment-setup`),
+    { method: 'POST' },
+  );
+}
+
+export async function processPayrollRun(id: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payroll/runs/${id}/process-multi-payment`), {
     method: 'POST',
   });
 }

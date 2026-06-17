@@ -2,7 +2,6 @@ import { BillingCronService } from './billing-cron.service';
 import type { SubscriptionBillingService } from './subscription-billing.service';
 
 describe('BillingCronService', () => {
-  const originalBillingMode = process.env.BILLING_MODE;
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
   const originalNombaAccountId = process.env.NOMBA_ACCOUNT_ID;
@@ -18,15 +17,16 @@ describe('BillingCronService', () => {
   };
 
   afterEach(() => {
-    process.env.BILLING_MODE = originalBillingMode;
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
     process.env.NOMBA_ACCOUNT_ID = originalNombaAccountId;
     jest.restoreAllMocks();
   });
 
-  it('skips renewal processing when billing gateway is disabled', async () => {
-    process.env.BILLING_MODE = 'trial';
+  it('skips renewal processing when Nomba is not configured', async () => {
+    delete process.env.NOMBA_CLIENT_ID;
+    delete process.env.NOMBA_CLIENT_SECRET;
+    delete process.env.NOMBA_ACCOUNT_ID;
     const { cronService, billingService } = createService();
 
     await cronService.processSubscriptionRenewals();
@@ -34,8 +34,7 @@ describe('BillingCronService', () => {
     expect(billingService.processDueRenewals).not.toHaveBeenCalled();
   });
 
-  it('runs renewal processing when billing gateway is enabled', async () => {
-    process.env.BILLING_MODE = 'open';
+  it('runs renewal processing when Nomba is configured', async () => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_ACCOUNT_ID = 'account-id';

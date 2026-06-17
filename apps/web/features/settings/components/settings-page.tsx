@@ -8,6 +8,8 @@ import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BillingSection } from '@/features/settings/components/billing-section';
+import { PaymentAdminSection } from '@/features/settings/components/payment-admin-section';
+import { PaymentSettingsSection } from '@/features/settings/components/payment-settings-section';
 import { useBillingStatus } from '@/hooks/queries/use-billing';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
@@ -81,6 +83,22 @@ function SettingsPageContent() {
           className="lg:col-span-2"
         >
           <BillingSection />
+        </ContentCard>
+
+        <ContentCard
+          title="Payment settings"
+          description="Bank account for receiving payroll"
+          className="lg:col-span-2"
+        >
+          <PaymentSettingsSection />
+        </ContentCard>
+
+        <ContentCard
+          title="Verify employee payment details"
+          description="Approve bank accounts before payroll can pay employees"
+          className="lg:col-span-2"
+        >
+          <PaymentAdminSection />
         </ContentCard>
       </div>
 

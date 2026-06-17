@@ -12,6 +12,10 @@ import { Repository } from 'typeorm';
 import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import type { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
+import {
+  PayrollPaymentIssue,
+  type PayrollPaymentReadiness,
+} from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import type {
   CreatePaymentMethodDto,
@@ -264,6 +268,156 @@ export class PaymentMethodService {
       throw error;
     }
   }
+
+  async assessPayrollReadiness(
+    tenantId: string,
+    memberId: string,
+    currency: string,
+    excludedFromRun = false,
+  ): Promise<PayrollPaymentReadiness> {
+    if (excludedFromRun) {
+      return {
+        memberId,
+        ready: false,
+        issues: [PayrollPaymentIssue.EXCLUDED_FROM_RUN],
+        message: 'Employee was removed from this payroll run and will not be paid.',
+      };
+    }
+
+    const normalizedCurrency = currency.toUpperCase();
+    const method = await this.resolvePayrollPaymentMethod(tenantId, memberId, normalizedCurrency);
+
+    if (!method) {
+      return {
+        memberId,
+        ready: false,
+        issues: [PayrollPaymentIssue.MISSING_PAYMENT_METHOD],
+        message:
+          'Payment settings are not set up yet. This employee will miss this payroll unless you remove them or ask them to add bank details.',
+        currency: normalizedCurrency,
+      };
+    }
+
+    const issues: PayrollPaymentIssue[] = [];
+
+    if (method.currency?.toUpperCase() !== normalizedCurrency) {
+      issues.push(PayrollPaymentIssue.CURRENCY_MISMATCH);
+    }
+    if (!method.isVerified) {
+      issues.push(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD);
+    }
+    if (method.isLocked) {
+      issues.push(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD);
+    }
+    if (!method.accountNumber?.trim() || !method.accountName?.trim() || !method.bankName?.trim()) {
+      issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+    }
+    if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
+      issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+    }
+
+    const supported = ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
+    if (!supported.includes(normalizedCurrency)) {
+      issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
+    }
+
+    const ready = issues.length === 0 && method.canReceivePayments;
+    const message = ready
+      ? 'Ready for payroll disbursement.'
+      : this.buildReadinessMessage(issues);
+
+    return {
+      memberId,
+      ready,
+      issues,
+      message,
+      paymentMethodId: method.id,
+      currency: method.currency ?? normalizedCurrency,
+    };
+  }
+
+  async resolvePayrollPaymentMethod(
+    tenantId: string,
+    memberId: string,
+    currency: string,
+  ): Promise<PaymentMethod | null> {
+    const normalizedCurrency = currency.toUpperCase();
+
+    const primary = await this.getPrimaryPaymentMethod(tenantId, memberId, normalizedCurrency);
+    if (primary) return primary;
+
+    const verified = await this.paymentMethodRepository.findOne({
+      where: {
+        tenantId,
+        memberId,
+        currency: normalizedCurrency,
+        status: PaymentMethodStatus.VERIFIED,
+      },
+      order: { isPrimary: 'DESC', updatedAt: 'DESC' },
+    });
+    if (verified) return verified;
+
+    return this.paymentMethodRepository.findOne({
+      where: { tenantId, memberId, currency: normalizedCurrency },
+      order: { isPrimary: 'DESC', updatedAt: 'DESC' },
+    });
+  }
+
+  private buildReadinessMessage(issues: PayrollPaymentIssue[]): string {
+    if (issues.includes(PayrollPaymentIssue.MISSING_PAYMENT_METHOD)) {
+      return 'Payment settings are not set up yet. This employee will miss this payroll unless you remove them or ask them to add bank details.';
+    }
+    if (issues.includes(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD)) {
+      return 'Bank details are pending verification. This employee will miss payment until an admin verifies their account.';
+    }
+    if (issues.includes(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD)) {
+      return 'Payment settings are temporarily locked. Ask the employee to unlock their payment passcode.';
+    }
+    if (issues.includes(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS)) {
+      return 'Bank account details are incomplete. This employee will miss payment until their payment settings are completed.';
+    }
+    if (issues.includes(PayrollPaymentIssue.CURRENCY_MISMATCH)) {
+      return 'No verified payment method matches this payroll currency.';
+    }
+    if (issues.includes(PayrollPaymentIssue.UNSUPPORTED_CURRENCY)) {
+      return 'This payroll currency is not supported for automated Nomba payouts.';
+    }
+    return 'Employee is not ready to receive payroll.';
+  }
+
+  async listPendingVerificationForTenant(tenantId: string): Promise<
+    Array<{
+      id: string;
+      memberId: string;
+      employeeName: string;
+      currency: string;
+      displayInfo: string;
+      status: PaymentMethodStatus;
+      createdAt: Date;
+    }>
+  > {
+    const methods = await this.paymentMethodRepository.find({
+      where: {
+        tenantId,
+        status: PaymentMethodStatus.PENDING_VERIFICATION,
+      },
+      relations: ['member'],
+      order: { createdAt: 'ASC' },
+    });
+
+    return methods.map((method) => ({
+      id: method.id,
+      memberId: method.memberId,
+      employeeName: method.member
+        ? `${method.member.firstName ?? ''} ${method.member.lastName ?? ''}`.trim()
+        : method.memberId,
+      currency: method.currency ?? 'NGN',
+      displayInfo: method.displayInfo,
+      status: method.status,
+      createdAt: method.createdAt,
+    }));
+  }
+
   async findById(id: string): Promise<PaymentMethod | null> {
     try {
       return await this.paymentMethodRepository.findOne({

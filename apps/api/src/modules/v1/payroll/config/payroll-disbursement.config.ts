@@ -1,10 +1,6 @@
-export type PayrollDisbursementMode = 'manual' | 'gateway';
+import { isNombaConfigured } from '../../../../common/config/nomba.config';
 
-export function getPayrollDisbursementMode(): PayrollDisbursementMode {
-  const mode = (process.env.PAYROLL_DISBURSEMENT_MODE || 'manual').toLowerCase();
-  return mode === 'gateway' ? 'gateway' : 'manual';
-}
-
-export function isManualPayrollDisbursement(): boolean {
-  return getPayrollDisbursementMode() === 'manual';
+/** Automated Nomba payroll payouts — enabled when Nomba credentials are configured. */
+export function isPayrollGatewayEnabled(): boolean {
+  return isNombaConfigured();
 }
