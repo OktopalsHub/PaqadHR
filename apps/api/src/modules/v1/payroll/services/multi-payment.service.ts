@@ -119,12 +119,6 @@ export class MultiPaymentService {
     );
     const summary = this.calculatePaymentSummary(fiatPaymentResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
-    const remainingFailedCount = await this.payrollItemRepository.count({
-      where: { payrollRunId, status: PayrollItemStatus.FAILED },
-    });
-    if (remainingFailedCount === 0) {
-      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
-    }
     const result: BatchPaymentResult = {
       totalItems: failedItems.length,
       successfulPayments: summary.fiatSuccess,

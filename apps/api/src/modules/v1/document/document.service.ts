@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
 import { FileService } from 'src/common/services/file.service';
@@ -16,9 +16,11 @@ import {
 
 @Injectable()
 export class DocumentService {
+  private readonly logger = new Logger(DocumentService.name);
+
   constructor(
     private readonly documentRepository: DocumentRepository,
-    readonly _r2Service: CloudflareR2Service,
+    private readonly r2Service: CloudflareR2Service,
     private readonly fileService: FileService,
   ) {}
   async createDocument(
@@ -50,7 +52,30 @@ export class DocumentService {
     return this.documentRepository.updateDocument(id, updateDocumentDto, tenantId);
   }
   async deleteDocument(id: string, tenantId: string): Promise<void> {
+    const document = await this.getDocument(id, tenantId);
+    await this.purgeStoredFile(document);
     await this.documentRepository.softDeleteDocument(id, tenantId);
+  }
+
+  async purgeExpiredDocument(document: Document): Promise<void> {
+    await this.purgeStoredFile(document);
+    await this.documentRepository.delete(document.id);
+  }
+
+  private async purgeStoredFile(document: Document): Promise<void> {
+    if (!document.fileKey?.trim()) {
+      return;
+    }
+
+    try {
+      await this.r2Service.deleteFile(document.fileKey);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete R2 object for document ${document.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
   async restoreDocument(id: string, tenantId: string): Promise<Document> {
     await this.documentRepository.restoreDocument(id, tenantId);

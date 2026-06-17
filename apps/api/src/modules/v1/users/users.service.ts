@@ -64,6 +64,12 @@ export class UsersService {
         })
         .where('member_id IN (:...memberIds)', { memberIds })
         .execute();
+
+      await this.tenantMemberRepository.update(
+        { userId },
+        { isActive: false, leaveDate: new Date() },
+      );
+      await this.tenantMemberRepository.softDelete({ userId });
     }
 
     await Promise.all([

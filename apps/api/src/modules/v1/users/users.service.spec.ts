@@ -9,7 +9,11 @@ describe('UsersService', () => {
     };
     const sessionRepository = { delete: jest.fn() };
     const accountRepository = { delete: jest.fn() };
-    const tenantMemberRepository = { find: jest.fn() };
+    const tenantMemberRepository = {
+      find: jest.fn(),
+      update: jest.fn(),
+      softDelete: jest.fn(),
+    };
     const paymentMethodRepository = {
       createQueryBuilder: jest.fn(),
     };
@@ -51,5 +55,39 @@ describe('UsersService', () => {
   it('rejects registration without consent', () => {
     const { service } = createService();
     expect(() => service.validateRegistrationConsent(false)).toThrow();
+  });
+
+  it('deactivates and soft-deletes tenant memberships when deleting account', async () => {
+    const {
+      service,
+      userRepository,
+      tenantMemberRepository,
+      paymentMethodRepository,
+      sessionRepository,
+      accountRepository,
+    } = createService();
+
+    (userRepository.findUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      email: 'test@example.com',
+    });
+    (tenantMemberRepository.find as jest.Mock).mockResolvedValue([{ id: 'member-1' }]);
+    (paymentMethodRepository.createQueryBuilder as jest.Mock).mockReturnValue({
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      execute: jest.fn().mockResolvedValue(undefined),
+    });
+
+    await service.deleteAccount('user-1');
+
+    expect(tenantMemberRepository.update).toHaveBeenCalledWith(
+      { userId: 'user-1' },
+      expect.objectContaining({ isActive: false }),
+    );
+    expect(tenantMemberRepository.softDelete).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(accountRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(userRepository.softDelete).toHaveBeenCalledWith('user-1');
   });
 });

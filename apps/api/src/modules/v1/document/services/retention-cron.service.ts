@@ -1,12 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { DocumentRetentionPolicy } from 'src/common/enums/document-retention-policy.enum';
-import { DocumentType } from 'src/common/enums/document-type.enum';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
-import { LessThan, Repository } from 'typeorm';
-import { getDocumentRetentionPolicy } from '../entities/document.entity';
-import { Document } from '../entities/document.entity';
+import { In, LessThan } from 'typeorm';
+import { DocumentService } from '../document.service';
+import { DocumentRepository } from '../document.repository';
+import { getTemporaryDocumentTypes } from '../entities/document.entity';
 
 const TEMPORARY_RETENTION_DAYS = 90;
 
@@ -15,8 +13,8 @@ export class RetentionCronService {
   private readonly logger = new Logger(RetentionCronService.name);
 
   constructor(
-    @InjectRepository(Document)
-    private readonly documentRepository: Repository<Document>,
+    private readonly documentRepository: DocumentRepository,
+    private readonly documentService: DocumentService,
   ) {}
 
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
@@ -25,18 +23,22 @@ export class RetentionCronService {
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - TEMPORARY_RETENTION_DAYS);
 
+      const temporaryTypes = getTemporaryDocumentTypes();
+      if (temporaryTypes.length === 0) {
+        return { purged: 0 };
+      }
+
       const candidates = await this.documentRepository.find({
-        where: { createdAt: LessThan(cutoff) },
+        where: {
+          createdAt: LessThan(cutoff),
+          type: In(temporaryTypes),
+        },
         take: 200,
       });
 
       let purged = 0;
       for (const document of candidates) {
-        const policy = getDocumentRetentionPolicy(document.type as DocumentType);
-        if (policy !== DocumentRetentionPolicy.TEMPORARY) {
-          continue;
-        }
-        await this.documentRepository.delete(document.id);
+        await this.documentService.purgeExpiredDocument(document);
         purged += 1;
       }
 
