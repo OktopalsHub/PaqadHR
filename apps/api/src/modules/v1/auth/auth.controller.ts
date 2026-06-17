@@ -35,7 +35,7 @@ export class AuthController {
   @Post('register')
   @Public()
   async register(
-    @Body() body: { email: string; password: string },
+    @Body() body: { email: string; password: string; name?: string },
     @Ip() ip: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -45,6 +45,9 @@ export class AuthController {
       body.email,
       body.password,
       typeof ipAddress === 'string' ? ipAddress : '',
+      undefined,
+      undefined,
+      body.name,
     );
     const { accessToken, refreshToken } = await this.authService.login(user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);

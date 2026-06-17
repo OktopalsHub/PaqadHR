@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { type AttendanceStatus, EAttendanceExceptionStatus } from 'src/common/enums';
+import { type AttendanceStatus, AttendanceExceptionStatus } from 'src/common/enums';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { Between, type FindOptionsWhere } from 'typeorm';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
@@ -317,11 +317,11 @@ export class AttendanceService {
     dto: ApproveAttendanceExceptionDto,
   ) {
     const exception = await this.getAttendanceException(tenantId, exceptionId);
-    if (exception.status !== EAttendanceExceptionStatus.PENDING) {
+    if (exception.status !== AttendanceExceptionStatus.PENDING) {
       throw new ConflictException('Exception is not pending approval');
     }
     await this.attendanceExceptionRepository.update(exceptionId, {
-      status: EAttendanceExceptionStatus.APPROVED,
+      status: AttendanceExceptionStatus.APPROVED,
       approvedById,
       approvedAt: new Date(),
     });
@@ -335,11 +335,11 @@ export class AttendanceService {
     dto: RejectAttendanceExceptionDto,
   ) {
     const exception = await this.getAttendanceException(tenantId, exceptionId);
-    if (exception.status !== EAttendanceExceptionStatus.PENDING) {
+    if (exception.status !== AttendanceExceptionStatus.PENDING) {
       throw new ConflictException('Exception is not pending approval');
     }
     await this.attendanceExceptionRepository.update(exceptionId, {
-      status: EAttendanceExceptionStatus.REJECTED,
+      status: AttendanceExceptionStatus.REJECTED,
     });
     return this.attendanceExceptionRepository.findOne({
       where: { id: exceptionId, tenantId },
