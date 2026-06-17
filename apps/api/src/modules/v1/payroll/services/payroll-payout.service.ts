@@ -1,10 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
+import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
 
@@ -19,6 +21,7 @@ export class PayrollPayoutService {
   constructor(
     private readonly nombaTransferApi: NombaTransferApiService,
     private readonly payrollItemRepository: PayrollItemRepository,
+    private readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem)
     private readonly payrollItemRepo: Repository<PayrollItem>,
   ) {}
@@ -26,7 +29,7 @@ export class PayrollPayoutService {
   async handleNombaWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
     if (!signature?.trim() || !this.nombaTransferApi.verifyWebhookSignature(rawBody, signature)) {
       this.logger.warn('Rejected Nomba payroll webhook: invalid signature');
-      return { received: true };
+      throw new UnauthorizedException('Invalid webhook signature');
     }
 
     let payload: unknown;
@@ -42,7 +45,13 @@ export class PayrollPayoutService {
     }
 
     const merchantRef = event.merchantTxRef ?? event.reference;
-    await this.applyTransferStatus(merchantRef, event.status, event.reference);
+    const changed = await this.applyTransferStatus(merchantRef, event.status, event.reference);
+    if (changed) {
+      const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
+      if (parsed) {
+        await this.reconcilePayrollRunStatus(parsed[1]);
+      }
+    }
     return { received: true };
   }
 
@@ -69,7 +78,10 @@ export class PayrollPayoutService {
         status.toUpperCase(),
         reference,
       );
-      if (changed) updated += 1;
+      if (changed) {
+        updated += 1;
+        await this.reconcilePayrollRunStatus(item.payrollRunId);
+      }
     }
 
     return { checked: stuckItems.length, updated };
@@ -132,5 +144,64 @@ export class PayrollPayoutService {
     if (SUCCESS_STATUSES.has(status)) return 'paid';
     if (FAILED_STATUSES.has(status)) return 'failed';
     return 'processing';
+  }
+
+  async reconcilePayrollRunStatus(payrollRunId: string): Promise<void> {
+    const items = await this.payrollItemRepository.find({
+      where: { payrollRunId },
+    });
+    if (items.length === 0) {
+      return;
+    }
+
+    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId } });
+    if (!run) {
+      return;
+    }
+
+    let pending = 0;
+    let processing = 0;
+    let paid = 0;
+    let failed = 0;
+
+    for (const item of items) {
+      switch (item.status) {
+        case PayrollItemStatus.PENDING:
+          pending += 1;
+          break;
+        case PayrollItemStatus.PROCESSING:
+          processing += 1;
+          break;
+        case PayrollItemStatus.PAID:
+          paid += 1;
+          break;
+        case PayrollItemStatus.FAILED:
+          failed += 1;
+          break;
+        default:
+          break;
+      }
+    }
+
+    const inFlight = pending + processing;
+
+    if (inFlight > 0) {
+      run.status = PayrollStatus.PROCESSING;
+    } else if (paid === items.length) {
+      run.status = PayrollStatus.COMPLETED;
+      run.processedAt = run.processedAt ?? new Date();
+    } else if (failed === items.length) {
+      run.status = PayrollStatus.FAILED;
+    } else if (paid > 0 && failed > 0) {
+      run.status = PayrollStatus.PROCESSING;
+    } else if (paid > 0) {
+      run.status = PayrollStatus.COMPLETED;
+      run.processedAt = run.processedAt ?? new Date();
+    } else {
+      run.status = PayrollStatus.FAILED;
+    }
+
+    await this.payrollRunRepository.save(run);
+    this.logger.log(`Payroll run ${payrollRunId} reconciled to ${run.status}`);
   }
 }

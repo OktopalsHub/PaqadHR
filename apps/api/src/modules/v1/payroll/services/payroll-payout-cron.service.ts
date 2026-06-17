@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollPayoutService } from './payroll-payout.service';
 
@@ -15,11 +16,8 @@ export class PayrollPayoutCronService {
       return;
     }
 
-    const result = await this.payrollPayoutService.requeryStuckPayouts();
-    if (result.checked > 0) {
-      this.logger.log(
-        `Payroll payout requery: checked ${result.checked}, updated ${result.updated}`,
-      );
-    }
+    await runCronJob(this.logger, 'payroll-payout-requery', async () => {
+      return this.payrollPayoutService.requeryStuckPayouts();
+    });
   }
 }

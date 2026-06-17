@@ -81,6 +81,7 @@ const AppDataSource = {
     Migrations.NotificationPreferences1781241357044,
     Migrations.Notifications1781241359849,
     Migrations.AuditLogs1781241362361,
+    Migrations.BillingEvents1781549462127,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

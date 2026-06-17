@@ -98,10 +98,9 @@ describe('SubscriptionBillingService renewal jobs', () => {
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_ACCOUNT_ID = 'account-id';
     const { service } = createService();
-    const nextBillingDate = new Date('2026-06-01T00:00:00.000Z');
     const subscription = {
       id: 'sub-idempotent',
-      nextBillingDate,
+      nextBillingDate: new Date('2026-06-01T00:00:00.000Z'),
       tenantId: 'tenant-1',
       planPriceId: 'price-1',
       planId: 'plan-1',
@@ -115,5 +114,81 @@ describe('SubscriptionBillingService renewal jobs', () => {
     const outcome = await (service as any).chargeSubscriptionRenewal(subscription);
 
     expect(outcome).toBe('skipped');
+  });
+});
+
+describe('SubscriptionBillingService webhooks', () => {
+  const createService = () => {
+    const nombaProvider = {
+      verifyWebhookSignature: jest.fn(),
+      parseWebhook: jest.fn(),
+    };
+    const nombaApi = { verifyTransaction: jest.fn() };
+    const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
+    const plansService = { getPlanPriceById: jest.fn() };
+    const subscriptionRepo = { save: jest.fn(), findOne: jest.fn() };
+    const tenantRepo = { findOne: jest.fn() };
+    const userRepo = { findOne: jest.fn() };
+    const tenantMemberRepo = { count: jest.fn(), findOne: jest.fn() };
+    const billingEventRepo = { exists: jest.fn(), findOne: jest.fn(), save: jest.fn(), create: jest.fn() };
+    const dataSource = { transaction: jest.fn() };
+
+    const service = new SubscriptionBillingService(
+      nombaProvider as never,
+      nombaApi as never,
+      subscriptionsService as never,
+      plansService as never,
+      subscriptionRepo as never,
+      tenantRepo as never,
+      userRepo as never,
+      tenantMemberRepo as never,
+      billingEventRepo as never,
+      dataSource as never,
+    );
+
+    return { service, nombaProvider };
+  };
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('rejects missing webhook signatures', async () => {
+    const { service } = createService();
+    await expect(service.handleNombaWebhook('{}', '')).rejects.toThrow('Missing webhook signature');
+  });
+
+  it('rejects invalid webhook signatures', async () => {
+    const { service, nombaProvider } = createService();
+    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(false);
+    await expect(service.handleNombaWebhook('{}', 'bad')).rejects.toThrow('Invalid webhook signature');
+  });
+
+  it('routes payment.success to initial payment handler', async () => {
+    const { service, nombaProvider } = createService();
+    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
+    (nombaProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: { eventId: 'evt-1', reference: 'ref-1', tenantId: 'tenant-1' },
+    });
+    const spy = jest.spyOn(service as any, 'processInitialPaymentSuccess').mockResolvedValue(undefined);
+
+    await service.handleNombaWebhook('{}', 'sig');
+
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('routes payment.failed to failure handler', async () => {
+    const { service, nombaProvider } = createService();
+    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
+    (nombaProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.failed',
+      payment: { eventId: 'evt-fail', reference: 'ref-fail', tenantId: 'tenant-1' },
+    });
+    const spy = jest.spyOn(service as any, 'processPaymentFailed').mockResolvedValue(undefined);
+
+    await service.handleNombaWebhook('{}', 'sig');
+
+    expect(spy).toHaveBeenCalled();
   });
 });

@@ -8,10 +8,11 @@ import { DocumentController } from './document.controller';
 import { DocumentRepository } from './document.repository';
 import { DocumentService } from './document.service';
 import { Document } from './entities/document.entity';
+import { RetentionCronService } from './services/retention-cron.service';
 @Module({
   imports: [TypeOrmModule.forFeature([Document]), FileModule, TenantsModule, TenantMembersModule],
   controllers: [DocumentController],
-  providers: [DocumentService, DocumentRepository, CloudflareR2Service],
+  providers: [DocumentService, DocumentRepository, CloudflareR2Service, RetentionCronService],
   exports: [DocumentService],
 })
 export class DocumentModule {}

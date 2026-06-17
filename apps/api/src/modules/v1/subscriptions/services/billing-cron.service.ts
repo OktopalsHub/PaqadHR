@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { isBillingGatewayEnabled } from '../config/billing.config';
 import { SubscriptionBillingService } from './subscription-billing.service';
 
@@ -15,10 +16,14 @@ export class BillingCronService {
       return;
     }
 
-    this.logger.log('Running subscription renewal billing job');
-    const result = await this.billingService.processDueRenewals();
-    this.logger.log(
-      `Renewal job finished: ${result.charged} charged, ${result.failed} failed, ${result.skipped} skipped, ${result.suspended} suspended`,
-    );
+    await runCronJob(this.logger, 'subscription-renewals', async () => {
+      const result = await this.billingService.processDueRenewals();
+      return {
+        charged: result.charged,
+        failed: result.failed,
+        skipped: result.skipped,
+        suspended: result.suspended,
+      };
+    });
   }
 }

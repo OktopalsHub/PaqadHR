@@ -1,3 +1,4 @@
+import './instrument';
 import { Logger, RequestMethod, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -28,6 +29,7 @@ async function bootstrap() {
     exclude: [
       { path: '/', method: RequestMethod.GET },
       { path: '/health', method: RequestMethod.GET },
+      { path: '/metrics', method: RequestMethod.GET },
       { path: '/csrf/token', method: RequestMethod.GET },
       { path: '/docs', method: RequestMethod.GET },
       { path: '/integrations/oauth/callback', method: RequestMethod.GET },
@@ -41,7 +43,7 @@ async function bootstrap() {
   if (isDevelopment) {
     logger.log(`Application is running on: http://localhost:${port}`);
     logger.log(`Environment: ${process.env.NODE_ENV}`);
-    logger.log(`API Documentation: http://localhost:${port}/api/docs`);
+    logger.log(`API Documentation: http://localhost:${port}/docs`);
   } else {
     logger.log(`Application is running on port ${port}`);
   }

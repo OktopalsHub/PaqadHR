@@ -11,19 +11,25 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 function loadEnvFile(): void {
-  const envPath = resolve(__dirname, '../../.env');
-  if (!existsSync(envPath)) return;
+  const candidates = [
+    resolve(process.cwd(), '.env'),
+    resolve(__dirname, '../../.env'),
+  ];
 
-  const lines = readFileSync(envPath, 'utf8').split('\n');
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq === -1) continue;
-    const key = trimmed.slice(0, eq).trim();
-    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
-    if (!(key in process.env)) {
-      process.env[key] = value;
+  for (const envPath of candidates) {
+    if (!existsSync(envPath)) continue;
+
+    const lines = readFileSync(envPath, 'utf8').split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eq = trimmed.indexOf('=');
+      if (eq === -1) continue;
+      const key = trimmed.slice(0, eq).trim();
+      const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+      if (!process.env[key]?.trim()) {
+        process.env[key] = value;
+      }
     }
   }
 }
@@ -97,6 +103,37 @@ async function checkAuthToken(): Promise<CheckResult> {
   }
 }
 
+function checkPayoutAuthCode(): CheckResult {
+  const authCode = process.env.NOMBA_PAYOUT_AUTH_CODE?.trim();
+  if (authCode) {
+    return { name: 'NOMBA_PAYOUT_AUTH_CODE', ok: true, detail: 'set' };
+  }
+  return {
+    name: 'NOMBA_PAYOUT_AUTH_CODE',
+    ok: true,
+    detail: 'not set — required only for non-NGN global payouts',
+  };
+}
+
+function printWebhookCurlExample(): void {
+  const secret = process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim();
+  if (!secret) return;
+
+  const appUrl = (process.env.APP_URL || 'https://your-api.example.com').replace(/\/$/, '');
+  const body =
+    '{"event_type":"transfer.success","data":{"id":"sandbox-test","status":"SUCCESS","meta":{"merchantTxRef":"payroll_<runId>_<itemId>"}}}';
+
+  console.log('\nExample payroll webhook curl (replace run/item IDs):\n');
+  console.log(`BODY='${body}'`);
+  console.log(
+    `SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "${secret}" | awk '{print $2}')`,
+  );
+  console.log(
+    `curl -X POST "${appUrl}/api/v1/payroll/webhooks/nomba" -H "Content-Type: application/json" -H "x-nomba-signature: $SIG" -d "$BODY"`,
+  );
+  console.log('');
+}
+
 function printWebhookUrls(): void {
   const appUrl = (process.env.APP_URL || process.env.PUBLIC_APP_URL || 'https://your-api.example.com')
     .replace(/\/$/, '');
@@ -105,6 +142,7 @@ function printWebhookUrls(): void {
   console.log(`  Subscriptions:  ${appUrl}/api/v1/subscriptions/webhooks/nomba`);
   console.log(`  Payroll payout: ${appUrl}/api/v1/payroll/webhooks/nomba`);
   console.log('\nEnsure PUBLIC_ROUTES includes both paths and NOMBA_WEBHOOK_SIGNATURE_KEY matches Nomba.\n');
+  printWebhookCurlExample();
 }
 
 async function main(): Promise<void> {
@@ -121,6 +159,9 @@ async function main(): Promise<void> {
   const authResult = await checkAuthToken();
   const icon = authResult.ok ? '✓' : '✗';
   console.log(`  ${icon} ${authResult.name}: ${authResult.detail}`);
+
+  const payoutAuth = checkPayoutAuthCode();
+  console.log(`  ✓ ${payoutAuth.name}: ${payoutAuth.detail}`);
 
   printWebhookUrls();
 

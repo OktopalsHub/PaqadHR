@@ -1,12 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ShoutoutsModule } from '../../modules/v1/shoutouts/shoutouts.module';
 import { TenantMembersModule } from '../../modules/v1/tenant-members/tenant-members.module';
 import { TenantsModule } from '../../modules/v1/tenants/tenants.module';
 import { IntegrationController } from './controllers/integration.controller';
 import { IntegrationManagementController } from './controllers/integration-management.controller';
 import { OAuthIntegrationController } from './controllers/integration-oauth.controller';
-import { SlackWebhookController } from './controllers/slack-webhook.controller';
 import { IntegrationChannel } from './entities/integration-channel.entity';
 import { PlatformIntegration } from './entities/platform-integration.entity';
 import { PlatformUser } from './entities/platform-user.entity';
@@ -20,14 +18,12 @@ import { ChannelManagementService } from './services/channel-management.service'
 import { IntegrationSetupService } from './services/integration-setup.service';
 import { OAuthIntegrationService } from './services/oauth-integration.service';
 import { PlatformIntegrationService } from './services/platform-integration.service';
-import { SlackWebhookService } from './services/slack-webhook.service';
 import { UserSyncService } from './services/user-sync.service';
 
 @Module({
   imports: [
     TenantsModule,
     TenantMembersModule,
-    ShoutoutsModule,
     TypeOrmModule.forFeature([
       PlatformIntegration,
       PlatformUser,
@@ -38,7 +34,6 @@ import { UserSyncService } from './services/user-sync.service';
   controllers: [
     IntegrationController,
     OAuthIntegrationController,
-    SlackWebhookController,
     IntegrationManagementController,
   ],
   providers: [
@@ -50,10 +45,15 @@ import { UserSyncService } from './services/user-sync.service';
     OAuthIntegrationService,
     UserIntegrationTokenRepository,
     UserSyncService,
-    SlackWebhookService,
     IntegrationSetupService,
     ShoutoutIntegrationListener,
   ],
-  exports: [PlatformIntegrationService, UserSyncService, IntegrationSetupService],
+  exports: [
+    PlatformIntegrationService,
+    UserSyncService,
+    IntegrationSetupService,
+    PlatformIntegrationRepository,
+    PlatformUserRepository,
+  ],
 })
 export class IntegrationModule {}

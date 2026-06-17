@@ -18,7 +18,7 @@ import type { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
 import { ShoutoutPaginatedResponseDto, ShoutoutResponseDto } from '../dto/shoutout-response.dto';
 import { ShoutoutsService } from '../services/shoutouts.service';
 
-@ApiTags('shoutouts')
+@ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/shoutouts')
 export class ShoutoutsController {

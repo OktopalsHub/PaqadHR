@@ -10,6 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BillingSection } from '@/features/settings/components/billing-section';
 import { PaymentAdminSection } from '@/features/settings/components/payment-admin-section';
 import { PaymentSettingsSection } from '@/features/settings/components/payment-settings-section';
+import { PrivacySection } from '@/features/settings/components/privacy-section';
+import { SlackIntegrationSection } from '@/features/settings/components/slack-integration-section';
 import { useBillingStatus } from '@/hooks/queries/use-billing';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
@@ -99,6 +101,22 @@ function SettingsPageContent() {
           className="lg:col-span-2"
         >
           <PaymentAdminSection />
+        </ContentCard>
+
+        <ContentCard
+          title="Slack shoutouts"
+          description="Post team recognition to a Slack channel"
+          className="lg:col-span-2"
+        >
+          <SlackIntegrationSection />
+        </ContentCard>
+
+        <ContentCard
+          title="Privacy & data"
+          description="Export or delete your personal data"
+          className="lg:col-span-2"
+        >
+          <PrivacySection />
         </ContentCard>
       </div>
 

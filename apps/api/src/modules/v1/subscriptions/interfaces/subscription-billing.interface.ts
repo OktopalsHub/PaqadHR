@@ -37,6 +37,7 @@ export interface SubscriptionWebhookPayment {
 
 export type SubscriptionWebhookEvent =
   | { kind: 'payment.success'; payment: SubscriptionWebhookPayment }
+  | { kind: 'payment.failed'; payment: SubscriptionWebhookPayment }
   | { kind: 'subscription.updated'; reference: string; quantity?: number; status?: string }
   | { kind: 'ignored'; event: string };
 

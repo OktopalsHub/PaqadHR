@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
+import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -9,6 +11,7 @@ import { JwtAuthGuard } from './common/guards';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
 import { AuditModule } from './common/modules/audit.module';
+import { EncryptionModule } from './common/modules/encryption.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
@@ -47,8 +50,11 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
+    EncryptionModule,
     RateLimitModule,
     AuditModule,
     AuthModule,
@@ -90,6 +96,10 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_FILTER,
+      useClass: SentryGlobalFilter,
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

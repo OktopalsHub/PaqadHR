@@ -19,6 +19,7 @@ import { InvitationsService } from '../invitations/invitations.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
+import { buildUserConsentMetadata } from '../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../users/repositories/users.repository';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
@@ -203,6 +204,7 @@ export class AuthService {
         role: UserRole.BASIC,
         countryCode: GeoLocationHelper.toStoredCountryCode(countryCode),
         emailVerified: false,
+        metadata: buildUserConsentMetadata(true),
       });
 
       await this.accountRepository.save(

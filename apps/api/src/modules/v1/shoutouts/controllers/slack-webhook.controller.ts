@@ -9,13 +9,13 @@ import {
   Req,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
 import type {
   SlackEventPayload,
   SlackInteractiveBody,
   SlackSlashCommandPayload,
   SlackUrlVerificationPayload,
-} from '../integration.types';
+} from 'src/common/integrations/integration.types';
+import type { Request } from 'express';
 import { SlackWebhookService } from '../services/slack-webhook.service';
 
 @ApiTags('Slack Webhooks')

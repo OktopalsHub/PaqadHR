@@ -179,7 +179,7 @@ export class OAuthIntegrationController {
   ) {
     const member = req.member;
     const userToken = await this.oauthService.getUserToken(integrationId, member.id);
-    await this.channelService.configureShoutoutChannel(
+    const result = await this.channelService.configureShoutoutChannel(
       integrationId,
       body.platformChannelId,
       body.platformChannelName,
@@ -189,7 +189,11 @@ export class OAuthIntegrationController {
     await this.integrationService.syncUsers(integrationId, body.platformChannelId);
     return {
       success: true,
-      message: 'Channel configured and users synced!',
+      message: result.testMessageSent
+        ? 'Channel configured, users synced, and test message sent!'
+        : 'Channel configured and users synced.',
+      testMessageSent: result.testMessageSent,
+      testMessageError: result.testMessageError,
     };
   }
   private getRedirectUri(request: Request, platform: IntegrationType): string {

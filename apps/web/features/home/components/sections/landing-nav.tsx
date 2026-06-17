@@ -11,7 +11,7 @@ import { fadeIn } from '../../constants/landing-motion';
 const navLinks = [
   { label: 'Home', href: '/' },
   { label: 'Product', href: '#product' },
-  { label: 'Features', href: '#product' },
+  { label: 'Features', href: '#features' },
 ];
 
 export const LandingNav = () => {
@@ -32,7 +32,7 @@ export const LandingNav = () => {
         <nav className="hidden items-center gap-8 md:flex" aria-label="Main">
           {navLinks.map((link) => (
             <a
-              key={link.href}
+              key={link.label}
               href={link.href}
               className="inline-flex items-center gap-1 text-sm text-foreground transition-colors hover:text-muted-foreground"
             >
@@ -74,7 +74,7 @@ export const LandingNav = () => {
           <div className="flex flex-col gap-3">
             {navLinks.map((link) => (
               <a
-                key={link.href}
+                key={link.label}
                 href={link.href}
                 className="text-sm font-medium"
                 onClick={() => setMobileOpen(false)}

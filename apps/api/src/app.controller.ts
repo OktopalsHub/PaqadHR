@@ -28,6 +28,11 @@ export class AppController {
     return health;
   }
 
+  @Get('metrics')
+  getMetrics() {
+    return '# TYPE paqad_up gauge\npaqad_up 1\n';
+  }
+
   @Get('csrf/token')
   getCsrfToken(@Req() req: CsrfRequest) {
     const token = typeof req.csrfToken === 'function' ? req.csrfToken() : undefined;

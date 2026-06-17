@@ -4,51 +4,8 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 export function setupSwagger(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('PaqadHR API')
-    .setDescription(
-      `
-      # PaqadHR API Documentation
-      A comprehensive HR management platform API that provides:
-      ## Features
-      - **Multi-tenant Architecture**: Secure tenant isolation
-      - **Authentication & Authorization**: JWT-based auth with role-based access
-      - **Employee Management**: Complete employee lifecycle management
-      - **Attendance Tracking**: Clock in/out with geolocation support
-      - **Leave Management**: Leave requests, approvals, and balance tracking
-      - **Payroll Processing**: Automated payroll calculations and payments
-      - **Asset Management**: Company asset tracking and assignment
-      - **Recruitment**: Job postings, applications, and interview scheduling
-      - **Shoutouts & Recognition**: Peer recognition with points and core values
-      - **Integrations**: Slack, Discord, and other platform integrations
-      ## Authentication
-      Most endpoints require authentication via JWT token in the Authorization header:
-      \`Authorization: Bearer <your-jwt-token>\`
-      ## Multi-tenancy
-      All tenant-specific endpoints require a tenant context, provided via:
-      - Subdomain: \`https://your-tenant.paqadhr.com\`
-      - Path parameter: \`/api/v1/tenants/{tenantId}/...\`
-      - Query parameter: \`?tenant=your-tenant-slug\`
-      ## Rate Limiting
-      API endpoints are rate-limited to ensure fair usage:
-      - General endpoints: 100 requests per 15 minutes
-      - Authentication endpoints: 5 attempts per 15 minutes
-      - API endpoints: 1000 requests per hour
-      ## Error Handling
-      All errors follow a consistent format:
-      \`\`\`json
-      {
-        "statusCode": 400,
-        "error": "Bad Request",
-        "message": "Validation failed",
-        "timestamp": "2024-01-01T00:00:00.000Z",
-        "path": "/api/v1/endpoint",
-        "traceId": "trace-id-for-debugging"
-      }
-      \`\`\`
-    `,
-    )
+    .setDescription('PaqadHR REST API — browse endpoints by tag below.')
     .setVersion('1.0')
-    .setContact('PaqadHR Support', 'https://paqadhr.com/support', 'support@paqadhr.com')
-    .setLicense('MIT', 'https://opensource.org/licenses/MIT')
     .addServer('http://localhost:9001', 'Development Server')
     .addServer('https://api.paqadhr.com', 'Production Server')
     .addBearerAuth(
@@ -72,17 +29,23 @@ export function setupSwagger(app: INestApplication): void {
       'API-Key',
     )
     .addTag('Analytics', 'Workforce insights and reporting')
-    .addTag('Authentication', 'User authentication and authorization')
-    .addTag('Tenants', 'Multi-tenant organization management')
-    .addTag('Users', 'User account management')
+    .addTag(
+      'Authentication',
+      'JWT auth via Authorization: Bearer token. Login, register, and session endpoints.',
+    )
+    .addTag(
+      'Tenants',
+      'Multi-tenant organizations. Tenant context via path /api/v1/tenants/{tenantId}/... or x-tenant-id header.',
+    )
+    .addTag('Users', 'User account management, profile, and data export')
     .addTag('Employees', 'Employee management and profiles')
     .addTag('Attendance', 'Time tracking and attendance management')
     .addTag('Leave Management', 'Leave requests and balance tracking')
-    .addTag('Payroll', 'Payroll processing and calculations')
+    .addTag('Payroll', 'Payroll processing, disbursement, and calculations')
     .addTag('Assets', 'Company asset management')
     .addTag('Recruitment', 'Job postings and candidate management')
-    .addTag('Shoutouts', 'Employee recognition and rewards')
-    .addTag('Integrations', 'Third-party platform integrations')
+    .addTag('Shoutouts', 'Employee recognition, points, and Slack broadcast')
+    .addTag('Integrations', 'Slack OAuth, channel setup, and platform webhooks')
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {

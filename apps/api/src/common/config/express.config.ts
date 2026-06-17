@@ -161,6 +161,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(helmet.ieNoOpen());
   app.use(helmet.dnsPrefetchControl());
   app.use(helmet.permittedCrossDomainPolicies());
+  // In-memory rate limiting only (no Redis). express-rate-limit defaults to process memory.
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,
@@ -215,6 +216,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   });
   app.use('/api/v1/webhooks', webhookLimiter);
   app.use('/api/v1/subscriptions/webhooks', webhookLimiter);
+  app.use('/api/v1/payroll/webhooks', webhookLimiter);
   const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
     .split(',')
     .map((s) => s.trim())

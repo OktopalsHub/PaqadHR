@@ -48,13 +48,40 @@ export class ChannelManagementService {
     createdBy: string,
     userAccessToken?: string,
   ) {
-    const channelConfig = {
-      platformChannelId,
-      platformChannelName,
-      channelType: ChannelType.SHOUTOUTS,
-      isPrimary: true,
-    };
-    return this.configureChannel(integrationId, channelConfig, createdBy);
+    const channel = await this.configureChannel(
+      integrationId,
+      {
+        platformChannelId,
+        platformChannelName,
+        channelType: ChannelType.SHOUTOUTS,
+        isPrimary: true,
+      },
+      createdBy,
+    );
+
+    const integration = await this.integrationRepo.findOne({ where: { id: integrationId } });
+    if (!integration?.botToken) {
+      return {
+        channel,
+        testMessageSent: false,
+        testMessageError: 'Slack bot token is missing for this integration',
+      };
+    }
+
+    try {
+      const client = new SlackClient(integration.botToken);
+      await client.sendMessage(
+        platformChannelId,
+        "Shoutouts from PaqadHR will be posted here. You're all set!",
+      );
+      return { channel, testMessageSent: true };
+    } catch (error) {
+      return {
+        channel,
+        testMessageSent: false,
+        testMessageError: error instanceof Error ? error.message : 'Failed to post test message',
+      };
+    }
   }
   async configureChannel(
     integrationId: string,

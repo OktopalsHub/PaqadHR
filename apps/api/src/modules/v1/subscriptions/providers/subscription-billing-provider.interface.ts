@@ -32,6 +32,7 @@ export interface ISubscriptionBillingProvider {
     quantity: number,
     tokenKey: string,
     customerEmail: string,
+    metadata?: SubscriptionBillingMetadata,
   ): Promise<unknown>;
 
   getSubscription(subscriptionReference: string): Promise<unknown>;

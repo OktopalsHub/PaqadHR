@@ -1,6 +1,7 @@
 'use client';
 
 import { Heart, Sparkles, Trophy, Users } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
@@ -10,12 +11,16 @@ import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useEmployees } from '@/hooks/queries/use-employees';
+import { useShoutoutSlackStatus } from '@/hooks/queries/use-integrations';
 import {
   useCreateShoutout,
   useMyPointsBalance,
   useShoutoutCategories,
   useShoutouts,
 } from '@/hooks/queries/use-shoutouts';
+import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { ApiError } from '@/lib/api/client';
+import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
 import { ShoutoutComposer } from './shoutout-composer';
 
@@ -25,13 +30,20 @@ export function ShoutoutsPage() {
   const [recipientId, setRecipientId] = useState('');
   const [categoryId, setCategoryId] = useState('');
 
+  const { tenant } = useTenant();
+  const tenantHref = useTenantHref();
+  const role = tenant?.member?.role?.toLowerCase();
+  const isAdmin = role === 'owner' || role === 'admin';
+
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useShoutoutCategories();
   const { data: pointsBalance } = useMyPointsBalance();
+  const { data: slackStatus, isLoading: slackStatusLoading } = useShoutoutSlackStatus();
   const { data, isLoading, isError, error } = useShoutouts();
   const createShoutout = useCreateShoutout();
 
   const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
+  const slackConfigured = slackStatus?.configured ?? false;
 
   const totalPointsGiven = useMemo(
     () => items.reduce((sum, item) => sum + item.totalPoints, 0),
@@ -44,7 +56,28 @@ export function ShoutoutsPage() {
     }
   }, [categories, categoryId]);
 
+  const showSlackBlockedToast = () => {
+    if (isAdmin) {
+      toast.error('Connect Slack in Settings to enable shoutouts', {
+        action: {
+          label: 'Open Settings',
+          onClick: () => {
+            window.location.href = tenantHref('settings');
+          },
+        },
+      });
+      return;
+    }
+
+    toast.error('Shoutouts are disabled until an admin connects Slack in Settings.');
+  };
+
   const handleCreate = async () => {
+    if (!slackConfigured) {
+      showSlackBlockedToast();
+      return;
+    }
+
     if (!recipientId || !message.trim()) {
       toast.error('Select a recipient and write a message');
       return;
@@ -65,11 +98,15 @@ export function ShoutoutsPage() {
       setRecipientId('');
       toast.success('Shoutout sent');
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'SLACK_NOT_CONFIGURED') {
+        showSlackBlockedToast();
+        return;
+      }
       toast.error(err instanceof Error ? err.message : 'Failed to send');
     }
   };
 
-  if (isLoading) {
+  if (isLoading || slackStatusLoading) {
     return (
       <AppPage>
         <LoadingBlock />
@@ -90,8 +127,26 @@ export function ShoutoutsPage() {
     );
   }
 
+  const composerDisabledHint = isAdmin
+    ? 'Connect Slack in Settings and choose a channel before sending shoutouts.'
+    : 'Shoutouts are disabled until an admin connects Slack in Settings.';
+
   return (
     <AppPage>
+      {!slackConfigured ? (
+        <Alert>
+          <AlertTitle>Slack not connected</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>{composerDisabledHint}</p>
+            {isAdmin ? (
+              <Link href={tenantHref('settings')} className="text-sm font-medium underline">
+                Go to Settings
+              </Link>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Shoutouts"
@@ -151,6 +206,8 @@ export function ShoutoutsPage() {
             onMessageChange={setMessage}
             onSubmit={handleCreate}
             isSubmitting={createShoutout.isPending}
+            disabled={!slackConfigured}
+            disabledHint={!slackConfigured ? composerDisabledHint : undefined}
           />
 
           {categories.length > 0 ? (

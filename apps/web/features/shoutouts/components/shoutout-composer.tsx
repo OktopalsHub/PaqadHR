@@ -33,6 +33,8 @@ type ShoutoutComposerProps = {
   onMessageChange: (value: string) => void;
   onSubmit: () => void;
   isSubmitting: boolean;
+  disabled?: boolean;
+  disabledHint?: string;
   className?: string;
 };
 
@@ -50,6 +52,8 @@ export function ShoutoutComposer({
   onMessageChange,
   onSubmit,
   isSubmitting,
+  disabled = false,
+  disabledHint,
   className,
 }: ShoutoutComposerProps) {
   const allowance = points?.remainingAllowance;
@@ -151,7 +155,13 @@ export function ShoutoutComposer({
           />
         </div>
 
-        <Button className="w-full" disabled={isSubmitting} onClick={onSubmit}>
+        {disabled && disabledHint ? (
+          <p className="rounded-lg border border-dashed border-border/80 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            {disabledHint}
+          </p>
+        ) : null}
+
+        <Button className="w-full" disabled={isSubmitting || disabled} onClick={onSubmit}>
           <Send className="mr-2 size-4" />
           Send shoutout
         </Button>

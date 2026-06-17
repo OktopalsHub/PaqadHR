@@ -3,20 +3,20 @@ import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
-import { IsNull, Not } from 'typeorm';
-import { ShoutoutsService } from '../../../modules/v1/shoutouts/services/shoutouts.service';
-import type { TenantMember } from '../../../modules/v1/tenant-members/entities/tenant-member.entity';
-import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
-import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import type { PlatformIntegration } from 'src/common/integrations/entities/platform-integration.entity';
 import type {
   SlackEvent,
   SlackEventPayload,
   SlackInteractivePayload,
   SlackSlashCommandPayload,
-} from '../integration.types';
-import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
-import { PlatformUserRepository } from '../repositories/platform-user.repository';
-import { UserSyncService } from './user-sync.service';
+} from 'src/common/integrations/integration.types';
+import { PlatformIntegrationRepository } from 'src/common/integrations/repositories/platform-integration.repository';
+import { PlatformUserRepository } from 'src/common/integrations/repositories/platform-user.repository';
+import { UserSyncService } from 'src/common/integrations/services/user-sync.service';
+import { IsNull, Not } from 'typeorm';
+import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
+import { ShoutoutsService } from './shoutouts.service';
 
 @Injectable()
 export class SlackWebhookService {

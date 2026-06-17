@@ -17,6 +17,7 @@ export class User1781241191518 implements MigrationInterface {
         is_active BOOLEAN NOT NULL DEFAULT true,
         role VARCHAR(20) DEFAULT 'basic',
         deleted_at TIMESTAMP,
+        metadata JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (id)

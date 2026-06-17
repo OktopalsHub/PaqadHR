@@ -11,6 +11,9 @@ import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
+import { AuditAction, AuditSeverity, AuditStatus } from '../../../../common/enums/audit-action.enum';
+import { EncryptionService } from '../../../../common/services/encryption.service';
+import { AuditLogsService } from '../../../../common/services/audit-logs.service';
 import type { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
 import {
   PayrollPaymentIssue,
@@ -36,6 +39,8 @@ export class PaymentMethodService {
     @InjectRepository(PaymentMethodPasscodeHistory)
     private readonly passcodeHistoryRepository: Repository<PaymentMethodPasscodeHistory>,
     readonly _paymentProviderFactory: PaymentProviderFactoryService,
+    private readonly encryptionService: EncryptionService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
   async createPaymentMethod(
     tenantId: string,
@@ -62,8 +67,8 @@ export class PaymentMethodService {
         displayName: dto.displayName,
         bankName: dto.bankName,
         bankCode: dto.bankCode,
-        accountName: dto.accountName,
-        accountNumber: dto.accountNumber,
+        accountName: this.encryptField(dto.accountName) ?? dto.accountName,
+        accountNumber: this.encryptField(dto.accountNumber) ?? dto.accountNumber,
         country: dto.country,
         isPrimary: dto.isPrimary || false,
         status: PaymentMethodStatus.PENDING_VERIFICATION,
@@ -106,8 +111,12 @@ export class PaymentMethodService {
       displayName: dto.displayName ?? paymentMethod.displayName,
       bankName: dto.bankName ?? paymentMethod.bankName,
       bankCode: dto.bankCode ?? paymentMethod.bankCode,
-      accountName: dto.accountName ?? paymentMethod.accountName,
-      accountNumber: dto.accountNumber ?? paymentMethod.accountNumber,
+      accountName: dto.accountName
+        ? (this.encryptField(dto.accountName) ?? dto.accountName)
+        : paymentMethod.accountName,
+      accountNumber: dto.accountNumber
+        ? (this.encryptField(dto.accountNumber) ?? dto.accountNumber)
+        : paymentMethod.accountNumber,
       country: dto.country ?? paymentMethod.country,
       isPrimary: dto.isPrimary ?? paymentMethod.isPrimary,
       metadata: dto.metadata ?? paymentMethod.metadata,
@@ -185,7 +194,7 @@ export class PaymentMethodService {
       id: method.id,
       type: method.type,
       currency: method.currency || 'USD',
-      displayInfo: method.displayInfo,
+      displayInfo: this.formatDisplayInfo(method),
       status: method.status,
       isPrimary: method.isPrimary,
       isVerified: method.isVerified,
@@ -251,6 +260,15 @@ export class PaymentMethodService {
       paymentMethod.verifiedAt = new Date();
     }
     const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
+    await this.auditLogsService.queueAuditLog({
+      action: AuditAction.UPDATE,
+      description: `Payment method verification set to ${status}`,
+      severity: AuditSeverity.MEDIUM,
+      status: AuditStatus.SUCCESS,
+      resourceType: 'payment_method',
+      resourceId: paymentMethodId,
+      tenantId: paymentMethod.tenantId,
+    });
     this.logger.log(`Payment method ${status}: ${paymentMethodId}`);
     return updatedMethod;
   }
@@ -344,7 +362,7 @@ export class PaymentMethodService {
     const normalizedCurrency = currency.toUpperCase();
 
     const primary = await this.getPrimaryPaymentMethod(tenantId, memberId, normalizedCurrency);
-    if (primary) return primary;
+    if (primary) return this.withDecrypted(primary);
 
     const verified = await this.paymentMethodRepository.findOne({
       where: {
@@ -355,12 +373,13 @@ export class PaymentMethodService {
       },
       order: { isPrimary: 'DESC', updatedAt: 'DESC' },
     });
-    if (verified) return verified;
+    if (verified) return this.withDecrypted(verified);
 
-    return this.paymentMethodRepository.findOne({
+    const fallback = await this.paymentMethodRepository.findOne({
       where: { tenantId, memberId, currency: normalizedCurrency },
       order: { isPrimary: 'DESC', updatedAt: 'DESC' },
     });
+    return this.withDecrypted(fallback);
   }
 
   private buildReadinessMessage(issues: PayrollPaymentIssue[]): string {
@@ -412,7 +431,7 @@ export class PaymentMethodService {
         ? `${method.member.firstName ?? ''} ${method.member.lastName ?? ''}`.trim()
         : method.memberId,
       currency: method.currency ?? 'NGN',
-      displayInfo: method.displayInfo,
+      displayInfo: this.formatDisplayInfo(method),
       status: method.status,
       createdAt: method.createdAt,
     }));
@@ -420,13 +439,39 @@ export class PaymentMethodService {
 
   async findById(id: string): Promise<PaymentMethod | null> {
     try {
-      return await this.paymentMethodRepository.findOne({
+      const method = await this.paymentMethodRepository.findOne({
         where: { id },
       });
+      return this.withDecrypted(method);
     } catch (error) {
       this.logger.error(`Failed to find payment method ${id}`, error);
       throw error;
     }
+  }
+
+  private encryptField(value?: string | null): string | null | undefined {
+    if (!value?.trim()) return value;
+    if (this.encryptionService.isEncrypted(value)) return value;
+    return this.encryptionService.encrypt(value);
+  }
+
+  private decryptField(value?: string | null): string | null | undefined {
+    if (!value?.trim()) return value;
+    if (!this.encryptionService.isEncrypted(value)) return value;
+    return this.encryptionService.decrypt(value);
+  }
+
+  private withDecrypted(method: PaymentMethod | null): PaymentMethod | null {
+    if (!method) return null;
+    method.accountNumber = this.decryptField(method.accountNumber) ?? null;
+    method.accountName = this.decryptField(method.accountName) ?? null;
+    return method;
+  }
+
+  private formatDisplayInfo(method: PaymentMethod): string {
+    const account = this.decryptField(method.accountNumber) ?? '';
+    const last4 = account.length >= 4 ? account.slice(-4) : '****';
+    return `${method.bankName ?? 'Bank'} - ${last4}`;
   }
   private async verifyPasscode(paymentMethod: PaymentMethod, passcode: string): Promise<void> {
     if (

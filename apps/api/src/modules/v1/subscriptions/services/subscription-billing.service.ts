@@ -196,6 +196,10 @@ export class SubscriptionBillingService {
       }
     }
 
+    if (event.kind === 'payment.failed') {
+      await this.processPaymentFailed(event.payment);
+    }
+
     return { received: true };
   }
 
@@ -238,9 +242,19 @@ export class SubscriptionBillingService {
       quantity,
       subscription.paymentMethodId,
       ownerEmail,
+      {
+        tenantId,
+        planId: subscription.planId,
+        planPriceId: subscription.planPriceId,
+        quantity,
+        billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
+      },
     );
 
-    subscription.currentUsers = quantity;
+    subscription.usageMetrics = {
+      ...(subscription.usageMetrics ?? {}),
+      pendingSeatCount: quantity,
+    };
     await this.subscriptionRepository.save(subscription);
   }
 
@@ -660,9 +674,72 @@ export class SubscriptionBillingService {
       return;
     }
 
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: payment.tenantId },
+    });
+    if (!subscription) {
+      return;
+    }
+
+    const seatCount = resolveSeatCount(
+      payment.quantity ??
+        subscription.usageMetrics?.pendingSeatCount ??
+        subscription.currentUsers,
+    );
+    subscription.currentUsers = seatCount;
+    subscription.usageMetrics = {
+      ...(subscription.usageMetrics ?? {}),
+      pendingSeatCount: undefined,
+    };
+
+    await this.subscriptionRepository.save(subscription);
     await this.recordBillingEvent(payment.eventId, 'quantity_update_success', {
       ...payment,
+      quantity: seatCount,
     } as unknown as Record<string, unknown>);
+  }
+
+  private async processPaymentFailed(payment: SubscriptionWebhookPayment): Promise<void> {
+    if (!UUID_PATTERN.test(payment.tenantId) || (await this.hasProcessedEvent(payment.eventId))) {
+      return;
+    }
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: payment.tenantId },
+      relations: ['tenant', 'tenant.createdBy', 'planPrice'],
+    });
+    if (!subscription) {
+      return;
+    }
+
+    if (payment.billingType === BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE) {
+      subscription.usageMetrics = {
+        ...(subscription.usageMetrics ?? {}),
+        pendingSeatCount: undefined,
+      };
+      await this.subscriptionRepository.save(subscription);
+      await this.recordBillingEvent(payment.eventId, 'quantity_update_failed', {
+        ...payment,
+      } as unknown as Record<string, unknown>);
+      return;
+    }
+
+    if (payment.billingType === BillingChargeType.SUBSCRIPTION_RENEWAL) {
+      await this.markRenewalFailed(subscription, payment.reference, 'renewal_payment_failed');
+      await this.recordBillingEvent(payment.eventId, 'renewal_failed_webhook', {
+        ...payment,
+      } as unknown as Record<string, unknown>);
+      return;
+    }
+
+    await this.recordBillingEvent(payment.eventId, 'payment_failed', {
+      ...payment,
+    } as unknown as Record<string, unknown>);
+    await this.notifyRenewalIssue(
+      subscription,
+      'PAYMENT_FAILED',
+      'Initial subscription payment failed.',
+    );
   }
 
   private async applyRenewalSuccess(

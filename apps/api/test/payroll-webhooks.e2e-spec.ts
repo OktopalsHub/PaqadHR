@@ -113,9 +113,43 @@ describe('Payroll webhooks (e2e)', () => {
     expect(updated?.transactionId).toBe('txn-e2e-success');
     expect(updated?.paymentProvider).toBe('Nomba');
     expect(updated?.paidAt).toBeTruthy();
+
+    const runAfter = await dataSource.getRepository(PayrollRun).findOneBy({ id: run.id });
+    expect(runAfter?.status).toBe(PayrollStatus.COMPLETED);
   });
 
-  it('accepts invalid signatures without changing payroll items', async () => {
+  it('marks payroll item failed on failed transfer webhook', async () => {
+    const auth = await registerUser(app, 'payroll-webhook-fail', 'password123', {
+      useCsrf: true,
+    });
+    const tenant = await onboardTenant(auth, undefined, { useCsrf: true });
+    const { run, item } = await seedProcessingPayrollItem(tenant.tenantId, tenant.ownerMemberId);
+
+    const merchantRef = `payroll_${run.id}_${item.id}`;
+    const rawBody = buildNombaTransferWebhook({
+      merchantTxRef: merchantRef,
+      reference: 'txn-e2e-failed',
+      status: 'FAILED',
+    });
+    const signature = signNombaWebhook(rawBody, webhookSecret);
+
+    await request(app.getHttpServer())
+      .post('/api/v1/payroll/webhooks/nomba')
+      .set('Content-Type', 'application/json')
+      .set('x-nomba-signature', signature)
+      .send(rawBody)
+      .expect(200);
+
+    const dataSource = app.get(DataSource);
+    const failed = await dataSource.getRepository(PayrollItem).findOneBy({ id: item.id });
+    expect(failed?.status).toBe(PayrollItemStatus.FAILED);
+    expect(failed?.failureReason).toContain('failed');
+
+    const runAfter = await dataSource.getRepository(PayrollRun).findOneBy({ id: run.id });
+    expect(runAfter?.status).toBe(PayrollStatus.FAILED);
+  });
+
+  it('rejects invalid signatures without changing payroll items', async () => {
     const auth = await registerUser(app, 'payroll-webhook-bad-sig', 'password123', {
       useCsrf: true,
     });
@@ -130,8 +164,7 @@ describe('Payroll webhooks (e2e)', () => {
       .set('Content-Type', 'application/json')
       .set('x-nomba-signature', 'invalid-signature')
       .send(rawBody)
-      .expect(200)
-      .expect({ received: true });
+      .expect(401);
 
     const dataSource = app.get(DataSource);
     const unchanged = await dataSource.getRepository(PayrollItem).findOneBy({ id: item.id });

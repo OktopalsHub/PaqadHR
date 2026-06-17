@@ -24,6 +24,13 @@ export class UsersController {
     await this.usersService.deleteAccount(req.auth.principalId);
     return { message: 'Account deleted successfully' };
   }
+
+  @Get('me/data-export')
+  async exportMyData(
+    @CurrentUser() req: IAuthenticatedUserRequest,
+  ): Promise<Record<string, unknown>> {
+    return this.usersService.exportUserData(req.auth.principalId);
+  }
   @Get()
   @UseGuards(RoleGuard)
   @Roles(UserRole.ADMIN)

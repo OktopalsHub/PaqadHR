@@ -25,6 +25,10 @@ export const queryKeys = {
     categories: ['shoutouts', 'categories'] as const,
     points: (tenantId: string) => ['shoutouts', 'points', tenantId] as const,
   },
+  integrations: {
+    shoutoutSlackStatus: (tenantId: string) => ['integrations', 'shoutout-slack', tenantId] as const,
+    slackChannels: (integrationId: string) => ['integrations', 'slack-channels', integrationId] as const,
+  },
   payroll: {
     all: ['payroll'] as const,
     detail: (id: string) => ['payroll', id] as const,

@@ -1,11 +1,4 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { IntegrationType } from 'src/common/enums';
 import type { IPlatformUser } from 'src/common/interfaces';
@@ -16,15 +9,12 @@ import type { PlatformIntegration } from '../entities/platform-integration.entit
 import type { PlatformUserData, PlatformUserSaveData } from '../integration.types';
 import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
 import { PlatformUserRepository } from '../repositories/platform-user.repository';
-import { PlatformIntegrationService } from './platform-integration.service';
 
 @Injectable()
 export class UserSyncService {
   private readonly logger = new Logger(UserSyncService.name);
   constructor(
     private readonly tenantMembersService: TenantMembersService,
-    @Inject(forwardRef(() => PlatformIntegrationService))
-    readonly _platformIntegrationService: PlatformIntegrationService,
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly integrationRepo: PlatformIntegrationRepository,
   ) {}

@@ -19,6 +19,7 @@ describe('PayrollPayoutService', () => {
 
     const payrollItemRepository = {
       findOne: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       save: jest.fn(),
     } as unknown as PayrollItemRepository;
 
@@ -26,13 +27,19 @@ describe('PayrollPayoutService', () => {
       find: jest.fn(),
     } as unknown as Repository<PayrollItem>;
 
+    const payrollRunRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(),
+    };
+
     const service = new PayrollPayoutService(
       nombaTransferApi,
       payrollItemRepository,
+      payrollRunRepository as never,
       payrollItemRepo,
     );
 
-    return { service, nombaTransferApi, payrollItemRepository, payrollItemRepo };
+    return { service, nombaTransferApi, payrollItemRepository, payrollItemRepo, payrollRunRepository };
   };
 
   const baseItem = (): PayrollItem =>
@@ -135,13 +142,13 @@ describe('PayrollPayoutService', () => {
   });
 
   describe('handleNombaWebhook', () => {
-    it('silently accepts invalid signatures', async () => {
+    it('rejects invalid signatures', async () => {
       const { service, nombaTransferApi } = createService();
       (nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(false);
 
-      const result = await service.handleNombaWebhook('{}', 'bad-sig');
-
-      expect(result).toEqual({ received: true });
+      await expect(service.handleNombaWebhook('{}', 'bad-sig')).rejects.toThrow(
+        'Invalid webhook signature',
+      );
       expect(nombaTransferApi.parseTransferWebhook).not.toHaveBeenCalled();
     });
 

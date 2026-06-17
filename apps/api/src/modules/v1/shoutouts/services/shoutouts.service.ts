@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PlatformIntegrationService } from 'src/common/integrations/services/platform-integration.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -28,9 +29,21 @@ export class ShoutoutsService {
     private readonly notificationHelper: NotificationHelperService,
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
+    private readonly platformIntegrationService: PlatformIntegrationService,
   ) {}
 
   async createShoutout(tenantId: string, senderMemberId: string, input: CreateShoutoutInput) {
+    if (input.source !== 'slack') {
+      const configured = await this.platformIntegrationService.isShoutoutSlackConfigured(tenantId);
+      if (!configured) {
+        throw new UnprocessableEntityException({
+          message:
+            'Shoutouts are disabled until an admin connects Slack and selects a channel in Settings.',
+          code: 'SLACK_NOT_CONFIGURED',
+        });
+      }
+    }
+
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const { points, shoutouts: shoutoutSettings } = settings.settings;
 

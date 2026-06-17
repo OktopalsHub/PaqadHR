@@ -144,3 +144,40 @@ export function buildNombaTransferWebhook(params: {
     },
   });
 }
+
+export function buildNombaPaymentWebhook(params: {
+  tenantId: string;
+  planId: string;
+  planPriceId: string;
+  reference: string;
+  amount: number;
+  currency?: string;
+  quantity?: number;
+  billingType?: string;
+  tokenKey?: string;
+  eventId?: string;
+}): string {
+  return JSON.stringify({
+    event_type: 'payment_success',
+    data: {
+      orderReference: params.reference,
+      amount: params.amount,
+      currency: params.currency ?? 'NGN',
+      status: 'success',
+      tokenizedCardData: params.tokenKey ? { tokenKey: params.tokenKey } : undefined,
+      transaction: { transactionId: params.eventId ?? params.reference },
+      order: {
+        orderReference: params.reference,
+        amount: params.amount,
+        currency: params.currency ?? 'NGN',
+        orderMetaData: {
+          tenantId: params.tenantId,
+          planId: params.planId,
+          planPriceId: params.planPriceId,
+          quantity: String(params.quantity ?? 1),
+          billingType: params.billingType ?? 'subscription',
+        },
+      },
+    },
+  });
+}

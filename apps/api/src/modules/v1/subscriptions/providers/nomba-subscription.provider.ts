@@ -128,6 +128,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     quantity: number,
     tokenKey: string,
     customerEmail: string,
+    metadata?: SubscriptionBillingMetadata,
   ): Promise<unknown> {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
@@ -146,9 +147,12 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
       callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
       tokenKey,
       meta: {
+        ...metadata,
         billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
         previousReference: subscriptionReference,
         quantity: seats,
+        planId: metadata?.planId ?? planPrice.planId,
+        planPriceId: metadata?.planPriceId ?? planPrice.id,
         nombaPlanId: planPrice.nombaPlanId ?? undefined,
       },
     });
@@ -200,6 +204,42 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
           tokenKey: data?.tokenizedCardData?.tokenKey,
           customerEmail: order?.customerEmail ?? data?.customerEmail,
           status: data?.status || 'success',
+          billingType: meta.billingType ? String(meta.billingType) : undefined,
+        },
+      };
+    }
+
+    if (eventType === 'payment_failed' || eventType === 'payment.failure') {
+      const data = body.data;
+      const order = data?.order;
+      const orderMeta = order?.orderMetaData ?? {};
+      const meta: SubscriptionBillingMetadata = {
+        tenantId: orderMeta.tenantId ?? data?.meta?.tenantId,
+        planId: orderMeta.planId ?? data?.meta?.planId,
+        planPriceId: orderMeta.planPriceId ?? data?.meta?.planPriceId,
+        quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
+        billingType: orderMeta.billingType ?? data?.meta?.billingType,
+      };
+      const reference = order?.orderReference ?? data?.orderReference;
+      if (!reference || !meta.tenantId) {
+        return null;
+      }
+
+      return {
+        kind: 'payment.failed',
+        payment: {
+          eventId: data?.transaction?.transactionId || reference,
+          reference,
+          tenantId: String(meta.tenantId),
+          planId: meta.planId ? String(meta.planId) : undefined,
+          planPriceId: meta.planPriceId ? String(meta.planPriceId) : undefined,
+          quantity: meta.quantity ? Number(meta.quantity) : undefined,
+          amount: Number(
+            order?.amount ?? data?.amount ?? data?.transaction?.transactionAmount ?? 0,
+          ),
+          currency: (order?.currency ?? data?.currency ?? 'NGN').toUpperCase(),
+          customerEmail: order?.customerEmail ?? data?.customerEmail,
+          status: data?.status || 'failed',
           billingType: meta.billingType ? String(meta.billingType) : undefined,
         },
       };

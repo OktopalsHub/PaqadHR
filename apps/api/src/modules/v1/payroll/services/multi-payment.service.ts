@@ -67,7 +67,7 @@ export class MultiPaymentService {
       payrollRun.tenant?.name,
     );
     const summary = this.calculatePaymentSummary(fiatPaymentResults);
-    await this.updatePayrollRunStatus(payrollRun, summary, auditContext);
+    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
     const result: BatchPaymentResult = {
       totalItems: payrollRun.items.length,
       successfulPayments: summary.fiatSuccess,
@@ -118,12 +118,12 @@ export class MultiPaymentService {
       payrollRun.tenant?.name,
     );
     const summary = this.calculatePaymentSummary(fiatPaymentResults);
+    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
     const remainingFailedCount = await this.payrollItemRepository.count({
       where: { payrollRunId, status: PayrollItemStatus.FAILED },
     });
     if (remainingFailedCount === 0) {
-      payrollRun.status = PayrollStatus.COMPLETED;
-      await this.payrollRunRepository.save(payrollRun);
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
     }
     const result: BatchPaymentResult = {
       totalItems: failedItems.length,
@@ -250,7 +250,7 @@ export class MultiPaymentService {
                 : null,
           });
           results.push({
-            success: itemStatus !== PayrollItemStatus.FAILED,
+            success: itemStatus === PayrollItemStatus.PAID,
             transactionId: result.transactionId,
             provider: 'Nomba',
             error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
@@ -274,26 +274,8 @@ export class MultiPaymentService {
   private calculatePaymentSummary(fiatResults: PaymentResult[]): PaymentSummary {
     return {
       fiatSuccess: fiatResults.filter((r) => r.success).length,
-      fiatFailed: fiatResults.filter((r) => !r.success).length,
+      fiatFailed: fiatResults.filter((r) => !r.success && r.error).length,
     };
-  }
-  private async updatePayrollRunStatus(
-    payrollRun: PayrollRun,
-    summary: PaymentSummary,
-    auditContext: AuditContext,
-  ): Promise<void> {
-    const totalSuccess = summary.fiatSuccess;
-    const totalFailed = summary.fiatFailed;
-    const _totalItems = totalSuccess + totalFailed;
-    if (totalFailed === 0) {
-      payrollRun.status = PayrollStatus.COMPLETED;
-      payrollRun.processedAt = new Date();
-    } else if (totalSuccess === 0) {
-      payrollRun.status = PayrollStatus.FAILED;
-    } else {
-      payrollRun.status = PayrollStatus.PROCESSING;
-    }
-    await this.payrollRunRepository.save(payrollRun);
   }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
     for (const item of items) {
