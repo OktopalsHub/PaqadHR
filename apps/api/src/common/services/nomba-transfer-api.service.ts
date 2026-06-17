@@ -85,10 +85,20 @@ export class NombaTransferApiService {
       }),
     });
 
-    const payload = (await response.json()) as NombaTokenResponse;
+    if (!response.ok) {
+      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
+    }
+
+    let payload: NombaTokenResponse;
+    try {
+      payload = (await response.json()) as NombaTokenResponse;
+    } catch {
+      throw new BadRequestException('Failed to authenticate with Nomba: invalid JSON response');
+    }
+
     const token = payload.data?.access_token;
-    if (!response.ok || !token) {
-      throw new BadRequestException('Failed to authenticate with Nomba');
+    if (!token) {
+      throw new BadRequestException('Failed to authenticate with Nomba: missing access token');
     }
 
     const ttl = (payload.data?.expires_in ?? 3600) * 1000;
@@ -108,18 +118,30 @@ export class NombaTransferApiService {
       body: JSON.stringify(body),
     });
 
-    const payload = (await response.json()) as T & { message?: string; description?: string };
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const message =
-        typeof payload === 'object' && payload
-          ? String(
-              ('message' in payload && payload.message) ||
-                ('description' in payload && payload.description) ||
-                `Nomba request failed (${response.status})`,
-            )
-          : `Nomba request failed (${response.status})`;
+      let message = `Nomba request failed (${response.status})`;
+      try {
+        const errorPayload = JSON.parse(responseText) as {
+          message?: string;
+          description?: string;
+        };
+        if (errorPayload && typeof errorPayload === 'object') {
+          message = errorPayload.message || errorPayload.description || message;
+        }
+      } catch {
+        // Non-JSON error body (e.g. proxy HTML)
+      }
       this.logger.error(`Nomba ${path} failed: ${message}`);
       throw new BadRequestException(`Nomba payout error: ${message}`);
+    }
+
+    let payload: T;
+    try {
+      payload = JSON.parse(responseText) as T;
+    } catch {
+      throw new BadRequestException('Nomba payout error: invalid JSON response');
     }
 
     return payload;

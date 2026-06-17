@@ -46,6 +46,14 @@ export function PaymentSettingsSection() {
   const fiatOptions = currencies?.fiat ?? ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
 
   const handleSubmit = async () => {
+    if (!bankName.trim() || !accountName.trim() || !accountNumber.trim()) {
+      toast.error('Bank name, account name, and account number are required');
+      return;
+    }
+    if (currency === 'NGN' && !bankCode.trim()) {
+      toast.error('Bank code is required for NGN currency');
+      return;
+    }
     if (passcode.length !== 6) {
       toast.error('Passcode must be exactly 6 digits');
       return;

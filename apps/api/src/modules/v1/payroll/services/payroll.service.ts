@@ -440,12 +440,7 @@ export class PayrollService {
     const startTime = Date.now();
     for (const item of payrollRun.items) {
       try {
-        await this.processEmployeePayment(
-          item,
-          dto.auditContext,
-          dto.tenantId,
-          payrollRun.tenant?.name,
-        );
+        await this.processEmployeePayment(item, dto.auditContext, payrollRun);
       } catch (error) {
         this.logger.error(`Failed to process payment for employee ${item.memberId}:`, error);
         item.status = PayrollItemStatus.FAILED;
@@ -481,15 +476,14 @@ export class PayrollService {
   private async processEmployeePayment(
     payrollItem: PayrollItem,
     auditContext: AuditContext,
-    tenantId: string,
-    tenantName?: string,
+    payrollRun: PayrollRun,
   ): Promise<void> {
     if (payrollItem.status === PayrollItemStatus.CANCELLED) {
       return;
     }
 
     const readiness = await this.paymentMethodService.assessPayrollReadiness(
-      tenantId,
+      payrollRun.tenantId,
       payrollItem.memberId,
       payrollItem.paymentCurrency,
       Boolean(payrollItem.metadata?.excludedFromRun),
@@ -543,7 +537,7 @@ export class PayrollService {
       payrollItem,
       paymentMethod,
       employeeName,
-      tenantName,
+      payrollRun.tenant?.name,
     );
     const result = await provider.createPayment(paymentData);
     if (result.success) {
@@ -563,17 +557,12 @@ export class PayrollService {
         },
       );
       if (payrollItem.employee?.userId && this.notificationHelper) {
-        const payrollRun = await this.payrollRunRepository.findOne({
-          where: { id: payrollItem.payrollRunId },
-        });
         await this.notificationHelper.sendPayrollNotification(
           payrollItem.employee.userId,
-          tenantId,
+          payrollRun.tenantId,
           {
             employeeName,
-            payrollPeriod: payrollRun
-              ? `${payrollRun.periodStart.toISOString().slice(0, 10)} – ${payrollRun.periodEnd.toISOString().slice(0, 10)}`
-              : 'current period',
+            payrollPeriod: `${payrollRun.periodStart.toISOString().slice(0, 10)} – ${payrollRun.periodEnd.toISOString().slice(0, 10)}`,
             amount: Number(payrollItem.paymentAmount),
             currency: payrollItem.paymentCurrency,
           },
