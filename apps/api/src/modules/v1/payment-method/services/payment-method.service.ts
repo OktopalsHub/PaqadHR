@@ -462,6 +462,7 @@ export class PaymentMethodService {
   }
 
   private withDecrypted(method: PaymentMethod | null): PaymentMethod | null {
+  private withDecrypted(method: PaymentMethod | null): PaymentMethod | null {
     if (!method) return null;
     const decrypted = Object.assign(Object.create(Object.getPrototypeOf(method)), method);
     decrypted.accountNumber = this.decryptField(method.accountNumber) ?? null;
