@@ -1,12 +1,16 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchMemberAddress } from '@/lib/api/address';
 import { fetchEducationRecords } from '@/lib/api/education';
 import { fetchEmergencyContacts } from '@/lib/api/emergency-contacts';
-import { fetchTenantMemberById } from '@/lib/api/employees';
+import { fetchTenantMemberById, fetchTenantMembers } from '@/lib/api/employees';
+import { canManageMember } from '@/lib/auth/manager-access';
+import { formatDisplayName, formatPersonName } from '@/lib/format-name';
 import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { queryKeys } from '@/lib/query/keys';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
@@ -15,6 +19,16 @@ import { useEmployeeDetailForm } from '../hooks/use-employee-detail-form';
 import { EmployeeDetailHeader } from './detail/employee-detail-header';
 import { EmployeeDetailSidebar } from './detail/employee-detail-sidebar';
 import { EmployeeDetailTabs } from './detail/tabs/employee-detail-tabs';
+
+function resolveManagerName(member: ApiTenantMember, members: ApiTenantMember[]): string {
+  if (!member.reportsToId) return '';
+  const manager = members.find((m) => m.id === member.reportsToId);
+  if (!manager) return '';
+  return (
+    formatPersonName(manager.firstName, manager.lastName, '') ||
+    formatDisplayName(manager.preferredName, '')
+  );
+}
 
 function EmployeeDetailFormView({
   member,
@@ -27,11 +41,13 @@ function EmployeeDetailFormView({
   const { data: records, isLoading: recordsLoading } = useQuery({
     queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'records'],
     queryFn: async () => {
-      const [emergencyContacts, education] = await Promise.all([
+      const [emergencyContacts, education, address, members] = await Promise.all([
         fetchEmergencyContacts(memberId),
         fetchEducationRecords(memberId),
+        fetchMemberAddress(memberId),
+        fetchTenantMembers(),
       ]);
-      return { emergencyContacts, education };
+      return { emergencyContacts, education, address, managerName: resolveManagerName(member, members) };
     },
     enabled: Boolean(memberId) && Boolean(tenantId),
   });
@@ -47,9 +63,13 @@ function EmployeeDetailFormView({
 
   return (
     <EmployeeDetailFormReady
+      key={member.id}
       member={member}
+      memberId={memberId}
       emergencyContacts={records.emergencyContacts}
       education={records.education}
+      address={records.address}
+      managerName={records.managerName}
     />
   );
 }
@@ -58,32 +78,93 @@ function EmployeeDetailFormReady({
   member,
   emergencyContacts,
   education,
+  address,
+  managerName,
+  memberId,
 }: {
   member: ApiTenantMember;
   emergencyContacts: Awaited<ReturnType<typeof fetchEmergencyContacts>>;
   education: Awaited<ReturnType<typeof fetchEducationRecords>>;
+  address: Awaited<ReturnType<typeof fetchMemberAddress>>;
+  managerName: string;
+  memberId: string;
 }) {
-  const form = useEmployeeDetailForm(member, { emergencyContacts, education });
+  const { tenant } = useTenant();
+  const role = tenant?.member?.role?.toLowerCase();
+  const isAdmin = role === 'owner' || role === 'admin';
+  const isSelf = tenant?.member?.id === memberId;
+  const canEdit = isAdmin || isSelf;
+
+  const form = useEmployeeDetailForm(
+    member,
+    { emergencyContacts, education, address },
+    { managerName, canEdit, isSelf },
+  );
 
   return (
     <div className="space-y-6">
       <EmployeeDetailHeader
         isDirty={form.isDirty}
         isSaving={form.isSaving}
+        canEdit={canEdit}
         onSave={form.handleSaveChanges}
       />
 
       <div className="flex flex-col md:flex-row gap-6">
-        <EmployeeDetailSidebar employee={form.employee} onInputChange={form.handleInputChange} />
-        <EmployeeDetailTabs form={form} />
+        <EmployeeDetailSidebar
+          employee={form.employee}
+          memberId={memberId}
+          isSelf={isSelf}
+          canEdit={canEdit}
+          onInputChange={form.handleInputChange}
+          onAvatarUpdated={form.handleAvatarUpdated}
+        />
+        <EmployeeDetailTabs
+          form={form}
+          memberId={memberId}
+          viewerMemberId={tenant?.member?.id}
+          isAdmin={isAdmin}
+          canEdit={canEdit}
+        />
       </div>
     </div>
   );
 }
 
 const EmployeeDetail = () => {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <Skeleton className="h-10 w-72" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      }
+    >
+      <EmployeeDetailContent />
+    </Suspense>
+  );
+};
+
+function EmployeeDetailContent() {
   const { employeeID: id } = useParams<{ employeeID: string }>();
-  const { tenantId } = useTenant();
+  const { tenantId, tenant, isLoading: tenantLoading } = useTenant();
+  const role = tenant?.member?.role;
+  const viewerMemberId = tenant?.member?.id;
+
+  const { data: members = [] } = useQuery({
+    queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+    queryFn: fetchTenantMembers,
+    enabled: Boolean(tenantId),
+  });
+
+  const targetMember = members.find((member) => member.id === id);
+  const isSelf = viewerMemberId === id;
+  const canViewDetail =
+    isSelf ||
+    (Boolean(viewerMemberId && targetMember) &&
+      canManageMember(viewerMemberId!, targetMember!, role));
+
   const {
     data: member,
     isLoading,
@@ -92,14 +173,27 @@ const EmployeeDetail = () => {
   } = useQuery({
     queryKey: [...queryKeys.employees.detail(id ?? ''), tenantId, 'member'],
     queryFn: () => fetchTenantMemberById(id!),
-    enabled: Boolean(id) && Boolean(tenantId),
+    enabled: Boolean(id) && Boolean(tenantId) && canViewDetail,
   });
 
   const displayName = member
-    ? [member.firstName, member.lastName].filter(Boolean).join(' ') || member.preferredName
+    ? formatPersonName(member.firstName, member.lastName, '') ||
+      formatDisplayName(member.preferredName, 'Employee')
     : null;
 
   useBreadcrumbTail(displayName ?? null);
+
+  if (!tenantLoading && tenant && !canViewDetail) {
+    return (
+      <Alert>
+        <AlertTitle>Profile not available</AlertTitle>
+        <AlertDescription>
+          You can browse the people directory, but full employee profiles are limited to your own
+          profile, your direct reports, and admin users.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -122,6 +216,6 @@ const EmployeeDetail = () => {
   }
 
   return <EmployeeDetailFormView key={member.id} member={member} memberId={member.id} />;
-};
+}
 
 export default EmployeeDetail;

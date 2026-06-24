@@ -23,17 +23,20 @@ export class CloudflareR2Service {
   private readonly publicUrl: string | null;
   private readonly presignedUrlExpires = 3600;
   constructor() {
-    const { CLOUDFLARE_R2 } = ENVIRONMENT;
-    const accountId = CLOUDFLARE_R2.ACCOUNT_ID;
-    const publicId = CLOUDFLARE_R2.PUBLIC_ID;
-    const customDomain = CLOUDFLARE_R2.CUSTOM_DOMAIN;
-    const accessKeyId = CLOUDFLARE_R2.ACCESS_KEY_ID;
-    const secretAccessKey = CLOUDFLARE_R2.SECRET_ACCESS_KEY;
-    this.bucketName = CLOUDFLARE_R2.BUCKET_NAME;
+    const { R2 } = ENVIRONMENT;
+    const accountId = R2.ACCOUNT_ID;
+    const publicId = R2.PUBLIC_ID?.trim();
+    const customDomain = R2.CUSTOM_DOMAIN?.trim();
+    const accessKeyId = R2.ACCESS_KEY_ID;
+    const secretAccessKey = R2.SECRET_ACCESS_KEY;
+    this.bucketName = R2.BUCKET_NAME;
     this.publicId = publicId || null;
     this.customDomain = customDomain || null;
     if (this.customDomain) {
-      this.publicUrl = `https://${this.customDomain}`;
+      this.publicUrl =
+        this.customDomain.startsWith('http://') || this.customDomain.startsWith('https://')
+          ? this.customDomain
+          : `https://${this.customDomain}`;
       this.logger.log(`Using custom domain: ${this.publicUrl}`);
     } else if (this.publicId) {
       this.publicUrl = `https://pub-${this.publicId}.r2.dev`;
@@ -47,7 +50,7 @@ export class CloudflareR2Service {
     const missingR2 = !accountId || !accessKeyId || !secretAccessKey || !this.bucketName;
     if (missingR2) {
       throw new BadRequestException(
-        'Missing required Cloudflare R2 configuration (CLOUDFLARE_R2_ACCOUNT_ID, CLOUDFLARE_R2_ACCESS_KEY_ID, CLOUDFLARE_R2_SECRET_ACCESS_KEY, CLOUDFLARE_R2_BUCKET_NAME)',
+        'Missing required Cloudflare R2 configuration (R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME)',
       );
     }
     const endpoint = `https://${accountId}.r2.cloudflarestorage.com`;

@@ -1,4 +1,4 @@
-import { Book, Pencil, PlusCircle, Trash } from 'lucide-react';
+import { Book, PlusCircle, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +8,10 @@ import { EducationForm } from '../../education-form';
 
 interface EducationTabProps {
   form: EmployeeDetailForm;
+  canEdit?: boolean;
 }
 
-export function EducationTab({ form }: EducationTabProps) {
+export function EducationTab({ form, canEdit = false }: EducationTabProps) {
   const {
     employee,
     educationDialogOpen,
@@ -27,10 +28,12 @@ export function EducationTab({ form }: EducationTabProps) {
             <CardTitle>Education</CardTitle>
             <CardDescription>Employee's educational background</CardDescription>
           </div>
-          <Button variant="outline" onClick={() => setEducationDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Education
-          </Button>
+          {canEdit ? (
+            <Button variant="outline" onClick={() => setEducationDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Education
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
           {employee.education.map((edu) => (
@@ -46,35 +49,35 @@ export function EducationTab({ form }: EducationTabProps) {
                 <Badge variant="outline">{edu.year}</Badge>
               </div>
 
-              <div className="flex justify-end mt-4 gap-2">
-                <Button variant="outline" size="sm">
-                  <Pencil className="mr-2 h-3 w-3" />
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500"
-                  onClick={() => handleDeleteEducation(edu.id)}
-                >
-                  <Trash className="mr-2 h-3 w-3" />
-                  Remove
-                </Button>
-              </div>
+              {canEdit ? (
+                <div className="flex justify-end mt-4 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500"
+                    onClick={() => handleDeleteEducation(edu.id)}
+                  >
+                    <Trash className="mr-2 h-3 w-3" />
+                    Remove
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ))}
 
           {employee.education.length === 0 && (
             <div className="bg-muted/50 p-6 rounded-lg text-center">
               <p className="text-muted-foreground">No education records added</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setEducationDialogOpen(true)}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Education
-              </Button>
+              {canEdit ? (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setEducationDialogOpen(true)}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Education
+                </Button>
+              ) : null}
             </div>
           )}
         </CardContent>

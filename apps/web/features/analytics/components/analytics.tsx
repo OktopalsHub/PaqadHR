@@ -7,6 +7,7 @@ import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
+import { formatPaqPoints } from '@/lib/constants/paq-points';
 import { formatDate } from '@/lib/format-date';
 import { AnalyticsCharts } from './analytics-charts';
 
@@ -109,7 +110,7 @@ export const Analytics = () => {
         <StatCard
           label="Shoutouts"
           value={data.recognition.shoutoutsThisMonth}
-          hint={`${data.recognition.pointsAwardedThisMonth.toLocaleString()} points this month`}
+          hint={`${formatPaqPoints(data.recognition.pointsAwardedThisMonth)} this month`}
           icon={Heart}
         />
         <StatCard

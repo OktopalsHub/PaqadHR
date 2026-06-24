@@ -22,16 +22,17 @@ interface TenantContextValue {
   tenantId: string | null;
   setTenantId: (tenantId: string) => void;
   isLoading: boolean;
+  hasResolvedTenants: boolean;
+  isError: boolean;
 }
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
-  const { data: tenants = [], isLoading } = useUserTenants({
-    enabled: isAuthenticated,
-  });
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const tenantsQuery = useUserTenants({ enabled: isAuthenticated });
+  const tenants = tenantsQuery.data ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     typeof window !== 'undefined' ? readTenantId() : null,
   );
@@ -44,6 +45,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       tenants[0]
     );
   }, [tenants, selectedId]);
+
+  const isLoading = authLoading || (isAuthenticated && tenantsQuery.isPending);
+  const hasResolvedTenants = !isAuthenticated || tenantsQuery.isFetched;
+  const isError = isAuthenticated && tenantsQuery.isError;
 
   useEffect(() => {
     if (!tenant) return;
@@ -70,9 +75,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       tenant,
       tenantId: tenant?.id ?? null,
       setTenantId,
-      isLoading: isAuthenticated ? isLoading : false,
+      isLoading,
+      hasResolvedTenants,
+      isError,
     }),
-    [tenants, tenant, setTenantId, isLoading, isAuthenticated],
+    [tenants, tenant, setTenantId, isLoading, hasResolvedTenants, isError],
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

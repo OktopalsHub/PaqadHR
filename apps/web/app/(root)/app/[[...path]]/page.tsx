@@ -1,21 +1,43 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import {
+  authDestinationToPath,
+  resolveAuthDestination,
+} from '@/lib/navigation/resolve-auth-destination';
 import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
+import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
 /** Redirect legacy `/app/*` URLs to `/{tenantSlug}/*`. */
 export default function LegacyAppRedirectPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const params = useParams<{ path?: string[] }>();
-  const { tenant, tenants, isLoading } = useTenant();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tenant, tenants, isLoading: tenantLoading, hasResolvedTenants, isError } = useTenant();
+
+  const isLoading = authLoading || (isAuthenticated && tenantLoading);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (authLoading) return;
 
-    if (tenants.length === 0) {
-      router.replace('/onboarding');
+    if (!isAuthenticated) {
+      const destination = resolveAuthDestination({
+        isAuthenticated: false,
+        tenants: [],
+        redirect: pathname,
+      });
+      router.replace(authDestinationToPath(destination));
+      return;
+    }
+
+    if (isLoading || !hasResolvedTenants || isError) return;
+
+    const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
+    if (destination.type === 'onboarding') {
+      router.replace(authDestinationToPath(destination));
       return;
     }
 
@@ -25,7 +47,18 @@ export default function LegacyAppRedirectPage() {
     const suffix = params.path?.length ? `/${params.path.join('/')}` : '';
     const legacyPath = `/app${suffix}`;
     router.replace(rewriteLegacyAppPath(legacyPath, slug));
-  }, [isLoading, tenant, tenants, params.path, router]);
+  }, [
+    authLoading,
+    isAuthenticated,
+    isLoading,
+    hasResolvedTenants,
+    isError,
+    tenant,
+    tenants,
+    params.path,
+    pathname,
+    router,
+  ]);
 
   return null;
 }

@@ -11,6 +11,9 @@ import { JwtAuthGuard } from './common/guards';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
 import { AuditModule } from './common/modules/audit.module';
+import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
+import { AuditLogsService } from './common/services/audit-logs.service';
+import { ManagerAccessModule } from './common/modules/manager-access.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
 import { AddressModule } from './modules/v1/address/address.module';
@@ -21,6 +24,7 @@ import { AssetCategoryModule } from './modules/v1/assets/category/asset-category
 import { AssetDocumentModule } from './modules/v1/assets/document/asset-document.module';
 import { AssetMaintenanceModule } from './modules/v1/assets/maintenance/asset-maintenance.module';
 import { AttendanceModule } from './modules/v1/attendance/attendance.module';
+import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
 import { AuthModule } from './modules/v1/auth/auth.module';
 import { DepartmentsModule } from './modules/v1/departments/departments.module';
 import { DocumentModule } from './modules/v1/document/document.module';
@@ -57,6 +61,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     EncryptionModule,
     RateLimitModule,
     AuditModule,
+    ManagerAccessModule,
     AuthModule,
     UsersModule,
     TenantsModule,
@@ -92,6 +97,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     PaymentMethodModule,
     ShoutoutsModule,
     AnalyticsModule,
+    CalendarEventsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -99,6 +105,12 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     {
       provide: APP_FILTER,
       useClass: SentryGlobalFilter,
+    },
+    {
+      provide: APP_FILTER,
+      useFactory: (auditLogsService: AuditLogsService) =>
+        new ForbiddenAuditFilter(auditLogsService),
+      inject: [AuditLogsService],
     },
     {
       provide: APP_GUARD,

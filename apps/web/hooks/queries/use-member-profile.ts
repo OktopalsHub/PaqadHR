@@ -1,8 +1,13 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-import { fetchMemberProfile } from '@/lib/api/member-profile';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  fetchMemberProfile,
+  updateMemberProfile,
+  type UpdateMemberProfileInput,
+} from '@/lib/api/member-profile';
 import { queryKeys } from '@/lib/query/keys';
+import { formatDisplayName, formatPersonName, toTitleCase } from '@/lib/format-name';
 import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -13,6 +18,19 @@ export function useMemberProfile() {
     queryKey: queryKeys.member.profile(tenantId ?? ''),
     queryFn: fetchMemberProfile,
     enabled: !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function useUpdateMemberProfile() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (input: UpdateMemberProfileInput) => updateMemberProfile(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.member.profile(tenantId ?? '') });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.employees.all });
+    },
   });
 }
 
@@ -27,10 +45,9 @@ export function memberFullName(
   profile?: { firstName?: string; lastName?: string },
   fallbackName?: string | null,
 ) {
-  const first = profile?.firstName?.trim() ?? '';
-  const last = profile?.lastName?.trim() ?? '';
-  if (first || last) return [first, last].filter(Boolean).join(' ');
-  if (fallbackName?.trim()) return fallbackName.trim();
+  const formatted = formatPersonName(profile?.firstName, profile?.lastName, '');
+  if (formatted) return formatted;
+  if (fallbackName?.trim()) return formatDisplayName(fallbackName);
   return 'Member';
 }
 
@@ -38,11 +55,11 @@ export function memberPreferredOrFirstName(
   profile?: { firstName?: string; preferredName?: string | null },
   fallbackName?: string | null,
 ) {
-  if (profile?.preferredName?.trim()) return profile.preferredName.trim();
-  if (profile?.firstName?.trim()) return profile.firstName.trim();
+  if (profile?.preferredName?.trim()) return formatDisplayName(profile.preferredName);
+  if (profile?.firstName?.trim()) return formatDisplayName(profile.firstName);
   if (fallbackName?.trim()) {
     const { firstName } = splitFullName(fallbackName);
-    return firstName || fallbackName.trim();
+    return firstName ? formatDisplayName(firstName) : formatDisplayName(fallbackName);
   }
   return 'there';
 }
@@ -53,9 +70,11 @@ export function memberInitials(
 ) {
   const first = profile?.firstName?.trim();
   const last = profile?.lastName?.trim();
-  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
-  if (first) return first.slice(0, 2).toUpperCase();
-  if (fallbackName?.trim()) return getInitials(fallbackName) ?? 'M';
+  if (first && last) {
+    return `${toTitleCase(first)[0]}${toTitleCase(last)[0]}`.toUpperCase();
+  }
+  if (first) return toTitleCase(first).slice(0, 2).toUpperCase();
+  if (fallbackName?.trim()) return getInitials(formatDisplayName(fallbackName)) ?? 'M';
   return 'M';
 }
 

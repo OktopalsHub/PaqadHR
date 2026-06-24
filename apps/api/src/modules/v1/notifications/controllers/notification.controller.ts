@@ -93,16 +93,6 @@ export class NotificationController {
     const count = await this.notificationService.getUnreadCount(req.auth.principalId, tenant?.id);
     return { count };
   }
-  @Patch(':id/read')
-  @ApiOperation({ summary: 'Mark notification as read' })
-  @ApiResponse({ status: 200, description: 'Notification marked as read' })
-  async markAsRead(
-    @Param('id') id: string,
-    @Req() req: IAuthenticatedUserRequest,
-  ): Promise<{ success: boolean }> {
-    await this.notificationService.markAsRead(id, req.auth.principalId);
-    return { success: true };
-  }
   @Patch('read-multiple')
   @ApiOperation({ summary: 'Mark multiple notifications as read' })
   @ApiResponse({ status: 200, description: 'Notifications marked as read' })
@@ -121,6 +111,16 @@ export class NotificationController {
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {
     await this.notificationService.markAllAsRead(req.auth.principalId, tenant?.id);
+    return { success: true };
+  }
+  @Patch(':id/read')
+  @ApiOperation({ summary: 'Mark notification as read' })
+  @ApiResponse({ status: 200, description: 'Notification marked as read' })
+  async markAsRead(
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedUserRequest,
+  ): Promise<{ success: boolean }> {
+    await this.notificationService.markAsRead(id, req.auth.principalId);
     return { success: true };
   }
   @Delete(':id')

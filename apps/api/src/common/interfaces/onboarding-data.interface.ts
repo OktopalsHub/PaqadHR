@@ -10,4 +10,5 @@ export interface OnboardingData {
   preferredName?: string;
   jobTitle?: string;
   createdBy?: string;
+  employeeCode?: string;
 }

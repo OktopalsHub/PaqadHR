@@ -1,28 +1,78 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  authDestinationToPath,
+  resolveAuthDestination,
+} from '@/lib/navigation/resolve-auth-destination';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
 /** Redirect to workspace setup when the user has no tenant yet. */
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isLoading: authLoading } = useAuth();
-  const { tenants, isLoading: tenantLoading } = useTenant();
+  const pathname = usePathname();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tenants, isLoading: tenantLoading, hasResolvedTenants, isError } = useTenant();
+
+  const isLoading = authLoading || (isAuthenticated && tenantLoading);
 
   useEffect(() => {
-    if (authLoading || tenantLoading) return;
-    if (tenants.length === 0) {
-      router.replace('/onboarding');
-    }
-  }, [authLoading, tenantLoading, tenants.length, router]);
+    if (authLoading) return;
 
-  if (authLoading || tenantLoading) {
+    if (!isAuthenticated) {
+      const destination = resolveAuthDestination({
+        isAuthenticated: false,
+        tenants: [],
+        redirect: pathname,
+      });
+      router.replace(authDestinationToPath(destination));
+      return;
+    }
+
+    if (tenantLoading || !hasResolvedTenants || isError) return;
+
+    const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
+    if (destination.type === 'onboarding') {
+      router.replace(authDestinationToPath(destination));
+    }
+  }, [
+    authLoading,
+    isAuthenticated,
+    tenantLoading,
+    hasResolvedTenants,
+    isError,
+    tenants,
+    pathname,
+    router,
+  ]);
+
+  if (isLoading || !hasResolvedTenants) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
         <LoadingBlock />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6">
+        <LoadingBlock />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-svh items-center justify-center p-6">
+        <Alert variant="destructive" className="max-w-md">
+          <AlertTitle>Unable to load workspace</AlertTitle>
+          <AlertDescription>Refresh the page or try signing in again.</AlertDescription>
+        </Alert>
       </div>
     );
   }

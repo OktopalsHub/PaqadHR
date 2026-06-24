@@ -11,8 +11,8 @@ export class EmploymentResponseDto {
   status: EmploymentStatus;
   @ApiProperty()
   memberId: string;
-  @ApiProperty()
-  positionId: string;
+  @ApiProperty({ required: false })
+  positionId?: string | null;
   @ApiProperty()
   tenantId: string;
   @ApiProperty({ required: false })

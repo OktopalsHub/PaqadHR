@@ -30,7 +30,6 @@ export function RecruitmentVacancyGrid({
   return (
     <ContentCard
       title="Current vacancies"
-      description={`${jobs.length} open role${jobs.length === 1 ? '' : 's'}`}
       bodyClassName="grid gap-3 sm:grid-cols-2"
     >
       {jobs.length === 0 ? (

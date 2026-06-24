@@ -10,6 +10,7 @@ export * from '../../../modules/v1/attendance/entities/attendance-policy.entity'
 export * from '../../../modules/v1/auth/entities/account.entity';
 export * from '../../../modules/v1/auth/entities/session.entity';
 export * from '../../../modules/v1/auth/entities/verification.entity';
+export * from '../../../modules/v1/calendar-events/entities/tenant-calendar-event.entity';
 export * from '../../../modules/v1/departments/entities/department.entity';
 export * from '../../../modules/v1/departments/entities/department-member.entity';
 export * from '../../../modules/v1/document/entities/document.entity';

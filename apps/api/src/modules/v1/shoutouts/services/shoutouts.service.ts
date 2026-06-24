@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { PlatformIntegrationService } from 'src/common/integrations/services/platform-integration.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource } from 'typeorm';
@@ -29,21 +30,10 @@ export class ShoutoutsService {
     private readonly notificationHelper: NotificationHelperService,
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
-    private readonly platformIntegrationService: PlatformIntegrationService,
+    readonly _platformIntegrationService: PlatformIntegrationService,
   ) {}
 
   async createShoutout(tenantId: string, senderMemberId: string, input: CreateShoutoutInput) {
-    if (input.source !== 'slack') {
-      const configured = await this.platformIntegrationService.isShoutoutSlackConfigured(tenantId);
-      if (!configured) {
-        throw new UnprocessableEntityException({
-          message:
-            'Shoutouts are disabled until an admin connects Slack and selects a channel in Settings.',
-          code: 'SLACK_NOT_CONFIGURED',
-        });
-      }
-    }
-
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const { points, shoutouts: shoutoutSettings } = settings.settings;
 
@@ -64,7 +54,7 @@ export class ShoutoutsService {
       input.pointsPerRecipient > points.maxPointsPerShoutout
     ) {
       throw new BadRequestException(
-        `Points must be between ${points.minPointsPerShoutout} and ${points.maxPointsPerShoutout}`,
+        `Points must be between ${points.minPointsPerShoutout} and ${points.maxPointsPerShoutout} Paq points`,
       );
     }
 
@@ -148,6 +138,83 @@ export class ShoutoutsService {
     );
 
     return this.toShoutoutResponse(full);
+  }
+
+  async createCelebrationShoutout(input: {
+    tenantId: string;
+    actorMemberId: string;
+    recipientId: string;
+    points: number;
+    message: string;
+    celebrationType: CelebrationType;
+  }): Promise<boolean> {
+    if (input.points <= 0) return false;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const dedupKey = `celebration:${input.celebrationType}:${input.recipientId}:${today}`;
+
+    const alreadyProcessed = await this.memberPointsService.hasCelebrationGrant(
+      input.tenantId,
+      input.recipientId,
+      dedupKey,
+    );
+    if (alreadyProcessed) return false;
+
+    const settings = await this.tenantSettingsService.getTenantSettings(input.tenantId);
+    const shoutoutSettings = settings.settings.shoutouts;
+
+    let categoryIds: string[] = [];
+    if (shoutoutSettings.enableCategories) {
+      const defaultId = await this.categoriesService.getDefaultCategoryId(input.tenantId);
+      if (defaultId) categoryIds = [defaultId];
+    }
+
+    const shoutout = await this.dataSource.transaction(async (manager) => {
+      const saved = await this.shoutoutsRepository.insertShoutout(manager, {
+        tenantId: input.tenantId,
+        createdBy: input.actorMemberId,
+        message: input.message,
+        totalPoints: input.points,
+        recipientIds: [input.recipientId],
+        pointsPerRecipient: input.points,
+        categoryIds,
+      });
+
+      await this.memberPointsService.grantCelebrationPoints(
+        manager,
+        input.tenantId,
+        input.recipientId,
+        input.points,
+        saved.id,
+        dedupKey,
+        input.actorMemberId,
+      );
+
+      return saved;
+    });
+
+    const full = await this.shoutoutsRepository.getById(input.tenantId, shoutout.id);
+    if (!full) return true;
+
+    const eventPayload: ShoutoutCreatedEventPayload = {
+      tenantId: input.tenantId,
+      shoutoutId: full.id,
+      senderMemberId: input.actorMemberId,
+      recipientIds: [input.recipientId],
+      totalPoints: input.points,
+      pointsPerRecipient: input.points,
+      message: full.message,
+      categoryNames:
+        (full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[]) ?? [],
+      source: 'celebration',
+    };
+
+    this.eventEmitter.emit(SHOUTOUT_CREATED_EVENT, eventPayload);
+    this.dispatchNotifications(input.tenantId, full).catch((err) =>
+      this.logger.error('Celebration shoutout notification dispatch failed', err),
+    );
+
+    return true;
   }
 
   async listShoutouts(tenantId: string, filters: ShoutoutFilters) {

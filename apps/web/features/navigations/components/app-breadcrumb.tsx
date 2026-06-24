@@ -13,13 +13,11 @@ import {
 } from '@/components/ui/breadcrumb';
 import { getBreadcrumbs } from '@/lib/navigation/breadcrumbs';
 import { useBreadcrumbContext } from '@/providers/breadcrumb-provider';
-import { useTenant } from '@/providers/tenant-provider';
 
 export function AppBreadcrumb() {
   const pathname = usePathname();
-  const { tenant } = useTenant();
   const context = useBreadcrumbContext();
-  const segments = getBreadcrumbs(pathname, context?.tailLabel, tenant?.name);
+  const segments = getBreadcrumbs(pathname, context?.tailLabel);
 
   if (segments.length === 0) return null;
 

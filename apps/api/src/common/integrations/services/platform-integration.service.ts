@@ -43,7 +43,7 @@ export class PlatformIntegrationService {
       webhookUrl: config.webhookUrl,
       expiresAt: config.expiresAt,
     };
-    const integration = await this.integrationRepo.create(integrationData);
+    const integration = await this.integrationRepo.save(integrationData);
     const channel = {
       integrationId: integration.id,
       platformChannelId: config.teamId,
@@ -52,7 +52,7 @@ export class PlatformIntegrationService {
       isPrimary: true,
       createdBy: memberId,
     };
-    await this.channelRepo.create(channel);
+    await this.channelRepo.save(channel);
     return integration;
   }
   async getIntegrations(tenantId: string): Promise<PlatformIntegration[]> {

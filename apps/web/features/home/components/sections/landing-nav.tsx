@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ChevronDown, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
@@ -12,6 +12,7 @@ const navLinks = [
   { label: 'Home', href: '/' },
   { label: 'Product', href: '#product' },
   { label: 'Features', href: '#features' },
+  { label: 'Pricing', href: '#pricing' },
 ];
 
 export const LandingNav = () => {
@@ -34,10 +35,9 @@ export const LandingNav = () => {
             <a
               key={link.label}
               href={link.href}
-              className="inline-flex items-center gap-1 text-sm text-foreground transition-colors hover:text-muted-foreground"
+              className="text-sm text-foreground transition-colors hover:text-muted-foreground cursor-pointer"
             >
               {link.label}
-              {link.label !== 'Home' ? <ChevronDown className="size-3.5 opacity-50" /> : null}
             </a>
           ))}
         </nav>
@@ -45,7 +45,7 @@ export const LandingNav = () => {
         <div className="hidden items-center justify-self-end gap-5 md:flex">
           <Link
             href="/signin"
-            className="text-sm font-medium text-foreground transition-colors hover:text-muted-foreground"
+            className="text-sm font-medium transition-colors hover:text-muted-foreground cursor-pointer"
           >
             Sign in
           </Link>
@@ -76,13 +76,13 @@ export const LandingNav = () => {
               <a
                 key={link.label}
                 href={link.href}
-                className="text-sm font-medium"
+                className="text-sm font-medium cursor-pointer"
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}
               </a>
             ))}
-            <Link href="/signin" className="text-sm font-medium">
+            <Link href="/signin" className="text-sm font-medium cursor-pointer">
               Sign in
             </Link>
             <Button asChild className="w-full rounded-full bg-foreground text-background">

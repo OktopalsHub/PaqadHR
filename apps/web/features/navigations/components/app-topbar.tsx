@@ -6,6 +6,7 @@ import { AccountSetting } from './account-setting';
 import { AppBreadcrumb } from './app-breadcrumb';
 import { NotificationBell } from './notification-bell';
 import { QuickActionsMenu } from './quick-actions-menu';
+import { ClockInOutControl } from '@/features/attendance/components/clock-in-out-control';
 
 export const AppTopBar = () => {
   const { logout } = useAuth();
@@ -18,6 +19,7 @@ export const AppTopBar = () => {
       </div>
       <div className="flex items-center">
         <div className="flex items-center gap-1.5">
+          <ClockInOutControl />
           <NotificationBell />
           <QuickActionsMenu />
         </div>

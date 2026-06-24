@@ -40,7 +40,9 @@ export function useCreateSubscriptionCheckout() {
       }
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const successUrl = origin ? `${origin}/${tenant.slug}/settings?billing=success` : undefined;
+      const successUrl = origin
+        ? `${origin}/${tenant.slug}/settings?tab=billing&billing=success`
+        : undefined;
 
       return createSubscriptionCheckout(tenantId, planSlug, successUrl);
     },

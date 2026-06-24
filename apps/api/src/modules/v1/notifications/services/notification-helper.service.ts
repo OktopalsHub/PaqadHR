@@ -47,6 +47,38 @@ export class NotificationHelperService {
     });
   }
 
+  async sendPayslipPublishedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      employeeName: string;
+      payrollPeriod: string;
+      profileUrl: string;
+      documentId?: string;
+      payrollRunId?: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Your payslip is ready',
+      message: `Hi ${variables.employeeName}, your payslip for ${variables.payrollPeriod} is ready to download.`,
+      recipientId,
+      tenantId,
+      actionData: {
+        url: variables.profileUrl,
+        buttonText: 'Download payslip',
+        actionType: 'navigate',
+      },
+      metadata: {
+        type: 'payslip_published',
+        documentId: variables.documentId,
+        payrollRunId: variables.payrollRunId,
+      },
+    });
+  }
+
   async sendPayrollPaymentSetupReminder(
     recipientId: string,
     tenantId: string,
@@ -121,7 +153,7 @@ export class NotificationHelperService {
       points?: number;
     },
   ): Promise<void> {
-    const pointsText = variables.points ? ` (+${variables.points} points)` : '';
+    const pointsText = variables.points ? ` (+${variables.points} Paq points)` : '';
     await this.notificationService.createNotification({
       type: NotificationType.USER,
       channel: NotificationChannel.BOTH,

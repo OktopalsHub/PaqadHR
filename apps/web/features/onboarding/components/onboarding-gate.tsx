@@ -3,22 +3,59 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { bootstrapCsrf } from '@/lib/api/client';
+import {
+  authDestinationToPath,
+  resolveAuthDestination,
+} from '@/lib/navigation/resolve-auth-destination';
+import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
 /** Skip setup when the user already has a workspace. */
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { tenant, tenants, isLoading } = useTenant();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tenant, tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
+
+  const isLoading = authLoading || (isAuthenticated && tenantLoading);
 
   useEffect(() => {
-    if (isLoading) return;
-    if (tenants.length > 0 && tenant?.slug) {
-      router.replace(tenantRoot(tenant.slug));
-    }
-  }, [isLoading, tenant, tenants.length, router]);
+    void bootstrapCsrf();
+  }, []);
 
-  if (isLoading || tenants.length > 0) {
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.replace(authDestinationToPath(resolveAuthDestination({ isAuthenticated: false, tenants: [] })));
+      return;
+    }
+
+    if (isLoading || !hasResolvedTenants) return;
+
+    const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
+    if (destination.type === 'dashboard') {
+      router.replace(authDestinationToPath(destination));
+    }
+  }, [authLoading, isAuthenticated, isLoading, hasResolvedTenants, tenants, tenant, router]);
+
+  if (isLoading || !hasResolvedTenants) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6">
+        <LoadingBlock />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center p-6">
+        <LoadingBlock />
+      </div>
+    );
+  }
+
+  if (tenants.length > 0) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center p-6">
         <LoadingBlock />

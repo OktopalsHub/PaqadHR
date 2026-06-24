@@ -39,8 +39,8 @@ export const features = [
   {
     icon: <Heart className="size-8" />,
     title: 'Shoutouts',
-    description: 'Recognize teammates with points and a shared appreciation feed.',
+    description: 'Recognize teammates with Paq points and a shared appreciation feed.',
     color: 'from-green-400 to-green-500',
-    benefits: ['Peer recognition', 'Points system', 'Team feed'],
+    benefits: ['Peer recognition', 'Paq points', 'Team feed'],
   },
 ];

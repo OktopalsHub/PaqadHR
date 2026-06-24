@@ -42,8 +42,46 @@ export class TenantSettingsService {
       }),
       ...(updateDto.shoutouts && {
         shoutouts: {
-          ...existingSettings.settings.shoutouts,
-          ...updateDto.shoutouts,
+          maxRecipientsPerShoutout:
+            updateDto.shoutouts.maxRecipientsPerShoutout ??
+            existingSettings.settings.shoutouts?.maxRecipientsPerShoutout ??
+            10,
+          enableCategories:
+            updateDto.shoutouts.enableCategories ??
+            existingSettings.settings.shoutouts?.enableCategories ??
+            true,
+          birthday: updateDto.shoutouts.birthday
+            ? {
+                enabled:
+                  updateDto.shoutouts.birthday.enabled ??
+                  existingSettings.settings.shoutouts?.birthday?.enabled ??
+                  true,
+                points:
+                  updateDto.shoutouts.birthday.points ??
+                  existingSettings.settings.shoutouts?.birthday?.points ??
+                  25,
+                messageTemplate:
+                  updateDto.shoutouts.birthday.messageTemplate ??
+                  existingSettings.settings.shoutouts?.birthday?.messageTemplate ??
+                  '',
+              }
+            : existingSettings.settings.shoutouts?.birthday,
+          workAnniversary: updateDto.shoutouts.workAnniversary
+            ? {
+                enabled:
+                  updateDto.shoutouts.workAnniversary.enabled ??
+                  existingSettings.settings.shoutouts?.workAnniversary?.enabled ??
+                  true,
+                points:
+                  updateDto.shoutouts.workAnniversary.points ??
+                  existingSettings.settings.shoutouts?.workAnniversary?.points ??
+                  50,
+                messageTemplate:
+                  updateDto.shoutouts.workAnniversary.messageTemplate ??
+                  existingSettings.settings.shoutouts?.workAnniversary?.messageTemplate ??
+                  '',
+              }
+            : existingSettings.settings.shoutouts?.workAnniversary,
         },
       }),
       ...(updateDto.general && {
@@ -67,19 +105,25 @@ export class TenantSettingsService {
           ...updateDto.holidays,
         },
       }),
+      ...(updateDto.billing && {
+        billing: {
+          ...(existingSettings.settings.billing ?? {}),
+          ...updateDto.billing,
+        },
+      }),
     };
     if (updateDto.points) {
       this.validatePointsSettings(updatedSettings.points);
     }
     existingSettings.settings = updatedSettings;
-    const result = await this.tenantSettingsRepository.create(existingSettings);
+    const result = await this.tenantSettingsRepository.save(existingSettings);
     this.logger.log(`Updated settings for tenant: ${tenantId}`);
     return result;
   }
   private validatePointsSettings(pointsSettings: PointsSettings): void {
     if (pointsSettings.minPointsPerShoutout > pointsSettings.maxPointsPerShoutout) {
       throw new BadRequestException(
-        'Minimum points per shoutout cannot be greater than maximum points per shoutout',
+        'Minimum Paq points per shoutout cannot be greater than maximum Paq points per shoutout',
       );
     }
     if (pointsSettings.autoAssignPoints && pointsSettings.autoAssignAmount <= 0) {

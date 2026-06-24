@@ -11,6 +11,7 @@ type PaginatedDepartments = {
 export type CreateDepartmentInput = {
   name: string;
   description?: string;
+  color?: string;
 };
 
 export async function fetchDepartments(): Promise<Department[]> {
@@ -29,5 +30,29 @@ export async function createDepartment(input: CreateDepartmentInput): Promise<vo
   await apiClient(tenantPath(tenantId, 'departments'), {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export type UpdateDepartmentInput = {
+  name?: string;
+  description?: string;
+  color?: string;
+};
+
+export async function updateDepartment(
+  departmentId: string,
+  input: UpdateDepartmentInput,
+): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `departments/${departmentId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteDepartment(departmentId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `departments/${departmentId}`), {
+    method: 'DELETE',
   });
 }

@@ -1,6 +1,6 @@
 import { EncryptionService } from '../../../../common/services/encryption.service';
-import { PaymentMethodService } from './payment-method.service';
 import type { PaymentMethod } from '../entities/payment-method.entity';
+import { PaymentMethodService } from './payment-method.service';
 
 describe('PaymentMethodService encryption and masking', () => {
   const encryptionService = new EncryptionService();
@@ -10,20 +10,24 @@ describe('PaymentMethodService encryption and masking', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       encryptionService,
       { log: jest.fn() } as never,
+      {} as never,
+      { getPayrollCurrencies: jest.fn() } as never,
+      { getTenant: jest.fn() } as never,
     );
     return service;
   };
 
   it('encrypts and decrypts bank fields round-trip', () => {
     const service = createService();
-    const encrypt = (service as unknown as { encryptField: (v: string) => string }).encryptField.bind(
-      service,
-    );
-    const decrypt = (service as unknown as { decryptField: (v: string) => string }).decryptField.bind(
-      service,
-    );
+    const encrypt = (
+      service as unknown as { encryptField: (v: string) => string }
+    ).encryptField.bind(service);
+    const decrypt = (
+      service as unknown as { decryptField: (v: string) => string }
+    ).decryptField.bind(service);
 
     const encrypted = encrypt('0123456789');
     expect(encrypted).not.toBe('0123456789');

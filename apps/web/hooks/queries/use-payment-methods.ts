@@ -2,14 +2,20 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  changePaymentMethodPasscode,
   createPaymentMethod,
+  deletePaymentMethod,
+  fetchNigerianBanks,
   fetchPaymentMethods,
   fetchPendingPaymentMethods,
   fetchSupportedPaymentCurrencies,
+  lookupNigerianBankAccount,
+  updatePaymentMethod,
   verifyPaymentMethod,
 } from '@/lib/api/payment-methods';
 import { queryKeys } from '@/lib/query/keys';
 import type { CreatePaymentMethodInput } from '@/lib/schemas/payment-method';
+import type { UpdatePaymentMethodInput } from '@/lib/api/payment-methods';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function usePaymentMethods() {
@@ -79,5 +85,76 @@ export function useVerifyPaymentMethod() {
         queryKey: [...queryKeys.paymentMethods.all, tenantId],
       });
     },
+  });
+}
+
+export function useNigerianBanks() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: queryKeys.paymentMethods.banks(tenantId ?? ''),
+    queryFn: fetchNigerianBanks,
+    enabled: !tenantLoading && Boolean(tenantId),
+    staleTime: 24 * 60 * 60 * 1000,
+  });
+}
+
+export function useBankLookup() {
+  return useMutation({
+    mutationFn: lookupNigerianBankAccount,
+  });
+}
+
+export function useUpdatePaymentMethod() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({
+      paymentMethodId,
+      input,
+    }: {
+      paymentMethodId: string;
+      input: UpdatePaymentMethodInput;
+    }) => updatePaymentMethod(paymentMethodId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.all, tenantId],
+      });
+    },
+  });
+}
+
+export function useDeletePaymentMethod() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({
+      paymentMethodId,
+      passcode,
+    }: {
+      paymentMethodId: string;
+      passcode?: string;
+    }) => deletePaymentMethod(paymentMethodId, passcode),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.all, tenantId],
+      });
+    },
+  });
+}
+
+export function useChangePaymentMethodPasscode() {
+  return useMutation({
+    mutationFn: ({
+      paymentMethodId,
+      currentPasscode,
+      newPasscode,
+    }: {
+      paymentMethodId: string;
+      currentPasscode: string;
+      newPasscode: string;
+    }) => changePaymentMethodPasscode(paymentMethodId, currentPasscode, newPasscode),
   });
 }

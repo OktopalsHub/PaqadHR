@@ -380,4 +380,12 @@ export class TenantMembersService {
   async getUpcomingCelebrations(tenantId: string): Promise<ICelebrationResponseDto[]> {
     return this.tenantMemberRepository.findUpcomingCelebrations(tenantId);
   }
+
+  findMembersWithBirthdayToday(tenantId: string) {
+    return this.tenantMemberRepository.findMembersWithBirthdayToday(tenantId);
+  }
+
+  findMembersWithWorkAnniversaryToday(tenantId: string) {
+    return this.tenantMemberRepository.findMembersWithWorkAnniversaryToday(tenantId);
+  }
 }

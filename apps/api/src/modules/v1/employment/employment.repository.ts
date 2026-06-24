@@ -15,6 +15,12 @@ export class EmploymentRepository extends Repository<Employment> {
       employmentRepository.queryRunner,
     );
   }
+
+  async createEmployment(data: Partial<Employment>): Promise<Employment> {
+    const entity = this.create(data);
+    return this.save(entity);
+  }
+
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.find({
       where: { tenantId },

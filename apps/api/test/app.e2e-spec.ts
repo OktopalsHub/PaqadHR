@@ -55,4 +55,32 @@ describe('CSRF token (e2e)', () => {
         expect(res.body.csrfToken.length).toBeGreaterThan(0);
       });
   });
+
+  it('rejects mutating requests without a CSRF token when using cookie sessions', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await agent.get('/csrf/token').expect(200);
+
+    await agent
+      .patch('/api/v1/profile')
+      .send({ firstName: 'NoCsrf' })
+      .expect(403)
+      .expect((res) => {
+        expect(res.body.message).toContain('CSRF');
+      });
+  });
+
+  it('rate limits repeated auth login attempts', async () => {
+    const agent = request.agent(app.getHttpServer());
+    const email = `ratelimit-${Date.now()}@example.com`;
+    const password = 'password123';
+
+    for (let i = 0; i < 5; i++) {
+      await agent.post('/api/v1/auth/login').send({ email, password });
+    }
+
+    await agent
+      .post('/api/v1/auth/login')
+      .send({ email, password })
+      .expect(429);
+  });
 });

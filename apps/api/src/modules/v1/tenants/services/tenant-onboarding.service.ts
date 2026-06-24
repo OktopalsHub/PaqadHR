@@ -100,24 +100,32 @@ export class TenantOnboardingService {
   async getPricingPreview(
     countryCode?: string,
     ipAddress?: string,
+    options?: {
+      headers?: Record<string, string | string[] | undefined>;
+      timezone?: string;
+    },
   ): Promise<{
     detectedCountry: string;
     currency: string;
     pricing: Awaited<ReturnType<PlansService['getPricesForCountry']>>;
     detectionMethod: string;
   }> {
-    const detectedCountry = await GeoLocationHelper.resolveCountryCode({
-      ip: ipAddress,
-      stored: countryCode,
-    });
-    const defaults = GeoLocationHelper.getCountryDefaults(detectedCountry);
-    const pricing = await this.plansService.getPricesForCountry(detectedCountry);
+    const { countryCode: detectedCountry, detectionMethod } =
+      await GeoLocationHelper.resolveDetectedCountry({
+        ip: ipAddress,
+        stored: countryCode,
+        headers: options?.headers,
+        timezone: options?.timezone,
+      });
+    const pricingRegion = GeoLocationHelper.toPricingRegion(detectedCountry);
+    const defaults = GeoLocationHelper.getCountryDefaults(pricingRegion);
+    const pricing = await this.plansService.getPricesForCountry(pricingRegion);
 
     return {
-      detectedCountry,
+      detectedCountry: pricingRegion,
       currency: defaults.currency,
       pricing,
-      detectionMethod: countryCode ? 'stored' : ipAddress ? 'ip' : 'default',
+      detectionMethod,
     };
   }
 
@@ -186,12 +194,14 @@ export class TenantOnboardingService {
 
   private async createTenant(data: OnboardingData): Promise<Tenant> {
     const slug = await this.resolveSlug(data);
+    const employeeCode = (data.employeeCode || this.generateEmployeeCode(data.name) || 'EMP').trim().toUpperCase();
     const tenant = this.tenantRepository.create({
       name: data.name,
       slug,
       industry: data.industry,
       companySize: data.companySize,
       inviteCode: this.generateInviteCode(),
+      employeeCode,
       createdBy: { id: data.createdBy } as Tenant['createdBy'],
     });
     const saved = await this.tenantRepository.save(tenant);
@@ -227,6 +237,7 @@ export class TenantOnboardingService {
     this.eventEmitter.emit('tenant.settings.initialize', {
       tenantId: tenant.id,
       companyName,
+      employeeCode: tenant.employeeCode,
       defaultSettings: {
         general: { companyName },
         attendance: { weekends: [0, 6] },
@@ -300,5 +311,21 @@ export class TenantOnboardingService {
       };
     }
     return { firstName: '', lastName: '' };
+  }
+
+  private generateEmployeeCode(name: string): string {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) {
+      return parts[0].substring(0, 3).toUpperCase();
+    }
+    if (parts.length === 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts
+      .slice(0, 3)
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase();
   }
 }

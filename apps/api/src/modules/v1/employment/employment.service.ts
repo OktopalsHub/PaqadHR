@@ -1,11 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { PositionMemberService } from '../position/services/position-member.service';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import type { CreateCompensationDto } from './dto/create-compensation.dto';
 import type { CreateEmploymentDto } from './dto/create-employment.dto';
 import type { UpdateEmploymentDto } from './dto/update-employment.dto';
 import { EmploymentRepository } from './employment.repository';
 import type { Employment } from './entities/employment.entity';
+
+function subtractOneDay(date: Date): Date {
+  const result = new Date(date);
+  result.setUTCDate(result.getUTCDate() - 1);
+  return result;
+}
 
 @Injectable()
 export class EmploymentService {
@@ -13,6 +22,8 @@ export class EmploymentService {
     private readonly employmentRepository: EmploymentRepository,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    private readonly tenantMembersService: TenantMembersService,
+    private readonly positionMemberService: PositionMemberService,
   ) {}
   async createEmployment(
     tenantId: string,
@@ -20,8 +31,68 @@ export class EmploymentService {
     createdBy: string,
     createEmploymentDto: CreateEmploymentDto,
   ): Promise<Employment> {
-    return this.employmentRepository.create({
-      ...createEmploymentDto,
+    await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
+
+    const { positionStartDate: _positionStartDate, ...employmentData } = createEmploymentDto;
+
+    const employment = await this.employmentRepository.createEmployment({
+      ...employmentData,
+      tenantMemberId,
+      tenantId,
+      createdBy,
+    });
+
+    if (createEmploymentDto.positionId) {
+      await this.positionMemberService.assignPosition(
+        tenantId,
+        tenantMemberId,
+        createEmploymentDto.positionId,
+        createEmploymentDto.positionStartDate ?? createEmploymentDto.startDate,
+      );
+    }
+
+    return employment;
+  }
+  async addCompensationRecord(
+    tenantId: string,
+    tenantMemberId: string,
+    createdBy: string,
+    createCompensationDto: CreateCompensationDto,
+  ): Promise<Employment> {
+    await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
+
+    const { effectiveDate, payRate, payType, paySchedule, comments } = createCompensationDto;
+    if (payRate <= 0) {
+      throw new BadRequestException('Pay rate must be greater than zero');
+    }
+
+    const currentEmployment = await this.employmentRepository.getCurrentEmployment(
+      tenantMemberId,
+      tenantId,
+    );
+
+    let inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
+    if (currentEmployment) {
+      const endDate = subtractOneDay(effectiveDate);
+      if (endDate < currentEmployment.startDate) {
+        throw new BadRequestException(
+          'Effective date must be after the current salary start date',
+        );
+      }
+      await this.employmentRepository.endCurrentEmployment(
+        tenantMemberId,
+        endDate,
+        tenantId,
+      );
+    }
+
+    return this.employmentRepository.createEmployment({
+      startDate: effectiveDate,
+      payRate,
+      payType,
+      paySchedule,
+      comments,
+      positionId: inheritedPositionId ?? undefined,
       tenantMemberId,
       tenantId,
       createdBy,
@@ -31,7 +102,7 @@ export class EmploymentService {
     return this.employmentRepository.listEmployments(tenantId);
   }
   async getEmploymentsByMemberId(tenantId: string, memberId: string): Promise<Employment[]> {
-    return this.employmentRepository.findEmploymentsByMemberId(tenantId, memberId);
+    return this.employmentRepository.findEmploymentsByMemberId(memberId, tenantId);
   }
   async getEmployment(id: string, tenantId: string): Promise<Employment> {
     const employment = await this.employmentRepository.getEmployment(id, tenantId);

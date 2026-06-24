@@ -54,4 +54,6 @@ export class Department extends BaseEntity {
   tenant: Tenant;
   @Column({ type: 'uuid', name: 'created_by' })
   createdBy: string;
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  color?: string;
 }

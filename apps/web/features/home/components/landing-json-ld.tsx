@@ -7,7 +7,7 @@ const structuredData = {
   applicationCategory: 'BusinessApplication',
   operatingSystem: 'Web',
   description:
-    'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.',
+    'HR and payroll in one workspace — recruitment kanban, payroll, leave management, and Slack shoutouts for growing teams.',
   offers: {
     '@type': 'Offer',
     price: '0',

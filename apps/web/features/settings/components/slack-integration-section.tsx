@@ -1,8 +1,9 @@
 'use client';
 
-import { Loader2, MessageSquare } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { SlackIcon } from '@/components/icons/slack-icon';
 import { Button } from '@/components/ui/button';
 import { useConnectSlack, useShoutoutSlackStatus } from '@/hooks/queries/use-integrations';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
@@ -70,7 +71,7 @@ export function SlackIntegrationSection() {
       </p>
       <Button size="sm" disabled={connectSlack.isPending} onClick={handleConnect}>
         {connectSlack.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
-        <MessageSquare className="mr-1 size-4" />
+        <SlackIcon className="mr-1 size-4" />
         Connect Slack
       </Button>
     </div>

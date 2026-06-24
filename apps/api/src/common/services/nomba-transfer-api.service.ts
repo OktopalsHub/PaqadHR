@@ -25,6 +25,22 @@ interface NombaTransferResponse {
   };
 }
 
+interface NombaBanksResponse {
+  code?: string;
+  data?: {
+    results?: Array<{ code: string; name: string }>;
+  };
+}
+
+interface NombaBankLookupResponse {
+  code?: string;
+  description?: string;
+  data?: {
+    accountNumber?: string;
+    accountName?: string;
+  };
+}
+
 export interface NombaBankTransferInput {
   amount: number;
   accountNumber: string;
@@ -57,6 +73,8 @@ export interface NombaGlobalPayoutInput {
 export class NombaTransferApiService {
   private readonly logger = new Logger(NombaTransferApiService.name);
   private cachedToken?: { token: string; expiresAt: number };
+  private cachedBanks?: { fetchedAt: number; banks: Array<{ code: string; name: string }> };
+  private static readonly BANKS_CACHE_MS = 24 * 60 * 60 * 1000;
 
   isConfigured(): boolean {
     return isNombaConfigured();
@@ -145,6 +163,52 @@ export class NombaTransferApiService {
     }
 
     return payload;
+  }
+
+  async listBanks(): Promise<Array<{ code: string; name: string }>> {
+    if (
+      this.cachedBanks &&
+      Date.now() - this.cachedBanks.fetchedAt < NombaTransferApiService.BANKS_CACHE_MS
+    ) {
+      return this.cachedBanks.banks;
+    }
+
+    this.ensureConfigured();
+    const token = await this.getAccessToken();
+    const response = await fetch(`${getNombaBaseUrl()}/v1/transfers/banks`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        accountId: getNombaAccountId(),
+      },
+    });
+
+    const payload = (await response.json()) as NombaBanksResponse;
+    if (!response.ok || payload.code !== '00') {
+      throw new BadRequestException('Failed to fetch bank list from Nomba');
+    }
+
+    const banks = (payload.data?.results ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    this.cachedBanks = { fetchedAt: Date.now(), banks };
+    return banks;
+  }
+
+  async lookupBankAccount(
+    accountNumber: string,
+    bankCode: string,
+  ): Promise<{ accountNumber: string; accountName: string }> {
+    const payload = await this.request<NombaBankLookupResponse>('/v1/transfers/bank/lookup', {
+      accountNumber,
+      bankCode,
+    });
+
+    if (payload.code !== '00' || !payload.data?.accountName) {
+      throw new BadRequestException('Could not verify this bank account');
+    }
+
+    return {
+      accountNumber: payload.data.accountNumber ?? accountNumber,
+      accountName: payload.data.accountName,
+    };
   }
 
   async bankTransfer(input: NombaBankTransferInput): Promise<NombaTransferResponse> {

@@ -1,4 +1,4 @@
-import { Edit, PlusCircle, Trash } from 'lucide-react';
+import { PlusCircle, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +8,10 @@ import { EmergencyContactForm } from '../../emergency-contact-form';
 
 interface EmergencyContactsTabProps {
   form: EmployeeDetailForm;
+  canEdit?: boolean;
 }
 
-export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
+export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContactsTabProps) {
   const {
     employee,
     emergencyContactDialogOpen,
@@ -27,10 +28,12 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
             <CardTitle>Emergency Contacts</CardTitle>
             <CardDescription>Employee's emergency contact information</CardDescription>
           </div>
-          <Button variant="outline" onClick={() => setEmergencyContactDialogOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Contact
-          </Button>
+          {canEdit ? (
+            <Button variant="outline" onClick={() => setEmergencyContactDialogOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Contact
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-4">
           {employee.emergencyContacts.map((contact) => (
@@ -63,35 +66,35 @@ export function EmergencyContactsTab({ form }: EmergencyContactsTabProps) {
                 </div>
               )}
 
-              <div className="flex justify-end mt-4 gap-2">
-                <Button variant="outline" size="sm">
-                  <Edit className="mr-2 h-3 w-3" />
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500"
-                  onClick={() => handleDeleteEmergencyContact(contact.id)}
-                >
-                  <Trash className="mr-2 h-3 w-3" />
-                  Remove
-                </Button>
-              </div>
+              {canEdit ? (
+                <div className="flex justify-end mt-4 gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500"
+                    onClick={() => handleDeleteEmergencyContact(contact.id)}
+                  >
+                    <Trash className="mr-2 h-3 w-3" />
+                    Remove
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ))}
 
           {employee.emergencyContacts.length === 0 && (
             <div className="bg-muted/50 p-6 rounded-lg text-center">
               <p className="text-muted-foreground">No emergency contacts added</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => setEmergencyContactDialogOpen(true)}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Emergency Contact
-              </Button>
+              {canEdit ? (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => setEmergencyContactDialogOpen(true)}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Emergency Contact
+                </Button>
+              ) : null}
             </div>
           )}
         </CardContent>

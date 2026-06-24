@@ -19,8 +19,8 @@ export class Employment extends BaseEntity {
   status: EmploymentStatus;
   @Column({ name: 'tenant_member_id' })
   tenantMemberId: string;
-  @Column({ name: 'position_id' })
-  positionId: string;
+  @Column({ name: 'position_id', nullable: true })
+  positionId?: string | null;
   @Column({ name: 'tenant_id' })
   tenantId: string;
   @Column({ name: 'reports_to_id', nullable: true })
@@ -46,9 +46,9 @@ export class Employment extends BaseEntity {
   )
   @JoinColumn({ name: 'tenant_member_id' })
   tenantMember: TenantMember;
-  @ManyToOne('Position', 'members', { eager: true })
+  @ManyToOne('Position', 'members', { eager: true, nullable: true })
   @JoinColumn({ name: 'position_id' })
-  position: Position;
+  position?: Position | null;
   @ManyToOne(
     () => TenantMember,
     (member) => member.subordinates,

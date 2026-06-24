@@ -10,4 +10,5 @@ export interface JobFilterOptions {
   isUrgent?: boolean;
   page?: number;
   limit?: number;
+  tenantId?: string;
 }

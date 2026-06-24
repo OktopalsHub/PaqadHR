@@ -1,19 +1,28 @@
-import { LandingCapabilities } from './sections/landing-capabilities';
+'use client';
+
+import { ForceLightTheme } from '@/providers/force-light-theme';
 import { LandingCta } from './sections/landing-cta';
+import { LandingFeaturesSection } from './sections/landing-features-section';
 import { LandingFooter } from './sections/landing-footer';
 import { LandingHero } from './sections/landing-hero';
+import { LandingLogoStrip } from './sections/landing-logo-strip';
 import { LandingNav } from './sections/landing-nav';
+import { LandingShowcase } from './sections/landing-showcase';
+import { LandingTestimonials } from './sections/landing-testimonials-row';
 
 export const LandingPage = () => {
   return (
-    <div className="theme-marketing min-h-screen bg-background text-foreground">
+    <ForceLightTheme>
       <LandingNav />
       <main>
         <LandingHero />
-        <LandingCapabilities />
+        <LandingLogoStrip />
+        <LandingShowcase />
+        <LandingFeaturesSection />
+        <LandingTestimonials />
         <LandingCta />
       </main>
       <LandingFooter />
-    </div>
+    </ForceLightTheme>
   );
 };

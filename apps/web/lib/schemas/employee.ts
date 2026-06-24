@@ -9,6 +9,10 @@ export const employeeSchema = z.object({
   status: z.enum(['Active', 'On Leave', 'Inactive']),
   joinDate: z.string(),
   avatar: z.string(),
+  reportsToId: z.string().optional(),
+  employeeNumber: z.string().optional(),
+  departmentColor: z.string().optional(),
+  positionColor: z.string().optional(),
 });
 
 export type Employee = z.infer<typeof employeeSchema>;

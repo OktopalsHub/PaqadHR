@@ -6,6 +6,8 @@ import {
   nextWeekdayDate,
   onboardTenant,
   registerUser,
+  seedShoutoutSlackIntegration,
+  waitForTenantSettings,
 } from './e2e-helpers';
 
 describe('HR flows (e2e)', () => {
@@ -21,6 +23,7 @@ describe('HR flows (e2e)', () => {
 
   it('invites an employee, submits leave, and sends a shoutout', async () => {
     const owner = await onboardTenant(await registerUser(app, 'owner'));
+    await waitForTenantSettings(owner);
     const employeeEmail = uniqueEmail('employee');
     const employeePassword = 'password123';
 
@@ -73,6 +76,8 @@ describe('HR flows (e2e)', () => {
       .withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/leaves`))
       .expect(200);
     expect(leaves.body.records?.length).toBeGreaterThan(0);
+
+    await seedShoutoutSlackIntegration(app, owner);
 
     const category = await owner
       .withAuth(owner.agent.post(`/api/v1/tenants/${owner.tenantId}/shoutout-categories`))

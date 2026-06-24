@@ -4,23 +4,29 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { canManageMember } from '@/lib/auth/manager-access';
 import { getInitials } from '@/lib/utils';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 
 interface EmployeeCardsProps {
   employees: Employee[];
+  viewerMemberId?: string;
+  viewerRole?: string | null;
 }
 
-export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
+export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: EmployeeCardsProps) => {
   const tenantHref = useTenantHref();
+
+  const canLinkToDetail = (employee: Employee) =>
+    Boolean(viewerMemberId && canManageMember(viewerMemberId, employee, viewerRole));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {employees.length > 0 ? (
-        employees.map((employee) => (
-          <Link href={tenantHref(`employees/${employee.id}`)} key={employee.id}>
-            <Card className="overflow-hidden hover:shadow-md transition-shadow">
+        employees.map((employee) => {
+          const card = (
+            <Card key={employee.id} className="overflow-hidden hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
@@ -29,7 +35,15 @@ export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
                   </Avatar>
                   <div>
                     <CardTitle className="text-base">{employee.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{employee.role}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {employee.role ? (
+                        <span
+                          className="size-1.5 rounded-full shrink-0 border border-black/10"
+                          style={{ backgroundColor: employee.positionColor || '#9ca3af' }}
+                        />
+                      ) : null}
+                      <p className="text-sm text-muted-foreground">{employee.role || '—'}</p>
+                    </div>
                   </div>
                 </div>
               </CardHeader>
@@ -39,9 +53,17 @@ export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
                     <span className="text-muted-foreground">Email:</span>
                     <span className="font-medium truncate max-w-[180px]">{employee.email}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Department:</span>
-                    <span className="font-medium">{employee.department}</span>
+                    <div className="flex items-center gap-1.5">
+                      {employee.department && (
+                        <span
+                          className="size-1.5 rounded-full shrink-0 border border-black/10"
+                          style={{ backgroundColor: employee.departmentColor || '#9ca3af' }}
+                        />
+                      )}
+                      <span className="font-medium">{employee.department || '—'}</span>
+                    </div>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Join Date:</span>
@@ -57,8 +79,16 @@ export const EmployeeCards = ({ employees }: EmployeeCardsProps) => {
                 </span>
               </CardFooter>
             </Card>
-          </Link>
-        ))
+          );
+
+          return canLinkToDetail(employee) ? (
+            <Link href={tenantHref(`employees/${employee.id}`)} key={employee.id}>
+              {card}
+            </Link>
+          ) : (
+            <div key={employee.id}>{card}</div>
+          );
+        })
       ) : (
         <div className="col-span-3 text-center py-8">No employees found</div>
       )}

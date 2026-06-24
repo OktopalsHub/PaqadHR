@@ -5,6 +5,7 @@ import { PlansModule } from '../plans/plans.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
+import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { User } from '../users/entities/user.entity';
 import { SubscriptionBillingController } from './controllers/subscription-billing.controller';
@@ -27,6 +28,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
     PlansModule,
     NotificationsModule,
     TenantMembersModule,
+    TenantConfigModule,
   ],
   controllers: [
     SubscriptionsController,

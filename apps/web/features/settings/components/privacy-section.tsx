@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,25 +17,6 @@ import { apiClient } from '@/lib/api/client';
 export function PrivacySection() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const handleExport = async () => {
-    try {
-      setBusy(true);
-      const data = await apiClient<Record<string, unknown>>('/users/me/data-export');
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `paqad-data-export-${new Date().toISOString().slice(0, 10)}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      toast.success('Data export downloaded');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export failed');
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const handleDelete = async () => {
     try {
@@ -54,18 +35,12 @@ export function PrivacySection() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Download a copy of your personal data or permanently delete your account.
+        Permanently delete your account and sign out of all workspaces.
       </p>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" disabled={busy} onClick={handleExport}>
-          <Download className="mr-1 size-4" />
-          Download my data
-        </Button>
-        <Button size="sm" variant="destructive" disabled={busy} onClick={() => setDeleteOpen(true)}>
-          <Trash2 className="mr-1 size-4" />
-          Delete account
-        </Button>
-      </div>
+      <Button size="sm" variant="destructive" disabled={busy} onClick={() => setDeleteOpen(true)}>
+        <Trash2 className="mr-1 size-4" />
+        Delete account
+      </Button>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>

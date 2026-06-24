@@ -8,18 +8,20 @@ export function buildPayrollPaymentData(
   paymentMethod: PaymentMethod,
   employeeName: string,
   tenantName?: string,
+  payrollRunTitle?: string,
 ): CreatePaymentData {
   const meta = paymentMethod.metadata ?? {};
+  const baseDescription = payrollRunTitle ? `${payrollRunTitle} for ${employeeName}` : `Payroll payment for ${employeeName}`;
   return {
     amount: Number(item.paymentAmount),
     currency: item.paymentCurrency,
-    description: item.description ?? `Payroll payment for ${employeeName}`,
+    description: item.description ?? baseDescription,
     accountNumber: paymentMethod.accountNumber ?? undefined,
     accountName: paymentMethod.accountName ?? undefined,
     bankCode: paymentMethod.bankCode ?? undefined,
     bankName: paymentMethod.bankName ?? undefined,
     countryCode: paymentMethod.country ?? undefined,
-    senderName: tenantName || getNombaSenderName(),
+    senderName: tenantName ? `${tenantName} via Paqad` : 'Paqad HR',
     merchantTxRef: `payroll_${item.payrollRunId}_${item.id}`,
     paymentRail: typeof meta.nombaPaymentMethod === 'string' ? meta.nombaPaymentMethod : undefined,
     institutionCode:

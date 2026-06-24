@@ -15,8 +15,9 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import type { PaginationDto } from 'src/common/dto/pagination.dto';
-import { UserRole } from 'src/common/enums';
-import { Roles } from 'src/common/guards/role.guard';
+import { TenantMemberRole, UserRole } from 'src/common/enums';
+import { Roles as PlatformRoles } from 'src/common/guards/role.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { FileUrlService } from 'src/common/services/file-url.service';
@@ -44,12 +45,14 @@ export class TenantsController {
   }
   @Get()
   @AuthOnly()
-  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+  @PlatformRoles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   async getTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     const tenant = await this.tenantsService.getTenant(tenantId);
     return TenantResponseDto.toResponse(tenant, this.fileUrlService);
   }
   @Patch(':tenantId')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTenant(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() updateTenantDto: UpdateTenantDto,

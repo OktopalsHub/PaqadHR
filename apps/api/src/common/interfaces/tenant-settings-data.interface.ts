@@ -1,4 +1,5 @@
 import type { AttendanceSettings } from './attendance-settings.interface';
+import type { BillingSettings } from './billing-settings.interface';
 import type { EmployeeSettings } from './employee-settings.interface';
 import type { GeneralSettings } from './general-settings.interface';
 import type { HolidaySettings } from './holiday-settings.interface';
@@ -14,4 +15,5 @@ export interface TenantSettingsData {
   attendance: AttendanceSettings;
   employee: EmployeeSettings;
   holidays: HolidaySettings;
+  billing: BillingSettings;
 }

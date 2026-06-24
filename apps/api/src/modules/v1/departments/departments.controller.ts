@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import type { PaginationDto } from 'src/common/dto/pagination.dto';
 import type { MemberContext } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import type { CreateTeamDto } from '../teams/dto/create-team.dto';
@@ -43,14 +42,16 @@ export class DepartmentsController {
   })
   async getDepartments(
     @Param('tenantId') tenantId: string,
-    @Query() query: { name?: string; managerId?: string },
-    @Query() pagination: PaginationDto,
+    @Query('name') name?: string,
+    @Query('managerId') managerId?: string,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ): Promise<IPaginatedData<DepartmentResponseDto>> {
     return this.departmentsService.getDepartments(
       tenantId,
-      query,
-      pagination.page,
-      pagination.limit,
+      { name, managerId },
+      page ? Number(page) : 1,
+      limit ? Number(limit) : 10,
     );
   }
   @Get(':id')

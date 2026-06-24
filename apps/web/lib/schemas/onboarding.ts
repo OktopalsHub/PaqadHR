@@ -12,7 +12,7 @@ export const pricingPreviewSchema = z.object({
         description: z.string().nullable().optional(),
       }),
       currency: z.string(),
-      monthlyPrice: z.union([z.number(), z.string()]),
+      monthlyPrice: z.coerce.number(),
     }),
   ),
 });
@@ -38,6 +38,7 @@ export const onboardingCompleteInputSchema = z.object({
   preferredName: z.string().optional(),
   jobTitle: z.string().min(2),
   planSlug: z.string().min(1).optional(),
+  employeeCode: z.string().min(2).max(10).optional(),
 });
 
 export type OnboardingCompleteInput = z.infer<typeof onboardingCompleteInputSchema>;

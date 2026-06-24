@@ -101,3 +101,86 @@ export async function updateCandidateStatus(
   });
   return candidateSchema.parse(data);
 }
+
+export async function fetchPublicJobs(tenantId: string, params?: {
+  search?: string;
+  departmentId?: string;
+  employmentType?: string;
+  location?: string;
+}): Promise<{ jobs: JobOpening[]; total: number }> {
+  const query = new URLSearchParams();
+  query.set('tenantId', tenantId);
+  if (params?.search) query.set('search', params.search);
+  if (params?.departmentId) query.set('departmentId', params.departmentId);
+  if (params?.employmentType) query.set('employmentType', params.employmentType);
+  if (params?.location) query.set('location', params.location);
+  query.set('limit', '100');
+
+  const data = await apiClient<unknown>(`/jobs?${query.toString()}`, {
+    method: 'GET',
+    skipCsrf: true,
+  });
+
+  return jobsListResponseSchema.parse(data);
+}
+
+export async function fetchPublicJob(jobId: string): Promise<JobOpening> {
+  const data = await apiClient<unknown>(`/jobs/${jobId}`, {
+    method: 'GET',
+    skipCsrf: true,
+  });
+  return jobOpeningSchema.parse(data);
+}
+
+export async function submitPublicApplication(jobId: string, body: any): Promise<any> {
+  return apiClient<any>(`/jobs/${jobId}/apply`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+    skipCsrf: true,
+  });
+}
+
+export async function requestPublicUploadUrl(
+  jobId: string,
+  location: 'resumes' | 'cover-letters',
+  originalName: string,
+  contentType?: string,
+): Promise<{ uploadUrl: string; fileKey: string; fileName: string }> {
+  return apiClient<{ uploadUrl: string; fileKey: string; fileName: string }>(
+    `/jobs/${jobId}/apply/upload-url`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        location,
+        originalName,
+        contentType,
+      }),
+      skipCsrf: true,
+    },
+  );
+}
+
+export async function uploadPublicCandidateFile(
+  jobId: string,
+  file: File,
+  location: 'resumes' | 'cover-letters',
+): Promise<{ fileName: string; fileKey: string }> {
+  const { uploadUrl, fileName, fileKey } = await requestPublicUploadUrl(
+    jobId,
+    location,
+    file.name,
+    file.type || undefined,
+  );
+  const response = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to upload file to storage');
+  }
+  return { fileName, fileKey };
+}

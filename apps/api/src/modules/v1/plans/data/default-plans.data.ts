@@ -17,27 +17,51 @@ export interface DefaultPlanSeed {
   }>;
 }
 
-const starterRegional: PlanRegionalConfig = {
-  pricePerUser: 8,
+const starterRegionalUsd: PlanRegionalConfig = {
+  pricePerUser: 3,
   minimumUsers: 1,
   includedUsers: 25,
-  overagePricePerUser: 8,
+  overagePricePerUser: 3,
   payrollFeePercentage: 3,
 };
 
-const growthRegional: PlanRegionalConfig = {
-  pricePerUser: 15,
+const growthRegionalUsd: PlanRegionalConfig = {
+  pricePerUser: 5,
   minimumUsers: 1,
   includedUsers: 50,
-  overagePricePerUser: 12,
+  overagePricePerUser: 4,
   payrollFeePercentage: 2.5,
 };
 
-const scaleRegional: PlanRegionalConfig = {
-  pricePerUser: 35,
+const scaleRegionalUsd: PlanRegionalConfig = {
+  pricePerUser: 9,
   minimumUsers: 1,
   includedUsers: 100,
-  overagePricePerUser: 25,
+  overagePricePerUser: 7,
+  payrollFeePercentage: 2,
+};
+
+const starterRegionalNg: PlanRegionalConfig = {
+  pricePerUser: 2500,
+  minimumUsers: 1,
+  includedUsers: 25,
+  overagePricePerUser: 2000,
+  payrollFeePercentage: 3,
+};
+
+const growthRegionalNg: PlanRegionalConfig = {
+  pricePerUser: 3500,
+  minimumUsers: 1,
+  includedUsers: 50,
+  overagePricePerUser: 3000,
+  payrollFeePercentage: 2.5,
+};
+
+const scaleRegionalNg: PlanRegionalConfig = {
+  pricePerUser: 7500,
+  minimumUsers: 1,
+  includedUsers: 100,
+  overagePricePerUser: 6000,
   payrollFeePercentage: 2,
 };
 
@@ -60,20 +84,16 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       {
         countryCode: 'GLOBAL',
         currency: 'USD',
-        monthlyPrice: 8,
-        yearlyPrice: 80,
-        regionalConfig: starterRegional,
+        monthlyPrice: 3,
+        yearlyPrice: 30,
+        regionalConfig: starterRegionalUsd,
       },
       {
         countryCode: 'NG',
         currency: 'NGN',
-        monthlyPrice: 8000,
-        yearlyPrice: 80000,
-        regionalConfig: {
-          ...starterRegional,
-          pricePerUser: 8000,
-          overagePricePerUser: 6000,
-        },
+        monthlyPrice: 2500,
+        yearlyPrice: 25000,
+        regionalConfig: starterRegionalNg,
       },
     ],
   },
@@ -97,20 +117,16 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       {
         countryCode: 'GLOBAL',
         currency: 'USD',
-        monthlyPrice: 15,
-        yearlyPrice: 150,
-        regionalConfig: growthRegional,
+        monthlyPrice: 5,
+        yearlyPrice: 50,
+        regionalConfig: growthRegionalUsd,
       },
       {
         countryCode: 'NG',
         currency: 'NGN',
-        monthlyPrice: 15000,
-        yearlyPrice: 150000,
-        regionalConfig: {
-          ...growthRegional,
-          pricePerUser: 15000,
-          overagePricePerUser: 12000,
-        },
+        monthlyPrice: 3500,
+        yearlyPrice: 35000,
+        regionalConfig: growthRegionalNg,
       },
     ],
   },
@@ -140,20 +156,16 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
       {
         countryCode: 'GLOBAL',
         currency: 'USD',
-        monthlyPrice: 35,
-        yearlyPrice: 350,
-        regionalConfig: scaleRegional,
+        monthlyPrice: 9,
+        yearlyPrice: 90,
+        regionalConfig: scaleRegionalUsd,
       },
       {
         countryCode: 'NG',
         currency: 'NGN',
-        monthlyPrice: 35000,
-        yearlyPrice: 350000,
-        regionalConfig: {
-          ...scaleRegional,
-          pricePerUser: 35000,
-          overagePricePerUser: 25000,
-        },
+        monthlyPrice: 7500,
+        yearlyPrice: 75000,
+        regionalConfig: scaleRegionalNg,
       },
     ],
   },

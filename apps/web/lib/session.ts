@@ -32,6 +32,11 @@ export function clearSessionStorage() {
   document.cookie = 'tenant_slug=; path=/; max-age=0; SameSite=Lax';
 }
 
+/**
+ * Clears client-side session storage. HttpOnly auth cookies (`access_token`, `refresh_token`)
+ * must be cleared via POST /auth/logout — use sign out in the app or onboarding header.
+ */
+
 export function persistTenantId(tenantId: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TENANT_KEY, tenantId);

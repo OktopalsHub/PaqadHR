@@ -56,3 +56,74 @@ export async function verifyPaymentMethod(
     body: JSON.stringify({ status: status.toUpperCase() }),
   });
 }
+
+export type NigerianBank = { code: string; name: string };
+
+export async function fetchNigerianBanks(): Promise<NigerianBank[]> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ banks: NigerianBank[] }>(
+    tenantPath(tenantId, 'payment-methods/banks'),
+  );
+  return result.banks;
+}
+
+export async function lookupNigerianBankAccount(input: {
+  accountNumber: string;
+  bankCode: string;
+  bankName?: string;
+}): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, 'payment-methods/bank-lookup'), {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export type UpdatePaymentMethodInput = {
+  currency?: string;
+  bankName?: string;
+  bankCode?: string;
+  accountName?: string;
+  accountNumber?: string;
+  country?: string;
+  currentPasscode: string;
+  newPasscode?: string;
+  isPrimary?: boolean;
+};
+
+export async function updatePaymentMethod(
+  paymentMethodId: string,
+  input: UpdatePaymentMethodInput,
+): Promise<PaymentMethodSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient<PaymentMethodSummary>(
+    tenantPath(tenantId, `payment-methods/${paymentMethodId}`),
+    {
+      method: 'PUT',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function deletePaymentMethod(
+  paymentMethodId: string,
+  passcode?: string,
+): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}`), {
+    method: 'DELETE',
+    body: JSON.stringify(passcode ? { passcode } : {}),
+  });
+}
+
+export async function changePaymentMethodPasscode(
+  paymentMethodId: string,
+  currentPasscode: string,
+  newPasscode: string,
+): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/passcode`), {
+    method: 'PUT',
+    body: JSON.stringify({ currentPasscode, newPasscode }),
+  });
+}

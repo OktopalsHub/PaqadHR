@@ -187,5 +187,18 @@ export class CreateCandidateDto {
   @IsObject()
   @ValidateNested()
   @Type(() => CandidateExperienceDto)
-  experience?: CandidateExperienceDto;
+  experience?: {
+    years: number;
+    currentRole?: string;
+    currentCompany?: string;
+    expectedSalary?: string;
+    availabilityDate?: Date;
+  };
+  @ApiPropertyOptional({
+    description: 'Custom questions answers key-value pairs',
+    example: { 'salary-expectation': '100k', 'why-join': 'Love the mission' },
+  })
+  @IsOptional()
+  @IsObject()
+  customAnswers?: Record<string, any>;
 }

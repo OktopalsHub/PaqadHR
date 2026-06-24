@@ -63,4 +63,13 @@ export class UpdateTenantDto {
   @IsOptional()
   @IsString()
   timezone?: string;
+  @ApiProperty({
+    description: 'Employee ID prefix code shown before the employee number',
+    example: 'PAQ',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  employeeCode?: string;
 }

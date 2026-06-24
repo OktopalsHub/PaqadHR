@@ -1,16 +1,37 @@
-import { Injectable } from '@nestjs/common';
-import type { PositionMember } from '../entities/position-member.entity';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { PositionMember } from '../entities/position-member.entity';
 import { PositionMemberRepository } from '../repositories/position-member.repository';
 
 @Injectable()
 export class PositionMemberService {
-  constructor(private readonly positionMemberRepository: PositionMemberRepository) {}
-  assignPosition(
+  constructor(
+    private readonly positionMemberRepository: PositionMemberRepository,
+    @InjectRepository(PositionMember)
+    private readonly positionMemberEntityRepository: Repository<PositionMember>,
+  ) {}
+  async assignPosition(
     tenantId: string,
     tenantMemberId: string,
     positionId: string,
     assignedAt: Date = new Date(),
   ): Promise<PositionMember> {
+    const currentAssignment = await this.positionMemberEntityRepository.findOne({
+      where: { tenantMemberId, isCurrent: true },
+      relations: ['position'],
+    });
+
+    if (currentAssignment?.positionId === positionId) {
+      throw new BadRequestException('Member already holds this position');
+    }
+
+    if (currentAssignment?.assignedAt && assignedAt <= currentAssignment.assignedAt) {
+      throw new BadRequestException(
+        'Effective date must be after the current position start date',
+      );
+    }
+
     return this.positionMemberRepository.assignPosition(
       tenantId,
       tenantMemberId,

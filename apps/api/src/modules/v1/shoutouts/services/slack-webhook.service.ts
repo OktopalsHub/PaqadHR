@@ -262,7 +262,7 @@ export class SlackWebhookService {
         .join(', ');
       return {
         response_type: 'ephemeral',
-        text: `Shoutout sent to ${recipientNames}! (${points} points each)`,
+        text: `Shoutout sent to ${recipientNames}! (${points} Paq points each)`,
       };
     } catch (error) {
       this.logger.error('Error creating shoutout from slash command:', error);

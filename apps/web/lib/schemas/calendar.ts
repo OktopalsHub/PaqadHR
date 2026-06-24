@@ -15,6 +15,7 @@ export const calendarEventSchema = z.object({
   type: calendarEventTypeSchema,
   description: z.string().optional(),
   time: z.string().optional(),
+  reminder: z.string().optional(),
 });
 
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;

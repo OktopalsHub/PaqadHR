@@ -1,12 +1,14 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { PaymentMethodType } from 'src/common/enums';
+import { PaymentMethodType, TenantMemberRole } from 'src/common/enums';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
@@ -14,12 +16,16 @@ import { PaymentMethodStatus } from '../../../../common/enums/payment-method-sta
 import { AuditAction, AuditSeverity, AuditStatus } from '../../../../common/enums/audit-action.enum';
 import { EncryptionService } from '../../../../common/services/encryption.service';
 import { AuditLogsService } from '../../../../common/services/audit-logs.service';
+import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import type { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
 import {
   PayrollPaymentIssue,
   type PayrollPaymentReadiness,
 } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
+import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import type {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
@@ -39,9 +45,21 @@ export class PaymentMethodService {
     @InjectRepository(PaymentMethodPasscodeHistory)
     private readonly passcodeHistoryRepository: Repository<PaymentMethodPasscodeHistory>,
     readonly _paymentProviderFactory: PaymentProviderFactoryService,
+    private readonly nombaTransferApi: NombaTransferApiService,
     private readonly encryptionService: EncryptionService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly managerAccessService: ManagerAccessService,
+    private readonly tenantConfigService: TenantConfigService,
+    private readonly tenantsService: TenantsService,
   ) {}
+  async getAllowedCurrencies(tenantId: string): Promise<string[]> {
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      return this.tenantConfigService.getPayrollCurrencies(tenantId, tenant.preferredCurrency);
+    } catch {
+      return this.tenantConfigService.getPayrollCurrencies(tenantId);
+    }
+  }
   async createPaymentMethod(
     tenantId: string,
     memberId: string,
@@ -49,6 +67,7 @@ export class PaymentMethodService {
   ): Promise<PaymentMethod> {
     try {
       await this.validatePaymentMethodData(dto);
+      await this.assertCurrencyAllowed(tenantId, dto.currency);
       if (!dto.passcode) {
         throw new BadRequestException('Passcode is required to create payment method');
       }
@@ -449,6 +468,62 @@ export class PaymentMethodService {
     }
   }
 
+  private async assertPaymentMethodAccess(
+    tenantId: string,
+    targetMemberId: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<void> {
+    const isAdmin =
+      requesterRole === TenantMemberRole.ADMIN || requesterRole === TenantMemberRole.OWNER;
+    if (isAdmin || targetMemberId === requesterMemberId) {
+      return;
+    }
+    const isManager = await this.managerAccessService.isManagerOf(
+      tenantId,
+      requesterMemberId,
+      targetMemberId,
+    );
+    if (!isManager) {
+      throw new ForbiddenException('You can only access your own payment methods');
+    }
+  }
+
+  async findByIdForMember(
+    tenantId: string,
+    id: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<PaymentMethod | null> {
+    const method = await this.paymentMethodRepository.findOne({
+      where: { id, tenantId },
+    });
+    if (!method) {
+      return null;
+    }
+    await this.assertPaymentMethodAccess(tenantId, method.memberId, requesterMemberId, requesterRole);
+    return this.withDecrypted(method);
+  }
+
+  async findByMemberIdForRequester(
+    tenantId: string,
+    memberId: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<PaymentMethod | null> {
+    await this.assertPaymentMethodAccess(tenantId, memberId, requesterMemberId, requesterRole);
+    try {
+      const method = await this.paymentMethodRepository.findOne({
+        where: { tenantId, memberId },
+        order: { updatedAt: 'DESC' },
+      });
+      return this.withDecrypted(method);
+    } catch (error) {
+      this.logger.error(`Failed to find payment method for member ${memberId}`, error);
+      throw error;
+    }
+  }
+
   private encryptField(value?: string | null): string | null | undefined {
     if (!value?.trim()) return value;
     if (this.encryptionService.isEncrypted(value)) return value;
@@ -523,6 +598,15 @@ export class PaymentMethodService {
       throw new BadRequestException('Account number cannot exceed 17 digits');
     }
   }
+  private async assertCurrencyAllowed(tenantId: string, currency: string): Promise<void> {
+    const allowed = await this.getAllowedCurrencies(tenantId);
+    const normalized = currency.toUpperCase();
+    if (!allowed.includes(normalized)) {
+      throw new BadRequestException(
+        `Currency ${normalized} is not enabled for this workspace. Allowed: ${allowed.join(', ')}`,
+      );
+    }
+  }
   private async unsetPrimaryMethods(
     tenantId: string,
     memberId: string,
@@ -586,5 +670,35 @@ export class PaymentMethodService {
       order: { changedAt: 'DESC' },
       take: 10,
     });
+  }
+
+  async listNigerianBanks(): Promise<Array<{ code: string; name: string }>> {
+    if (!this.nombaTransferApi.isConfigured()) {
+      throw new ServiceUnavailableException('Bank lookup is not available in this environment');
+    }
+    return this.nombaTransferApi.listBanks();
+  }
+
+  async lookupNigerianBankAccount(
+    accountNumber: string,
+    bankCode: string,
+    bankName?: string,
+  ): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
+    if (!this.nombaTransferApi.isConfigured()) {
+      throw new ServiceUnavailableException('Bank lookup is not available in this environment');
+    }
+    const normalizedNumber = accountNumber.replace(/\D/g, '');
+    if (normalizedNumber.length !== 10) {
+      throw new BadRequestException('Account number must be 10 digits');
+    }
+    if (!bankCode?.trim()) {
+      throw new BadRequestException('Bank is required');
+    }
+    const result = await this.nombaTransferApi.lookupBankAccount(normalizedNumber, bankCode.trim());
+    return {
+      ...result,
+      bankCode: bankCode.trim(),
+      bankName: bankName?.trim() || bankCode.trim(),
+    };
   }
 }

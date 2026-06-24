@@ -22,7 +22,11 @@ export class DepartmentsService {
     page: number = 1,
     limit: number = 10,
   ): Promise<IPaginatedData<DepartmentResponseDto>> {
-    const where: FindOptionsWhere<Department> = { tenantId, ...query };
+    const where: FindOptionsWhere<Department> = {
+      tenantId,
+      ...(query?.name ? { name: query.name } : {}),
+      ...(query?.managerId ? { managerId: query.managerId } : {}),
+    };
     const total = await this.departmentsRepository.count({ where });
     const departments = await this.departmentsRepository.find({
       where,
@@ -48,6 +52,7 @@ export class DepartmentsService {
         name: true,
         description: true,
         managerId: true,
+        color: true,
         createdAt: true,
         updatedAt: true,
         manager: {
@@ -177,6 +182,7 @@ export class DepartmentsService {
         teams,
         createdAt: department.createdAt,
         updatedAt: department.updatedAt,
+        color: department.color,
       };
     });
     return getPaginationSummary(records, total, { page, limit }, 'departments');

@@ -1,4 +1,4 @@
-import { IsBoolean, IsNumber, IsOptional, Max, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, Max, Min, ValidateIf } from 'class-validator';
 export class UpdateLeavePolicyDto {
   @IsOptional()
   @IsBoolean()
@@ -9,6 +9,7 @@ export class UpdateLeavePolicyDto {
   @Max(365)
   maxCarryoverDays?: number;
   @IsOptional()
+  @ValidateIf((_, value) => value !== null)
   @IsNumber()
   @Min(1)
   @Max(24)

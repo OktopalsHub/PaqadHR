@@ -61,3 +61,68 @@ export const createPayrollRunInputSchema = z.object({
 });
 
 export type CreatePayrollRunInput = z.infer<typeof createPayrollRunInputSchema>;
+
+export const payrollAdjustmentLineSchema = z.object({
+  employeeId: z.string(),
+  type: z.string(),
+  method: z.enum(['fixed_amount', 'percentage']),
+  value: z.number(),
+  reason: z.string(),
+  notes: z.string().optional(),
+});
+
+export type PayrollAdjustmentLine = z.infer<typeof payrollAdjustmentLineSchema>;
+
+export const payrollItemSchema = z.object({
+  id: z.string(),
+  memberId: z.string(),
+  status: z.string(),
+  baseSalary: z.union([z.number(), z.string()]).optional(),
+  grossAmount: z.union([z.number(), z.string()]).optional(),
+  adjustments: z.union([z.number(), z.string()]).optional(),
+  deductions: z.union([z.number(), z.string()]).optional(),
+  netAmount: z.union([z.number(), z.string()]).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  employee: z
+    .object({
+      firstName: z.string().optional().nullable(),
+      lastName: z.string().optional().nullable(),
+    })
+    .optional()
+    .nullable(),
+});
+
+export type PayrollItem = z.infer<typeof payrollItemSchema>;
+
+export const payrollRunDetailSchema = payrollRunSchema.extend({
+  items: z.array(payrollItemSchema).optional(),
+});
+
+export type PayrollRunDetail = z.infer<typeof payrollRunDetailSchema>;
+
+export const runPayslipSchema = z.object({
+  itemId: z.string(),
+  runId: z.string(),
+  memberId: z.string(),
+  employeeName: z.string(),
+  published: z.boolean(),
+  paidAt: z.union([z.string(), z.date()]).nullable().optional(),
+});
+
+export type RunPayslip = z.infer<typeof runPayslipSchema>;
+
+export const publishedPayslipSchema = z.object({
+  itemId: z.string(),
+  runId: z.string(),
+  memberId: z.string(),
+  employeeName: z.string(),
+  runTitle: z.string(),
+  periodStart: z.union([z.string(), z.date()]).optional(),
+  periodEnd: z.union([z.string(), z.date()]).optional(),
+  netAmount: z.union([z.number(), z.string()]).optional(),
+  currency: z.string().optional(),
+  paidAt: z.union([z.string(), z.date()]).nullable().optional(),
+  publishedAt: z.string().optional(),
+});
+
+export type PublishedPayslip = z.infer<typeof publishedPayslipSchema>;

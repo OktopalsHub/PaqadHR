@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { In } from 'typeorm';
 import { LeaveStatus } from 'src/common/enums';
 import type { CarryoverExpirationResult } from 'src/common/interfaces';
 import type { Leave } from '../leave/entities/leave.entity';
@@ -27,7 +28,12 @@ export class LeaveBalanceService {
       leaveTypeId,
     });
   }
-  async listLeaveBalances(tenantId: string) {
+  async listLeaveBalances(tenantId: string, memberIds?: string[]) {
+    if (memberIds?.length) {
+      return this.leaveBalanceRepository.find({
+        where: { tenantId, memberId: In(memberIds) },
+      });
+    }
     return this.leaveBalanceRepository.find({ where: { tenantId } });
   }
   async getLeaveBalance(balanceId: string, tenantId: string) {
@@ -71,7 +77,7 @@ export class LeaveBalanceService {
       tenantId: leave.tenantId,
       memberId: leave.requestedBy,
       leaveTypeId: leave.leaveTypeId,
-      year: leave.startDate.getFullYear(),
+      year: new Date(leave.startDate).getFullYear(),
     });
     if (!balance) {
       throw new NotFoundException('Leave balance not found');

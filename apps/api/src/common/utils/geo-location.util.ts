@@ -65,13 +65,72 @@ export class GeoLocationHelper {
     }
   }
 
+  static resolveCountryFromHeaders(
+    headers: Record<string, string | string[] | undefined>,
+  ): string | null {
+    const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+    const candidates = [
+      pick(headers['cf-ipcountry']),
+      pick(headers['x-vercel-ip-country']),
+      pick(headers['cloudfront-viewer-country']),
+    ];
+
+    for (const code of candidates) {
+      if (!code || code === 'XX') continue;
+      const upper = code.toUpperCase();
+      if (/^[A-Z]{2}$/.test(upper)) return upper;
+    }
+
+    return null;
+  }
+
+  static resolveCountryFromTimezone(timezone?: string | null): string | null {
+    if (!timezone) return null;
+    const normalized = timezone.trim();
+    if (normalized === 'Africa/Lagos') return 'NG';
+    return null;
+  }
+
+  static async resolveDetectedCountry(options: {
+    ip?: string;
+    stored?: string | null;
+    headers?: Record<string, string | string[] | undefined>;
+    timezone?: string | null;
+  }): Promise<{ countryCode: string; detectionMethod: string }> {
+    if (options.stored) {
+      return { countryCode: options.stored.toUpperCase(), detectionMethod: 'stored' };
+    }
+
+    const fromHeaders = options.headers
+      ? GeoLocationHelper.resolveCountryFromHeaders(options.headers)
+      : null;
+    if (fromHeaders) {
+      return { countryCode: fromHeaders, detectionMethod: 'header' };
+    }
+
+    if (options.ip) {
+      const fromIp = await GeoLocationHelper.getCountryCode(options.ip);
+      if (fromIp !== DEFAULT_COUNTRY) {
+        return { countryCode: fromIp, detectionMethod: 'ip' };
+      }
+    }
+
+    const fromTimezone = GeoLocationHelper.resolveCountryFromTimezone(options.timezone);
+    if (fromTimezone) {
+      return { countryCode: fromTimezone, detectionMethod: 'timezone' };
+    }
+
+    return { countryCode: DEFAULT_COUNTRY, detectionMethod: 'default' };
+  }
+
   static async resolveCountryCode(options: {
     ip?: string;
     stored?: string | null;
+    headers?: Record<string, string | string[] | undefined>;
+    timezone?: string | null;
   }): Promise<string> {
-    if (options.stored) return options.stored.toUpperCase();
-    if (options.ip) return GeoLocationHelper.getCountryCode(options.ip);
-    return DEFAULT_COUNTRY;
+    const { countryCode } = await GeoLocationHelper.resolveDetectedCountry(options);
+    return countryCode;
   }
 
   static getCountryDefaults(countryCode: string): {

@@ -10,6 +10,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
     const nombaProvider = { ensureConfigured: jest.fn() };
     const nombaApi = { verifyTransaction: jest.fn() };
     const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
+    const tenantSettingsService = { getTenantSettings: jest.fn() };
     const plansService = { getPlanPriceById: jest.fn() };
     const subscriptionRepo = {
       createQueryBuilder: jest.fn(),
@@ -25,6 +26,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
       nombaProvider as never,
       nombaApi as never,
       subscriptionsService as never,
+      tenantSettingsService as never,
       plansService as never,
       subscriptionRepo as never,
       tenantRepo as never,
@@ -125,6 +127,7 @@ describe('SubscriptionBillingService webhooks', () => {
     };
     const nombaApi = { verifyTransaction: jest.fn() };
     const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
+    const tenantSettingsService = { getTenantSettings: jest.fn() };
     const plansService = { getPlanPriceById: jest.fn() };
     const subscriptionRepo = { save: jest.fn(), findOne: jest.fn() };
     const tenantRepo = { findOne: jest.fn() };
@@ -137,6 +140,7 @@ describe('SubscriptionBillingService webhooks', () => {
       nombaProvider as never,
       nombaApi as never,
       subscriptionsService as never,
+      tenantSettingsService as never,
       plansService as never,
       subscriptionRepo as never,
       tenantRepo as never,

@@ -1,13 +1,18 @@
-import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, Optional } from '@nestjs/common';
+import { DataSource, In } from 'typeorm';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { NombaProvider } from '../../../../common/providers/nomba.provider';
+import { ENVIRONMENT } from '../../../../common/config/env.config';
 import { EmploymentService } from '../../employment/employment.service';
+import { TenantMemberRole } from '../../../../common/enums';
+import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
@@ -43,8 +48,14 @@ import type { PaymentMethod } from '../../payment-method/entities/payment-method
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
+import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import {
+  aggregatePayrollAdjustments,
+  collectAdjustmentsForEmployee,
+} from '../utils/payroll-adjustment.util';
+import { assertPayrollRunMutable } from '../utils/payroll-mutability.util';
 import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
 @Injectable()
 export class PayrollService {
@@ -57,8 +68,11 @@ export class PayrollService {
     private readonly payrollCalculationService: PayrollCalculationService,
     private readonly auditService: AuditService,
     private readonly employmentService: EmploymentService,
+    private readonly tenantSettingsService: TenantSettingsService,
+    private readonly tenantsService: TenantsService,
     private readonly manualDisbursementService: ManualDisbursementService,
     private readonly payrollExportService: PayrollExportService,
+    private readonly managerAccessService: ManagerAccessService,
     @Optional() private readonly nombaProvider?: NombaProvider,
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
@@ -170,12 +184,7 @@ export class PayrollService {
         'Payroll run has already been completed and cannot be recalculated',
       );
     }
-    if (payrollRun.status !== PayrollStatus.DRAFT) {
-      await this.releaseProcessingLock(payrollRunId);
-      throw new BadRequestException(
-        `Payroll run is in ${payrollRun.status} status and cannot be calculated`,
-      );
-    }
+    assertPayrollRunMutable(payrollRun, 'recalculate');
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -225,14 +234,20 @@ export class PayrollService {
             `No employment record found for employee ${item.memberId}. Please ensure employee has an active employment record with salary information.`,
           );
         }
-        const _employeeAdjustments = adjustmentsByEmployee.get(item.memberId) || [];
+        const employeeAdjustments = collectAdjustmentsForEmployee(
+          item.memberId,
+          adjustments,
+          item.metadata ?? undefined,
+        );
+        const { adjustments: bonusTotal, deductions: deductionTotal } =
+          aggregatePayrollAdjustments(employeeAdjustments, salaryInfo.baseSalary);
         const calculationInput: SimplePayrollInput = {
           memberId: item.memberId,
           baseSalary: salaryInfo.baseSalary,
           currency: payrollRun.baseCurrency,
-          adjustments: 0,
-          deductions: 0,
-          description: `Salary payment for ${payrollRun.periodStart.toISOString().slice(0, 7)}`,
+          adjustments: bonusTotal,
+          deductions: deductionTotal,
+          description: `Salary payment for ${this.toIsoDatePart(payrollRun.periodStart).slice(0, 7)}`,
         };
         const calculation =
           await this.payrollCalculationService.calculateSimplePayroll(calculationInput);
@@ -253,6 +268,7 @@ export class PayrollService {
           employmentId: salaryInfo.employment.id,
           paymentReadiness: readiness,
           excludedFromRun: excluded,
+          adjustmentLines: employeeAdjustments,
         };
         if (paymentMethod?.id) {
           item.paymentMethodId = paymentMethod.id;
@@ -339,6 +355,14 @@ export class PayrollService {
       approvedAt: new Date().toISOString(),
       approvedBy: auditContext.performedById,
     };
+    for (const item of payrollRun.items ?? []) {
+      if (item.status === PayrollItemStatus.CANCELLED) continue;
+      item.metadata = {
+        ...item.metadata,
+        lockedAt: new Date().toISOString(),
+      };
+      await this.payrollItemRepository.save(item);
+    }
     await this.payrollRunRepository.save(payrollRun);
     await this.auditService.logPayrollApproved(auditContext, {
       title: payrollRun.title,
@@ -392,16 +416,122 @@ export class PayrollService {
     return csv;
   }
 
-  async getPayslipHtml(payrollRunId: string, itemId: string, tenantId: string): Promise<string> {
+  async getPayslipHtml(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+    requesterMemberId?: string,
+    requesterRole?: string,
+  ): Promise<string> {
+    const { payrollRun, item } = await this.getPaidPayslipItem(
+      payrollRunId,
+      itemId,
+      tenantId,
+      requesterMemberId,
+      requesterRole,
+    );
+    return this.payrollExportService.renderPayslipHtml(payrollRun, item);
+  }
+
+  async getPayslipPdf(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<Buffer> {
+    const { payrollRun, item } = await this.getPaidPayslipItem(
+      payrollRunId,
+      itemId,
+      tenantId,
+      requesterMemberId,
+      requesterRole,
+    );
+    return this.payrollExportService.renderPayslipPdf(payrollRun, item);
+  }
+
+  async getMemberPublishedPayslips(
+    memberId: string,
+    tenantId: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ) {
+    await this.assertPayrollMemberAccess(tenantId, memberId, requesterMemberId, requesterRole);
+
+    const items = await this.payrollItemRepository.find({
+      where: {
+        memberId,
+        status: PayrollItemStatus.PAID,
+      },
+      relations: ['payrollRun', 'employee'],
+      order: { paidAt: 'DESC' },
+    });
+
+    return items
+      .filter(
+        (item) =>
+          item.payrollRun?.tenantId === tenantId && Boolean(item.metadata?.payslipPublished),
+      )
+      .map((item) => {
+        const employee = item.employee;
+        const employeeName = employee
+          ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()
+          : item.memberId;
+        const payrollRun = item.payrollRun;
+        return {
+          itemId: item.id,
+          runId: item.payrollRunId,
+          memberId: item.memberId,
+          employeeName: employeeName || 'Unknown',
+          runTitle: payrollRun?.title ?? 'Payroll',
+          periodStart: payrollRun?.periodStart,
+          periodEnd: payrollRun?.periodEnd,
+          netAmount: item.netAmount,
+          currency: payrollRun?.baseCurrency,
+          paidAt: item.paidAt,
+          publishedAt: item.metadata?.payslipPublishedAt as string | undefined,
+        };
+      });
+  }
+
+  private async getPaidPayslipItem(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+    requesterMemberId?: string,
+    requesterRole?: string,
+  ): Promise<{ payrollRun: PayrollRun; item: PayrollItem }> {
     const payrollRun = await this.payrollExportService.getPayrollRunForExport(
       payrollRunId,
       tenantId,
     );
-    const item = payrollRun.items?.find((i) => i.id === itemId);
+    const item = payrollRun.items?.find((entry) => entry.id === itemId);
     if (!item) {
       throw new BadRequestException('Payroll item not found');
     }
-    return this.payrollExportService.renderPayslipHtml(payrollRun, item);
+    if (item.status !== PayrollItemStatus.PAID) {
+      throw new BadRequestException('Payslip is only available for paid payroll items');
+    }
+
+    if (requesterMemberId && requesterRole) {
+      const isAdmin = this.isPayrollAdmin(requesterRole);
+      const isOwner = item.memberId === requesterMemberId;
+      const isPublished = Boolean(item.metadata?.payslipPublished);
+      if (!isAdmin && !isOwner) {
+        const isManager = await this.managerAccessService.isManagerOf(
+          tenantId,
+          requesterMemberId,
+          item.memberId,
+        );
+        if (!isManager) {
+          throw new ForbiddenException('This payslip is not available yet');
+        }
+      } else if (!isAdmin && (!isOwner || !isPublished)) {
+        throw new ForbiddenException('This payslip is not available yet');
+      }
+    }
+
+    return { payrollRun, item };
   }
 
   async processPayroll(dto: ProcessPayrollWithAudit): Promise<void> {
@@ -562,7 +692,10 @@ export class PayrollService {
           payrollRun.tenantId,
           {
             employeeName,
-            payrollPeriod: `${payrollRun.periodStart.toISOString().slice(0, 10)} – ${payrollRun.periodEnd.toISOString().slice(0, 10)}`,
+            payrollPeriod: this.formatPayrollPeriod(
+              payrollRun.periodStart,
+              payrollRun.periodEnd,
+            ),
             amount: Number(payrollItem.paymentAmount),
             currency: payrollItem.paymentCurrency,
           },
@@ -629,6 +762,96 @@ export class PayrollService {
       processingLockedById: null,
     });
   }
+  private isPayrollAdmin(requesterRole: string): boolean {
+    return (
+      requesterRole === TenantMemberRole.ADMIN || requesterRole === TenantMemberRole.OWNER
+    );
+  }
+
+  private async assertPayrollMemberAccess(
+    tenantId: string,
+    targetMemberId: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<void> {
+    if (this.isPayrollAdmin(requesterRole) || targetMemberId === requesterMemberId) {
+      return;
+    }
+    const isManager = await this.managerAccessService.isManagerOf(
+      tenantId,
+      requesterMemberId,
+      targetMemberId,
+    );
+    if (!isManager) {
+      throw new ForbiddenException('You can only access payroll for yourself or your direct reports');
+    }
+  }
+
+  async getPayrollRunsForRequester(
+    tenantId: string,
+    limit: number,
+    offset: number,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<{ runs: PayrollRun[]; total: number }> {
+    if (this.isPayrollAdmin(requesterRole)) {
+      return this.getPayrollRuns(tenantId, limit, offset);
+    }
+    const directReports = await this.managerAccessService.getDirectReportIds(
+      tenantId,
+      requesterMemberId,
+    );
+    if (directReports.length === 0) {
+      throw new ForbiddenException('Admin or manager access required');
+    }
+    const items = await this.payrollItemRepository.find({
+      where: { memberId: In(directReports) },
+      select: ['payrollRunId'],
+    });
+    const runIds = [...new Set(items.map((item) => item.payrollRunId))];
+    if (runIds.length === 0) {
+      return { runs: [], total: 0 };
+    }
+    const { data: runs, total } = await this.payrollRunRepository.paginate({
+      where: { tenantId, id: In(runIds) },
+      order: { createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+      relations: ['createdBy', 'tenant'],
+    });
+    return { runs, total };
+  }
+
+  async getPayrollRunForRequester(
+    id: string,
+    tenantId: string,
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<PayrollRun | null> {
+    const payrollRun = await this.getPayrollRun(id, tenantId);
+    if (!payrollRun) {
+      return null;
+    }
+    if (this.isPayrollAdmin(requesterRole)) {
+      return payrollRun;
+    }
+    const directReports = await this.managerAccessService.getDirectReportIds(
+      tenantId,
+      requesterMemberId,
+    );
+    if (directReports.length === 0) {
+      throw new ForbiddenException('Admin or manager access required');
+    }
+    const teamItems = (payrollRun.items ?? []).filter((item) =>
+      directReports.includes(item.memberId),
+    );
+    if (teamItems.length === 0) {
+      throw new ForbiddenException('You can only access payroll runs for your direct reports');
+    }
+    payrollRun.items = teamItems;
+    return payrollRun;
+  }
+
   async getPayrollRun(id: string, tenantId: string): Promise<PayrollRun | null> {
     return this.payrollRunRepository.findOne({
       where: { id, tenantId },
@@ -770,9 +993,7 @@ export class PayrollService {
     if (!payrollRun) {
       throw new BadRequestException('Payroll run not found');
     }
-    if (![PayrollStatus.DRAFT, PayrollStatus.PROCESSING].includes(payrollRun.status)) {
-      throw new BadRequestException('Employees can only be removed before approval');
-    }
+    assertPayrollRunMutable(payrollRun, 'remove');
 
     const item = payrollRun.items?.find((entry) => entry.id === itemId);
     if (!item) {
@@ -814,10 +1035,54 @@ export class PayrollService {
     return payrollRun;
   }
 
+  async updatePayrollItem(
+    payrollRunId: string,
+    itemId: string,
+    tenantId: string,
+    dto: UpdatePayrollItemDto,
+    auditContext: AuditContext,
+  ): Promise<PayrollRun> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    assertPayrollRunMutable(payrollRun, 'edit');
+
+    const item = payrollRun.items?.find((entry) => entry.id === itemId);
+    if (!item) {
+      throw new BadRequestException('Payroll item not found');
+    }
+    if (item.status === PayrollItemStatus.CANCELLED) {
+      throw new BadRequestException('Cannot edit a cancelled payroll item');
+    }
+
+    if (dto.adjustmentLines !== undefined) {
+      item.metadata = {
+        ...item.metadata,
+        adjustmentLines: dto.adjustmentLines,
+      };
+      await this.payrollItemRepository.save(item);
+    }
+
+    await this.auditService.logAdjustmentCalculated(auditContext, {
+      action: 'update_item',
+      itemId,
+      memberId: item.memberId,
+      adjustmentCount: dto.adjustmentLines?.length ?? 0,
+    });
+
+    return (await this.getPayrollRun(payrollRunId, tenantId))!;
+  }
+
   async notifyEmployeePaymentSetup(
     payrollRunId: string,
     itemId: string,
     tenantId: string,
+    requesterMemberId?: string,
+    requesterRole?: string,
   ): Promise<{ notified: boolean }> {
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -830,6 +1095,15 @@ export class PayrollService {
     const item = payrollRun.items?.find((entry) => entry.id === itemId);
     if (!item?.employee?.userId) {
       throw new BadRequestException('Employee not found for notification');
+    }
+
+    if (requesterMemberId && requesterRole) {
+      await this.assertPayrollMemberAccess(
+        tenantId,
+        item.memberId,
+        requesterMemberId,
+        requesterRole,
+      );
     }
 
     const readiness = await this.paymentMethodService.assessPayrollReadiness(
@@ -853,11 +1127,161 @@ export class PayrollService {
       tenantId,
       {
         employeeName,
-        payrollPeriod: `${payrollRun.periodStart.toISOString().slice(0, 10)} – ${payrollRun.periodEnd.toISOString().slice(0, 10)}`,
+        payrollPeriod: this.formatPayrollPeriod(
+          payrollRun.periodStart,
+          payrollRun.periodEnd,
+        ),
         message: readiness.message,
       },
     );
 
     return { notified: true };
+  }
+
+  async getRunPayslips(payrollRunId: string, tenantId: string) {
+    const payrollRun = await this.getPayrollRun(payrollRunId, tenantId);
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+
+    return (payrollRun.items ?? [])
+      .filter((item) => item.status === PayrollItemStatus.PAID)
+      .map((item) => {
+        const employee = item.employee;
+        const employeeName = employee
+          ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()
+          : item.memberId;
+
+        return {
+          itemId: item.id,
+          runId: payrollRunId,
+          memberId: item.memberId,
+          employeeName: employeeName || 'Unknown',
+          published: Boolean(item.metadata?.payslipPublished),
+          paidAt: item.paidAt,
+        };
+      });
+  }
+
+  async publishPayslips(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+    itemIds?: string[],
+    sendEmail?: boolean,
+    requesterMemberId?: string,
+    requesterRole?: string,
+  ) {
+    const payrollRun = await this.getPayrollRun(payrollRunId, tenantId);
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+
+    if (requesterMemberId && requesterRole && !this.isPayrollAdmin(requesterRole)) {
+      const directReports = await this.managerAccessService.getDirectReportIds(
+        tenantId,
+        requesterMemberId,
+      );
+      if (directReports.length === 0) {
+        throw new ForbiddenException('Admin or manager access required');
+      }
+      if (itemIds?.length) {
+        const invalidItems = (payrollRun.items ?? []).filter(
+          (item) => itemIds.includes(item.id) && !directReports.includes(item.memberId),
+        );
+        if (invalidItems.length > 0) {
+          throw new ForbiddenException('You can only publish payslips for your direct reports');
+        }
+      }
+    }
+
+    const shouldSendEmail =
+      sendEmail ?? (await this.resolveEmailPayslipOnPublish(tenantId));
+
+    let allowedMemberIds: string[] | undefined;
+    if (requesterMemberId && requesterRole && !this.isPayrollAdmin(requesterRole)) {
+      allowedMemberIds = await this.managerAccessService.getDirectReportIds(
+        tenantId,
+        requesterMemberId,
+      );
+      if (allowedMemberIds.length === 0) {
+        throw new ForbiddenException('Admin or manager access required');
+      }
+    }
+
+    const items = (payrollRun.items ?? []).filter((item) => {
+      if (item.status !== PayrollItemStatus.PAID) return false;
+      if (itemIds?.length && !itemIds.includes(item.id)) return false;
+      if (allowedMemberIds && !allowedMemberIds.includes(item.memberId)) return false;
+      return true;
+    });
+
+    const publishedItemIds: string[] = [];
+    const tenant = await this.tenantsService.getTenant(tenantId);
+    const frontendBase = ENVIRONMENT.APP.FRONTEND_URL.replace(/\/$/, '');
+    const payrollPeriod = this.formatPayrollPeriod(
+      payrollRun.periodStart,
+      payrollRun.periodEnd,
+    );
+
+    for (const item of items) {
+      item.metadata = {
+        ...item.metadata,
+        payslipPublished: true,
+        payslipPublishedAt: new Date().toISOString(),
+      };
+      await this.payrollItemRepository.save(item);
+      publishedItemIds.push(item.id);
+
+      if (shouldSendEmail && item.employee?.userId && this.notificationHelper) {
+        const employeeName =
+          `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim() || 'there';
+        const profileUrl = `${frontendBase}/${tenant.slug}/employees/${item.memberId}?tab=documents`;
+        await this.notificationHelper.sendPayslipPublishedNotification(
+          item.employee.userId,
+          tenantId,
+          {
+            employeeName,
+            payrollPeriod,
+            profileUrl,
+            payrollRunId,
+          },
+        );
+      }
+    }
+
+    if (publishedItemIds.length > 0) {
+      await this.auditService.logPayslipsPublished(auditContext, {
+        itemIds: publishedItemIds,
+        documentIds: [],
+        sendEmail: shouldSendEmail,
+        publishedCount: publishedItemIds.length,
+      });
+    }
+
+    return { publishedCount: publishedItemIds.length, itemIds: publishedItemIds };
+  }
+
+  private toIsoDatePart(value: Date | string): string {
+    if (value instanceof Date) {
+      return value.toISOString().slice(0, 10);
+    }
+    return String(value).slice(0, 10);
+  }
+
+  private formatPayrollPeriod(
+    periodStart: Date | string,
+    periodEnd: Date | string,
+  ): string {
+    return `${this.toIsoDatePart(periodStart)} – ${this.toIsoDatePart(periodEnd)}`;
+  }
+
+  private async resolveEmailPayslipOnPublish(tenantId: string): Promise<boolean> {
+    try {
+      const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+      return settings.settings.general?.emailPayslipOnPublish ?? false;
+    } catch {
+      return false;
+    }
   }
 }

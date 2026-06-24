@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentUser } from 'src/common/decorators';
+import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
-import { TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+import type { MemberContext } from 'src/common/interfaces';
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
+import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { Public } from '../../../common/decorators';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
@@ -11,6 +13,7 @@ import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires
 import type { ITenantMemberResponseDto } from '../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member-response.dto';
 import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
+import type { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
 import type { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { TenantMembersService } from './tenant-members.service';
@@ -22,6 +25,7 @@ export class TenantMembersController {
   constructor(
     private readonly tenantMembersService: TenantMembersService,
     private readonly fileUrlService: FileUrlService,
+    private readonly managerAccessService: ManagerAccessService,
   ) {}
   @Get('members')
   @ApiOperation({
@@ -49,6 +53,20 @@ export class TenantMembersController {
     );
     return TenantMemberMapper.toResponse(member, this.fileUrlService);
   }
+  @Patch('profile')
+  @ApiOperation({ summary: 'Update current member profile' })
+  async updateTenantMemberProfile(
+    @Param('tenantId') tenantId: string,
+    @CurrentUser() req: IAuthenticatedUserRequest,
+    @Body() updateDto: UpdateMemberProfileDto,
+  ): Promise<ITenantMemberResponseDto> {
+    const member = await this.tenantMembersService.updateTenantMember(
+      tenantId,
+      req.auth.principalId,
+      updateDto,
+    );
+    return TenantMemberMapper.toResponse(member, this.fileUrlService);
+  }
   @Get('roles')
   @Public()
   getTenantMemberRoles() {
@@ -59,16 +77,18 @@ export class TenantMembersController {
     }));
   }
   @Get('/members/:memberId')
-  @UseGuards(TenantRoleGuard)
   async getTenantMember(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
+    await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, memberId, tenantId);
     const result = await this.tenantMembersService.getTenantMember(memberId, tenantId);
     return TenantMemberMapper.toResponse(result, this.fileUrlService);
   }
   @Delete('/members/:memberId')
   @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async removeTenantMember(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
@@ -77,6 +97,7 @@ export class TenantMembersController {
   }
   @Patch('/members/:memberId/status')
   @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTenantMemberStatus(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
@@ -91,6 +112,7 @@ export class TenantMembersController {
   }
   @Patch('/members/:memberId')
   @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({
     summary: 'Update tenant member details',
     description: 'Update tenant member information such as department and reports to',

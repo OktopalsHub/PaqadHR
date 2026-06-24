@@ -1,11 +1,12 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
-import { DateTimeHelper } from 'src/common/utils/date-time.helper';
+import { DateTimeHelper, type AllowancePeriod } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource, EntityManager } from 'typeorm';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
+import { ShoutoutPointTransaction } from '../entities/shoutout-point-transaction.entity';
 import { MemberPointsRepository } from '../repositories/member-points.repository';
 
 @Injectable()
@@ -37,15 +38,28 @@ export class MemberPointsService {
       currentBalance: startingBalance,
       lastResetDate: new Date(),
     });
-    return repo.save(row);
+    try {
+      return await repo.save(row);
+    } catch (error) {
+      const isDuplicate =
+        error instanceof Error &&
+        'code' in error &&
+        (error as { code?: string }).code === '23505';
+      if (isDuplicate) {
+        const existing = await repo.findOne({ where: { tenantId, memberId } });
+        if (existing) return existing;
+      }
+      throw error;
+    }
   }
 
   async ensureMonthlyReset(
     row: ShoutoutMemberPoints,
     manager?: EntityManager,
+    allowancePeriod: AllowancePeriod = 'monthly',
   ): Promise<ShoutoutMemberPoints> {
     const now = new Date();
-    if (DateTimeHelper.isCurrentMonth(row.lastResetDate)) return row;
+    if (DateTimeHelper.isCurrentPeriod(row.lastResetDate, allowancePeriod)) return row;
 
     const repo = manager
       ? manager.getRepository(ShoutoutMemberPoints)
@@ -53,7 +67,7 @@ export class MemberPointsService {
 
     row.monthlyGiven = 0;
     row.monthlyReceived = 0;
-    row.lastResetDate = DateTimeHelper.getStartOfUtcMonth(now);
+    row.lastResetDate = DateTimeHelper.getPeriodStart(allowancePeriod, now);
     const saved = await repo.save(row);
 
     await this.memberPointsRepository.insertTransaction(manager ?? this.dataSource.manager, {
@@ -62,16 +76,22 @@ export class MemberPointsService {
       type: ShoutoutPointTransactionType.MONTHLY_RESET,
       points: 0,
       runningBalance: row.currentBalance,
-      description: 'Monthly points reset',
+      description: `${allowancePeriod} points reset`,
       createdBy: row.memberId,
     });
 
     return saved;
   }
 
+  private async getAllowancePeriod(tenantId: string): Promise<AllowancePeriod> {
+    const pointsSettings = await this.tenantConfigService.getPointsSettings(tenantId);
+    return pointsSettings?.allowancePeriod ?? 'monthly';
+  }
+
   async getBalance(tenantId: string, memberId: string) {
+    const allowancePeriod = await this.getAllowancePeriod(tenantId);
     let row = await this.ensureMemberRow(tenantId, memberId);
-    row = await this.ensureMonthlyReset(row);
+    row = await this.ensureMonthlyReset(row, undefined, allowancePeriod);
 
     const pointsSettings = await this.tenantConfigService.getPointsSettings(tenantId);
     const monthlyAllowance = pointsSettings?.monthlyAllowance ?? 0;
@@ -84,6 +104,7 @@ export class MemberPointsService {
       monthlyGiven: row.monthlyGiven,
       monthlyReceived: row.monthlyReceived,
       monthlyAllowance,
+      allowancePeriod,
       remainingAllowance: Math.max(0, monthlyAllowance - row.monthlyGiven),
       lastResetDate: row.lastResetDate,
     };
@@ -114,13 +135,14 @@ export class MemberPointsService {
   }
 
   async bulkAssign(tenantId: string, points: number, reason: string | undefined, actorId: string) {
+    const allowancePeriod = await this.getAllowancePeriod(tenantId);
     const members = await this.tenantMembersService.getTenantMembers(tenantId);
     let membersUpdated = 0;
 
     await this.dataSource.transaction(async (manager) => {
       for (const member of members) {
         let row = await this.ensureMemberRow(tenantId, member.id, manager);
-        row = await this.ensureMonthlyReset(row, manager);
+        row = await this.ensureMonthlyReset(row, manager, allowancePeriod);
         row.currentBalance += points;
         row.totalEarned += points;
         await manager.save(row);
@@ -140,7 +162,7 @@ export class MemberPointsService {
 
     return {
       success: true,
-      message: `Assigned ${points} points to ${membersUpdated} members`,
+      message: `Assigned ${points} Paq points to ${membersUpdated} members`,
       membersUpdated,
       pointsAssigned: points,
     };
@@ -199,8 +221,9 @@ export class MemberPointsService {
     totalCost: number,
     manager: EntityManager,
   ): Promise<ShoutoutMemberPoints> {
+    const allowancePeriod = await this.getAllowancePeriod(tenantId);
     let sender = await this.ensureMemberRow(tenantId, senderMemberId, manager);
-    sender = await this.ensureMonthlyReset(sender, manager);
+    sender = await this.ensureMonthlyReset(sender, manager, allowancePeriod);
 
     const pointsSettings = await this.tenantConfigService.getPointsSettings(tenantId);
     const monthlyAllowance = pointsSettings?.monthlyAllowance ?? 0;
@@ -208,7 +231,7 @@ export class MemberPointsService {
 
     if (totalCost > allowanceRemaining) {
       throw new BadRequestException(
-        `Insufficient monthly allowance. You have ${allowanceRemaining} points remaining this month.`,
+        `Insufficient allowance. You have ${allowanceRemaining} Paq points remaining this ${allowancePeriod} period.`,
       );
     }
 
@@ -240,6 +263,50 @@ export class MemberPointsService {
     return sender;
   }
 
+  async hasCelebrationGrant(
+    tenantId: string,
+    memberId: string,
+    dedupKey: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const repo = manager
+      ? manager.getRepository(ShoutoutPointTransaction)
+      : this.memberPointsRepository.manager.getRepository(ShoutoutPointTransaction);
+    const existing = await repo.findOne({
+      where: { tenantId, memberId, description: dedupKey },
+    });
+    return Boolean(existing);
+  }
+
+  async grantCelebrationPoints(
+    manager: EntityManager,
+    tenantId: string,
+    recipientId: string,
+    points: number,
+    shoutoutId: string,
+    dedupKey: string,
+    actorId: string,
+  ): Promise<void> {
+    const allowancePeriod = await this.getAllowancePeriod(tenantId);
+    let recipient = await this.ensureMemberRow(tenantId, recipientId, manager);
+    recipient = await this.ensureMonthlyReset(recipient, manager, allowancePeriod);
+    recipient.monthlyReceived += points;
+    recipient.currentBalance += points;
+    recipient.totalEarned += points;
+    await manager.save(recipient);
+
+    await this.memberPointsRepository.insertTransaction(manager, {
+      tenantId,
+      memberId: recipientId,
+      type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
+      points,
+      runningBalance: recipient.currentBalance,
+      shoutoutId,
+      description: dedupKey,
+      createdBy: actorId,
+    });
+  }
+
   async applyShoutoutPoints(
     manager: EntityManager,
     tenantId: string,
@@ -248,6 +315,7 @@ export class MemberPointsService {
     pointsEach: number,
     shoutoutId: string,
   ): Promise<void> {
+    const allowancePeriod = await this.getAllowancePeriod(tenantId);
     const totalCost = pointsEach * recipientIds.length;
     const sender = await this.validateSenderAllowance(tenantId, senderMemberId, totalCost, manager);
 
@@ -268,7 +336,7 @@ export class MemberPointsService {
 
     for (const recipientId of recipientIds) {
       let recipient = await this.ensureMemberRow(tenantId, recipientId, manager);
-      recipient = await this.ensureMonthlyReset(recipient, manager);
+      recipient = await this.ensureMonthlyReset(recipient, manager, allowancePeriod);
       recipient.monthlyReceived += pointsEach;
       recipient.currentBalance += pointsEach;
       recipient.totalEarned += pointsEach;

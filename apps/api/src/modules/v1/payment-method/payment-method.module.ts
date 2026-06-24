@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuditModule } from 'src/common/modules/audit.module';
 import { PaymentsModule } from 'src/common/providers/payments.module';
+import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { PaymentMethodController } from './controllers/payment-method.controller';
@@ -17,6 +18,7 @@ import { PaymentMethodService } from './services/payment-method.service';
     AuditModule,
     TenantsModule,
     TenantMembersModule,
+    TenantConfigModule,
   ],
   controllers: [PaymentMethodController],
   providers: [PaymentMethodService, PaymentMethodRepository],

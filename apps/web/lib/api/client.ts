@@ -1,3 +1,5 @@
+import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
+
 const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001/api/v1';
 
 /** Ensures API paths resolve under /api/v1; CSRF and docs stay at server root. */
@@ -95,6 +97,17 @@ type ApiClientOptions = RequestInit & {
   skipCsrf?: boolean;
 };
 
+const AUTH_PATHS_WITHOUT_REFRESH = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/forgot-password',
+];
+
+function shouldAttemptAuthRefresh(path: string): boolean {
+  return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));
+}
+
 async function parseErrorPayload(response: Response) {
   return response.json().catch(() => null);
 }
@@ -132,7 +145,11 @@ export async function fetchWithCsrf(
   return response;
 }
 
-export async function apiClient<T>(path: string, init?: ApiClientOptions): Promise<T> {
+export async function apiClient<T>(
+  path: string,
+  init?: ApiClientOptions,
+  isRetry = false,
+): Promise<T> {
   const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
   const headers = new Headers(init?.headers);
   if (!headers.has('Content-Type') && init?.body) {
@@ -146,6 +163,7 @@ export async function apiClient<T>(path: string, init?: ApiClientOptions): Promi
     ...init,
     headers,
   }).catch((error: unknown) => {
+    if (error instanceof ApiError) throw error;
     if (error instanceof TypeError) {
       throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
     }
@@ -157,6 +175,15 @@ export async function apiClient<T>(path: string, init?: ApiClientOptions): Promi
     const message =
       (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
       `Request failed (${response.status})`;
+
+    if (response.status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return apiClient<T>(path, init, true);
+      }
+      invalidateSession();
+    }
+
     throw new ApiError(message, response.status, payload?.code);
   }
 

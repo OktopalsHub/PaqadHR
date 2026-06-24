@@ -65,6 +65,7 @@ export class MultiPaymentService {
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
+      payrollRun.title,
     );
     const summary = this.calculatePaymentSummary(fiatPaymentResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
@@ -116,6 +117,7 @@ export class MultiPaymentService {
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
+      payrollRun.title,
     );
     const summary = this.calculatePaymentSummary(fiatPaymentResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
@@ -192,6 +194,7 @@ export class MultiPaymentService {
     auditContext: AuditContext,
     tenantId: string,
     tenantName?: string,
+    payrollRunTitle?: string,
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
     for (const item of items) {
@@ -218,7 +221,7 @@ export class MultiPaymentService {
         const employeeName = item.employee
           ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
           : item.memberId;
-        const paymentData = buildPayrollPaymentData(item, paymentMethod, employeeName, tenantName);
+        const paymentData = buildPayrollPaymentData(item, paymentMethod, employeeName, tenantName, payrollRunTitle);
         const result = await provider.createPayment(paymentData);
         if (result.success) {
           await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);

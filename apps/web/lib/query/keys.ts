@@ -10,6 +10,9 @@ export const queryKeys = {
     all: ['employees'] as const,
     detail: (id: string) => ['employees', id] as const,
   },
+  positions: {
+    all: ['positions'] as const,
+  },
   leaves: {
     all: ['leaves'] as const,
     balances: ['leaves', 'balances'] as const,
@@ -17,8 +20,24 @@ export const queryKeys = {
   departments: {
     all: ['departments'] as const,
   },
+  attendance: {
+    policies: ['attendance', 'policies'] as const,
+    clockInInfo: ['attendance', 'clock-in-info'] as const,
+    myRecords: ['attendance', 'my-records'] as const,
+    teamRecords: ['attendance', 'team-records'] as const,
+    monthly: ['attendance', 'monthly'] as const,
+  },
   calendar: {
     events: ['calendar', 'events'] as const,
+  },
+  settings: {
+    tenant: ['settings', 'tenant'] as const,
+    leavePolicy: ['settings', 'leave-policy'] as const,
+    leaveTypes: ['settings', 'leave-types'] as const,
+    shoutoutCategories: ['settings', 'shoutout-categories'] as const,
+    membersPoints: ['settings', 'members-points'] as const,
+    holidays: ['settings', 'holidays'] as const,
+    holidayCountries: ['settings', 'holiday-countries'] as const,
   },
   shoutouts: {
     all: ['shoutouts'] as const,
@@ -47,15 +66,20 @@ export const queryKeys = {
     all: ['payment-methods'] as const,
     currencies: ['payment-methods', 'currencies'] as const,
     pending: ['payment-methods', 'pending'] as const,
+    banks: (tenantId: string) => ['payment-methods', 'banks', tenantId] as const,
   },
   member: {
     profile: (tenantId: string) => ['member', 'profile', tenantId] as const,
   },
   onboarding: {
-    pricing: ['onboarding', 'pricing'] as const,
+    pricing: (country?: string) => ['onboarding', 'pricing', country ?? 'auto'] as const,
     slugAvailability: (slug: string) => ['onboarding', 'slug-availability', slug] as const,
   },
   analytics: {
     overview: ['analytics', 'overview'] as const,
+  },
+  notifications: {
+    list: ['notifications', 'list'] as const,
+    unreadCount: ['notifications', 'unread-count'] as const,
   },
 } as const;

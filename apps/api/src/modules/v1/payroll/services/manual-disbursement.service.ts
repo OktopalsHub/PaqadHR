@@ -41,8 +41,11 @@ export class ManualDisbursementService {
     let failedCount = 0;
 
     for (const item of payrollRun.items ?? []) {
+      if (item.status === PayrollItemStatus.CANCELLED) {
+        continue;
+      }
       try {
-        await this.markItemPaidManually(item, auditContext);
+        await this.markItemPaidManually(item, payrollRun.tenantId, auditContext);
         paidCount++;
       } catch (error) {
         failedCount++;
@@ -94,6 +97,7 @@ export class ManualDisbursementService {
 
   private async markItemPaidManually(
     payrollItem: PayrollItem,
+    tenantId: string,
     auditContext: AuditContext,
   ): Promise<void> {
     if (!payrollItem.paymentAmount || payrollItem.paymentAmount <= 0) {

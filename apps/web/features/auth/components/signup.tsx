@@ -26,10 +26,8 @@ const Register = () => {
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      name: '',
       email: '',
       password: '',
-      confirmPassword: '',
       agreeToTerms: false,
     },
   });
@@ -51,20 +49,6 @@ const Register = () => {
         <form onSubmit={form.handleSubmit((values) => register(values))} className="space-y-4">
           <FormField
             control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Full name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter your name" className="h-11" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
@@ -84,21 +68,7 @@ const Register = () => {
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
-                  <PasswordInput placeholder="Create a password" className="h-11" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="confirmPassword"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Confirm password</FormLabel>
-                <FormControl>
-                  <PasswordInput placeholder="Confirm your password" className="h-11" {...field} />
+                  <PasswordInput placeholder="Enter your password" className="h-11" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -116,13 +86,13 @@ const Register = () => {
                   </FormControl>
                   <FormLabel className="text-sm font-normal leading-5 text-muted-foreground">
                     I agree to the{' '}
-                    <a href="#" className="text-primary hover:text-primary/90">
+                    <Link href="/terms" className="text-primary hover:text-primary/90">
                       Terms of Service
-                    </a>{' '}
+                    </Link>{' '}
                     and{' '}
-                    <a href="#" className="text-primary hover:text-primary/90">
+                    <Link href="/privacy" className="text-primary hover:text-primary/90">
                       Privacy Policy
-                    </a>
+                    </Link>
                   </FormLabel>
                 </div>
                 <FormMessage />

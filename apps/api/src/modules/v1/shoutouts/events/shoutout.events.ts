@@ -9,5 +9,5 @@ export interface ShoutoutCreatedEventPayload {
   pointsPerRecipient: number;
   message: string;
   categoryNames: string[];
-  source: 'api' | 'slack';
+  source: 'api' | 'slack' | 'celebration';
 }

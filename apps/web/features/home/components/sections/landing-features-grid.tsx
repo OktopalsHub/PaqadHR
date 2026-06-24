@@ -40,8 +40,8 @@ const features = [
   {
     icon: Heart,
     title: 'Shoutouts',
-    description: 'Recognize teammates with points and a shared appreciation feed.',
-    tags: ['Recognition', 'Points', 'Feed'],
+    description: 'Recognize teammates with Paq points and a shared appreciation feed.',
+    tags: ['Recognition', 'Paq points', 'Feed'],
   },
 ];
 

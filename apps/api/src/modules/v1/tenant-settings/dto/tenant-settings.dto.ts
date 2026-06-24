@@ -1,14 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsEmail,
   IsNumber,
   IsOptional,
   IsString,
   IsUrl,
   Max,
   Min,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -23,6 +26,15 @@ export class PointsSettingsDto {
   @Min(0)
   @Max(10000)
   monthlyAllowance: number;
+  @ApiProperty({
+    description: 'How often shoutout points allowance resets',
+    example: 'monthly',
+    enum: ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'],
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  allowancePeriod?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
   @ApiProperty({
     description: 'Maximum points per shoutout',
     example: 50,
@@ -107,12 +119,6 @@ export class NotificationSettingsDto {
   @IsBoolean()
   slackNotifications: boolean;
   @ApiProperty({
-    description: 'Enable Discord notifications',
-    example: false,
-  })
-  @IsBoolean()
-  discordNotifications: boolean;
-  @ApiProperty({
     description: 'Webhook URL for notifications',
     example: 'https://hooks.slack.com/services/...',
     required: false,
@@ -142,16 +148,98 @@ export class ShoutoutSettingsDto {
   @IsOptional()
   @IsBoolean()
   enableCategories?: boolean;
+  @ApiProperty({
+    description: 'Automated birthday shoutout settings',
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShoutoutCelebrationTemplateDto)
+  birthday?: ShoutoutCelebrationTemplateDto;
+  @ApiProperty({
+    description: 'Automated work anniversary shoutout settings',
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ShoutoutCelebrationTemplateDto)
+  workAnniversary?: ShoutoutCelebrationTemplateDto;
+}
+export class ShoutoutCelebrationTemplateDto {
+  @ApiProperty({ description: 'Whether this celebration shoutout is enabled', required: false })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+  @ApiProperty({ description: 'Points to award the celebrant', required: false, minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  points?: number;
+  @ApiProperty({
+    description: 'Message template. Placeholders: {name}, {years}, {company}',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  messageTemplate?: string;
 }
 export class AttendanceSettingsDto {
   @ApiProperty({
     description: 'Weekend days (0=Sunday, 1=Monday, etc.)',
     example: [0, 6],
     type: [Number],
+    required: false,
   })
+  @IsOptional()
   @IsArray()
   @IsNumber({}, { each: true })
-  weekends: number[];
+  weekends?: number[];
+
+  @ApiProperty({
+    description: 'Allow members to clock in and out from the app',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  clockInEnabled?: boolean;
+}
+export class BillingSettingsDto {
+  @ApiProperty({ description: 'Billing contact name', example: 'Jane Doe', required: false })
+  @IsOptional()
+  @IsString()
+  contactName?: string;
+
+  @ApiProperty({ description: 'Billing contact email', example: 'billing@company.com', required: false })
+  @IsOptional()
+  @IsEmail()
+  contactEmail?: string;
+
+  @ApiProperty({ description: 'Billing contact phone', required: false })
+  @IsOptional()
+  @IsString()
+  contactPhone?: string;
+
+  @ApiProperty({ description: 'Address line 1', required: false })
+  @IsOptional()
+  @IsString()
+  addressLine1?: string;
+
+  @ApiProperty({ description: 'Address line 2', required: false })
+  @IsOptional()
+  @IsString()
+  addressLine2?: string;
+
+  @ApiProperty({ description: 'City', required: false })
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @ApiProperty({ description: 'Country', required: false })
+  @IsOptional()
+  @IsString()
+  country?: string;
 }
 export class GeneralSettingsDto {
   @ApiProperty({
@@ -172,6 +260,17 @@ export class GeneralSettingsDto {
   })
   @IsString()
   currency: string;
+  @ApiProperty({
+    description: 'Payroll bank account currencies allowed for members',
+    example: ['USD', 'NGN'],
+    required: false,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @IsString({ each: true })
+  payrollCurrencies?: string[];
   @ApiProperty({
     description: 'Language preference',
     example: 'en',
@@ -195,6 +294,14 @@ export class GeneralSettingsDto {
   @Min(5)
   @Max(100)
   paginationLimit?: number;
+  @ApiProperty({
+    description: 'Send email when payslips are published to employees',
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  emailPayslipOnPublish?: boolean;
 }
 export class EmployeeSettingsDto {
   @ApiProperty({
@@ -251,19 +358,30 @@ export class HolidayDto {
 }
 export class HolidaySettingsDto {
   @ApiProperty({
+    description: 'ISO country code for public holidays on the schedule calendar',
+    example: 'NG',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  countryCode?: string;
+  @ApiProperty({
     description: 'Custom holidays for this tenant',
     type: [HolidayDto],
   })
+  @IsOptional()
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => HolidayDto)
-  customHolidays: HolidayDto[];
+  customHolidays?: HolidayDto[];
   @ApiProperty({
     description: 'Whether to exclude weekends from leave calculations',
     example: true,
+    required: false,
   })
+  @IsOptional()
   @IsBoolean()
-  excludeWeekends: boolean;
+  excludeWeekends?: boolean;
 }
 export class UpdateTenantSettingsDto {
   @ApiProperty({
@@ -329,6 +447,15 @@ export class UpdateTenantSettingsDto {
   @ValidateNested()
   @Type(() => HolidaySettingsDto)
   holidays?: HolidaySettingsDto;
+  @ApiProperty({
+    description: 'Billing contact and address',
+    type: BillingSettingsDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => BillingSettingsDto)
+  billing?: BillingSettingsDto;
 }
 export class AssignPointsDto {
   @ApiProperty({

@@ -1,18 +1,35 @@
 import type { ApiEducation } from '@/lib/api/education';
 import type { ApiEmergencyContact } from '@/lib/api/emergency-contacts';
+import type { ApiAddress } from '@/lib/api/address';
 import type { ApiTenantMember } from '@/lib/mappers/employee';
+import { normalizeGender } from '@/lib/constants/gender';
 import { mapApiEducationRecord, mapApiEmergencyContact } from '@/lib/mappers/employee-records';
+
+export function employeeDisplayName(employee: {
+  firstName?: string;
+  lastName?: string;
+  preferredName?: string;
+  name?: string;
+}) {
+  const full = [employee.firstName, employee.lastName].filter(Boolean).join(' ').trim();
+  if (full) return full;
+  if (employee.preferredName?.trim()) return employee.preferredName.trim();
+  if (employee.name?.trim()) return employee.name.trim();
+  return 'Employee';
+}
 
 export type EmployeeDetailState = ReturnType<typeof createEmployeeDetailState>;
 
 type EmployeeRecordSeed = {
   emergencyContacts?: ApiEmergencyContact[];
   education?: ApiEducation[];
+  address?: ApiAddress | null;
 };
 
 export function createEmployeeDetailState(
   member: ApiTenantMember,
   records: EmployeeRecordSeed = {},
+  options?: { managerName?: string },
 ) {
   const name =
     [member.firstName, member.lastName].filter(Boolean).join(' ') ||
@@ -25,80 +42,42 @@ export function createEmployeeDetailState(
     ? new Date(member.dateOfBirth).toISOString().slice(0, 10)
     : '';
 
+  const addressRecord = records.address;
+
+  const gender = normalizeGender(member.gender);
+
   return {
     id: member.id,
     firstName: member.firstName,
     lastName: member.lastName,
     name,
     preferredName: member.preferredName ?? '',
-    position: member.position?.title ?? 'Team Member',
-    department: member.department?.name ?? 'Unassigned',
+    position: member.position?.title ?? '',
+    department: member.department?.name ?? '',
     email: member.user.email,
     phone: member.phone ?? '',
     dateOfBirth,
     hireDate,
     status: member.isActive ? ('Active' as const) : ('Inactive' as const),
-    manager: '',
+    manager: options?.managerName ?? '',
     profileImage: member.avatarUrl ?? '',
-    gender: member.gender ?? '',
+    gender,
+    addressId: addressRecord?.id ?? '',
     address: {
-      street: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: '',
+      street: addressRecord?.street ?? '',
+      city: addressRecord?.city ?? '',
+      state: addressRecord?.state ?? '',
+      zipCode: addressRecord?.postalCode ?? '',
+      country: addressRecord?.country ?? '',
     },
     emergencyContacts: (records.emergencyContacts ?? []).map(mapApiEmergencyContact),
     personalInfo: {
-      gender: member.gender ?? '',
-      maritalStatus: '',
-      nationality: '',
-      bloodGroup: '',
+      gender,
     },
     employment: {
-      employeeId: member.employeeNumber ?? member.id,
-      employeeType: '',
-      division: '',
-      team: '',
-      workLocation: '',
+      employeeId: member.employeeNumber ?? '',
       joinDate: hireDate,
-      reportingTo: '',
-      payGrade: '',
-      workSchedule: '',
     },
-    compensation: {
-      salary: '',
-      payFrequency: '',
-      bonusPlan: '',
-      lastIncrement: {
-        date: '',
-        percentage: '',
-        amount: '',
-      },
-      benefits: [] as string[],
-    },
-    documents: [] as {
-      id: number;
-      name: string;
-      type: string;
-      dateUploaded: string;
-      status: string;
-    }[],
-    timeOff: {
-      availableBalance: {
-        vacation: 0,
-        sick: 0,
-        personal: 0,
-      },
-      recentRequests: [] as {
-        id: number;
-        type: string;
-        dates: string;
-        status: string;
-        days: number;
-      }[],
-    },
-    skills: [] as string[],
     education: (records.education ?? []).map(mapApiEducationRecord),
   };
 }

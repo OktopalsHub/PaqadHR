@@ -13,7 +13,12 @@ export const tenantSchema = z
     id: z.string(),
     name: z.string(),
     slug: z.string(),
-    isActive: z.boolean(),
+    isActive: z.boolean().default(true),
+    logoUrl: z.string().optional(),
+    industry: z.string().optional(),
+    location: z.string().optional(),
+    companySize: z.string().optional(),
+    employeeCode: z.string().optional(),
     member: tenantMemberSchema.optional(),
   })
   .passthrough();

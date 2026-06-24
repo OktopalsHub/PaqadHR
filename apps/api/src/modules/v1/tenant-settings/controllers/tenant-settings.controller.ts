@@ -1,7 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { TenantsService } from '../../tenants/tenants.service';
@@ -11,6 +15,7 @@ import type {
   HolidaySettingsDto,
   UpdateTenantSettingsDto,
 } from '../dto/tenant-settings.dto';
+import { defaultHolidaySettings, HolidayService } from '../services/holiday.service';
 import { TenantSettingsService } from '../services/tenant-settings.service';
 import { TenantSettingsInitializationService } from '../services/tenant-settings-initialization.service';
 @ApiTags('Tenant Settings')
@@ -22,12 +27,15 @@ export class TenantSettingsController {
     private readonly tenantSettingsInitializationService: TenantSettingsInitializationService,
     private readonly tenantsService: TenantsService,
     private readonly memberPointsService: MemberPointsService,
+    private readonly holidayService: HolidayService,
   ) {}
   @Get()
   async getTenantSettings(@TenantId() tenantId: string) {
     return this.tenantSettingsService.getTenantSettings(tenantId);
   }
   @Patch()
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTenantSettings(
     @TenantId() tenantId: string,
     @Body() updateDto: UpdateTenantSettingsDto,
@@ -35,6 +43,8 @@ export class TenantSettingsController {
     return this.tenantSettingsService.updateTenantSettings(tenantId, updateDto);
   }
   @Post('assign-points')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async assignPointsToAllMembers(
     @TenantId() tenantId: string,
     @Body() assignPointsDto: AssignPointsDto,
@@ -48,10 +58,14 @@ export class TenantSettingsController {
     );
   }
   @Get('members-points')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getTenantMembersWithPoints(@TenantId() tenantId: string) {
     return this.memberPointsService.listMembersWithPoints(tenantId);
   }
   @Post('initialize')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async initializeTenantSettings(
     @TenantId() tenantId: string,
     @Body()
@@ -94,6 +108,8 @@ export class TenantSettingsController {
     }
   }
   @Post('initialize-workspace')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async initializeTenantWorkspace(
     @TenantId() tenantId: string,
     @Body()
@@ -154,16 +170,19 @@ export class TenantSettingsController {
   }
 
   @Get('holidays')
-  async getHolidaySettings(@TenantId() tenantId: string) {
+  async getHolidaySettings(@TenantId() tenantId: string, @Req() req: Request) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
-    return settings.settings.holidays;
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, req.ip);
+    const suggestedCountryCode = await GeoLocationHelper.getCountryCode(ip);
+    return {
+      ...settings.settings.holidays,
+      suggestedCountryCode: suggestedCountryCode || undefined,
+    };
   }
   @Get('holidays/countries')
-  async getSupportedCountries() {
-    const { HolidayService } = await import('../services/holiday.service');
-    const holidayService = new HolidayService();
+  getSupportedCountries() {
     return {
-      countries: holidayService.getSupportedCountries(),
+      countries: this.holidayService.getSupportedCountriesWithNames(),
     };
   }
   @Get('holidays/calendar/:year')
@@ -172,24 +191,28 @@ export class TenantSettingsController {
       this.tenantSettingsService.getTenantSettings(tenantId),
       this.tenantsService.getTenant(tenantId),
     ]);
-    const { HolidayService } = await import('../services/holiday.service');
-    const holidayService = new HolidayService();
-    return holidayService.getHolidaysForYear(
+    const holidaySettings = {
+      ...defaultHolidaySettings(),
+      ...settings.settings.holidays,
+    };
+    const countryCode = holidaySettings.countryCode || tenant.countryCode || '';
+    return await this.holidayService.getHolidaysForYear(
       parseInt(year, 10),
-      tenant.countryCode || '',
-      settings.settings.holidays,
+      countryCode,
+      holidaySettings,
     );
   }
   @Get('holidays/:countryCode')
   async getCountryHolidays(@Param('countryCode') countryCode: string) {
-    const { HolidayService } = await import('../services/holiday.service');
-    const holidayService = new HolidayService();
+    const holidays = await this.holidayService.getCountryHolidaysFromProvider(countryCode);
     return {
       countryCode: countryCode.toUpperCase(),
-      holidays: holidayService.getCountryHolidays(countryCode),
+      holidays,
     };
   }
   @Patch('holidays')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateHolidaySettings(
     @TenantId() tenantId: string,
     @Body() holidaySettings: HolidaySettingsDto,
@@ -199,6 +222,8 @@ export class TenantSettingsController {
     });
   }
   @Post('holidays/custom')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async addCustomHoliday(
     @TenantId() tenantId: string,
     @Body() holidayData: Omit<HolidayDto, 'id'>,
@@ -218,6 +243,8 @@ export class TenantSettingsController {
     });
   }
   @Delete('holidays/custom/:holidayId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async removeCustomHoliday(@TenantId() tenantId: string, @Param('holidayId') holidayId: string) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];

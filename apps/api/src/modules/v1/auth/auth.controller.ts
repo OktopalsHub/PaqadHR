@@ -46,8 +46,7 @@ export class AuthController {
       body.password,
       typeof ipAddress === 'string' ? ipAddress : '',
       undefined,
-      undefined,
-      body.name,
+      undefined
     );
     const { accessToken, refreshToken } = await this.authService.login(user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
@@ -92,22 +91,11 @@ export class AuthController {
   @Get('google/callback')
   @Public()
   @UseGuards(AuthGuard('google'))
-  async googleCallback(
-    @Req() req,
-    @Ip() ip: string,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse> {
+  async googleCallback(@Req() req, @Ip() ip: string, @Res() res: Response): Promise<void> {
     const { accessToken, refreshToken } = await this.authService.login(req.user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
-    return {
-      accessToken,
-      refreshToken,
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        role: req.user.role,
-      },
-    };
+    const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    res.redirect(`${frontend}/google/complete`);
   }
 
   @Post('refresh')

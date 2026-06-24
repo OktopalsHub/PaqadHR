@@ -2,7 +2,7 @@
 
 import { ArrowUpRight, Briefcase, CalendarClock, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
@@ -16,12 +16,11 @@ import { RecruitmentApplicantsTable } from '@/features/recruitment/components/da
 import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
+import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
 import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useLeaves } from '@/hooks/queries/use-leaves';
-import { memberPreferredOrFirstName, useMemberProfile } from '@/hooks/queries/use-member-profile';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
-import { useAuth } from '@/hooks/use-auth';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { formatDate } from '@/lib/format-date';
 import type { JobOpening } from '@/lib/schemas/recruitment';
@@ -40,8 +39,6 @@ function leaveStatusVariant(status: string) {
 }
 
 export const Dashboard = () => {
-  const { user } = useAuth();
-  const { data: profile } = useMemberProfile();
   const {
     data: employees = [],
     isLoading: employeesLoading,
@@ -66,11 +63,6 @@ export const Dashboard = () => {
   const recentLeaves = [...leaves]
     .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
     .slice(0, 6);
-
-  const dashboardTitle = useMemo(
-    () => memberPreferredOrFirstName(profile, user?.name),
-    [profile, user?.name],
-  );
 
   const departmentCount = new Set(employees.map((employee) => employee.department).filter(Boolean))
     .size;
@@ -119,8 +111,6 @@ export const Dashboard = () => {
         </Button>
       </PageActions>
 
-      <p className="text-sm text-muted-foreground">Welcome back, {dashboardTitle}.</p>
-
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Headcount" value={employees.length} hint="Active employees" icon={Users} />
         <StatCard
@@ -143,6 +133,8 @@ export const Dashboard = () => {
           iconClassName="bg-chart-2/15 text-chart-2"
         />
       </div>
+
+      <UpcomingReminders />
 
       <div className="grid gap-4 xl:grid-cols-12">
         <ContentCard

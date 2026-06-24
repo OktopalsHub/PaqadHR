@@ -22,23 +22,21 @@ export class TenantsService {
   ) {}
   async createTenant(creatorId: string, data: CreateTenantDto): Promise<Tenant> {
     try {
-      const [user, generatedSlug] = await Promise.all([
-        this.userService.getUser(creatorId),
-        this.generateSlug(data.name),
-      ]);
+      const user = await this.userService.getUser(creatorId);
       if (!user) {
         throw new UnprocessableEntityException('User not found');
       }
-      if ((process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '').includes(generatedSlug.toLowerCase())) {
+      const slug = await this.resolveSlug(data.slug, data.name);
+      if ((process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '').includes(slug.toLowerCase())) {
         throw new UnprocessableEntityException(
-          `The subdomain "${generatedSlug}" is reserved and cannot be used.`,
+          `The subdomain "${slug}" is reserved and cannot be used.`,
         );
       }
       const inviteCode = StringUtility.generateInviteCode();
       const employeeCode = this.generateEmployeeCode(data.name);
       const tenantData: Partial<Tenant> = {
         name: data.name,
-        slug: generatedSlug,
+        slug,
         createdBy: user,
         isActive: true,
         inviteCode,
@@ -179,6 +177,17 @@ export class TenantsService {
   }
   async getTenantByInviteCode(inviteCode: string): Promise<Tenant | null> {
     return this.tenantRepository.findByInviteCode(inviteCode);
+  }
+  private async resolveSlug(rawSlug: string | undefined, name: string): Promise<string> {
+    if (rawSlug?.trim()) {
+      const slug = StringUtility.slugify(rawSlug.trim());
+      const existing = await this.tenantRepository.findBySlug(slug);
+      if (existing) {
+        throw new UnprocessableEntityException('This workspace slug is already taken.');
+      }
+      return slug;
+    }
+    return this.generateSlug(name);
   }
   private async generateSlug(slug: string): Promise<string> {
     const baseSlug = StringUtility.slugify(slug);

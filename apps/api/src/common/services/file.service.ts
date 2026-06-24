@@ -13,11 +13,16 @@ export class FileService {
   private readonly defaultExpiresIn = 3600;
   private readonly publicUrl: string | null;
   constructor(private readonly r2Service: CloudflareR2Service) {
-    const { CLOUDFLARE_R2 } = ENVIRONMENT;
-    if (CLOUDFLARE_R2.CUSTOM_DOMAIN) {
-      this.publicUrl = `https://${CLOUDFLARE_R2.CUSTOM_DOMAIN}`;
-    } else if (CLOUDFLARE_R2.PUBLIC_ID) {
-      this.publicUrl = `https://pub-${CLOUDFLARE_R2.PUBLIC_ID}.r2.dev`;
+    const { R2 } = ENVIRONMENT;
+    const customDomain = R2.CUSTOM_DOMAIN?.trim();
+    const publicId = R2.PUBLIC_ID?.trim();
+    if (customDomain) {
+      this.publicUrl =
+        customDomain.startsWith('http://') || customDomain.startsWith('https://')
+          ? customDomain
+          : `https://${customDomain}`;
+    } else if (publicId) {
+      this.publicUrl = `https://pub-${publicId}.r2.dev`;
     } else {
       this.publicUrl = null;
     }

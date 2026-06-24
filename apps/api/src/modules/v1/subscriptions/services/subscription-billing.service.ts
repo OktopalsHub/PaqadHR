@@ -29,6 +29,7 @@ import {
 } from '../utils/per-seat-pricing.util';
 import { NombaApiService } from './nomba-api.service';
 import { SubscriptionsService } from './subscriptions.service';
+import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,6 +49,7 @@ export class SubscriptionBillingService {
     private readonly nombaProvider: NombaSubscriptionProvider,
     private readonly nombaApi: NombaApiService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly tenantSettingsService: TenantSettingsService,
     private readonly plansService: PlansService,
     @InjectRepository(TenantSubscription)
     private readonly subscriptionRepository: Repository<TenantSubscription>,
@@ -72,10 +74,12 @@ export class SubscriptionBillingService {
   }
 
   async getBillingOverview(tenantId: string, canManageBilling: boolean) {
-    const [tenant, billingStatus, seatCount] = await Promise.all([
-      this.tenantRepository.findOne({ where: { id: tenantId } }),
+    const [tenant, billingStatus, seatCount, subscription, tenantSettings] = await Promise.all([
+      this.tenantRepository.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
       this.subscriptionsService.getBillingStatus(tenantId),
       this.getTenantSeatCount(tenantId),
+      this.subscriptionsService.getTenantSubscription(tenantId),
+      this.tenantSettingsService.getTenantSettings(tenantId).catch(() => null),
     ]);
 
     if (!tenant) {
@@ -91,14 +95,55 @@ export class SubscriptionBillingService {
       .map((price) => this.toPlanQuote(price, seatCount))
       .sort((a, b) => a.name.localeCompare(b.name));
 
+    const sub = billingStatus.subscription;
+    const needsPayment =
+      !sub ||
+      sub.status === SubscriptionStatus.EXPIRED ||
+      sub.status === SubscriptionStatus.PAST_DUE ||
+      sub.status === SubscriptionStatus.SUSPENDED ||
+      sub.status === SubscriptionStatus.INACTIVE ||
+      sub.status === SubscriptionStatus.CANCELLED ||
+      (sub.status === SubscriptionStatus.TRIAL && sub.daysRemaining === 0);
+
+    const billingHistory = (subscription?.billingHistory ?? []).map((entry) => ({
+      date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
+      amount: entry.amount,
+      currency: entry.currency,
+      status: entry.status,
+      invoiceId: entry.invoiceId ?? null,
+    }));
+
     return {
       ...billingStatus,
       seatCount,
       countryCode,
       currency: tenant.preferredCurrency ?? plans[0]?.currency ?? 'USD',
-      canManageBilling: canManageBilling && paymentsEnabled,
-      plans: paymentsEnabled ? plans : [],
+      canManageBilling: canManageBilling,
+      plans,
+      companyName: tenant.name,
+      nextBillingDate: subscription?.nextBillingDate?.toISOString() ?? null,
+      hasPaymentMethodOnFile: Boolean(subscription?.nombaSubscriptionId || subscription?.paymentMethodId),
+      billingHistory,
+      needsPayment,
+      billingContact: tenantSettings?.settings.billing ?? {},
+      ownerEmail: tenant.createdBy?.email ?? null,
     };
+  }
+
+  private async resolveBillingEmail(
+    tenantId: string,
+    fallbackEmail?: string | null,
+  ): Promise<string | null> {
+    try {
+      const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+      const contactEmail = settings.settings.billing?.contactEmail?.trim();
+      if (contactEmail) {
+        return contactEmail;
+      }
+    } catch {
+      // Tenant settings may not be initialized yet.
+    }
+    return fallbackEmail?.trim() || null;
   }
 
   async createSubscriptionCheckout(
@@ -123,8 +168,14 @@ export class SubscriptionBillingService {
 
     if (!tenant) throw new NotFoundException('Tenant not found');
     if (!user) throw new NotFoundException('User not found');
-    if (existing?.status === SubscriptionStatus.ACTIVE) {
-      throw new BadRequestException('Organization already has an active paid subscription');
+
+    const currentPlanSlug =
+      existing?.plan?.slug?.toLowerCase() ?? existing?.plan?.name?.toLowerCase();
+    if (
+      existing?.status === SubscriptionStatus.ACTIVE &&
+      currentPlanSlug === normalizedSlug
+    ) {
+      throw new BadRequestException('Organization already has an active subscription on this plan');
     }
 
     const planPrice = await this.plansService.getPlanPrice(
@@ -230,8 +281,11 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const ownerEmail = subscription.tenant?.createdBy?.email;
-    if (!ownerEmail) {
+    const billingEmail = await this.resolveBillingEmail(
+      tenantId,
+      subscription.tenant?.createdBy?.email,
+    );
+    if (!billingEmail) {
       this.logger.warn(`No billing contact email found for tenant ${tenantId}`);
       return;
     }
@@ -241,7 +295,7 @@ export class SubscriptionBillingService {
       planPrice,
       quantity,
       subscription.paymentMethodId,
-      ownerEmail,
+      billingEmail,
       {
         tenantId,
         planId: subscription.planId,
@@ -311,10 +365,13 @@ export class SubscriptionBillingService {
       return 'skipped';
     }
 
-    const ownerEmail = subscription.tenant?.createdBy?.email;
+    const billingEmail = await this.resolveBillingEmail(
+      subscription.tenantId,
+      subscription.tenant?.createdBy?.email,
+    );
     const tokenKey = subscription.paymentMethodId;
     const nombaReference = subscription.nombaSubscriptionId;
-    if (!ownerEmail || !tokenKey || !nombaReference) {
+    if (!billingEmail || !tokenKey || !nombaReference) {
       this.logger.warn(`Skipping renewal for ${subscription.tenantId}: missing billing credentials`);
       return 'skipped';
     }
@@ -333,7 +390,7 @@ export class SubscriptionBillingService {
         planPrice,
         seatCount,
         tokenKey,
-        ownerEmail,
+        billingEmail,
         metadata,
       );
 

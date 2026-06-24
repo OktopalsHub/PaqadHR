@@ -1,6 +1,14 @@
 import type { INestApplication } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
 import request, { type Test } from 'supertest';
+import { DataSource } from 'typeorm';
+import { DocumentType } from '../src/common/enums/document-type.enum';
+import { PaymentMethodType } from '../src/common/enums';
+import { PaymentMethodStatus } from '../src/common/enums/payment-method-status.enum';
+import { IntegrationType } from '../src/common/enums';
+import { Document as MemberDocument } from '../src/modules/v1/document/entities/document.entity';
+import { PaymentMethod } from '../src/modules/v1/payment-method/entities/payment-method.entity';
+import { PlatformIntegrationService } from '../src/common/integrations/services/platform-integration.service';
 import { uniqueEmail } from './e2e-bootstrap';
 
 export type E2eAuthContext = {
@@ -77,6 +85,43 @@ export async function onboardTenant(
   return { ...auth, tenantId, ownerMemberId };
 }
 
+/** Poll until async tenant.settings.initialize listener has finished. */
+export async function waitForTenantSettings(
+  owner: E2eTenantContext,
+  maxAttempts = 30,
+  delayMs = 100,
+): Promise<void> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await owner.withAuth(
+      owner.agent.get(`/api/v1/tenants/${owner.tenantId}/settings`),
+    );
+    if (res.status === 200) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new Error(`Tenant settings not ready for tenant ${owner.tenantId}`);
+}
+
+/** Shoutouts via API require Slack + channel configured for the tenant. */
+export async function seedShoutoutSlackIntegration(
+  app: INestApplication,
+  owner: E2eTenantContext,
+): Promise<void> {
+  const platformIntegrationService = app.get(PlatformIntegrationService);
+  await platformIntegrationService.createIntegration(
+    owner.tenantId,
+    IntegrationType.SLACK,
+    {
+      teamId: 'T-E2E-TEST',
+      teamName: 'E2E Test Workspace',
+      accessToken: 'xoxp-e2e-test',
+      botToken: 'xoxb-e2e-test',
+    },
+    owner.ownerMemberId,
+  );
+}
+
 export async function inviteMember(
   owner: E2eTenantContext,
   email: string,
@@ -124,6 +169,139 @@ export function nextWeekdayDate(daysAhead = 7): string {
     date.setDate(date.getDate() + 1);
   }
   return date.toISOString().slice(0, 10);
+}
+
+export async function seedReportingLine(
+  owner: E2eTenantContext,
+  managerMemberId: string,
+  employeeMemberId: string,
+): Promise<void> {
+  const positionsRes = await owner
+    .withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/positions`))
+    .expect(200);
+
+  let positionId = positionsRes.body?.[0]?.id as string | undefined;
+  if (!positionId) {
+    const createdPosition = await owner
+      .withAuth(owner.agent.post(`/api/v1/tenants/${owner.tenantId}/positions`))
+      .send({ title: 'E2E Staff', description: 'E2E position' })
+      .expect(201);
+    positionId = createdPosition.body.id as string;
+  }
+
+  const createEmployment = async (memberId: string, reportsToId?: string) => {
+    await owner
+      .withAuth(
+        owner.agent.post(
+          `/api/v1/tenants/${owner.tenantId}/members/${memberId}/employments`,
+        ),
+      )
+      .send({
+        startDate: new Date().toISOString(),
+        positionId,
+        payRate: 100000,
+        reportsToId,
+      })
+      .expect(201);
+  };
+
+  const managerEmployments = await owner
+    .withAuth(
+      owner.agent.get(
+        `/api/v1/tenants/${owner.tenantId}/members/${managerMemberId}/employments`,
+      ),
+    )
+    .expect(200);
+
+  if (!managerEmployments.body?.length) {
+    await createEmployment(managerMemberId);
+  }
+
+  const employeeEmployments = await owner
+    .withAuth(
+      owner.agent.get(
+        `/api/v1/tenants/${owner.tenantId}/members/${employeeMemberId}/employments`,
+      ),
+    )
+    .expect(200);
+
+  if (!employeeEmployments.body?.length) {
+    await createEmployment(employeeMemberId, managerMemberId);
+    return;
+  }
+
+  const employmentId = employeeEmployments.body[0].id as string;
+  await owner
+    .withAuth(
+      owner.agent.patch(`/api/v1/tenants/${owner.tenantId}/employments/${employmentId}`),
+    )
+    .send({ reportsToId: managerMemberId })
+    .expect(200);
+}
+
+export async function seedMemberDocument(
+  app: INestApplication,
+  tenantId: string,
+  memberId: string,
+): Promise<MemberDocument> {
+  const dataSource = app.get(DataSource);
+  const repo = dataSource.getRepository(MemberDocument);
+  return repo.save(
+    repo.create({
+      tenantId,
+      tenantMemberId: memberId,
+      type: DocumentType.RESUME_CV,
+      name: 'resume.pdf',
+      fileKey: `e2e/documents/${memberId}/resume.pdf`,
+      isVerified: true,
+    }),
+  );
+}
+
+export async function seedMemberPaymentMethod(
+  app: INestApplication,
+  tenantId: string,
+  memberId: string,
+): Promise<PaymentMethod> {
+  const dataSource = app.get(DataSource);
+  const repo = dataSource.getRepository(PaymentMethod);
+  return repo.save(
+    repo.create({
+      tenantId,
+      memberId,
+      type: PaymentMethodType.BANK,
+      currency: 'NGN',
+      bankName: 'E2E Bank',
+      accountName: 'E2E Account',
+      accountNumber: '1234567890',
+      status: PaymentMethodStatus.VERIFIED,
+      isPrimary: true,
+    }),
+  );
+}
+
+export async function seedPendingLeaveForMember(
+  owner: E2eTenantContext,
+  memberAuth: E2eAuthContext,
+): Promise<{ leaveId: string }> {
+  const leaveTypes = await owner
+    .withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/leave-types`))
+    .expect(200);
+  const ptoType = leaveTypes.body.find((lt: { name: string }) => lt.name === 'PTO');
+  if (!ptoType) {
+    throw new Error('PTO leave type not found');
+  }
+  const leaveDay = nextWeekdayDate();
+  const leave = await memberAuth
+    .withAuth(memberAuth.agent.post(`/api/v1/tenants/${owner.tenantId}/leaves`))
+    .send({
+      leaveTypeId: ptoType.id,
+      startDate: leaveDay,
+      endDate: leaveDay,
+      reason: 'E2E leave for access test',
+    })
+    .expect(201);
+  return { leaveId: leave.body.id as string };
 }
 
 export function signNombaWebhook(body: string, secret: string): string {

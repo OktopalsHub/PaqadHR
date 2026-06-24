@@ -27,11 +27,74 @@ export async function createPayrollRun(input: CreatePayrollRunInput): Promise<Pa
 
 export async function calculatePayrollRun(
   id: string,
+  adjustments?: import('@/lib/schemas/payroll').PayrollAdjustmentLine[],
 ): Promise<{ warnings: string[]; readiness: PayrollReadiness['items'] }> {
   const tenantId = await resolveTenantId();
-  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/calculate`), {
+  const path = adjustments?.length
+    ? `payroll/runs/${id}/calculate-with-adjustments`
+    : `payroll/runs/${id}/calculate`;
+  return apiClient(tenantPath(tenantId, path), {
     method: 'POST',
+    body: adjustments?.length ? JSON.stringify({ adjustments }) : undefined,
   });
+}
+
+export async function updatePayrollItem(
+  runId: string,
+  itemId: string,
+  body: { adjustmentLines: import('@/lib/schemas/payroll').PayrollAdjustmentLine[] },
+): Promise<import('@/lib/schemas/payroll').PayrollRunDetail> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ payrollRun: import('@/lib/schemas/payroll').PayrollRunDetail }>(
+    tenantPath(tenantId, `payroll/runs/${runId}/items/${itemId}`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    },
+  );
+  return result.payrollRun;
+}
+
+export async function fetchRunPayslips(runId: string) {
+  const tenantId = await resolveTenantId();
+  return apiClient<import('@/lib/schemas/payroll').RunPayslip[]>(
+    tenantPath(tenantId, `payroll/runs/${runId}/payslips`),
+  );
+}
+
+export async function publishPayslips(
+  runId: string,
+  body?: { itemIds?: string[]; sendEmail?: boolean },
+) {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, `payroll/runs/${runId}/payslips/publish`), {
+    method: 'POST',
+    body: JSON.stringify(body ?? {}),
+  });
+}
+
+export async function fetchMemberPublishedPayslips(memberId: string) {
+  const tenantId = await resolveTenantId();
+  return apiClient<import('@/lib/schemas/payroll').PublishedPayslip[]>(
+    tenantPath(tenantId, `payroll/members/${memberId}/published-payslips`),
+  );
+}
+
+export async function downloadPayslipPdf(runId: string, itemId: string, filename: string) {
+  const tenantId = await resolveTenantId();
+  const response = await fetchWithCsrf(
+    `${getApiV1Base()}${tenantPath(tenantId, `payroll/runs/${runId}/items/${itemId}/payslip/download`)}`,
+  );
+  if (!response.ok) {
+    throw new Error('Failed to download payslip');
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function fetchPayrollReadiness(id: string): Promise<PayrollReadiness> {

@@ -99,6 +99,28 @@ export class AuditService {
     });
   }
 
+  async logPayslipsPublished(
+    context: AuditContext,
+    data: {
+      itemIds: string[];
+      documentIds: string[];
+      sendEmail: boolean;
+      publishedCount: number;
+    },
+  ): Promise<void> {
+    await this.logEvent(context, {
+      eventType: AuditEventType.PAYSLIPS_PUBLISHED,
+      description: `Published ${data.publishedCount} payslip(s) to employees`,
+      afterData: data,
+      metadata: {
+        itemIds: data.itemIds,
+        documentIds: data.documentIds,
+        sendEmail: data.sendEmail,
+        publishedAt: new Date().toISOString(),
+      },
+    });
+  }
+
   async logPayrollProcessed(
     context: AuditContext,
     payrollRunData: Record<string, any>,

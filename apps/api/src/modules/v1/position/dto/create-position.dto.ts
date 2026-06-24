@@ -29,4 +29,11 @@ export class CreatePositionDto {
   })
   @IsOptional()
   isActive?: boolean = true;
+  @IsString()
+  @ApiProperty({
+    description: 'color',
+    required: false,
+  })
+  @IsOptional()
+  color?: string;
 }
