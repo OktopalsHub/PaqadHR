@@ -89,6 +89,8 @@ const AppDataSource = {
     Migrations.CandidateCustomAnswers1781549462132,
     Migrations.AddColorToDepartment1781550110123,
     Migrations.AddColorToPosition1781550110124,
+    Migrations.RewardsSetup1782000000000,
+    Migrations.TasksSetup1783000000000,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

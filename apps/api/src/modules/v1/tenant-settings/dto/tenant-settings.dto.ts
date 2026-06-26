@@ -383,6 +383,53 @@ export class HolidaySettingsDto {
   @IsBoolean()
   excludeWeekends?: boolean;
 }
+export class RewardsSettingsDto {
+  @ApiProperty({ description: 'Whether the rewards redemption system is enabled', example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiProperty({ description: 'Points-to-currency exchange rate', example: 10, required: false })
+  @IsOptional()
+  @IsNumber()
+  pointsExchangeRate?: number;
+
+  @ApiProperty({ description: 'The currency code for rewards', example: 'NGN', required: false })
+  @IsOptional()
+  @IsString()
+  rewardsCurrency?: string;
+
+  @ApiProperty({ description: 'Allowed ISO country codes for Reloadly gift cards', type: [String], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  catalogCountries?: string[];
+
+  @ApiProperty({ description: 'Whether Nomba airtime vending is enabled', example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  airtimeEnabled?: boolean;
+
+  @ApiProperty({ description: 'Whether custom rewards are enabled', example: true, required: false })
+  @IsOptional()
+  @IsBoolean()
+  customRewardsEnabled?: boolean;
+
+  @ApiProperty({ description: 'Active configured Reloadly gift card products', type: [Object], required: false })
+  @IsOptional()
+  @IsArray()
+  reloadlyProducts?: Array<{
+    productId: number;
+    name: string;
+    pointsCost: number;
+    imageUrl: string | null;
+    countryCode: string;
+    currencyCode: string;
+    minDenomination?: number | null;
+    maxDenomination?: number | null;
+    fixedDenominations?: number[];
+  }>;
+}
 export class UpdateTenantSettingsDto {
   @ApiProperty({
     description: 'Points-related settings',
@@ -456,6 +503,15 @@ export class UpdateTenantSettingsDto {
   @ValidateNested()
   @Type(() => BillingSettingsDto)
   billing?: BillingSettingsDto;
+  @ApiProperty({
+    description: 'Rewards configuration settings',
+    type: RewardsSettingsDto,
+    required: false,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RewardsSettingsDto)
+  rewards?: RewardsSettingsDto;
 }
 export class AssignPointsDto {
   @ApiProperty({

@@ -11,6 +11,7 @@ import { SettingsLeaveTab } from '@/features/settings/components/settings-leave-
 import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsProfileTab } from '@/features/settings/components/settings-profile-tab';
+import { SettingsRewardsTab } from '@/features/settings/components/settings-rewards-tab';
 import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
 import {
@@ -58,6 +59,7 @@ function SettingsPageContent() {
           {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="workspace">Workspace</TabsTrigger> : null}
           {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="leave">Leave</TabsTrigger> : null}
           {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="shoutouts">Shoutouts</TabsTrigger> : null}
+          {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="rewards">Rewards</TabsTrigger> : null}
           {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="holidays">Holidays</TabsTrigger> : null}
           {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="notifications">Notifications</TabsTrigger> : null}
           {isAdmin ? <TabsTrigger className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto" value="attendance">Attendance</TabsTrigger> : null}
@@ -80,6 +82,11 @@ function SettingsPageContent() {
         {isAdmin ? (
           <TabsContent value="shoutouts" className="mt-5">
             <SettingsShoutoutsTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="rewards" className="mt-5">
+            <SettingsRewardsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (

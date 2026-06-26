@@ -82,4 +82,11 @@ export const queryKeys = {
     list: ['notifications', 'list'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
   },
+  rewards: {
+    catalog: ['rewards', 'catalog'] as const,
+    claims: ['rewards', 'claims'] as const,
+    allClaims: ['rewards', 'all-claims'] as const,
+    wallet: ['rewards', 'wallet'] as const,
+    custom: ['rewards', 'custom'] as const,
+  },
 } as const;

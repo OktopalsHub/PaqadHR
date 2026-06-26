@@ -111,6 +111,17 @@ export class TenantSettingsService {
           ...updateDto.billing,
         },
       }),
+      ...(updateDto.rewards && {
+        rewards: {
+          enabled: updateDto.rewards.enabled ?? existingSettings.settings.rewards?.enabled ?? false,
+          pointsExchangeRate: updateDto.rewards.pointsExchangeRate ?? existingSettings.settings.rewards?.pointsExchangeRate ?? 10,
+          rewardsCurrency: updateDto.rewards.rewardsCurrency ?? existingSettings.settings.rewards?.rewardsCurrency ?? 'NGN',
+          catalogCountries: updateDto.rewards.catalogCountries ?? existingSettings.settings.rewards?.catalogCountries ?? ['NG'],
+          airtimeEnabled: updateDto.rewards.airtimeEnabled ?? existingSettings.settings.rewards?.airtimeEnabled ?? true,
+          customRewardsEnabled: updateDto.rewards.customRewardsEnabled ?? existingSettings.settings.rewards?.customRewardsEnabled ?? true,
+          reloadlyProducts: updateDto.rewards.reloadlyProducts ?? existingSettings.settings.rewards?.reloadlyProducts ?? [],
+        },
+      }),
     };
     if (updateDto.points) {
       this.validatePointsSettings(updatedSettings.points);

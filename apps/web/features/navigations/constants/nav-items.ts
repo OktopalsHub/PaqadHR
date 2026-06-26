@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Clock,
   FileText,
+  Gift,
   Heart,
   LayoutDashboard,
   type LucideIcon,

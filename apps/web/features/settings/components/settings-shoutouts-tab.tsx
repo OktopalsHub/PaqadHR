@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { SlackIntegrationSection } from '@/features/settings/components/slack-integration-section';
 import {
   SettingsFieldHint,
   SettingsSwitchRow,
@@ -319,6 +320,13 @@ export function SettingsShoutoutsTab() {
             </Button>
           </div>
         </div>
+      </ContentCard>
+
+      <ContentCard
+        title="Slack integration"
+        description={`Connect Slack to publish shoutout notifications and congratulations in your Slack workspace`}
+      >
+        <SlackIntegrationSection />
       </ContentCard>
 
       <ContentCard

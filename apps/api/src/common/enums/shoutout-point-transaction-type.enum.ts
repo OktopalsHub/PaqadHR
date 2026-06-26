@@ -3,4 +3,5 @@ export enum ShoutoutPointTransactionType {
   RECEIVED = 'RECEIVED',
   ADMIN_ASSIGN = 'ADMIN_ASSIGN',
   MONTHLY_RESET = 'MONTHLY_RESET',
+  REDEMPTION = 'REDEMPTION',
 }

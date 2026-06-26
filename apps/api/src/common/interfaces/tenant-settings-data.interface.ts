@@ -5,6 +5,7 @@ import type { GeneralSettings } from './general-settings.interface';
 import type { HolidaySettings } from './holiday-settings.interface';
 import type { NotificationSettings } from './notification-settings.interface';
 import type { PointsSettings } from './points-settings.interface';
+import type { RewardsSettings } from './rewards-settings.interface';
 import type { ShoutoutSettings } from './shoutout-settings.interface';
 
 export interface TenantSettingsData {
@@ -16,4 +17,6 @@ export interface TenantSettingsData {
   employee: EmployeeSettings;
   holidays: HolidaySettings;
   billing: BillingSettings;
+  rewards?: RewardsSettings;
 }
+

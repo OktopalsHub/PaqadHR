@@ -43,6 +43,7 @@ import { PayrollModule } from './modules/v1/payroll/payroll.module';
 import { PlansModule } from './modules/v1/plans/plans.module';
 import { PositionModule } from './modules/v1/position/position.module';
 import { RecruitmentModule } from './modules/v1/recruitment/recruitment.module';
+import { RewardsModule } from './modules/v1/rewards/rewards.module';
 import { ShoutoutsModule } from './modules/v1/shoutouts/shoutouts.module';
 import { SubscriptionsModule } from './modules/v1/subscriptions/subscriptions.module';
 import { TeamsModule } from './modules/v1/teams/teams.module';
@@ -98,6 +99,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     ShoutoutsModule,
     AnalyticsModule,
     CalendarEventsModule,
+    RewardsModule,
   ],
   controllers: [AppController],
   providers: [

@@ -69,6 +69,15 @@ export interface BillingSettings {
   country?: string;
 }
 
+export interface RewardsSettings {
+  enabled: boolean;
+  pointsExchangeRate: number;
+  rewardsCurrency: string;
+  catalogCountries: string[];
+  airtimeEnabled: boolean;
+  customRewardsEnabled: boolean;
+}
+
 export interface TenantSettingsData {
   points?: PointsSettings;
   shoutouts?: ShoutoutSettings;
@@ -77,6 +86,7 @@ export interface TenantSettingsData {
   attendance?: AttendanceSettings;
   billing?: BillingSettings;
   general?: GeneralSettings;
+  rewards?: RewardsSettings;
 }
 
 export interface TenantSettingsResponse {
