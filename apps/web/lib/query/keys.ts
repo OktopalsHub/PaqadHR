@@ -49,6 +49,9 @@ export const queryKeys = {
       ['integrations', 'shoutout-slack', tenantId] as const,
     slackChannels: (integrationId: string) =>
       ['integrations', 'slack-channels', integrationId] as const,
+    syncStatus: (integrationId: string) => ['integrations', 'sync-status', integrationId] as const,
+    unmatchedUsers: (integrationId: string) =>
+      ['integrations', 'unmatched-users', integrationId] as const,
   },
   payroll: {
     all: ['payroll'] as const,

@@ -3,11 +3,11 @@ export function getNombaBaseUrl(): string {
 }
 
 export function getNombaClientId(): string {
-  return (process.env.NOMBA_CLIENT_ID || process.env.NOMBA_API_KEY || '').trim();
+  return (process.env.NOMBA_CLIENT_ID || '').trim();
 }
 
 export function getNombaClientSecret(): string {
-  return (process.env.NOMBA_CLIENT_SECRET || process.env.NOMBA_SECRET_KEY || '').trim();
+  return (process.env.NOMBA_CLIENT_SECRET || '').trim();
 }
 
 export function getNombaAccountId(): string {
@@ -15,11 +15,7 @@ export function getNombaAccountId(): string {
 }
 
 export function getNombaWebhookSecret(): string {
-  return (
-    process.env.NOMBA_WEBHOOK_SIGNATURE_KEY ||
-    process.env.NOMBA_WEBHOOK_SECRET ||
-    getNombaClientSecret()
-  ).trim();
+  return (process.env.NOMBA_WEBHOOK_SIGNATURE_KEY || getNombaClientSecret()).trim();
 }
 
 export function getNombaPayoutAuthCode(): string {

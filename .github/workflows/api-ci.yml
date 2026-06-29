@@ -2,7 +2,7 @@ name: API — Build and Publish
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'apps/api/**'
       - 'package.json'
@@ -11,7 +11,7 @@ on:
       - 'biome.json'
       - '.github/workflows/api-ci.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'apps/api/**'
       - 'package.json'

@@ -44,3 +44,77 @@ export async function setupShoutoutChannel(
     body: JSON.stringify({ platformChannelId, platformChannelName }),
   });
 }
+
+export type SlackUnmatchedUser = {
+  id: string;
+  integrationId: string;
+  platformUserId: string;
+  platformUsername?: string;
+  platformDisplayName?: string;
+  platformEmail?: string;
+  platformAvatarUrl?: string;
+};
+
+export type SlackSyncStatus = {
+  total: number;
+  matched: number;
+  unmatched: number;
+  matchRate: number;
+};
+
+export async function fetchUnmatchedUsers(
+  tenantId: string,
+  integrationId: string,
+): Promise<SlackUnmatchedUser[]> {
+  return apiClient<SlackUnmatchedUser[]>(
+    tenantPath(tenantId, `integrations/${integrationId}/unmatched-users`),
+  );
+}
+
+export async function fetchSyncStatus(
+  tenantId: string,
+  integrationId: string,
+): Promise<SlackSyncStatus> {
+  return apiClient<SlackSyncStatus>(
+    tenantPath(tenantId, `integrations/${integrationId}/sync-status`),
+  );
+}
+
+export async function matchUser(
+  tenantId: string,
+  integrationId: string,
+  platformUserId: string,
+  tenantMemberId: string,
+): Promise<{ success: boolean; message: string }> {
+  return apiClient<{ success: boolean; message: string }>(
+    tenantPath(tenantId, `integrations/${integrationId}/match-user`),
+    {
+      method: 'POST',
+      body: JSON.stringify({ platformUserId, tenantMemberId }),
+    },
+  );
+}
+
+export async function bulkInviteUsers(
+  tenantId: string,
+  integrationId: string,
+): Promise<{ sent: number; failed: number; errors: string[] }> {
+  return apiClient<{ sent: number; failed: number; errors: string[] }>(
+    tenantPath(tenantId, `integrations/${integrationId}/bulk-invite`),
+    {
+      method: 'POST',
+    },
+  );
+}
+
+export async function triggerUserSync(
+  tenantId: string,
+  integrationId: string,
+): Promise<{ matched: number; unmatched: number; created: number; errors: number }> {
+  return apiClient<{ matched: number; unmatched: number; created: number; errors: number }>(
+    tenantPath(tenantId, `integrations/${integrationId}/sync-users`),
+    {
+      method: 'POST',
+    },
+  );
+}
