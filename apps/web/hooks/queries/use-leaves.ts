@@ -6,18 +6,37 @@ import {
   createLeave,
   fetchLeaves,
   fetchMyLeaveBalances,
+  fetchMyLeaves,
   rejectLeave,
 } from '@/lib/api/leaves';
+import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import type { CreateLeaveInput } from '@/lib/schemas/leave';
 import { useTenant } from '@/providers/tenant-provider';
+import { useEmployees } from './use-employees';
+
+function useCanViewTeamLeaves() {
+  const { tenant } = useTenant();
+  const { data: employees = [] } = useEmployees();
+  const role = tenant?.member?.role;
+  const viewerId = tenant?.member?.id;
+
+  if (isTenantAdmin(role)) {
+    return true;
+  }
+  if (!viewerId) {
+    return false;
+  }
+  return hasDirectReports(viewerId, employees);
+}
 
 export function useLeaves() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const canViewTeamLeaves = useCanViewTeamLeaves();
 
   return useQuery({
-    queryKey: [...queryKeys.leaves.all, tenantId],
-    queryFn: fetchLeaves,
+    queryKey: [...queryKeys.leaves.all, tenantId, canViewTeamLeaves ? 'team' : 'self'],
+    queryFn: canViewTeamLeaves ? fetchLeaves : fetchMyLeaves,
     enabled: !tenantLoading && Boolean(tenantId),
   });
 }
@@ -83,4 +102,19 @@ export function useRejectLeave() {
       });
     },
   });
+}
+
+export function useLeaveApprovalContext() {
+  const { tenant } = useTenant();
+  const { data: employees = [] } = useEmployees();
+  return {
+    viewerMemberId: tenant?.member?.id,
+    viewerRole: tenant?.member?.role,
+    employees,
+  };
+}
+
+export function useViewerIsAdminForLeaves() {
+  const { tenant } = useTenant();
+  return isTenantAdmin(tenant?.member?.role);
 }

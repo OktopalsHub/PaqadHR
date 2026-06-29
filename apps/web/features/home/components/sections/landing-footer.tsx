@@ -13,12 +13,12 @@ export const LandingFooter = () => {
           <Link href="/signup" className="hover:text-foreground">
             Get started
           </Link>
-          <a href="#" className="hover:text-foreground">
+          <Link href="/privacy" className="hover:text-foreground">
             Privacy
-          </a>
-          <a href="#" className="hover:text-foreground">
+          </Link>
+          <Link href="/terms" className="hover:text-foreground">
             Terms
-          </a>
+          </Link>
         </div>
         <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Paqad</p>
       </div>

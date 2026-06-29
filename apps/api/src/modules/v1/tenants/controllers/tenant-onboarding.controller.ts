@@ -27,12 +27,21 @@ export class TenantOnboardingController {
     required: false,
     description: 'Override country code (e.g., NG, US)',
   })
+  @ApiQuery({
+    name: 'timezone',
+    required: false,
+    description: 'Browser IANA timezone (fallback when IP is unavailable, e.g. Africa/Lagos)',
+  })
   async getPricingPreview(
     @Req() req: IAuthenticatedUserRequest,
     @Query('country') countryCode?: string,
+    @Query('timezone') timezone?: string,
   ) {
     const clientIp = this.getClientIP(req);
-    return this.onboardingService.getPricingPreview(countryCode, clientIp);
+    return this.onboardingService.getPricingPreview(countryCode, clientIp, {
+      headers: req.headers,
+      timezone,
+    });
   }
 
   @Get('slug-availability')
@@ -77,6 +86,7 @@ export class TenantOnboardingController {
       jobTitle: dto.jobTitle,
       planSlug: dto.planSlug,
       createdBy: req.auth.principalId,
+      employeeCode: dto.employeeCode,
     };
     return this.onboardingService.completeTenantOnboarding(onboardingData, clientIp);
   }

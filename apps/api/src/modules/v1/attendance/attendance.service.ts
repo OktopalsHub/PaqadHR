@@ -5,9 +5,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { type AttendanceStatus, EAttendanceExceptionStatus } from 'src/common/enums';
+import { AttendanceExceptionStatus, type AttendanceStatus } from 'src/common/enums';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import { Between, type FindOptionsWhere } from 'typeorm';
+import { Between, type FindOptionsWhere, In } from 'typeorm';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
 import { LeaveService } from '../leave/leave.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -39,6 +39,14 @@ export class AttendanceService {
     private readonly leaveService: LeaveService,
     private readonly departmentUtils: DepartmentUtils,
   ) {}
+  private async isClockInEnabled(tenantId: string): Promise<boolean> {
+    try {
+      const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+      return settings.settings.attendance?.clockInEnabled === true;
+    } catch {
+      return false;
+    }
+  }
   async createAttendancePolicy(tenantId: string, dto: CreateAttendancePolicyDto) {
     return this.attendancePolicyRepository.create({ ...dto, tenantId });
   }
@@ -76,6 +84,10 @@ export class AttendanceService {
       entryMethod?: string;
     },
   ) {
+    const clockInEnabled = await this.isClockInEnabled(tenantId);
+    if (!clockInEnabled) {
+      throw new ConflictException('Clock in is disabled for this workspace.');
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const isWeekendDay = await this.isWeekend(tenantId, today);
@@ -118,21 +130,23 @@ export class AttendanceService {
         `Maximum sessions per day (${maxSessionsPerDay}) reached. Please contact your administrator.`,
       );
     }
-    const attendance = await this.attendanceRepository.create({
-      tenantId,
-      tenantMemberId,
-      date: new Date(),
-      clockIn: new Date(),
-      status: 'PRESENT',
-      sessionStatus: 'ACTIVE',
-      sessionNumber: nextSessionNumber,
-      location: dto.location || 'Office',
-      ipAddress: metadata?.ipAddress,
-      userAgent: metadata?.userAgent,
-      deviceType: metadata?.deviceType,
-      entryMethod: 'auto',
-      isManualEntry: false,
-    });
+    const attendance = await this.attendanceRepository.save(
+      this.attendanceRepository.create({
+        tenantId,
+        tenantMemberId,
+        date: today,
+        clockIn: new Date(),
+        status: 'PRESENT',
+        sessionStatus: 'ACTIVE',
+        sessionNumber: nextSessionNumber,
+        location: dto.location || 'Office',
+        ipAddress: metadata?.ipAddress,
+        userAgent: metadata?.userAgent,
+        deviceType: metadata?.deviceType,
+        entryMethod: 'auto',
+        isManualEntry: false,
+      }),
+    );
     return attendance;
   }
   private formatTimeToHHMMSS(milliseconds: number): string {
@@ -268,23 +282,28 @@ export class AttendanceService {
     tenantMemberId: string,
     dto: CreateAttendanceExceptionDto,
   ) {
-    return this.attendanceExceptionRepository.create({
-      ...dto,
-      tenantId,
-      tenantMemberId,
-    });
+    return this.attendanceExceptionRepository.save(
+      this.attendanceExceptionRepository.create({
+        ...dto,
+        tenantId,
+        tenantMemberId,
+      }),
+    );
   }
   async getAttendanceExceptions(
     tenantId: string,
     filters: {
       tenantMemberId?: string;
+      tenantMemberIds?: string[];
       startDate?: Date;
       endDate?: Date;
       status?: string;
     } = {},
   ) {
     const where: FindOptionsWhere<AttendanceException> = { tenantId };
-    if (filters.tenantMemberId) {
+    if (filters.tenantMemberIds?.length) {
+      where.tenantMemberId = In(filters.tenantMemberIds);
+    } else if (filters.tenantMemberId) {
       where.tenantMemberId = filters.tenantMemberId;
     }
     if (filters.startDate && filters.endDate) {
@@ -317,11 +336,11 @@ export class AttendanceService {
     dto: ApproveAttendanceExceptionDto,
   ) {
     const exception = await this.getAttendanceException(tenantId, exceptionId);
-    if (exception.status !== EAttendanceExceptionStatus.PENDING) {
+    if (exception.status !== AttendanceExceptionStatus.PENDING) {
       throw new ConflictException('Exception is not pending approval');
     }
     await this.attendanceExceptionRepository.update(exceptionId, {
-      status: EAttendanceExceptionStatus.APPROVED,
+      status: AttendanceExceptionStatus.APPROVED,
       approvedById,
       approvedAt: new Date(),
     });
@@ -335,11 +354,11 @@ export class AttendanceService {
     dto: RejectAttendanceExceptionDto,
   ) {
     const exception = await this.getAttendanceException(tenantId, exceptionId);
-    if (exception.status !== EAttendanceExceptionStatus.PENDING) {
+    if (exception.status !== AttendanceExceptionStatus.PENDING) {
       throw new ConflictException('Exception is not pending approval');
     }
     await this.attendanceExceptionRepository.update(exceptionId, {
-      status: EAttendanceExceptionStatus.REJECTED,
+      status: AttendanceExceptionStatus.REJECTED,
     });
     return this.attendanceExceptionRepository.findOne({
       where: { id: exceptionId, tenantId },
@@ -662,11 +681,15 @@ export class AttendanceService {
     year: number,
     page: number = 1,
     limit: number = 10,
+    memberIds?: string[],
   ) {
     try {
       const skip = (page - 1) * limit;
       const allMembers = await this.tenantMembersService.getTenantMembers(tenantId);
-      const activeMembers = allMembers.filter((member) => member.isActive);
+      let activeMembers = allMembers.filter((member) => member.isActive);
+      if (memberIds?.length) {
+        activeMembers = activeMembers.filter((member) => memberIds.includes(member.id));
+      }
       const paginatedMembers = activeMembers.slice(skip, skip + limit);
       const members = await getPaginationSummary(
         paginatedMembers,
@@ -841,6 +864,7 @@ export class AttendanceService {
     }
   }
   async getClockInInfo(tenantId: string, tenantMemberId: string, date: Date = new Date()) {
+    const clockInEnabled = await this.isClockInEnabled(tenantId);
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
     const [isWeekendResult, leaveResult] = await Promise.all([
@@ -859,12 +883,15 @@ export class AttendanceService {
     const currentSessionCount = existingAttendance.length;
     const activeSession = existingAttendance.find((a) => a.sessionStatus === 'ACTIVE');
     let status = 'WORKING_DAY';
-    let canClockIn = true;
-    let reason = '';
+    let canClockIn = clockInEnabled;
+    let reason = clockInEnabled ? '' : 'Clock in is disabled for this workspace';
     if (isWeekendResult) {
       status = 'WEEKEND';
       canClockIn = false;
       reason = 'Weekend';
+    } else if (!clockInEnabled) {
+      status = 'DISABLED';
+      canClockIn = false;
     } else if (leaveResult.isOnLeave) {
       status = 'ON_LEAVE';
       canClockIn = false;
@@ -879,6 +906,7 @@ export class AttendanceService {
     return {
       date: targetDate.toISOString().split('T')[0],
       status,
+      clockInEnabled,
       canClockIn,
       reason: canClockIn ? 'Can clock in' : reason,
       isWeekend: isWeekendResult,

@@ -9,7 +9,7 @@ export class AttendanceExceptions1781241262038 implements MigrationInterface {
         type VARCHAR(16) NOT NULL,
         reason TEXT NOT NULL,
         status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
-        approved_at TIMESTAMPTZ,
+        approved_at TIMESTAMP,
         tenant_member_id UUID NOT NULL,
         approved_by_id UUID,
         tenant_id UUID NOT NULL,

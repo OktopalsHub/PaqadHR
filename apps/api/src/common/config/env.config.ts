@@ -39,6 +39,7 @@ export interface IEnvironment {
     CLIENT_ID: string;
     CLIENT_SECRET: string;
     CALLBACK_URL: string;
+    CALENDAR_API_KEY: string;
   };
   SLACK: {
     CLIENT_ID: string;
@@ -46,7 +47,7 @@ export interface IEnvironment {
     SIGNING_SECRET: string;
     WEBHOOK_URL: string;
   };
-  CLOUDFLARE_R2: {
+  R2: {
     ACCOUNT_ID: string;
     PUBLIC_ID?: string;
     CUSTOM_DOMAIN?: string;
@@ -56,12 +57,6 @@ export interface IEnvironment {
   };
   ENCRYPTION: {
     KEY: string;
-  };
-  PAYROLL: {
-    DISBURSEMENT_MODE: 'manual' | 'gateway';
-  };
-  BILLING: {
-    MODE: 'trial' | 'manual' | 'open';
   };
 }
 
@@ -85,6 +80,7 @@ export const ENVIRONMENT: IEnvironment = {
     CLIENT_ID: envValidator.getOptional('GOOGLE_CLIENT_ID', ''),
     CLIENT_SECRET: envValidator.getOptional('GOOGLE_CLIENT_SECRET', ''),
     CALLBACK_URL: envValidator.getOptional('GOOGLE_CALLBACK_URL', ''),
+    CALENDAR_API_KEY: envValidator.getOptional('GOOGLE_CALENDAR_API_KEY', ''),
   },
   SLACK: {
     CLIENT_ID: envValidator.getOptional('SLACK_CLIENT_ID', ''),
@@ -94,28 +90,15 @@ export const ENVIRONMENT: IEnvironment = {
       envValidator.getOptional('SLACK_WEBHOOK_SECRET', ''),
     WEBHOOK_URL: envValidator.getOptional('SLACK_WEBHOOK_URL', ''),
   },
-  CLOUDFLARE_R2: {
-    ACCOUNT_ID: envValidator.getRequired('CLOUDFLARE_R2_ACCOUNT_ID'),
-    PUBLIC_ID: envValidator.getOptional('CLOUDFLARE_R2_PUBLIC_ID'),
-    CUSTOM_DOMAIN: envValidator.getOptional('CLOUDFLARE_R2_CUSTOM_DOMAIN'),
-    ACCESS_KEY_ID: envValidator.getRequired('CLOUDFLARE_R2_ACCESS_KEY_ID'),
-    SECRET_ACCESS_KEY: envValidator.getRequired('CLOUDFLARE_R2_SECRET_ACCESS_KEY'),
-    BUCKET_NAME: envValidator.getRequired('CLOUDFLARE_R2_BUCKET_NAME'),
+  R2: {
+    ACCOUNT_ID: envValidator.getRequired('R2_ACCOUNT_ID'),
+    PUBLIC_ID: envValidator.getOptional('R2_PUBLIC_ID'),
+    CUSTOM_DOMAIN: envValidator.getOptional('R2_CUSTOM_DOMAIN'),
+    ACCESS_KEY_ID: envValidator.getRequired('R2_ACCESS_KEY_ID'),
+    SECRET_ACCESS_KEY: envValidator.getRequired('R2_SECRET_ACCESS_KEY'),
+    BUCKET_NAME: envValidator.getRequired('R2_BUCKET_NAME'),
   },
   ENCRYPTION: {
     KEY: envValidator.getOptional('ENCRYPTION_KEY', '01234567890123456789012345678901'),
-  },
-  PAYROLL: {
-    DISBURSEMENT_MODE:
-      (process.env.PAYROLL_DISBURSEMENT_MODE || 'manual').toLowerCase() === 'gateway'
-        ? 'gateway'
-        : 'manual',
-  },
-  BILLING: {
-    MODE: (() => {
-      const mode = (process.env.BILLING_MODE || 'trial').toLowerCase();
-      if (mode === 'manual' || mode === 'open') return mode;
-      return 'trial';
-    })(),
   },
 };

@@ -3,31 +3,31 @@ import { LandingJsonLd } from '@/features/home/components/landing-json-ld';
 import { LandingPage } from '@/features/home/components/landing-page';
 
 export const metadata: Metadata = {
-  title: 'Paqad — People operations for modern teams',
+  title: 'Paqad — HR and payroll in one workspace',
   description:
-    'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.',
+    'Hire, pay, and recognize your people in one workspace. Recruitment kanban, payroll, leave management, and Slack shoutouts for growing teams.',
   keywords: [
     'HR software',
+    'payroll software',
     'people operations',
     'recruitment software',
-    'payroll management',
     'leave management',
-    'employee management',
-    'HR platform Nigeria',
-    'team shoutouts',
+    'employee recognition',
+    'HR platform',
+    'workforce management',
   ],
   openGraph: {
-    title: 'Paqad — People operations for modern teams',
+    title: 'Paqad — HR and payroll in one workspace',
     description:
-      'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.',
+      'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
     type: 'website',
     siteName: 'Paqad',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Paqad — People operations for modern teams',
+    title: 'Paqad — HR and payroll in one workspace',
     description:
-      'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.',
+      'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
   },
   robots: {
     index: true,

@@ -1,14 +1,17 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Logger,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
@@ -25,6 +28,8 @@ import type {
   PayrollCalculationPreviewDto,
   UpdatePayrollRunDto,
 } from '../dto/payroll-adjustment.dto';
+import type { PublishPayslipsDto } from '../dto/publish-payslips.dto';
+import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { AuditService } from '../services/audit.service';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';
@@ -66,19 +71,24 @@ export class PayrollController {
   }
 
   @Get('runs')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
   async getPayrollRuns(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Query('limit') limit = 20,
     @Query('offset') offset = 0,
+    @Req() req: IAuthenticatedMemberRequest,
   ) {
+    const member = req.member;
     this.logger.log(
       `Getting payroll runs for tenant: ${tenantId}, limit: ${limit}, offset: ${offset}`,
     );
     try {
-      const result = await this.payrollService.getPayrollRuns(
+      const result = await this.payrollService.getPayrollRunsForRequester(
         tenantId,
         Number(limit),
         Number(offset),
+        member.id,
+        member.role,
       );
       this.logger.log(
         `Successfully retrieved ${result.runs.length} payroll runs for tenant: ${tenantId}`,
@@ -92,9 +102,14 @@ export class PayrollController {
 
   @Get('runs/:id')
   @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  async getPayrollRun(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.payrollService.getPayrollRun(id, tenantId);
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
+  async getPayrollRun(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    return this.payrollService.getPayrollRunForRequester(id, tenantId, member.id, member.role);
   }
 
   @Post('runs/:id/calculate')
@@ -112,8 +127,12 @@ export class PayrollController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    await this.payrollService.calculatePayroll(id, tenantId, auditContext);
-    return { message: 'Payroll calculation completed' };
+    const result = await this.payrollService.calculatePayroll(id, tenantId, auditContext);
+    return {
+      message: 'Payroll calculation completed',
+      warnings: result.warnings,
+      readiness: result.readiness,
+    };
   }
 
   @Post('runs/:id/calculate-with-adjustments')
@@ -132,10 +151,46 @@ export class PayrollController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    await this.payrollService.calculatePayroll(id, tenantId, auditContext);
+    const result = await this.payrollService.calculatePayroll(
+      id,
+      tenantId,
+      auditContext,
+      updateDto.adjustments,
+    );
     return {
       message: 'Payroll calculation completed',
-      note: 'Complex adjustments removed - using simple salary calculations',
+      warnings: result.warnings,
+      readiness: result.readiness,
+    };
+  }
+
+  @Patch('runs/:id/items/:itemId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async updatePayrollItem(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdatePayrollItemDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const run = await this.payrollService.updatePayrollItem(
+      id,
+      itemId,
+      tenantId,
+      dto,
+      auditContext,
+    );
+    return {
+      message: 'Payroll item updated',
+      payrollRun: run,
     };
   }
 
@@ -148,6 +203,59 @@ export class PayrollController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.payrollService.previewPayrollCalculation(tenantId, previewDto, member.id);
+  }
+
+  @Get('runs/:id/readiness')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async getPayrollReadiness(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.payrollService.getPayrollReadiness(id, tenantId);
+  }
+
+  @Delete('runs/:id/items/:itemId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async removePayrollItem(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const run = await this.payrollService.removePayrollItem(id, itemId, tenantId, auditContext);
+    return {
+      message: 'Employee removed from payroll run',
+      payrollRunId: id,
+      employeeCount: run.employeeCount,
+    };
+  }
+
+  @Post('runs/:id/items/:itemId/notify-payment-setup')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
+  async notifyEmployeePaymentSetup(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const result = await this.payrollService.notifyEmployeePaymentSetup(
+      id,
+      itemId,
+      tenantId,
+      member.id,
+      member.role,
+    );
+    return {
+      message: 'Employee notified to complete payment settings',
+      ...result,
+    };
   }
 
   @Post('runs/:id/approve')
@@ -225,15 +333,91 @@ export class PayrollController {
   }
 
   @Get('runs/:id/items/:itemId/payslip')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
   @Header('Content-Type', 'text/html')
   async getPayslip(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('itemId') itemId: string,
+    @Req() req: IAuthenticatedMemberRequest,
   ) {
-    return this.payrollService.getPayslipHtml(id, itemId, tenantId);
+    const member = req.member;
+    return this.payrollService.getPayslipHtml(id, itemId, tenantId, member.id, member.role);
+  }
+
+  @Get('runs/:id/items/:itemId/payslip/download')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
+  async downloadPayslip(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Param('itemId') itemId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ): Promise<StreamableFile> {
+    const member = req.member;
+    const buffer = await this.payrollService.getPayslipPdf(
+      id,
+      itemId,
+      tenantId,
+      member.id,
+      member.role,
+    );
+    return new StreamableFile(buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="payslip-${itemId.slice(0, 8)}.pdf"`,
+    });
+  }
+
+  @Get('members/:memberId/published-payslips')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
+  async getMemberPublishedPayslips(
+    @Param('tenantId') tenantId: string,
+    @Param('memberId', ParseUUIDPipe) memberId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    return this.payrollService.getMemberPublishedPayslips(
+      memberId,
+      tenantId,
+      member.id,
+      member.role,
+    );
+  }
+
+  @Get('runs/:id/payslips')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async getRunPayslips(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.payrollService.getRunPayslips(id, tenantId);
+  }
+
+  @Post('runs/:id/payslips/publish')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
+  async publishPayslips(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() body: PublishPayslipsDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const result = await this.payrollService.publishPayslips(
+      id,
+      tenantId,
+      auditContext,
+      body.itemIds,
+      body.sendEmail,
+      member.id,
+      member.role,
+    );
+    return {
+      message: 'Payslips published',
+      ...result,
+    };
   }
 
   @Post('runs/:id/process')

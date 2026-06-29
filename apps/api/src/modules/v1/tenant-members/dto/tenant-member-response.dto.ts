@@ -15,12 +15,16 @@ export class TenantMemberPositionDto {
   id: string;
   @ApiProperty({ description: 'Position title' })
   title: string;
+  @ApiProperty({ description: 'Position color', required: false })
+  color?: string;
 }
 export class TenantMemberDepartmentDto {
   @ApiProperty({ description: 'Department name' })
   name: string;
   @ApiProperty({ description: 'Role in department', required: false })
   role?: string;
+  @ApiProperty({ description: 'Department color', required: false })
+  color?: string;
 }
 export class TenantMemberResponseDto {
   @ApiProperty({ description: 'Member ID' })
@@ -113,12 +117,14 @@ export class TenantMemberMapper {
         ? {
             id: currentPosition.position.id,
             title: currentPosition.position.title,
+            color: currentPosition.position.color,
           }
         : undefined,
       department: activeDepartmentMembership?.department
         ? {
             name: activeDepartmentMembership.department.name,
             role: activeDepartmentMembership.role,
+            color: activeDepartmentMembership.department.color,
           }
         : undefined,
     };

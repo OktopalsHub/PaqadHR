@@ -6,6 +6,7 @@ export const memberProfileSchema = z.object({
   lastName: z.string().optional().default(''),
   preferredName: z.string().nullish(),
   avatarUrl: z.string().nullish(),
+  avatarKey: z.string().nullish(),
   position: z.object({ id: z.string(), title: z.string() }).optional(),
 });
 

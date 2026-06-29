@@ -76,4 +76,15 @@ export class CompleteOnboardingDto {
   @IsString()
   @MaxLength(50)
   planSlug?: string;
+
+  @ApiProperty({
+    example: 'ZPR',
+    required: false,
+    description: 'Custom tenant code / employee code prefix',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(10)
+  employeeCode?: string;
 }

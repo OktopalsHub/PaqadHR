@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
-import { NombaProvider } from 'src/common/providers/nomba.provider';
+import { PaymentsModule } from 'src/common/providers/payments.module';
+
 @Module({
-  providers: [NombaProvider],
+  imports: [PaymentsModule],
+  exports: [PaymentsModule],
 })
 export class WebhooksModule {}

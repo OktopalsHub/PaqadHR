@@ -1,3 +1,4 @@
+import { formatDisplayName } from '@/lib/format-name';
 import type { Candidate, CandidateSource, CandidateStatus } from '@/lib/schemas/recruitment';
 
 type ApiCandidate = {
@@ -23,8 +24,8 @@ export function mapApiCandidate(candidate: ApiCandidate): Candidate {
   return {
     id: candidate.id,
     jobOpeningId: candidate.jobOpeningId,
-    firstName: candidate.firstName,
-    lastName: candidate.lastName,
+    firstName: formatDisplayName(candidate.firstName, ''),
+    lastName: formatDisplayName(candidate.lastName, ''),
     email: candidate.email,
     phone: candidate.phone ?? undefined,
     status: candidate.status as CandidateStatus,

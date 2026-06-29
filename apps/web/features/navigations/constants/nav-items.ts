@@ -1,9 +1,9 @@
 import {
   BarChart2,
   Briefcase,
-  Building,
   Calendar,
   CalendarClock,
+  Clock,
   FileText,
   Heart,
   LayoutDashboard,
@@ -24,8 +24,8 @@ export const navItemDefs: Omit<NavItem, 'href'>[] = [
   { name: 'Dashboard', segment: '', icon: LayoutDashboard },
   { name: 'Employees', segment: 'employees', icon: Users },
   { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },
-  { name: 'Teams', segment: 'teams', icon: Building },
   { name: 'Schedule', segment: 'schedule', icon: Calendar },
+  { name: 'Attendance', segment: 'attendance', icon: Clock },
   { name: 'Leaves', segment: 'leaves', icon: CalendarClock },
   { name: 'Payroll', segment: 'payroll', icon: FileText },
   { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
@@ -40,7 +40,6 @@ export function getNavItems(slug: string): NavItem[] {
   }));
 }
 
-/** @deprecated Use getNavItems(slug) or useTenantNavItems() */
 export const navItems: NavItem[] = navItemDefs.map((item) => ({
   ...item,
   href: item.segment ? `/app/${item.segment}` : '/app',

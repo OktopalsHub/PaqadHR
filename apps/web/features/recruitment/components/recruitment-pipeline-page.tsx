@@ -85,7 +85,7 @@ export function RecruitmentPipelinePage() {
 
       <RecruitmentBoardToolbar
         title="Candidate pipeline"
-        description="Manage your candidate pipeline. Job postings are optional — use Roles & analytics when you publish openings."
+        description="Manage your candidate pipeline"
         qualifiedCount={qualifiedCount}
         disqualifiedCount={disqualifiedCount}
         search={search}

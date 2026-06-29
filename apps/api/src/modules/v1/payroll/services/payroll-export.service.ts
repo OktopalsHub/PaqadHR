@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import PDFDocument from 'pdfkit';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
@@ -38,7 +40,15 @@ export class PayrollExportService {
     const rows: PayrollBankExportRow[] = [];
 
     for (const item of payrollRun.items ?? []) {
-      const paymentMethod = await this.paymentMethodService.findByMemberId(item.memberId);
+      if (item.status === PayrollItemStatus.CANCELLED) {
+        continue;
+      }
+
+      const paymentMethod = await this.paymentMethodService.resolvePayrollPaymentMethod(
+        payrollRun.tenantId,
+        item.memberId,
+        payrollRun.baseCurrency,
+      );
       const employee = item.employee;
       const name = employee
         ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()
@@ -148,5 +158,56 @@ export class PayrollExportService {
   ${item.description ? `<p class="muted">${item.description}</p>` : ''}
 </body>
 </html>`;
+  }
+
+  renderPayslipPdf(payrollRun: PayrollRun, item: PayrollItem): Promise<Buffer> {
+    const employee = item.employee;
+    const employeeName = employee
+      ? `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim()
+      : item.memberId;
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50 });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      doc.fontSize(18).text('Payslip', { underline: true });
+      doc.moveDown(0.5);
+      doc.fontSize(11).fillColor('#444');
+      doc.text(payrollRun.title);
+      doc.text(`Period: ${payrollRun.periodStart} — ${payrollRun.periodEnd}`);
+      doc.moveDown();
+      doc.fillColor('#000').fontSize(12);
+      doc.text(`Employee: ${employeeName}`);
+
+      const rows: [string, string][] = [
+        ['Base salary', `${item.baseSalary} ${item.baseSalaryCurrency}`],
+        ['Gross', `${item.grossAmount} ${payrollRun.baseCurrency}`],
+        ['Adjustments', String(item.adjustments ?? 0)],
+        ['Deductions', String(item.deductions ?? 0)],
+        ['Net pay', `${item.netAmount} ${payrollRun.baseCurrency}`],
+        ['Payment amount', `${item.paymentAmount} ${item.paymentCurrency}`],
+        ['Status', item.status],
+      ];
+      if (item.paidAt) {
+        rows.push(['Paid at', String(item.paidAt)]);
+      }
+
+      doc.moveDown();
+      for (const [label, value] of rows) {
+        doc.font('Helvetica-Bold').text(`${label}: `, { continued: true });
+        doc.font('Helvetica').text(value);
+      }
+
+      if (item.description) {
+        doc.moveDown();
+        doc.fillColor('#666').fontSize(10).text(item.description);
+      }
+
+      doc.end();
+    });
   }
 }

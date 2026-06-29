@@ -24,7 +24,6 @@ export function RecruitmentScheduleWidget({ events }: RecruitmentScheduleWidgetP
   return (
     <ContentCard
       title="Schedule"
-      description="Today"
       action={
         <Link
           href={tenantHref('schedule')}

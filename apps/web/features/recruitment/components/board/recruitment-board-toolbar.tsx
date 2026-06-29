@@ -1,4 +1,4 @@
-import { Download, Filter, Search, Settings2 } from 'lucide-react';
+import { Filter, Search, Settings2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,10 +69,6 @@ export function RecruitmentBoardToolbar({
             </Button>
             <Button variant="outline" size="icon" className="size-8 shrink-0" disabled>
               <Settings2 className="size-3.5" />
-            </Button>
-            <Button size="sm" className="h-8 rounded-lg text-xs" disabled>
-              <Download className="mr-1.5 size-3.5" />
-              Export report
             </Button>
           </div>
         ) : null}

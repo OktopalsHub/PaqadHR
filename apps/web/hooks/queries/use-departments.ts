@@ -4,7 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   type CreateDepartmentInput,
   createDepartment,
+  deleteDepartment,
   fetchDepartments,
+  type UpdateDepartmentInput,
+  updateDepartment,
 } from '@/lib/api/departments';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -28,6 +31,29 @@ export function useCreateDepartment() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.departments.all,
       });
+    },
+  });
+}
+
+export function useUpdateDepartment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdateDepartmentInput }) =>
+      updateDepartment(id, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+    },
+  });
+}
+
+export function useDeleteDepartment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => deleteDepartment(id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
     },
   });
 }

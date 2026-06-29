@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { IPlatformClient } from 'src/common/interfaces';
@@ -24,7 +24,6 @@ export class PlatformIntegrationService {
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly channelRepo: IntegrationChannelRepository,
     private readonly tenantMembersService: TenantMembersService,
-    @Inject(forwardRef(() => UserSyncService))
     private readonly userSyncService: UserSyncService,
   ) {}
   async createIntegration(
@@ -44,7 +43,7 @@ export class PlatformIntegrationService {
       webhookUrl: config.webhookUrl,
       expiresAt: config.expiresAt,
     };
-    const integration = await this.integrationRepo.create(integrationData);
+    const integration = await this.integrationRepo.save(integrationData);
     const channel = {
       integrationId: integration.id,
       platformChannelId: config.teamId,
@@ -53,7 +52,7 @@ export class PlatformIntegrationService {
       isPrimary: true,
       createdBy: memberId,
     };
-    await this.channelRepo.create(channel);
+    await this.channelRepo.save(channel);
     return integration;
   }
   async getIntegrations(tenantId: string): Promise<PlatformIntegration[]> {
@@ -62,6 +61,46 @@ export class PlatformIntegrationService {
       relations: ['platformUsers'],
     });
   }
+
+  async getShoutoutSlackStatus(tenantId: string): Promise<{
+    configured: boolean;
+    channelName?: string;
+    integrationId?: string;
+  }> {
+    const integration = await this.integrationRepo.findOne({
+      where: { tenantId, isActive: true, type: IntegrationType.SLACK },
+    });
+    if (!integration) {
+      return { configured: false };
+    }
+
+    const channels = await this.channelRepo.find({
+      where: {
+        integrationId: integration.id,
+        isActive: true,
+        channelType: ChannelType.SHOUTOUTS,
+      },
+      order: { isPrimary: 'DESC', createdAt: 'DESC' },
+      take: 1,
+    });
+    const channel = channels[0];
+
+    if (!channel) {
+      return { configured: false, integrationId: integration.id };
+    }
+
+    return {
+      configured: true,
+      channelName: channel.platformChannelName,
+      integrationId: integration.id,
+    };
+  }
+
+  async isShoutoutSlackConfigured(tenantId: string): Promise<boolean> {
+    const status = await this.getShoutoutSlackStatus(tenantId);
+    return status.configured;
+  }
+
   async syncUsers(integrationId: string, channelId?: string) {
     const integration = await this.integrationRepo.findOne({
       where: { id: integrationId },

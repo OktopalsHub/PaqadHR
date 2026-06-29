@@ -23,6 +23,7 @@ export async function createE2eApp(options?: {
     exclude: [
       { path: '/', method: RequestMethod.GET },
       { path: '/health', method: RequestMethod.GET },
+      { path: '/metrics', method: RequestMethod.GET },
       { path: '/csrf/token', method: RequestMethod.GET },
     ],
   });

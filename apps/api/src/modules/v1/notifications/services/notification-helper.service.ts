@@ -46,6 +46,78 @@ export class NotificationHelperService {
       tenantId,
     });
   }
+
+  async sendPayslipPublishedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      employeeName: string;
+      payrollPeriod: string;
+      profileUrl: string;
+      documentId?: string;
+      payrollRunId?: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Your payslip is ready',
+      message: `Hi ${variables.employeeName}, your payslip for ${variables.payrollPeriod} is ready to download.`,
+      recipientId,
+      tenantId,
+      actionData: {
+        url: variables.profileUrl,
+        buttonText: 'Download payslip',
+        actionType: 'navigate',
+      },
+      metadata: {
+        type: 'payslip_published',
+        documentId: variables.documentId,
+        payrollRunId: variables.payrollRunId,
+      },
+    });
+  }
+
+  async sendPayrollPaymentSetupReminder(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      employeeName: string;
+      payrollPeriod: string;
+      message: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Action required: payroll payment details',
+      message: `Hi ${variables.employeeName}, ${variables.message} Payroll period: ${variables.payrollPeriod}.`,
+      recipientId,
+      tenantId,
+    });
+  }
+
+  async sendBillingRenewalFailedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      tenantName: string;
+      reason: string;
+      status: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.HIGH,
+      title: 'Subscription renewal failed',
+      message: `Billing renewal for ${variables.tenantName} could not be completed (${variables.status}). ${variables.reason} Update your payment method to avoid service interruption.`,
+      recipientId,
+      tenantId,
+    });
+  }
   async sendLeaveRequestNotification(
     recipientId: string,
     tenantId: string,
@@ -81,7 +153,7 @@ export class NotificationHelperService {
       points?: number;
     },
   ): Promise<void> {
-    const pointsText = variables.points ? ` (+${variables.points} points)` : '';
+    const pointsText = variables.points ? ` (+${variables.points} Paq points)` : '';
     await this.notificationService.createNotification({
       type: NotificationType.USER,
       channel: NotificationChannel.BOTH,

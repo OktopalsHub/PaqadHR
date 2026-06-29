@@ -5,6 +5,7 @@ export const leaveStatusSchema = z.enum(['pending', 'approved', 'rejected', 'can
 export const leaveRequestSchema = z.object({
   id: z.string(),
   employee: z.string(),
+  requesterId: z.string().optional(),
   type: z.string(),
   startDate: z.string(),
   endDate: z.string(),

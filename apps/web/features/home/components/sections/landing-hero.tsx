@@ -1,11 +1,20 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { fadeUp, stagger } from '../../constants/landing-motion';
-import { LandingProductPreview } from './landing-product-preview';
+
+const ProductDemoShell = dynamic(
+  () => import('../product-demo/product-demo-shell').then((mod) => mod.ProductDemoShell),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mx-auto mt-12 h-[420px] max-w-6xl animate-pulse rounded-2xl bg-muted/40 px-6 md:mt-16" />
+    ),
+  },
+);
 
 export const LandingHero = () => {
   return (
@@ -18,29 +27,21 @@ export const LandingHero = () => {
         animate="show"
         variants={stagger}
       >
-        <motion.div variants={fadeUp} className="flex justify-center">
-          <Link
-            href="#product"
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
-          >
-            New: Recruitment board with kanban
-            <ChevronRight className="size-3.5" />
-          </Link>
-        </motion.div>
+        {}
 
         <motion.h1
           variants={fadeUp}
           className="mt-6 text-4xl font-semibold tracking-[-0.03em] text-foreground md:text-5xl md:leading-[1.08] lg:text-[3.25rem]"
         >
-          HR management that is easy and simple.
+          HR and payroll built for modern teams.
         </motion.h1>
 
         <motion.p
           variants={fadeUp}
           className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
         >
-          Simplify hiring, empower teams, and run people operations with one calm workspace —
-          recruitment, payroll, leave, and recognition.
+          Hire, pay, and recognize your people in one workspace — recruitment pipelines, payroll,
+          leave, and shoutouts without spreadsheet chaos.
         </motion.p>
 
         <motion.div variants={fadeUp} className="mt-8 flex justify-center">
@@ -58,7 +59,7 @@ export const LandingHero = () => {
         </motion.p>
       </motion.div>
 
-      <LandingProductPreview />
+      <ProductDemoShell className="relative mx-auto mt-12 max-w-6xl px-6 md:mt-16" />
     </section>
   );
 };

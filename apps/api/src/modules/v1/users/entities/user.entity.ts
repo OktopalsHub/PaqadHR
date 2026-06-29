@@ -6,6 +6,7 @@ import { Account } from '../../auth/entities/account.entity';
 import { Session } from '../../auth/entities/session.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import type { UserMetadata } from '../interfaces/user-metadata.interface';
 
 @Entity('user')
 export class User extends BaseEntity {
@@ -33,6 +34,9 @@ export class User extends BaseEntity {
 
   @Column({ type: 'varchar', length: 20, default: UserRole.BASIC })
   role: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata?: UserMetadata | null;
 
   @OneToMany(
     () => Session,

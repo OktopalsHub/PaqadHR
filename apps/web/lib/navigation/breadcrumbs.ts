@@ -17,11 +17,7 @@ function labelForSegment(segment: string): string {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function getBreadcrumbs(
-  pathname: string,
-  tailLabel?: string | null,
-  workspaceLabel?: string | null,
-): BreadcrumbSegment[] {
+export function getBreadcrumbs(pathname: string, tailLabel?: string | null): BreadcrumbSegment[] {
   const tenantSlug = getTenantSlugFromPath(pathname);
   if (!tenantSlug) return [];
 
@@ -30,7 +26,7 @@ export function getBreadcrumbs(
 
   const segments: BreadcrumbSegment[] = [
     {
-      label: workspaceLabel?.trim() || 'Workspace',
+      label: 'Dashboard',
       href: tenantRoot(tenantSlug),
     },
   ];

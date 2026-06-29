@@ -10,6 +10,7 @@ export * from '../../../modules/v1/attendance/entities/attendance-policy.entity'
 export * from '../../../modules/v1/auth/entities/account.entity';
 export * from '../../../modules/v1/auth/entities/session.entity';
 export * from '../../../modules/v1/auth/entities/verification.entity';
+export * from '../../../modules/v1/calendar-events/entities/tenant-calendar-event.entity';
 export * from '../../../modules/v1/departments/entities/department.entity';
 export * from '../../../modules/v1/departments/entities/department-member.entity';
 export * from '../../../modules/v1/document/entities/document.entity';
@@ -39,6 +40,12 @@ export * from '../../../modules/v1/recruitment/entities/candidate-assessment.ent
 export * from '../../../modules/v1/recruitment/entities/candidate-note.entity';
 export * from '../../../modules/v1/recruitment/entities/interview.entity';
 export * from '../../../modules/v1/recruitment/entities/job-opening.entity';
+export * from '../../../modules/v1/rewards/entities/custom-reward.entity';
+export * from '../../../modules/v1/rewards/entities/reward-redemption.entity';
+export * from '../../../modules/v1/rewards/entities/task.entity';
+export * from '../../../modules/v1/rewards/entities/task-submission.entity';
+export * from '../../../modules/v1/rewards/entities/tenant-wallet.entity';
+export * from '../../../modules/v1/rewards/entities/tenant-wallet-transaction.entity';
 export * from '../../../modules/v1/shoutouts/entities/shoutout.entity';
 export * from '../../../modules/v1/shoutouts/entities/shoutout-category.entity';
 export * from '../../../modules/v1/shoutouts/entities/shoutout-category-assignment.entity';

@@ -7,7 +7,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-//TODO: move this pagination to root component and make it reusable across the app
 import {
   Select,
   SelectContent,

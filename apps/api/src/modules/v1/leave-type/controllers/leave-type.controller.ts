@@ -26,7 +26,7 @@ export class LeaveTypeController {
   }
   @Get(':typeId')
   async getLeaveType(@Param('tenantId') tenantId: string, @Param('typeId') typeId: string) {
-    return this.leaveTypeService.getLeaveType(typeId, tenantId);
+    return this.leaveTypeService.getLeaveType(tenantId, typeId);
   }
   @Patch(':typeId')
   async updateLeaveType(
@@ -34,10 +34,10 @@ export class LeaveTypeController {
     @Param('typeId') typeId: string,
     @Body() dto: UpdateLeaveTypeDto,
   ) {
-    return this.leaveTypeService.updateLeaveType(typeId, dto, tenantId);
+    return this.leaveTypeService.updateLeaveType(tenantId, typeId, dto);
   }
   @Delete(':typeId')
   async deleteLeaveType(@Param('tenantId') tenantId: string, @Param('typeId') typeId: string) {
-    await this.leaveTypeService.deleteLeaveType(typeId, tenantId);
+    await this.leaveTypeService.deleteLeaveType(tenantId, typeId);
   }
 }

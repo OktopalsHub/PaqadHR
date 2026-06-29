@@ -45,9 +45,9 @@ export class SecretsService {
         },
         payments: {
           nomba: {
-            apiKey: this.envValidator.getOptional('NOMBA_API_KEY'),
-            secretKey: this.envValidator.getOptional('NOMBA_SECRET_KEY'),
-            webhookSecret: this.envValidator.getOptional('NOMBA_WEBHOOK_SECRET'),
+            apiKey: this.envValidator.getOptional('NOMBA_CLIENT_ID'),
+            secretKey: this.envValidator.getOptional('NOMBA_CLIENT_SECRET'),
+            webhookSecret: this.envValidator.getOptional('NOMBA_WEBHOOK_SIGNATURE_KEY'),
           },
         },
       };

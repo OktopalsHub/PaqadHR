@@ -20,14 +20,27 @@ type CreateDepartmentDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
+const COLORS = [
+  '#3b82f6', // Blue
+  '#10b981', // Green
+  '#f59e0b', // Amber
+  '#ef4444', // Red
+  '#8b5cf6', // Purple
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#64748b', // Slate
+];
+
 export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentDialogProps) {
   const createDepartment = useCreateDepartment();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedColor, setSelectedColor] = useState(COLORS[0]);
 
   const reset = () => {
     setName('');
     setDescription('');
+    setSelectedColor(COLORS[0]);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -41,6 +54,7 @@ export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentD
       await createDepartment.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
+        color: selectedColor,
       });
       toast.success('Department created');
       reset();
@@ -83,6 +97,43 @@ export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentD
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
               />
+            </div>
+            <div className="space-y-2 pt-2">
+              <Label>Department Color</Label>
+              <div className="flex flex-wrap gap-2 items-center pt-1">
+                {COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`size-6 rounded-full border transition-all ${
+                      selectedColor === color
+                        ? 'ring-2 ring-primary ring-offset-2 border-transparent scale-110'
+                        : 'border-black/10 hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setSelectedColor(color)}
+                  />
+                ))}
+                <div
+                  className="relative size-6 rounded-full border border-black/10 overflow-hidden cursor-pointer flex items-center justify-center hover:scale-105"
+                  style={{
+                    backgroundColor: COLORS.includes(selectedColor) ? '#ffffff' : selectedColor,
+                  }}
+                >
+                  <input
+                    type="color"
+                    className="absolute inset-0 size-full cursor-pointer opacity-0"
+                    value={selectedColor}
+                    onChange={(e) => setSelectedColor(e.target.value)}
+                  />
+                  <span
+                    className="text-xs font-semibold select-none pointer-events-none"
+                    style={{ color: COLORS.includes(selectedColor) ? '#71717a' : '#ffffff' }}
+                  >
+                    +
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>

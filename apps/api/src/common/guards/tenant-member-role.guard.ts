@@ -11,7 +11,7 @@ export class TenantRoleGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!requiredRoles) return true;
+    if (!requiredRoles?.length) return false;
     const request = context.switchToHttp().getRequest<IAuthenticatedMemberRequest>();
     const tenantMember = request.member;
     if (!tenantMember) {

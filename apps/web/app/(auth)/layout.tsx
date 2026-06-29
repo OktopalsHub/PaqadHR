@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
+import { ForceLightTheme } from '@/providers/force-light-theme';
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-background">
+    <ForceLightTheme>
       <div className="grid min-h-screen lg:grid-cols-2">
-        <div className="theme-marketing hidden flex-col justify-between border-r border-border bg-background p-12 lg:flex">
+        <div className="hidden flex-col justify-between border-r border-border bg-background p-12 lg:flex">
           <PaqadLogo />
           <div>
             <h1 className="text-3xl font-semibold tracking-[-0.02em]">
@@ -24,6 +25,6 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <div className="mx-auto w-full max-w-md">{children}</div>
         </div>
       </div>
-    </div>
+    </ForceLightTheme>
   );
 }

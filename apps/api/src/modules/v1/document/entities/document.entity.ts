@@ -253,6 +253,12 @@ export function getDocumentRetentionPolicy(type: DocumentType): DocumentRetentio
   };
   return retentionMap[type] || DocumentRetentionPolicy.EMPLOYMENT_PERIOD;
 }
+
+export function getTemporaryDocumentTypes(): DocumentType[] {
+  return Object.values(DocumentType).filter(
+    (type) => getDocumentRetentionPolicy(type) === DocumentRetentionPolicy.TEMPORARY,
+  );
+}
 @Entity()
 export class Document extends BaseEntity {
   @Column()

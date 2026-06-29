@@ -52,6 +52,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         role: true,
         tenantId: true,
         userId: true,
+        avatarKey: true,
         user: {
           id: true,
           email: true,
@@ -108,6 +109,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         role: true,
         tenantId: true,
         userId: true,
+        avatarKey: true,
         user: {
           id: true,
           email: true,
@@ -303,43 +305,82 @@ export class TenantMemberRepository extends Repository<TenantMember> {
     const celebrations = [
       ...birthdays.map((b) => ({
         id: b.member_id,
-        firstName: b.member_firstName,
-        lastName: b.member_lastName,
-        preferredName: b.member_preferredName,
-        employeeNumber: b.member_employeeNumber,
+        firstName: b.member_first_name,
+        lastName: b.member_last_name,
+        preferredName: b.member_preferred_name,
+        employeeNumber: b.member_employee_number,
         avatarUrl:
-          b.member_avatarKey && b.member_tenantId
-            ? this.fileUrlService.getMemberAvatarUrl(b.member_tenantId, b.member_avatarKey) ||
+          b.member_avatar_key && b.member_tenant_id
+            ? this.fileUrlService.getMemberAvatarUrl(b.member_tenant_id, b.member_avatar_key) ||
               undefined
             : undefined,
-        positionTitle: b.positionTitle,
-        departmentName: b.departmentName,
+        positionTitle: b.positiontitle,
+        departmentName: b.departmentname,
         type: CelebrationType.BIRTHDAY,
-        date: b.member_dateOfBirth,
+        date: b.member_date_of_birth,
       })),
       ...anniversaries.map((a) => {
-        const startDate = new Date(a.anniversaryDate);
+        const startDate = new Date(a.anniversarydate);
         const now = new Date();
         const years = now.getFullYear() - startDate.getFullYear();
         return {
           id: a.member_id,
-          firstName: a.member_firstName,
-          lastName: a.member_lastName,
-          preferredName: a.member_preferredName,
-          employeeNumber: a.member_employeeNumber,
+          firstName: a.member_first_name,
+          lastName: a.member_last_name,
+          preferredName: a.member_preferred_name,
+          employeeNumber: a.member_employee_number,
           avatarUrl:
-            a.member_avatarKey && a.member_tenantId
-              ? this.fileUrlService.getMemberAvatarUrl(a.member_tenantId, a.member_avatarKey) ||
+            a.member_avatar_key && a.member_tenant_id
+              ? this.fileUrlService.getMemberAvatarUrl(a.member_tenant_id, a.member_avatar_key) ||
                 undefined
               : undefined,
-          positionTitle: a.positionTitle,
-          departmentName: a.departmentName,
+          positionTitle: a.positiontitle,
+          departmentName: a.departmentname,
           type: CelebrationType.ANNIVERSARY,
-          date: a.anniversaryDate,
+          date: a.anniversarydate,
           years: years,
         };
       }),
     ];
     return celebrations.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
+
+  async findMembersWithBirthdayToday(tenantId: string): Promise<TenantMember[]> {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+
+    return this.tenantMemberRepository
+      .createQueryBuilder('member')
+      .where('member.tenantId = :tenantId', { tenantId })
+      .andWhere('member.isActive = :isActive', { isActive: true })
+      .andWhere('member.dateOfBirth IS NOT NULL')
+      .andWhere('EXTRACT(MONTH FROM member.dateOfBirth) = :month', { month })
+      .andWhere('EXTRACT(DAY FROM member.dateOfBirth) = :day', { day })
+      .getMany();
+  }
+
+  async findMembersWithWorkAnniversaryToday(
+    tenantId: string,
+  ): Promise<Array<{ member: TenantMember; employmentStartDate: Date }>> {
+    const members = await this.tenantMemberRepository.find({
+      where: { tenantId, isActive: true },
+      relations: ['employments'],
+    });
+    const now = new Date();
+
+    return members.flatMap((member) => {
+      const employment = member.employments?.find(
+        (item) => item.status === 'active' && item.startDate,
+      );
+      if (!employment?.startDate) return [];
+
+      const startDate = new Date(employment.startDate);
+      if (startDate.getMonth() !== now.getMonth() || startDate.getDate() !== now.getDate()) {
+        return [];
+      }
+
+      return [{ member, employmentStartDate: startDate }];
+    });
   }
 }

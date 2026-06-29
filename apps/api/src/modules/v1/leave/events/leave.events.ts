@@ -12,6 +12,10 @@ export class TenantMemberCreatedEvent {
     public readonly joinDate: Date,
   ) {}
 }
+
+export class TenantMemberChangedEvent {
+  constructor(public readonly tenantId: string) {}
+}
 export class LeaveTypeCreatedEvent {
   constructor(
     public readonly tenantId: string,

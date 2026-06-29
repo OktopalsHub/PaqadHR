@@ -1,15 +1,20 @@
 import { Module } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { dataSourceOptions } from './common/config';
+import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
 import { AuditModule } from './common/modules/audit.module';
+import { EncryptionModule } from './common/modules/encryption.module';
+import { ManagerAccessModule } from './common/modules/manager-access.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
+import { AuditLogsService } from './common/services/audit-logs.service';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
 import { AssetsModule } from './modules/v1/assets/assets.module';
@@ -19,6 +24,7 @@ import { AssetDocumentModule } from './modules/v1/assets/document/asset-document
 import { AssetMaintenanceModule } from './modules/v1/assets/maintenance/asset-maintenance.module';
 import { AttendanceModule } from './modules/v1/attendance/attendance.module';
 import { AuthModule } from './modules/v1/auth/auth.module';
+import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
 import { DepartmentsModule } from './modules/v1/departments/departments.module';
 import { DocumentModule } from './modules/v1/document/document.module';
 import { EducationModule } from './modules/v1/education/education.module';
@@ -36,6 +42,7 @@ import { PayrollModule } from './modules/v1/payroll/payroll.module';
 import { PlansModule } from './modules/v1/plans/plans.module';
 import { PositionModule } from './modules/v1/position/position.module';
 import { RecruitmentModule } from './modules/v1/recruitment/recruitment.module';
+import { RewardsModule } from './modules/v1/rewards/rewards.module';
 import { ShoutoutsModule } from './modules/v1/shoutouts/shoutouts.module';
 import { SubscriptionsModule } from './modules/v1/subscriptions/subscriptions.module';
 import { TeamsModule } from './modules/v1/teams/teams.module';
@@ -49,8 +56,11 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
   imports: [
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
+    EncryptionModule,
     RateLimitModule,
     AuditModule,
+    ManagerAccessModule,
     AuthModule,
     UsersModule,
     TenantsModule,
@@ -86,10 +96,18 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     PaymentMethodModule,
     ShoutoutsModule,
     AnalyticsModule,
+    CalendarEventsModule,
+    RewardsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    {
+      provide: APP_FILTER,
+      useFactory: (auditLogsService: AuditLogsService) =>
+        new ForbiddenAuditFilter(auditLogsService),
+      inject: [AuditLogsService],
+    },
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

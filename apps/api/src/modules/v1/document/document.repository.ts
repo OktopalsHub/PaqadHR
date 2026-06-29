@@ -18,11 +18,12 @@ export class DocumentRepository extends Repository<Document> implements IDocumen
     tenantId: string,
     tenantMemberId: string,
   ): Promise<Document> {
-    return this.create({
+    const entity = this.create({
       ...createDocumentDto,
       tenantId,
       tenantMemberId,
     });
+    return this.save(entity);
   }
   async listDocuments(tenantId: string): Promise<Document[]> {
     return this.find({ withDeleted: false, where: { tenantId } });

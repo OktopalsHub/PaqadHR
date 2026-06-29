@@ -44,43 +44,31 @@ export class NotificationPreferenceController {
     description: 'Preference retrieved successfully',
   })
   async getPreference(
-    @Param('notificationType') notificationType: string,
+    @Param('notificationType') notificationType: NotificationPreferenceType,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference | null> {
-    return this.preferenceService.getPreference(
-      member.id,
-      notificationType as NotificationPreferenceType,
-    );
+    return this.preferenceService.getPreference(member.id, notificationType);
   }
   @Patch(':notificationType')
   @ApiOperation({ summary: 'Update notification preference' })
   @ApiResponse({ status: 200, description: 'Preference updated successfully' })
   async updatePreference(
-    @Param('notificationType') notificationType: string,
+    @Param('notificationType') notificationType: NotificationPreferenceType,
     @Body() updateDto: UpdatePreferenceDto,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference> {
-    return this.preferenceService.updatePreference(
-      member.id,
-      notificationType as NotificationPreferenceType,
-      updateDto,
-    );
+    return this.preferenceService.updatePreference(member.id, notificationType, updateDto);
   }
   @Patch()
   @ApiOperation({ summary: 'Update multiple notification preferences' })
   @ApiResponse({ status: 200, description: 'Preferences updated successfully' })
   async updateMultiplePreferences(
-    @Body()
-    body: {
-      preferences: Array<{ notificationType: string } & UpdatePreferenceDto>;
-    },
+    @Body('preferences') preferences: Array<
+      { notificationType: NotificationPreferenceType } & UpdatePreferenceDto
+    >,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference[]> {
-    const typedPreferences = body.preferences.map((pref) => ({
-      ...pref,
-      notificationType: pref.notificationType as NotificationPreferenceType,
-    }));
-    return this.preferenceService.updateMultiplePreferences(member.id, typedPreferences);
+    return this.preferenceService.updateMultiplePreferences(member.id, preferences);
   }
   @Post('reset')
   @ApiOperation({ summary: 'Reset preferences to defaults' })

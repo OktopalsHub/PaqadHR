@@ -49,6 +49,7 @@ export class TenantSubscription extends BaseEntity {
     apiCalls?: number;
     storageUsed?: number;
     integrationsUsed?: number;
+    pendingSeatCount?: number;
   } | null;
   @Column({ name: 'billing_history', type: 'jsonb', nullable: true })
   billingHistory: Array<{

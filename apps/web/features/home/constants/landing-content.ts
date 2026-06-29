@@ -24,7 +24,7 @@ export const services = [
   {
     icon: Heart,
     title: 'Shoutouts',
-    description: 'Peer recognition with points and a feed your team actually uses.',
+    description: 'Peer recognition with Paq points and a feed your team actually uses.',
   },
   {
     icon: LineChart,

@@ -33,9 +33,6 @@ export async function getPaginationSummary(
 }
 
 export class PaginationUtil {
-  /**
-   * Convert old pagination format to new IPaginatedData format
-   */
   static async toPaginatedData<T>(
     data: T[],
     total: number,
@@ -47,9 +44,6 @@ export class PaginationUtil {
     return getPaginationSummary(data, total, options, name);
   }
 
-  /**
-   * Convert old repository pagination result to new format
-   */
   static async fromRepositoryResult<T>(
     result: {
       data: T[];
@@ -67,18 +61,12 @@ export class PaginationUtil {
     return getPaginationSummary(result.data, result.total, options, name);
   }
 
-  /**
-   * Parse pagination options from query parameters
-   */
   static parsePaginationOptions(query: Record<string, any>): { page: number; limit: number } {
     const page = parseInt(String(query.page ?? ''), 10) || 1;
     const limit = normalizePaginationLimit(query.limit);
     return { page, limit };
   }
 
-  /**
-   * Parse pagination options with tenant settings
-   */
   static parsePaginationOptionsWithTenantSettings(
     query: Record<string, any>,
     tenantSettings?: { general?: { paginationLimit?: number } },

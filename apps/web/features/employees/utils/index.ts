@@ -3,13 +3,13 @@ import type { Employee } from '../types';
 export const getStatusStyles = (status: Employee['status']): string => {
   switch (status) {
     case 'Active':
-      return 'bg-green-100 text-green-800';
+      return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-450 dark:border-green-900';
     case 'On Leave':
-      return 'bg-amber-100 text-amber-800';
+      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-450 dark:border-amber-900';
     case 'Inactive':
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
   }
 };
 

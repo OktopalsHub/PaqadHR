@@ -22,10 +22,11 @@ export class TenantSettingsInitializationService {
     const defaultSettings: TenantSettingsData = {
       points: {
         monthlyAllowance: 100,
+        allowancePeriod: 'monthly',
         maxPointsPerShoutout: 50,
         minPointsPerShoutout: 1,
-        autoAssignPoints: false,
-        autoAssignAmount: 0,
+        autoAssignPoints: true,
+        autoAssignAmount: 100,
         startingBalance: 100,
         dailyLimit: 50,
         monthlyLimit: 1000,
@@ -37,6 +38,18 @@ export class TenantSettingsInitializationService {
       shoutouts: {
         maxRecipientsPerShoutout: 10,
         enableCategories: true,
+        birthday: {
+          enabled: true,
+          points: 25,
+          messageTemplate:
+            'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
+        },
+        workAnniversary: {
+          enabled: true,
+          points: 50,
+          messageTemplate:
+            'Congratulations on {years} year(s) with us, {name}! 🎊 Thank you for everything you do.',
+        },
       },
       general: {
         timezone: 'UTC',
@@ -44,9 +57,11 @@ export class TenantSettingsInitializationService {
         currency: 'USD',
         language: 'en',
         companyName: '',
+        emailPayslipOnPublish: false,
       },
       attendance: {
         weekends: [0, 6],
+        clockInEnabled: false,
       },
       employee: {
         numberPrefix: '',
@@ -56,6 +71,7 @@ export class TenantSettingsInitializationService {
         customHolidays: [],
         excludeWeekends: true,
       },
+      billing: {},
     };
     const finalSettings: TenantSettingsData = {
       points: { ...defaultSettings.points, ...customSettings.points },
@@ -73,6 +89,10 @@ export class TenantSettingsInitializationService {
       holidays: {
         ...defaultSettings.holidays,
         ...customSettings.holidays,
+      },
+      billing: {
+        ...defaultSettings.billing,
+        ...customSettings.billing,
       },
     };
     this.validateSettings(finalSettings);
@@ -143,12 +163,24 @@ export class TenantSettingsInitializationService {
         monthlyAllowance: companyDefaults?.monthlyPointsAllowance || 100,
         maxPointsPerShoutout: 50,
         minPointsPerShoutout: 1,
-        autoAssignPoints: false,
-        autoAssignAmount: 0,
+        autoAssignPoints: true,
+        autoAssignAmount: 100,
       },
       shoutouts: {
         maxRecipientsPerShoutout: 10,
         enableCategories: true,
+        birthday: {
+          enabled: true,
+          points: 25,
+          messageTemplate:
+            'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
+        },
+        workAnniversary: {
+          enabled: true,
+          points: 50,
+          messageTemplate:
+            'Congratulations on {years} year(s) with us, {name}! 🎊 Thank you for everything you do.',
+        },
       },
       notifications: {
         emailNotifications: companyDefaults?.enableNotifications ?? true,
@@ -187,10 +219,14 @@ export class TenantSettingsInitializationService {
         ...existingSettings.settings.holidays,
         ...updates.holidays,
       },
+      billing: {
+        ...(existingSettings.settings.billing ?? {}),
+        ...updates.billing,
+      },
     };
     this.validateSettings(updatedSettings);
     existingSettings.settings = updatedSettings;
-    const savedSettings = await this.tenantSettingsRepository.create(existingSettings);
+    const savedSettings = await this.tenantSettingsRepository.save(existingSettings);
     this.logger.log(`Updated tenant settings for tenant: ${tenantId}`);
     return savedSettings;
   }
@@ -210,7 +246,7 @@ export class TenantSettingsInitializationService {
   private validateSettings(settings: TenantSettingsData): void {
     if (settings.points.minPointsPerShoutout > settings.points.maxPointsPerShoutout) {
       throw new BadRequestException(
-        'Minimum points per shoutout cannot be greater than maximum points per shoutout',
+        'Minimum Paq points per shoutout cannot be greater than maximum Paq points per shoutout',
       );
     }
     if (settings.points.monthlyAllowance < 0) {

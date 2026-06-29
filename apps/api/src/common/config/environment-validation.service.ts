@@ -18,10 +18,10 @@ export class EnvironmentValidationService {
       'GOOGLE_CLIENT_SECRET',
       'GOOGLE_CALLBACK_URL',
       'TRUSTED_ORIGINS',
-      'CLOUDFLARE_R2_ACCOUNT_ID',
-      'CLOUDFLARE_R2_ACCESS_KEY_ID',
-      'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
-      'CLOUDFLARE_R2_BUCKET_NAME',
+      'R2_ACCOUNT_ID',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME',
     ],
     productionRequired: ['ZEPTOMAIL_API_KEY', 'DEFAULT_FROM_EMAIL'],
     neverAllowFallbacks: [
@@ -37,10 +37,10 @@ export class EnvironmentValidationService {
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
       'GOOGLE_CALLBACK_URL',
-      'CLOUDFLARE_R2_ACCOUNT_ID',
-      'CLOUDFLARE_R2_ACCESS_KEY_ID',
-      'CLOUDFLARE_R2_SECRET_ACCESS_KEY',
-      'CLOUDFLARE_R2_BUCKET_NAME',
+      'R2_ACCOUNT_ID',
+      'R2_ACCESS_KEY_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_BUCKET_NAME',
     ],
     customValidations: {
       DATABASE_URL: (value) => value.startsWith('postgresql://') || value.startsWith('postgres://'),
@@ -161,12 +161,10 @@ export class EnvironmentValidationService {
     });
   }
   private validateR2PublicAccess(errors: string[]): void {
-    const publicId = process.env.CLOUDFLARE_R2_PUBLIC_ID?.trim();
-    const customDomain = process.env.CLOUDFLARE_R2_CUSTOM_DOMAIN?.trim();
+    const publicId = process.env.R2_PUBLIC_ID?.trim();
+    const customDomain = process.env.R2_CUSTOM_DOMAIN?.trim();
     if (!publicId && !customDomain) {
-      errors.push(
-        'Set CLOUDFLARE_R2_PUBLIC_ID or CLOUDFLARE_R2_CUSTOM_DOMAIN for public file URLs',
-      );
+      errors.push('Set R2_PUBLIC_ID or R2_CUSTOM_DOMAIN for public file URLs');
     }
   }
   private validateCustomRules(errors: string[]): void {

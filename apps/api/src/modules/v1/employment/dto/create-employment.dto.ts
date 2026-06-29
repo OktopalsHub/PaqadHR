@@ -23,10 +23,11 @@ export class CreateEmploymentDto {
   @Type(() => Date)
   @ApiProperty({
     description: 'position start date',
+    required: false,
     example: '2023-12-01T10:00:00Z',
   })
-  @IsNotEmpty()
-  positionStartDate: Date;
+  @IsOptional()
+  positionStartDate?: Date;
   @IsDate()
   @Type(() => Date)
   @ApiProperty({
@@ -47,10 +48,11 @@ export class CreateEmploymentDto {
   @IsUUID()
   @ApiProperty({
     description: 'position id',
+    required: false,
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
-  @IsNotEmpty()
-  positionId: string;
+  @IsOptional()
+  positionId?: string;
   @IsUUID()
   @ApiProperty({
     description: 'reports to id',

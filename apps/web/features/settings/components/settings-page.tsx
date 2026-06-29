@@ -1,153 +1,190 @@
 'use client';
 
-import { Building2, CreditCard, UserCircle } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
-import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { useBillingStatus } from '@/hooks/queries/use-billing';
-import { useAuth } from '@/hooks/use-auth';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
+import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
+import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
+import { SettingsLeaveTab } from '@/features/settings/components/settings-leave-tab';
+import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
+import { SettingsProfileTab } from '@/features/settings/components/settings-profile-tab';
+import { SettingsRewardsTab } from '@/features/settings/components/settings-rewards-tab';
+import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
+import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
+import {
+  ADMIN_SETTINGS_TABS,
+  isSettingsTab,
+  type SettingsTab,
+} from '@/features/settings/lib/settings-tabs';
+import { buildTabUrl } from '@/lib/navigation/tab-query';
 import { useTenant } from '@/providers/tenant-provider';
 
-function SettingsRow({ label, value }: { label: string; value: ReactNode }) {
+function SettingsPageContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { tenant } = useTenant();
+
+  const role = tenant?.member?.role?.toLowerCase();
+  const isAdmin = role === 'owner' || role === 'admin';
+
+  const tabParam = searchParams.get('tab');
+  const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : 'profile';
+
+  useEffect(() => {
+    if (!isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab)) {
+      router.replace(buildTabUrl(pathname, searchParams, 'profile'));
+    }
+  }, [activeTab, isAdmin, pathname, router, searchParams]);
+
+  const setTab = (tab: SettingsTab) => {
+    router.replace(buildTabUrl(pathname, searchParams, tab), { scroll: false });
+  };
+
+  const visibleTab = !isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab) ? 'profile' : activeTab;
+
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 text-sm">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="text-right font-medium">{value}</dd>
-    </div>
+    <AppPage className="space-y-5">
+      <div>
+        <h1 className="text-lg font-semibold">Settings</h1>
+        <p className="text-sm text-muted-foreground">Manage your account and workspace</p>
+      </div>
+
+      <Tabs value={visibleTab} onValueChange={(value) => setTab(value as SettingsTab)}>
+        <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
+          <TabsTrigger
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+            value="profile"
+          >
+            Profile
+          </TabsTrigger>
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="workspace"
+            >
+              Workspace
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="leave"
+            >
+              Leave
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="shoutouts"
+            >
+              Shoutouts
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="rewards"
+            >
+              Rewards
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="holidays"
+            >
+              Holidays
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="notifications"
+            >
+              Notifications
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="attendance"
+            >
+              Attendance
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="billing"
+            >
+              Billing
+            </TabsTrigger>
+          ) : null}
+        </TabsList>
+
+        <TabsContent value="profile" className="mt-5">
+          <SettingsProfileTab />
+        </TabsContent>
+        {isAdmin ? (
+          <TabsContent value="workspace" className="mt-5">
+            <SettingsWorkspaceTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="leave" className="mt-5">
+            <SettingsLeaveTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="shoutouts" className="mt-5">
+            <SettingsShoutoutsTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="rewards" className="mt-5">
+            <SettingsRewardsTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="holidays" className="mt-5">
+            <SettingsHolidaysTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="notifications" className="mt-5">
+            <SettingsNotificationsTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="attendance" className="mt-5">
+            <SettingsAttendanceTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="billing" className="mt-5">
+            <SettingsBillingTab />
+          </TabsContent>
+        ) : null}
+      </Tabs>
+    </AppPage>
   );
 }
 
 export function SettingsPage() {
-  const { user } = useAuth();
-  const { tenant } = useTenant();
-  const { data: billing, isLoading, isError, error } = useBillingStatus();
-
-  if (isLoading) {
-    return (
-      <AppPage>
-        <LoadingBlock />
-      </AppPage>
-    );
-  }
-
-  if (isError) {
-    return (
-      <AppPage>
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load settings</AlertTitle>
-          <AlertDescription>
-            {error instanceof Error ? error.message : 'Something went wrong'}
-          </AlertDescription>
-        </Alert>
-      </AppPage>
-    );
-  }
-
   return (
-    <AppPage>
-      <div className="grid gap-5 lg:grid-cols-2">
-        <ContentCard
-          title="Profile"
-          description="Your account details"
-          bodyClassName="divide-y divide-border/60"
-        >
-          <dl>
-            <SettingsRow label="Email" value={user?.email ?? '—'} />
-            <SettingsRow
-              label="Role"
-              value={<span className="capitalize">{user?.role?.replace('_', ' ') ?? '—'}</span>}
-            />
-          </dl>
-        </ContentCard>
-
-        <ContentCard
-          title="Workspace"
-          description="Organization you are signed into"
-          bodyClassName="divide-y divide-border/60"
-        >
-          <dl>
-            <SettingsRow label="Name" value={tenant?.name ?? '—'} />
-            <SettingsRow label="Slug" value={tenant?.slug ?? '—'} />
-          </dl>
-        </ContentCard>
-
-        <ContentCard
-          title="Billing"
-          description="Plan and subscription status"
-          className="lg:col-span-2"
-          bodyClassName="divide-y divide-border/60"
-        >
-          <dl>
-            <SettingsRow
-              label="Mode"
-              value={<span className="capitalize">{billing?.billingMode ?? '—'}</span>}
-            />
-            <SettingsRow
-              label="Card payments"
-              value={
-                <Badge variant={billing?.paymentsEnabled ? 'default' : 'secondary'}>
-                  {billing?.paymentsEnabled ? 'Enabled' : 'Disabled'}
-                </Badge>
-              }
-            />
-            {billing?.subscription ? (
-              <>
-                <SettingsRow
-                  label="Plan"
-                  value={<span className="capitalize">{billing.subscription.plan}</span>}
-                />
-                <SettingsRow
-                  label="Status"
-                  value={<span className="capitalize">{billing.subscription.status}</span>}
-                />
-                {billing.subscription.daysRemaining != null ? (
-                  <SettingsRow
-                    label="Trial remaining"
-                    value={`${billing.subscription.daysRemaining} days`}
-                  />
-                ) : null}
-              </>
-            ) : null}
-          </dl>
-          <p className="pt-3 text-xs text-muted-foreground">
-            Billing is manual during beta. Contact your admin to extend trial or activate a paid
-            plan.
-          </p>
-        </ContentCard>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="app-card flex items-center gap-3 rounded-xl p-4">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <UserCircle className="size-4" />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Account</p>
-            <p className="text-xs text-muted-foreground">Profile & security</p>
-          </div>
-        </div>
-        <div className="app-card flex items-center gap-3 rounded-xl p-4">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <Building2 className="size-4" />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Workspace</p>
-            <p className="text-xs text-muted-foreground">Org preferences</p>
-          </div>
-        </div>
-        <div className="app-card flex items-center gap-3 rounded-xl p-4">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <CreditCard className="size-4" />
-          </div>
-          <div>
-            <p className="text-sm font-medium">Billing</p>
-            <p className="text-xs text-muted-foreground">Plan & invoices</p>
-          </div>
-        </div>
-      </div>
-    </AppPage>
+    <Suspense
+      fallback={
+        <AppPage>
+          <LoadingBlock />
+        </AppPage>
+      }
+    >
+      <SettingsPageContent />
+    </Suspense>
   );
 }

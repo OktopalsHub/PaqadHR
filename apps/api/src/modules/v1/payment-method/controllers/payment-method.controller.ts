@@ -14,7 +14,8 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { TenantGuard } from 'src/common/guards/tenant.guard';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -93,6 +94,22 @@ export class PaymentMethodController {
       return methods.filter((method) => method.isPrimary);
     }
     return methods;
+  }
+  @Get('banks')
+  @UseGuards(TenantMemberGuard)
+  @ApiOperation({ summary: 'List Nigerian banks for account lookup (NGN)' })
+  async listBanks() {
+    return { banks: await this.paymentMethodService.listNigerianBanks() };
+  }
+  @Post('bank-lookup')
+  @UseGuards(TenantMemberGuard)
+  @ApiOperation({ summary: 'Verify Nigerian bank account and resolve account name' })
+  async bankLookup(@Body() body: { accountNumber: string; bankCode: string; bankName?: string }) {
+    return this.paymentMethodService.lookupNigerianBankAccount(
+      body.accountNumber,
+      body.bankCode,
+      body.bankName,
+    );
   }
   @Put(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
@@ -201,20 +218,19 @@ export class PaymentMethodController {
     );
   }
   @Get('supported/currencies')
-  @UseGuards(TenantGuard)
+  @UseGuards(TenantMemberGuard)
   @ApiOperation({
     summary: 'Get supported currencies for bank payment methods',
   })
   @ApiResponse({ status: 200, description: 'Supported currencies retrieved' })
-  async getSupportedCurrencies() {
-    return {
-      fiat: ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'],
-    };
+  async getSupportedCurrencies(@Param('tenantId') tenantId: string) {
+    const fiat = await this.paymentMethodService.getAllowedCurrencies(tenantId);
+    return { fiat };
   }
   @Get('member/:memberId')
-  @UseGuards(TenantGuard)
+  @UseGuards(TenantMemberGuard)
   @ApiOperation({
-    summary: 'Get payment method by member ID (Admin/System use)',
+    summary: 'Get payment method by member ID',
   })
   @ApiResponse({
     status: 200,
@@ -223,23 +239,42 @@ export class PaymentMethodController {
   async getPaymentMethodByMember(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Admin accessing payment method for member ${memberId} in tenant ${tenantId}`);
-    return this.paymentMethodService.findByMemberId(memberId);
+    this.logger.log(`Accessing payment method for member ${memberId} in tenant ${tenantId}`);
+    return this.paymentMethodService.findByMemberIdForRequester(
+      tenantId,
+      memberId,
+      member.id,
+      member.role,
+    );
   }
   @Get(':id')
-  @UseGuards(TenantGuard)
-  @ApiOperation({ summary: 'Get payment method by ID (Admin/System use)' })
+  @UseGuards(TenantMemberGuard)
+  @ApiOperation({ summary: 'Get payment method by ID' })
   @ApiResponse({
     status: 200,
     description: 'Payment method retrieved successfully',
   })
-  async getPaymentMethod(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    this.logger.log(`Admin accessing payment method ${id} in tenant ${tenantId}`);
-    return this.paymentMethodService.findById(id);
+  async getPaymentMethod(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    this.logger.log(`Accessing payment method ${id} in tenant ${tenantId}`);
+    return this.paymentMethodService.findByIdForMember(tenantId, id, member.id, member.role);
   }
+  @Get('admin/pending')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @ApiOperation({ summary: 'List payment methods awaiting admin verification' })
+  async listPendingVerification(@Param('tenantId') tenantId: string) {
+    return this.paymentMethodService.listPendingVerificationForTenant(tenantId);
+  }
+
   @Post(':paymentMethodId/verify')
-  @UseGuards(TenantGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Manually verify payment method (Admin only)' })
   @ApiResponse({
     status: 200,

@@ -39,7 +39,7 @@ export function middleware(request: NextRequest) {
     if (slug) {
       return NextResponse.redirect(new URL(tenantRoot(slug), request.url));
     }
-    return NextResponse.redirect(new URL('/onboarding', request.url));
+    return NextResponse.next();
   }
 
   return NextResponse.next();

@@ -1,13 +1,9 @@
-import { apiClient, clearCsrfToken } from '@/lib/api/client';
+import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
+import { ApiError, apiClient, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
-import {
-  clearSessionStorage,
-  persistSession,
-  persistTenantId,
-  persistTenantSlug,
-} from '@/lib/session';
+import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
 
 type AuthResponse = {
   user: { id: string; email: string; role: string };
@@ -42,16 +38,42 @@ async function syncTenantFromApi(): Promise<boolean> {
   return false;
 }
 
+async function fetchProfile(): Promise<ProfileResponse> {
+  return apiClient<ProfileResponse>('/users/profile');
+}
+
+export async function refreshSession(): Promise<boolean> {
+  return refreshAccessToken();
+}
+
+export { invalidateSession };
+
 export async function getSession(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
 
   try {
-    const profile = await apiClient<ProfileResponse>('/users/profile');
+    const profile = await fetchProfile();
     const needsOnboarding = await syncTenantFromApi();
     const user = mapAuthUser(profile, needsOnboarding);
     persistSession(user);
     return user;
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        try {
+          const profile = await fetchProfile();
+          const needsOnboarding = await syncTenantFromApi();
+          const user = mapAuthUser(profile, needsOnboarding);
+          persistSession(user);
+          return user;
+        } catch {
+          invalidateSession();
+          return null;
+        }
+      }
+      invalidateSession();
+    }
     return null;
   }
 }
@@ -91,7 +113,6 @@ export async function logoutRequest(): Promise<void> {
   try {
     await apiClient('/auth/logout', { method: 'POST' });
   } catch {
-    // Cookie may already be cleared
   } finally {
     clearCsrfToken();
   }
@@ -108,6 +129,5 @@ export async function requestPasswordReset(email: string): Promise<void> {
 }
 
 export function clearSession() {
-  clearSessionStorage();
-  clearCsrfToken();
+  invalidateSession();
 }

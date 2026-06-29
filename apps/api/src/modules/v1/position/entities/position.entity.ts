@@ -14,6 +14,8 @@ export class Position extends BaseEntity {
   description?: string;
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
+  @Column({ nullable: true })
+  color?: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
   @ManyToOne(

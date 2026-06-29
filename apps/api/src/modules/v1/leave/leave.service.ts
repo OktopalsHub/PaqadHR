@@ -140,10 +140,85 @@ export class LeaveService {
     };
   }
 
-  async listLeavesByTenant(tenantId: string, pagination: IPaginationOption) {
+  async listLeavesByTenant(
+    tenantId: string,
+    pagination: IPaginationOption,
+    filters?: { status?: string; from?: string; to?: string; requesterIds?: string[] },
+  ) {
+    if (filters?.status || filters?.from || filters?.to || filters?.requesterIds?.length) {
+      return this.listLeavesWithFilters(tenantId, pagination, filters);
+    }
     return this.listLeavesPaginated(tenantId, pagination, {}, 'leaves');
   }
-  async getLeavesByMember(tenantId: string, memberId: string, pagination: IPaginationOption) {
+
+  private async listLeavesWithFilters(
+    tenantId: string,
+    pagination: IPaginationOption,
+    filters: {
+      status?: string;
+      from?: string;
+      to?: string;
+      memberId?: string;
+      requesterIds?: string[];
+    },
+  ) {
+    const page = Math.max(parseInt(String(pagination.page), 10) || 1, 1);
+    const limit = normalizePaginationLimit(pagination.limit);
+
+    const qb = this.leaveRepository
+      .createQueryBuilder('leave')
+      .leftJoinAndSelect('leave.requester', 'requester')
+      .leftJoinAndSelect('requester.user', 'requesterUser')
+      .leftJoinAndSelect('requester.positionHistory', 'requesterPositionHistory')
+      .leftJoinAndSelect('requesterPositionHistory.position', 'requesterPosition')
+      .leftJoinAndSelect('leave.approver', 'approver')
+      .leftJoinAndSelect('approver.user', 'approverUser')
+      .leftJoinAndSelect('leave.leaveTypes', 'leaveTypes')
+      .where('leave.tenantId = :tenantId', { tenantId });
+
+    if (filters.memberId) {
+      qb.andWhere('leave.requestedBy = :memberId', { memberId: filters.memberId });
+    }
+
+    if (filters.requesterIds?.length) {
+      qb.andWhere('leave.requestedBy IN (:...requesterIds)', {
+        requesterIds: filters.requesterIds,
+      });
+    }
+
+    if (filters.status) {
+      qb.andWhere('leave.status = :status', { status: filters.status.toUpperCase() });
+    }
+    if (filters.from) {
+      qb.andWhere('leave.endDate >= :from', { from: filters.from });
+    }
+    if (filters.to) {
+      qb.andWhere('leave.startDate <= :to', { to: filters.to });
+    }
+
+    qb.orderBy('leave.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [records, total] = await qb.getManyAndCount();
+    const paginated = await getPaginationSummary(records, total, pagination, 'leaves');
+    return {
+      ...paginated,
+      records: paginated.records.map((leave) => this.toLeaveResponseDto(leave as Leave)),
+    };
+  }
+  async getLeavesByMember(
+    tenantId: string,
+    memberId: string,
+    pagination: IPaginationOption,
+    filters?: { status?: string; from?: string; to?: string },
+  ) {
+    if (filters?.status || filters?.from || filters?.to) {
+      return this.listLeavesWithFilters(tenantId, pagination, {
+        ...filters,
+        memberId,
+      });
+    }
     return this.listLeavesPaginated(
       tenantId,
       pagination,

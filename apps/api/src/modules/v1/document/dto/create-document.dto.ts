@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDate, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsDate, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
 import { DocumentType } from '../../../../common/enums/document-type.enum';
 
 export class CreateDocumentDto {
@@ -56,4 +56,12 @@ export class CreateDocumentDto {
   })
   @IsOptional()
   isVerified?: boolean = false;
+
+  @IsUUID()
+  @ApiProperty({
+    description: 'Target member id (admin only; defaults to current member)',
+    required: false,
+  })
+  @IsOptional()
+  memberId?: string;
 }

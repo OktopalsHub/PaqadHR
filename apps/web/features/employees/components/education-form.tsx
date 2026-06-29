@@ -24,7 +24,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
-// Form schema for education
 const formSchema = z.object({
   degree: z.string().min(2, { message: 'Degree must be at least 2 characters' }),
   institution: z.string().min(2, { message: 'Institution is required' }),

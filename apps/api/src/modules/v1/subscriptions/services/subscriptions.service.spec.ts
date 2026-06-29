@@ -9,10 +9,8 @@ import { SubscriptionsService } from './subscriptions.service';
 describe('SubscriptionsService', () => {
   let service: SubscriptionsService;
   let subscriptionRepo: { findOne: jest.Mock };
-  const originalBillingMode = process.env.BILLING_MODE;
 
   beforeEach(async () => {
-    process.env.BILLING_MODE = 'trial';
     subscriptionRepo = { findOne: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -34,10 +32,6 @@ describe('SubscriptionsService', () => {
     }).compile();
 
     service = module.get(SubscriptionsService);
-  });
-
-  afterEach(() => {
-    process.env.BILLING_MODE = originalBillingMode;
   });
 
   describe('isSubscriptionEntitled', () => {
@@ -67,10 +61,10 @@ describe('SubscriptionsService', () => {
   });
 
   describe('hasFeatureAccess', () => {
-    it('grants all features when billing mode is open', async () => {
-      process.env.BILLING_MODE = 'open';
+    it('denies access when subscription is missing', async () => {
+      subscriptionRepo.findOne.mockResolvedValue(null);
       const allowed = await service.hasFeatureAccess('tenant-1', [FeatureAccess.PAYROLL]);
-      expect(allowed).toBe(true);
+      expect(allowed).toBe(false);
     });
 
     it('denies payroll when plan lacks feature', async () => {

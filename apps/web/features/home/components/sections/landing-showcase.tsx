@@ -4,7 +4,7 @@ import { LandingShowcasePanel } from './landing-showcase-panel';
 
 export const LandingShowcase = () => {
   return (
-    <section className="py-24 md:py-28" id="solutions">
+    <section className="py-24 md:py-28" id="product">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-sm font-medium text-primary">Solutions</p>

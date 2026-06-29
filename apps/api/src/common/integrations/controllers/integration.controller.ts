@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { IntegrationType } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
@@ -8,6 +9,7 @@ import { PlatformIntegrationService } from '../services/platform-integration.ser
 
 @Controller('tenants/:tenantId/integrations')
 @UseGuards(TenantMemberGuard)
+@ApiTags('Integrations')
 export class IntegrationController {
   constructor(private readonly integrationService: PlatformIntegrationService) {}
 
@@ -24,6 +26,11 @@ export class IntegrationController {
   @Get()
   async getIntegrations(@Param('tenantId') tenantId: string) {
     return this.integrationService.getIntegrations(tenantId);
+  }
+
+  @Get('shoutouts/status')
+  async getShoutoutSlackStatus(@Param('tenantId') tenantId: string) {
+    return this.integrationService.getShoutoutSlackStatus(tenantId);
   }
 
   @Post('/:id/sync-users')

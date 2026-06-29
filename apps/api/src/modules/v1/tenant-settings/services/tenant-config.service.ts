@@ -1,4 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
+import {
+  normalizeFiatCurrencies,
+  SUPPORTED_FIAT_CURRENCIES,
+} from 'src/common/constants/supported-fiat-currencies.constant';
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
@@ -89,6 +93,31 @@ export class TenantConfigService {
     }
   }
 
+  async getPayrollCurrencies(
+    tenantId: string,
+    preferredCurrency?: string | null,
+  ): Promise<string[]> {
+    const settings = await this.getSettingsRecord(tenantId);
+    const configured = settings?.settings.general?.payrollCurrencies;
+    if (Array.isArray(configured) && configured.length > 0) {
+      const normalized = normalizeFiatCurrencies(configured);
+      if (normalized.length > 0) {
+        return normalized;
+      }
+    }
+
+    const primary = (
+      settings?.settings.general?.currency ??
+      preferredCurrency ??
+      'USD'
+    ).toUpperCase();
+    return normalizeFiatCurrencies([primary]);
+  }
+
+  getGloballySupportedFiatCurrencies(): readonly string[] {
+    return SUPPORTED_FIAT_CURRENCIES;
+  }
+
   async getTenantConfig(tenantId: string): Promise<{
     employee: {
       numberPrefix: string;
@@ -175,10 +204,10 @@ export class TenantConfigService {
     let reason: string | undefined;
     if (wouldExceedDaily) {
       isValid = false;
-      reason = `Would exceed daily limit of ${dailyLimit} points. ${dailyRemaining} points remaining today.`;
+      reason = `Would exceed daily limit of ${dailyLimit} Paq points. ${dailyRemaining} Paq points remaining today.`;
     } else if (wouldExceedMonthly) {
       isValid = false;
-      reason = `Would exceed monthly limit of ${monthlyLimit} points. ${monthlyRemaining} points remaining this month.`;
+      reason = `Would exceed monthly limit of ${monthlyLimit} Paq points. ${monthlyRemaining} Paq points remaining this month.`;
     }
     return {
       isValid,

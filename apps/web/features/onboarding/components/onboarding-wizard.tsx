@@ -50,6 +50,8 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [employeeCode, setEmployeeCode] = useState('');
+  const employeeCodeTouchedRef = useRef(false);
   const [debouncedSlug, setDebouncedSlug] = useState('');
   const [appBaseUrl, setAppBaseUrl] = useState('');
   const slugTouchedRef = useRef(false);
@@ -81,6 +83,26 @@ export function OnboardingWizard() {
   }, [name]);
 
   useEffect(() => {
+    if (employeeCodeTouchedRef.current) return;
+    if (!name.trim()) {
+      setEmployeeCode('');
+      return;
+    }
+    const words = name.trim().split(/\s+/).filter(Boolean);
+    let code = '';
+    if (words.length === 1) {
+      code = words[0].substring(0, 3).toUpperCase();
+    } else {
+      code = words
+        .slice(0, 3)
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase();
+    }
+    setEmployeeCode(code.replace(/[^A-Z0-9]/g, ''));
+  }, [name]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       setDebouncedSlug(slug.trim());
     }, 400);
@@ -88,6 +110,8 @@ export function OnboardingWizard() {
   }, [slug]);
 
   const slugFormatValid = isSlugFormatValid(slug.trim());
+  const isEmployeeCodeValid = employeeCode.trim().length >= 2 && employeeCode.trim().length <= 10;
+
   const debouncedSlugValid = isSlugFormatValid(debouncedSlug);
 
   const slugAvailabilityQuery = useQuery({
@@ -110,7 +134,8 @@ export function OnboardingWizard() {
     slugAvailabilityQuery.isSuccess &&
     !slugAvailabilityQuery.data.available;
 
-  const canContinueStep0 = name.trim().length >= 2 && slugFormatValid && !slugBlocked;
+  const canContinueStep0 =
+    name.trim().length >= 2 && slugFormatValid && !slugBlocked && isEmployeeCodeValid;
 
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
@@ -128,7 +153,11 @@ export function OnboardingWizard() {
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      const message =
+        error.message === 'Could not reach the server. Check your connection and try again.'
+          ? 'Could not reach the server. Make sure the API is running and NEXT_PUBLIC_API_URL is set correctly.'
+          : error.message;
+      toast.error(message);
     },
   });
 
@@ -153,6 +182,7 @@ export function OnboardingWizard() {
       lastName: lastName.trim(),
       preferredName: preferredName.trim() || undefined,
       jobTitle: jobTitle.trim(),
+      employeeCode: employeeCode.trim() || undefined,
     });
   };
 
@@ -255,6 +285,32 @@ export function OnboardingWizard() {
                       This slug is reserved.
                     </>
                   ) : null}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tenant-code">Tenant Code</Label>
+                <Input
+                  id="tenant-code"
+                  placeholder="e.g. EMP, ZPR"
+                  value={employeeCode}
+                  onChange={(e) => {
+                    employeeCodeTouchedRef.current = true;
+                    setEmployeeCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                  }}
+                  maxLength={10}
+                />
+                <p
+                  className={cn(
+                    'text-xs',
+                    !isEmployeeCodeValid && employeeCode.length > 0
+                      ? 'text-destructive'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {!isEmployeeCodeValid && employeeCode.length > 0
+                    ? 'Tenant code must be between 2 and 10 characters.'
+                    : `Short identifier prefix for employee IDs (e.g., ${employeeCode || 'EMP'}001).`}
                 </p>
               </div>
 
@@ -364,6 +420,10 @@ export function OnboardingWizard() {
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Slug</dt>
                 <dd className="font-medium">{slug}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Tenant Code</dt>
+                <dd className="font-medium">{employeeCode || 'EMP'}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Workspace path</dt>

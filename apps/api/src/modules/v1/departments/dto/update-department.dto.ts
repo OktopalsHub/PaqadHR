@@ -39,4 +39,12 @@ export class UpdateDepartmentDto {
   })
   @IsOptional()
   createdBy?: string;
+  @IsString()
+  @ApiProperty({
+    description: 'color code for department',
+    required: false,
+    example: '#EF4444',
+  })
+  @IsOptional()
+  color?: string;
 }

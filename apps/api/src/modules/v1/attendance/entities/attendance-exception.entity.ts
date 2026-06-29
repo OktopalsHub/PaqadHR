@@ -1,4 +1,4 @@
-import { EAttendanceExceptionStatus, EAttendanceExceptionType } from 'src/common/enums';
+import { AttendanceExceptionStatus, EAttendanceExceptionType } from 'src/common/enums';
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
@@ -14,11 +14,11 @@ export class AttendanceException extends BaseEntity {
   reason: string;
   @Column({
     type: 'enum',
-    enum: EAttendanceExceptionStatus,
-    default: EAttendanceExceptionStatus.PENDING,
+    enum: AttendanceExceptionStatus,
+    default: AttendanceExceptionStatus.PENDING,
   })
-  status: EAttendanceExceptionStatus;
-  @Column({ name: 'approved_at', type: 'timestamptz', nullable: true })
+  status: AttendanceExceptionStatus;
+  @Column({ name: 'approved_at', type: 'timestamp', nullable: true })
   approvedAt?: Date;
   @Column({ name: 'tenant_member_id' })
   tenantMemberId: string;

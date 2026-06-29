@@ -11,7 +11,7 @@ import {
 } from '../dto/member-points-response.dto';
 import { MemberPointsService } from '../services/member-points.service';
 
-@ApiTags('member-points')
+@ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/member-points')
 export class MemberPointsController {

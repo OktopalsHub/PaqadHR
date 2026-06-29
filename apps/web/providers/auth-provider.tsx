@@ -14,7 +14,10 @@ import {
 } from '@/lib/api/auth';
 import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
-import { getPostAuthPath } from '@/lib/navigation/tenant-routes';
+import {
+  authDestinationToPath,
+  resolveAuthDestination,
+} from '@/lib/navigation/resolve-auth-destination';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 
@@ -44,25 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: Infinity,
   });
 
-  const navigateAfterAuth = useCallback(
-    async (user: User) => {
-      const tenants = await queryClient.fetchQuery({
-        queryKey: queryKeys.tenants.all,
-        queryFn: fetchUserTenants,
-      });
+  const navigateAfterAuth = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
 
-      queryClient.setQueryData(queryKeys.tenants.all, tenants);
+    const tenants = await queryClient.fetchQuery({
+      queryKey: queryKeys.tenants.all,
+      queryFn: fetchUserTenants,
+    });
 
-      const redirect = readRedirectParam();
-      const destination =
-        user.needsOnboarding || tenants.length === 0
-          ? '/onboarding'
-          : getPostAuthPath(tenants, redirect);
+    queryClient.setQueryData(queryKeys.tenants.all, tenants);
 
-      router.push(destination);
-    },
-    [queryClient, router],
-  );
+    const redirect = readRedirectParam();
+    const destination = resolveAuthDestination({
+      isAuthenticated: true,
+      tenants,
+      redirect,
+    });
+    router.push(authDestinationToPath(destination));
+  }, [queryClient, router]);
 
   const loginMutation = useMutation({
     mutationFn: loginRequest,
@@ -70,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(queryKeys.auth.session, user);
       await bootstrapCsrf();
       toast.success(<ToastMessage title="Login Successful" description="Welcome back!" />);
-      await navigateAfterAuth(user);
+      await navigateAfterAuth();
     },
     onError: (error: Error) => {
       toast.error(<ToastMessage title="Login Failed" description={error.message} />);
@@ -88,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description="Your account has been created!"
         />,
       );
-      await navigateAfterAuth(user);
+      await navigateAfterAuth();
     },
     onError: (error: Error) => {
       toast.error(<ToastMessage title="Registration Failed" description={error.message} />);

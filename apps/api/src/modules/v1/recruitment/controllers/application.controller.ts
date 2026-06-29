@@ -1,16 +1,41 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
+import { FileService } from 'src/common/services/file.service';
 import type { CreateCandidateDto } from '../dto/index';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateService } from '../services/candidate.service';
+import { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Public Applications')
 @Public()
 @Controller('jobs')
 export class ApplicationController {
-  constructor(private readonly candidateService: CandidateService) {}
+  constructor(
+    private readonly candidateService: CandidateService,
+    private readonly fileService: FileService,
+    private readonly jobOpeningService: JobOpeningService,
+  ) {}
+
+  @Post(':jobId/apply/upload-url')
+  @ApiOperation({ summary: 'Generate a presigned upload URL for candidate resumes/cover-letters' })
+  async getUploadUrl(
+    @Param('jobId') jobId: string,
+    @Body() body: { location: string; originalName: string; contentType?: string },
+  ) {
+    const job = await this.jobOpeningService.getActiveJob(jobId);
+    if (!['resumes', 'cover-letters'].includes(body.location)) {
+      throw new BadRequestException('Invalid location for candidate upload');
+    }
+    return this.fileService.generateUploadUrl({
+      tenantId: job.tenantId,
+      location: body.location as any,
+      originalName: body.originalName,
+      contentType: body.contentType,
+    });
+  }
+
   @Post(':jobId/apply')
   @ApiOperation({
     summary: 'Apply for a job opening',

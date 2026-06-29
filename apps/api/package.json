@@ -24,7 +24,8 @@
     "migration:run": "pnpm build && typeorm migration:run -d dist/common/database/config/data-source.js",
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",
     "migration:generate": "typeorm migration:generate -d dist/common/database/config/data-source.js",
-    "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts"
+    "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts",
+    "nomba:check": "ts-node -r tsconfig-paths/register src/scripts/nomba-sandbox-check.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",
@@ -36,10 +37,9 @@
     "@nestjs/jwt": "^11.0.2",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.26",
+    "@nestjs/schedule": "^6.1.3",
     "@nestjs/swagger": "^11.4.4",
     "@nestjs/typeorm": "^11.0.1",
-    "@sentry/nestjs": "^10.57.0",
-    "@sentry/node": "^10.57.0",
     "@slack/web-api": "^7.16.0",
     "@types/express": "^5.0.6",
     "@types/helmet": "^4.0.0",
@@ -61,6 +61,7 @@
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
+    "pdfkit": "^0.19.1",
     "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
@@ -79,6 +80,7 @@
     "@types/node": "^25.9.2",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pdfkit": "^0.17.6",
     "@types/supertest": "^7.2.0",
     "eslint": "^10.4.1",
     "globals": "^17.6.0",
@@ -114,6 +116,26 @@
     "testEnvironment": "node",
     "setupFiles": [
       "<rootDir>/../test/jest-setup.ts"
-    ]
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 0,
+        "functions": 0,
+        "lines": 0,
+        "statements": 0
+      },
+      "./src/modules/v1/subscriptions/**/*.ts": {
+        "branches": 15,
+        "functions": 20,
+        "lines": 25,
+        "statements": 25
+      },
+      "./src/modules/v1/payroll/**/*.ts": {
+        "branches": 15,
+        "functions": 20,
+        "lines": 25,
+        "statements": 25
+      }
+    }
   }
 }

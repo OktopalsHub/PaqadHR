@@ -3,11 +3,14 @@
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
+import type { ApiAddress } from '@/lib/api/address';
+import { upsertMemberAddress } from '@/lib/api/address';
 import type { ApiEducation } from '@/lib/api/education';
 import { createEducationRecord, deleteEducationRecord } from '@/lib/api/education';
 import type { ApiEmergencyContact } from '@/lib/api/emergency-contacts';
 import { createEmergencyContact, deleteEmergencyContact } from '@/lib/api/emergency-contacts';
 import { updateEmployee } from '@/lib/api/employees';
+import { updateMemberProfile } from '@/lib/api/member-profile';
 import type { ApiTenantMember } from '@/lib/mappers/employee';
 import {
   inferDegreeType,
@@ -23,11 +26,13 @@ import { createEmployeeDetailState, type EmployeeDetailState } from '../lib/empl
 type EmployeeRecords = {
   emergencyContacts: ApiEmergencyContact[];
   education: ApiEducation[];
+  address?: ApiAddress | null;
 };
 
 export function useEmployeeDetailForm(
   baseMember: ApiTenantMember,
   initialRecords: EmployeeRecords,
+  options?: { managerName?: string; canEdit?: boolean; isSelf?: boolean },
 ) {
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -35,16 +40,33 @@ export function useEmployeeDetailForm(
   const [educationDialogOpen, setEducationDialogOpen] = useState(false);
   const initialState = useMemo(
     () =>
-      createEmployeeDetailState(baseMember, {
-        emergencyContacts: initialRecords.emergencyContacts,
-        education: initialRecords.education,
-      }),
-    [baseMember, initialRecords.education, initialRecords.emergencyContacts],
+      createEmployeeDetailState(
+        baseMember,
+        {
+          emergencyContacts: initialRecords.emergencyContacts,
+          education: initialRecords.education,
+          address: initialRecords.address,
+        },
+        { managerName: options?.managerName },
+      ),
+    [
+      baseMember,
+      initialRecords.education,
+      initialRecords.emergencyContacts,
+      initialRecords.address,
+      options?.managerName,
+    ],
   );
   const [employee, setEmployee] = useState<EmployeeDetailState>(initialState);
 
   const handleInputChange = (field: string, value: string) => {
-    setEmployee((prev) => ({ ...prev, [field]: value }));
+    setEmployee((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'firstName' || field === 'lastName') {
+        next.name = [next.firstName, next.lastName].filter(Boolean).join(' ').trim();
+      }
+      return next;
+    });
     setIsDirty(true);
   };
 
@@ -64,20 +86,52 @@ export function useEmployeeDetailForm(
   };
 
   const handleSaveChanges = async () => {
+    if (options?.canEdit === false) return;
+
     setIsSaving(true);
     try {
-      const nameParts = employee.name.trim().split(/\s+/);
-      const firstName = nameParts[0] ?? employee.firstName;
-      const lastName = nameParts.slice(1).join(' ') || employee.lastName;
-
-      await updateEmployee(employee.id, {
-        firstName,
-        lastName,
+      const profilePayload = {
+        firstName: employee.firstName.trim(),
+        lastName: employee.lastName.trim(),
         preferredName: employee.preferredName || undefined,
         phone: employee.phone || undefined,
         dateOfBirth: employee.dateOfBirth || undefined,
         gender: employee.personalInfo.gender || undefined,
-      });
+      };
+
+      if (options?.isSelf) {
+        await updateMemberProfile(profilePayload);
+      } else {
+        await updateEmployee(employee.id, profilePayload);
+      }
+
+      const { street, city, state, zipCode, country } = employee.address;
+      const hasAddress =
+        street.trim() || city.trim() || state.trim() || zipCode.trim() || country.trim();
+      if (hasAddress) {
+        if (!city.trim() || !state.trim() || !country.trim()) {
+          toast.error('Address requires city, state, and country');
+          return;
+        }
+        const saved = await upsertMemberAddress(employee.id, {
+          street: street.trim() || undefined,
+          city: city.trim(),
+          state: state.trim(),
+          postalCode: zipCode.trim() || undefined,
+          country: country.trim(),
+        });
+        setEmployee((prev) => ({
+          ...prev,
+          addressId: saved.id,
+          address: {
+            street: saved.street ?? '',
+            city: saved.city,
+            state: saved.state,
+            zipCode: saved.postalCode ?? '',
+            country: saved.country,
+          },
+        }));
+      }
 
       toast.success(
         <ToastMessage
@@ -166,6 +220,7 @@ export function useEmployeeDetailForm(
 
   return {
     employee,
+    canEdit: options?.canEdit !== false,
     isDirty,
     isSaving,
     emergencyContactDialogOpen,
@@ -175,6 +230,9 @@ export function useEmployeeDetailForm(
     handleInputChange,
     handleNestedInputChange,
     handleSaveChanges,
+    handleAvatarUpdated: (avatarUrl: string) => {
+      setEmployee((prev) => ({ ...prev, profileImage: avatarUrl }));
+    },
     handleAddEmergencyContact,
     handleDeleteEmergencyContact,
     handleAddEducation,

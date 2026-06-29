@@ -6,10 +6,11 @@ import { AddressController } from './address.controller';
 import { AddressRepository } from './address.repository';
 import { AddressService } from './address.service';
 import { Address } from './entities/address.entity';
+import { MemberAddressController } from './member-address.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Address]), TenantsModule, TenantMembersModule],
-  controllers: [AddressController],
+  controllers: [AddressController, MemberAddressController],
   providers: [AddressService, AddressRepository],
   exports: [AddressService],
 })

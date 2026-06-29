@@ -1,17 +1,45 @@
 'use client';
 
-import { Moon, Sun } from 'lucide-react';
+import { Laptop, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 
-export function ThemeMenuItem() {
-  const { setTheme, theme } = useTheme();
-  const isDark = theme === 'dark';
+const THEMES = [
+  { value: 'light', icon: Sun, label: 'Light' },
+  { value: 'dark', icon: Moon, label: 'Dark' },
+  { value: 'system', icon: Laptop, label: 'System' },
+] as const;
+
+export function ThemeMenuRow() {
+  const { theme, setTheme } = useTheme();
 
   return (
-    <DropdownMenuItem onClick={() => setTheme(isDark ? 'light' : 'dark')} className="gap-2">
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-      {isDark ? 'Light mode' : 'Dark mode'}
-    </DropdownMenuItem>
+    <>
+      <DropdownMenuLabel className="text-xs text-muted-foreground">Appearance</DropdownMenuLabel>
+      <div className="flex items-center gap-1 px-2 pb-2">
+        {THEMES.map(({ value, icon: Icon, label }) => {
+          const selected = theme === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-label={label}
+              aria-pressed={selected}
+              className={cn(
+                'flex size-8 items-center justify-center rounded-md transition-colors',
+                selected
+                  ? 'bg-muted text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+              )}
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => setTheme(value)}
+            >
+              <Icon className="size-4" />
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }

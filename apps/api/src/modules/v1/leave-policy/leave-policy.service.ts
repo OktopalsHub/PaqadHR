@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import type { QueryDeepPartialEntity } from 'typeorm';
 import type { CreateLeavePolicyDto } from './dto/create-leave-policy.dto';
 import type { UpdateLeavePolicyDto } from './dto/update-leave-policy.dto';
+import type { LeavePolicy } from './entities/leave-policy.entity';
 import { LeavePolicyRepository } from './leave-policy.repository';
 
 @Injectable()
@@ -25,14 +27,11 @@ export class LeavePolicyService {
     if (!policy) {
       throw new NotFoundException('Tenant leave policy not found');
     }
-    const updateData: Partial<typeof policy> = {
-      ...dto,
-      carryoverExpiryMonths: dto.carryoverExpiryMonths || undefined,
-    };
-    return this.leavePolicyRepository.update(
-      policy.id,
-      updateData as Parameters<typeof this.leavePolicyRepository.update>[1],
-    );
+    const updateData: QueryDeepPartialEntity<LeavePolicy> = { ...dto };
+    if ('carryoverExpiryMonths' in dto) {
+      updateData.carryoverExpiryMonths = dto.carryoverExpiryMonths ?? null;
+    }
+    return this.leavePolicyRepository.update(policy.id, updateData);
   }
   async createCustomPolicy(tenantId: string, dto: CreateLeavePolicyDto) {
     const policyData = {

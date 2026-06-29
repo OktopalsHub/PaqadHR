@@ -35,13 +35,13 @@ export class LeaveTypeService {
     }
     return leaveType;
   }
-  async updateLeaveType(typeId: string, dto: UpdateLeaveTypeDto, tenantId: string) {
-    await this.getLeaveType(typeId, tenantId);
+  async updateLeaveType(tenantId: string, typeId: string, dto: UpdateLeaveTypeDto) {
+    await this.getLeaveType(tenantId, typeId);
     await this.leaveTypeRepository.update(typeId, dto);
-    return this.leaveTypeRepository.findOne({ where: { id: typeId } });
+    return this.leaveTypeRepository.findOne({ where: { id: typeId, tenantId } });
   }
-  async deleteLeaveType(typeId: string, tenantId: string) {
-    await this.getLeaveType(typeId, tenantId);
+  async deleteLeaveType(tenantId: string, typeId: string) {
+    await this.getLeaveType(tenantId, typeId);
     return this.leaveTypeRepository.softDelete(typeId);
   }
   async getActiveLeaveTypes(tenantId: string) {

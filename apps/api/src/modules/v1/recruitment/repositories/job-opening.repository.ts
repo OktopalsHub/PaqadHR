@@ -280,6 +280,9 @@ export class JobOpeningRepository extends Repository<JobOpening> {
     filters?: JobFilterOptions,
   ): void {
     if (!filters) return;
+    if (filters.tenantId) {
+      queryBuilder.andWhere('job.tenantId = :tenantId', { tenantId: filters.tenantId });
+    }
     if (filters.status) {
       queryBuilder.andWhere('job.status = :status', { status: filters.status });
     }

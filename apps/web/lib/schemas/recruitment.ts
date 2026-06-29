@@ -26,6 +26,7 @@ export const jobOpeningSchema = z.object({
   requirements: z.array(z.string()).optional(),
   responsibilities: z.array(z.string()).optional(),
   location: jobLocationSchema.optional(),
+  customQuestions: z.array(z.any()).optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });

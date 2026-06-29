@@ -2,8 +2,10 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -17,14 +19,51 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
+import {
+  authDestinationToPath,
+  resolveAuthDestination,
+} from '@/lib/navigation/resolve-auth-destination';
 import { type LoginInput, loginSchema } from '@/lib/schemas/auth';
+import { useTenant } from '@/providers/tenant-provider';
 import { SocialAuthButtons } from './buttons/social-auth-buttons';
 import { ForgotPasswordForm } from './forgot-password.form';
 import { PasswordInput } from './form-fields/password-input';
 
 export const Login = () => {
+  const router = useRouter();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
+
+  const redirectParam =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('redirect')
+      : null;
+
+  const resolvedDestination = resolveAuthDestination({
+    isAuthenticated,
+    tenants: isAuthenticated && hasResolvedTenants ? tenants : [],
+    redirect: redirectParam,
+  });
+
+  const isResolvingSession =
+    authLoading || (isAuthenticated && (!hasResolvedTenants || tenantLoading));
+
+  const showRedirectSpinner =
+    isAuthenticated &&
+    hasResolvedTenants &&
+    !tenantLoading &&
+    resolvedDestination.type !== 'signin';
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasResolvedTenants || tenantLoading || authLoading) return;
+
+    const redirect = new URLSearchParams(window.location.search).get('redirect');
+    const destination = resolveAuthDestination({ isAuthenticated, tenants, redirect });
+    if (destination.type !== 'signin') {
+      router.replace(authDestinationToPath(destination));
+    }
+  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -34,6 +73,14 @@ export const Login = () => {
       rememberMe: false,
     },
   });
+
+  if (isResolvingSession || showRedirectSpinner) {
+    return (
+      <div className="flex min-h-[280px] items-center justify-center">
+        <LoadingBlock />
+      </div>
+    );
+  }
 
   if (showForgotPassword) {
     return <ForgotPasswordForm onBack={() => setShowForgotPassword(false)} />;

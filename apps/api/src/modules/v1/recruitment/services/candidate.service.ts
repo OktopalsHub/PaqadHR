@@ -98,6 +98,7 @@ export class CandidateService {
       githubUrl: createCandidateDto.githubUrl,
       skills: createCandidateDto.skills,
       experience: createCandidateDto.experience,
+      customAnswers: createCandidateDto.customAnswers,
     });
     return this.candidateRepository.save(entity);
   }

@@ -76,4 +76,6 @@ export class DepartmentResponseDto {
   createdAt: Date;
   @ApiProperty({ description: 'Last update date' })
   updatedAt: Date;
+  @ApiProperty({ description: 'Color code', required: false })
+  color?: string;
 }

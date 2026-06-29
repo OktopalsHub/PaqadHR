@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { Repository } from 'typeorm';
+import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
+import { PaymentMethod } from '../payment-method/entities/payment-method.entity';
+import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import type { User } from './entities/user.entity';
+import { buildUserConsentMetadata, getUserConsent } from './interfaces/user-metadata.interface';
 import { UserRepository } from './repositories/users.repository';
 
 @Injectable()
@@ -11,6 +17,12 @@ export class UsersService {
     private readonly userRepository: UserRepository,
     @InjectRepository(Session)
     private readonly sessionRepository: Repository<Session>,
+    @InjectRepository(Account)
+    private readonly accountRepository: Repository<Account>,
+    @InjectRepository(TenantMember)
+    private readonly tenantMemberRepository: Repository<TenantMember>,
+    @InjectRepository(PaymentMethod)
+    private readonly paymentMethodRepository: Repository<PaymentMethod>,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -22,11 +34,82 @@ export class UsersService {
   }
 
   async deleteAccount(userId: string): Promise<void> {
-    await this.userRepository.findUser(userId);
+    const user = await this.userRepository.findUser(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const members = await this.tenantMemberRepository.find({ where: { userId } });
+    const memberIds = members.map((member) => member.id);
+
+    if (memberIds.length > 0) {
+      await this.paymentMethodRepository
+        .createQueryBuilder()
+        .update(PaymentMethod)
+        .set({
+          accountNumber: null,
+          accountName: null,
+          bankCode: null,
+          bankName: null,
+          passcodeHash: null,
+          status: PaymentMethodStatus.SUSPENDED,
+          isPrimary: false,
+        })
+        .where('member_id IN (:...memberIds)', { memberIds })
+        .execute();
+
+      await this.tenantMemberRepository.update(
+        { userId },
+        { isActive: false, leaveDate: new Date() },
+      );
+      await this.tenantMemberRepository.softDelete({ userId });
+    }
+
     await Promise.all([
       this.sessionRepository.delete({ userId }),
-      this.userRepository.softDelete(userId),
+      this.accountRepository.delete({ userId }),
     ]);
+
+    const tombstoneEmail = `deleted_${createHash('sha256').update(userId).digest('hex').slice(0, 16)}@anonymized.paqad.local`;
+    await this.userRepository.update(userId, {
+      email: tombstoneEmail,
+      password: null,
+      isActive: false,
+      name: null,
+      imageKey: null,
+      countryCode: null,
+    });
+    await this.userRepository.softDelete(userId);
+  }
+
+  async exportUserData(userId: string): Promise<Record<string, unknown>> {
+    const user = await this.getProfile(userId);
+    const members = await this.tenantMemberRepository.find({
+      where: { userId },
+      relations: ['tenant'],
+    });
+
+    const consent = getUserConsent(user.metadata);
+
+    return {
+      exportedAt: new Date().toISOString(),
+      profile: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        countryCode: user.countryCode,
+        consent,
+        createdAt: user.createdAt,
+      },
+      memberships: members.map((member) => ({
+        id: member.id,
+        tenantId: member.tenantId,
+        tenantName: member.tenant?.name,
+        role: member.role,
+        firstName: member.firstName,
+        lastName: member.lastName,
+      })),
+    };
   }
 
   async getUsers(): Promise<User[]> {
@@ -53,5 +136,18 @@ export class UsersService {
     await this.getUser(id);
     await this.userRepository.update(id, data as Parameters<UserRepository['update']>[1]);
     return this.getUser(id);
+  }
+
+  validateRegistrationConsent(termsAccepted?: boolean): void {
+    if (termsAccepted === false) {
+      throw new BadRequestException('You must accept the terms and privacy policy to register');
+    }
+  }
+
+  buildConsentMetadata(termsAccepted?: boolean) {
+    if (termsAccepted === false) {
+      throw new BadRequestException('You must accept the terms and privacy policy to register');
+    }
+    return buildUserConsentMetadata(true);
   }
 }

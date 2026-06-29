@@ -19,7 +19,7 @@ import { ShoutoutCategoryResponseDto } from '../dto/shoutout-category-response.d
 import type { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
 import { ShoutoutCategoriesService } from '../services/shoutout-categories.service';
 
-@ApiTags('shoutout-categories')
+@ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/shoutout-categories')
 export class ShoutoutCategoriesController {

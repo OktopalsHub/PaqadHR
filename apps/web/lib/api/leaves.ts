@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { apiClient, tenantPath } from '@/lib/api/client';
-import { resolveTenantId } from '@/lib/api/tenants';
+import { fetchTenantMembers } from '@/lib/api/employees';
+import { fetchUserTenants, resolveTenantId } from '@/lib/api/tenants';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { mapApiLeaveToLeaveRequest } from '@/lib/mappers/leave';
 import { mapApiLeaveBalances } from '@/lib/mappers/leave-balance';
 import type { CreateLeaveInput, LeaveBalance, LeaveRequest } from '@/lib/schemas/leave';
@@ -10,13 +12,60 @@ type PaginatedLeaves = {
   records: unknown[];
 };
 
-export async function fetchLeaves(): Promise<LeaveRequest[]> {
+async function resolveViewerCanViewTeamLeaves(): Promise<boolean> {
   const tenantId = await resolveTenantId();
-  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves')}?limit=100`);
+  const tenants = await fetchUserTenants();
+  const tenant = tenants.find((entry) => entry.id === tenantId);
+  const role = tenant?.member?.role;
+  if (isTenantAdmin(role)) {
+    return true;
+  }
+  const viewerId = tenant?.member?.id;
+  if (!viewerId) {
+    return false;
+  }
+  const members = await fetchTenantMembers();
+  return members.some((member) => member.reportsToId === viewerId);
+}
 
+function mapLeaveRecords(data: PaginatedLeaves): LeaveRequest[] {
   return (data.records ?? []).map((leave) =>
     leaveRequestSchema.parse(mapApiLeaveToLeaveRequest(leave as never)),
   );
+}
+
+export async function fetchLeaves(): Promise<LeaveRequest[]> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves')}?limit=200`);
+  return mapLeaveRecords(data);
+}
+
+export async function fetchMyLeaves(): Promise<LeaveRequest[]> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves/me')}?limit=200`);
+  return mapLeaveRecords(data);
+}
+
+export async function fetchLeavesForCalendar(options: {
+  status?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+}): Promise<LeaveRequest[]> {
+  const tenantId = await resolveTenantId();
+  const params = new URLSearchParams();
+  params.set('limit', String(options.limit ?? 500));
+  if (options.status) params.set('status', options.status);
+  if (options.from) params.set('from', options.from);
+  if (options.to) params.set('to', options.to);
+
+  const canViewTeamLeaves = await resolveViewerCanViewTeamLeaves();
+  const path = canViewTeamLeaves
+    ? `${tenantPath(tenantId, 'leaves')}?${params.toString()}`
+    : `${tenantPath(tenantId, 'leaves/me')}?${params.toString()}`;
+
+  const data = await apiClient<PaginatedLeaves>(path);
+  return mapLeaveRecords(data);
 }
 
 export async function fetchMyLeaveBalances(): Promise<LeaveBalance[]> {

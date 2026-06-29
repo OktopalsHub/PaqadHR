@@ -11,4 +11,5 @@ export enum AuditEventType {
   PAYROLL_APPROVED = 'payroll_approved',
   PAYROLL_DISBURSED_MANUAL = 'payroll_disbursed_manual',
   PAYROLL_EXPORTED = 'payroll_exported',
+  PAYSLIPS_PUBLISHED = 'payslips_published',
 }

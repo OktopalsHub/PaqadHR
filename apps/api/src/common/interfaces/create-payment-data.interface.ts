@@ -7,5 +7,18 @@ export interface CreatePaymentData {
   countryCode?: string;
   network?: string;
   callbackUrl?: string;
-  metadata?: Record<string, any>;
+  accountNumber?: string;
+  accountName?: string;
+  bankCode?: string;
+  bankName?: string;
+  merchantTxRef?: string;
+  senderName?: string;
+
+  paymentRail?: string;
+  institutionCode?: string;
+  institutionName?: string;
+  accountType?: 'INDIVIDUAL' | 'CORPORATE';
+  bankAccountType?: 'CHECKING' | 'SAVINGS';
+  purposeOfPayment?: string;
+  metadata?: Record<string, unknown>;
 }

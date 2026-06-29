@@ -31,7 +31,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
-// Form schema for emergency contact
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters' }),
   relationship: z.string().min(1, { message: 'Relationship is required' }),

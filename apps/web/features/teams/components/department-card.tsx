@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import type { Department } from '@/lib/schemas/department';
+import { DepartmentEditButton } from './edit-department-dialog';
 
 interface DepartmentCardProps {
   department: Department;
@@ -14,6 +15,9 @@ interface DepartmentCardProps {
 export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentCardProps) {
   const memberCount = department.members.length + (department.manager ? 1 : 0);
 
+  const color = department.color || '#64748b';
+  const isHexOrRgb = color.startsWith('#') || color.startsWith('rgb') || color.startsWith('hsl');
+
   return (
     <Card className="app-card rounded-2xl">
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
@@ -21,7 +25,10 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={`${department.color} p-3 rounded-lg text-white`}>
+                <div
+                  className={`p-3 rounded-lg text-white flex items-center justify-center ${!isHexOrRgb ? color : ''}`}
+                  style={isHexOrRgb ? { backgroundColor: color } : undefined}
+                >
                   <Building size={20} />
                 </div>
                 <div>
@@ -31,6 +38,7 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">{memberCount} members</Badge>
+                <DepartmentEditButton department={department} />
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
                 ) : (
@@ -65,7 +73,12 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
                       )}
                     </div>
                   </div>
-                  <Badge className={`${department.color} text-white`}>Manager</Badge>
+                  <Badge
+                    className={!isHexOrRgb ? `${color} text-white` : 'text-white'}
+                    style={isHexOrRgb ? { backgroundColor: color } : undefined}
+                  >
+                    Manager
+                  </Badge>
                 </div>
               </div>
             )}

@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, NotImplementedException } from '@nestjs/common';
+import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
+import { AuditLogsService } from 'src/common/services/audit-logs.service';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
 import { FileService } from 'src/common/services/file.service';
+import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { DocumentType } from '../../../common/enums/document-type.enum';
@@ -16,10 +19,14 @@ import {
 
 @Injectable()
 export class DocumentService {
+  private readonly logger = new Logger(DocumentService.name);
+
   constructor(
     private readonly documentRepository: DocumentRepository,
-    readonly _r2Service: CloudflareR2Service,
+    private readonly r2Service: CloudflareR2Service,
     private readonly fileService: FileService,
+    private readonly auditLogsService: AuditLogsService,
+    private readonly managerAccessService: ManagerAccessService,
   ) {}
   async createDocument(
     tenantId: string,
@@ -31,8 +38,13 @@ export class DocumentService {
   async listDocuments(tenantId: string): Promise<Document[]> {
     return this.documentRepository.listDocuments(tenantId);
   }
-  async getDocumentsByMemberId(memberId: string, tenantId: string): Promise<Document[]> {
-    return this.documentRepository.getDocumentsByMemberId(memberId, tenantId);
+  async getDocumentsByMemberId(
+    memberId: string,
+    tenantId: string,
+    memberRole?: string,
+  ): Promise<Document[]> {
+    const documents = await this.documentRepository.getDocumentsByMemberId(memberId, tenantId);
+    return this.filterDocumentsForMember(documents, memberRole);
   }
   async getDocument(id: string, tenantId: string): Promise<Document> {
     const document = await this.documentRepository.getDocument(id, tenantId);
@@ -50,7 +62,29 @@ export class DocumentService {
     return this.documentRepository.updateDocument(id, updateDocumentDto, tenantId);
   }
   async deleteDocument(id: string, tenantId: string): Promise<void> {
+    await this.getDocument(id, tenantId);
     await this.documentRepository.softDeleteDocument(id, tenantId);
+  }
+
+  async purgeExpiredDocument(document: Document): Promise<void> {
+    await this.purgeStoredFile(document);
+    await this.documentRepository.delete(document.id);
+  }
+
+  private async purgeStoredFile(document: Document): Promise<void> {
+    if (!document.fileKey?.trim()) {
+      return;
+    }
+
+    try {
+      await this.r2Service.deleteFile(document.fileKey);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete R2 object for document ${document.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
   }
   async restoreDocument(id: string, tenantId: string): Promise<Document> {
     await this.documentRepository.restoreDocument(id, tenantId);
@@ -63,10 +97,11 @@ export class DocumentService {
     memberId: string,
     type: DocumentType,
     tenantId: string,
+    memberRole?: string,
   ): Promise<Document[]> {
-    await this.getDocument(memberId, tenantId);
-    const documents = await this.documentRepository.getDocumentsByType(type, tenantId);
-    return documents.filter((doc) => doc.tenantMemberId === memberId);
+    const documents = await this.documentRepository.getDocumentsByMemberId(memberId, tenantId);
+    const filtered = documents.filter((doc) => doc.type === type);
+    return this.filterDocumentsForMember(filtered, memberRole);
   }
   async verifyDocument(id: string, tenantId: string, isVerified: boolean): Promise<Document> {
     return this.updateDocument(id, { isVerified }, tenantId);
@@ -109,7 +144,7 @@ export class DocumentService {
   }
   async getDocumentAccessLogs(tenantId: string, documentId: string): Promise<unknown[]> {
     await this.getDocument(documentId, tenantId);
-    return [];
+    throw new NotImplementedException('Document access logs are not available yet');
   }
   async logDocumentAccess(
     tenantId: string,
@@ -118,7 +153,16 @@ export class DocumentService {
     action: string,
   ): Promise<void> {
     await this.getDocument(documentId, tenantId);
-    console.log(`Document ${documentId} accessed by member ${memberId}: ${action}`);
+    await this.auditLogsService.queueAuditLog({
+      action: action === 'download' ? AuditAction.FILE_DOWNLOADED : AuditAction.READ,
+      description: `Document ${documentId} ${action} by member ${memberId}`,
+      severity: AuditSeverity.LOW,
+      status: AuditStatus.SUCCESS,
+      resourceType: 'document',
+      resourceId: documentId,
+      tenantId,
+      metadata: { memberId, action },
+    });
   }
   async getDocumentTemplates(tenantId: string): Promise<unknown[]> {
     return [
@@ -147,14 +191,8 @@ export class DocumentService {
     documentId: string,
     signerEmails: string[],
   ): Promise<unknown> {
-    const _document = await this.getDocument(documentId, tenantId);
-    return {
-      documentId,
-      status: 'pending',
-      signers: signerEmails.map((email) => ({ email, status: 'sent' })),
-      signatureUrl: `https://signature-service.com/sign/${documentId}`,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    };
+    await this.getDocument(documentId, tenantId);
+    throw new NotImplementedException('Digital signatures are not available yet');
   }
   async getDocumentsByTypes(types: DocumentType[], tenantId: string): Promise<Document[]> {
     return this.documentRepository.getDocumentsByTypes(types, tenantId);
@@ -192,6 +230,20 @@ export class DocumentService {
     }
     return stats;
   }
+
+  filterDocumentsForMember(documents: Document[], memberRole?: string): Document[] {
+    if (!memberRole || this.isPrivilegedDocumentRole(memberRole)) {
+      return documents;
+    }
+    return documents.filter(
+      (document) => !(document.type === DocumentType.PAY_STUB && !document.isVerified),
+    );
+  }
+
+  private isPrivilegedDocumentRole(memberRole: string): boolean {
+    return ['admin', 'owner', 'hr'].includes(memberRole.toLowerCase());
+  }
+
   async checkDocumentAccess(
     tenantId: string,
     documentId: string,
@@ -199,9 +251,32 @@ export class DocumentService {
     memberRole: string,
   ): Promise<boolean> {
     const document = await this.getDocument(documentId, tenantId);
-    if (memberRole === 'admin' || memberRole === 'hr') {
+    const isPrivileged = this.isPrivilegedDocumentRole(memberRole);
+
+    if (document.type === DocumentType.PAY_STUB && !document.isVerified && !isPrivileged) {
+      const isManager = await this.managerAccessService.isManagerOf(
+        tenantId,
+        memberId,
+        document.tenantMemberId,
+      );
+      if (!isManager) {
+        return false;
+      }
+    }
+
+    if (isPrivileged || memberRole === 'hr') {
       return true;
     }
+
+    const isManager = await this.managerAccessService.isManagerOf(
+      tenantId,
+      memberId,
+      document.tenantMemberId,
+    );
+    if (isManager) {
+      return true;
+    }
+
     const accessLevel = getDocumentAccessLevel(document.type);
     switch (accessLevel) {
       case DocumentAccessLevel.PUBLIC:
@@ -218,8 +293,19 @@ export class DocumentService {
         return document.tenantMemberId === memberId;
     }
   }
-  async downloadDocument(tenantId: string, id: string): Promise<string> {
+  async downloadDocument(
+    tenantId: string,
+    id: string,
+    memberId?: string,
+    memberRole?: string,
+  ): Promise<string> {
     const document = await this.getDocument(id, tenantId);
+    if (memberId && memberRole) {
+      const hasAccess = await this.checkDocumentAccess(tenantId, id, memberId, memberRole);
+      if (!hasAccess) {
+        throw new NotFoundException(`Document with ID "${id}" not found`);
+      }
+    }
     return this.fileService.generateDownloadUrl(
       tenantId,
       FileUploadLocation.DOCUMENTS,

@@ -10,6 +10,9 @@ export const queryKeys = {
     all: ['employees'] as const,
     detail: (id: string) => ['employees', id] as const,
   },
+  positions: {
+    all: ['positions'] as const,
+  },
   leaves: {
     all: ['leaves'] as const,
     balances: ['leaves', 'balances'] as const,
@@ -17,13 +20,38 @@ export const queryKeys = {
   departments: {
     all: ['departments'] as const,
   },
+  attendance: {
+    policies: ['attendance', 'policies'] as const,
+    clockInInfo: ['attendance', 'clock-in-info'] as const,
+    myRecords: ['attendance', 'my-records'] as const,
+    teamRecords: ['attendance', 'team-records'] as const,
+    monthly: ['attendance', 'monthly'] as const,
+  },
   calendar: {
     events: ['calendar', 'events'] as const,
+  },
+  settings: {
+    tenant: ['settings', 'tenant'] as const,
+    leavePolicy: ['settings', 'leave-policy'] as const,
+    leaveTypes: ['settings', 'leave-types'] as const,
+    shoutoutCategories: ['settings', 'shoutout-categories'] as const,
+    membersPoints: ['settings', 'members-points'] as const,
+    holidays: ['settings', 'holidays'] as const,
+    holidayCountries: ['settings', 'holiday-countries'] as const,
   },
   shoutouts: {
     all: ['shoutouts'] as const,
     categories: ['shoutouts', 'categories'] as const,
     points: (tenantId: string) => ['shoutouts', 'points', tenantId] as const,
+  },
+  integrations: {
+    shoutoutSlackStatus: (tenantId: string) =>
+      ['integrations', 'shoutout-slack', tenantId] as const,
+    slackChannels: (integrationId: string) =>
+      ['integrations', 'slack-channels', integrationId] as const,
+    syncStatus: (integrationId: string) => ['integrations', 'sync-status', integrationId] as const,
+    unmatchedUsers: (integrationId: string) =>
+      ['integrations', 'unmatched-users', integrationId] as const,
   },
   payroll: {
     all: ['payroll'] as const,
@@ -37,15 +65,33 @@ export const queryKeys = {
   },
   billing: {
     status: (tenantId: string) => ['billing', tenantId] as const,
+    overview: (tenantId: string) => ['billing', 'overview', tenantId] as const,
+  },
+  paymentMethods: {
+    all: ['payment-methods'] as const,
+    currencies: ['payment-methods', 'currencies'] as const,
+    pending: ['payment-methods', 'pending'] as const,
+    banks: (tenantId: string) => ['payment-methods', 'banks', tenantId] as const,
   },
   member: {
     profile: (tenantId: string) => ['member', 'profile', tenantId] as const,
   },
   onboarding: {
-    pricing: ['onboarding', 'pricing'] as const,
+    pricing: (country?: string) => ['onboarding', 'pricing', country ?? 'auto'] as const,
     slugAvailability: (slug: string) => ['onboarding', 'slug-availability', slug] as const,
   },
   analytics: {
     overview: ['analytics', 'overview'] as const,
+  },
+  notifications: {
+    list: ['notifications', 'list'] as const,
+    unreadCount: ['notifications', 'unread-count'] as const,
+  },
+  rewards: {
+    catalog: ['rewards', 'catalog'] as const,
+    claims: ['rewards', 'claims'] as const,
+    allClaims: ['rewards', 'all-claims'] as const,
+    wallet: ['rewards', 'wallet'] as const,
+    custom: ['rewards', 'custom'] as const,
   },
 } as const;

@@ -66,61 +66,23 @@ export class NotificationPreferenceService {
     Array<{ notificationType: string; defaultSettings: UpdatePreferenceDto }>
   > {
     return [
-      {
-        notificationType: 'payroll',
-        defaultSettings: {
-          preferredChannel: NotificationChannel.BOTH,
-          isEnabled: true,
-          emailEnabled: true,
-          inAppEnabled: true,
-        },
+      'payroll',
+      'leave_request',
+      'shoutout',
+      'system_announcement',
+      'task_assignment',
+      'meeting_reminder',
+    ].map((type) => ({
+      notificationType: type,
+      defaultSettings: {
+        preferredChannel: ['shoutout', 'task_assignment'].includes(type)
+          ? NotificationChannel.IN_APP
+          : NotificationChannel.BOTH,
+        isEnabled: true,
+        emailEnabled: !['shoutout', 'task_assignment'].includes(type),
+        inAppEnabled: true,
       },
-      {
-        notificationType: 'leave_request',
-        defaultSettings: {
-          preferredChannel: NotificationChannel.BOTH,
-          isEnabled: true,
-          emailEnabled: true,
-          inAppEnabled: true,
-        },
-      },
-      {
-        notificationType: 'shoutout',
-        defaultSettings: {
-          preferredChannel: NotificationChannel.IN_APP,
-          isEnabled: true,
-          emailEnabled: false,
-          inAppEnabled: true,
-        },
-      },
-      {
-        notificationType: 'system_announcement',
-        defaultSettings: {
-          preferredChannel: NotificationChannel.BOTH,
-          isEnabled: true,
-          emailEnabled: true,
-          inAppEnabled: true,
-        },
-      },
-      {
-        notificationType: 'task_assignment',
-        defaultSettings: {
-          preferredChannel: NotificationChannel.IN_APP,
-          isEnabled: true,
-          emailEnabled: false,
-          inAppEnabled: true,
-        },
-      },
-      {
-        notificationType: 'meeting_reminder',
-        defaultSettings: {
-          preferredChannel: NotificationChannel.BOTH,
-          isEnabled: true,
-          emailEnabled: true,
-          inAppEnabled: true,
-        },
-      },
-    ];
+    }));
   }
   async shouldSendNotification(
     tenantMemberId: string,

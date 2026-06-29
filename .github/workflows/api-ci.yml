@@ -2,7 +2,7 @@ name: API — Build and Publish
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'apps/api/**'
       - 'package.json'
@@ -11,33 +11,12 @@ on:
       - 'biome.json'
       - '.github/workflows/api-ci.yml'
   pull_request:
-    branches: [main, develop]
+    branches: [main, dev]
     paths:
       - 'apps/api/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
-
-env:
-  CI_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
-  ACCESS_SECRET: ci-access-secret-must-be-at-least-32-chars-long
-  REFRESH_SECRET: ci-refresh-secret-must-be-at-least-32-chars-long
-  ENCRYPTION_KEY: '01234567890123456789012345678901'
-  NODE_ENV: development
-  PORT: '9001'
-  BASE_URL: http://localhost:9001
-  FRONTEND_URL: http://localhost:3000
-  TRUSTED_ORIGINS: http://localhost:3000
-  GOOGLE_CLIENT_ID: ci-google-client-id
-  GOOGLE_CLIENT_SECRET: ci-google-client-secret
-  GOOGLE_CALLBACK_URL: http://localhost:9001/api/v1/auth/google/callback
-  BILLING_MODE: trial
-  PAYROLL_DISBURSEMENT_MODE: manual
-  CLOUDFLARE_R2_ACCOUNT_ID: ci-account-id
-  CLOUDFLARE_R2_ACCESS_KEY_ID: ci-access-key-id
-  CLOUDFLARE_R2_SECRET_ACCESS_KEY: ci-secret-access-key-min-10-chars
-  CLOUDFLARE_R2_BUCKET_NAME: ci-bucket
-  CLOUDFLARE_R2_PUBLIC_ID: ci-public-id
 
 jobs:
   lint-and-test:
@@ -77,23 +56,21 @@ jobs:
 
       - name: Build API
         run: pnpm --filter api build
-        env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
 
       - name: Run migrations (test DB)
         run: pnpm --filter api migration:run
         env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
 
       - name: Unit tests
         run: pnpm --filter api test
         env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
 
       - name: E2E tests
         run: pnpm --filter api test:e2e
         env:
-          DATABASE_URL: ${{ env.CI_DATABASE_URL }}
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
 
   build-and-publish:
     if: github.event_name == 'push'

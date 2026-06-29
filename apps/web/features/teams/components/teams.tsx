@@ -13,9 +13,20 @@ import { useDepartments } from '@/hooks/queries/use-departments';
 import { CreateDepartmentDialog } from './create-department-dialog';
 import { DepartmentCard } from './department-card';
 
-export const Teams = () => {
+export const Teams = ({
+  hidePageActions = false,
+  createOpenExternal,
+  setCreateOpenExternal,
+}: {
+  hidePageActions?: boolean;
+  createOpenExternal?: boolean;
+  setCreateOpenExternal?: (open: boolean) => void;
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [createOpen, setCreateOpen] = useState(false);
+  const [createOpenInternal, setCreateOpenInternal] = useState(false);
+  const createOpen = createOpenExternal !== undefined ? createOpenExternal : createOpenInternal;
+  const setCreateOpen =
+    setCreateOpenExternal !== undefined ? setCreateOpenExternal : setCreateOpenInternal;
   const [expandedDepts, setExpandedDepts] = useState<string[]>([]);
   const { data: departments = [], isLoading, isError, error } = useDepartments();
 
@@ -49,12 +60,14 @@ export const Teams = () => {
 
   return (
     <AppPage>
-      <PageActions>
-        <Button className="gap-2 rounded-lg" size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus size={16} />
-          Add department
-        </Button>
-      </PageActions>
+      {!hidePageActions && (
+        <PageActions>
+          <Button className="gap-2 rounded-lg" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus size={16} />
+            Add department
+          </Button>
+        </PageActions>
+      )}
 
       <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
 

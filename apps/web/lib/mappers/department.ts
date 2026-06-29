@@ -1,3 +1,4 @@
+import { formatDisplayName, formatPersonName } from '@/lib/format-name';
 import type { Department, DepartmentMember } from '@/lib/schemas/department';
 
 type ApiDepartmentMember = {
@@ -31,6 +32,7 @@ type ApiDepartment = {
   id: string;
   name: string;
   description?: string;
+  color?: string;
   manager?: ApiDepartmentMember;
   members: ApiDepartmentMember[];
   teams?: ApiTeam[];
@@ -50,22 +52,24 @@ function initials(firstName: string, lastName: string) {
 }
 
 function mapMember(member: ApiDepartmentMember): DepartmentMember {
+  const firstName = formatDisplayName(member.firstName, '');
+  const lastName = formatDisplayName(member.lastName, '');
   return {
     id: member.id,
-    name: `${member.firstName} ${member.lastName}`.trim(),
+    name: formatPersonName(firstName, lastName, member.email),
     email: member.email,
     phone: member.phone,
     role: member.role,
     position: member.position,
-    initials: initials(member.firstName, member.lastName),
+    initials: initials(firstName, lastName),
     isManager: member.isManager,
   };
 }
 
 function mapTeamMember(member: ApiTeamMember): DepartmentMember {
-  const first = member.firstName ?? '';
-  const last = member.lastName ?? '';
-  const name = `${first} ${last}`.trim() || member.email || 'Member';
+  const first = formatDisplayName(member.firstName, '');
+  const last = formatDisplayName(member.lastName, '');
+  const name = formatPersonName(first, last, '') || member.email || 'Member';
 
   return {
     id: member.id,
@@ -81,7 +85,7 @@ export function mapApiDepartment(department: ApiDepartment, index: number): Depa
     id: department.id,
     name: department.name,
     description: department.description,
-    color: DEPARTMENT_COLORS[index % DEPARTMENT_COLORS.length],
+    color: department.color || DEPARTMENT_COLORS[index % DEPARTMENT_COLORS.length],
     manager: department.manager ? mapMember(department.manager) : undefined,
     members: department.members.map(mapMember),
     teams: department.teams?.map((team) => ({

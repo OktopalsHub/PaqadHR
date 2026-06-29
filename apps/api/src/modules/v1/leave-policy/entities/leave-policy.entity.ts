@@ -13,8 +13,8 @@ export class LeavePolicy extends BaseEntity {
   allowCarryover: boolean;
   @Column({ name: 'max_carryover_days', default: 0 })
   maxCarryoverDays: number;
-  @Column({ name: 'carryover_expiry_months', nullable: true })
-  carryoverExpiryMonths?: number;
+  @Column({ name: 'carryover_expiry_months', type: 'int', nullable: true })
+  carryoverExpiryMonths?: number | null;
   @Column({ name: 'auto_create_annual_balances', default: true })
   autoCreateAnnualBalances: boolean;
   @Column({ name: 'prorate_for_new_joiners', default: true })

@@ -18,20 +18,13 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const signupSchema = z
-  .object({
-    name: z.string().optional(),
-    email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string(),
-    agreeToTerms: z.boolean().refine((value) => value, {
-      message: 'You must agree to the terms and conditions',
-    }),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  });
+export const signupSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  agreeToTerms: z.boolean().refine((value) => value, {
+    message: 'You must agree to the terms and conditions',
+  }),
+});
 
 export type SignupInput = z.infer<typeof signupSchema>;
 

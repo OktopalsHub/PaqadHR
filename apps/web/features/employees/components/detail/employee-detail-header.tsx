@@ -3,10 +3,16 @@ import { Button } from '@/components/ui/button';
 type EmployeeDetailHeaderProps = {
   isDirty: boolean;
   isSaving: boolean;
+  canEdit?: boolean;
   onSave: () => void;
 };
 
-export function EmployeeDetailHeader({ isDirty, isSaving, onSave }: EmployeeDetailHeaderProps) {
+export function EmployeeDetailHeader({
+  isDirty,
+  isSaving,
+  canEdit = true,
+  onSave,
+}: EmployeeDetailHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
@@ -15,9 +21,11 @@ export function EmployeeDetailHeader({ isDirty, isSaving, onSave }: EmployeeDeta
           View and update employee information from your workspace
         </p>
       </div>
-      <Button size="sm" disabled={!isDirty || isSaving} onClick={onSave}>
-        {isSaving ? 'Saving…' : 'Save changes'}
-      </Button>
+      {canEdit ? (
+        <Button size="sm" disabled={!isDirty || isSaving} onClick={onSave}>
+          {isSaving ? 'Saving…' : 'Save changes'}
+        </Button>
+      ) : null}
     </div>
   );
 }
