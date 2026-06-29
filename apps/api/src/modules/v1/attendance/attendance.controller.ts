@@ -202,9 +202,10 @@ export class AttendanceController {
         member!.id,
       );
       if (directReports.length === 0) {
-        throw new ForbiddenException('Admin or manager access required');
+        filters.tenantMemberId = member!.id;
+      } else {
+        filters.tenantMemberIds = [member!.id, ...directReports];
       }
-      filters.tenantMemberIds = directReports;
     }
 
     return this.attendanceService.getAttendanceExceptions(tenantId, filters);
