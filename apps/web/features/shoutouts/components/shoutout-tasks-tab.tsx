@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  AlertCircle,
   Award,
+  Check,
   CheckCircle2,
   Clock,
   Compass,
+  FileCode,
   FileText,
   Heart,
-  Image as ImageIcon,
   Loader2,
   Plus,
   Sparkles,
@@ -18,24 +19,13 @@ import {
   Upload,
   User,
   X,
-  FileCode,
-  Check,
-  AlertCircle
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useTenant } from '@/providers/tenant-provider';
-import { queryKeys } from '@/lib/query/keys';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import { SlackIcon } from '@/components/icons/slack-icon';
-import { apiClient, tenantPath } from '@/lib/api/client';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +34,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { apiClient, tenantPath } from '@/lib/api/client';
+import { queryKeys } from '@/lib/query/keys';
+import { useTenant } from '@/providers/tenant-provider';
 
 type Task = {
   id: string;
@@ -98,9 +102,14 @@ export function ShoutoutTasksTab() {
     enabled: Boolean(tenantId),
   });
 
-  const { data: pendingSubmissions = [], isLoading: pendingLoading } = useQuery<PendingSubmission[]>({
+  const { data: pendingSubmissions = [], isLoading: pendingLoading } = useQuery<
+    PendingSubmission[]
+  >({
     queryKey: ['shoutout-tasks-pending', tenantId],
-    queryFn: () => apiClient<PendingSubmission[]>(tenantPath(tenantId ?? '', 'rewards/tasks/submissions/pending')),
+    queryFn: () =>
+      apiClient<PendingSubmission[]>(
+        tenantPath(tenantId ?? '', 'rewards/tasks/submissions/pending'),
+      ),
     enabled: Boolean(tenantId) && isAdmin,
   });
 
@@ -111,7 +120,9 @@ export function ShoutoutTasksTab() {
   const [newPoints, setNewPoints] = useState('15');
   const [newCategory, setNewCategory] = useState('');
   const [newIcon, setNewIcon] = useState('Sparkles');
-  const [newSubmissionType, setNewSubmissionType] = useState<'instant' | 'text' | 'file'>('instant');
+  const [newSubmissionType, setNewSubmissionType] = useState<'instant' | 'text' | 'file'>(
+    'instant',
+  );
   const [newImageUrl, setNewImageUrl] = useState('');
 
   const [submittingTask, setSubmittingTask] = useState<Task | null>(null);
@@ -124,16 +135,18 @@ export function ShoutoutTasksTab() {
   const completedCount = tasks.filter((t) => t.status === 'completed').length;
   const totalCount = tasks.length;
   const percentCompleted = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-  const pointsEarned = tasks.filter((t) => t.status === 'completed').reduce((sum, t) => sum + t.points, 0);
+  const pointsEarned = tasks
+    .filter((t) => t.status === 'completed')
+    .reduce((sum, t) => sum + t.points, 0);
 
-  const handleCompleteInstant = async (taskId: string, title: string, reward: number) => {
+  const handleCompleteInstant = async (taskId: string, _title: string, reward: number) => {
     try {
       const res = await apiClient<{ success: boolean; status: string }>(
         tenantPath(tenantId ?? '', `rewards/tasks/${taskId}/submit`),
         {
           method: 'POST',
           body: JSON.stringify({}),
-        }
+        },
       );
       if (res.success) {
         toast.success(`Task completed! You earned +${reward} points! 🎉`);
@@ -157,7 +170,7 @@ export function ShoutoutTasksTab() {
       setSelectedFileName(file.name);
       setIsUploadingFile(true);
       setUploadProgress(10);
-      
+
       const interval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 100) {
@@ -194,7 +207,7 @@ export function ShoutoutTasksTab() {
             submissionText: submissionText.trim() || undefined,
             submissionFileName: selectedFileName || undefined,
           }),
-        }
+        },
       );
       if (res.success) {
         toast.success('Submission sent for admin review! 🚀');
@@ -208,13 +221,18 @@ export function ShoutoutTasksTab() {
     }
   };
 
-  const handleApproveSubmission = async (taskId: string, submissionId: string, title: string, reward: number) => {
+  const handleApproveSubmission = async (
+    taskId: string,
+    submissionId: string,
+    title: string,
+    reward: number,
+  ) => {
     try {
       const res = await apiClient<{ success: boolean }>(
         tenantPath(tenantId ?? '', `rewards/tasks/${taskId}/submissions/${submissionId}/approve`),
         {
           method: 'POST',
-        }
+        },
       );
       if (res.success) {
         toast.success(`Approved! +${reward} points awarded to employee for "${title}".`);
@@ -231,7 +249,7 @@ export function ShoutoutTasksTab() {
         tenantPath(tenantId ?? '', `rewards/tasks/${taskId}/submissions/${submissionId}/reject`),
         {
           method: 'POST',
-        }
+        },
       );
       if (res.success) {
         toast.error(`Submission for "${title}" has been rejected. Resubmission enabled.`);
@@ -323,20 +341,26 @@ export function ShoutoutTasksTab() {
               Points Checklist
             </h3>
             <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
-              Accelerate your point earnings! Complete actions, upload proof if required, and watch your balance grow to redeem premium digital cards and custom rewards.
+              Accelerate your point earnings! Complete actions, upload proof if required, and watch
+              your balance grow to redeem premium digital cards and custom rewards.
             </p>
           </div>
 
           <div className="flex items-center gap-6 shrink-0 bg-background/50 backdrop-blur-md p-5 rounded-2xl border border-border/60 shadow-inner">
             <div className="text-center">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Tasks Completed</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                Tasks Completed
+              </p>
               <p className="text-3xl font-extrabold text-foreground mt-1">
-                {completedCount} <span className="text-base font-normal text-muted-foreground">/ {totalCount}</span>
+                {completedCount}{' '}
+                <span className="text-base font-normal text-muted-foreground">/ {totalCount}</span>
               </p>
             </div>
             <div className="h-10 w-px bg-border/80" />
             <div className="text-center">
-              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-sans">Points Earned</p>
+              <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-sans">
+                Points Earned
+              </p>
               <p className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1 flex items-center justify-center gap-1.5">
                 <Sparkles className="size-5 text-amber-500 fill-amber-500/15" />
                 {pointsEarned}
@@ -361,10 +385,16 @@ export function ShoutoutTasksTab() {
         <div className="flex items-center justify-between border-b pb-4">
           <div>
             <h4 className="text-sm font-semibold text-foreground">Checklist Management</h4>
-            <p className="text-xs text-muted-foreground">Add new tasks, require submissions, and approve employee completed claims.</p>
+            <p className="text-xs text-muted-foreground">
+              Add new tasks, require submissions, and approve employee completed claims.
+            </p>
           </div>
           {!isAdding && (
-            <Button size="sm" onClick={() => setIsAdding(true)} className="gap-1.5 text-xs font-bold shadow-sm">
+            <Button
+              size="sm"
+              onClick={() => setIsAdding(true)}
+              className="gap-1.5 text-xs font-bold shadow-sm"
+            >
               <Plus className="size-4" />
               Add Custom Task
             </Button>
@@ -381,14 +411,21 @@ export function ShoutoutTasksTab() {
                 <Sparkles className="size-4" />
                 Create New Task
               </h4>
-              <Button size="sm" variant="ghost" onClick={() => setIsAdding(false)} className="size-8 p-0 rounded-full">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setIsAdding(false)}
+                className="size-8 p-0 rounded-full"
+              >
                 <X className="size-4" />
               </Button>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Task Title <span className="text-destructive">*</span></Label>
+                <Label className="text-xs font-semibold">
+                  Task Title <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   placeholder="e.g. Follow us on Twitter"
                   value={newTitle}
@@ -420,8 +457,13 @@ export function ShoutoutTasksTab() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Submission Verification Mode</Label>
-                <Select value={newSubmissionType} onValueChange={(v: any) => setNewSubmissionType(v)}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                <Select
+                  value={newSubmissionType}
+                  onValueChange={(v: any) => setNewSubmissionType(v)}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="instant">Instant (No verification required)</SelectItem>
                     <SelectItem value="text">Text Response (Provide text/links)</SelectItem>
@@ -433,7 +475,9 @@ export function ShoutoutTasksTab() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Icon</Label>
                 <Select value={newIcon} onValueChange={setNewIcon}>
-                  <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Sparkles">Sparkles (General)</SelectItem>
                     <SelectItem value="Compass">Compass (Onboarding)</SelectItem>
@@ -445,7 +489,9 @@ export function ShoutoutTasksTab() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Custom Image / Thumbnail URL (Optional)</Label>
+                <Label className="text-xs font-semibold">
+                  Custom Image / Thumbnail URL (Optional)
+                </Label>
                 <Input
                   placeholder="https://example.com/image.png"
                   value={newImageUrl}
@@ -467,7 +513,12 @@ export function ShoutoutTasksTab() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button size="sm" variant="outline" className="h-9 text-xs font-semibold" onClick={() => setIsAdding(false)}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 text-xs font-semibold"
+                onClick={() => setIsAdding(false)}
+              >
                 Cancel
               </Button>
               <Button
@@ -494,14 +545,21 @@ export function ShoutoutTasksTab() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {pendingSubmissions.map((sub) => (
-              <Card key={sub.submissionId} className="border-amber-200 bg-amber-50/5 dark:border-amber-900/40 shadow-sm relative overflow-hidden">
+              <Card
+                key={sub.submissionId}
+                className="border-amber-200 bg-amber-50/5 dark:border-amber-900/40 shadow-sm relative overflow-hidden"
+              >
                 <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl">
                   Needs Approval
                 </div>
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start gap-3">
                     {sub.imageUrl ? (
-                      <img src={sub.imageUrl} alt="" className="size-11 rounded-lg object-cover border border-border" />
+                      <img
+                        src={sub.imageUrl}
+                        alt=""
+                        className="size-11 rounded-lg object-cover border border-border"
+                      />
                     ) : (
                       <div className="size-11 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center border border-amber-200/50">
                         <FileText className="size-5" />
@@ -510,7 +568,10 @@ export function ShoutoutTasksTab() {
                     <div>
                       <h4 className="font-bold text-sm text-foreground">{sub.title}</h4>
                       <div className="flex items-center gap-1.5 mt-1">
-                        <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-200">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] text-amber-600 border-amber-200"
+                        >
                           +{sub.points} pts
                         </Badge>
                         {sub.category && (
@@ -524,9 +585,13 @@ export function ShoutoutTasksTab() {
 
                   {}
                   <div className="rounded-lg bg-muted/50 p-3 text-xs border border-border/40 space-y-2">
-                    <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider">Submitted Proof:</p>
+                    <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
+                      Submitted Proof:
+                    </p>
                     {sub.submissionType === 'text' && (
-                      <p className="text-foreground italic leading-normal">"{sub.submissionText}"</p>
+                      <p className="text-foreground italic leading-normal">
+                        "{sub.submissionText}"
+                      </p>
                     )}
                     {sub.submissionType === 'file' && (
                       <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold">
@@ -549,7 +614,9 @@ export function ShoutoutTasksTab() {
                     <Button
                       size="sm"
                       className="h-8 text-xs font-bold bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
-                      onClick={() => handleApproveSubmission(sub.id, sub.submissionId, sub.title, sub.points)}
+                      onClick={() =>
+                        handleApproveSubmission(sub.id, sub.submissionId, sub.title, sub.points)
+                      }
                     >
                       <Check className="size-3.5" />
                       Approve & Pay
@@ -564,7 +631,6 @@ export function ShoutoutTasksTab() {
 
       {}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        
         {}
         <div className="xl:col-span-8 space-y-4">
           <div className="flex items-center justify-between">
@@ -580,7 +646,9 @@ export function ShoutoutTasksTab() {
                 <CheckCircle2 className="size-5 text-muted-foreground" />
               </div>
               <p className="text-sm font-semibold text-muted-foreground">All caught up!</p>
-              <p className="text-xs text-muted-foreground mt-1">You have completed all available checklist tasks.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                You have completed all available checklist tasks.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4">
@@ -592,7 +660,6 @@ export function ShoutoutTasksTab() {
                     className="group transition-all duration-300 border-border/70 hover:border-indigo-500/20 hover:shadow-md dark:hover:bg-muted/10"
                   >
                     <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      
                       {}
                       <div className="flex items-start gap-4 flex-1">
                         {task.imageUrl ? (
@@ -606,12 +673,17 @@ export function ShoutoutTasksTab() {
                             <IconComponent className="size-5" />
                           </div>
                         )}
-                        
+
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <h4 className="font-bold text-sm text-foreground leading-none">{task.title}</h4>
+                            <h4 className="font-bold text-sm text-foreground leading-none">
+                              {task.title}
+                            </h4>
                             {task.category && (
-                              <Badge variant="secondary" className="text-[9px] font-medium py-px px-1.5 bg-muted">
+                              <Badge
+                                variant="secondary"
+                                className="text-[9px] font-medium py-px px-1.5 bg-muted"
+                              >
                                 {task.category}
                               </Badge>
                             )}
@@ -667,7 +739,6 @@ export function ShoutoutTasksTab() {
                           Complete Task
                         </Button>
                       </div>
-
                     </CardContent>
                   </Card>
                 );
@@ -678,7 +749,6 @@ export function ShoutoutTasksTab() {
 
         {}
         <div className="xl:col-span-4 space-y-6">
-          
           {}
           {!isAdmin && userPendingTasks.length > 0 && (
             <div className="space-y-3">
@@ -688,7 +758,10 @@ export function ShoutoutTasksTab() {
               </h4>
               <div className="space-y-2">
                 {userPendingTasks.map((task) => (
-                  <div key={task.id} className="rounded-xl border border-amber-200/60 bg-amber-500/5 p-4 space-y-2 relative overflow-hidden">
+                  <div
+                    key={task.id}
+                    className="rounded-xl border border-amber-200/60 bg-amber-500/5 p-4 space-y-2 relative overflow-hidden"
+                  >
                     <h5 className="font-bold text-xs text-foreground pr-10">{task.title}</h5>
                     <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-200">
                       Pending review (+{task.points} pts)
@@ -708,7 +781,9 @@ export function ShoutoutTasksTab() {
 
             {completedTasks.length === 0 ? (
               <div className="text-center p-6 rounded-2xl border border-dashed border-border bg-muted/5 flex flex-col items-center justify-center">
-                <p className="text-xs text-muted-foreground">No completed tasks yet. Get started on the available checklist!</p>
+                <p className="text-xs text-muted-foreground">
+                  No completed tasks yet. Get started on the available checklist!
+                </p>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
@@ -723,7 +798,9 @@ export function ShoutoutTasksTab() {
                       </div>
                       <div className="min-w-0">
                         <p className="font-bold text-foreground truncate">{task.title}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">Claimed successfully</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">
+                          Claimed successfully
+                        </p>
                       </div>
                     </div>
                     <Badge className="bg-green-600 hover:bg-green-600 text-white font-bold text-[10px]">
@@ -734,9 +811,7 @@ export function ShoutoutTasksTab() {
               </div>
             )}
           </div>
-
         </div>
-
       </div>
 
       {}
@@ -744,10 +819,13 @@ export function ShoutoutTasksTab() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-              {submittingTask?.submissionType === 'text' ? 'Provide Response' : 'Upload Screenshot proof'}
+              {submittingTask?.submissionType === 'text'
+                ? 'Provide Response'
+                : 'Upload Screenshot proof'}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              This task requires verification before points can be awarded. Please provide the requested details below.
+              This task requires verification before points can be awarded. Please provide the
+              requested details below.
             </DialogDescription>
           </DialogHeader>
 
@@ -763,7 +841,9 @@ export function ShoutoutTasksTab() {
 
               {submittingTask.submissionType === 'text' ? (
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold">Response Details <span className="text-destructive">*</span></Label>
+                  <Label className="text-xs font-semibold">
+                    Response Details <span className="text-destructive">*</span>
+                  </Label>
                   <Textarea
                     placeholder="Enter link, text description, or details confirming completion..."
                     value={submissionText}
@@ -774,8 +854,10 @@ export function ShoutoutTasksTab() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <Label className="text-xs font-semibold">Upload Screenshot / Document <span className="text-destructive">*</span></Label>
-                  
+                  <Label className="text-xs font-semibold">
+                    Upload Screenshot / Document <span className="text-destructive">*</span>
+                  </Label>
+
                   <div className="flex flex-col items-center justify-center border-2 border-dashed border-border/75 rounded-xl p-6 bg-muted/10 hover:bg-muted/20 transition-all cursor-pointer relative">
                     <input
                       type="file"
@@ -784,8 +866,12 @@ export function ShoutoutTasksTab() {
                       className="absolute inset-0 opacity-0 cursor-pointer"
                     />
                     <Upload className="size-8 text-muted-foreground mb-2" />
-                    <span className="text-xs font-semibold text-foreground">Click to browse file</span>
-                    <span className="text-[10px] text-muted-foreground mt-1">Accepts PNG, JPG, or PDF (max 5MB)</span>
+                    <span className="text-xs font-semibold text-foreground">
+                      Click to browse file
+                    </span>
+                    <span className="text-[10px] text-muted-foreground mt-1">
+                      Accepts PNG, JPG, or PDF (max 5MB)
+                    </span>
                   </div>
 
                   {selectedFileName && (
@@ -800,14 +886,14 @@ export function ShoutoutTasksTab() {
                           <span>Uploading...</span>
                         </div>
                       ) : (
-                        <span className="text-green-600 dark:text-green-400 font-bold shrink-0">Ready</span>
+                        <span className="text-green-600 dark:text-green-400 font-bold shrink-0">
+                          Ready
+                        </span>
                       )}
                     </div>
                   )}
 
-                  {isUploadingFile && (
-                    <Progress value={uploadProgress} className="h-1 bg-muted" />
-                  )}
+                  {isUploadingFile && <Progress value={uploadProgress} className="h-1 bg-muted" />}
                 </div>
               )}
             </div>
@@ -826,7 +912,12 @@ export function ShoutoutTasksTab() {
             <Button
               type="button"
               size="sm"
-              disabled={isUploadingFile || isMutatingSubmission || (submittingTask?.submissionType === 'text' && !submissionText.trim()) || (submittingTask?.submissionType === 'file' && !selectedFileName)}
+              disabled={
+                isUploadingFile ||
+                isMutatingSubmission ||
+                (submittingTask?.submissionType === 'text' && !submissionText.trim()) ||
+                (submittingTask?.submissionType === 'file' && !selectedFileName)
+              }
               onClick={handleSubmitVerification}
               className="h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1"
             >

@@ -3,8 +3,8 @@
 import { Sparkles } from 'lucide-react';
 import { MemberAvatar, memberLabel } from '@/components/member-avatar';
 import { Badge } from '@/components/ui/badge';
-import { formatDateTime } from '@/lib/format-date';
 import { formatPaqPointsDelta } from '@/lib/constants/paq-points';
+import { formatDateTime } from '@/lib/format-date';
 import type { Shoutout } from '@/lib/schemas/shoutout';
 import { cn } from '@/lib/utils';
 

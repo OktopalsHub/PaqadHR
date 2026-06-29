@@ -19,4 +19,3 @@ export interface TenantSettingsData {
   billing: BillingSettings;
   rewards?: RewardsSettings;
 }
-

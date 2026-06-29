@@ -1,5 +1,5 @@
-import { PayrollPayoutCronService } from './payroll-payout-cron.service';
 import type { PayrollPayoutService } from './payroll-payout.service';
+import { PayrollPayoutCronService } from './payroll-payout-cron.service';
 
 describe('PayrollPayoutCronService', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;

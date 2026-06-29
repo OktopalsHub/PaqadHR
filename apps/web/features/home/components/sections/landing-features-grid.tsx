@@ -51,16 +51,10 @@ export const LandingFeatures = () => {
 
   return (
     <section id="features" ref={ref} className="landing-section">
-      <motion.div
-        initial="hidden"
-        animate={inView ? 'show' : 'hidden'}
-        variants={stagger}
-      >
+      <motion.div initial="hidden" animate={inView ? 'show' : 'hidden'} variants={stagger}>
         <div className="landing-section-header">
           <p className="landing-section-eyebrow">Features</p>
-          <h2 className="landing-section-title">
-            Built for how teams actually work.
-          </h2>
+          <h2 className="landing-section-title">Built for how teams actually work.</h2>
           <p className="landing-section-desc">
             Six core modules. One clean interface. Zero spreadsheet chaos.
           </p>
@@ -78,7 +72,9 @@ export const LandingFeatures = () => {
                 <p className="landing-feature-desc">{f.description}</p>
                 <div className="landing-feature-tags">
                   {f.tags.map((tag) => (
-                    <span key={tag} className="landing-feature-tag">{tag}</span>
+                    <span key={tag} className="landing-feature-tag">
+                      {tag}
+                    </span>
                   ))}
                 </div>
               </motion.div>

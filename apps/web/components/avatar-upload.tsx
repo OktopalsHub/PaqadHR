@@ -13,7 +13,7 @@ type AvatarUploadProps = {
   fallback: string;
   disabled?: boolean;
   size?: 'sm' | 'md' | 'lg';
-  onUpload: (file: File) => Promise<string | void>;
+  onUpload: (file: File) => Promise<string | undefined>;
   onError?: (message: string) => void;
 };
 

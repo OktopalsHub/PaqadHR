@@ -1,5 +1,5 @@
-import type { Candidate, CandidateSource, CandidateStatus } from '@/lib/schemas/recruitment';
 import { formatDisplayName } from '@/lib/format-name';
+import type { Candidate, CandidateSource, CandidateStatus } from '@/lib/schemas/recruitment';
 
 type ApiCandidate = {
   id: string;

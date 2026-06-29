@@ -102,12 +102,15 @@ export async function updateCandidateStatus(
   return candidateSchema.parse(data);
 }
 
-export async function fetchPublicJobs(tenantId: string, params?: {
-  search?: string;
-  departmentId?: string;
-  employmentType?: string;
-  location?: string;
-}): Promise<{ jobs: JobOpening[]; total: number }> {
+export async function fetchPublicJobs(
+  tenantId: string,
+  params?: {
+    search?: string;
+    departmentId?: string;
+    employmentType?: string;
+    location?: string;
+  },
+): Promise<{ jobs: JobOpening[]; total: number }> {
   const query = new URLSearchParams();
   query.set('tenantId', tenantId);
   if (params?.search) query.set('search', params.search);

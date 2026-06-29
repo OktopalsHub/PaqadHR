@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { UpdatePaymentMethodInput } from '@/lib/api/payment-methods';
 import {
   changePaymentMethodPasscode,
   createPaymentMethod,
@@ -15,7 +16,6 @@ import {
 } from '@/lib/api/payment-methods';
 import { queryKeys } from '@/lib/query/keys';
 import type { CreatePaymentMethodInput } from '@/lib/schemas/payment-method';
-import type { UpdatePaymentMethodInput } from '@/lib/api/payment-methods';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function usePaymentMethods() {
@@ -130,13 +130,8 @@ export function useDeletePaymentMethod() {
   const { tenantId } = useTenant();
 
   return useMutation({
-    mutationFn: ({
-      paymentMethodId,
-      passcode,
-    }: {
-      paymentMethodId: string;
-      passcode?: string;
-    }) => deletePaymentMethod(paymentMethodId, passcode),
+    mutationFn: ({ paymentMethodId, passcode }: { paymentMethodId: string; passcode?: string }) =>
+      deletePaymentMethod(paymentMethodId, passcode),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.paymentMethods.all, tenantId],

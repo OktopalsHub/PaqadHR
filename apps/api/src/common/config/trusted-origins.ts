@@ -1,4 +1,3 @@
-
 export function resolveTrustedOrigins(): string[] {
   const raw =
     process.env.TRUSTED_ORIGINS ||

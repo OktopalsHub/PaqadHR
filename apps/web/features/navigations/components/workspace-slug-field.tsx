@@ -45,7 +45,7 @@ export function WorkspaceSlugField({
     return () => window.clearTimeout(timer);
   }, [slug]);
 
-  const slugFormatValid = isSlugFormatValid(slug.trim());
+  const _slugFormatValid = isSlugFormatValid(slug.trim());
   const debouncedSlugValid = isSlugFormatValid(debouncedSlug);
 
   const slugAvailabilityQuery = useQuery({

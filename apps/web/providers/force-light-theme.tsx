@@ -22,7 +22,7 @@ export function ForceLightTheme({ children, className }: ForceLightThemeProps) {
     };
     // Only force on mount; restore on unmount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setTheme]);
+  }, [setTheme, theme]);
 
   return (
     <div className={cn('theme-marketing min-h-screen bg-background text-foreground', className)}>

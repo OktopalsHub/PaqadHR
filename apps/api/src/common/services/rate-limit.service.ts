@@ -9,7 +9,6 @@ interface RateLimitEntry {
 
 @Injectable()
 export class RateLimitService {
-  
   private readonly store = new Map<string, RateLimitEntry>();
 
   async checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {

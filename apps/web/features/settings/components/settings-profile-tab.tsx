@@ -3,21 +3,20 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AvatarUpload } from '@/components/avatar-upload';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
+import { Input } from '@/components/ui/input';
 import { PaymentSettingsSection } from '@/features/settings/components/payment-settings-section';
 import { PrivacySection } from '@/features/settings/components/privacy-section';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
+import { useMemberAvatarUpload } from '@/hooks/queries/use-image-upload';
 import {
   memberFullName,
   memberInitials,
   useMemberProfile,
   useUpdateMemberProfile,
 } from '@/hooks/queries/use-member-profile';
-import { useMemberAvatarUpload } from '@/hooks/queries/use-image-upload';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -43,7 +42,7 @@ export function SettingsProfileTab() {
 
   const name = memberFullName(profile, user?.name);
   const initials = memberInitials(profile, user?.name);
-  const memberRole = tenant?.member?.role?.replace('_', ' ') ?? user?.role?.replace('_', ' ');
+  const _memberRole = tenant?.member?.role?.replace('_', ' ') ?? user?.role?.replace('_', ' ');
 
   const saveProfile = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -124,10 +123,7 @@ export function SettingsProfileTab() {
         </div>
       </ContentCard>
 
-      <ContentCard
-        title="Payment details"
-        description="Bank account for receiving payroll"
-      >
+      <ContentCard title="Payment details" description="Bank account for receiving payroll">
         <PaymentSettingsSection />
       </ContentCard>
 

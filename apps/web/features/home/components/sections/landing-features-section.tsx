@@ -18,7 +18,10 @@ export const LandingFeaturesSection = () => {
           variants={stagger}
           className="mb-16"
         >
-          <motion.p variants={fadeUp} className="text-xs font-semibold uppercase tracking-widest text-primary">
+          <motion.p
+            variants={fadeUp}
+            className="text-xs font-semibold uppercase tracking-widest text-primary"
+          >
             Features
           </motion.p>
           <motion.h2
@@ -27,11 +30,9 @@ export const LandingFeaturesSection = () => {
           >
             Engineered for high performance
           </motion.h2>
-          <motion.p
-            variants={fadeUp}
-            className="mt-4 text-sm text-muted-foreground max-w-xl"
-          >
-            A calm, compliant operations system loaded with micro-utilities to save hours of manual payroll sheets, job site management, and holiday requests.
+          <motion.p variants={fadeUp} className="mt-4 text-sm text-muted-foreground max-w-xl">
+            A calm, compliant operations system loaded with micro-utilities to save hours of manual
+            payroll sheets, job site management, and holiday requests.
           </motion.p>
         </motion.div>
 

@@ -14,7 +14,7 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
 import { CustomRewardsService } from '../services/custom-rewards.service';
-import { RewardsService, type ClaimInput } from '../services/rewards.service';
+import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 
 @ApiTags('Rewards')
@@ -26,63 +26,49 @@ export class RewardsController {
     private readonly customRewardsService: CustomRewardsService,
   ) {}
 
-  
   @Post('webhooks/nomba')
   @Public()
   @HttpCode(HttpStatus.OK)
   async handleNombaWebhook(
     @Req() req: any,
-    @Headers('x-nomba-signature') signature: string,
-    @Headers('X-Nomba-Signature') signatureAlt: string,
+    @Headers('nomba-signature') signature: string,
+    @Headers('nomba-sig-value') signatureAlt: string,
+    @Headers('x-nomba-signature') signatureLegacy: string,
   ) {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
     return this.rewardsService.handleNombaFundingWebhook(
       rawBody,
-      signature || signatureAlt || '',
+      signature || signatureAlt || signatureLegacy || '',
     );
   }
 
-  
   @Get('catalog')
   async getCatalog(@Param('tenantId') tenantId: string) {
     return this.rewardsService.getCatalog(tenantId);
   }
 
-  
   @Get('countries')
   async getCountries(@Param('tenantId') tenantId: string) {
     return this.rewardsService.getReloadlyCountries(tenantId);
   }
 
-  
   @Post('claim')
-  async claim(
-    @Param('tenantId') tenantId: string,
-    @Body() body: ClaimInput,
-    @Req() req: any,
-  ) {
+  async claim(@Param('tenantId') tenantId: string, @Body() body: ClaimInput, @Req() req: any) {
     const memberId = req.user?.memberId ?? req.user?.id;
     return this.rewardsService.claim(tenantId, memberId, body);
   }
 
-  
   @Get('claims/me')
-  async getMyClaims(
-    @Param('tenantId') tenantId: string,
-    @Req() req: any,
-  ) {
+  async getMyClaims(@Param('tenantId') tenantId: string, @Req() req: any) {
     const memberId = req.user?.memberId ?? req.user?.id;
     return this.rewardsService.getMyClaims(tenantId, memberId);
   }
 
-  
   @Get('claims')
   async getAllClaims(@Param('tenantId') tenantId: string) {
     return this.rewardsService.getAllClaims(tenantId);
   }
 
-
-  
   @Get('wallet')
   async getWallet(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.getWallet(tenantId);
@@ -94,20 +80,16 @@ export class RewardsController {
     };
   }
 
-  
   @Get('wallet/transactions')
   async getWalletTransactions(@Param('tenantId') tenantId: string) {
     return this.walletService.listTransactions(tenantId);
   }
 
-
-  
   @Get('custom')
   async listCustomRewards(@Param('tenantId') tenantId: string) {
     return this.customRewardsService.list(tenantId, true);
   }
 
-  
   @Post('custom')
   async createCustomReward(
     @Param('tenantId') tenantId: string,
@@ -124,7 +106,6 @@ export class RewardsController {
     return this.customRewardsService.create(tenantId, body);
   }
 
-  
   @Patch('custom/:rewardId')
   async updateCustomReward(
     @Param('tenantId') tenantId: string,
@@ -143,7 +124,6 @@ export class RewardsController {
     return this.customRewardsService.update(tenantId, rewardId, body);
   }
 
-  
   @Delete('custom/:rewardId')
   async deleteCustomReward(
     @Param('tenantId') tenantId: string,
@@ -153,24 +133,17 @@ export class RewardsController {
     return { success: true };
   }
 
-
-  
   @Get('tasks')
-  async listTasks(
-    @Param('tenantId') tenantId: string,
-    @Req() req: any,
-  ) {
+  async listTasks(@Param('tenantId') tenantId: string, @Req() req: any) {
     const memberId = req.user?.memberId ?? req.user?.id;
     return this.rewardsService.listTasks(tenantId, memberId);
   }
 
-  
   @Get('tasks/submissions/pending')
   async listPendingSubmissions(@Param('tenantId') tenantId: string) {
     return this.rewardsService.listPendingSubmissions(tenantId);
   }
 
-  
   @Post('tasks')
   async createTask(
     @Param('tenantId') tenantId: string,
@@ -188,16 +161,11 @@ export class RewardsController {
     return this.rewardsService.createTask(tenantId, body);
   }
 
-  
   @Delete('tasks/:taskId')
-  async deleteTask(
-    @Param('tenantId') tenantId: string,
-    @Param('taskId') taskId: string,
-  ) {
+  async deleteTask(@Param('tenantId') tenantId: string, @Param('taskId') taskId: string) {
     return this.rewardsService.deleteTask(tenantId, taskId);
   }
 
-  
   @Post('tasks/:taskId/submit')
   async submitTask(
     @Param('tenantId') tenantId: string,
@@ -209,7 +177,6 @@ export class RewardsController {
     return this.rewardsService.submitTask(tenantId, taskId, memberId, body);
   }
 
-  
   @Post('tasks/:taskId/submissions/:submissionId/approve')
   async approveSubmission(
     @Param('tenantId') tenantId: string,
@@ -219,7 +186,6 @@ export class RewardsController {
     return this.rewardsService.approveSubmission(tenantId, taskId, submissionId);
   }
 
-  
   @Post('tasks/:taskId/submissions/:submissionId/reject')
   async rejectSubmission(
     @Param('tenantId') tenantId: string,

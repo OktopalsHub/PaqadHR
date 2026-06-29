@@ -10,17 +10,14 @@ dayjs.extend(quarterOfYear);
 export type AllowancePeriod = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
 
 export class DateTimeHelper {
-  
   static getStartOfUtcDay(date: Date | string | number = new Date()): Date {
     return dayjs.utc(date).startOf('day').toDate();
   }
 
-  
   static getStartOfUtcMonth(date: Date | string | number = new Date()): Date {
     return dayjs.utc(date).startOf('month').toDate();
   }
 
-  
   static isCurrentMonth(date: Date | string | number | null | undefined): boolean {
     if (!date) return false;
     const now = dayjs.utc();
@@ -39,15 +36,12 @@ export class DateTimeHelper {
       case 'biweekly': {
         const weekStart = d.startOf('week');
         const weekIndex = Math.floor(weekStart.valueOf() / (7 * 24 * 60 * 60 * 1000));
-        return weekIndex % 2 === 0
-          ? weekStart.toDate()
-          : weekStart.subtract(1, 'week').toDate();
+        return weekIndex % 2 === 0 ? weekStart.toDate() : weekStart.subtract(1, 'week').toDate();
       }
       case 'quarterly':
         return d.startOf('quarter').toDate();
       case 'yearly':
         return d.startOf('year').toDate();
-      case 'monthly':
       default:
         return d.startOf('month').toDate();
     }
@@ -58,7 +52,7 @@ export class DateTimeHelper {
     period: AllowancePeriod = 'monthly',
   ): boolean {
     if (!lastResetDate) return false;
-    const periodStart = this.getPeriodStart(period);
+    const periodStart = DateTimeHelper.getPeriodStart(period);
     return !dayjs.utc(lastResetDate).isBefore(dayjs.utc(periodStart), 'day');
   }
 }

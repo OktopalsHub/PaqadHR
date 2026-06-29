@@ -1,10 +1,9 @@
 'use client';
 
-import { useRef, useMemo, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, MeshTransmissionMaterial } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-
 
 function Node({
   position,
@@ -40,7 +39,6 @@ function Node({
   );
 }
 
-
 function Connections({
   nodes,
   maxDist = 2.5,
@@ -72,16 +70,10 @@ function Connections({
 
   return (
     <lineSegments geometry={geometry}>
-      <lineBasicMaterial
-        color="#888888"
-        transparent
-        opacity={0.12}
-        depthWrite={false}
-      />
+      <lineBasicMaterial color="#888888" transparent opacity={0.12} depthWrite={false} />
     </lineSegments>
   );
 }
-
 
 function Particles({ count = 400 }: { count?: number }) {
   const ref = useRef<THREE.Points>(null!);
@@ -123,7 +115,6 @@ function Particles({ count = 400 }: { count?: number }) {
   );
 }
 
-
 function GlassOrb() {
   const ref = useRef<THREE.Mesh>(null!);
 
@@ -157,7 +148,6 @@ function GlassOrb() {
   );
 }
 
-
 function InnerGlow() {
   const ref = useRef<THREE.Mesh>(null!);
 
@@ -175,7 +165,6 @@ function InnerGlow() {
     </mesh>
   );
 }
-
 
 function Rig() {
   const { camera } = useThree();
@@ -198,7 +187,6 @@ function Rig() {
 
   return null;
 }
-
 
 function Scene() {
   const nodePositions = useMemo<[number, number, number][]>(
@@ -259,7 +247,6 @@ function Scene() {
     </>
   );
 }
-
 
 export function HeroScene() {
   return (

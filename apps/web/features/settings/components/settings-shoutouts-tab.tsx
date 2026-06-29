@@ -15,27 +15,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { SlackIntegrationSection } from '@/features/settings/components/slack-integration-section';
 import {
   SettingsFieldHint,
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
+import { SlackIntegrationSection } from '@/features/settings/components/slack-integration-section';
+import {
+  useCreateShoutoutCategoryAdmin,
+  useDeleteShoutoutCategoryAdmin,
+  useShoutoutCategoriesAdmin,
+} from '@/hooks/queries/use-shoutout-settings';
 import {
   useAssignPointsToAll,
   useMembersPoints,
   usePatchTenantSettings,
   useTenantSettings,
 } from '@/hooks/queries/use-tenant-settings';
-import {
-  useCreateShoutoutCategoryAdmin,
-  useDeleteShoutoutCategoryAdmin,
-  useShoutoutCategoriesAdmin,
-} from '@/hooks/queries/use-shoutout-settings';
-import type {
-  AllowancePeriod,
-  ShoutoutCelebrationTemplate,
-} from '@/lib/api/tenant-settings';
+import type { AllowancePeriod, ShoutoutCelebrationTemplate } from '@/lib/api/tenant-settings';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 
 const PERIODS: { value: AllowancePeriod; label: string }[] = [
@@ -49,8 +46,7 @@ const PERIODS: { value: AllowancePeriod; label: string }[] = [
 const DEFAULT_BIRTHDAY_TEMPLATE: ShoutoutCelebrationTemplate = {
   enabled: true,
   points: 25,
-  messageTemplate:
-    'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
+  messageTemplate: 'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
 };
 
 const DEFAULT_ANNIVERSARY_TEMPLATE: ShoutoutCelebrationTemplate = {
@@ -95,7 +91,9 @@ export function SettingsShoutoutsTab() {
     if (shoutouts?.birthday) {
       setBirthdayEnabled(shoutouts.birthday.enabled ?? true);
       setBirthdayPoints(String(shoutouts.birthday.points ?? 25));
-      setBirthdayMessage(shoutouts.birthday.messageTemplate ?? DEFAULT_BIRTHDAY_TEMPLATE.messageTemplate);
+      setBirthdayMessage(
+        shoutouts.birthday.messageTemplate ?? DEFAULT_BIRTHDAY_TEMPLATE.messageTemplate,
+      );
     }
     if (shoutouts?.workAnniversary) {
       setAnniversaryEnabled(shoutouts.workAnniversary.enabled ?? true);
@@ -235,7 +233,10 @@ export function SettingsShoutoutsTab() {
                   label={`${PAQ_POINTS_NAME} to award`}
                   hint={`${PAQ_POINTS_NAME} granted to the birthday person.`}
                 >
-                  <Input value={birthdayPoints} onChange={(e) => setBirthdayPoints(e.target.value)} />
+                  <Input
+                    value={birthdayPoints}
+                    onChange={(e) => setBirthdayPoints(e.target.value)}
+                  />
                 </SettingsFieldHint>
                 <div className="sm:col-span-2">
                   <SettingsFieldHint
@@ -300,11 +301,7 @@ export function SettingsShoutoutsTab() {
               className="flex items-center justify-between rounded-lg border border-border/60 p-3"
             >
               <span className="font-medium">{cat.name}</span>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => deleteCategory.mutateAsync(cat.id)}
-              >
+              <Button size="sm" variant="ghost" onClick={() => deleteCategory.mutateAsync(cat.id)}>
                 <Trash2 className="size-4" />
               </Button>
             </div>
@@ -335,7 +332,11 @@ export function SettingsShoutoutsTab() {
       >
         <div className="flex flex-wrap items-end gap-2">
           <SettingsFieldHint label={`${PAQ_POINTS_NAME} to assign`}>
-            <Input value={bulkPoints} onChange={(e) => setBulkPoints(e.target.value)} className="w-32" />
+            <Input
+              value={bulkPoints}
+              onChange={(e) => setBulkPoints(e.target.value)}
+              className="w-32"
+            />
           </SettingsFieldHint>
           <Button disabled={assignAll.isPending} onClick={bulkAssign}>
             Assign to all

@@ -8,11 +8,7 @@ import { LeaveTypeRepository } from './leave-type.repository';
 import { LeaveTypeService } from './leave-type.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([LeaveType]),
-    TenantsModule,
-    TenantMembersModule,
-  ],
+  imports: [TypeOrmModule.forFeature([LeaveType]), TenantsModule, TenantMembersModule],
   controllers: [LeaveTypeController],
   providers: [LeaveTypeService, LeaveTypeRepository],
   exports: [LeaveTypeService],

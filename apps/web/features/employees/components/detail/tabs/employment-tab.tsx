@@ -28,14 +28,10 @@ import { Separator } from '@/components/ui/separator';
 import { TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useAddCompensation, useEmployments } from '@/hooks/queries/use-employment';
-import {
-  useAssignPosition,
-  usePositionHistory,
-  usePositions,
-} from '@/hooks/queries/use-positions';
+import { useAssignPosition, usePositionHistory, usePositions } from '@/hooks/queries/use-positions';
 import { formatDate } from '@/lib/format-date';
-import { useTenant } from '@/providers/tenant-provider';
 import { numberToWords } from '@/lib/number-to-words';
+import { useTenant } from '@/providers/tenant-provider';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
 const PAY_TYPES = ['Salary', 'Hourly', 'Commission', 'Contract'];
@@ -72,8 +68,7 @@ export function EmploymentTab({
 }: EmploymentTabProps) {
   const { employee } = form;
   const { tenant } = useTenant();
-  const currency =
-    (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
+  const currency = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
 
   const {
     data: positionHistory = [],
@@ -84,10 +79,12 @@ export function EmploymentTab({
   const { data: positions = [], isLoading: positionsLoading } = usePositions();
   const assignPosition = useAssignPosition(memberId);
 
-  const { data: employments = [], isLoading, isError, error } = useEmployments(
-    memberId,
-    canViewCompensation,
-  );
+  const {
+    data: employments = [],
+    isLoading,
+    isError,
+    error,
+  } = useEmployments(memberId, canViewCompensation);
   const addCompensation = useAddCompensation(memberId);
 
   const salaryHistory = useMemo(
@@ -337,9 +334,7 @@ export function EmploymentTab({
                       className="flex flex-col gap-2 px-4 py-3 text-sm md:grid md:grid-cols-[1.2fr_1fr_1fr_0.7fr] md:items-center md:gap-3"
                     >
                       <p className="font-medium">{formatDate(record.assignedAt)}</p>
-                      <p className="font-medium">
-                        {displayValue(record.position?.title ?? '')}
-                      </p>
+                      <p className="font-medium">{displayValue(record.position?.title ?? '')}</p>
                       <p>{displayValue(record.position?.department ?? '')}</p>
                       <div>
                         <Badge variant={record.isCurrent ? 'secondary' : 'outline'}>

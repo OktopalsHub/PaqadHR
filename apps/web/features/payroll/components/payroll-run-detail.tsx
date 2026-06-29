@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -30,7 +29,11 @@ import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canManageMember } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
-import type { PayrollAdjustmentLine, PayrollItem, PayrollRunDetail as PayrollRunDetailType } from '@/lib/schemas/payroll';
+import type {
+  PayrollAdjustmentLine,
+  PayrollItem,
+  PayrollRunDetail as PayrollRunDetailType,
+} from '@/lib/schemas/payroll';
 import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -484,6 +487,7 @@ export function PayrollRunDetail({
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {isAdmin ? (
+                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox component is wrapped inside label
                 <label className="flex items-center gap-2 text-sm">
                   <Checkbox checked={sendEmail} onCheckedChange={(v) => setSendEmail(v === true)} />
                   Send email on publish

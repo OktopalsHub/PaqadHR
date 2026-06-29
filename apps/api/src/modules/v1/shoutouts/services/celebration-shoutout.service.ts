@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { TenantMemberRole } from 'src/common/enums';
+import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { Repository } from 'typeorm';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import { memberDisplayName, renderCelebrationTemplate } from '../utils/celebration-template.util';
 import { ShoutoutsService } from './shoutouts.service';
 
@@ -58,8 +58,9 @@ export class CelebrationShoutoutService {
 
         const anniversaryTemplate = shoutoutSettings.workAnniversary;
         if (anniversaryTemplate?.enabled && anniversaryTemplate.points > 0) {
-          const members =
-            await this.tenantMembersService.findMembersWithWorkAnniversaryToday(tenant.id);
+          const members = await this.tenantMembersService.findMembersWithWorkAnniversaryToday(
+            tenant.id,
+          );
           for (const { member, employmentStartDate } of members) {
             const years = this.calculateAnniversaryYears(employmentStartDate);
             if (years < 1) continue;

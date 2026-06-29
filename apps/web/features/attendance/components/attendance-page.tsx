@@ -7,8 +7,8 @@ import { AttendanceMyTab } from '@/features/attendance/components/attendance-my-
 import { AttendanceTeamTab } from '@/features/attendance/components/attendance-team-tab';
 import { useElapsedSince } from '@/features/attendance/hooks/use-elapsed-since';
 import { formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
-import { useEmployees } from '@/hooks/queries/use-employees';
 import { useClockInInfo } from '@/hooks/queries/use-attendance';
+import { useEmployees } from '@/hooks/queries/use-employees';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';

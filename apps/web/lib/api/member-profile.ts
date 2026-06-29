@@ -3,9 +3,9 @@ import { resolveTenantId } from '@/lib/api/tenants';
 import { formatDisplayName } from '@/lib/format-name';
 import { memberProfileSchema } from '@/lib/schemas/member-profile';
 
-function formatMemberProfile<T extends { firstName?: string; lastName?: string; preferredName?: string | null }>(
-  profile: T,
-): T {
+function formatMemberProfile<
+  T extends { firstName?: string; lastName?: string; preferredName?: string | null },
+>(profile: T): T {
   return {
     ...profile,
     firstName: profile.firstName ? formatDisplayName(profile.firstName) : profile.firstName,

@@ -47,27 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: Infinity,
   });
 
-  const navigateAfterAuth = useCallback(
-    async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
+  const navigateAfterAuth = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
 
-      const tenants = await queryClient.fetchQuery({
-        queryKey: queryKeys.tenants.all,
-        queryFn: fetchUserTenants,
-      });
+    const tenants = await queryClient.fetchQuery({
+      queryKey: queryKeys.tenants.all,
+      queryFn: fetchUserTenants,
+    });
 
-      queryClient.setQueryData(queryKeys.tenants.all, tenants);
+    queryClient.setQueryData(queryKeys.tenants.all, tenants);
 
-      const redirect = readRedirectParam();
-      const destination = resolveAuthDestination({
-        isAuthenticated: true,
-        tenants,
-        redirect,
-      });
-      router.push(authDestinationToPath(destination));
-    },
-    [queryClient, router],
-  );
+    const redirect = readRedirectParam();
+    const destination = resolveAuthDestination({
+      isAuthenticated: true,
+      tenants,
+      redirect,
+    });
+    router.push(authDestinationToPath(destination));
+  }, [queryClient, router]);
 
   const loginMutation = useMutation({
     mutationFn: loginRequest,

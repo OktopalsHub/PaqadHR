@@ -23,10 +23,7 @@ describe('calendar-event-schedule.util', () => {
   });
 
   it('uses default morning time for all-day events', () => {
-    const startAt = eventStartAtUtc(
-      { ...baseEvent, allDay: true, startTime: null },
-      'UTC',
-    );
+    const startAt = eventStartAtUtc({ ...baseEvent, allDay: true, startTime: null }, 'UTC');
 
     expect(startAt.toISOString()).toBe('2026-06-18T09:00:00.000Z');
   });
@@ -38,6 +35,13 @@ describe('calendar-event-schedule.util', () => {
 
     expect(isReminderDue(reminderAt, startAt, now)).toBe(true);
     expect(isReminderDue(reminderAt, startAt, new Date('2026-06-18T10:05:00.000Z'))).toBe(false);
+  });
+
+  it('computes correct start time in non-UTC timezone', () => {
+    // 2026-06-18 at 10:00:00 in America/New_York (UTC-4 in summer)
+    // 10:00:00 New York time is 14:00:00 UTC time
+    const startAt = eventStartAtUtc(baseEvent, 'America/New_York');
+    expect(startAt.toISOString()).toBe('2026-06-18T14:00:00.000Z');
   });
 
   it('formats reminder lead labels', () => {

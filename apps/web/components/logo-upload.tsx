@@ -10,7 +10,7 @@ type LogoUploadProps = {
   src?: string | null;
   name: string;
   disabled?: boolean;
-  onUpload: (file: File) => Promise<string | void>;
+  onUpload: (file: File) => Promise<string | undefined>;
   onError?: (message: string) => void;
 };
 
@@ -73,7 +73,9 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
 
       <div className="space-y-2">
         <p className="text-sm font-medium">{name || 'Workspace'}</p>
-        <p className="text-xs text-muted-foreground">Square logo, at least 128×128px recommended.</p>
+        <p className="text-xs text-muted-foreground">
+          Square logo, at least 128×128px recommended.
+        </p>
         {!disabled ? (
           <>
             <input
@@ -99,7 +101,9 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
             </Button>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">Only admins can change the workspace logo.</p>
+          <p className="text-xs text-muted-foreground">
+            Only admins can change the workspace logo.
+          </p>
         )}
       </div>
     </div>

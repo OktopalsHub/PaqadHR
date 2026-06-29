@@ -1,9 +1,8 @@
 'use client';
 
-import { Award, Check, Coins, Heart, Loader2, Sparkles, Trophy, X } from 'lucide-react';
-import Link from 'next/link';
-import { useEffect, useState, Suspense } from 'react';
+import { Award, Coins, Heart, Sparkles, Trophy, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
@@ -12,25 +11,23 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RewardsPage } from '@/features/rewards/components/rewards-page';
 import { settingsTabHref } from '@/features/settings/lib/settings-tabs';
 import { useEmployees } from '@/hooks/queries/use-employees';
+import {
+  useCreateShoutoutCategoryAdmin,
+  useDeleteShoutoutCategoryAdmin,
+} from '@/hooks/queries/use-shoutout-settings';
 import {
   useCreateShoutout,
   useMyPointsBalance,
   useShoutoutCategories,
   useShoutouts,
 } from '@/hooks/queries/use-shoutouts';
-import {
-  useCreateShoutoutCategoryAdmin,
-  useDeleteShoutoutCategoryAdmin,
-} from '@/hooks/queries/use-shoutout-settings';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
-import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
 import { ShoutoutComposer } from './shoutout-composer';
-import { RewardsPage } from '@/features/rewards/components/rewards-page';
 import { ShoutoutTasksTab } from './shoutout-tasks-tab';
 
 function ShoutoutsPageContent() {
@@ -54,7 +51,7 @@ function ShoutoutsPageContent() {
   const tenantHref = useTenantHref();
   const currentMemberId = tenant?.member?.id;
   const settingsBase = tenantHref('settings');
-  const shoutoutsSettingsLink = settingsTabHref(settingsBase, 'shoutouts');
+  const _shoutoutsSettingsLink = settingsTabHref(settingsBase, 'shoutouts');
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
@@ -64,7 +61,7 @@ function ShoutoutsPageContent() {
   const { data: pointsBalance } = useMyPointsBalance();
   const { data, isLoading, isError, error } = useShoutouts();
   const createShoutout = useCreateShoutout();
-  
+
   const createCategory = useCreateShoutoutCategoryAdmin();
   const deleteCategory = useDeleteShoutoutCategoryAdmin();
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -225,10 +222,12 @@ function ShoutoutsPageContent() {
                     <Trophy className="size-4 text-amber-500" />
                     Your Point Allowance
                   </h3>
-                  
+
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground font-medium">Monthly Give Allowance</span>
+                      <span className="text-muted-foreground font-medium">
+                        Monthly Give Allowance
+                      </span>
                       <span className="font-bold text-foreground">
                         {remainingAllowance} / {totalAllowance} pts left
                       </span>
@@ -243,7 +242,9 @@ function ShoutoutsPageContent() {
 
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/50 text-center">
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">Redeemable Balance</p>
+                      <p className="text-xs text-muted-foreground font-medium">
+                        Redeemable Balance
+                      </p>
                       <p className="text-lg font-bold text-primary flex items-center justify-center gap-1">
                         <Coins className="size-4 text-amber-500" />
                         {pointsBalance.currentBalance.toLocaleString()}
@@ -262,7 +263,9 @@ function ShoutoutsPageContent() {
                     variant="outline"
                     className="w-full text-xs"
                     onClick={() => {
-                      document.getElementById('rewards-section')?.scrollIntoView({ behavior: 'smooth' });
+                      document
+                        .getElementById('rewards-section')
+                        ?.scrollIntoView({ behavior: 'smooth' });
                     }}
                   >
                     Go to Rewards Catalog
@@ -276,7 +279,7 @@ function ShoutoutsPageContent() {
                   <Award className="size-4 text-indigo-500" />
                   Company Core Values
                 </h3>
-                
+
                 {categories.length === 0 ? (
                   <div className="rounded-lg border border-dashed p-4 text-center space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground">
@@ -294,6 +297,7 @@ function ShoutoutsPageContent() {
                         {c.name}
                         {isAdmin && (
                           <button
+                            type="button"
                             onClick={() => handleDeleteCategory(c.id)}
                             className="ml-1 text-indigo-400 hover:text-indigo-600 rounded-full hover:bg-indigo-500/10 p-0.5 transition-colors"
                             disabled={deleteCategory.isPending}

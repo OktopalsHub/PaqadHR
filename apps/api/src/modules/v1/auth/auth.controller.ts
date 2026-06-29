@@ -46,7 +46,7 @@ export class AuthController {
       body.password,
       typeof ipAddress === 'string' ? ipAddress : '',
       undefined,
-      undefined
+      undefined,
     );
     const { accessToken, refreshToken } = await this.authService.login(user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);

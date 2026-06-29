@@ -5,8 +5,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { AuditAction, AuditSeverity, AuditStatus } from '../enums/audit-action.enum';
-import { AuditLogsService } from '../services/audit-logs.service';
 import type { IAuthenticatedMemberRequest } from '../interfaces';
+import { AuditLogsService } from '../services/audit-logs.service';
 
 @Catch(ForbiddenException)
 export class ForbiddenAuditFilter implements ExceptionFilter {
@@ -17,10 +17,7 @@ export class ForbiddenAuditFilter implements ExceptionFilter {
     const request = ctx.getRequest<IAuthenticatedMemberRequest>();
     const response = ctx.getResponse();
 
-    const tenantId =
-      (request.params?.tenantId as string | undefined) ??
-      request.tenant?.id ??
-      null;
+    const tenantId = (request.params?.tenantId as string | undefined) ?? request.tenant?.id ?? null;
     const memberId = request.member?.id ?? null;
     const userId = request.member?.userId ?? null;
 
@@ -42,10 +39,12 @@ export class ForbiddenAuditFilter implements ExceptionFilter {
 
     const status = exception.getStatus();
     const exceptionResponse = exception.getResponse();
-    response.status(status).json(
-      typeof exceptionResponse === 'string'
-        ? { statusCode: status, message: exceptionResponse }
-        : exceptionResponse,
-    );
+    response
+      .status(status)
+      .json(
+        typeof exceptionResponse === 'string'
+          ? { statusCode: status, message: exceptionResponse }
+          : exceptionResponse,
+      );
   }
 }

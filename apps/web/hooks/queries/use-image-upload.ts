@@ -2,17 +2,14 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { uploadMemberAvatar, uploadWorkspaceLogo } from '@/lib/api/files';
 import { updateEmployee } from '@/lib/api/employees';
+import { uploadMemberAvatar, uploadWorkspaceLogo } from '@/lib/api/files';
 import { updateMemberProfile } from '@/lib/api/member-profile';
 import { updateTenant } from '@/lib/api/tenants';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function useMemberAvatarUpload(options?: {
-  memberId?: string;
-  isSelf?: boolean;
-}) {
+export function useMemberAvatarUpload(options?: { memberId?: string; isSelf?: boolean }) {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
 

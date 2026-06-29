@@ -1,23 +1,27 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
-import { ReloadlyApiService, type ReloadlyProduct } from 'src/common/services/reloadly-api.service';
+import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { DataSource } from 'typeorm';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
+import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { CustomReward } from '../entities/custom-reward.entity';
-import { RewardRedemption, type RedemptionStatus, type RewardType } from '../entities/reward-redemption.entity';
-import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
-import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
-import { CustomRewardsService } from './custom-rewards.service';
-import { TenantWalletService } from './tenant-wallet.service';
-import { TenantWallet } from '../entities/tenant-wallet.entity';
-import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import {
+  type RedemptionStatus,
+  RewardRedemption,
+  type RewardType,
+} from '../entities/reward-redemption.entity';
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
+import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { CustomRewardsService } from './custom-rewards.service';
+import { TenantWalletService } from './tenant-wallet.service';
 
 export interface CatalogItem {
   id: string;
@@ -45,7 +49,7 @@ export interface ClaimInput {
   currencyCode?: string;
   recipientEmail?: string;
   recipientPhone?: string;
-  
+
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
 }
@@ -65,7 +69,6 @@ export class RewardsService {
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
-  
   private convertCurrency(amount: number, from: string, to: string): number {
     const fromUpper = from.toUpperCase();
     const toUpper = to.toUpperCase();
@@ -87,15 +90,17 @@ export class RewardsService {
     return Number((amountInNgn / toRate).toFixed(2));
   }
 
-  
-  async getSubscriptionFees(tenantId: string, walletCurrency: string): Promise<{ feePercentage: number; flatFee: number }> {
+  async getSubscriptionFees(
+    tenantId: string,
+    walletCurrency: string,
+  ): Promise<{ feePercentage: number; flatFee: number }> {
     try {
       const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
       const feePercentage = subscription?.planPrice?.regionalConfig?.rewardsFeePercentage ?? 2; // Default 2%
-      
+
       const rawFlatFee = subscription?.planPrice?.regionalConfig?.rewardsFlatFee ?? 50;
       const flatFee = this.convertCurrency(rawFlatFee, 'NGN', walletCurrency);
-      
+
       return { feePercentage, flatFee };
     } catch {
       const flatFee = this.convertCurrency(50, 'NGN', walletCurrency);
@@ -103,14 +108,12 @@ export class RewardsService {
     }
   }
 
-  
   async getRedemptionFees(tenantId: string, currency: string) {
     return this.getSubscriptionFees(tenantId, currency);
   }
 
-  
   private async getRewardsSettings(tenantId: string): Promise<RewardsSettings> {
-    const settingsRecord = await this.tenantConfigService.getPointsSettings(tenantId);
+    const _settingsRecord = await this.tenantConfigService.getPointsSettings(tenantId);
     const repo = this.dataSource.getRepository(
       (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
     );
@@ -127,7 +130,6 @@ export class RewardsService {
     };
   }
 
-  
   async getReloadlyCountries(tenantId: string): Promise<any[]> {
     if (!this.reloadlyApi.isConfigured()) {
       return [
@@ -147,7 +149,6 @@ export class RewardsService {
     }));
   }
 
-  
   async getCatalog(tenantId: string): Promise<CatalogItem[]> {
     const settings = await this.getRewardsSettings(tenantId);
     if (!settings.enabled) {
@@ -194,7 +195,6 @@ export class RewardsService {
     return catalog;
   }
 
-  
   async getAvailableReloadlyProducts(tenantId: string): Promise<any[]> {
     const settings = await this.getRewardsSettings(tenantId);
     if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
@@ -203,7 +203,10 @@ export class RewardsService {
 
     try {
       const products = await this.reloadlyApi.listProductsByCountries(settings.catalogCountries);
-      const { feePercentage, flatFee } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+      const { feePercentage, flatFee } = await this.getSubscriptionFees(
+        tenantId,
+        settings.rewardsCurrency,
+      );
       const exchangeRate = settings.pointsExchangeRate;
 
       return products.map((p) => {
@@ -231,17 +234,14 @@ export class RewardsService {
         };
       });
     } catch (error) {
-      this.logger.warn(`Failed to fetch raw Reloadly catalog: ${error instanceof Error ? error.message : error}`);
+      this.logger.warn(
+        `Failed to fetch raw Reloadly catalog: ${error instanceof Error ? error.message : error}`,
+      );
       return [];
     }
   }
 
-  
-  async claim(
-    tenantId: string,
-    memberId: string,
-    input: ClaimInput,
-  ): Promise<RewardRedemption> {
+  async claim(tenantId: string, memberId: string, input: ClaimInput): Promise<RewardRedemption> {
     const settings = await this.getRewardsSettings(tenantId);
     if (!settings.enabled) {
       throw new BadRequestException('Rewards are not enabled for this workspace');
@@ -254,7 +254,10 @@ export class RewardsService {
 
     const redemptionId = randomUUID();
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const { feePercentage, flatFee } = await this.getSubscriptionFees(
+      tenantId,
+      settings.rewardsCurrency,
+    );
 
     const expectedConvertedValue = this.convertCurrency(
       currencyValue,
@@ -268,9 +271,10 @@ export class RewardsService {
       totalTenantDebit = expectedConvertedValue * markupFactor + flatFee;
     }
 
-    const expectedPointsCost = input.rewardType === 'CUSTOM'
-      ? pointsCost // custom points cost is validated against CustomReward entity in transaction
-      : Math.ceil(totalTenantDebit * exchangeRate);
+    const expectedPointsCost =
+      input.rewardType === 'CUSTOM'
+        ? pointsCost // custom points cost is validated against CustomReward entity in transaction
+        : Math.ceil(totalTenantDebit * exchangeRate);
 
     if (input.rewardType !== 'CUSTOM' && pointsCost < expectedPointsCost) {
       throw new BadRequestException(
@@ -282,7 +286,9 @@ export class RewardsService {
     await this.dataSource.transaction(async (manager) => {
       if (input.rewardType === 'CUSTOM') {
         const customRewardRepo = manager.getRepository(CustomReward);
-        const cr = await customRewardRepo.findOneOrFail({ where: { id: input.rewardId, tenantId } });
+        const cr = await customRewardRepo.findOneOrFail({
+          where: { id: input.rewardId, tenantId },
+        });
         if (!cr.isActive) {
           throw new BadRequestException('This custom reward is currently inactive');
         }
@@ -307,16 +313,23 @@ export class RewardsService {
         );
       }
 
-      await pointsRepo
+      const updateResult = await pointsRepo
         .createQueryBuilder()
         .update(ShoutoutMemberPoints)
         .set({ currentBalance: () => `current_balance - ${pointsCost}` })
-        .where('tenant_id = :tenantId AND member_id = :memberId AND current_balance >= :pointsCost', {
-          tenantId,
-          memberId,
-          pointsCost,
-        })
+        .where(
+          'tenant_id = :tenantId AND member_id = :memberId AND current_balance >= :pointsCost',
+          {
+            tenantId,
+            memberId,
+            pointsCost,
+          },
+        )
         .execute();
+
+      if (!updateResult.affected) {
+        throw new BadRequestException('Insufficient points or transaction conflict.');
+      }
 
       const txRepo = manager.getRepository(ShoutoutPointTransaction);
       const updatedPoints = await pointsRepo.findOneOrFail({ where: { tenantId, memberId } });
@@ -431,7 +444,6 @@ export class RewardsService {
     return redemption!;
   }
 
-  
   private async fulfillReloadly(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     const productId = input.providerProductId;
     if (!productId) {
@@ -473,7 +485,6 @@ export class RewardsService {
     });
   }
 
-  
   private async fulfillAirtime(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
       throw new Error('Phone number and network are required for airtime top-up');
@@ -498,7 +509,6 @@ export class RewardsService {
     });
   }
 
-  
   private async fulfillCustom(redemption: RewardRedemption): Promise<void> {
     const customReward = await this.dataSource.getRepository(CustomReward).findOne({
       where: { id: redemption.rewardId ?? undefined },
@@ -507,11 +517,11 @@ export class RewardsService {
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
       voucherInstructions:
-        customReward?.deliveryInstructions ?? 'Your admin has been notified and will fulfill this reward.',
+        customReward?.deliveryInstructions ??
+        'Your admin has been notified and will fulfill this reward.',
     });
   }
 
-  
   async getMyClaims(tenantId: string, memberId: string): Promise<RewardRedemption[]> {
     return this.dataSource.getRepository(RewardRedemption).find({
       where: { tenantId, memberId },
@@ -520,7 +530,6 @@ export class RewardsService {
     });
   }
 
-  
   async getAllClaims(tenantId: string): Promise<RewardRedemption[]> {
     return this.dataSource.getRepository(RewardRedemption).find({
       where: { tenantId },
@@ -529,7 +538,7 @@ export class RewardsService {
       take: 100,
     });
   }
-  
+
   async handleNombaFundingWebhook(
     rawBody: string,
     signature: string,
@@ -562,18 +571,11 @@ export class RewardsService {
 
     const data = payload.data || {};
     const accountNumber = String(
-      data.virtualAccount ||
-        data.accountNumber ||
-        data.virtualAccountNumber ||
-        '',
+      data.virtualAccount || data.accountNumber || data.virtualAccountNumber || '',
     );
     const amount = Number(data.amount || data.paymentAmount || 0);
     const reference = String(
-      data.transactionReference ||
-        data.orderReference ||
-        data.reference ||
-        data.id ||
-        '',
+      data.transactionReference || data.orderReference || data.reference || data.id || '',
     );
 
     if (!accountNumber || amount <= 0 || !reference) {
@@ -595,9 +597,7 @@ export class RewardsService {
       const txRepo = manager.getRepository(TenantWalletTransaction);
       const existingTx = await txRepo.findOne({ where: { reference } });
       if (existingTx) {
-        this.logger.log(
-          `Skipping duplicate wallet deposit transaction: ${reference}`,
-        );
+        this.logger.log(`Skipping duplicate wallet deposit transaction: ${reference}`);
         return;
       }
 
@@ -613,7 +613,6 @@ export class RewardsService {
 
     return { received: true };
   }
-
 
   async listTasks(tenantId: string, memberId: string) {
     const taskRepo = this.dataSource.getRepository(Task);
@@ -640,7 +639,8 @@ export class RewardsService {
           points: 10,
           icon: 'Compass',
           category: 'Onboarding',
-          imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=150&auto=format&fit=crop&q=60',
+          imageUrl:
+            'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=150&auto=format&fit=crop&q=60',
           submissionType: 'instant',
         },
         {
@@ -649,7 +649,8 @@ export class RewardsService {
           points: 25,
           icon: 'User',
           category: 'Profile',
-          imageUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60',
+          imageUrl:
+            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60',
           submissionType: 'file',
         },
         {
@@ -658,7 +659,8 @@ export class RewardsService {
           points: 15,
           icon: 'Heart',
           category: 'Culture',
-          imageUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=60',
+          imageUrl:
+            'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=60',
           submissionType: 'instant',
         },
         {
@@ -667,7 +669,8 @@ export class RewardsService {
           points: 20,
           icon: 'Award',
           category: 'Culture',
-          imageUrl: 'https://images.unsplash.com/photo-1491336477066-31156b5e4f35?w=150&auto=format&fit=crop&q=60',
+          imageUrl:
+            'https://images.unsplash.com/photo-1491336477066-31156b5e4f35?w=150&auto=format&fit=crop&q=60',
           submissionType: 'instant',
         },
         {
@@ -676,7 +679,8 @@ export class RewardsService {
           points: 10,
           icon: 'Slack',
           category: 'Integration',
-          imageUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=150&auto=format&fit=crop&q=60',
+          imageUrl:
+            'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=150&auto=format&fit=crop&q=60',
           submissionType: 'text',
         },
       ];
@@ -879,7 +883,12 @@ export class RewardsService {
     return { success: true };
   }
 
-  private async awardPointsForTask(tenantId: string, memberId: string, points: number, taskTitle: string) {
+  private async awardPointsForTask(
+    tenantId: string,
+    memberId: string,
+    points: number,
+    taskTitle: string,
+  ) {
     await this.dataSource.transaction(async (manager) => {
       const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
       const txRepo = manager.getRepository(ShoutoutPointTransaction);

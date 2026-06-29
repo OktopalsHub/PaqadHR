@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { FileModule } from 'src/common/modules/file.module';
 import { FilesController } from 'src/common/controllers/files.controller';
+import { FileModule } from 'src/common/modules/file.module';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';

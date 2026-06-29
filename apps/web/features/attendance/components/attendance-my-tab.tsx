@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -20,7 +19,6 @@ import {
   formatRecordDate,
   formatTimeOnly,
   resolveDateRange,
-  statusBadgeVariant,
   statusLabel,
   summarizeAttendanceRecords,
 } from '@/features/attendance/lib/attendance-utils';

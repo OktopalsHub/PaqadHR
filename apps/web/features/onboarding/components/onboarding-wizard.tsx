@@ -93,7 +93,11 @@ export function OnboardingWizard() {
     if (words.length === 1) {
       code = words[0].substring(0, 3).toUpperCase();
     } else {
-      code = words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+      code = words
+        .slice(0, 3)
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase();
     }
     setEmployeeCode(code.replace(/[^A-Z0-9]/g, ''));
   }, [name]);
@@ -130,7 +134,8 @@ export function OnboardingWizard() {
     slugAvailabilityQuery.isSuccess &&
     !slugAvailabilityQuery.data.available;
 
-  const canContinueStep0 = name.trim().length >= 2 && slugFormatValid && !slugBlocked && isEmployeeCodeValid;
+  const canContinueStep0 =
+    name.trim().length >= 2 && slugFormatValid && !slugBlocked && isEmployeeCodeValid;
 
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
@@ -295,10 +300,17 @@ export function OnboardingWizard() {
                   }}
                   maxLength={10}
                 />
-                <p className={cn("text-xs", !isEmployeeCodeValid && employeeCode.length > 0 ? "text-destructive" : "text-muted-foreground")}>
-                  {!isEmployeeCodeValid && employeeCode.length > 0 
-                    ? "Tenant code must be between 2 and 10 characters." 
-                    : `Short identifier prefix for employee IDs (e.g., ${(employeeCode || 'EMP')}001).`}
+                <p
+                  className={cn(
+                    'text-xs',
+                    !isEmployeeCodeValid && employeeCode.length > 0
+                      ? 'text-destructive'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {!isEmployeeCodeValid && employeeCode.length > 0
+                    ? 'Tenant code must be between 2 and 10 characters.'
+                    : `Short identifier prefix for employee IDs (e.g., ${employeeCode || 'EMP'}001).`}
                 </p>
               </div>
 

@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { PaymentProviderFactoryService } from '../services/payment-provider-factory.service';
 import { NombaTransferApiService } from '../services/nomba-transfer-api.service';
+import { PaymentProviderFactoryService } from '../services/payment-provider-factory.service';
 import { NombaProvider } from './nomba.provider';
 
 @Module({

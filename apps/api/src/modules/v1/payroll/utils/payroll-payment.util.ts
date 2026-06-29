@@ -1,4 +1,3 @@
-import { getNombaSenderName } from 'src/common/config/nomba.config';
 import type { CreatePaymentData } from 'src/common/interfaces/create-payment-data.interface';
 import type { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
 import type { PayrollItem } from '../entities/payroll-item.entity';
@@ -11,7 +10,9 @@ export function buildPayrollPaymentData(
   payrollRunTitle?: string,
 ): CreatePaymentData {
   const meta = paymentMethod.metadata ?? {};
-  const baseDescription = payrollRunTitle ? `${payrollRunTitle} for ${employeeName}` : `Payroll payment for ${employeeName}`;
+  const baseDescription = payrollRunTitle
+    ? `${payrollRunTitle} for ${employeeName}`
+    : `Payroll payment for ${employeeName}`;
   return {
     amount: Number(item.paymentAmount),
     currency: item.paymentCurrency,
@@ -25,9 +26,13 @@ export function buildPayrollPaymentData(
     merchantTxRef: `payroll_${item.payrollRunId}_${item.id}`,
     paymentRail: typeof meta.nombaPaymentMethod === 'string' ? meta.nombaPaymentMethod : undefined,
     institutionCode:
-      typeof meta.institutionCode === 'string' ? meta.institutionCode : paymentMethod.bankCode ?? undefined,
+      typeof meta.institutionCode === 'string'
+        ? meta.institutionCode
+        : (paymentMethod.bankCode ?? undefined),
     institutionName:
-      typeof meta.institutionName === 'string' ? meta.institutionName : paymentMethod.bankName ?? undefined,
+      typeof meta.institutionName === 'string'
+        ? meta.institutionName
+        : (paymentMethod.bankName ?? undefined),
     accountType: meta.accountType === 'CORPORATE' ? 'CORPORATE' : 'INDIVIDUAL',
     bankAccountType: meta.bankAccountType === 'SAVINGS' ? 'SAVINGS' : 'CHECKING',
     purposeOfPayment: typeof meta.purposeOfPayment === 'string' ? meta.purposeOfPayment : 'PAYROLL',

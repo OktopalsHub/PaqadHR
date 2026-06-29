@@ -11,19 +11,23 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodType, TenantMemberRole } from 'src/common/enums';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from '../../../../common/enums/audit-action.enum';
 import { PasscodeChangeReason } from '../../../../common/enums/passcode-change-reason.enum';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
-import { AuditAction, AuditSeverity, AuditStatus } from '../../../../common/enums/audit-action.enum';
-import { EncryptionService } from '../../../../common/services/encryption.service';
-import { AuditLogsService } from '../../../../common/services/audit-logs.service';
-import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import type { PaymentMethodSummary } from '../../../../common/interfaces/payment-method-summary.interface';
 import {
   PayrollPaymentIssue,
   type PayrollPaymentReadiness,
 } from '../../../../common/interfaces/payroll-payment-readiness.interface';
-import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import { AuditLogsService } from '../../../../common/services/audit-logs.service';
+import { EncryptionService } from '../../../../common/services/encryption.service';
+import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
+import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {
@@ -78,6 +82,25 @@ export class PaymentMethodService {
       if (dto.isPrimary) {
         await this.unsetPrimaryMethods(tenantId, memberId, dto.currency);
       }
+
+      let status = PaymentMethodStatus.PENDING_VERIFICATION;
+      let accountName = dto.accountName;
+      let verifiedAt: Date | null = null;
+
+      if (dto.currency.toUpperCase() === 'NGN') {
+        if (!dto.bankCode) {
+          throw new BadRequestException('Bank is required for NGN payment methods');
+        }
+        const lookup = await this.lookupNigerianBankAccount(
+          dto.accountNumber!,
+          dto.bankCode,
+          dto.bankName,
+        );
+        accountName = lookup.accountName;
+        status = PaymentMethodStatus.VERIFIED;
+        verifiedAt = new Date();
+      }
+
       const paymentMethod = this.paymentMethodRepository.create({
         tenantId,
         memberId,
@@ -86,11 +109,12 @@ export class PaymentMethodService {
         displayName: dto.displayName,
         bankName: dto.bankName,
         bankCode: dto.bankCode,
-        accountName: this.encryptField(dto.accountName) ?? dto.accountName,
+        accountName: this.encryptField(accountName) ?? accountName,
         accountNumber: this.encryptField(dto.accountNumber) ?? dto.accountNumber,
         country: dto.country,
         isPrimary: dto.isPrimary || false,
-        status: PaymentMethodStatus.PENDING_VERIFICATION,
+        status,
+        verifiedAt,
         passcodeHash,
         passcodeSetAt: new Date(),
         lastPasscodeChange: new Date(),
@@ -126,19 +150,46 @@ export class PaymentMethodService {
     if (dto.isPrimary && !paymentMethod.isPrimary && paymentMethod.currency) {
       await this.unsetPrimaryMethods(tenantId, memberId, paymentMethod.currency);
     }
+
+    const updatedCurrency = paymentMethod.currency?.toUpperCase();
+    const isNgn = updatedCurrency === 'NGN';
+    const hasAccountChanges = !!(dto.accountNumber || dto.bankCode);
+
+    let resolvedAccountName = dto.accountName || this.decryptField(paymentMethod.accountName) || '';
+    let status = paymentMethod.status;
+    let verifiedAt = paymentMethod.verifiedAt;
+
+    if (isNgn && hasAccountChanges) {
+      const accNumber = dto.accountNumber || this.decryptField(paymentMethod.accountNumber) || '';
+      const bCode = dto.bankCode || paymentMethod.bankCode || '';
+      const bName = dto.bankName || paymentMethod.bankName || '';
+      if (!accNumber || !bCode) {
+        throw new BadRequestException(
+          'Account number and bank code are required for NGN payment methods',
+        );
+      }
+      const lookup = await this.lookupNigerianBankAccount(accNumber, bCode, bName);
+      resolvedAccountName = lookup.accountName;
+      status = PaymentMethodStatus.VERIFIED;
+      verifiedAt = new Date();
+    } else if (dto.accountNumber) {
+      status = PaymentMethodStatus.PENDING_VERIFICATION;
+      verifiedAt = null;
+    }
+
     Object.assign(paymentMethod, {
       displayName: dto.displayName ?? paymentMethod.displayName,
       bankName: dto.bankName ?? paymentMethod.bankName,
       bankCode: dto.bankCode ?? paymentMethod.bankCode,
-      accountName: dto.accountName
-        ? (this.encryptField(dto.accountName) ?? dto.accountName)
-        : paymentMethod.accountName,
+      accountName: this.encryptField(resolvedAccountName) ?? resolvedAccountName,
       accountNumber: dto.accountNumber
         ? (this.encryptField(dto.accountNumber) ?? dto.accountNumber)
         : paymentMethod.accountNumber,
       country: dto.country ?? paymentMethod.country,
       isPrimary: dto.isPrimary ?? paymentMethod.isPrimary,
       metadata: dto.metadata ?? paymentMethod.metadata,
+      status,
+      verifiedAt,
     });
     if (dto.newPasscode) {
       if (dto.newPasscode.length !== 6) {
@@ -153,10 +204,6 @@ export class PaymentMethodService {
         'Passcode changed during payment method update',
       );
       this.logger.log(`Passcode changed for payment method ${paymentMethodId}`);
-    }
-    if (dto.accountNumber) {
-      paymentMethod.status = PaymentMethodStatus.PENDING_VERIFICATION;
-      paymentMethod.verifiedAt = null;
     }
     const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
     this.logger.log(`Payment method updated: ${paymentMethodId}`);
@@ -359,9 +406,7 @@ export class PaymentMethodService {
     }
 
     const ready = issues.length === 0 && method.canReceivePayments;
-    const message = ready
-      ? 'Ready for payroll disbursement.'
-      : this.buildReadinessMessage(issues);
+    const message = ready ? 'Ready for payroll disbursement.' : this.buildReadinessMessage(issues);
 
     return {
       memberId,
@@ -501,7 +546,12 @@ export class PaymentMethodService {
     if (!method) {
       return null;
     }
-    await this.assertPaymentMethodAccess(tenantId, method.memberId, requesterMemberId, requesterRole);
+    await this.assertPaymentMethodAccess(
+      tenantId,
+      method.memberId,
+      requesterMemberId,
+      requesterRole,
+    );
     return this.withDecrypted(method);
   }
 

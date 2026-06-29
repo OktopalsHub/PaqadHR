@@ -1,98 +1,92 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Trash2, Wallet, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { ContentCard } from '@/components/content-card';
+import { LoadingBlock } from '@/components/loading-block';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { ContentCard } from "@/components/content-card";
-import { LoadingBlock } from "@/components/loading-block";
-import { Wallet, X, Trash2 } from "lucide-react";
-import {
-  SettingsFieldHint,
-} from "@/features/settings/components/settings-field-hint";
-import { SettingsFormActions } from "@/features/settings/components/settings-form-actions";
-import {
-  usePatchTenantSettings,
-  useTenantSettings,
-} from "@/hooks/queries/use-tenant-settings";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
+import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
 import {
   useCreateCustomReward,
   useCustomRewards,
   useDeleteCustomReward,
-  useTenantWallet,
   useReloadlyCountries,
-} from "@/hooks/queries/use-rewards";
-import { PAQ_POINTS_NAME } from "@/lib/constants/paq-points";
+  useTenantWallet,
+} from '@/hooks/queries/use-rewards';
+import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
+import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 
 const FLAG_MAP: Record<string, string> = {
-  NG: "🇳🇬",
-  US: "🇺🇸",
-  GB: "🇬🇧",
-  CA: "🇨🇦",
-  GH: "🇬🇭",
-  KE: "🇰🇪",
-  ZA: "🇿🇦",
-  FR: "🇫🇷",
-  DE: "🇩🇪",
-  IN: "🇮🇳",
-  AE: "🇦🇪",
-  ES: "🇪🇸",
-  IT: "🇮🇹",
-  BR: "🇧🇷",
-  MX: "🇲🇽",
-  CN: "🇨🇳",
-  JP: "🇯🇵",
-  KR: "🇰🇷",
-  RU: "🇷🇺",
-  AU: "🇦🇺",
-  SG: "🇸🇬",
+  NG: '🇳🇬',
+  US: '🇺🇸',
+  GB: '🇬🇧',
+  CA: '🇨🇦',
+  GH: '🇬🇭',
+  KE: '🇰🇪',
+  ZA: '🇿🇦',
+  FR: '🇫🇷',
+  DE: '🇩🇪',
+  IN: '🇮🇳',
+  AE: '🇦🇪',
+  ES: '🇪🇸',
+  IT: '🇮🇹',
+  BR: '🇧🇷',
+  MX: '🇲🇽',
+  CN: '🇨🇳',
+  JP: '🇯🇵',
+  KR: '🇰🇷',
+  RU: '🇷🇺',
+  AU: '🇦🇺',
+  SG: '🇸🇬',
 };
 
 const PRESET_COUNTRIES = [
-  { code: "NG", name: "Nigeria" },
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "CA", name: "Canada" },
-  { code: "GH", name: "Ghana" },
-  { code: "KE", name: "Kenya" },
-  { code: "ZA", name: "South Africa" },
+  { code: 'NG', name: 'Nigeria' },
+  { code: 'US', name: 'United States' },
+  { code: 'GB', name: 'United Kingdom' },
+  { code: 'CA', name: 'Canada' },
+  { code: 'GH', name: 'Ghana' },
+  { code: 'KE', name: 'Kenya' },
+  { code: 'ZA', name: 'South Africa' },
 ];
 
 export function SettingsRewardsTab() {
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
-  const { data: customRewards = [], isLoading: rewardsLoading } =
-    useCustomRewards();
+  const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const { data: dynamicCountries = [] } = useReloadlyCountries();
   const patchSettings = usePatchTenantSettings();
   const createReward = useCreateCustomReward();
   const deleteReward = useDeleteCustomReward();
 
   const rewards = settings?.settings?.rewards;
-  const [exchangeRate, setExchangeRate] = useState("10");
-  const [currency, setCurrency] = useState("NGN");
-  const [selectedCountries, setSelectedCountries] = useState<string[]>(["NG"]);
-  const [selectValue, setSelectValue] = useState("");
+  const [exchangeRate, setExchangeRate] = useState('10');
+  const [currency, setCurrency] = useState('NGN');
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(['NG']);
+  const [selectValue, setSelectValue] = useState('');
 
-  const [newTitle, setNewTitle] = useState("");
-  const [newDescription, setNewDescription] = useState("");
-  const [newPointsCost, setNewPointsCost] = useState("100");
-  const [newInstructions, setNewInstructions] = useState("");
+  const [newTitle, setNewTitle] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newPointsCost, setNewPointsCost] = useState('100');
+  const [newInstructions, setNewInstructions] = useState('');
 
   useEffect(() => {
     if (rewards) {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 10));
-      setCurrency(rewards.rewardsCurrency ?? "NGN");
-      setSelectedCountries(rewards.catalogCountries ?? ["NG"]);
+      setCurrency(rewards.rewardsCurrency ?? 'NGN');
+      setSelectedCountries(rewards.catalogCountries ?? ['NG']);
     }
   }, [rewards]);
 
@@ -104,17 +98,15 @@ export function SettingsRewardsTab() {
         rewards: {
           enabled: true,
           pointsExchangeRate: Number(exchangeRate) || 10,
-          rewardsCurrency: currency.trim().toUpperCase() || "NGN",
+          rewardsCurrency: currency.trim().toUpperCase() || 'NGN',
           catalogCountries: selectedCountries,
           airtimeEnabled: true,
           customRewardsEnabled: true,
         },
       });
-      toast.success("Rewards settings saved successfully");
+      toast.success('Rewards settings saved successfully');
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to save settings",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to save settings');
     }
   };
 
@@ -127,15 +119,13 @@ export function SettingsRewardsTab() {
         pointsCost: Number(newPointsCost) || 100,
         deliveryInstructions: newInstructions.trim() || undefined,
       });
-      setNewTitle("");
-      setNewDescription("");
-      setNewPointsCost("100");
-      setNewInstructions("");
-      toast.success("Custom reward perk created");
+      setNewTitle('');
+      setNewDescription('');
+      setNewPointsCost('100');
+      setNewInstructions('');
+      toast.success('Custom reward perk created');
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Failed to create reward",
-      );
+      toast.error(err instanceof Error ? err.message : 'Failed to create reward');
     }
   };
 
@@ -144,20 +134,16 @@ export function SettingsRewardsTab() {
   };
 
   const handleAddCountry = (code: string) => {
-    setSelectValue("");
+    setSelectValue('');
 
-    if (code === "CUSTOM") {
-      const customCode = prompt(
-        "Enter 2-letter ISO country code (e.g. CA, ES, BR):",
-      );
+    if (code === 'CUSTOM') {
+      const customCode = prompt('Enter 2-letter ISO country code (e.g. CA, ES, BR):');
       if (customCode) {
         const formatted = customCode.trim().toUpperCase();
         if (formatted.length === 2 && !selectedCountries.includes(formatted)) {
           setSelectedCountries([...selectedCountries, formatted]);
         } else {
-          toast.error(
-            "Invalid or duplicate ISO code. Must be exactly 2 letters.",
-          );
+          toast.error('Invalid or duplicate ISO code. Must be exactly 2 letters.');
         }
       }
     } else if (code && !selectedCountries.includes(code)) {
@@ -179,7 +165,7 @@ export function SettingsRewardsTab() {
             </div>
             <div>
               <p className="text-2xl font-bold tabular-nums">
-                {wallet?.currencyCode ?? "NGN"}{" "}
+                {wallet?.currencyCode ?? 'NGN'}{' '}
                 {Number(wallet?.balanceAmount ?? 0).toLocaleString()}
               </p>
               <p className="text-xs text-muted-foreground">Wallet Balance</p>
@@ -187,20 +173,13 @@ export function SettingsRewardsTab() {
           </div>
           {wallet?.virtualAccountNumber ? (
             <div className="rounded-lg border bg-background p-3 text-sm">
-              <p className="text-xs text-muted-foreground">
-                Fund via Bank Transfer
-              </p>
-              <p className="font-mono font-semibold">
-                {wallet.virtualAccountNumber}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {wallet.virtualAccountBank}
-              </p>
+              <p className="text-xs text-muted-foreground">Fund via Bank Transfer</p>
+              <p className="font-mono font-semibold">{wallet.virtualAccountNumber}</p>
+              <p className="text-xs text-muted-foreground">{wallet.virtualAccountBank}</p>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Virtual account not yet provisioned. Contact support to enable
-              automatic funding.
+              Virtual account not yet provisioned. Contact support to enable automatic funding.
             </p>
           )}
         </div>
@@ -227,10 +206,7 @@ export function SettingsRewardsTab() {
               label="Rewards Currency"
               hint="The currency used for reward pricing (e.g. NGN, USD)."
             >
-              <Input
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
-              />
+              <Input value={currency} onChange={(e) => setCurrency(e.target.value)} />
             </SettingsFieldHint>
 
             {}
@@ -248,23 +224,19 @@ export function SettingsRewardsTab() {
                   ) : (
                     selectedCountries.map((code) => {
                       const info = (() => {
-                        const dynamic = dynamicCountries.find(
-                          (d: any) => d.code === code,
-                        );
+                        const dynamic = dynamicCountries.find((d: any) => d.code === code);
                         if (dynamic)
                           return {
                             name: dynamic.name,
-                            flag: FLAG_MAP[code] ?? "🌐",
+                            flag: FLAG_MAP[code] ?? '🌐',
                           };
-                        const preset = PRESET_COUNTRIES.find(
-                          (p) => p.code === code,
-                        );
+                        const preset = PRESET_COUNTRIES.find((p) => p.code === code);
                         if (preset)
                           return {
                             name: preset.name,
-                            flag: FLAG_MAP[code] ?? "🌐",
+                            flag: FLAG_MAP[code] ?? '🌐',
                           };
-                        return { name: code, flag: FLAG_MAP[code] ?? "🌐" };
+                        return { name: code, flag: FLAG_MAP[code] ?? '🌐' };
                       })();
                       return (
                         <Badge
@@ -293,33 +265,20 @@ export function SettingsRewardsTab() {
                   <span className="text-xs text-muted-foreground font-medium">
                     Add more countries:
                   </span>
-                  <Select
-                    value={selectValue}
-                    onValueChange={handleAddCountry}
-                  >
+                  <Select value={selectValue} onValueChange={handleAddCountry}>
                     <SelectTrigger className="w-[200px] h-9 text-xs font-semibold">
                       <SelectValue placeholder="Add Country..." />
                     </SelectTrigger>
                     <SelectContent>
                       {(() => {
                         const sourceList =
-                          dynamicCountries.length > 0
-                            ? dynamicCountries
-                            : PRESET_COUNTRIES;
+                          dynamicCountries.length > 0 ? dynamicCountries : PRESET_COUNTRIES;
                         return sourceList
-                          .filter(
-                            (c: any) => !selectedCountries.includes(c.code),
-                          )
+                          .filter((c: any) => !selectedCountries.includes(c.code))
                           .map((c: any) => (
-                            <SelectItem
-                              key={c.code}
-                              value={c.code}
-                              className="text-xs"
-                            >
-                              <span className="mr-2">
-                                {FLAG_MAP[c.code] ?? "🌐"}
-                              </span>{" "}
-                              {c.name} ({c.code})
+                            <SelectItem key={c.code} value={c.code} className="text-xs">
+                              <span className="mr-2">{FLAG_MAP[c.code] ?? '🌐'}</span> {c.name} (
+                              {c.code})
                             </SelectItem>
                           ));
                       })()}
@@ -335,10 +294,7 @@ export function SettingsRewardsTab() {
               </div>
             </SettingsFieldHint>
           </div>
-          <SettingsFormActions
-            onSave={saveRewardsSettings}
-            isPending={patchSettings.isPending}
-          />
+          <SettingsFormActions onSave={saveRewardsSettings} isPending={patchSettings.isPending} />
         </div>
       </ContentCard>
 
@@ -359,11 +315,7 @@ export function SettingsRewardsTab() {
                   {reward.pointsCost} {PAQ_POINTS_NAME}
                 </span>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => deleteReward.mutateAsync(reward.id)}
-              >
+              <Button size="sm" variant="ghost" onClick={() => deleteReward.mutateAsync(reward.id)}>
                 <Trash2 className="size-4" />
               </Button>
             </div>

@@ -1,11 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CustomReward } from '../entities/custom-reward.entity';
 
 @Injectable()
 export class CustomRewardsService {
-  private readonly logger = new Logger(CustomRewardsService.name);
-
   constructor(private readonly dataSource: DataSource) {}
 
   async list(tenantId: string, includeInactive = false): Promise<CustomReward[]> {

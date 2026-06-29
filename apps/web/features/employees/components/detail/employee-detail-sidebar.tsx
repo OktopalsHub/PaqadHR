@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useMemberAvatarUpload } from '@/hooks/queries/use-image-upload';
-import { employeeDisplayName, type EmployeeDetailState } from '../../lib/employee-detail-state';
+import { type EmployeeDetailState, employeeDisplayName } from '../../lib/employee-detail-state';
 
 interface EmployeeDetailSidebarProps {
   employee: EmployeeDetailState;

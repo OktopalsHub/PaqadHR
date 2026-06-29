@@ -1,9 +1,9 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
 import type { DateRangePreset } from '@/features/attendance/lib/attendance-utils';
+import { cn } from '@/lib/utils';
 
 const PRESETS: { id: DateRangePreset; label: string }[] = [
   { id: 'week', label: 'This week' },
@@ -47,9 +47,19 @@ export function AttendanceDateFilters({
       </div>
       {preset === 'custom' ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Input type="date" value={from} onChange={(e) => onFromChange(e.target.value)} className="w-[150px]" />
+          <Input
+            type="date"
+            value={from}
+            onChange={(e) => onFromChange(e.target.value)}
+            className="w-[150px]"
+          />
           <span className="text-sm text-muted-foreground">to</span>
-          <Input type="date" value={to} onChange={(e) => onToChange(e.target.value)} className="w-[150px]" />
+          <Input
+            type="date"
+            value={to}
+            onChange={(e) => onToChange(e.target.value)}
+            className="w-[150px]"
+          />
         </div>
       ) : null}
     </div>

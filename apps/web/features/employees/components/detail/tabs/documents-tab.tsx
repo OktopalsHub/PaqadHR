@@ -7,11 +7,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -37,8 +33,8 @@ import {
   fetchMemberDocuments,
   verifyMemberDocument,
 } from '@/lib/api/documents';
-import { downloadPayslipPdf, fetchMemberPublishedPayslips } from '@/lib/api/payroll';
 import { requestDocumentUploadUrl, uploadFileToPresignedUrl } from '@/lib/api/files';
+import { downloadPayslipPdf, fetchMemberPublishedPayslips } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -100,11 +96,15 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
         tenantId,
       );
       await uploadFileToPresignedUrl(uploadUrl, selectedFile);
-      return createMemberDocument(memberId, {
-        name: uploadName.trim(),
-        type: uploadType,
-        fileKey: fileName,
-      }, tenantId);
+      return createMemberDocument(
+        memberId,
+        {
+          name: uploadName.trim(),
+          type: uploadType,
+          fileKey: fileName,
+        },
+        tenantId,
+      );
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: documentsQueryKey });
@@ -131,11 +131,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
         payslip.periodEnd != null
           ? new Date(payslip.periodEnd).toISOString().slice(0, 10)
           : payslip.runTitle.replace(/\s+/g, '-').toLowerCase();
-      await downloadPayslipPdf(
-        payslip.runId,
-        payslip.itemId,
-        `payslip-${period}.pdf`,
-      );
+      await downloadPayslipPdf(payslip.runId, payslip.itemId, `payslip-${period}.pdf`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Download failed');
     }
@@ -264,10 +260,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
               ) : (
                 <div className="border rounded-lg divide-y">
                   {employeeDocs.map((doc) => (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between gap-3 p-4"
-                    >
+                    <div key={doc.id} className="flex items-center justify-between gap-3 p-4">
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-medium">{doc.name}</p>
@@ -328,10 +321,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="divide-y border-t">
                       {legacyPayStubs.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex items-center justify-between gap-3 p-4"
-                        >
+                        <div key={doc.id} className="flex items-center justify-between gap-3 p-4">
                           <div>
                             <p className="font-medium">{doc.name}</p>
                             <p className="text-sm text-muted-foreground">

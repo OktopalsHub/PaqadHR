@@ -43,11 +43,7 @@ export class EmergencyContactController {
   ): Promise<EmergencyContact> {
     const { memberId, ...contactData } = createEmergencyContactDto;
     const targetMemberId = memberId ?? member.id;
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      targetMemberId,
-      tenantId,
-    );
+    await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, targetMemberId, tenantId);
     return this.emergencyContactService.createEmergencyContact(
       tenantId,
       targetMemberId,

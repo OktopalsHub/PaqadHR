@@ -1,8 +1,7 @@
-import { clearSessionStorage } from '@/lib/session';
 import { clearCsrfToken, getApiV1Base } from '@/lib/api/client';
+import { clearSessionStorage } from '@/lib/session';
 
 let refreshPromise: Promise<boolean> | null = null;
-
 
 export function invalidateSession() {
   clearSessionStorage();

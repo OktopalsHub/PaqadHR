@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import request from 'supertest';
+import { DataSource } from 'typeorm';
 import { PayrollFrequency } from '../src/common/enums/payroll-frequency.enum';
 import { PayrollItemStatus } from '../src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../src/common/enums/payroll-status.enum';
@@ -173,7 +173,8 @@ describe('Payroll webhooks (e2e)', () => {
 
   it('does not require authentication', async () => {
     const rawBody = buildNombaTransferWebhook({
-      merchantTxRef: 'payroll_00000000-0000-4000-8000-000000000001_00000000-0000-4000-8000-000000000002',
+      merchantTxRef:
+        'payroll_00000000-0000-4000-8000-000000000001_00000000-0000-4000-8000-000000000002',
     });
     const signature = signNombaWebhook(rawBody, webhookSecret);
 

@@ -3,12 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   addCompensation,
-  createEmployment,
-  fetchEmployments,
-  updateEmployment,
   type CreateCompensationInput,
   type CreateEmploymentInput,
+  createEmployment,
+  fetchEmployments,
   type UpdateEmploymentInput,
+  updateEmployment,
 } from '@/lib/api/employment';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -62,13 +62,8 @@ export function useUpdateEmployment(memberId: string) {
   const { tenantId } = useTenant();
 
   return useMutation({
-    mutationFn: ({
-      employmentId,
-      input,
-    }: {
-      employmentId: string;
-      input: UpdateEmploymentInput;
-    }) => updateEmployment(employmentId, input),
+    mutationFn: ({ employmentId, input }: { employmentId: string; input: UpdateEmploymentInput }) =>
+      updateEmployment(employmentId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'employments'],

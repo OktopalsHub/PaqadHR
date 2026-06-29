@@ -8,7 +8,6 @@ import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -39,7 +38,6 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useAddCompensation } from '@/hooks/queries/use-employment';
-import { useAssignPosition, usePositions } from '@/hooks/queries/use-positions';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { numberToWords } from '@/lib/number-to-words';
 import { getInitials } from '@/lib/utils';
@@ -104,7 +102,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
       <Alert>
         <AlertTitle>Access restricted</AlertTitle>
         <AlertDescription>Only admins and owners can access team salary.</AlertDescription>
-      </Alert>
+      </Alert>,
     );
   }
 
@@ -119,7 +117,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
         <AlertDescription>
           {error instanceof Error ? error.message : 'Something went wrong'}
         </AlertDescription>
-      </Alert>
+      </Alert>,
     );
   }
 
@@ -236,13 +234,9 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
           }}
         />
       ) : null}
-    </>
+    </>,
   );
 }
-
-
-
-
 
 interface SalaryDialogProps {
   memberId: string;

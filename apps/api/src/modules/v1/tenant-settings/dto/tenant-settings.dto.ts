@@ -10,8 +10,8 @@ import {
   IsString,
   IsUrl,
   Max,
-  Min,
   MaxLength,
+  Min,
   ValidateNested,
 } from 'class-validator';
 
@@ -211,7 +211,11 @@ export class BillingSettingsDto {
   @IsString()
   contactName?: string;
 
-  @ApiProperty({ description: 'Billing contact email', example: 'billing@company.com', required: false })
+  @ApiProperty({
+    description: 'Billing contact email',
+    example: 'billing@company.com',
+    required: false,
+  })
   @IsOptional()
   @IsEmail()
   contactEmail?: string;
@@ -384,7 +388,11 @@ export class HolidaySettingsDto {
   excludeWeekends?: boolean;
 }
 export class RewardsSettingsDto {
-  @ApiProperty({ description: 'Whether the rewards redemption system is enabled', example: true, required: false })
+  @ApiProperty({
+    description: 'Whether the rewards redemption system is enabled',
+    example: true,
+    required: false,
+  })
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
@@ -399,23 +407,39 @@ export class RewardsSettingsDto {
   @IsString()
   rewardsCurrency?: string;
 
-  @ApiProperty({ description: 'Allowed ISO country codes for Reloadly gift cards', type: [String], required: false })
+  @ApiProperty({
+    description: 'Allowed ISO country codes for Reloadly gift cards',
+    type: [String],
+    required: false,
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   catalogCountries?: string[];
 
-  @ApiProperty({ description: 'Whether Nomba airtime vending is enabled', example: true, required: false })
+  @ApiProperty({
+    description: 'Whether Nomba airtime vending is enabled',
+    example: true,
+    required: false,
+  })
   @IsOptional()
   @IsBoolean()
   airtimeEnabled?: boolean;
 
-  @ApiProperty({ description: 'Whether custom rewards are enabled', example: true, required: false })
+  @ApiProperty({
+    description: 'Whether custom rewards are enabled',
+    example: true,
+    required: false,
+  })
   @IsOptional()
   @IsBoolean()
   customRewardsEnabled?: boolean;
 
-  @ApiProperty({ description: 'Active configured Reloadly gift card products', type: [Object], required: false })
+  @ApiProperty({
+    description: 'Active configured Reloadly gift card products',
+    type: [Object],
+    required: false,
+  })
   @IsOptional()
   @IsArray()
   reloadlyProducts?: Array<{

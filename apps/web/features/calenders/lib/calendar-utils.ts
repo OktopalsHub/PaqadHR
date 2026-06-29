@@ -24,13 +24,17 @@ export const EVENT_BADGE_STYLES: Record<CalendarEventType, string> = {
   celebration: 'bg-pink-50 text-pink-900 hover:bg-pink-50',
 };
 
-
 export const EVENT_CHIP_STYLES: Record<CalendarEventType, string> = {
-  leave: 'bg-orange-950/5 text-orange-950/80 ring-1 ring-inset ring-orange-200/70 dark:bg-orange-950/30 dark:text-orange-100 dark:ring-orange-800/40',
-  holiday: 'bg-sky-950/5 text-sky-950/80 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-950/30 dark:text-sky-100 dark:ring-sky-800/40',
-  meeting: 'bg-violet-950/5 text-violet-950/80 ring-1 ring-inset ring-violet-200/70 dark:bg-violet-950/30 dark:text-violet-100 dark:ring-violet-800/40',
-  review: 'bg-emerald-950/5 text-emerald-950/80 ring-1 ring-inset ring-emerald-200/70 dark:bg-emerald-950/30 dark:text-emerald-100 dark:ring-emerald-800/40',
-  celebration: 'bg-rose-950/5 text-rose-950/80 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-950/30 dark:text-rose-100 dark:ring-rose-800/40',
+  leave:
+    'bg-orange-950/5 text-orange-950/80 ring-1 ring-inset ring-orange-200/70 dark:bg-orange-950/30 dark:text-orange-100 dark:ring-orange-800/40',
+  holiday:
+    'bg-sky-950/5 text-sky-950/80 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-950/30 dark:text-sky-100 dark:ring-sky-800/40',
+  meeting:
+    'bg-violet-950/5 text-violet-950/80 ring-1 ring-inset ring-violet-200/70 dark:bg-violet-950/30 dark:text-violet-100 dark:ring-violet-800/40',
+  review:
+    'bg-emerald-950/5 text-emerald-950/80 ring-1 ring-inset ring-emerald-200/70 dark:bg-emerald-950/30 dark:text-emerald-100 dark:ring-emerald-800/40',
+  celebration:
+    'bg-rose-950/5 text-rose-950/80 ring-1 ring-inset ring-rose-200/70 dark:bg-rose-950/30 dark:text-rose-100 dark:ring-rose-800/40',
 };
 
 export function parseEventDate(date: string) {
@@ -59,7 +63,8 @@ const DAY_EVENT_PRIORITY: Record<CalendarEventType, number> = {
 
 export function sortDayEvents(events: CalendarEvent[]): CalendarEvent[] {
   return [...events].sort(
-    (a, b) => DAY_EVENT_PRIORITY[a.type] - DAY_EVENT_PRIORITY[b.type] || a.title.localeCompare(b.title),
+    (a, b) =>
+      DAY_EVENT_PRIORITY[a.type] - DAY_EVENT_PRIORITY[b.type] || a.title.localeCompare(b.title),
   );
 }
 

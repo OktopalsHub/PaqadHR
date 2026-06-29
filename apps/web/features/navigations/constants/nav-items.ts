@@ -5,7 +5,6 @@ import {
   CalendarClock,
   Clock,
   FileText,
-  Gift,
   Heart,
   LayoutDashboard,
   type LucideIcon,
@@ -40,7 +39,6 @@ export function getNavItems(slug: string): NavItem[] {
     href: item.segment ? tenantPath(slug, item.segment) : tenantRoot(slug),
   }));
 }
-
 
 export const navItems: NavItem[] = navItemDefs.map((item) => ({
   ...item,

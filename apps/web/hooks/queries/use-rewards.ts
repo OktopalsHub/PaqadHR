@@ -2,17 +2,17 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  type ClaimInput,
+  type CustomRewardInput,
   claimReward,
   createCustomReward,
   deleteCustomReward,
   fetchAllClaims,
   fetchCustomRewards,
   fetchMyClaims,
+  fetchReloadlyCountries,
   fetchRewardsCatalog,
   fetchTenantWallet,
-  fetchReloadlyCountries,
-  type ClaimInput,
-  type CustomRewardInput,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';

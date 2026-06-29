@@ -21,9 +21,7 @@ export type UpsertAddressInput = {
 export async function fetchMemberAddress(memberId: string): Promise<ApiAddress | null> {
   const tenantId = await resolveTenantId();
   try {
-    return await apiClient<ApiAddress | null>(
-      tenantPath(tenantId, `members/${memberId}/address`),
-    );
+    return await apiClient<ApiAddress | null>(tenantPath(tenantId, `members/${memberId}/address`));
   } catch {
     return null;
   }

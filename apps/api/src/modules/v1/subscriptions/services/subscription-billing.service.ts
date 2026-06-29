@@ -1,19 +1,24 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { DataSource, LessThan, Repository } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
-import { PlansService } from '../../plans/services/plans.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
+import { PlansService } from '../../plans/services/plans.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
 import { isBillingGatewayEnabled } from '../config/billing.config';
+import { BillingChargeType, RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
 import { BillingProvider } from '../constants/billing-provider.enum';
-import {
-  BillingChargeType,
-  RENEWAL_GRACE_PERIOD_DAYS,
-} from '../constants/billing.constants';
 import { BillingEvent } from '../entities/billing-event.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type {
@@ -29,10 +34,8 @@ import {
 } from '../utils/per-seat-pricing.util';
 import { NombaApiService } from './nomba-api.service';
 import { SubscriptionsService } from './subscriptions.service';
-import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface RenewalJobResult {
   charged: number;
@@ -88,7 +91,7 @@ export class SubscriptionBillingService {
 
     const countryCode = tenant.countryCode || 'GLOBAL';
     const planPrices = await this.plansService.getPricesForCountry(countryCode);
-    const paymentsEnabled = isBillingGatewayEnabled();
+    const _paymentsEnabled = isBillingGatewayEnabled();
 
     const plans = planPrices
       .filter((price) => price.plan?.isActive)
@@ -122,7 +125,9 @@ export class SubscriptionBillingService {
       plans,
       companyName: tenant.name,
       nextBillingDate: subscription?.nextBillingDate?.toISOString() ?? null,
-      hasPaymentMethodOnFile: Boolean(subscription?.nombaSubscriptionId || subscription?.paymentMethodId),
+      hasPaymentMethodOnFile: Boolean(
+        subscription?.nombaSubscriptionId || subscription?.paymentMethodId,
+      ),
       billingHistory,
       needsPayment,
       billingContact: tenantSettings?.settings.billing ?? {},
@@ -140,8 +145,7 @@ export class SubscriptionBillingService {
       if (contactEmail) {
         return contactEmail;
       }
-    } catch {
-    }
+    } catch {}
     return fallbackEmail?.trim() || null;
   }
 
@@ -170,10 +174,7 @@ export class SubscriptionBillingService {
 
     const currentPlanSlug =
       existing?.plan?.slug?.toLowerCase() ?? existing?.plan?.name?.toLowerCase();
-    if (
-      existing?.status === SubscriptionStatus.ACTIVE &&
-      currentPlanSlug === normalizedSlug
-    ) {
+    if (existing?.status === SubscriptionStatus.ACTIVE && currentPlanSlug === normalizedSlug) {
       throw new BadRequestException('Organization already has an active subscription on this plan');
     }
 
@@ -371,7 +372,9 @@ export class SubscriptionBillingService {
     const tokenKey = subscription.paymentMethodId;
     const nombaReference = subscription.nombaSubscriptionId;
     if (!billingEmail || !tokenKey || !nombaReference) {
-      this.logger.warn(`Skipping renewal for ${subscription.tenantId}: missing billing credentials`);
+      this.logger.warn(
+        `Skipping renewal for ${subscription.tenantId}: missing billing credentials`,
+      );
       return 'skipped';
     }
 
@@ -394,7 +397,7 @@ export class SubscriptionBillingService {
       );
 
       const verified = await this.nombaApi.verifyTransaction(charge.orderReference);
-      if (!verified || verified.status?.toLowerCase() !== 'success') {
+      if (verified?.status?.toLowerCase() !== 'success') {
         await this.markRenewalFailed(subscription, charge.orderReference, 'verification_failed');
         return 'failed';
       }
@@ -406,19 +409,23 @@ export class SubscriptionBillingService {
         planPrice.currency,
       );
 
-      await this.applyRenewalSuccess(subscription.tenantId, {
-        eventId: charge.orderReference,
-        reference: charge.orderReference,
-        tenantId: subscription.tenantId,
-        planId: subscription.planId,
-        planPriceId: subscription.planPriceId,
-        quantity: seatCount,
-        amount: normalizedPaid,
-        currency: planPrice.currency.toUpperCase(),
-        tokenKey,
-        status: 'success',
-        billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
-      }, subscription.nextBillingDate);
+      await this.applyRenewalSuccess(
+        subscription.tenantId,
+        {
+          eventId: charge.orderReference,
+          reference: charge.orderReference,
+          tenantId: subscription.tenantId,
+          planId: subscription.planId,
+          planPriceId: subscription.planPriceId,
+          quantity: seatCount,
+          amount: normalizedPaid,
+          currency: planPrice.currency.toUpperCase(),
+          tokenKey,
+          status: 'success',
+          billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
+        },
+        subscription.nextBillingDate,
+      );
 
       return 'charged';
     } catch (error) {
@@ -470,11 +477,15 @@ export class SubscriptionBillingService {
       return;
     }
 
-    await this.notificationHelper.sendBillingRenewalFailedNotification(ownerId, subscription.tenantId, {
-      tenantName: subscription.tenant?.name ?? 'your workspace',
-      reason,
-      status,
-    });
+    await this.notificationHelper.sendBillingRenewalFailedNotification(
+      ownerId,
+      subscription.tenantId,
+      {
+        tenantName: subscription.tenant?.name ?? 'your workspace',
+        reason,
+        status,
+      },
+    );
   }
 
   private async markRenewalFailed(
@@ -588,7 +599,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (!verified || verified.status?.toLowerCase() !== 'success') {
+    if (verified?.status?.toLowerCase() !== 'success') {
       throw new BadRequestException('Payment could not be verified with Nomba');
     }
 
@@ -612,7 +623,10 @@ export class SubscriptionBillingService {
     const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
     const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
 
-    if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, expectedAmount)) {
+    if (
+      !Number.isFinite(normalizedPaid) ||
+      !isAmountWithinTolerance(normalizedPaid, expectedAmount)
+    ) {
       this.logger.error(
         `Nomba amount mismatch for tenant ${payment.tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
       );
@@ -710,7 +724,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (!verified || verified.status?.toLowerCase() !== 'success') {
+    if (verified?.status?.toLowerCase() !== 'success') {
       throw new BadRequestException('Renewal payment could not be verified with Nomba');
     }
 
@@ -726,7 +740,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (!verified || verified.status?.toLowerCase() !== 'success') {
+    if (verified?.status?.toLowerCase() !== 'success') {
       return;
     }
 
@@ -738,9 +752,7 @@ export class SubscriptionBillingService {
     }
 
     const seatCount = resolveSeatCount(
-      payment.quantity ??
-        subscription.usageMetrics?.pendingSeatCount ??
-        subscription.currentUsers,
+      payment.quantity ?? subscription.usageMetrics?.pendingSeatCount ?? subscription.currentUsers,
     );
     subscription.currentUsers = seatCount;
     subscription.usageMetrics = {
@@ -826,7 +838,10 @@ export class SubscriptionBillingService {
     const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
     const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
 
-    if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, expectedAmount)) {
+    if (
+      !Number.isFinite(normalizedPaid) ||
+      !isAmountWithinTolerance(normalizedPaid, expectedAmount)
+    ) {
       this.logger.error(
         `Nomba renewal amount mismatch for tenant ${tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
       );

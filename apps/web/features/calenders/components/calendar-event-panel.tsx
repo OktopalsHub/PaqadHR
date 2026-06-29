@@ -6,9 +6,9 @@ import type { CalendarEvent } from '@/lib/schemas/calendar';
 import { cn } from '@/lib/utils';
 import {
   buildEventAgenda,
+  type DayEventGroup,
   EVENT_BADGE_STYLES,
   EVENT_COLORS,
-  type DayEventGroup,
 } from '../lib/calendar-utils';
 
 interface CalendarEventPanelProps {
@@ -101,13 +101,9 @@ function AgendaSection({
 }
 
 export function CalendarEventPanel({ referenceDate, events }: CalendarEventPanelProps) {
-  const agenda = useMemo(
-    () => buildEventAgenda(events, referenceDate),
-    [events, referenceDate],
-  );
+  const agenda = useMemo(() => buildEventAgenda(events, referenceDate), [events, referenceDate]);
 
-  const hasAnyEvents =
-    agenda.today.length > 0 || agenda.week.length > 0 || agenda.month.length > 0;
+  const hasAnyEvents = agenda.today.length > 0 || agenda.week.length > 0 || agenda.month.length > 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-md border bg-card">
@@ -117,11 +113,7 @@ export function CalendarEventPanel({ referenceDate, events }: CalendarEventPanel
       </div>
 
       <div className="flex-1 space-y-6 overflow-y-auto p-4">
-        <AgendaSection
-          title="Today"
-          groups={agenda.today}
-          emptyMessage="No events today."
-        />
+        <AgendaSection title="Today" groups={agenda.today} emptyMessage="No events today." />
         <AgendaSection title="This week" groups={agenda.week} />
         <AgendaSection title="This month" groups={agenda.month} />
 

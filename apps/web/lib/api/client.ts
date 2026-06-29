@@ -2,7 +2,6 @@ import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 
 const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001/api/v1';
 
-
 function normalizeApiV1Base(url: string): string {
   const trimmed = url.replace(/\/$/, '');
   if (trimmed.endsWith('/api/v1')) return trimmed;
@@ -31,7 +30,6 @@ export class ApiError extends Error {
 export function getApiV1Base() {
   return API_V1_BASE;
 }
-
 
 export function getApiOrigin() {
   return API_V1_BASE.replace(/\/api\/v1$/, '');
@@ -79,12 +77,10 @@ export async function ensureCsrfToken(force = false): Promise<string> {
   }
 }
 
-
 export async function bootstrapCsrf(): Promise<void> {
   try {
     await ensureCsrfToken(true);
-  } catch {
-  }
+  } catch {}
 }
 
 export function clearCsrfToken() {

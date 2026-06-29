@@ -207,10 +207,7 @@ export function SettingsLeaveTab() {
       <ContentCard title="Leave types" description="Types available for leave requests">
         <div className="space-y-3">
           {types.map((type) => (
-            <div
-              key={type.id}
-              className="rounded-lg border border-border/60 p-3"
-            >
+            <div key={type.id} className="rounded-lg border border-border/60 p-3">
               {editingId === type.id ? (
                 <div className="space-y-3">
                   <div className="grid gap-2 sm:grid-cols-3">
@@ -267,7 +264,11 @@ export function SettingsLeaveTab() {
             </div>
           ))}
           <div className="grid gap-2 sm:grid-cols-3">
-            <Input placeholder="Name" value={typeName} onChange={(e) => setTypeName(e.target.value)} />
+            <Input
+              placeholder="Name"
+              value={typeName}
+              onChange={(e) => setTypeName(e.target.value)}
+            />
             <Input
               placeholder="Default days"
               value={typeDays}

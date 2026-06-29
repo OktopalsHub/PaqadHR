@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import request, { type Test } from 'supertest';
+import { DataSource } from 'typeorm';
 import { PayrollFrequency } from '../src/common/enums/payroll-frequency.enum';
 import { PayrollItemStatus } from '../src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../src/common/enums/payroll-status.enum';
@@ -9,10 +9,10 @@ import { PayrollRun } from '../src/modules/v1/payroll/entities/payroll-run.entit
 import { createE2eApp, uniqueEmail } from './e2e-bootstrap';
 import {
   acceptInvitation,
+  type E2eAuthContext,
   inviteMember,
   onboardTenant,
   registerUser,
-  type E2eAuthContext,
 } from './e2e-helpers';
 
 async function loginUser(
@@ -21,10 +21,7 @@ async function loginUser(
   password: string,
 ): Promise<E2eAuthContext> {
   const agent = request.agent(app.getHttpServer());
-  const loginRes = await agent
-    .post('/api/v1/auth/login')
-    .send({ email, password })
-    .expect(201);
+  const loginRes = await agent.post('/api/v1/auth/login').send({ email, password }).expect(201);
 
   const token = loginRes.body.accessToken as string;
   const withAuth = (req: Test) => req.set('Authorization', `Bearer ${token}`);
@@ -168,8 +165,8 @@ describe('Payroll payslips (e2e)', () => {
       .expect(200);
 
     expect(download.headers['content-type']).toMatch(/application\/pdf/);
-    expect(Buffer.isBuffer(download.body) ? download.body.length : download.text.length).toBeGreaterThan(
-      0,
-    );
+    expect(
+      Buffer.isBuffer(download.body) ? download.body.length : download.text.length,
+    ).toBeGreaterThan(0);
   });
 });

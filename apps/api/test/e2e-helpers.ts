@@ -1,14 +1,13 @@
-import type { INestApplication } from '@nestjs/common';
 import { createHmac } from 'node:crypto';
+import type { INestApplication } from '@nestjs/common';
 import request, { type Test } from 'supertest';
 import { DataSource } from 'typeorm';
+import { IntegrationType, PaymentMethodType } from '../src/common/enums';
 import { DocumentType } from '../src/common/enums/document-type.enum';
-import { PaymentMethodType } from '../src/common/enums';
 import { PaymentMethodStatus } from '../src/common/enums/payment-method-status.enum';
-import { IntegrationType } from '../src/common/enums';
+import { PlatformIntegrationService } from '../src/common/integrations/services/platform-integration.service';
 import { Document as MemberDocument } from '../src/modules/v1/document/entities/document.entity';
 import { PaymentMethod } from '../src/modules/v1/payment-method/entities/payment-method.entity';
-import { PlatformIntegrationService } from '../src/common/integrations/services/platform-integration.service';
 import { uniqueEmail } from './e2e-bootstrap';
 
 export type E2eAuthContext = {
@@ -92,9 +91,7 @@ export async function waitForTenantSettings(
   delayMs = 100,
 ): Promise<void> {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await owner.withAuth(
-      owner.agent.get(`/api/v1/tenants/${owner.tenantId}/settings`),
-    );
+    const res = await owner.withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/settings`));
     if (res.status === 200) {
       return;
     }
@@ -192,9 +189,7 @@ export async function seedReportingLine(
   const createEmployment = async (memberId: string, reportsToId?: string) => {
     await owner
       .withAuth(
-        owner.agent.post(
-          `/api/v1/tenants/${owner.tenantId}/members/${memberId}/employments`,
-        ),
+        owner.agent.post(`/api/v1/tenants/${owner.tenantId}/members/${memberId}/employments`),
       )
       .send({
         startDate: new Date().toISOString(),
@@ -207,9 +202,7 @@ export async function seedReportingLine(
 
   const managerEmployments = await owner
     .withAuth(
-      owner.agent.get(
-        `/api/v1/tenants/${owner.tenantId}/members/${managerMemberId}/employments`,
-      ),
+      owner.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${managerMemberId}/employments`),
     )
     .expect(200);
 
@@ -219,9 +212,7 @@ export async function seedReportingLine(
 
   const employeeEmployments = await owner
     .withAuth(
-      owner.agent.get(
-        `/api/v1/tenants/${owner.tenantId}/members/${employeeMemberId}/employments`,
-      ),
+      owner.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${employeeMemberId}/employments`),
     )
     .expect(200);
 
@@ -232,9 +223,7 @@ export async function seedReportingLine(
 
   const employmentId = employeeEmployments.body[0].id as string;
   await owner
-    .withAuth(
-      owner.agent.patch(`/api/v1/tenants/${owner.tenantId}/employments/${employmentId}`),
-    )
+    .withAuth(owner.agent.patch(`/api/v1/tenants/${owner.tenantId}/employments/${employmentId}`))
     .send({ reportsToId: managerMemberId })
     .expect(200);
 }

@@ -16,11 +16,6 @@ import { TenantSettingsService } from './services/tenant-settings.service';
     GoogleCalendarHolidayProvider,
     HolidayService,
   ],
-  exports: [
-    TenantConfigService,
-    TenantSettingsService,
-    TenantSettingRepository,
-    HolidayService,
-  ],
+  exports: [TenantConfigService, TenantSettingsService, TenantSettingRepository, HolidayService],
 })
 export class TenantConfigModule {}

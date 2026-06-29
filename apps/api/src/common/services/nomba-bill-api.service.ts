@@ -1,9 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import {
-  getNombaAccountId,
-  getNombaBaseUrl,
-  isNombaConfigured,
-} from '../config/nomba.config';
+import { getNombaAccountId, getNombaBaseUrl, isNombaConfigured } from '../config/nomba.config';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
 
 export interface NombaAirtimeInput {
@@ -34,7 +30,6 @@ export class NombaBillApiService {
     return isNombaConfigured();
   }
 
-  
   async purchaseAirtime(input: NombaAirtimeInput): Promise<{
     success: boolean;
     transactionId: string | null;
@@ -44,7 +39,7 @@ export class NombaBillApiService {
       throw new BadRequestException('Nomba airtime vending is not configured');
     }
 
-    const token = await this.getToken();
+    const token = await this.nombaTransferApi.getAccessToken();
 
     const response = await fetch(`${getNombaBaseUrl()}/v1/bill/topup`, {
       method: 'POST',
@@ -71,8 +66,7 @@ export class NombaBillApiService {
         if (errorPayload?.message || errorPayload?.description) {
           message = errorPayload.message || errorPayload.description || message;
         }
-      } catch {
-      }
+      } catch {}
       this.logger.error(`Nomba airtime topup failed: ${message}`);
       throw new BadRequestException(`Nomba airtime error: ${message}`);
     }
@@ -89,31 +83,5 @@ export class NombaBillApiService {
       transactionId: payload.data?.id ?? null,
       status: payload.data?.status ?? 'UNKNOWN',
     };
-  }
-
-  
-  private async getToken(): Promise<string> {
-    const { getNombaClientId, getNombaClientSecret } = await import('../config/nomba.config');
-
-    const response = await fetch(`${getNombaBaseUrl()}/v1/auth/token/issue`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        grant_type: 'client_credentials',
-        client_id: getNombaClientId(),
-        client_secret: getNombaClientSecret(),
-      }),
-    });
-
-    if (!response.ok) {
-      throw new BadRequestException(`Failed to authenticate with Nomba for airtime (${response.status})`);
-    }
-
-    const data = (await response.json()) as { data?: { access_token?: string } };
-    const token = data.data?.access_token;
-    if (!token) {
-      throw new BadRequestException('Failed to get Nomba access token for airtime');
-    }
-    return token;
   }
 }

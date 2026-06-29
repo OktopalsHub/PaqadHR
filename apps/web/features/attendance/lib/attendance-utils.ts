@@ -1,12 +1,9 @@
-import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { endOfMonth, format, startOfMonth, subDays } from 'date-fns';
 import { formatPersonName } from '@/lib/format-name';
 
 export type DateRangePreset = 'week' | '30d' | 'month' | 'custom';
 
-export function memberDisplayName(member: {
-  firstName?: string | null;
-  lastName?: string | null;
-}) {
+export function memberDisplayName(member: { firstName?: string | null; lastName?: string | null }) {
   return formatPersonName(member.firstName, member.lastName, 'Team member');
 }
 
@@ -16,7 +13,6 @@ export function formatTimeOnly(value?: string | null) {
   if (Number.isNaN(date.getTime())) return '—';
   return format(date, 'h:mm a');
 }
-
 
 export function formatElapsedMs(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -77,7 +73,10 @@ export function statusLabel(status: string) {
     case 'HALF_DAY':
       return 'Half day';
     default:
-      return status.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+      return status
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/^\w/, (c) => c.toUpperCase());
   }
 }
 

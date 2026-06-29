@@ -3,7 +3,7 @@ import type { Logger } from '@nestjs/common';
 export async function runCronJob(
   logger: Logger,
   jobName: string,
-  job: () => Promise<Record<string, unknown> | void>,
+  job: () => Promise<Record<string, unknown> | undefined>,
 ): Promise<void> {
   const startedAt = Date.now();
   logger.log(`[cron:start] ${jobName}`);

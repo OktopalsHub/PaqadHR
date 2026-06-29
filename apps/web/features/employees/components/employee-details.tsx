@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fetchMemberAddress } from '@/lib/api/address';
@@ -47,7 +47,12 @@ function EmployeeDetailFormView({
         fetchMemberAddress(memberId),
         fetchTenantMembers(),
       ]);
-      return { emergencyContacts, education, address, managerName: resolveManagerName(member, members) };
+      return {
+        emergencyContacts,
+        education,
+        address,
+        managerName: resolveManagerName(member, members),
+      };
     },
     enabled: Boolean(memberId) && Boolean(tenantId),
   });

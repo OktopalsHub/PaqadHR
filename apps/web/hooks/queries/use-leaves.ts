@@ -5,8 +5,8 @@ import {
   approveLeave,
   createLeave,
   fetchLeaves,
-  fetchMyLeaves,
   fetchMyLeaveBalances,
+  fetchMyLeaves,
   rejectLeave,
 } from '@/lib/api/leaves';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';

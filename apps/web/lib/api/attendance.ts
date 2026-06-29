@@ -46,7 +46,10 @@ export async function fetchClockInInfo(date?: string): Promise<ClockInInfo> {
   return apiClient<ClockInInfo>(tenantPath(tenantId, `attendance/clock-in-info${params}`));
 }
 
-export async function clockIn(input?: { location?: string; notes?: string }): Promise<AttendanceRecord> {
+export async function clockIn(input?: {
+  location?: string;
+  notes?: string;
+}): Promise<AttendanceRecord> {
   const tenantId = await resolveTenantId();
   return apiClient<AttendanceRecord>(tenantPath(tenantId, 'attendance/clock-in'), {
     method: 'POST',
@@ -193,5 +196,7 @@ export async function fetchMonthlyTimesheet(
     page: String(page),
     limit: '20',
   });
-  return apiClient<MonthlyTimesheetResponse>(tenantPath(tenantId, `attendance?${params.toString()}`));
+  return apiClient<MonthlyTimesheetResponse>(
+    tenantPath(tenantId, `attendance?${params.toString()}`),
+  );
 }

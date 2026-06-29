@@ -18,10 +18,7 @@ import {
   updatePayrollItem,
 } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
-import type {
-  CreatePayrollRunInput,
-  PayrollAdjustmentLine,
-} from '@/lib/schemas/payroll';
+import type { CreatePayrollRunInput, PayrollAdjustmentLine } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function usePayrollRuns() {
@@ -89,13 +86,8 @@ export function usePayrollActions() {
 
   return {
     calculate: useMutation({
-      mutationFn: ({
-        id,
-        adjustments,
-      }: {
-        id: string;
-        adjustments?: PayrollAdjustmentLine[];
-      }) => calculatePayrollRun(id, adjustments),
+      mutationFn: ({ id, adjustments }: { id: string; adjustments?: PayrollAdjustmentLine[] }) =>
+        calculatePayrollRun(id, adjustments),
       onSuccess: invalidate,
     }),
     updateItem: useMutation({

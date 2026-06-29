@@ -1,5 +1,5 @@
-import type { Tenant } from '@/lib/schemas/tenant';
 import { getPostAuthPath } from '@/lib/navigation/tenant-routes';
+import type { Tenant } from '@/lib/schemas/tenant';
 
 export type AuthDestination =
   | { type: 'signin'; redirect?: string }

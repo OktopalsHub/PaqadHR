@@ -86,7 +86,7 @@ export class NombaTransferApiService {
     }
   }
 
-  private async getAccessToken(): Promise<string> {
+  public async getAccessToken(): Promise<string> {
     this.ensureConfigured();
 
     if (this.cachedToken && this.cachedToken.expiresAt > Date.now()) {
@@ -148,8 +148,7 @@ export class NombaTransferApiService {
         if (errorPayload && typeof errorPayload === 'object') {
           message = errorPayload.message || errorPayload.description || message;
         }
-      } catch {
-      }
+      } catch {}
       this.logger.error(`Nomba ${path} failed: ${message}`);
       throw new BadRequestException(`Nomba payout error: ${message}`);
     }
@@ -186,7 +185,9 @@ export class NombaTransferApiService {
       throw new BadRequestException('Failed to fetch bank list from Nomba');
     }
 
-    const banks = (payload.data?.results ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+    const banks = (payload.data?.results ?? [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
     this.cachedBanks = { fetchedAt: Date.now(), banks };
     return banks;
   }
@@ -225,9 +226,7 @@ export class NombaTransferApiService {
   async globalPayout(input: NombaGlobalPayoutInput): Promise<NombaTransferResponse> {
     const authCode = getNombaPayoutAuthCode();
     if (!authCode) {
-      throw new BadRequestException(
-        'NOMBA_PAYOUT_AUTH_CODE is required for non-NGN fiat payouts',
-      );
+      throw new BadRequestException('NOMBA_PAYOUT_AUTH_CODE is required for non-NGN fiat payouts');
     }
 
     return this.request<NombaTransferResponse>('/v1/global-payout/transfer/authorize', {
@@ -255,7 +254,7 @@ export class NombaTransferApiService {
     try {
       const token = await this.getAccessToken();
       const response = await fetch(
-        `${getNombaBaseUrl()}/v1/transactions/accounts/single?reference=${encodeURIComponent(reference)}`,
+        `${getNombaBaseUrl()}/v1/transactions/accounts/single?transactionRef=${encodeURIComponent(reference)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -277,12 +276,66 @@ export class NombaTransferApiService {
       return false;
     }
 
-    const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
+    // 1. Try production Nomba structured signature verification (Base64)
     try {
-      return timingSafeEqual(Buffer.from(hash), Buffer.from(signature));
+      const payload = JSON.parse(rawBody) as {
+        event_type?: string;
+        eventType?: string;
+        requestId?: string;
+        data?: {
+          merchant?: { userId?: string; walletId?: string };
+          transaction?: {
+            transactionId?: string;
+            type?: string;
+            time?: string;
+            responseCode?: string;
+          };
+        };
+      };
+
+      const eventType = payload.event_type || payload.eventType || '';
+      const requestId = payload.requestId || '';
+      const merchant = payload.data?.merchant;
+      const transaction = payload.data?.transaction;
+      const userId = merchant?.userId || '';
+      const walletId = merchant?.walletId || '';
+      const transactionId = transaction?.transactionId || '';
+      const transactionType = transaction?.type || '';
+      const transactionTime = transaction?.time || '';
+      let responseCode = transaction?.responseCode ?? '';
+      if (responseCode === 'null') responseCode = '';
+
+      // Extract nomba-timestamp from the signature header or use transaction time
+      const timestamp = transactionTime;
+
+      const hashingPayload = `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${responseCode}:${timestamp}`;
+
+      const hash = createHmac('sha256', secret).update(hashingPayload).digest('base64');
+
+      if (
+        hash.length === signature.length &&
+        timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'))
+      ) {
+        return true;
+      }
     } catch {
-      return false;
+      // Ignore and fallback
     }
+
+    // 2. Fallback to raw body hex signature verification (compatibility / legacy / e2e)
+    try {
+      const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
+      if (
+        hash.length === signature.length &&
+        timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'))
+      ) {
+        return true;
+      }
+    } catch {
+      // Ignore
+    }
+
+    return false;
   }
 
   parseTransferWebhook(payload: unknown): {

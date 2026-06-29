@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -24,13 +25,12 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
+  type EventSpanMode,
   REMINDER_OPTIONS,
   todayDateKey,
-  type EventSpanMode,
 } from '@/features/calenders/lib/calendar-event-form';
 import { createCalendarEvent } from '@/lib/api/calendar-events';
 import { queryKeys } from '@/lib/query/keys';
-import { useQueryClient } from '@tanstack/react-query';
 
 type AddCalendarEventDialogProps = {
   open: boolean;

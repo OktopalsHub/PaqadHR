@@ -4,13 +4,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useAuth } from '@/hooks/use-auth';
 import {
   authDestinationToPath,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
-
 
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();

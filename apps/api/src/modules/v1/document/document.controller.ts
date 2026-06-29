@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -13,16 +14,15 @@ import {
   Post,
   Query,
   UseGuards,
-  BadRequestException,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { DocumentType } from 'src/common/enums/document-type.enum';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
-import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { assertAdmin, isTenantAdmin } from 'src/common/utils/member-access.util';
 import type { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
@@ -101,7 +101,11 @@ Step 3: Call this endpoint with the fileKey from step 1`,
           member.role,
         );
       } else {
-        documents = await this.documentService.getDocumentsByMemberId(memberId, tenantId, member.role);
+        documents = await this.documentService.getDocumentsByMemberId(
+          memberId,
+          tenantId,
+          member.role,
+        );
       }
     } else {
       assertAdmin(member);
@@ -112,7 +116,10 @@ Step 3: Call this endpoint with the fileKey from step 1`,
       } else if (category) {
         documents = await this.documentService.getDocumentsByCategory(category, tenantId);
       } else if (isVerified !== undefined) {
-        documents = await this.documentService.getDocumentsByVerificationStatus(tenantId, isVerified);
+        documents = await this.documentService.getDocumentsByVerificationStatus(
+          tenantId,
+          isVerified,
+        );
       } else if (expiringWithinDays) {
         documents = await this.documentService.getExpiringDocuments(tenantId, expiringWithinDays);
       } else if (accessLevel) {

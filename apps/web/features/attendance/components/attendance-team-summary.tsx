@@ -16,11 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  dayCellClass,
-  memberDisplayName,
-  statusLabel,
-} from '@/features/attendance/lib/attendance-utils';
+import { memberDisplayName, statusLabel } from '@/features/attendance/lib/attendance-utils';
 import { useMonthlyTimesheet } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
@@ -62,7 +58,10 @@ function MonthYearPicker({
   );
 }
 
-function isHolidayDate(dateStr: string, customHolidays?: Array<{ date: string; name: string; recursYearly?: boolean }>) {
+function isHolidayDate(
+  dateStr: string,
+  customHolidays?: Array<{ date: string; name: string; recursYearly?: boolean }>,
+) {
   if (!customHolidays || !Array.isArray(customHolidays)) return null;
   const mmdd = dateStr.substring(5); // MM-DD
   const holiday = customHolidays.find((h) => {
@@ -125,18 +124,22 @@ function MemberSummaryRow({
               {entry.dailyAttendance.map((day) => {
                 const todayStr = new Date().toISOString().split('T')[0];
                 const dateObj = new Date(day.date);
-                
+
                 const weekends = tenantSettings?.settings?.attendance?.weekends ?? [0, 6];
                 const isWeekend = weekends.includes(dateObj.getDay());
-                const holidayName = isHolidayDate(day.date, tenantSettings?.settings?.holidays?.customHolidays);
-                
+                const holidayName = isHolidayDate(
+                  day.date,
+                  tenantSettings?.settings?.holidays?.customHolidays,
+                );
+
                 const isPast = day.date < todayStr;
-                const isFuture = day.date > todayStr;
+                const _isFuture = day.date > todayStr;
                 const isToday = day.date === todayStr;
                 const isPresent = day.status === 'PRESENT' || day.status === 'LATE';
-                
-                let cellColorClass = 'bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-650'; // default future / Gray
-                
+
+                let cellColorClass =
+                  'bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-650'; // default future / Gray
+
                 if (isPresent) {
                   cellColorClass = 'bg-emerald-500 text-white dark:bg-emerald-600'; // Green
                 } else if (isWeekend || holidayName) {
@@ -144,7 +147,7 @@ function MemberSummaryRow({
                 } else if (isPast || isToday) {
                   cellColorClass = 'bg-rose-500 text-white dark:bg-rose-600'; // Red
                 }
-                
+
                 const dayOfWeekName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
                 let hoverText = `${day.date} (${dayOfWeekName})`;
                 if (holidayName) {
@@ -154,7 +157,7 @@ function MemberSummaryRow({
                 } else {
                   hoverText += ` - Status: ${statusLabel(day.status)}`;
                 }
-                
+
                 return (
                   <div
                     key={day.date}

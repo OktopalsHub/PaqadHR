@@ -25,8 +25,7 @@ function resolveLandingCurrency(): string {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (tz === 'Africa/Lagos') return 'NGN';
-  } catch {
-  }
+  } catch {}
   return 'USD';
 }
 

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
-import { DateTimeHelper, type AllowancePeriod } from 'src/common/utils/date-time.helper';
+import { type AllowancePeriod, DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource, EntityManager } from 'typeorm';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -42,9 +42,7 @@ export class MemberPointsService {
       return await repo.save(row);
     } catch (error) {
       const isDuplicate =
-        error instanceof Error &&
-        'code' in error &&
-        (error as { code?: string }).code === '23505';
+        error instanceof Error && 'code' in error && (error as { code?: string }).code === '23505';
       if (isDuplicate) {
         const existing = await repo.findOne({ where: { tenantId, memberId } });
         if (existing) return existing;

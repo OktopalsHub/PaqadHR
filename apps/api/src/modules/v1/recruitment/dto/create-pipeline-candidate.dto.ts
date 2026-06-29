@@ -12,7 +12,6 @@ import {
 import { CandidateSource } from 'src/common/enums';
 import { CandidateExperienceDto, CandidateLocationDto } from './create-candidate.dto';
 
-
 export class CreatePipelineCandidateDto {
   @ApiProperty({ example: 'Jane' })
   @IsString()

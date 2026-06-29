@@ -1,13 +1,8 @@
-
-
-import { readFileSync, existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 function loadEnvFile(): void {
-  const candidates = [
-    resolve(process.cwd(), '.env'),
-    resolve(__dirname, '../../.env'),
-  ];
+  const candidates = [resolve(process.cwd(), '.env'), resolve(__dirname, '../../.env')];
 
   for (const envPath of candidates) {
     if (!existsSync(envPath)) continue;
@@ -19,7 +14,10 @@ function loadEnvFile(): void {
       const eq = trimmed.indexOf('=');
       if (eq === -1) continue;
       const key = trimmed.slice(0, eq).trim();
-      const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+      const value = trimmed
+        .slice(eq + 1)
+        .trim()
+        .replace(/^["']|["']$/g, '');
       if (!process.env[key]?.trim()) {
         process.env[key] = value;
       }
@@ -118,9 +116,7 @@ function printWebhookCurlExample(): void {
 
   console.log('\nExample payroll webhook curl (replace run/item IDs):\n');
   console.log(`BODY='${body}'`);
-  console.log(
-    `SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "${secret}" | awk '{print $2}')`,
-  );
+  console.log(`SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "${secret}" | awk '{print $2}')`);
   console.log(
     `curl -X POST "${appUrl}/api/v1/payroll/webhooks/nomba" -H "Content-Type: application/json" -H "x-nomba-signature: $SIG" -d "$BODY"`,
   );
@@ -128,13 +124,18 @@ function printWebhookCurlExample(): void {
 }
 
 function printWebhookUrls(): void {
-  const appUrl = (process.env.APP_URL || process.env.PUBLIC_APP_URL || 'https://your-api.example.com')
-    .replace(/\/$/, '');
+  const appUrl = (
+    process.env.APP_URL ||
+    process.env.PUBLIC_APP_URL ||
+    'https://your-api.example.com'
+  ).replace(/\/$/, '');
 
   console.log('\nRegister these webhook URLs in the Nomba dashboard:\n');
   console.log(`  Subscriptions:  ${appUrl}/api/v1/subscriptions/webhooks/nomba`);
   console.log(`  Payroll payout: ${appUrl}/api/v1/payroll/webhooks/nomba`);
-  console.log('\nEnsure PUBLIC_ROUTES includes both paths and NOMBA_WEBHOOK_SIGNATURE_KEY matches Nomba.\n');
+  console.log(
+    '\nEnsure PUBLIC_ROUTES includes both paths and NOMBA_WEBHOOK_SIGNATURE_KEY matches Nomba.\n',
+  );
   printWebhookCurlExample();
 }
 
@@ -160,11 +161,15 @@ async function main(): Promise<void> {
 
   const failed = [...envResults.filter((r) => !r.ok), authResult].filter((r) => !r.ok);
   if (failed.length > 0) {
-    console.error(`\n${failed.length} check(s) failed. Fix env vars before enabling money features.\n`);
+    console.error(
+      `\n${failed.length} check(s) failed. Fix env vars before enabling money features.\n`,
+    );
     process.exit(1);
   }
 
-  console.log('All checks passed. Run manual sandbox flows (see docs/billing-payroll-production.md).\n');
+  console.log(
+    'All checks passed. Run manual sandbox flows (see docs/billing-payroll-production.md).\n',
+  );
 }
 
 void main();

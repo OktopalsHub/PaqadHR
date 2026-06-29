@@ -1,8 +1,8 @@
+import type { ApiAddress } from '@/lib/api/address';
 import type { ApiEducation } from '@/lib/api/education';
 import type { ApiEmergencyContact } from '@/lib/api/emergency-contacts';
-import type { ApiAddress } from '@/lib/api/address';
-import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { normalizeGender } from '@/lib/constants/gender';
+import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { mapApiEducationRecord, mapApiEmergencyContact } from '@/lib/mappers/employee-records';
 
 export function employeeDisplayName(employee: {

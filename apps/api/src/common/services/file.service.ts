@@ -224,7 +224,7 @@ export class FileService {
     ];
     return !dangerousPatterns.some((pattern) => pattern.test(filename));
   }
-  
+
   private sanitizeFilename(filename: string): string {
     return filename
       .replace(/[<>:"|?*]/g, '_')

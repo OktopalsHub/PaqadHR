@@ -46,7 +46,7 @@ export interface ReloadlyOrderResponse {
   fee?: number;
   totalFee?: number;
   recipientFee?: number;
-  
+
   transactionCreatedTime?: string;
 }
 
@@ -109,7 +109,11 @@ export class ReloadlyApiService {
     return token;
   }
 
-  private async request<T>(method: string, path: string, body?: Record<string, unknown>): Promise<T> {
+  private async request<T>(
+    method: string,
+    path: string,
+    body?: Record<string, unknown>,
+  ): Promise<T> {
     const token = await this.getAccessToken();
     const baseUrl = getReloadlyBaseUrl();
 
@@ -136,8 +140,7 @@ export class ReloadlyApiService {
         if (errorPayload?.message) {
           message = errorPayload.message;
         }
-      } catch {
-      }
+      } catch {}
       this.logger.error(`Reloadly ${method} ${path} failed: ${message}`);
       throw new BadRequestException(`Reloadly error: ${message}`);
     }
@@ -149,7 +152,6 @@ export class ReloadlyApiService {
     }
   }
 
-  
   async listProducts(countryCode: string): Promise<ReloadlyProduct[]> {
     const response = await this.request<ReloadlyProduct[]>(
       'GET',
@@ -158,13 +160,10 @@ export class ReloadlyApiService {
     return response ?? [];
   }
 
-  
   async listProductsByCountries(countryCodes: string[]): Promise<ReloadlyProduct[]> {
     if (countryCodes.length === 0) return [];
 
-    const results = await Promise.allSettled(
-      countryCodes.map((code) => this.listProducts(code)),
-    );
+    const results = await Promise.allSettled(countryCodes.map((code) => this.listProducts(code)));
 
     const products: ReloadlyProduct[] = [];
     for (const result of results) {
@@ -175,7 +174,6 @@ export class ReloadlyApiService {
     return products;
   }
 
-  
   async listCountries(): Promise<any[]> {
     if (!this.isConfigured()) return [];
     try {
@@ -187,7 +185,6 @@ export class ReloadlyApiService {
     }
   }
 
-  
   async orderGiftCard(params: {
     productId: number;
     quantity: number;
@@ -206,7 +203,6 @@ export class ReloadlyApiService {
     });
   }
 
-  
   async getRedemptionCodes(transactionId: number): Promise<ReloadlyRedemptionCode[]> {
     return this.request<ReloadlyRedemptionCode[]>(
       'GET',

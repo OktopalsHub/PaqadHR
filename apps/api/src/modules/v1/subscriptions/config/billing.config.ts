@@ -1,10 +1,8 @@
 import { isNombaConfigured } from './nomba.config';
 
-
 export function isFeatureGatingEnabled(): boolean {
   return true;
 }
-
 
 export function isBillingGatewayEnabled(): boolean {
   return isNombaConfigured();

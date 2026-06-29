@@ -7,7 +7,10 @@ export function getReloadlyBaseUrl(): string {
 }
 
 export function getReloadlyAuthUrl(): string {
-  return (process.env.RELOADLY_AUTH_URL || 'https://auth.reloadly.com/oauth/token').replace(/\/$/, '');
+  return (process.env.RELOADLY_AUTH_URL || 'https://auth.reloadly.com/oauth/token').replace(
+    /\/$/,
+    '',
+  );
 }
 
 export function getReloadlyClientId(): string {

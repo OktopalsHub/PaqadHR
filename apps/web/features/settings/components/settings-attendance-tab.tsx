@@ -9,9 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  SettingsFieldHint,
-} from '@/features/settings/components/settings-field-hint';
+import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
 import {
   useAttendancePolicies,
@@ -219,7 +217,10 @@ export function SettingsAttendanceTab() {
           {showForm ? (
             <div className="grid gap-3 rounded-lg border border-border/60 p-4 sm:grid-cols-2">
               <SettingsFieldHint label="Policy name" className="sm:col-span-2">
-                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
               </SettingsFieldHint>
               <SettingsFieldHint label="Description" className="sm:col-span-2">
                 <Input
@@ -241,32 +242,48 @@ export function SettingsAttendanceTab() {
                   onChange={(e) => setForm({ ...form, workEndTime: e.target.value })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint label="Late threshold (minutes)" hint="Minutes after start before a session is late.">
+              <SettingsFieldHint
+                label="Late threshold (minutes)"
+                hint="Minutes after start before a session is late."
+              >
                 <Input
                   type="number"
                   value={form.lateThreshold}
                   onChange={(e) => setForm({ ...form, lateThreshold: Number(e.target.value) || 0 })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint label="Half-day threshold (minutes)" hint="Worked minutes below this count as half day.">
+              <SettingsFieldHint
+                label="Half-day threshold (minutes)"
+                hint="Worked minutes below this count as half day."
+              >
                 <Input
                   type="number"
                   value={form.halfDayThreshold}
-                  onChange={(e) => setForm({ ...form, halfDayThreshold: Number(e.target.value) || 0 })}
+                  onChange={(e) =>
+                    setForm({ ...form, halfDayThreshold: Number(e.target.value) || 0 })
+                  }
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint label="Grace period (minutes)" hint="Allowed lateness before marking late.">
+              <SettingsFieldHint
+                label="Grace period (minutes)"
+                hint="Allowed lateness before marking late."
+              >
                 <Input
                   type="number"
                   value={form.gracePeriod}
                   onChange={(e) => setForm({ ...form, gracePeriod: Number(e.target.value) || 0 })}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint label="Max sessions per day" hint="How many clock-in sessions are allowed per day.">
+              <SettingsFieldHint
+                label="Max sessions per day"
+                hint="How many clock-in sessions are allowed per day."
+              >
                 <Input
                   type="number"
                   value={form.maxSessionsPerDay}
-                  onChange={(e) => setForm({ ...form, maxSessionsPerDay: Number(e.target.value) || 1 })}
+                  onChange={(e) =>
+                    setForm({ ...form, maxSessionsPerDay: Number(e.target.value) || 1 })
+                  }
                 />
               </SettingsFieldHint>
               <div className="flex gap-2 sm:col-span-2">

@@ -1,21 +1,14 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { Repository } from 'typeorm';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
+import { Repository } from 'typeorm';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
 import { PaymentMethod } from '../payment-method/entities/payment-method.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import type { User } from './entities/user.entity';
-import {
-  buildUserConsentMetadata,
-  getUserConsent,
-} from './interfaces/user-metadata.interface';
+import { buildUserConsentMetadata, getUserConsent } from './interfaces/user-metadata.interface';
 import { UserRepository } from './repositories/users.repository';
 
 @Injectable()

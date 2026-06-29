@@ -3,12 +3,7 @@
 import { Loader2, LogIn, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useElapsedSince } from '@/features/attendance/hooks/use-elapsed-since';
 import { formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
 import { useClockIn, useClockInInfo, useClockOut } from '@/hooks/queries/use-attendance';
@@ -83,9 +78,7 @@ export function ClockInOutControl() {
                 <span className="tabular-nums sm:hidden">{elapsed || 'Out'}</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              Clocked in at {formatTimeOnly(activeSession.clockIn)}
-            </TooltipContent>
+            <TooltipContent>Clocked in at {formatTimeOnly(activeSession.clockIn)}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>

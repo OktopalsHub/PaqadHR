@@ -34,7 +34,6 @@ export function fromMinorUnits(amountMinor: number, currency: string): number {
   return amountMinor / factor;
 }
 
-
 export function normalizeWebhookAmount(
   paidAmount: number,
   expectedAmount: number,

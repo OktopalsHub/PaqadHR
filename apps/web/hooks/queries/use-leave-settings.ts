@@ -1,13 +1,13 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchLeavePolicy, updateLeavePolicy } from '@/lib/api/leave-policy';
 import {
   createLeaveType,
   deleteLeaveType,
   fetchLeaveTypes,
   updateLeaveType,
 } from '@/lib/api/leave-types';
-import { fetchLeavePolicy, updateLeavePolicy } from '@/lib/api/leave-policy';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -26,7 +26,9 @@ export function useUpdateLeavePolicy() {
   return useMutation({
     mutationFn: updateLeavePolicy,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.settings.leavePolicy, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.settings.leavePolicy, tenantId],
+      });
     },
   });
 }
@@ -46,7 +48,9 @@ export function useCreateLeaveType() {
   return useMutation({
     mutationFn: createLeaveType,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.settings.leaveTypes, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.settings.leaveTypes, tenantId],
+      });
       void queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
     },
   });
@@ -56,10 +60,17 @@ export function useUpdateLeaveType() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   return useMutation({
-    mutationFn: ({ typeId, input }: { typeId: string; input: Parameters<typeof updateLeaveType>[1] }) =>
-      updateLeaveType(typeId, input),
+    mutationFn: ({
+      typeId,
+      input,
+    }: {
+      typeId: string;
+      input: Parameters<typeof updateLeaveType>[1];
+    }) => updateLeaveType(typeId, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.settings.leaveTypes, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.settings.leaveTypes, tenantId],
+      });
     },
   });
 }
@@ -70,7 +81,9 @@ export function useDeleteLeaveType() {
   return useMutation({
     mutationFn: deleteLeaveType,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.settings.leaveTypes, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.settings.leaveTypes, tenantId],
+      });
     },
   });
 }

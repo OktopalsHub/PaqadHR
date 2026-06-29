@@ -1,7 +1,13 @@
 import { apiClient, ensureCsrfToken } from '@/lib/api/client';
 import { getBrowserTimezone } from '@/lib/geo/browser-region';
-import { pricingPreviewSchema, type OnboardingCompleteInput, type OnboardingResult, type PricingPreview } from '@/lib/schemas/onboarding';
-import { type SlugAvailability, slugAvailabilitySchema } from '@/lib/schemas/onboarding';
+import {
+  type OnboardingCompleteInput,
+  type OnboardingResult,
+  type PricingPreview,
+  pricingPreviewSchema,
+  type SlugAvailability,
+  slugAvailabilitySchema,
+} from '@/lib/schemas/onboarding';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 
 export async function fetchPricingPreview(countryCode?: string): Promise<PricingPreview> {

@@ -2,10 +2,7 @@ import { AdjustmentMethod } from '../../../../common/enums/adjustment-method.enu
 import { AdjustmentType } from '../../../../common/enums/adjustment-type.enum';
 import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
 
-const DEDUCTION_TYPES = new Set<AdjustmentType>([
-  AdjustmentType.DEDUCTION,
-  AdjustmentType.PENALTY,
-]);
+const DEDUCTION_TYPES = new Set<AdjustmentType>([AdjustmentType.DEDUCTION, AdjustmentType.PENALTY]);
 
 const CREDIT_TYPES = new Set<AdjustmentType>([
   AdjustmentType.BONUS,
@@ -15,10 +12,7 @@ const CREDIT_TYPES = new Set<AdjustmentType>([
   AdjustmentType.SALARY_ADJUSTMENT,
 ]);
 
-function resolveAdjustmentAmount(
-  adjustment: PayrollAdjustmentDto,
-  baseSalary: number,
-): number {
+function resolveAdjustmentAmount(adjustment: PayrollAdjustmentDto, baseSalary: number): number {
   const raw =
     adjustment.method === AdjustmentMethod.PERCENTAGE
       ? (baseSalary * adjustment.value) / 100

@@ -1,11 +1,8 @@
 import {
   Controller,
-  Get,
   Headers,
   HttpCode,
   HttpStatus,
-  Param,
-  ParseUUIDPipe,
   Post,
   Req,
   UnauthorizedException,
@@ -28,8 +25,9 @@ export class SubscriptionWebhooksController {
   @ApiOperation({ summary: 'Nomba subscription payment webhook' })
   handleNombaWebhook(
     @Req() req: RawBodyRequest,
-    @Headers('x-nomba-signature') signature: string,
-    @Headers('X-Nomba-Signature') signatureAlt: string,
+    @Headers('nomba-signature') signature: string,
+    @Headers('nomba-sig-value') signatureAlt: string,
+    @Headers('x-nomba-signature') signatureLegacy: string,
   ) {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
     if (!rawBody) {
@@ -38,7 +36,7 @@ export class SubscriptionWebhooksController {
 
     return this.subscriptionBillingService.handleNombaWebhook(
       rawBody,
-      signature || signatureAlt || '',
+      signature || signatureAlt || signatureLegacy || '',
     );
   }
 }

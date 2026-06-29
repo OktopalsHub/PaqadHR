@@ -42,11 +42,7 @@ export class EducationController {
   ): Promise<Education> {
     const { memberId, ...educationData } = createEducationDto;
     const targetMemberId = memberId ?? member.id;
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      targetMemberId,
-      tenantId,
-    );
+    await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, targetMemberId, tenantId);
     return this.educationService.createEducation(tenantId, targetMemberId, educationData);
   }
 

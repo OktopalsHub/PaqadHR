@@ -1,12 +1,12 @@
 'use client';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { ClockInOutControl } from '@/features/attendance/components/clock-in-out-control';
 import { useAuth } from '@/hooks/use-auth';
 import { AccountSetting } from './account-setting';
 import { AppBreadcrumb } from './app-breadcrumb';
 import { NotificationBell } from './notification-bell';
 import { QuickActionsMenu } from './quick-actions-menu';
-import { ClockInOutControl } from '@/features/attendance/components/clock-in-out-control';
 
 export const AppTopBar = () => {
   const { logout } = useAuth();

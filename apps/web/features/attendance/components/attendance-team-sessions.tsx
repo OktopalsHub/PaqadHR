@@ -5,7 +5,6 @@ import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -22,7 +21,6 @@ import {
   formatTimeOnly,
   memberDisplayName,
   resolveDateRange,
-  statusBadgeVariant,
   statusLabel,
 } from '@/features/attendance/lib/attendance-utils';
 import { useTeamAttendanceRecords } from '@/hooks/queries/use-attendance';

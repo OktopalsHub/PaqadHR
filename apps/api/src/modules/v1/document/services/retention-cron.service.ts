@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { In, LessThan } from 'typeorm';
-import { DocumentService } from '../document.service';
 import { DocumentRepository } from '../document.repository';
+import { DocumentService } from '../document.service';
 import { getTemporaryDocumentTypes } from '../entities/document.entity';
 
 const TEMPORARY_RETENTION_DAYS = 90;

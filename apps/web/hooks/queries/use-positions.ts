@@ -2,16 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  type AssignPositionInput,
   assignPosition,
+  type CreatePositionInput,
   createPosition,
   deletePosition,
   fetchPositionHistory,
   fetchPositions,
   restorePosition,
-  updatePosition,
-  type AssignPositionInput,
-  type CreatePositionInput,
   type UpdatePositionInput,
+  updatePosition,
 } from '@/lib/api/positions';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';

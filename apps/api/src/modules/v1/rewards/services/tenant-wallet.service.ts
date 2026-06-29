@@ -1,15 +1,12 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 
 @Injectable()
 export class TenantWalletService {
-  private readonly logger = new Logger(TenantWalletService.name);
-
   constructor(private readonly dataSource: DataSource) {}
 
-  
   async ensureWallet(tenantId: string, manager?: EntityManager): Promise<TenantWallet> {
     const repo = manager
       ? manager.getRepository(TenantWallet)
@@ -23,9 +20,7 @@ export class TenantWalletService {
       return await repo.save(wallet);
     } catch (error) {
       const isDuplicate =
-        error instanceof Error &&
-        'code' in error &&
-        (error as { code?: string }).code === '23505';
+        error instanceof Error && 'code' in error && (error as { code?: string }).code === '23505';
       if (isDuplicate) {
         const existing = await repo.findOne({ where: { tenantId } });
         if (existing) return existing;
@@ -38,7 +33,6 @@ export class TenantWalletService {
     return this.ensureWallet(tenantId);
   }
 
-  
   async debit(
     tenantId: string,
     amount: number,
@@ -76,7 +70,6 @@ export class TenantWalletService {
     return wallet;
   }
 
-  
   async credit(
     tenantId: string,
     amount: number,
@@ -112,7 +105,6 @@ export class TenantWalletService {
     return updated;
   }
 
-  
   async listTransactions(tenantId: string, limit = 50): Promise<TenantWalletTransaction[]> {
     const wallet = await this.ensureWallet(tenantId);
     return this.dataSource.getRepository(TenantWalletTransaction).find({

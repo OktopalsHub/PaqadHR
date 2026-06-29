@@ -1,10 +1,7 @@
 import { Briefcase, Clock, UserCheck, Users } from 'lucide-react';
 import { StatCard } from '@/components/stat-card';
 import { cn } from '@/lib/utils';
-import {
-  demoKanbanColumns,
-  demoRecruitmentStats,
-} from '../../../constants/landing-demo-data';
+import { demoKanbanColumns, demoRecruitmentStats } from '../../../constants/landing-demo-data';
 
 type RecruitmentDemoViewProps = {
   compact?: boolean;
@@ -30,17 +27,9 @@ export function RecruitmentDemoView({ compact }: RecruitmentDemoViewProps) {
         </div>
       ) : null}
 
-      <div
-        className={cn(
-          'grid gap-3',
-          compact ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4',
-        )}
-      >
+      <div className={cn('grid gap-3', compact ? 'grid-cols-2' : 'grid-cols-2 lg:grid-cols-4')}>
         {demoKanbanColumns.map((column) => (
-          <div
-            key={column.id}
-            className="rounded-xl border border-border/50 bg-muted/20 p-2.5"
-          >
+          <div key={column.id} className="rounded-xl border border-border/50 bg-muted/20 p-2.5">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {column.title}

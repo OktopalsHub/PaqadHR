@@ -31,8 +31,7 @@ export class SubscriptionBillingController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const role = req.member?.role;
-    const canManageBilling =
-      role === TenantMemberRole.OWNER || role === TenantMemberRole.ADMIN;
+    const canManageBilling = role === TenantMemberRole.OWNER || role === TenantMemberRole.ADMIN;
     return this.subscriptionBillingService.getBillingOverview(tenantId, canManageBilling);
   }
 

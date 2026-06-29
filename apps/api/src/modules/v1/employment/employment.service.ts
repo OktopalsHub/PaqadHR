@@ -71,19 +71,13 @@ export class EmploymentService {
       tenantId,
     );
 
-    let inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
+    const inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
     if (currentEmployment) {
       const endDate = subtractOneDay(effectiveDate);
       if (endDate < currentEmployment.startDate) {
-        throw new BadRequestException(
-          'Effective date must be after the current salary start date',
-        );
+        throw new BadRequestException('Effective date must be after the current salary start date');
       }
-      await this.employmentRepository.endCurrentEmployment(
-        tenantMemberId,
-        endDate,
-        tenantId,
-      );
+      await this.employmentRepository.endCurrentEmployment(tenantMemberId, endDate, tenantId);
     }
 
     return this.employmentRepository.createEmployment({

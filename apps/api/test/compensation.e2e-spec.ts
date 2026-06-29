@@ -3,11 +3,11 @@ import request, { type Test } from 'supertest';
 import { createE2eApp, uniqueEmail } from './e2e-bootstrap';
 import {
   acceptInvitation,
+  type E2eAuthContext,
   inviteMember,
   onboardTenant,
   registerUser,
   waitForTenantSettings,
-  type E2eAuthContext,
 } from './e2e-helpers';
 
 async function loginUser(
@@ -16,10 +16,7 @@ async function loginUser(
   password: string,
 ): Promise<E2eAuthContext> {
   const agent = request.agent(app.getHttpServer());
-  const loginRes = await agent
-    .post('/api/v1/auth/login')
-    .send({ email, password })
-    .expect(201);
+  const loginRes = await agent.post('/api/v1/auth/login').send({ email, password }).expect(201);
 
   const token = loginRes.body.accessToken as string;
   const withAuth = (req: Test) => req.set('Authorization', `Bearer ${token}`);
@@ -138,11 +135,7 @@ describe('Compensation salary history (e2e)', () => {
       .expect(403);
 
     const preview = await owner
-      .withAuth(
-        owner.agent.post(
-          `/api/v1/tenants/${owner.tenantId}/payroll/preview-calculation`,
-        ),
-      )
+      .withAuth(owner.agent.post(`/api/v1/tenants/${owner.tenantId}/payroll/preview-calculation`))
       .send({
         employees: [{ employeeId: employeeMember.id }],
       })

@@ -1,9 +1,7 @@
 import type { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 
-export interface SubscriptionBillingMetadata extends Record<
-  string,
-  string | number | boolean | undefined
-> {
+export interface SubscriptionBillingMetadata
+  extends Record<string, string | number | boolean | undefined> {
   tenantId: string;
   planId?: string;
   planPriceId?: string;

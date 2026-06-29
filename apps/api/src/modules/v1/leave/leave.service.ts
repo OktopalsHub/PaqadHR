@@ -154,7 +154,13 @@ export class LeaveService {
   private async listLeavesWithFilters(
     tenantId: string,
     pagination: IPaginationOption,
-    filters: { status?: string; from?: string; to?: string; memberId?: string; requesterIds?: string[] },
+    filters: {
+      status?: string;
+      from?: string;
+      to?: string;
+      memberId?: string;
+      requesterIds?: string[];
+    },
   ) {
     const page = Math.max(parseInt(String(pagination.page), 10) || 1, 1);
     const limit = normalizePaginationLimit(pagination.limit);
@@ -175,7 +181,9 @@ export class LeaveService {
     }
 
     if (filters.requesterIds?.length) {
-      qb.andWhere('leave.requestedBy IN (:...requesterIds)', { requesterIds: filters.requesterIds });
+      qb.andWhere('leave.requestedBy IN (:...requesterIds)', {
+        requesterIds: filters.requesterIds,
+      });
     }
 
     if (filters.status) {

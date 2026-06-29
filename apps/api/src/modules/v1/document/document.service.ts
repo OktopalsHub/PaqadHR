@@ -62,8 +62,7 @@ export class DocumentService {
     return this.documentRepository.updateDocument(id, updateDocumentDto, tenantId);
   }
   async deleteDocument(id: string, tenantId: string): Promise<void> {
-    const document = await this.getDocument(id, tenantId);
-    await this.purgeStoredFile(document);
+    await this.getDocument(id, tenantId);
     await this.documentRepository.softDeleteDocument(id, tenantId);
   }
 

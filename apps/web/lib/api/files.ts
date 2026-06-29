@@ -43,10 +43,7 @@ export async function requestUploadUrl(
   });
 }
 
-export async function uploadFileToPresignedUrl(
-  uploadUrl: string,
-  file: File,
-): Promise<void> {
+export async function uploadFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
   const response = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
@@ -59,7 +56,6 @@ export async function uploadFileToPresignedUrl(
     throw new Error('Failed to upload file to storage');
   }
 }
-
 
 export async function uploadViaPresignedUrl(
   file: File,

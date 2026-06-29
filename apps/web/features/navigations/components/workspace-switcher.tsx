@@ -13,19 +13,15 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateWorkspaceDialog } from '@/features/navigations/components/create-workspace-dialog';
-import { useTenant } from '@/providers/tenant-provider';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { cn } from '@/lib/utils';
+import { useTenant } from '@/providers/tenant-provider';
 
 function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
   if (logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={logoUrl}
-        alt=""
-        className="size-8 shrink-0 rounded-lg object-cover"
-      />
+      <img src={logoUrl} alt="" className="size-8 shrink-0 rounded-lg object-cover" />
     );
   }
   const letter = (name?.trim()?.[0] ?? 'P').toUpperCase();
@@ -78,7 +74,10 @@ export const WorkspaceSwitcher = () => {
             variant="ghost"
             className="h-auto w-full justify-start gap-2.5 px-1 py-1.5 font-normal hover:bg-sidebar-accent"
           >
-            <WorkspaceMark name={tenant?.name} logoUrl={(tenant as { logoUrl?: string })?.logoUrl} />
+            <WorkspaceMark
+              name={tenant?.name}
+              logoUrl={(tenant as { logoUrl?: string })?.logoUrl}
+            />
             <div className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
               <p className="truncate text-sm font-semibold tracking-tight">
                 {formatWorkspaceName(tenant?.name)}
@@ -88,13 +87,11 @@ export const WorkspaceSwitcher = () => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56 rounded-xl">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">
+            Workspaces
+          </DropdownMenuLabel>
           {tenants.map((item) => (
-            <DropdownMenuItem
-              key={item.id}
-              onClick={() => setTenantId(item.id)}
-              className="gap-2"
-            >
+            <DropdownMenuItem key={item.id} onClick={() => setTenantId(item.id)} className="gap-2">
               <Check
                 className={cn(
                   'size-4 shrink-0',

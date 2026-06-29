@@ -1,4 +1,3 @@
-
 const GOOGLE_HOLIDAY_REGION_OVERRIDES: Record<string, string> = {
   US: 'en.usa',
   GB: 'en.uk',

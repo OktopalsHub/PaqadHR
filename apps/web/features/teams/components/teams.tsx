@@ -25,7 +25,8 @@ export const Teams = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [createOpenInternal, setCreateOpenInternal] = useState(false);
   const createOpen = createOpenExternal !== undefined ? createOpenExternal : createOpenInternal;
-  const setCreateOpen = setCreateOpenExternal !== undefined ? setCreateOpenExternal : setCreateOpenInternal;
+  const setCreateOpen =
+    setCreateOpenExternal !== undefined ? setCreateOpenExternal : setCreateOpenInternal;
   const [expandedDepts, setExpandedDepts] = useState<string[]>([]);
   const { data: departments = [], isLoading, isError, error } = useDepartments();
 

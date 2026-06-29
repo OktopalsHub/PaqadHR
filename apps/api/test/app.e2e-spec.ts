@@ -78,9 +78,6 @@ describe('CSRF token (e2e)', () => {
       await agent.post('/api/v1/auth/login').send({ email, password });
     }
 
-    await agent
-      .post('/api/v1/auth/login')
-      .send({ email, password })
-      .expect(429);
+    await agent.post('/api/v1/auth/login').send({ email, password }).expect(429);
   });
 });

@@ -38,7 +38,9 @@ export function CalendarToolbar({
       <div className="min-w-0">
         <h2 className="text-lg font-semibold">Schedule</h2>
         {canAddEvent ? (
-          <p className="text-xs text-muted-foreground">Click a date on the calendar to add an event</p>
+          <p className="text-xs text-muted-foreground">
+            Click a date on the calendar to add an event
+          </p>
         ) : null}
       </div>
       <div className="flex shrink-0 gap-2">

@@ -1,15 +1,16 @@
 import type { INestApplication } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import request, { type Test } from 'supertest';
+import { DataSource } from 'typeorm';
+import { EAttendanceExceptionType } from '../src/common/enums';
 import { PayrollFrequency } from '../src/common/enums/payroll-frequency.enum';
 import { PayrollItemStatus } from '../src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../src/common/enums/payroll-status.enum';
-import { EAttendanceExceptionType } from '../src/common/enums';
 import { PayrollItem } from '../src/modules/v1/payroll/entities/payroll-item.entity';
 import { PayrollRun } from '../src/modules/v1/payroll/entities/payroll-run.entity';
 import { createE2eApp, uniqueEmail } from './e2e-bootstrap';
 import {
   acceptInvitation,
+  type E2eAuthContext,
   inviteMember,
   onboardTenant,
   registerUser,
@@ -18,7 +19,6 @@ import {
   seedPendingLeaveForMember,
   seedReportingLine,
   waitForTenantSettings,
-  type E2eAuthContext,
 } from './e2e-helpers';
 
 async function loginUser(
@@ -27,10 +27,7 @@ async function loginUser(
   password: string,
 ): Promise<E2eAuthContext> {
   const agent = request.agent(app.getHttpServer());
-  const loginRes = await agent
-    .post('/api/v1/auth/login')
-    .send({ email, password })
-    .expect(201);
+  const loginRes = await agent.post('/api/v1/auth/login').send({ email, password }).expect(201);
 
   const token = loginRes.body.accessToken as string;
   const withAuth = (req: Test) => req.set('Authorization', `Bearer ${token}`);
@@ -127,26 +124,16 @@ describe('Member access (e2e)', () => {
     expect(employeeMember).toBeDefined();
 
     const ownerDoc = await seedMemberDocument(app, owner.tenantId, ownerMember.id);
-    const ownerPaymentMethod = await seedMemberPaymentMethod(
-      app,
-      owner.tenantId,
-      ownerMember.id,
-    );
+    const ownerPaymentMethod = await seedMemberPaymentMethod(app, owner.tenantId, ownerMember.id);
     const { leaveId: ownerLeaveId } = await seedPendingLeaveForMember(owner, owner);
 
     await employee
-      .withAuth(
-        employee.agent.patch(
-          `/api/v1/tenants/${owner.tenantId}/members/${ownerMember.id}`,
-        ),
-      )
+      .withAuth(employee.agent.patch(`/api/v1/tenants/${owner.tenantId}/members/${ownerMember.id}`))
       .send({ phone: '0000000000' })
       .expect(403);
 
     await employee
-      .withAuth(
-        employee.agent.post(`/api/v1/tenants/${owner.tenantId}/education`),
-      )
+      .withAuth(employee.agent.post(`/api/v1/tenants/${owner.tenantId}/education`))
       .send({
         memberId: ownerMember.id,
         title: 'Unauthorized degree',
@@ -180,15 +167,11 @@ describe('Member access (e2e)', () => {
       .expect(200);
 
     await employee
-      .withAuth(
-        employee.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${ownerMember.id}`),
-      )
+      .withAuth(employee.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${ownerMember.id}`))
       .expect(403);
 
     await owner
-      .withAuth(
-        owner.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${employeeMember.id}`),
-      )
+      .withAuth(owner.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${employeeMember.id}`))
       .expect(200);
 
     await employee
@@ -201,17 +184,13 @@ describe('Member access (e2e)', () => {
 
     await employee
       .withAuth(
-        employee.agent.patch(
-          `/api/v1/tenants/${owner.tenantId}/leaves/${ownerLeaveId}/approve`,
-        ),
+        employee.agent.patch(`/api/v1/tenants/${owner.tenantId}/leaves/${ownerLeaveId}/approve`),
       )
       .send({ comments: 'Nope' })
       .expect(403);
 
     await employee
-      .withAuth(
-        employee.agent.get(`/api/v1/tenants/${owner.tenantId}/leave-balances`),
-      )
+      .withAuth(employee.agent.get(`/api/v1/tenants/${owner.tenantId}/leave-balances`))
       .expect(403);
 
     await employee
@@ -255,9 +234,7 @@ describe('Member access (e2e)', () => {
       .expect(403);
 
     await employee
-      .withAuth(
-        employee.agent.get(`/api/v1/tenants/${owner.tenantId}/documents/${ownerDoc.id}`),
-      )
+      .withAuth(employee.agent.get(`/api/v1/tenants/${owner.tenantId}/documents/${ownerDoc.id}`))
       .expect(403);
 
     await employee
@@ -319,9 +296,7 @@ describe('Member access (e2e)', () => {
     await seedPublishedPayrollItem(app, owner.tenantId, employeeMember.id, owner.ownerMemberId);
 
     const exception = await employee
-      .withAuth(
-        employee.agent.post(`/api/v1/tenants/${owner.tenantId}/attendance/exceptions`),
-      )
+      .withAuth(employee.agent.post(`/api/v1/tenants/${owner.tenantId}/attendance/exceptions`))
       .send({
         date: '2026-06-02',
         type: EAttendanceExceptionType.LATE,
@@ -330,9 +305,7 @@ describe('Member access (e2e)', () => {
       .expect(201);
 
     await manager
-      .withAuth(
-        manager.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${employeeMember.id}`),
-      )
+      .withAuth(manager.agent.get(`/api/v1/tenants/${owner.tenantId}/members/${employeeMember.id}`))
       .expect(200);
 
     await manager
@@ -352,11 +325,7 @@ describe('Member access (e2e)', () => {
       .expect(200);
 
     await manager
-      .withAuth(
-        manager.agent.patch(
-          `/api/v1/tenants/${owner.tenantId}/leaves/${leaveId}/approve`,
-        ),
-      )
+      .withAuth(manager.agent.patch(`/api/v1/tenants/${owner.tenantId}/leaves/${leaveId}/approve`))
       .send({ comments: 'Approved by manager' })
       .expect(200);
 
@@ -409,9 +378,7 @@ describe('Member access (e2e)', () => {
       .expect(403);
 
     await manager
-      .withAuth(
-        manager.agent.get(`/api/v1/tenants/${owner.tenantId}/documents/${employeeDoc.id}`),
-      )
+      .withAuth(manager.agent.get(`/api/v1/tenants/${owner.tenantId}/documents/${employeeDoc.id}`))
       .expect(200);
   });
 });

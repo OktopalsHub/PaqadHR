@@ -23,7 +23,10 @@ function isObservanceOnly(event: GoogleCalendarEvent): boolean {
 }
 
 function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function mapGoogleEventToHoliday(
@@ -44,10 +47,7 @@ function mapGoogleEventToHoliday(
   };
 }
 
-function inferHolidayType(
-  name: string,
-  description?: string,
-): 'national' | 'religious' | 'custom' {
+function inferHolidayType(name: string, description?: string): 'national' | 'religious' | 'custom' {
   const text = `${name} ${description ?? ''}`.toLowerCase();
   if (
     text.includes('eid') ||

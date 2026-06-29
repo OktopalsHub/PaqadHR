@@ -1,18 +1,24 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { DataSource, In } from 'typeorm';
+import { ENVIRONMENT } from '../../../../common/config/env.config';
+import { TenantMemberRole } from '../../../../common/enums';
+import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
-import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { NombaProvider } from '../../../../common/providers/nomba.provider';
-import { ENVIRONMENT } from '../../../../common/config/env.config';
+import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { EmploymentService } from '../../employment/employment.service';
-import { TenantMemberRole } from '../../../../common/enums';
-import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
-import { TenantsService } from '../../tenants/tenants.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
-import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
@@ -239,8 +245,10 @@ export class PayrollService {
           adjustments,
           item.metadata ?? undefined,
         );
-        const { adjustments: bonusTotal, deductions: deductionTotal } =
-          aggregatePayrollAdjustments(employeeAdjustments, salaryInfo.baseSalary);
+        const { adjustments: bonusTotal, deductions: deductionTotal } = aggregatePayrollAdjustments(
+          employeeAdjustments,
+          salaryInfo.baseSalary,
+        );
         const calculationInput: SimplePayrollInput = {
           memberId: item.memberId,
           baseSalary: salaryInfo.baseSalary,
@@ -541,9 +549,7 @@ export class PayrollService {
       );
     }
     if (!this.nombaProvider) {
-      throw new BadRequestException(
-        'Nomba payroll gateway is not configured.',
-      );
+      throw new BadRequestException('Nomba payroll gateway is not configured.');
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: dto.payrollRunId, tenantId: dto.tenantId },
@@ -561,7 +567,10 @@ export class PayrollService {
         'Cannot process a failed payroll run. Please create a new run or reset this one.',
       );
     }
-    if (payrollRun.status !== PayrollStatus.APPROVED && payrollRun.status !== PayrollStatus.PROCESSING) {
+    if (
+      payrollRun.status !== PayrollStatus.APPROVED &&
+      payrollRun.status !== PayrollStatus.PROCESSING
+    ) {
       throw new BadRequestException(
         `Payroll run must be approved before payout. Current status: ${payrollRun.status}`,
       );
@@ -692,10 +701,7 @@ export class PayrollService {
           payrollRun.tenantId,
           {
             employeeName,
-            payrollPeriod: this.formatPayrollPeriod(
-              payrollRun.periodStart,
-              payrollRun.periodEnd,
-            ),
+            payrollPeriod: this.formatPayrollPeriod(payrollRun.periodStart, payrollRun.periodEnd),
             amount: Number(payrollItem.paymentAmount),
             currency: payrollItem.paymentCurrency,
           },
@@ -763,9 +769,7 @@ export class PayrollService {
     });
   }
   private isPayrollAdmin(requesterRole: string): boolean {
-    return (
-      requesterRole === TenantMemberRole.ADMIN || requesterRole === TenantMemberRole.OWNER
-    );
+    return requesterRole === TenantMemberRole.ADMIN || requesterRole === TenantMemberRole.OWNER;
   }
 
   private async assertPayrollMemberAccess(
@@ -783,7 +787,9 @@ export class PayrollService {
       targetMemberId,
     );
     if (!isManager) {
-      throw new ForbiddenException('You can only access payroll for yourself or your direct reports');
+      throw new ForbiddenException(
+        'You can only access payroll for yourself or your direct reports',
+      );
     }
   }
 
@@ -1122,18 +1128,11 @@ export class PayrollService {
 
     const employeeName =
       `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim() || 'there';
-    await this.notificationHelper.sendPayrollPaymentSetupReminder(
-      item.employee.userId,
-      tenantId,
-      {
-        employeeName,
-        payrollPeriod: this.formatPayrollPeriod(
-          payrollRun.periodStart,
-          payrollRun.periodEnd,
-        ),
-        message: readiness.message,
-      },
-    );
+    await this.notificationHelper.sendPayrollPaymentSetupReminder(item.employee.userId, tenantId, {
+      employeeName,
+      payrollPeriod: this.formatPayrollPeriod(payrollRun.periodStart, payrollRun.periodEnd),
+      message: readiness.message,
+    });
 
     return { notified: true };
   }
@@ -1195,8 +1194,7 @@ export class PayrollService {
       }
     }
 
-    const shouldSendEmail =
-      sendEmail ?? (await this.resolveEmailPayslipOnPublish(tenantId));
+    const shouldSendEmail = sendEmail ?? (await this.resolveEmailPayslipOnPublish(tenantId));
 
     let allowedMemberIds: string[] | undefined;
     if (requesterMemberId && requesterRole && !this.isPayrollAdmin(requesterRole)) {
@@ -1219,10 +1217,7 @@ export class PayrollService {
     const publishedItemIds: string[] = [];
     const tenant = await this.tenantsService.getTenant(tenantId);
     const frontendBase = ENVIRONMENT.APP.FRONTEND_URL.replace(/\/$/, '');
-    const payrollPeriod = this.formatPayrollPeriod(
-      payrollRun.periodStart,
-      payrollRun.periodEnd,
-    );
+    const payrollPeriod = this.formatPayrollPeriod(payrollRun.periodStart, payrollRun.periodEnd);
 
     for (const item of items) {
       item.metadata = {
@@ -1269,10 +1264,7 @@ export class PayrollService {
     return String(value).slice(0, 10);
   }
 
-  private formatPayrollPeriod(
-    periodStart: Date | string,
-    periodEnd: Date | string,
-  ): string {
+  private formatPayrollPeriod(periodStart: Date | string, periodEnd: Date | string): string {
     return `${this.toIsoDatePart(periodStart)} – ${this.toIsoDatePart(periodEnd)}`;
   }
 

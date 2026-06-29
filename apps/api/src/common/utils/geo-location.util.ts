@@ -2,7 +2,6 @@ import geoip from 'fast-geoip';
 
 const DEFAULT_COUNTRY = 'GLOBAL';
 
-
 const COUNTRY_DEFAULTS: Record<string, { currency: string; timezone: string }> = {
   NG: { currency: 'NGN', timezone: 'Africa/Lagos' },
   GLOBAL: { currency: 'USD', timezone: 'UTC' },
@@ -20,7 +19,6 @@ export class GeoLocationHelper {
     );
   }
 
-  
   static isLocalhost(ip: string): boolean {
     return GeoLocationHelper.isPrivateIp(ip);
   }
@@ -141,14 +139,12 @@ export class GeoLocationHelper {
     return COUNTRY_DEFAULTS[code] ?? COUNTRY_DEFAULTS.GLOBAL;
   }
 
-  
   static toStoredCountryCode(code: string | null | undefined): string | null {
     if (!code) return null;
     const upper = code.toUpperCase();
     return /^[A-Z]{2}$/.test(upper) ? upper : null;
   }
 
-  
   static toPricingRegion(code: string | null | undefined): string {
     const stored = GeoLocationHelper.toStoredCountryCode(code);
     return stored ?? DEFAULT_COUNTRY;

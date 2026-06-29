@@ -41,7 +41,8 @@ export class TenantSettingsInitializationService {
         birthday: {
           enabled: true,
           points: 25,
-          messageTemplate: 'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
+          messageTemplate:
+            'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
         },
         workAnniversary: {
           enabled: true,
@@ -171,7 +172,8 @@ export class TenantSettingsInitializationService {
         birthday: {
           enabled: true,
           points: 25,
-          messageTemplate: 'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
+          messageTemplate:
+            'Happy birthday, {name}! 🎉 Wishing you a wonderful day from the whole team.',
         },
         workAnniversary: {
           enabled: true,

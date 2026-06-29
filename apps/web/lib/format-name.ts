@@ -12,14 +12,8 @@ function capitalizeWord(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 }
 
-
 export function toTitleCase(value: string): string {
-  return value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(capitalizeWord)
-    .join(' ');
+  return value.trim().split(/\s+/).filter(Boolean).map(capitalizeWord).join(' ');
 }
 
 export function formatDisplayName(name?: string | null, fallback = 'Member'): string {

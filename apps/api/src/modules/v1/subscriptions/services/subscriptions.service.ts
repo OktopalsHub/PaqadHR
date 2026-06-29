@@ -5,10 +5,7 @@ import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
-import {
-  isBillingGatewayEnabled,
-  isFeatureGatingEnabled,
-} from '../config/billing.config';
+import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
 import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 

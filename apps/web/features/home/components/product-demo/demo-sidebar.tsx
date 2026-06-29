@@ -1,13 +1,7 @@
-import {
-  Briefcase,
-  CalendarDays,
-  Heart,
-  LayoutDashboard,
-  Wallet,
-} from 'lucide-react';
+import { Briefcase, CalendarDays, Heart, LayoutDashboard, Wallet } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import type { DemoNavId } from '../../constants/landing-demo-data';
 import { demoSidebarItems, demoWorkspace } from '../../constants/landing-demo-data';
-import { cn } from '@/lib/utils';
 
 const iconById: Record<DemoNavId, typeof LayoutDashboard> = {
   dashboard: LayoutDashboard,
@@ -32,7 +26,9 @@ export function DemoSidebar({ activeNav, onNavChange, navIds, compact }: DemoSid
         compact ? 'hidden w-44 lg:block' : 'hidden w-48 md:block',
       )}
     >
-      <p className="mb-4 truncate px-2 text-xs font-semibold text-foreground">{demoWorkspace.name}</p>
+      <p className="mb-4 truncate px-2 text-xs font-semibold text-foreground">
+        {demoWorkspace.name}
+      </p>
       <nav className="space-y-1" aria-label="Demo navigation">
         {demoSidebarItems.map((item, index) => {
           const Icon = iconById[item.id];

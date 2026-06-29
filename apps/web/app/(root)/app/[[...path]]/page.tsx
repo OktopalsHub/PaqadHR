@@ -2,14 +2,13 @@
 
 import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import {
   authDestinationToPath,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
-import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
-
 
 export default function LegacyAppRedirectPage() {
   const router = useRouter();

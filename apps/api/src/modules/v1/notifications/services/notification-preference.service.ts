@@ -65,14 +65,23 @@ export class NotificationPreferenceService {
   async getDefaultPreferences(): Promise<
     Array<{ notificationType: string; defaultSettings: UpdatePreferenceDto }>
   > {
-    return ['payroll', 'leave_request', 'shoutout', 'system_announcement', 'task_assignment', 'meeting_reminder'].map(type => ({
+    return [
+      'payroll',
+      'leave_request',
+      'shoutout',
+      'system_announcement',
+      'task_assignment',
+      'meeting_reminder',
+    ].map((type) => ({
       notificationType: type,
       defaultSettings: {
-        preferredChannel: ['shoutout', 'task_assignment'].includes(type) ? NotificationChannel.IN_APP : NotificationChannel.BOTH,
+        preferredChannel: ['shoutout', 'task_assignment'].includes(type)
+          ? NotificationChannel.IN_APP
+          : NotificationChannel.BOTH,
         isEnabled: true,
         emailEnabled: !['shoutout', 'task_assignment'].includes(type),
         inAppEnabled: true,
-      }
+      },
     }));
   }
   async shouldSendNotification(

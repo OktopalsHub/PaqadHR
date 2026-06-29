@@ -31,11 +31,7 @@ import { UserSyncService } from './services/user-sync.service';
       UserIntegrationToken,
     ]),
   ],
-  controllers: [
-    IntegrationController,
-    OAuthIntegrationController,
-    IntegrationManagementController,
-  ],
+  controllers: [IntegrationController, OAuthIntegrationController, IntegrationManagementController],
   providers: [
     ChannelManagementService,
     PlatformIntegrationService,

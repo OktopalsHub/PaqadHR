@@ -27,9 +27,7 @@ export class PositionMemberService {
     }
 
     if (currentAssignment?.assignedAt && assignedAt <= currentAssignment.assignedAt) {
-      throw new BadRequestException(
-        'Effective date must be after the current position start date',
-      );
+      throw new BadRequestException('Effective date must be after the current position start date');
     }
 
     return this.positionMemberRepository.assignPosition(

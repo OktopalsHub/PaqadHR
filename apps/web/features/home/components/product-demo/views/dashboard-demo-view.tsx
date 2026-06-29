@@ -19,12 +19,7 @@ const recentActivity = [
 export function DashboardDemoView({ compact }: DashboardDemoViewProps) {
   return (
     <div className={cn('space-y-4 p-4', compact && 'p-3')}>
-      <div
-        className={cn(
-          'grid gap-2',
-          compact ? 'grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-4',
-        )}
-      >
+      <div className={cn('grid gap-2', compact ? 'grid-cols-2' : 'sm:grid-cols-2 xl:grid-cols-4')}>
         {demoDashboardStats.map((stat, index) => (
           <StatCard
             key={stat.label}

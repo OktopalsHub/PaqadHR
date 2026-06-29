@@ -2,16 +2,16 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  addCustomHoliday,
   assignPointsToAll,
   fetchHolidaySettings,
   fetchMembersPoints,
   fetchSupportedHolidayCountries,
   fetchTenantSettings,
   patchTenantSettings,
-  addCustomHoliday,
   removeCustomHoliday,
-  updateHolidaySettings,
   type TenantSettingsData,
+  updateHolidaySettings,
 } from '@/lib/api/tenant-settings';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -33,7 +33,9 @@ export function usePatchTenantSettings() {
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.settings.tenant, tenantId] });
       if (variables.attendance !== undefined) {
-        void queryClient.invalidateQueries({ queryKey: [...queryKeys.attendance.clockInInfo, tenantId] });
+        void queryClient.invalidateQueries({
+          queryKey: [...queryKeys.attendance.clockInInfo, tenantId],
+        });
       }
     },
   });
@@ -63,7 +65,9 @@ export function useAssignPointsToAll() {
     mutationFn: ({ points, reason }: { points: number; reason?: string }) =>
       assignPointsToAll(points, reason),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.settings.membersPoints, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.settings.membersPoints, tenantId],
+      });
       void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.all });
     },
   });

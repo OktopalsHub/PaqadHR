@@ -3,11 +3,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchMemberProfile,
-  updateMemberProfile,
   type UpdateMemberProfileInput,
+  updateMemberProfile,
 } from '@/lib/api/member-profile';
-import { queryKeys } from '@/lib/query/keys';
 import { formatDisplayName, formatPersonName, toTitleCase } from '@/lib/format-name';
+import { queryKeys } from '@/lib/query/keys';
 import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 

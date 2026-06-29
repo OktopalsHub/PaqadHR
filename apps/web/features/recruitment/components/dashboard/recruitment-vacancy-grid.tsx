@@ -28,10 +28,7 @@ export function RecruitmentVacancyGrid({
   const tenantHref = useTenantHref();
 
   return (
-    <ContentCard
-      title="Current vacancies"
-      bodyClassName="grid gap-3 sm:grid-cols-2"
-    >
+    <ContentCard title="Current vacancies" bodyClassName="grid gap-3 sm:grid-cols-2">
       {jobs.length === 0 ? (
         <p className="text-sm text-muted-foreground">No open roles yet.</p>
       ) : (

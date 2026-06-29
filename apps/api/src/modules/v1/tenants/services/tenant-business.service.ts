@@ -56,7 +56,8 @@ export class TenantBusinessService {
     return `${baseSlug}-${nextNumber}`;
   }
   private validateSlugNotReserved(slug: string): void {
-    const excluded = process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
+    const excluded =
+      process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
     if (excluded.includes(slug.toLowerCase())) {
       throw new BadRequestException(`The subdomain "${slug}" is reserved and cannot be used.`);
     }

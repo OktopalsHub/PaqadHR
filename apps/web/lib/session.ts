@@ -32,8 +32,6 @@ export function clearSessionStorage() {
   document.cookie = 'tenant_slug=; path=/; max-age=0; SameSite=Lax';
 }
 
-
-
 export function persistTenantId(tenantId: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TENANT_KEY, tenantId);

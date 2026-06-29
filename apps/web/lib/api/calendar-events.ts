@@ -15,7 +15,10 @@ export interface CalendarEventRecord {
   createdBy: string;
 }
 
-export async function fetchCalendarEvents(from?: string, to?: string): Promise<CalendarEventRecord[]> {
+export async function fetchCalendarEvents(
+  from?: string,
+  to?: string,
+): Promise<CalendarEventRecord[]> {
   const tenantId = await resolveTenantId();
   const params = new URLSearchParams();
   if (from) params.set('from', from);

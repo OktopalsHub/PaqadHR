@@ -7,8 +7,8 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { CalendarEventsController } from './calendar-events.controller';
 import { CalendarEventsService } from './calendar-events.service';
 import { TenantCalendarEvent } from './entities/tenant-calendar-event.entity';
-import { CalendarEventReminderCronService } from './services/calendar-event-reminder-cron.service';
 import { CalendarEventReminderService } from './services/calendar-event-reminder.service';
+import { CalendarEventReminderCronService } from './services/calendar-event-reminder-cron.service';
 
 @Module({
   imports: [

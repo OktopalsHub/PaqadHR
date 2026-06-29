@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import request from 'supertest';
+import { DataSource } from 'typeorm';
 import { SubscriptionStatus } from '../src/common/enums/subscription.enum';
 import { TenantSubscription } from '../src/modules/v1/subscriptions/entities/tenant-subscription.entity';
 import { calculatePerSeatTotal } from '../src/modules/v1/subscriptions/utils/per-seat-pricing.util';

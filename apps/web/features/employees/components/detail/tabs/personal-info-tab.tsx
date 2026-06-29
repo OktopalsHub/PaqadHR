@@ -20,9 +20,7 @@ interface PersonalInfoTabProps {
 
 export function PersonalInfoTab({ form, canEdit = false }: PersonalInfoTabProps) {
   const { employee, handleInputChange, handleNestedInputChange } = form;
-  const readOnlyProps = canEdit
-    ? {}
-    : { readOnly: true as const, className: 'bg-muted/50' };
+  const readOnlyProps = canEdit ? {} : { readOnly: true as const, className: 'bg-muted/50' };
 
   return (
     <TabsContent value="personal">

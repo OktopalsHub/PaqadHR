@@ -12,8 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { LeaveStatus } from 'src/common/enums';
 import type { PaginationDto } from 'src/common/dto/pagination.dto';
+import { LeaveStatus } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
@@ -175,11 +175,7 @@ export class LeaveController {
       throw new ForbiddenException('You cannot approve your own leave request');
     }
     if (leave.requester?.id) {
-      await this.managerAccessService.assertAdminOrManagerOf(
-        member,
-        leave.requester.id,
-        tenantId,
-      );
+      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
     } else {
       throw new ForbiddenException('Admin or manager access required');
     }
@@ -198,11 +194,7 @@ export class LeaveController {
       throw new ForbiddenException('You cannot reject your own leave request');
     }
     if (leave.requester?.id) {
-      await this.managerAccessService.assertAdminOrManagerOf(
-        member,
-        leave.requester.id,
-        tenantId,
-      );
+      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
     } else {
       throw new ForbiddenException('Admin or manager access required');
     }

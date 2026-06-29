@@ -1,4 +1,10 @@
+import dayjs from 'dayjs';
+import timezonePlugin from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import type { TenantCalendarEvent } from '../entities/tenant-calendar-event.entity';
+
+dayjs.extend(utc);
+dayjs.extend(timezonePlugin);
 
 const ALL_DAY_DEFAULT_TIME = '09:00';
 const CRON_WINDOW_MS = 5 * 60 * 1000;
@@ -9,7 +15,9 @@ type TemporalGlobal = {
   };
 };
 
-export function resolveEventStartTime(event: Pick<TenantCalendarEvent, 'allDay' | 'startTime'>): string {
+export function resolveEventStartTime(
+  event: Pick<TenantCalendarEvent, 'allDay' | 'startTime'>,
+): string {
   if (event.allDay) return ALL_DAY_DEFAULT_TIME;
   return event.startTime?.slice(0, 5) ?? ALL_DAY_DEFAULT_TIME;
 }
@@ -24,12 +32,13 @@ export function eventStartAtUtc(
   try {
     const temporal = (globalThis as { Temporal?: TemporalGlobal }).Temporal;
     if (temporal?.ZonedDateTime) {
-      return new Date(temporal.ZonedDateTime.from(`${date}T${time}:00[${timezone}]`).epochMilliseconds);
+      return new Date(
+        temporal.ZonedDateTime.from(`${date}T${time}:00[${timezone}]`).epochMilliseconds,
+      );
     }
-  } catch {
-  }
+  } catch {}
 
-  return new Date(`${date}T${time}:00.000Z`);
+  return dayjs.tz(`${date}T${time}:00`, timezone).toDate();
 }
 
 export function reminderAtUtc(

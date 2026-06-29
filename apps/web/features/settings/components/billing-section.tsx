@@ -12,8 +12,8 @@ import { SettingsFieldHint } from '@/features/settings/components/settings-field
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
 import { useBillingOverview, useCreateSubscriptionCheckout } from '@/hooks/queries/use-billing';
 import { usePatchTenantSettings } from '@/hooks/queries/use-tenant-settings';
-import { formatDate } from '@/lib/format-date';
 import type { BillingSettings } from '@/lib/api/tenant-settings';
+import { formatDate } from '@/lib/format-date';
 
 function formatMoney(amount: number, currency: string) {
   try {
@@ -38,9 +38,7 @@ function BillingContactForm({
 }) {
   const patchSettings = usePatchTenantSettings();
   const [contactName, setContactName] = useState(initial.contactName ?? '');
-  const [contactEmail, setContactEmail] = useState(
-    initial.contactEmail ?? ownerEmail ?? '',
-  );
+  const [contactEmail, setContactEmail] = useState(initial.contactEmail ?? ownerEmail ?? '');
   const [contactPhone, setContactPhone] = useState(initial.contactPhone ?? '');
   const [addressLine1, setAddressLine1] = useState(initial.addressLine1 ?? '');
   const [addressLine2, setAddressLine2] = useState(initial.addressLine2 ?? '');
@@ -149,8 +147,7 @@ export function BillingSection() {
 
   const sortedPlans = useMemo(() => overview?.plans ?? [], [overview?.plans]);
   const billingHistory = overview?.billingHistory ?? [];
-  const payNowPlanSlug =
-    currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
+  const payNowPlanSlug = currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading billing details…</p>;
@@ -195,9 +192,7 @@ export function BillingSection() {
           <AlertTriangle className="size-4" />
           <AlertTitle>Payment required</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p>
-              Your workspace needs an active subscription to continue without interruption.
-            </p>
+            <p>Your workspace needs an active subscription to continue without interruption.</p>
             {overview.canManageBilling ? (
               <Button
                 size="sm"
@@ -343,7 +338,10 @@ export function BillingSection() {
               const isPending = checkoutPlan === plan.slug && checkout.isPending;
 
               return (
-                <div key={plan.planPriceId} className="app-card rounded-xl border p-4 transition-all hover:border-primary/50 hover:shadow-sm">
+                <div
+                  key={plan.planPriceId}
+                  className="app-card rounded-xl border p-4 transition-all hover:border-primary/50 hover:shadow-sm"
+                >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>
                       <p className="font-semibold">{plan.name}</p>
@@ -373,7 +371,7 @@ export function BillingSection() {
                       ) : isCurrent ? (
                         'Current plan'
                       ) : overview.subscription?.status === 'ACTIVE' ? (
-                        'Switch to ' + plan.name
+                        `Switch to ${plan.name}`
                       ) : (
                         'Subscribe'
                       )}

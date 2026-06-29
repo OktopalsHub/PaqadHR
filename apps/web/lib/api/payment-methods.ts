@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
 import type {
@@ -5,7 +6,6 @@ import type {
   PaymentMethodSummary,
   supportedCurrenciesSchema,
 } from '@/lib/schemas/payment-method';
-import type { z } from 'zod';
 
 export async function fetchPaymentMethods(): Promise<PaymentMethodSummary[]> {
   const tenantId = await resolveTenantId();
@@ -41,9 +41,7 @@ export interface PendingPaymentMethod {
 
 export async function fetchPendingPaymentMethods(): Promise<PendingPaymentMethod[]> {
   const tenantId = await resolveTenantId();
-  return apiClient<PendingPaymentMethod[]>(
-    tenantPath(tenantId, 'payment-methods/admin/pending'),
-  );
+  return apiClient<PendingPaymentMethod[]>(tenantPath(tenantId, 'payment-methods/admin/pending'));
 }
 
 export async function verifyPaymentMethod(

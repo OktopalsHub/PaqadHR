@@ -14,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import type { AppNotification } from '@/lib/api/notifications';
 import {
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
@@ -22,6 +21,7 @@ import {
   useNotifications,
   useUnreadNotificationCount,
 } from '@/hooks/queries/use-notifications';
+import type { AppNotification } from '@/lib/api/notifications';
 import { cn } from '@/lib/utils';
 
 function formatUnreadBadge(count: number) {
@@ -58,7 +58,9 @@ function NotificationItem({
         )}
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium leading-snug">{notification.title}</p>
-          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{notification.message}</p>
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+            {notification.message}
+          </p>
           <p className="mt-1 text-[10px] text-muted-foreground">{timeLabel}</p>
         </div>
       </div>
@@ -84,8 +86,7 @@ export function NotificationBell() {
     if (!notification.readAt && notification.recipientId) {
       try {
         await markRead.mutateAsync(notification.id);
-      } catch {
-      }
+      } catch {}
     }
 
     setOpen(false);
@@ -116,9 +117,7 @@ export function NotificationBell() {
               {badge}
             </span>
           ) : null}
-          <span className="sr-only">
-            Notifications{badge ? `, ${unreadCount} unread` : ''}
-          </span>
+          <span className="sr-only">Notifications{badge ? `, ${unreadCount} unread` : ''}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80 rounded-xl p-0">

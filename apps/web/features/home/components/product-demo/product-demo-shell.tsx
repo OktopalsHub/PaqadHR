@@ -57,6 +57,7 @@ export function ProductDemoShell({ compact, className }: ProductDemoShellProps) 
   };
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: this container is only used to pause auto-rotation of the product demo on hover or focus
     <div
       ref={containerRef}
       className={className}
@@ -70,7 +71,11 @@ export function ProductDemoShell({ compact, className }: ProductDemoShellProps) 
       }}
     >
       <DemoWindowChrome>
-        <div className="flex min-h-[360px] md:min-h-[420px]" role="tablist" aria-label="Product demo sections">
+        <div
+          className="flex min-h-[360px] md:min-h-[420px]"
+          role="tablist"
+          aria-label="Product demo sections"
+        >
           <DemoSidebar
             activeNav={activeNav}
             onNavChange={setActiveNav}

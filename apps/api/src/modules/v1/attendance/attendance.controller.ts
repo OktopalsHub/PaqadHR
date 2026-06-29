@@ -107,10 +107,7 @@ export class AttendanceController {
   @Get('policies/:policyId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  getAttendancePolicy(
-    @Param('tenantId') tenantId: string,
-    @Param('policyId') policyId: string,
-  ) {
+  getAttendancePolicy(@Param('tenantId') tenantId: string, @Param('policyId') policyId: string) {
     return this.attendanceService.getAttendancePolicy(tenantId, policyId);
   }
 
@@ -231,12 +228,7 @@ export class AttendanceController {
   ) {
     const exception = await this.attendanceService.getAttendanceException(tenantId, exceptionId);
     await this.assertCanApproveException(member, tenantId, exception.tenantMemberId);
-    return this.attendanceService.approveAttendanceException(
-      tenantId,
-      exceptionId,
-      member.id,
-      dto,
-    );
+    return this.attendanceService.approveAttendanceException(tenantId, exceptionId, member.id, dto);
   }
 
   @Patch('exceptions/:exceptionId/reject')
@@ -254,10 +246,7 @@ export class AttendanceController {
   @Get('reports/daily')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  getDailyAttendanceReport(
-    @Param('tenantId') tenantId: string,
-    @Query('date') date: string,
-  ) {
+  getDailyAttendanceReport(@Param('tenantId') tenantId: string, @Query('date') date: string) {
     const reportDate = date ? new Date(date) : new Date();
     return this.attendanceService.getDailyAttendanceReport(tenantId, reportDate);
   }

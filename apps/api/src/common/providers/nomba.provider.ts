@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { TransactionStatus } from '../enums/transaction-status.enum';
 import { getNombaSenderName, isNombaConfigured } from '../config/nomba.config';
+import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
 import type { WebhookResult } from '../interfaces/webhook-result.interface';
@@ -67,7 +67,9 @@ export class NombaProvider extends BasePaymentProvider {
 
     const merchantTxRef =
       data.merchantTxRef ||
-      this.generateReference(`PAYROLL_${data.metadata?.payrollItemId as string | undefined ?? ''}`);
+      this.generateReference(
+        `PAYROLL_${(data.metadata?.payrollItemId as string | undefined) ?? ''}`,
+      );
 
     try {
       if (NGN_BANK_CURRENCIES.has(currency)) {
@@ -90,7 +92,8 @@ export class NombaProvider extends BasePaymentProvider {
         });
 
         const status = response.data?.status?.toUpperCase();
-        const success = status === 'SUCCESS' || status === 'PENDING_BILLING' || response.code === '00';
+        const success =
+          status === 'SUCCESS' || status === 'PENDING_BILLING' || response.code === '00';
 
         return {
           success,

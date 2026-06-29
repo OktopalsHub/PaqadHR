@@ -1,17 +1,16 @@
 export interface RewardsSettings {
-  
   enabled: boolean;
-  
+
   pointsExchangeRate: number;
-  
+
   rewardsCurrency: string;
-  
+
   catalogCountries: string[];
-  
+
   airtimeEnabled: boolean;
-  
+
   customRewardsEnabled: boolean;
-  
+
   reloadlyProducts?: Array<{
     productId: number;
     name: string;

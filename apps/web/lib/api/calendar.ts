@@ -1,13 +1,10 @@
+import { formatReminderLabel, formatTimeRange } from '@/features/calenders/lib/calendar-event-form';
+import { fetchCalendarEvents as fetchManualCalendarEvents } from '@/lib/api/calendar-events';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import type { Interview } from '@/lib/api/interviews';
 import { fetchUpcomingInterviews } from '@/lib/api/interviews';
-import { fetchCalendarEvents as fetchManualCalendarEvents } from '@/lib/api/calendar-events';
 import { fetchLeavesForCalendar } from '@/lib/api/leaves';
 import { resolveTenantId } from '@/lib/api/tenants';
-import {
-  formatReminderLabel,
-  formatTimeRange,
-} from '@/features/calenders/lib/calendar-event-form';
 import { formatDisplayName, formatPersonName } from '@/lib/format-name';
 import type { CalendarEvent, CalendarEventType } from '@/lib/schemas/calendar';
 

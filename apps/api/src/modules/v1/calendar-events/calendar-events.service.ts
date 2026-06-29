@@ -36,8 +36,8 @@ export class CalendarEventsService {
       startDate: dto.startDate.slice(0, 10),
       endDate: dto.endDate.slice(0, 10),
       allDay,
-      startTime: allDay ? null : dto.startTime ?? null,
-      endTime: allDay ? null : dto.endTime ?? null,
+      startTime: allDay ? null : (dto.startTime ?? null),
+      endTime: allDay ? null : (dto.endTime ?? null),
       reminderMinutes: dto.reminderMinutes ?? null,
       type: dto.type ?? 'meeting',
     });

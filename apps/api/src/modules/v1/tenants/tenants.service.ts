@@ -27,7 +27,8 @@ export class TenantsService {
         throw new UnprocessableEntityException('User not found');
       }
       const slug = await this.resolveSlug(data.slug, data.name);
-      const excluded = process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
+      const excluded =
+        process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
       if (excluded.includes(slug.toLowerCase())) {
         throw new UnprocessableEntityException(
           `The subdomain "${slug}" is reserved and cannot be used.`,

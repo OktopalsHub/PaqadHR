@@ -107,8 +107,7 @@ export async function subscribeToNotificationStream(
         if (payload.type !== 'heartbeat') {
           onEvent();
         }
-      } catch {
-      }
+      } catch {}
     }
   }
 }

@@ -13,7 +13,7 @@ export interface CreatePaymentData {
   bankName?: string;
   merchantTxRef?: string;
   senderName?: string;
-  
+
   paymentRail?: string;
   institutionCode?: string;
   institutionName?: string;

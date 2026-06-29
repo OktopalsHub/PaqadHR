@@ -6,8 +6,8 @@ import { NotificationPreferenceType } from 'src/common/enums/notification-prefer
 import { NotificationPriority } from 'src/common/enums/notification-priority.enum';
 import { NotificationType } from 'src/common/enums/notification-type.enum';
 import { IsNull, MoreThanOrEqual, Not, Repository } from 'typeorm';
-import { NotificationPreferenceService } from '../../notifications/services/notification-preference.service';
 import { NotificationService } from '../../notifications/services/notification.service';
+import { NotificationPreferenceService } from '../../notifications/services/notification-preference.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { TenantsService } from '../../tenants/tenants.service';
@@ -76,6 +76,12 @@ export class CalendarEventReminderService {
       }
 
       if (now.getTime() >= startAt.getTime()) {
+        await this.markReminderHandled(event.id);
+        expired += 1;
+        continue;
+      }
+
+      if (now.getTime() >= reminderAt.getTime() + 5 * 60 * 1000) {
         await this.markReminderHandled(event.id);
         expired += 1;
         continue;

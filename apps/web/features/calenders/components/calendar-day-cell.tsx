@@ -12,7 +12,13 @@ type CalendarDayCellProps = DayButtonProps & {
   events: CalendarEvent[];
 };
 
-export function CalendarDayCell({ day, modifiers, className, events, ...props }: CalendarDayCellProps) {
+export function CalendarDayCell({
+  day,
+  modifiers,
+  className,
+  events,
+  ...props
+}: CalendarDayCellProps) {
   const sortedEvents = sortDayEvents(events);
   const visibleEvents = sortedEvents.slice(0, MAX_VISIBLE_EVENTS);
   const overflowCount = sortedEvents.length - visibleEvents.length;

@@ -1,15 +1,13 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { motion } from 'framer-motion';
-import { ChevronRight } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { fadeUp, stagger } from '../../constants/landing-motion';
 
 const ProductDemoShell = dynamic(
-  () =>
-    import('../product-demo/product-demo-shell').then((mod) => mod.ProductDemoShell),
+  () => import('../product-demo/product-demo-shell').then((mod) => mod.ProductDemoShell),
   {
     ssr: false,
     loading: () => (

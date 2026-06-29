@@ -10,11 +10,10 @@ import type { PaymentResult } from '../../../../common/interfaces/payment-result
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
-import type { PayrollRun } from '../entities/payroll-run.entity';
-import { PayrollPayoutService } from './payroll-payout.service';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
+import { PayrollPayoutService } from './payroll-payout.service';
 
 interface PaymentSummary {
   fiatSuccess: number;
@@ -49,7 +48,10 @@ export class MultiPaymentService {
     if (!payrollRun) {
       throw new NotFoundException('Payroll run not found');
     }
-    if (payrollRun.status !== PayrollStatus.APPROVED && payrollRun.status !== PayrollStatus.PROCESSING) {
+    if (
+      payrollRun.status !== PayrollStatus.APPROVED &&
+      payrollRun.status !== PayrollStatus.PROCESSING
+    ) {
       throw new BadRequestException(
         `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
       );
@@ -85,9 +87,7 @@ export class MultiPaymentService {
     specificItemIds?: string[],
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
-      throw new BadRequestException(
-        'Nomba payroll gateway is not configured.',
-      );
+      throw new BadRequestException('Nomba payroll gateway is not configured.');
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -221,7 +221,13 @@ export class MultiPaymentService {
         const employeeName = item.employee
           ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
           : item.memberId;
-        const paymentData = buildPayrollPaymentData(item, paymentMethod, employeeName, tenantName, payrollRunTitle);
+        const paymentData = buildPayrollPaymentData(
+          item,
+          paymentMethod,
+          employeeName,
+          tenantName,
+          payrollRunTitle,
+        );
         const result = await provider.createPayment(paymentData);
         if (result.success) {
           await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);

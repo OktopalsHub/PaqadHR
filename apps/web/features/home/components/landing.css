@@ -17,7 +17,7 @@
 
   background: var(--ld-bg);
   color: var(--ld-text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -453,7 +453,7 @@
 }
 
 .landing-cta-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -50%;
   left: 50%;

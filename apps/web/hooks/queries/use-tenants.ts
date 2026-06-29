@@ -1,10 +1,10 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreateTenantInput, UpdateTenantInput } from '@/lib/api/tenants';
 import { createTenant, fetchUserTenants, updateTenant } from '@/lib/api/tenants';
 import { queryKeys } from '@/lib/query/keys';
 import { readTenantId } from '@/lib/session';
-import type { CreateTenantInput, UpdateTenantInput } from '@/lib/api/tenants';
 
 export function useUserTenants(options?: { enabled?: boolean }) {
   return useQuery({

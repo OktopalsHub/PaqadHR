@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, Patch, Post, BadRequestException } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
+import { FileService } from 'src/common/services/file.service';
 import type { CreateCandidateDto } from '../dto/index';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateService } from '../services/candidate.service';
-import { FileService } from 'src/common/services/file.service';
 import { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Public Applications')

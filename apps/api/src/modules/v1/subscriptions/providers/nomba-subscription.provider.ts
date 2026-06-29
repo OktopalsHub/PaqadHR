@@ -1,18 +1,15 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
+import { BillingChargeType } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
   SubscriptionWebhookEvent,
 } from '../interfaces/subscription-billing.interface';
-import { BillingChargeType } from '../constants/billing.constants';
-import type { ISubscriptionBillingProvider } from './subscription-billing-provider.interface';
-import {
-  calculatePerSeatTotal,
-  resolveSeatCount,
-} from '../utils/per-seat-pricing.util';
 import { NombaApiService } from '../services/nomba-api.service';
+import { calculatePerSeatTotal, resolveSeatCount } from '../utils/per-seat-pricing.util';
+import type { ISubscriptionBillingProvider } from './subscription-billing-provider.interface';
 
 interface NombaWebhookPayload {
   event_type?: string;

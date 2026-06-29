@@ -3,14 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
+import { useAuth } from '@/hooks/use-auth';
 import { bootstrapCsrf } from '@/lib/api/client';
 import {
   authDestinationToPath,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
-
 
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -27,7 +26,9 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (authLoading) return;
 
     if (!isAuthenticated) {
-      router.replace(authDestinationToPath(resolveAuthDestination({ isAuthenticated: false, tenants: [] })));
+      router.replace(
+        authDestinationToPath(resolveAuthDestination({ isAuthenticated: false, tenants: [] })),
+      );
       return;
     }
 
@@ -37,7 +38,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (destination.type === 'dashboard') {
       router.replace(authDestinationToPath(destination));
     }
-  }, [authLoading, isAuthenticated, isLoading, hasResolvedTenants, tenants, tenant, router]);
+  }, [authLoading, isAuthenticated, isLoading, hasResolvedTenants, tenants, router]);
 
   if (isLoading || !hasResolvedTenants) {
     return (

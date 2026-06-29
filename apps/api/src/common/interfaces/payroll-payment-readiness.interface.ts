@@ -8,8 +8,7 @@ export const PayrollPaymentIssue = {
   EXCLUDED_FROM_RUN: 'excluded_from_run',
 } as const;
 
-export type PayrollPaymentIssue =
-  (typeof PayrollPaymentIssue)[keyof typeof PayrollPaymentIssue];
+export type PayrollPaymentIssue = (typeof PayrollPaymentIssue)[keyof typeof PayrollPaymentIssue];
 
 export interface PayrollPaymentReadiness {
   memberId: string;

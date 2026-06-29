@@ -1,19 +1,19 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import {
+  type ClockInInfo,
   clockIn,
   clockOut,
   fetchClockInInfo,
   fetchMonthlyTimesheet,
   fetchMyAttendanceRecords,
   fetchTeamAttendanceRecords,
-  type ClockInInfo,
 } from '@/lib/api/attendance';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
-import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import { useEmployees } from './use-employees';
 
 function useCanViewTeamAttendance() {
@@ -114,8 +114,14 @@ export function useClockOut() {
   const clockInQueryKey = [...queryKeys.attendance.clockInInfo, tenantId];
 
   return useMutation({
-    mutationFn: ({ attendanceId, ...input }: { attendanceId: string; location?: string; notes?: string }) =>
-      clockOut(attendanceId, input),
+    mutationFn: ({
+      attendanceId,
+      ...input
+    }: {
+      attendanceId: string;
+      location?: string;
+      notes?: string;
+    }) => clockOut(attendanceId, input),
     onSuccess: () => {
       queryClient.setQueryData<ClockInInfo>(clockInQueryKey, (current) => {
         if (!current) {

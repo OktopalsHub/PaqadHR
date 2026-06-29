@@ -25,14 +25,18 @@ export class PayrollWebhooksController {
   @ApiOperation({ summary: 'Nomba payroll transfer webhook' })
   handleNombaWebhook(
     @Req() req: RawBodyRequest,
-    @Headers('x-nomba-signature') signature: string,
-    @Headers('X-Nomba-Signature') signatureAlt: string,
+    @Headers('nomba-signature') signature: string,
+    @Headers('nomba-sig-value') signatureAlt: string,
+    @Headers('x-nomba-signature') signatureLegacy: string,
   ) {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
 
-    return this.payrollPayoutService.handleNombaWebhook(rawBody, signature || signatureAlt || '');
+    return this.payrollPayoutService.handleNombaWebhook(
+      rawBody,
+      signature || signatureAlt || signatureLegacy || '',
+    );
   }
 }

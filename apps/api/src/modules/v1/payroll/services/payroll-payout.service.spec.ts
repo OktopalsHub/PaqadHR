@@ -39,7 +39,13 @@ describe('PayrollPayoutService', () => {
       payrollItemRepo,
     );
 
-    return { service, nombaTransferApi, payrollItemRepository, payrollItemRepo, payrollRunRepository };
+    return {
+      service,
+      nombaTransferApi,
+      payrollItemRepository,
+      payrollItemRepo,
+      payrollRunRepository,
+    };
   };
 
   const baseItem = (): PayrollItem =>
@@ -201,7 +207,9 @@ describe('PayrollPayoutService', () => {
 
     it('skips items without a transaction id', async () => {
       const { service, nombaTransferApi, payrollItemRepo } = createService();
-      (payrollItemRepo.find as jest.Mock).mockResolvedValue([{ ...baseItem(), transactionId: null }]);
+      (payrollItemRepo.find as jest.Mock).mockResolvedValue([
+        { ...baseItem(), transactionId: null },
+      ]);
 
       const result = await service.requeryStuckPayouts();
 

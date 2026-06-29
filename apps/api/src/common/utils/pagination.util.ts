@@ -33,7 +33,6 @@ export async function getPaginationSummary(
 }
 
 export class PaginationUtil {
-  
   static async toPaginatedData<T>(
     data: T[],
     total: number,
@@ -45,7 +44,6 @@ export class PaginationUtil {
     return getPaginationSummary(data, total, options, name);
   }
 
-  
   static async fromRepositoryResult<T>(
     result: {
       data: T[];
@@ -63,14 +61,12 @@ export class PaginationUtil {
     return getPaginationSummary(result.data, result.total, options, name);
   }
 
-  
   static parsePaginationOptions(query: Record<string, any>): { page: number; limit: number } {
     const page = parseInt(String(query.page ?? ''), 10) || 1;
     const limit = normalizePaginationLimit(query.limit);
     return { page, limit };
   }
 
-  
   static parsePaginationOptionsWithTenantSettings(
     query: Record<string, any>,
     tenantSettings?: { general?: { paginationLimit?: number } },

@@ -2,12 +2,12 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  type CreateAttendancePolicyInput,
   createAttendancePolicy,
   deleteAttendancePolicy,
   fetchAttendancePolicies,
-  updateAttendancePolicy,
-  type CreateAttendancePolicyInput,
   type UpdateAttendancePolicyInput,
+  updateAttendancePolicy,
 } from '@/lib/api/attendance-policies';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -29,7 +29,9 @@ export function useCreateAttendancePolicy() {
   return useMutation({
     mutationFn: (input: CreateAttendancePolicyInput) => createAttendancePolicy(input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.attendance.policies, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.attendance.policies, tenantId],
+      });
     },
   });
 }
@@ -42,7 +44,9 @@ export function useUpdateAttendancePolicy() {
     mutationFn: ({ policyId, input }: { policyId: string; input: UpdateAttendancePolicyInput }) =>
       updateAttendancePolicy(policyId, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.attendance.policies, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.attendance.policies, tenantId],
+      });
     },
   });
 }
@@ -54,7 +58,9 @@ export function useDeleteAttendancePolicy() {
   return useMutation({
     mutationFn: (policyId: string) => deleteAttendancePolicy(policyId),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [...queryKeys.attendance.policies, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.attendance.policies, tenantId],
+      });
     },
   });
 }

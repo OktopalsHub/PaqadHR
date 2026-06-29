@@ -63,7 +63,9 @@ export class NotificationPreferenceController {
   @ApiOperation({ summary: 'Update multiple notification preferences' })
   @ApiResponse({ status: 200, description: 'Preferences updated successfully' })
   async updateMultiplePreferences(
-    @Body('preferences') preferences: Array<{ notificationType: NotificationPreferenceType } & UpdatePreferenceDto>,
+    @Body('preferences') preferences: Array<
+      { notificationType: NotificationPreferenceType } & UpdatePreferenceDto
+    >,
     @CurrentTenantMember() member: MemberContext,
   ): Promise<NotificationPreference[]> {
     return this.preferenceService.updateMultiplePreferences(member.id, preferences);

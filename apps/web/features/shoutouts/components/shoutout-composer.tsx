@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Award,
   Check,
@@ -14,13 +15,9 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Command,
   CommandEmpty,
@@ -29,6 +26,9 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import type { ShoutoutCategory } from '@/lib/schemas/shoutout';
@@ -61,10 +61,22 @@ const EMOJIS = ['🙌', '🚀', '⭐', '❤️', '👏', '🎉', '🔥', '💪',
 
 const MOCK_GIFS = [
   { id: '1', url: 'https://media.giphy.com/media/l3q2XhfQ8oCkm1K76/giphy.gif', title: 'Clapping' },
-  { id: '2', url: 'https://media.giphy.com/media/3oz8xAFtqo0qyTZRZS/giphy.gif', title: 'High Five' },
-  { id: '3', url: 'https://media.giphy.com/media/5GovlcmKGl6U55JHdh/giphy.gif', title: 'Minions Yay' },
+  {
+    id: '2',
+    url: 'https://media.giphy.com/media/3oz8xAFtqo0qyTZRZS/giphy.gif',
+    title: 'High Five',
+  },
+  {
+    id: '3',
+    url: 'https://media.giphy.com/media/5GovlcmKGl6U55JHdh/giphy.gif',
+    title: 'Minions Yay',
+  },
   { id: '4', url: 'https://media.giphy.com/media/11sBLVxNs7v6WA/giphy.gif', title: 'Great Job' },
-  { id: '5', url: 'https://media.giphy.com/media/NEvPzZ8bd1V4Y/giphy.gif', title: 'Nodding Approval' },
+  {
+    id: '5',
+    url: 'https://media.giphy.com/media/NEvPzZ8bd1V4Y/giphy.gif',
+    title: 'Nodding Approval',
+  },
   { id: '6', url: 'https://media.giphy.com/media/c51u3TvA5PfOM/giphy.gif', title: 'Golden Buzzer' },
 ];
 
@@ -120,7 +132,9 @@ export function ShoutoutComposer({
   };
 
   const handleImageMockUpload = () => {
-    setAttachedImage('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80');
+    setAttachedImage(
+      'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80',
+    );
     setAttachedGif(null); // Clear other media
     toast.success('Mock image attached!');
   };
@@ -129,7 +143,7 @@ export function ShoutoutComposer({
     <div
       className={cn(
         'relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20',
-        className
+        className,
       )}
     >
       <div className="flex items-center gap-3 pb-3 border-b border-border/50">
@@ -138,11 +152,16 @@ export function ShoutoutComposer({
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold">Celebrate your team</h3>
-          <p className="text-xs text-muted-foreground">Give shoutouts, share recognition, and award points</p>
+          <p className="text-xs text-muted-foreground">
+            Give shoutouts, share recognition, and award points
+          </p>
         </div>
         {points ? (
           <div className="text-right">
-            <Badge variant="outline" className="px-2.5 py-0.5 font-medium border-primary/20 bg-primary/5 text-primary">
+            <Badge
+              variant="outline"
+              className="px-2.5 py-0.5 font-medium border-primary/20 bg-primary/5 text-primary"
+            >
               {allowance.toLocaleString()} {PAQ_POINTS_NAME} left
             </Badge>
           </div>
@@ -192,15 +211,25 @@ export function ShoutoutComposer({
         {}
         <div className="flex flex-wrap gap-1.5 min-h-[24px]">
           {selectedRecipients.map((recipient) => (
-            <Badge key={recipient.id} variant="secondary" className="flex items-center gap-1 bg-sky-500/10 text-sky-600 hover:bg-sky-500/15 border-sky-100">
+            <Badge
+              key={recipient.id}
+              variant="secondary"
+              className="flex items-center gap-1 bg-sky-500/10 text-sky-600 hover:bg-sky-500/15 border-sky-100"
+            >
               <User className="size-3" />
               To: {recipient.name}
-              <X className="size-3 cursor-pointer ml-1" onClick={() => onRecipientChange(recipientIds.filter(id => id !== recipient.id))} />
+              <X
+                className="size-3 cursor-pointer ml-1"
+                onClick={() => onRecipientChange(recipientIds.filter((id) => id !== recipient.id))}
+              />
             </Badge>
           ))}
 
           {selectedCategory && (
-            <Badge variant="secondary" className="flex items-center gap-1 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/15 border-indigo-100">
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/15 border-indigo-100"
+            >
               <Award className="size-3" />
               {selectedCategory.name}
               <X className="size-3 cursor-pointer ml-1" onClick={() => onCategoryChange('')} />
@@ -208,9 +237,11 @@ export function ShoutoutComposer({
           )}
 
           {Number(pointsValue) > 0 && (
-            <Badge variant="secondary" className="flex items-center gap-1 bg-amber-500/10 text-amber-600 hover:bg-amber-500/15 border-amber-100 font-mono">
-              <Coins className="size-3" />
-              +{pointsValue} {PAQ_POINTS_NAME}
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 bg-amber-500/10 text-amber-600 hover:bg-amber-500/15 border-amber-100 font-mono"
+            >
+              <Coins className="size-3" />+{pointsValue} {PAQ_POINTS_NAME}
               <X className="size-3 cursor-pointer ml-1" onClick={() => onPointsChange('0')} />
             </Badge>
           )}
@@ -222,7 +253,12 @@ export function ShoutoutComposer({
             {}
             <Popover open={recipientOpen} onOpenChange={setRecipientOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="icon" className="h-9 w-9 hover:bg-muted/80" title="Select teammate(s)">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 hover:bg-muted/80"
+                  title="Select teammate(s)"
+                >
                   <User className="size-4 text-sky-500" />
                 </Button>
               </PopoverTrigger>
@@ -262,7 +298,11 @@ export function ShoutoutComposer({
             {categories.length > 0 && (
               <Popover open={valueOpen} onOpenChange={setValueOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 px-3 gap-1.5 hover:bg-muted/80">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 px-3 gap-1.5 hover:bg-muted/80"
+                  >
                     <Award className="size-4 text-indigo-500" />
                     <span className="hidden sm:inline">Core Value</span>
                   </Button>
@@ -282,7 +322,7 @@ export function ShoutoutComposer({
                         }}
                         className={cn(
                           'flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-xs transition-colors hover:bg-muted',
-                          categoryId === category.id && 'bg-primary/5 text-primary font-medium'
+                          categoryId === category.id && 'bg-primary/5 text-primary font-medium',
                         )}
                       >
                         <span>{category.name}</span>
@@ -297,7 +337,11 @@ export function ShoutoutComposer({
             {}
             <Popover open={pointsOpen} onOpenChange={setPointsOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 px-3 gap-1.5 hover:bg-muted/80 font-mono">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 px-3 gap-1.5 hover:bg-muted/80 font-mono"
+                >
                   <Coins className="size-4 text-amber-500" />
                   <span className="hidden sm:inline">Points</span>
                 </Button>
@@ -318,7 +362,9 @@ export function ShoutoutComposer({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">Quick Select</Label>
+                  <Label className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Quick Select
+                  </Label>
                   <div className="grid grid-cols-4 gap-1">
                     {[5, 10, 20, 50].map((val) => (
                       <Button
@@ -367,7 +413,9 @@ export function ShoutoutComposer({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-64 p-3 space-y-2" align="start">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add GIF</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Add GIF
+                </p>
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                   {MOCK_GIFS.map((gif) => (
                     <button
@@ -425,4 +473,5 @@ export function ShoutoutComposer({
     </div>
   );
 }
+
 import { toast } from 'sonner';

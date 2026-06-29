@@ -1,6 +1,5 @@
 export type DemoNavId = 'dashboard' | 'recruitment' | 'payroll' | 'shoutouts' | 'leaves';
 
-
 export type DemoTab = DemoNavId;
 
 export const demoNavOrder: DemoNavId[] = [
