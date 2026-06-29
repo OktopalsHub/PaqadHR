@@ -161,7 +161,6 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(helmet.ieNoOpen());
   app.use(helmet.dnsPrefetchControl());
   app.use(helmet.permittedCrossDomainPolicies());
-  // In-memory rate limiting only (no Redis). express-rate-limit defaults to process memory.
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 100,

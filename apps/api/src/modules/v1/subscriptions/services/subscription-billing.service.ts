@@ -141,7 +141,6 @@ export class SubscriptionBillingService {
         return contactEmail;
       }
     } catch {
-      // Tenant settings may not be initialized yet.
     }
     return fallbackEmail?.trim() || null;
   }

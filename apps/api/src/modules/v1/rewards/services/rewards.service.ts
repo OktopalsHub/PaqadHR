@@ -45,7 +45,7 @@ export interface ClaimInput {
   currencyCode?: string;
   recipientEmail?: string;
   recipientPhone?: string;
-  /** For Reloadly: product ID. For airtime: network provider. */
+  
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
 }
@@ -65,9 +65,7 @@ export class RewardsService {
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
-  /**
-   * Helper to convert between currencies (e.g. USD -> NGN, or NGN -> NGN).
-   */
+  
   private convertCurrency(amount: number, from: string, to: string): number {
     const fromUpper = from.toUpperCase();
     const toUpper = to.toUpperCase();
@@ -75,10 +73,6 @@ export class RewardsService {
       return amount;
     }
 
-    // Platform exchange rates (NGN base)
-    // 1 USD = 1,500 NGN
-    // 1 EUR = 1,600 NGN
-    // 1 GBP = 1,900 NGN
     const ratesToNgn: Record<string, number> = {
       USD: 1500,
       EUR: 1600,
@@ -89,20 +83,16 @@ export class RewardsService {
     const fromRate = ratesToNgn[fromUpper] ?? 1;
     const toRate = ratesToNgn[toUpper] ?? 1;
 
-    // Convert from source currency to NGN, then to target currency
     const amountInNgn = amount * fromRate;
     return Number((amountInNgn / toRate).toFixed(2));
   }
 
-  /**
-   * Helper to retrieve subscription fee percentage and flat fee for a tenant.
-   */
+  
   async getSubscriptionFees(tenantId: string, walletCurrency: string): Promise<{ feePercentage: number; flatFee: number }> {
     try {
       const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
       const feePercentage = subscription?.planPrice?.regionalConfig?.rewardsFeePercentage ?? 2; // Default 2%
       
-      // Default flat fee is 50 NGN. Convert it to the tenant's wallet currency.
       const rawFlatFee = subscription?.planPrice?.regionalConfig?.rewardsFlatFee ?? 50;
       const flatFee = this.convertCurrency(rawFlatFee, 'NGN', walletCurrency);
       
@@ -113,19 +103,14 @@ export class RewardsService {
     }
   }
 
-  /**
-   * Public helper to retrieve redemption fees.
-   */
+  
   async getRedemptionFees(tenantId: string, currency: string) {
     return this.getSubscriptionFees(tenantId, currency);
   }
 
-  /**
-   * Get the rewards settings for a tenant, with sensible defaults.
-   */
+  
   private async getRewardsSettings(tenantId: string): Promise<RewardsSettings> {
     const settingsRecord = await this.tenantConfigService.getPointsSettings(tenantId);
-    // Read rewards from the raw settings record
     const repo = this.dataSource.getRepository(
       (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
     );
@@ -142,9 +127,7 @@ export class RewardsService {
     };
   }
 
-  /**
-   * Get all countries supported by Reloadly, falling back to a static list if not configured.
-   */
+  
   async getReloadlyCountries(tenantId: string): Promise<any[]> {
     if (!this.reloadlyApi.isConfigured()) {
       return [
@@ -164,10 +147,7 @@ export class RewardsService {
     }));
   }
 
-  /**
-   * Build the unified rewards catalog for a tenant.
-   * Combines Reloadly gift card products + custom rewards.
-   */
+  
   async getCatalog(tenantId: string): Promise<CatalogItem[]> {
     const settings = await this.getRewardsSettings(tenantId);
     if (!settings.enabled) {
@@ -177,7 +157,6 @@ export class RewardsService {
     const exchangeRate = settings.pointsExchangeRate;
     const catalog: CatalogItem[] = [];
 
-    // 1. Configured Reloadly products (saved in tenant settings)
     const reloadlyProducts = settings.reloadlyProducts ?? [];
     for (const p of reloadlyProducts) {
       catalog.push({
@@ -195,7 +174,6 @@ export class RewardsService {
       });
     }
 
-    // 2. Custom rewards
     if (settings.customRewardsEnabled) {
       const customRewards = await this.customRewardsService.list(tenantId);
       for (const cr of customRewards) {
@@ -216,9 +194,7 @@ export class RewardsService {
     return catalog;
   }
 
-  /**
-   * Get all available Reloadly products for allowed countries so the admin can add/edit/remove them.
-   */
+  
   async getAvailableReloadlyProducts(tenantId: string): Promise<any[]> {
     const settings = await this.getRewardsSettings(tenantId);
     if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
@@ -260,12 +236,7 @@ export class RewardsService {
     }
   }
 
-  /**
-   * Three-phase claim state machine:
-   * Phase 1: Atomically debit points + wallet balance (status: PENDING)
-   * Phase 2: External API call (Reloadly / Nomba) — outside DB transaction
-   * Phase 3: Update status to SUCCESS or FAILED (refund on failure)
-   */
+  
   async claim(
     tenantId: string,
     memberId: string,
@@ -285,7 +256,6 @@ export class RewardsService {
 
     const { feePercentage, flatFee } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
 
-    // 1. Calculate and validate the expected points cost
     const expectedConvertedValue = this.convertCurrency(
       currencyValue,
       currencyCode,
@@ -308,12 +278,8 @@ export class RewardsService {
       );
     }
 
-    // =========================================================================
-    // PHASE 1: Reserve points + wallet balance atomically
-    // =========================================================================
     let redemption: RewardRedemption;
     await this.dataSource.transaction(async (manager) => {
-      // For custom rewards, perform stock limit checks and decrement
       if (input.rewardType === 'CUSTOM') {
         const customRewardRepo = manager.getRepository(CustomReward);
         const cr = await customRewardRepo.findOneOrFail({ where: { id: input.rewardId, tenantId } });
@@ -333,7 +299,6 @@ export class RewardsService {
         }
       }
 
-      // 1a. Verify and debit user points
       const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
       const memberPoints = await pointsRepo.findOne({ where: { tenantId, memberId } });
       if (!memberPoints || memberPoints.currentBalance < pointsCost) {
@@ -342,7 +307,6 @@ export class RewardsService {
         );
       }
 
-      // Atomic points decrement
       await pointsRepo
         .createQueryBuilder()
         .update(ShoutoutMemberPoints)
@@ -354,7 +318,6 @@ export class RewardsService {
         })
         .execute();
 
-      // Record points transaction
       const txRepo = manager.getRepository(ShoutoutPointTransaction);
       const updatedPoints = await pointsRepo.findOneOrFail({ where: { tenantId, memberId } });
       const pointsTx = txRepo.create({
@@ -368,7 +331,6 @@ export class RewardsService {
       });
       await txRepo.save(pointsTx);
 
-      // 1b. Debit tenant wallet (for Reloadly / Nomba fulfillment costs + platform fees)
       if (input.rewardType !== 'CUSTOM') {
         await this.walletService.debit(
           tenantId,
@@ -379,7 +341,6 @@ export class RewardsService {
         );
       }
 
-      // 1c. Create the redemption record as PENDING
       const redemptionRepo = manager.getRepository(RewardRedemption);
       redemption = redemptionRepo.create({
         id: redemptionId,
@@ -398,9 +359,6 @@ export class RewardsService {
       await redemptionRepo.save(redemption);
     });
 
-    // =========================================================================
-    // PHASE 2: External API call (outside DB transaction!)
-    // =========================================================================
     try {
       if (input.rewardType === 'RELOADLY') {
         await this.fulfillReloadly(redemption!, input);
@@ -410,14 +368,10 @@ export class RewardsService {
         await this.fulfillCustom(redemption!);
       }
     } catch (error) {
-      // =====================================================================
-      // PHASE 3 (failure): Refund points + wallet balance
-      // =====================================================================
       const errorMessage = error instanceof Error ? error.message : 'Unknown fulfillment error';
       this.logger.error(`Reward fulfillment failed for ${redemptionId}: ${errorMessage}`);
 
       await this.dataSource.transaction(async (manager) => {
-        // Refund points
         const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
         await pointsRepo
           .createQueryBuilder()
@@ -426,7 +380,6 @@ export class RewardsService {
           .where('tenant_id = :tenantId AND member_id = :memberId', { tenantId, memberId })
           .execute();
 
-        // Record refund transaction
         const txRepo = manager.getRepository(ShoutoutPointTransaction);
         const updatedPoints = await pointsRepo.findOneOrFail({ where: { tenantId, memberId } });
         const refundTx = txRepo.create({
@@ -440,7 +393,6 @@ export class RewardsService {
         });
         await txRepo.save(refundTx);
 
-        // Refund wallet if not custom
         if (input.rewardType !== 'CUSTOM') {
           const markupFactor = 1 + feePercentage / 100;
           const totalTenantDebit = expectedConvertedValue * markupFactor + flatFee;
@@ -454,7 +406,6 @@ export class RewardsService {
           );
         }
 
-        // Refund custom reward stock limit if applicable
         if (input.rewardType === 'CUSTOM') {
           const customRewardRepo = manager.getRepository(CustomReward);
           const cr = await customRewardRepo.findOne({ where: { id: input.rewardId, tenantId } });
@@ -465,7 +416,6 @@ export class RewardsService {
           }
         }
 
-        // Mark redemption as FAILED
         const redemptionRepo = manager.getRepository(RewardRedemption);
         await redemptionRepo.update(redemptionId, {
           status: 'FAILED' as RedemptionStatus,
@@ -473,7 +423,6 @@ export class RewardsService {
         });
       });
 
-      // Re-fetch the updated redemption
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
         where: { id: redemptionId },
       });
@@ -482,9 +431,7 @@ export class RewardsService {
     return redemption!;
   }
 
-  /**
-   * Fulfill a Reloadly gift card order.
-   */
+  
   private async fulfillReloadly(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     const productId = input.providerProductId;
     if (!productId) {
@@ -502,7 +449,6 @@ export class RewardsService {
 
     const transactionId = orderResponse.transactionId;
 
-    // Try to get redemption codes
     let voucherCode: string | null = null;
     let voucherPin: string | null = null;
 
@@ -518,7 +464,6 @@ export class RewardsService {
       }
     }
 
-    // Update redemption as SUCCESS
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
       providerTxRef: transactionId ? String(transactionId) : null,
@@ -528,9 +473,7 @@ export class RewardsService {
     });
   }
 
-  /**
-   * Fulfill a Nomba airtime top-up.
-   */
+  
   private async fulfillAirtime(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
       throw new Error('Phone number and network are required for airtime top-up');
@@ -555,12 +498,8 @@ export class RewardsService {
     });
   }
 
-  /**
-   * Fulfill a custom reward (no external API — just mark complete and notify admin).
-   */
+  
   private async fulfillCustom(redemption: RewardRedemption): Promise<void> {
-    // For custom rewards, we just mark as SUCCESS immediately.
-    // The admin will see it in their claims list and manually fulfill (deliver lunch, etc.)
     const customReward = await this.dataSource.getRepository(CustomReward).findOne({
       where: { id: redemption.rewardId ?? undefined },
     });
@@ -572,9 +511,7 @@ export class RewardsService {
     });
   }
 
-  /**
-   * Get claim history for a member.
-   */
+  
   async getMyClaims(tenantId: string, memberId: string): Promise<RewardRedemption[]> {
     return this.dataSource.getRepository(RewardRedemption).find({
       where: { tenantId, memberId },
@@ -583,9 +520,7 @@ export class RewardsService {
     });
   }
 
-  /**
-   * Get all claims for a tenant (admin view).
-   */
+  
   async getAllClaims(tenantId: string): Promise<RewardRedemption[]> {
     return this.dataSource.getRepository(RewardRedemption).find({
       where: { tenantId },
@@ -594,9 +529,7 @@ export class RewardsService {
       take: 100,
     });
   }
-  /**
-   * Process a Nomba webhook event for virtual account funding deposits.
-   */
+  
   async handleNombaFundingWebhook(
     rawBody: string,
     signature: string,
@@ -681,7 +614,6 @@ export class RewardsService {
     return { received: true };
   }
 
-  // ─── Points Tasks & Verification (Database-backed) ───────────────────────────
 
   async listTasks(tenantId: string, memberId: string) {
     const taskRepo = this.dataSource.getRepository(Task);
@@ -693,7 +625,6 @@ export class RewardsService {
     });
 
     if (tasks.length === 0) {
-      // Seed default tasks
       const defaultTasksData: Array<{
         title: string;
         description: string;
@@ -758,7 +689,6 @@ export class RewardsService {
         await taskRepo.save(t);
       }
 
-      // Re-fetch tasks
       return this.listTasks(tenantId, memberId);
     }
 
@@ -766,7 +696,6 @@ export class RewardsService {
       where: { tenantId, memberId },
     });
 
-    // Map tasks to their current submission status
     return tasks.map((task) => {
       const sub = submissions.find((s) => s.taskId === task.id);
       return {
@@ -875,7 +804,6 @@ export class RewardsService {
       throw new BadRequestException('Task not found');
     }
 
-    // Check if already completed
     let sub = await submissionRepo.findOne({ where: { taskId, memberId, tenantId } });
     if (sub && sub.status === 'completed') {
       throw new BadRequestException('Task already completed');
@@ -901,7 +829,6 @@ export class RewardsService {
 
     await submissionRepo.save(sub!);
 
-    // If instant, award points immediately
     if (isInstant) {
       await this.awardPointsForTask(tenantId, memberId, task.points, task.title);
     }
@@ -933,7 +860,6 @@ export class RewardsService {
     sub.status = 'completed';
     await submissionRepo.save(sub);
 
-    // Award points
     await this.awardPointsForTask(tenantId, sub.memberId, task.points, task.title);
 
     return { success: true };

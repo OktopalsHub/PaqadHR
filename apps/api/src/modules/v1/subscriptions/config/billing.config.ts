@@ -1,11 +1,11 @@
 import { isNombaConfigured } from './nomba.config';
 
-/** Feature access is always gated by subscription plan state. */
+
 export function isFeatureGatingEnabled(): boolean {
   return true;
 }
 
-/** Card / Nomba billing — enabled when Nomba credentials are configured. */
+
 export function isBillingGatewayEnabled(): boolean {
   return isNombaConfigured();
 }

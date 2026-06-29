@@ -9,9 +9,7 @@ export class TenantWalletService {
 
   constructor(private readonly dataSource: DataSource) {}
 
-  /**
-   * Get or create the wallet row for a tenant.
-   */
+  
   async ensureWallet(tenantId: string, manager?: EntityManager): Promise<TenantWallet> {
     const repo = manager
       ? manager.getRepository(TenantWallet)
@@ -24,7 +22,6 @@ export class TenantWalletService {
     try {
       return await repo.save(wallet);
     } catch (error) {
-      // Handle race condition on unique constraint
       const isDuplicate =
         error instanceof Error &&
         'code' in error &&
@@ -41,10 +38,7 @@ export class TenantWalletService {
     return this.ensureWallet(tenantId);
   }
 
-  /**
-   * Atomically debit the wallet balance. Returns the updated wallet.
-   * Throws if insufficient balance.
-   */
+  
   async debit(
     tenantId: string,
     amount: number,
@@ -55,7 +49,6 @@ export class TenantWalletService {
     const walletRepo = manager.getRepository(TenantWallet);
     const txRepo = manager.getRepository(TenantWalletTransaction);
 
-    // Atomic decrement with balance check
     const result = await walletRepo
       .createQueryBuilder()
       .update(TenantWallet)
@@ -71,7 +64,6 @@ export class TenantWalletService {
 
     const wallet = await walletRepo.findOneOrFail({ where: { tenantId } });
 
-    // Record the spend transaction
     const tx = txRepo.create({
       tenantWalletId: wallet.id,
       type: 'SPENT' as const,
@@ -84,9 +76,7 @@ export class TenantWalletService {
     return wallet;
   }
 
-  /**
-   * Credit the wallet balance (for deposits or refunds).
-   */
+  
   async credit(
     tenantId: string,
     amount: number,
@@ -122,9 +112,7 @@ export class TenantWalletService {
     return updated;
   }
 
-  /**
-   * List wallet transactions for a tenant (most recent first).
-   */
+  
   async listTransactions(tenantId: string, limit = 50): Promise<TenantWalletTransaction[]> {
     const wallet = await this.ensureWallet(tenantId);
     return this.dataSource.getRepository(TenantWalletTransaction).find({

@@ -27,7 +27,6 @@ export function eventStartAtUtc(
       return new Date(temporal.ZonedDateTime.from(`${date}T${time}:00[${timezone}]`).epochMilliseconds);
     }
   } catch {
-    // Fall through to UTC parsing when timezone is invalid or Temporal is unavailable.
   }
 
   return new Date(`${date}T${time}:00.000Z`);

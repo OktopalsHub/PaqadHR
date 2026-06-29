@@ -3,7 +3,7 @@ import { IsNotEmpty, IsOptional, IsString, IsUrl, Matches, MaxLength } from 'cla
 
 const PLAN_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-/** Client may only choose a plan slug — pricing and seat count are resolved server-side. */
+
 export class CreateSubscriptionCheckoutDto {
   @ApiProperty({ example: 'starter', description: 'Plan slug from the billing overview' })
   @IsString()

@@ -224,11 +224,8 @@ export class FileService {
     ];
     return !dangerousPatterns.some((pattern) => pattern.test(filename));
   }
-  /**
-   * Sanitize filename for safe storage
-   */
+  
   private sanitizeFilename(filename: string): string {
-    // Remove or replace dangerous characters
     return filename
       .replace(/[<>:"|?*]/g, '_')
       .replace(/\.\./g, '_')

@@ -12,7 +12,7 @@ import {
 import { CandidateSource } from 'src/common/enums';
 import { CandidateExperienceDto, CandidateLocationDto } from './create-candidate.dto';
 
-/** Manual add of an external applicant to a job posting. */
+
 export class CreatePipelineCandidateDto {
   @ApiProperty({ example: 'Jane' })
   @IsString()

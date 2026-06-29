@@ -34,7 +34,7 @@ export function fromMinorUnits(amountMinor: number, currency: string): number {
   return amountMinor / factor;
 }
 
-/** Nomba webhooks may report major or minor units depending on payload shape. */
+
 export function normalizeWebhookAmount(
   paidAmount: number,
   expectedAmount: number,

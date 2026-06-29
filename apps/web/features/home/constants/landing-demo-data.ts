@@ -1,6 +1,6 @@
 export type DemoNavId = 'dashboard' | 'recruitment' | 'payroll' | 'shoutouts' | 'leaves';
 
-/** @deprecated Use DemoNavId */
+
 export type DemoTab = DemoNavId;
 
 export const demoNavOrder: DemoNavId[] = [

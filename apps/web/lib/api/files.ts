@@ -60,7 +60,7 @@ export async function uploadFileToPresignedUrl(
   }
 }
 
-/** Request presigned URL, upload file, return stored file name for DB keys. */
+
 export async function uploadViaPresignedUrl(
   file: File,
   location: PresignedUploadLocation,

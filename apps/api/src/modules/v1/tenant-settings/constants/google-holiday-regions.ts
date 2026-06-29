@@ -1,7 +1,4 @@
-/**
- * Maps ISO 3166-1 alpha-2 codes to Google public holiday calendar region ids.
- * @see https://dev.to/monfernape/get-country-holidays-using-google-calendar-api-3dh6
- */
+
 const GOOGLE_HOLIDAY_REGION_OVERRIDES: Record<string, string> = {
   US: 'en.usa',
   GB: 'en.uk',

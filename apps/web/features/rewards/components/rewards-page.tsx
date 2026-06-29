@@ -724,10 +724,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsList>
 
-        {/* Digital Cards Tab */}
+        {}
         {giftCards.length > 0 && (
           <TabsContent value="digital-cards" className="space-y-4">
-            {/* Category Filter Pills */}
+            {}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(
                 [
@@ -747,7 +747,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                   return getReloadlyCategory(item) === cat;
                 }).length;
 
-                // Hide category pill if it has 0 items
                 if (count === 0 && cat !== "All") return null;
 
                 return (
@@ -801,7 +800,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           </TabsContent>
         )}
 
-        {/* Airtime Tab */}
+        {}
         <TabsContent value="airtime" className="space-y-6">
           <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -817,7 +816,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 </div>
               </div>
 
-              {/* Mode Toggle */}
+              {}
               <div className="flex rounded-lg bg-muted p-1 border border-border/40 shrink-0">
                 <button
                   type="button"
@@ -855,9 +854,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left Column: Input and Setup (7 cols) */}
+              {}
               <div className="lg:col-span-7 space-y-6">
-                {/* Network Provider Selector */}
+                {}
                 <div className="space-y-3">
                   <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Select Network Provider
@@ -892,7 +891,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                             color,
                           )}
                         >
-                          {/* Custom Brand Logo */}
+                          {}
                           {key === "MTN" && (
                             <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#FFCC00] text-[11px] font-black text-black select-none tracking-tighter">
                               <span className="border border-black rounded-full px-2 py-0.5 text-[9px] font-extrabold bg-[#FFCC00]">
@@ -987,7 +986,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 )}
               </div>
 
-              {/* Right Column: Bundles & Preview/Purchase Card (5 cols) */}
+              {}
               <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl bg-muted/30 border border-border/40 p-5 space-y-6">
                 <div className="space-y-5">
                   {topupMode === "data" && (
@@ -1020,7 +1019,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     </div>
                   )}
 
-                  {/* Points Conversion Preview Card */}
+                  {}
                   {Number(airtimeAmount) >= 100 && (
                     <div className="rounded-xl border border-border/40 bg-card p-4 space-y-3 text-sm shadow-inner">
                       <div className="flex justify-between text-xs text-muted-foreground font-medium">
@@ -1081,7 +1080,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           </div>
         </TabsContent>
 
-        {/* Custom Perks Tab */}
+        {}
         <TabsContent value="perks" className="space-y-4">
           {isAdmin && !isAddingPerk && (
             <div className="flex justify-end">
@@ -1237,7 +1236,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsContent>
 
-        {/* Claims History Tab */}
+        {}
         <TabsContent value="history" className="space-y-3">
           {claimsLoading ? (
             <LoadingBlock />
@@ -1256,7 +1255,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsContent>
 
-        {/* Employee Claims (Admin Only) */}
+        {}
         {isAdmin && (
           <TabsContent value="all-claims" className="space-y-4">
             {allClaimsLoading ? (
@@ -1339,14 +1338,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 </span>
                               </p>
 
-                              {/* Recipient Details */}
+                              {}
                               {(claim.recipientPhone || claim.recipientEmail) && (
                                 <p className="text-[11px] text-muted-foreground mt-1 bg-muted/40 px-2 py-0.5 rounded-md inline-block">
                                   {claim.recipientPhone ? `📞 ${claim.recipientPhone}` : `✉️ ${claim.recipientEmail}`}
                                 </p>
                               )}
 
-                              {/* Voucher Codes / Instructions */}
+                              {}
                               {(claim.voucherCode || claim.voucherInstructions) && (
                                 <div className="mt-2 text-xs space-y-1 bg-muted/50 p-2.5 rounded-lg border border-border/40">
                                   {claim.voucherCode && (

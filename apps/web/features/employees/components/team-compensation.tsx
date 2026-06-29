@@ -68,7 +68,6 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
 
   const [search, setSearch] = useState('');
 
-  // Salary dialog state
   const [salaryMember, setSalaryMember] = useState<Employee | null>(null);
   const [effectiveDate, setEffectiveDate] = useState('');
   const [payRate, setPayRate] = useState('');
@@ -216,7 +215,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
         </CardContent>
       </Card>
 
-      {/* Add salary dialog */}
+      {}
       {salaryMember ? (
         <SalaryDialog
           memberId={salaryMember.id}
@@ -241,9 +240,9 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Salary Dialog                                                      */
-/* ------------------------------------------------------------------ */
+
+
+
 
 interface SalaryDialogProps {
   memberId: string;

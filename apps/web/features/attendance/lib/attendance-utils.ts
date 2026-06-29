@@ -17,7 +17,7 @@ export function formatTimeOnly(value?: string | null) {
   return format(date, 'h:mm a');
 }
 
-/** Live-friendly duration label from milliseconds (e.g. "2h 14m", "45m 12s"). */
+
 export function formatElapsedMs(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);

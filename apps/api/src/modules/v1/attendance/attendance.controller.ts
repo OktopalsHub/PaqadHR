@@ -196,7 +196,6 @@ export class AttendanceController {
       await this.assertCanViewEmployee(member!, tenantId, employeeId);
       filters.tenantMemberId = employeeId;
     } else if (isTenantAdmin(member!)) {
-      // admin sees all
     } else {
       const directReports = await this.managerAccessService.getDirectReportIds(
         tenantId,

@@ -13,7 +13,7 @@ export interface CreatePaymentData {
   bankName?: string;
   merchantTxRef?: string;
   senderName?: string;
-  /** Nomba global payout rail, e.g. BANK, ACH, SEPA, FASTER_PAYMENTS, MobileMoney */
+  
   paymentRail?: string;
   institutionCode?: string;
   institutionName?: string;

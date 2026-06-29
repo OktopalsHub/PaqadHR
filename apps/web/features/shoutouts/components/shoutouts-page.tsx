@@ -140,7 +140,6 @@ function ShoutoutsPageContent() {
     );
   }
 
-  // Calculate allowance percentage
   const totalAllowance = pointsBalance?.monthlyAllowance ?? 100;
   const remainingAllowance = pointsBalance?.remainingAllowance ?? 100;
   const allowancePercent = Math.min(100, Math.max(0, (remainingAllowance / totalAllowance) * 100));
@@ -172,7 +171,7 @@ function ShoutoutsPageContent() {
 
         <TabsContent value="feed" className="mt-5 space-y-12">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Side: Composer and Shoutout Feed */}
+            {}
             <div className="lg:col-span-8 space-y-6">
               <ShoutoutComposer
                 variant="feed"
@@ -217,9 +216,9 @@ function ShoutoutsPageContent() {
               </div>
             </div>
 
-            {/* Right Side: Allowance details and Company Core Values */}
+            {}
             <div className="lg:col-span-4 space-y-6">
-              {/* Points Allowance Card */}
+              {}
               {pointsBalance && (
                 <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
                   <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
@@ -271,7 +270,7 @@ function ShoutoutsPageContent() {
                 </div>
               )}
 
-              {/* Company Core Values Card */}
+              {}
               <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
                 <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
                   <Award className="size-4 text-indigo-500" />
@@ -332,7 +331,7 @@ function ShoutoutsPageContent() {
             </div>
           </div>
 
-          {/* Integrated Rewards Section */}
+          {}
           <div id="rewards-section" className="border-t border-border/60 pt-8 space-y-4">
             <div className="space-y-1">
               <h2 className="text-xl font-bold tracking-tight">Redeem Rewards</h2>

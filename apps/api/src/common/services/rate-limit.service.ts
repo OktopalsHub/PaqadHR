@@ -9,7 +9,7 @@ interface RateLimitEntry {
 
 @Injectable()
 export class RateLimitService {
-  /** Process-memory store. Swap for Redis when running multiple API instances. */
+  
   private readonly store = new Map<string, RateLimitEntry>();
 
   async checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {

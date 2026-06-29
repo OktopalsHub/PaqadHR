@@ -1,11 +1,4 @@
-/**
- * Validates Nomba credentials and connectivity before enabling billing/payroll in an environment.
- *
- * Usage:
- *   pnpm --filter api nomba:check
- *
- * Loads env from apps/api/.env when present (via dotenv if installed) or process.env.
- */
+
 
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';

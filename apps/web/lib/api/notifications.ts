@@ -108,7 +108,6 @@ export async function subscribeToNotificationStream(
           onEvent();
         }
       } catch {
-        // Ignore malformed SSE payloads.
       }
     }
   }

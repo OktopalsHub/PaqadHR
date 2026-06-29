@@ -2,7 +2,7 @@ import geoip from 'fast-geoip';
 
 const DEFAULT_COUNTRY = 'GLOBAL';
 
-/** Minimal billing defaults — plan_prices carry regional_config; this is tenant bootstrap only. */
+
 const COUNTRY_DEFAULTS: Record<string, { currency: string; timezone: string }> = {
   NG: { currency: 'NGN', timezone: 'Africa/Lagos' },
   GLOBAL: { currency: 'USD', timezone: 'UTC' },
@@ -20,7 +20,7 @@ export class GeoLocationHelper {
     );
   }
 
-  /** @deprecated use isPrivateIp */
+  
   static isLocalhost(ip: string): boolean {
     return GeoLocationHelper.isPrivateIp(ip);
   }
@@ -141,14 +141,14 @@ export class GeoLocationHelper {
     return COUNTRY_DEFAULTS[code] ?? COUNTRY_DEFAULTS.GLOBAL;
   }
 
-  /** ISO alpha-2 for DB columns; null when region is GLOBAL or unknown. */
+  
   static toStoredCountryCode(code: string | null | undefined): string | null {
     if (!code) return null;
     const upper = code.toUpperCase();
     return /^[A-Z]{2}$/.test(upper) ? upper : null;
   }
 
-  /** Pricing/plan lookup key — falls back to GLOBAL for non ISO codes. */
+  
   static toPricingRegion(code: string | null | undefined): string {
     const stored = GeoLocationHelper.toStoredCountryCode(code);
     return stored ?? DEFAULT_COUNTRY;

@@ -455,7 +455,7 @@ export function PositionsManager({
         </CardContent>
       </Card>
 
-      {/* Edit dialog */}
+      {}
       <Dialog
         open={editingPosition !== null}
         onOpenChange={(open) => {

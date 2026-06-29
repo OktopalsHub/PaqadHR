@@ -65,17 +65,14 @@ export default function PublicCareersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Search & filter states
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
   const [selectedType, setSelectedType] = useState('ALL');
   const [selectedLoc, setSelectedLoc] = useState('ALL');
 
-  // Selected job for detail view
   const [selectedJob, setSelectedJob] = useState<JobOpening | null>(null);
   const [showApplyForm, setShowApplyForm] = useState(false);
 
-  // Form states
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -85,20 +82,16 @@ export default function PublicCareersPage() {
   const [githubUrl, setGithubUrl] = useState('');
   const [coverLetterText, setCoverLetterText] = useState('');
 
-  // File upload states
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeUploadProgress, setResumeUploadProgress] = useState(false);
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [coverLetterUploadProgress, setCoverLetterUploadProgress] = useState(false);
 
-  // Custom questions answers
-  // Keyed by question ID or custom question identifier (like questionText)
   const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Fetch tenant info and active job openings
   useEffect(() => {
     if (!params.tenantSlug) return;
 
@@ -126,7 +119,6 @@ export default function PublicCareersPage() {
     loadData();
   }, [params.tenantSlug]);
 
-  // Unique lists for filtering
   const departments = useMemo(() => {
     const depts = new Set<string>();
     for (const job of jobs) {
@@ -147,7 +139,6 @@ export default function PublicCareersPage() {
     return Array.from(locs);
   }, [jobs]);
 
-  // Filtered job openings
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
       const matchesSearch =
@@ -174,7 +165,6 @@ export default function PublicCareersPage() {
     });
   }, [jobs, search, selectedDept, selectedType, selectedLoc]);
 
-  // Handle Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedJob) return;
@@ -187,7 +177,6 @@ export default function PublicCareersPage() {
     try {
       setIsSubmitting(true);
 
-      // 1. Upload Resume
       setResumeUploadProgress(true);
       const resumeUploadResult = await uploadPublicCandidateFile(
         selectedJob.id,
@@ -196,7 +185,6 @@ export default function PublicCareersPage() {
       );
       setResumeUploadProgress(false);
 
-      // 2. Upload Cover Letter if selected
       let coverLetterFilename: string | undefined;
       if (coverLetterFile) {
         setCoverLetterUploadProgress(true);
@@ -209,7 +197,6 @@ export default function PublicCareersPage() {
         setCoverLetterUploadProgress(false);
       }
 
-      // 3. Submit application
       const payload = {
         firstName,
         lastName,
@@ -242,7 +229,6 @@ export default function PublicCareersPage() {
     }
   };
 
-  // Render dynamic custom questions
   const renderCustomQuestion = (question: CustomQuestion) => {
     const questionId = question.id || question.questionText;
     const isRequired = question.isRequired;
@@ -442,12 +428,11 @@ export default function PublicCareersPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/10">
-      {/* Public Header */}
+      {}
       <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-3">
             {tenant.logoUrl ? (
-              // biome-ignore lint/performance/noImgElement: R2 bucket images are dynamic and non-static
               <img
                 src={tenant.logoUrl}
                 alt={tenant.name}
@@ -472,7 +457,7 @@ export default function PublicCareersPage() {
         </div>
       </header>
 
-      {/* Hero Section */}
+      {}
       <section className="relative overflow-hidden py-20 lg:py-24 border-b bg-gradient-to-b from-primary/[0.02] to-transparent">
         <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
           <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-foreground">
@@ -511,9 +496,9 @@ export default function PublicCareersPage() {
         </div>
       </section>
 
-      {/* Main Content: Search & Jobs List */}
+      {}
       <main className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-        {/* Filters */}
+        {}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b pb-8 mb-10">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -527,7 +512,7 @@ export default function PublicCareersPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {/* Department Filter */}
+            {}
             <select
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
@@ -541,7 +526,7 @@ export default function PublicCareersPage() {
               ))}
             </select>
 
-            {/* Location Filter */}
+            {}
             <select
               value={selectedLoc}
               onChange={(e) => setSelectedLoc(e.target.value)}
@@ -558,7 +543,7 @@ export default function PublicCareersPage() {
                 ))}
             </select>
 
-            {/* Job Type Filter */}
+            {}
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
@@ -573,7 +558,7 @@ export default function PublicCareersPage() {
           </div>
         </div>
 
-        {/* Job Listings */}
+        {}
         {filteredJobs.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed rounded-2xl bg-muted/10">
             <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -646,7 +631,7 @@ export default function PublicCareersPage() {
         )}
       </main>
 
-      {/* Footer */}
+      {}
       <footer className="border-t bg-muted/20 mt-32 py-12">
         <div className="mx-auto max-w-7xl px-4 text-center text-sm text-muted-foreground sm:px-6 lg:px-8">
           <p>
@@ -655,7 +640,7 @@ export default function PublicCareersPage() {
         </div>
       </footer>
 
-      {/* Job Details Modal/Sheet */}
+      {}
       <Sheet
         open={selectedJob !== null}
         onOpenChange={(open) => {
@@ -695,7 +680,7 @@ export default function PublicCareersPage() {
                     </div>
                   </SheetHeader>
 
-                  {/* Job Description */}
+                  {}
                   <div className="space-y-4 py-4 border-b">
                     <h3 className="font-semibold text-lg text-foreground">About the role</h3>
                     <div className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
@@ -703,7 +688,7 @@ export default function PublicCareersPage() {
                     </div>
                   </div>
 
-                  {/* Requirements */}
+                  {}
                   {selectedJob.requirements && selectedJob.requirements.length > 0 && (
                     <div className="space-y-3 py-4 border-b">
                       <h3 className="font-semibold text-lg text-foreground">Requirements</h3>
@@ -715,7 +700,7 @@ export default function PublicCareersPage() {
                     </div>
                   )}
 
-                  {/* Responsibilities */}
+                  {}
                   {selectedJob.responsibilities && selectedJob.responsibilities.length > 0 && (
                     <div className="space-y-3 py-4 border-b">
                       <h3 className="font-semibold text-lg text-foreground">Responsibilities</h3>
@@ -739,7 +724,7 @@ export default function PublicCareersPage() {
                 </>
               ) : (
                 <>
-                  {/* Back to details button */}
+                  {}
                   <button
                     type="button"
                     onClick={() => {
@@ -786,7 +771,7 @@ export default function PublicCareersPage() {
                     </div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-6 py-4">
-                      {/* Name Fields */}
+                      {}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="firstName" className="text-sm font-medium">
@@ -816,7 +801,7 @@ export default function PublicCareersPage() {
                         </div>
                       </div>
 
-                      {/* Contact Fields */}
+                      {}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="email" className="text-sm font-medium">
@@ -846,7 +831,7 @@ export default function PublicCareersPage() {
                         </div>
                       </div>
 
-                      {/* Professional Profile links */}
+                      {}
                       <div className="space-y-2 border-t pt-4">
                         <h3 className="font-semibold text-sm text-foreground">
                           Professional Profiles
@@ -894,7 +879,7 @@ export default function PublicCareersPage() {
                         </div>
                       </div>
 
-                      {/* Resume File Upload */}
+                      {}
                       <div className="space-y-2 border-t pt-4">
                         <Label className="text-sm font-medium">
                           Resume / CV <span className="text-red-500">*</span>
@@ -937,7 +922,7 @@ export default function PublicCareersPage() {
                         </div>
                       </div>
 
-                      {/* Cover Letter Plaintext/File Upload */}
+                      {}
                       <div className="space-y-2 border-t pt-4">
                         <Label className="text-sm font-medium">Cover Letter</Label>
                         <div className="space-y-3">
@@ -981,7 +966,7 @@ export default function PublicCareersPage() {
                         </div>
                       </div>
 
-                      {/* Custom Questions Section */}
+                      {}
                       {selectedJob.customQuestions && selectedJob.customQuestions.length > 0 && (
                         <div className="space-y-5 border-t pt-4">
                           <h3 className="font-semibold text-sm text-foreground">
@@ -995,7 +980,7 @@ export default function PublicCareersPage() {
                         </div>
                       )}
 
-                      {/* Submit Button */}
+                      {}
                       <div className="pt-6 border-t flex flex-col gap-2">
                         <Button
                           type="submit"

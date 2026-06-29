@@ -34,10 +34,7 @@ export class NombaBillApiService {
     return isNombaConfigured();
   }
 
-  /**
-   * Purchase airtime / mobile top-up via Nomba.
-   * Uses the same auth token infrastructure as the transfer service.
-   */
+  
   async purchaseAirtime(input: NombaAirtimeInput): Promise<{
     success: boolean;
     transactionId: string | null;
@@ -47,8 +44,6 @@ export class NombaBillApiService {
       throw new BadRequestException('Nomba airtime vending is not configured');
     }
 
-    // We need a fresh token — reuse the NombaTransferApiService's internal auth
-    // by calling through a thin fetch wrapper using the same credential helpers.
     const token = await this.getToken();
 
     const response = await fetch(`${getNombaBaseUrl()}/v1/bill/topup`, {
@@ -77,7 +72,6 @@ export class NombaBillApiService {
           message = errorPayload.message || errorPayload.description || message;
         }
       } catch {
-        // Non-JSON error body
       }
       this.logger.error(`Nomba airtime topup failed: ${message}`);
       throw new BadRequestException(`Nomba airtime error: ${message}`);
@@ -97,14 +91,8 @@ export class NombaBillApiService {
     };
   }
 
-  /**
-   * Get an access token from the same Nomba auth infrastructure.
-   * We invoke the token endpoint directly using the same credentials.
-   */
+  
   private async getToken(): Promise<string> {
-    // Delegate to the existing NombaTransferApiService for token management.
-    // We access it through its public interface. Since getAccessToken is private,
-    // we make a lightweight token request ourselves.
     const { getNombaClientId, getNombaClientSecret } = await import('../config/nomba.config');
 
     const response = await fetch(`${getNombaBaseUrl()}/v1/auth/token/issue`, {

@@ -11,7 +11,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
-/** Redirect to workspace setup when the user has no tenant yet. */
+
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();

@@ -29,15 +29,7 @@ export const LandingHero = () => {
         animate="show"
         variants={stagger}
       >
-        {/* <motion.div variants={fadeUp} className="flex justify-center">
-          <Link
-            href="#product"
-            className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-primary/15"
-          >
-            Payroll · Recruitment kanban · Slack shoutouts
-            <ChevronRight className="size-3.5" />
-          </Link>
-        </motion.div> */}
+        {}
 
         <motion.h1
           variants={fadeUp}

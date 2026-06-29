@@ -88,7 +88,6 @@ export function SettingsRewardsTab() {
   const [newPointsCost, setNewPointsCost] = useState("100");
   const [newInstructions, setNewInstructions] = useState("");
 
-  // Sync state when settings load
   useEffect(() => {
     if (rewards) {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 10));
@@ -145,7 +144,6 @@ export function SettingsRewardsTab() {
   };
 
   const handleAddCountry = (code: string) => {
-    // Reset Select trigger display
     setSelectValue("");
 
     if (code === "CUSTOM") {
@@ -169,7 +167,7 @@ export function SettingsRewardsTab() {
 
   return (
     <div className="space-y-5">
-      {/* Wallet Status */}
+      {}
       <ContentCard
         title="Rewards Wallet"
         description="Your tenant's internal wallet for funding gift card and airtime redemptions"
@@ -208,7 +206,7 @@ export function SettingsRewardsTab() {
         </div>
       </ContentCard>
 
-      {/* Rewards Configuration */}
+      {}
       <ContentCard
         title="Rewards Configuration"
         description="Control the rewards system, exchange rates, and catalog"
@@ -235,7 +233,7 @@ export function SettingsRewardsTab() {
               />
             </SettingsFieldHint>
 
-            {/* Multi-Country Dropdown Selector */}
+            {}
             <SettingsFieldHint
               label="Gift Card Countries"
               hint="Select allowed countries for Reloadly catalog products. You can query and enable multiple countries concurrently."
@@ -344,7 +342,7 @@ export function SettingsRewardsTab() {
         </div>
       </ContentCard>
 
-      {/* Custom Rewards Management */}
+      {}
       <ContentCard
         title="Custom Rewards"
         description="Create company-specific rewards employees can claim"

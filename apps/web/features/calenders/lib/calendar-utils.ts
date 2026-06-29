@@ -24,7 +24,7 @@ export const EVENT_BADGE_STYLES: Record<CalendarEventType, string> = {
   celebration: 'bg-pink-50 text-pink-900 hover:bg-pink-50',
 };
 
-/** Softer in-cell chips — muted fills + inset ring so day boxes stay easy to read */
+
 export const EVENT_CHIP_STYLES: Record<CalendarEventType, string> = {
   leave: 'bg-orange-950/5 text-orange-950/80 ring-1 ring-inset ring-orange-200/70 dark:bg-orange-950/30 dark:text-orange-100 dark:ring-orange-800/40',
   holiday: 'bg-sky-950/5 text-sky-950/80 ring-1 ring-inset ring-sky-200/70 dark:bg-sky-950/30 dark:text-sky-100 dark:ring-sky-800/40',

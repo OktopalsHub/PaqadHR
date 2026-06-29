@@ -85,7 +85,6 @@ export function NotificationBell() {
       try {
         await markRead.mutateAsync(notification.id);
       } catch {
-        // Tenant/system broadcasts may not be individually markable.
       }
     }
 

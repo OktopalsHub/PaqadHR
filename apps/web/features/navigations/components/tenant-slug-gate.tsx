@@ -12,7 +12,7 @@ import { tenantRoot } from '@/lib/navigation/tenant-routes';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
-/** Ensures the URL tenant slug matches the active workspace. */
+
 export function TenantSlugGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();

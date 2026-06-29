@@ -113,7 +113,6 @@ export async function logoutRequest(): Promise<void> {
   try {
     await apiClient('/auth/logout', { method: 'POST' });
   } catch {
-    // Cookie may already be cleared
   } finally {
     clearCsrfToken();
   }

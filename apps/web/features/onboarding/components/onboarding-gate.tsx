@@ -11,7 +11,7 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
-/** Skip setup when the user already has a workspace. */
+
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();

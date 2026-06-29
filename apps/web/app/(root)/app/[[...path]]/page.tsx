@@ -10,7 +10,7 @@ import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
-/** Redirect legacy `/app/*` URLs to `/{tenantSlug}/*`. */
+
 export default function LegacyAppRedirectPage() {
   const router = useRouter();
   const pathname = usePathname();

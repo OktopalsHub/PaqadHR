@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, MeshTransmissionMaterial } from '@react-three/drei';
 import * as THREE from 'three';
 
-/* ─────────── Node (glowing sphere) ─────────── */
+
 function Node({
   position,
   color,
@@ -40,7 +40,7 @@ function Node({
   );
 }
 
-/* ─────────── Connections (lines between nodes) ─────────── */
+
 function Connections({
   nodes,
   maxDist = 2.5,
@@ -82,7 +82,7 @@ function Connections({
   );
 }
 
-/* ─────────── Particle Field ─────────── */
+
 function Particles({ count = 400 }: { count?: number }) {
   const ref = useRef<THREE.Points>(null!);
 
@@ -123,7 +123,7 @@ function Particles({ count = 400 }: { count?: number }) {
   );
 }
 
-/* ─────────── Central Glass Orb ─────────── */
+
 function GlassOrb() {
   const ref = useRef<THREE.Mesh>(null!);
 
@@ -157,7 +157,7 @@ function GlassOrb() {
   );
 }
 
-/* ─────────── Inner Glow Core ─────────── */
+
 function InnerGlow() {
   const ref = useRef<THREE.Mesh>(null!);
 
@@ -176,7 +176,7 @@ function InnerGlow() {
   );
 }
 
-/* ─────────── Mouse-tracking Camera Rig ─────────── */
+
 function Rig() {
   const { camera } = useThree();
   const mouse = useRef({ x: 0, y: 0 });
@@ -193,14 +193,13 @@ function Rig() {
   });
 
   if (typeof window !== 'undefined') {
-    // biome-ignore lint: window event
     window.onpointermove = onPointerMove;
   }
 
   return null;
 }
 
-/* ─────────── Scene ─────────── */
+
 function Scene() {
   const nodePositions = useMemo<[number, number, number][]>(
     () => [
@@ -261,7 +260,7 @@ function Scene() {
   );
 }
 
-/* ─────────── Exported Canvas ─────────── */
+
 export function HeroScene() {
   return (
     <div

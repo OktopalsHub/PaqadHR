@@ -57,10 +57,8 @@ type ShoutoutComposerProps = {
   className?: string;
 };
 
-// Elegant list of default emojis
 const EMOJIS = ['🙌', '🚀', '⭐', '❤️', '👏', '🎉', '🔥', '💪', '💡', '🌟'];
 
-// Fun Giphy-style mock GIFs for team recognition
 const MOCK_GIFS = [
   { id: '1', url: 'https://media.giphy.com/media/l3q2XhfQ8oCkm1K76/giphy.gif', title: 'Clapping' },
   { id: '2', url: 'https://media.giphy.com/media/3oz8xAFtqo0qyTZRZS/giphy.gif', title: 'High Five' },
@@ -99,7 +97,6 @@ export function ShoutoutComposer({
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [gifOpen, setGifOpen] = useState(false);
 
-  // Attachment states (GIF/Image Mock)
   const [attachedGif, setAttachedGif] = useState<string | null>(null);
   const [attachedImage, setAttachedImage] = useState<string | null>(null);
 
@@ -123,7 +120,6 @@ export function ShoutoutComposer({
   };
 
   const handleImageMockUpload = () => {
-    // Generate a placeholder high-quality photo
     setAttachedImage('https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80');
     setAttachedGif(null); // Clear other media
     toast.success('Mock image attached!');
@@ -154,7 +150,7 @@ export function ShoutoutComposer({
       </div>
 
       <div className="mt-4 space-y-4">
-        {/* Main Textarea Area */}
+        {}
         <div className="relative rounded-xl border border-border/60 bg-muted/20 p-3 transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
           <textarea
             className="w-full min-h-[90px] bg-transparent text-sm resize-none outline-none placeholder:text-muted-foreground/80"
@@ -163,7 +159,7 @@ export function ShoutoutComposer({
             onChange={(e) => onMessageChange(e.target.value)}
           />
 
-          {/* Render attachments with delete button */}
+          {}
           <AnimatePresence>
             {(attachedGif || attachedImage) && (
               <motion.div
@@ -193,7 +189,7 @@ export function ShoutoutComposer({
           </AnimatePresence>
         </div>
 
-        {/* Selected Metadata Tags Banner */}
+        {}
         <div className="flex flex-wrap gap-1.5 min-h-[24px]">
           {selectedRecipients.map((recipient) => (
             <Badge key={recipient.id} variant="secondary" className="flex items-center gap-1 bg-sky-500/10 text-sky-600 hover:bg-sky-500/15 border-sky-100">
@@ -220,10 +216,10 @@ export function ShoutoutComposer({
           )}
         </div>
 
-        {/* Action Toolbar */}
+        {}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            {/* Recipient Selector */}
+            {}
             <Popover open={recipientOpen} onOpenChange={setRecipientOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9 hover:bg-muted/80" title="Select teammate(s)">
@@ -262,7 +258,7 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {/* Core Values Selector */}
+            {}
             {categories.length > 0 && (
               <Popover open={valueOpen} onOpenChange={setValueOpen}>
                 <PopoverTrigger asChild>
@@ -298,7 +294,7 @@ export function ShoutoutComposer({
               </Popover>
             )}
 
-            {/* Points Selector */}
+            {}
             <Popover open={pointsOpen} onOpenChange={setPointsOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 px-3 gap-1.5 hover:bg-muted/80 font-mono">
@@ -340,7 +336,7 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {/* Emoji Picker Popover */}
+            {}
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9 hover:bg-muted/80">
@@ -363,7 +359,7 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {/* GIF Picker Popover */}
+            {}
             <Popover open={gifOpen} onOpenChange={setGifOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9 hover:bg-muted/80">
@@ -390,7 +386,7 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {/* Media Upload (Mock) */}
+            {}
             <Button
               variant="outline"
               size="icon"

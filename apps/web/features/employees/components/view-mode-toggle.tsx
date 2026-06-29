@@ -1,6 +1,5 @@
 'use client';
 import { LayoutGrid, LayoutList } from 'lucide-react';
-//INFO: this should be tie to the subheader section. verification needed
 import { Button } from '@/components/ui/button';
 import type { ViewMode } from '../types/';
 

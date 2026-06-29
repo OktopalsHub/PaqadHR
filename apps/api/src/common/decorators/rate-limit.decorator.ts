@@ -5,7 +5,6 @@ export const RATE_LIMIT_KEY = 'rateLimit';
 
 export const RateLimit = (config: RateLimitConfig) => SetMetadata(RATE_LIMIT_KEY, config);
 
-// Nest-level @RateLimit metadata presets; production rate limits are enforced in express.config.ts.
 export const RateLimitPresets: Record<string, RateLimitConfig> = {
   SENSITIVE: {
     rules: [{ windowMs: 60000, maxRequests: 5 }],

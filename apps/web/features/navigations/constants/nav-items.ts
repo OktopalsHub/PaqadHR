@@ -41,7 +41,7 @@ export function getNavItems(slug: string): NavItem[] {
   }));
 }
 
-/** @deprecated Use getNavItems(slug) or useTenantNavItems() */
+
 export const navItems: NavItem[] = navItemDefs.map((item) => ({
   ...item,
   href: item.segment ? `/app/${item.segment}` : '/app',

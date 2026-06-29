@@ -149,7 +149,6 @@ export class NombaTransferApiService {
           message = errorPayload.message || errorPayload.description || message;
         }
       } catch {
-        // Non-JSON error body (e.g. proxy HTML)
       }
       this.logger.error(`Nomba ${path} failed: ${message}`);
       throw new BadRequestException(`Nomba payout error: ${message}`);

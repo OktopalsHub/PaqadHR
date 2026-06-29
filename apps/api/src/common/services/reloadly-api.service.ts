@@ -46,7 +46,7 @@ export interface ReloadlyOrderResponse {
   fee?: number;
   totalFee?: number;
   recipientFee?: number;
-  /** Reloadly returns redemption codes in the transaction details */
+  
   transactionCreatedTime?: string;
 }
 
@@ -137,7 +137,6 @@ export class ReloadlyApiService {
           message = errorPayload.message;
         }
       } catch {
-        // Non-JSON error body
       }
       this.logger.error(`Reloadly ${method} ${path} failed: ${message}`);
       throw new BadRequestException(`Reloadly error: ${message}`);
@@ -150,10 +149,7 @@ export class ReloadlyApiService {
     }
   }
 
-  /**
-   * List gift card products filtered by ISO country code.
-   * Reloadly supports filtering by a single country per request.
-   */
+  
   async listProducts(countryCode: string): Promise<ReloadlyProduct[]> {
     const response = await this.request<ReloadlyProduct[]>(
       'GET',
@@ -162,9 +158,7 @@ export class ReloadlyApiService {
     return response ?? [];
   }
 
-  /**
-   * List products for multiple countries by making parallel requests.
-   */
+  
   async listProductsByCountries(countryCodes: string[]): Promise<ReloadlyProduct[]> {
     if (countryCodes.length === 0) return [];
 
@@ -181,9 +175,7 @@ export class ReloadlyApiService {
     return products;
   }
 
-  /**
-   * List all countries supported by Reloadly.
-   */
+  
   async listCountries(): Promise<any[]> {
     if (!this.isConfigured()) return [];
     try {
@@ -195,10 +187,7 @@ export class ReloadlyApiService {
     }
   }
 
-  /**
-   * Order a gift card. Returns the order/transaction response.
-   * Use the redemptionId as the customIdentifier for idempotency.
-   */
+  
   async orderGiftCard(params: {
     productId: number;
     quantity: number;
@@ -217,9 +206,7 @@ export class ReloadlyApiService {
     });
   }
 
-  /**
-   * Get the redemption codes (card number + pin) for a completed transaction.
-   */
+  
   async getRedemptionCodes(transactionId: number): Promise<ReloadlyRedemptionCode[]> {
     return this.request<ReloadlyRedemptionCode[]>(
       'GET',

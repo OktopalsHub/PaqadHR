@@ -92,7 +92,6 @@ export function ShoutoutTasksTab() {
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
 
-  // React Query Fetchers
   const { data: tasks = [], isLoading: tasksLoading } = useQuery<Task[]>({
     queryKey: ['shoutout-tasks', tenantId],
     queryFn: () => apiClient<Task[]>(tenantPath(tenantId ?? '', 'rewards/tasks')),
@@ -115,7 +114,6 @@ export function ShoutoutTasksTab() {
   const [newSubmissionType, setNewSubmissionType] = useState<'instant' | 'text' | 'file'>('instant');
   const [newImageUrl, setNewImageUrl] = useState('');
 
-  // Dialog States for Member Submissions
   const [submittingTask, setSubmittingTask] = useState<Task | null>(null);
   const [submissionText, setSubmissionText] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
@@ -160,7 +158,6 @@ export function ShoutoutTasksTab() {
       setIsUploadingFile(true);
       setUploadProgress(10);
       
-      // Simulate file upload progress
       const interval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 100) {
@@ -211,7 +208,6 @@ export function ShoutoutTasksTab() {
     }
   };
 
-  // Admin Actions
   const handleApproveSubmission = async (taskId: string, submissionId: string, title: string, reward: number) => {
     try {
       const res = await apiClient<{ success: boolean }>(
@@ -315,7 +311,7 @@ export function ShoutoutTasksTab() {
 
   return (
     <div className="space-y-8">
-      {/* Premium Dashboard Header */}
+      {}
       <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 p-6 md:p-8 shadow-sm">
         <div className="absolute top-0 right-0 -mt-6 -mr-6 size-48 rounded-full bg-indigo-500/5 blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-6 -ml-6 size-48 rounded-full bg-purple-500/5 blur-3xl" />
@@ -360,7 +356,7 @@ export function ShoutoutTasksTab() {
         )}
       </div>
 
-      {/* Admin Control Bar */}
+      {}
       {isAdmin && (
         <div className="flex items-center justify-between border-b pb-4">
           <div>
@@ -376,7 +372,7 @@ export function ShoutoutTasksTab() {
         </div>
       )}
 
-      {/* Admin Add Task Form */}
+      {}
       {isAdmin && isAdding && (
         <Card className="border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/5 shadow-sm">
           <CardContent className="p-6 space-y-5">
@@ -488,7 +484,7 @@ export function ShoutoutTasksTab() {
         </Card>
       )}
 
-      {/* Admin Review Center */}
+      {}
       {isAdmin && pendingSubmissions.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 font-bold text-sm">
@@ -526,7 +522,7 @@ export function ShoutoutTasksTab() {
                     </div>
                   </div>
 
-                  {/* Submission Details */}
+                  {}
                   <div className="rounded-lg bg-muted/50 p-3 text-xs border border-border/40 space-y-2">
                     <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider">Submitted Proof:</p>
                     {sub.submissionType === 'text' && (
@@ -540,7 +536,7 @@ export function ShoutoutTasksTab() {
                     )}
                   </div>
 
-                  {/* Approval Actions */}
+                  {}
                   <div className="flex justify-end gap-2">
                     <Button
                       size="sm"
@@ -566,10 +562,10 @@ export function ShoutoutTasksTab() {
         </div>
       )}
 
-      {/* Main Grid: Split columns */}
+      {}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
-        {/* Left Side: Active Tasks (8 cols) */}
+        {}
         <div className="xl:col-span-8 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -597,7 +593,7 @@ export function ShoutoutTasksTab() {
                   >
                     <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       
-                      {/* Image / Icon and Text */}
+                      {}
                       <div className="flex items-start gap-4 flex-1">
                         {task.imageUrl ? (
                           <img
@@ -644,7 +640,7 @@ export function ShoutoutTasksTab() {
                         </div>
                       </div>
 
-                      {/* Right actions */}
+                      {}
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         {isAdmin && (
                           <Button
@@ -680,10 +676,10 @@ export function ShoutoutTasksTab() {
           )}
         </div>
 
-        {/* Right Side: Completed & Pending lists (4 cols) */}
+        {}
         <div className="xl:col-span-4 space-y-6">
           
-          {/* Under Review list (For normal users) */}
+          {}
           {!isAdmin && userPendingTasks.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
@@ -703,7 +699,7 @@ export function ShoutoutTasksTab() {
             </div>
           )}
 
-          {/* Completed History Board */}
+          {}
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
               <CheckCircle2 className="size-4 text-green-500" />
@@ -743,7 +739,7 @@ export function ShoutoutTasksTab() {
 
       </div>
 
-      {/* dialog for task submission verification */}
+      {}
       <Dialog open={!!submittingTask} onOpenChange={(open) => !open && setSubmittingTask(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

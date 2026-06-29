@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-//TODO: create a reusable DataTable to be use accross the app;
 import {
   Table,
   TableBody,
