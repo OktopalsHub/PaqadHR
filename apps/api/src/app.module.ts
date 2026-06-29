@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
-import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -55,7 +54,6 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
 
 @Module({
   imports: [
-    SentryModule.forRoot(),
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
@@ -104,10 +102,6 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
   controllers: [AppController],
   providers: [
     AppService,
-    {
-      provide: APP_FILTER,
-      useClass: SentryGlobalFilter,
-    },
     {
       provide: APP_FILTER,
       useFactory: (auditLogsService: AuditLogsService) =>

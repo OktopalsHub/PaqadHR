@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ContentCard } from "@/features/settings/components/content-card";
+import { ContentCard } from "@/components/content-card";
 import { LoadingBlock } from "@/components/loading-block";
 import { Wallet, X, Trash2 } from "lucide-react";
 import {

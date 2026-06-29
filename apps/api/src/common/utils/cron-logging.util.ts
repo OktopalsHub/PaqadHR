@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/nestjs';
 import type { Logger } from '@nestjs/common';
 
 export async function runCronJob(
@@ -18,7 +17,6 @@ export async function runCronJob(
     const durationMs = Date.now() - startedAt;
     const message = error instanceof Error ? error.message : String(error);
     logger.error(`[cron:error] ${jobName} durationMs=${durationMs} ${message}`);
-    Sentry.captureException(error, { tags: { cron: jobName } });
     throw error;
   }
 }

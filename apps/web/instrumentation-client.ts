@@ -1,1 +1,0 @@
-import './sentry.client.config';

@@ -270,7 +270,7 @@ export class TenantOnboardingService {
     if (RESERVED_TENANT_SLUGS.has(slug)) {
       return true;
     }
-    const excluded = (process.env.TENANT_EXCLUDED_SUBDOMAINS ?? '')
+    const excluded = (process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '')
       .split(',')
       .map((item) => item.trim().toLowerCase())
       .filter(Boolean);
