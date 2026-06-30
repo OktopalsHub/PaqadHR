@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { AttendanceExceptionStatus, type AttendanceStatus } from 'src/common/enums';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import { Between, type FindOptionsWhere, In } from 'typeorm';
+import { Between, type FindOptionsWhere, In, LessThan } from 'typeorm';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
 import { LeaveService } from '../leave/leave.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -100,6 +100,19 @@ export class AttendanceService {
         `Cannot clock in while on leave${leaveStatus.leaveType ? `: ${leaveStatus.leaveType}` : ''}.`,
       );
     }
+    const forgottenSession = await this.attendanceRepository.findOne({
+      where: {
+        tenantId,
+        tenantMemberId,
+        sessionStatus: 'ACTIVE',
+        date: LessThan(today),
+      },
+    });
+    if (forgottenSession) {
+      throw new ConflictException(
+        'You have an unclosed attendance session from a previous day. Please close it first.',
+      );
+    }
     const activeSession = await this.attendanceRepository.findOne({
       where: {
         tenantId,
@@ -171,7 +184,10 @@ export class AttendanceService {
     if (!attendance.clockIn) {
       throw new ConflictException('Cannot clock out without clock in time.');
     }
-    const clockOutTime = new Date();
+    const clockOutTime = dto.clockOut ? new Date(dto.clockOut) : new Date();
+    if (Number.isNaN(clockOutTime.getTime())) {
+      throw new BadRequestException('Invalid clock out time');
+    }
     let clockInTime: Date;
     try {
       clockInTime = new Date(attendance.clockIn);
@@ -182,6 +198,9 @@ export class AttendanceService {
       throw new ConflictException('Invalid clock in time format.');
     }
     const workTimeMs = clockOutTime.getTime() - clockInTime.getTime();
+    if (workTimeMs < 0) {
+      throw new BadRequestException('Clock out time cannot be before clock in time.');
+    }
     const workHours = this.formatTimeToHHMMSS(workTimeMs);
     await this.attendanceRepository.update(attendanceId, {
       clockOut: clockOutTime,
@@ -871,6 +890,15 @@ export class AttendanceService {
       this.isWeekend(tenantId, targetDate),
       this.isOnLeave(tenantId, tenantMemberId, targetDate),
     ]);
+    const forgottenSession = await this.attendanceRepository.findOne({
+      where: {
+        tenantId,
+        tenantMemberId,
+        sessionStatus: 'ACTIVE',
+        date: LessThan(targetDate),
+      },
+      order: { date: 'DESC', sessionNumber: 'DESC' },
+    });
     const existingAttendance = await this.attendanceRepository.find({
       where: {
         tenantId,
@@ -896,6 +924,9 @@ export class AttendanceService {
       status = 'ON_LEAVE';
       canClockIn = false;
       reason = `On Leave: ${leaveResult.leaveType || 'Leave'}`;
+    } else if (forgottenSession) {
+      canClockIn = false;
+      reason = 'You have an unclosed session from a previous day.';
     } else if (activeSession) {
       canClockIn = false;
       reason = 'Already clocked in';
@@ -919,6 +950,14 @@ export class AttendanceService {
             id: activeSession.id,
             clockIn: activeSession.clockIn,
             sessionNumber: activeSession.sessionNumber,
+          }
+        : null,
+      forgottenSession: forgottenSession
+        ? {
+            id: forgottenSession.id,
+            date: forgottenSession.date,
+            clockIn: forgottenSession.clockIn,
+            sessionNumber: forgottenSession.sessionNumber,
           }
         : null,
       existingAttendance: existingAttendance.map((a) => ({

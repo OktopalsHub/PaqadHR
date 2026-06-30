@@ -1,4 +1,5 @@
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { ForgottenSessionModal } from '@/features/attendance/components/forgotten-session-modal';
 import { AppGate } from '@/features/navigations/components/app-gate';
 import { AppSidebar } from '@/features/navigations/components/app-sidebar';
 import { AppTopBar } from '@/features/navigations/components/app-topbar';
@@ -20,6 +21,7 @@ export default function TenantLayout({
               <AppTopBar />
               <main className="flex-1 overflow-y-auto px-4 py-4 md:px-5 md:py-5">{children}</main>
             </SidebarInset>
+            <ForgottenSessionModal />
           </BreadcrumbProvider>
         </SidebarProvider>
       </TenantSlugGate>

@@ -17,6 +17,12 @@ export type ClockInInfo = {
     clockIn: string;
     sessionNumber: number;
   } | null;
+  forgottenSession?: {
+    id: string;
+    date: string;
+    clockIn: string;
+    sessionNumber: number;
+  } | null;
   existingAttendance: Array<{
     id: string;
     clockIn: string | null;
@@ -59,7 +65,7 @@ export async function clockIn(input?: {
 
 export async function clockOut(
   attendanceId: string,
-  input?: { location?: string; notes?: string },
+  input?: { location?: string; notes?: string; clockOut?: string },
 ): Promise<AttendanceRecord> {
   const tenantId = await resolveTenantId();
   return apiClient<AttendanceRecord>(tenantPath(tenantId, `attendance/clock-out/${attendanceId}`), {

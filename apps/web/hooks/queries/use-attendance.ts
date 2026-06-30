@@ -121,6 +121,7 @@ export function useClockOut() {
       attendanceId: string;
       location?: string;
       notes?: string;
+      clockOut?: string;
     }) => clockOut(attendanceId, input),
     onSuccess: () => {
       queryClient.setQueryData<ClockInInfo>(clockInQueryKey, (current) => {
