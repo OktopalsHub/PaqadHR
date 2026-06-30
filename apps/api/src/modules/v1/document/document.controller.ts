@@ -33,7 +33,7 @@ import { DocumentMapper } from './dto/document-response.dto';
 import type { UpdateDocumentDto } from './dto/update-document.dto';
 import { Document } from './entities/document.entity';
 
-@ApiTags('documents')
+@ApiTags('Documents')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/documents')
 export class DocumentController {

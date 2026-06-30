@@ -25,7 +25,7 @@ import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.d
 import { EmergencyContactService } from './emergency-contact.service';
 import type { EmergencyContact } from './entities/emergency-contact.entity';
 
-@ApiTags('emergency-contacts')
+@ApiTags('Emergency Contacts')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/emergency-contacts')
 export class EmergencyContactController {

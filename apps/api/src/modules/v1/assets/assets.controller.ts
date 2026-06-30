@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
@@ -19,6 +20,7 @@ import type { QueryAssetsDto } from './dto/query-assets.dto';
 import type { ReturnAssetDto } from './dto/return-asset.dto';
 import type { UpdateAssetDto } from './dto/update-asset.dto';
 
+@ApiTags('Assets')
 @Controller('tenants/:tenantId/assets')
 @UseGuards(TenantMemberGuard)
 export class AssetController {

@@ -2,8 +2,11 @@
 node_modules
 .pnp
 .pnp.js
-!README.md
+
 *.md
+!README.md
+!apps/api/README.md
+!apps/web/README.md
 
 # turbo
 .turbo

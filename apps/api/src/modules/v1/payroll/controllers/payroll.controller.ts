@@ -14,6 +14,7 @@ import {
   StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
@@ -34,6 +35,7 @@ import { AuditService } from '../services/audit.service';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';
 
+@ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
 @UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
 @RequireFeatures(FeatureAccess.PAYROLL)

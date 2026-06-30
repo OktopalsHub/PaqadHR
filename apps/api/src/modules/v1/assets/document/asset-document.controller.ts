@@ -8,12 +8,14 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { AssetDocumentService } from './asset-document.service';
 import { AssetDocumentMapper } from './dto/asset-document-response.dto';
 import type { CreateAssetDocumentDto } from './dto/create-asset-document.dto';
 import type { UpdateAssetDocumentDto } from './dto/update-asset-document.dto';
 
+@ApiTags('Assets')
 @Controller('tenants/:tenantId/asset-documents')
 export class AssetDocumentController {
   constructor(

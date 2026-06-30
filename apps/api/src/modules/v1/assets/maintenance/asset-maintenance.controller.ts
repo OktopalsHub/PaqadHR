@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -6,6 +7,7 @@ import { AssetMaintenanceService } from './asset-maintenance.service';
 import type { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import type { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
+@ApiTags('Assets')
 @Controller('tenants/:tenantId/assets/:assetId/maintenance')
 @UseGuards(TenantMemberGuard)
 export class AssetMaintenanceController {

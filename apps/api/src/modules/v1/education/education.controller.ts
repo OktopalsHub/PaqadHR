@@ -24,7 +24,7 @@ import type { UpdateEducationDto } from './dto/update-education.dto';
 import { EducationService } from './education.service';
 import type { Education } from './entities/education.entity';
 
-@ApiTags('education')
+@ApiTags('Education')
 @UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/education')
 export class EducationController {

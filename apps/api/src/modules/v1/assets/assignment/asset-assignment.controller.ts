@@ -1,8 +1,10 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { AssetAssignmentService } from './asset-assignment.service';
 import type { CreateAssetAssignmentDto } from './dto/create-asset-assignment.dto';
 import type { UpdateAssetAssignmentDto } from './dto/update-asset-assignment.dto';
 
+@ApiTags('Assets')
 @Controller('tenants/:tenantId/asset-assignment')
 export class AssetAssignmentController {
   constructor(private readonly assetAssignmentService: AssetAssignmentService) {}
