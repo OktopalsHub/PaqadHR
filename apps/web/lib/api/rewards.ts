@@ -1,7 +1,13 @@
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
 
-export type RewardType = 'RELOADLY' | 'NOMBA_AIRTIME' | 'CUSTOM';
+export type RewardType =
+  | 'RELOADLY'
+  | 'NOMBA_AIRTIME'
+  | 'RELOADLY_AIRTIME'
+  | 'NOMBA_UTILITY'
+  | 'RELOADLY_UTILITY'
+  | 'CUSTOM';
 export type RedemptionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
 export interface CatalogItem {
@@ -59,6 +65,9 @@ export interface TenantWallet {
   pointsExchangeRate: number;
   feePercentage?: number;
   flatFee?: number;
+  autoTopupEnabled: boolean;
+  autoTopupThreshold: number;
+  autoTopupAmount: number;
 }
 
 export interface CustomRewardInput {
@@ -81,6 +90,9 @@ export interface ClaimInput {
   recipientPhone?: string;
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
+  billerId?: string | number;
+  accountNumber?: string;
+  serviceType?: string;
 }
 
 export async function fetchRewardsCatalog(): Promise<CatalogItem[]> {
@@ -141,4 +153,114 @@ export interface ReloadlyCountry {
 export async function fetchReloadlyCountries(): Promise<ReloadlyCountry[]> {
   const tenantId = await resolveTenantId();
   return apiClient<ReloadlyCountry[]>(tenantPath(tenantId, 'rewards/countries'));
+}
+
+export interface ReloadlyOperator {
+  operatorId: number;
+  name: string;
+  bundle: boolean;
+  data: boolean;
+  pin: boolean;
+  denominationType: string;
+  senderCurrencyCode: string;
+  destinationCurrencyCode: string;
+  minAmount: number | null;
+  maxAmount: number | null;
+  localMinAmount: number | null;
+  localMaxAmount: number | null;
+  logoUrls: string[];
+}
+
+export interface ReloadlyBiller {
+  id: number;
+  name: string;
+  countryIsoCode: string;
+  type: string;
+  serviceType: 'POSTPAID' | 'PREPAID';
+  localAmountSupported: boolean;
+  localTransactionCurrencyCode: string;
+  minLocalTransactionAmount: number | null;
+  maxLocalTransactionAmount: number | null;
+}
+
+export async function fetchTopupOperators(countryCode: string): Promise<ReloadlyOperator[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<ReloadlyOperator[]>(tenantPath(tenantId, `rewards/operators/${countryCode}`));
+}
+
+export async function fetchUtilityBillers(countryCode: string): Promise<ReloadlyBiller[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<ReloadlyBiller[]>(
+    tenantPath(tenantId, `rewards/utilities/billers/${countryCode}`),
+  );
+}
+
+export async function lookupUtilityMeter(params: {
+  countryCode: string;
+  billerId: string;
+  accountNumber: string;
+  serviceType?: string;
+}): Promise<{
+  customerName: string | null;
+  meterNumber: string | null;
+  address: string | null;
+  billerId: string | null;
+}> {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, 'rewards/utilities/lookup'), {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export async function calculatePointsCost(params: {
+  type: 'airtime' | 'utility';
+  billerId: number;
+  amount: number;
+}): Promise<{
+  pointsCost: number;
+  currencyValue: number;
+  currencyCode: string;
+  totalTenantDebit: number;
+}> {
+  const tenantId = await resolveTenantId();
+  const query = new URLSearchParams({
+    type: params.type,
+    billerId: String(params.billerId),
+    amount: String(params.amount),
+  });
+  return apiClient(tenantPath(tenantId, `rewards/calculate-points?${query.toString()}`));
+}
+
+export async function manualTopupWallet(amount: number): Promise<TenantWallet> {
+  const tenantId = await resolveTenantId();
+  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/topup'), {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  });
+}
+
+export async function updateAutoTopupConfig(params: {
+  enabled: boolean;
+  threshold: number;
+  amount: number;
+}): Promise<TenantWallet> {
+  const tenantId = await resolveTenantId();
+  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/auto-topup'), {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+export async function assignPoints(params: {
+  memberIds: string[];
+  points: number;
+  reason?: string;
+  assignments?: { memberId: string; points: number }[];
+}) {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, 'rewards/assign-points'), {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
 }

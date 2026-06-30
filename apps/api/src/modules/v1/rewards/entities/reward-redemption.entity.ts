@@ -2,7 +2,13 @@ import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
-export type RewardType = 'RELOADLY' | 'NOMBA_AIRTIME' | 'CUSTOM';
+export type RewardType =
+  | 'RELOADLY'
+  | 'NOMBA_AIRTIME'
+  | 'RELOADLY_AIRTIME'
+  | 'NOMBA_UTILITY'
+  | 'RELOADLY_UTILITY'
+  | 'CUSTOM';
 export type RedemptionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 
 @Entity('reward_redemptions')

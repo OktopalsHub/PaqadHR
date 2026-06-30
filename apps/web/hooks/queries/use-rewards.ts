@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  assignPoints,
   type ClaimInput,
   type CustomRewardInput,
   claimReward,
@@ -13,9 +14,33 @@ import {
   fetchReloadlyCountries,
   fetchRewardsCatalog,
   fetchTenantWallet,
+  fetchTopupOperators,
+  fetchUtilityBillers,
+  manualTopupWallet,
+  updateAutoTopupConfig,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
+export function useTopupOperators(countryCode: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: ['rewards-topup-operators', tenantId, countryCode],
+    queryFn: () => fetchTopupOperators(countryCode),
+    enabled: !tenantLoading && Boolean(tenantId) && Boolean(countryCode),
+  });
+}
+
+export function useUtilityBillers(countryCode: string) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: ['rewards-utility-billers', tenantId, countryCode],
+    queryFn: () => fetchUtilityBillers(countryCode),
+    enabled: !tenantLoading && Boolean(tenantId) && Boolean(countryCode),
+  });
+}
 
 export function useRewardsCatalog() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -113,6 +138,50 @@ export function useDeleteCustomReward() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.custom });
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.catalog });
+    },
+  });
+}
+
+export function useManualTopupWallet() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (amount: number) => manualTopupWallet(amount),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+    },
+  });
+}
+
+export function useUpdateAutoTopupConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params: { enabled: boolean; threshold: number; amount: number }) =>
+      updateAutoTopupConfig(params),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+    },
+  });
+}
+
+export function useAssignPoints() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (params: {
+      memberIds: string[];
+      points: number;
+      reason?: string;
+      assignments?: { memberId: string; points: number }[];
+    }) => assignPoints(params),
+    onSuccess: () => {
+      if (tenantId) {
+        void queryClient.invalidateQueries({
+          queryKey: [...queryKeys.settings.membersPoints, tenantId],
+        });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.points(tenantId) });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.all });
+      }
     },
   });
 }

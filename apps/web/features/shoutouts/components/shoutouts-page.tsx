@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Award, Coins, Heart, Sparkles, Trophy, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ import {
   useShoutouts,
 } from '@/hooks/queries/use-shoutouts';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { apiClient, tenantPath } from '@/lib/api/client';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
 import { ShoutoutComposer } from './shoutout-composer';
@@ -61,6 +63,17 @@ function ShoutoutsPageContent() {
   const { data: pointsBalance } = useMyPointsBalance();
   const { data, isLoading, isError, error } = useShoutouts();
   const createShoutout = useCreateShoutout();
+
+  const { data: tasks = [] } = useQuery<{ id: string; status: string }[]>({
+    queryKey: ['shoutout-tasks', tenant?.id],
+    queryFn: () =>
+      apiClient<{ id: string; status: string }[]>(tenantPath(tenant?.id ?? '', 'rewards/tasks')),
+    enabled: Boolean(tenant?.id),
+  });
+
+  const availableCount = tasks.filter(
+    (t) => t.status === 'available' || t.status === 'rejected',
+  ).length;
 
   const createCategory = useCreateShoutoutCategoryAdmin();
   const deleteCategory = useDeleteShoutoutCategoryAdmin();
@@ -159,10 +172,21 @@ function ShoutoutsPageContent() {
             Shoutouts Feed
           </TabsTrigger>
           <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto text-xs font-semibold"
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto text-xs font-semibold flex items-center gap-1.5"
             value="tasks"
           >
             Points Tasks
+            {availableCount > 0 && (
+              <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full">
+                {availableCount}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger
+            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto text-xs font-semibold"
+            value="redeem"
+          >
+            Redeem Rewards
           </TabsTrigger>
         </TabsList>
 
@@ -263,9 +287,7 @@ function ShoutoutsPageContent() {
                     variant="outline"
                     className="w-full text-xs"
                     onClick={() => {
-                      document
-                        .getElementById('rewards-section')
-                        ?.scrollIntoView({ behavior: 'smooth' });
+                      setTab('redeem');
                     }}
                   >
                     Go to Rewards Catalog
@@ -334,17 +356,16 @@ function ShoutoutsPageContent() {
               </div>
             </div>
           </div>
+        </TabsContent>
 
-          {}
-          <div id="rewards-section" className="border-t border-border/60 pt-8 space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold tracking-tight">Redeem Rewards</h2>
-              <p className="text-sm text-muted-foreground font-medium">
-                Redeem your points for digital vouchers, mobile top-ups, and custom perks
-              </p>
-            </div>
-            <RewardsPage isTab={true} />
+        <TabsContent value="redeem" className="mt-5 space-y-4">
+          <div className="space-y-1">
+            <h2 className="text-xl font-bold tracking-tight">Redeem Rewards</h2>
+            <p className="text-sm text-muted-foreground font-medium">
+              Redeem your points for digital vouchers, mobile top-ups, and custom perks
+            </p>
           </div>
+          <RewardsPage isTab={true} />
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-5">

@@ -17,7 +17,8 @@ function categoryStyle(color?: string | null) {
 }
 
 export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
-  const recipients = shoutout.recipients.map((r) => memberLabel(r)).join(', ');
+  const hasRecipients = shoutout.recipients && shoutout.recipients.length > 0;
+  const recipients = hasRecipients ? shoutout.recipients.map((r) => memberLabel(r)).join(', ') : '';
 
   return (
     <article className="culture-card overflow-hidden rounded-xl">
@@ -27,8 +28,14 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="text-xs leading-snug">
               <span className="font-semibold">{memberLabel(shoutout.sender)}</span>
-              <span className="text-muted-foreground"> recognized </span>
-              <span className="font-semibold">{recipients}</span>
+              {hasRecipients ? (
+                <>
+                  <span className="text-muted-foreground"> recognized </span>
+                  <span className="font-semibold">{recipients}</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground"> completed a task </span>
+              )}
             </p>
             <span className="culture-points-pill shrink-0 text-[10px]">
               {formatPaqPointsDelta(shoutout.totalPoints)}

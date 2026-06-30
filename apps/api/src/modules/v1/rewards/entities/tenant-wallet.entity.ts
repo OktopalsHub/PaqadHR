@@ -21,4 +21,13 @@ export class TenantWallet extends BaseEntity {
 
   @Column({ name: 'points_exchange_rate', type: 'numeric', precision: 10, scale: 2, default: 10 })
   pointsExchangeRate: number;
+
+  @Column({ name: 'auto_topup_enabled', default: false })
+  autoTopupEnabled: boolean;
+
+  @Column({ name: 'auto_topup_threshold', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  autoTopupThreshold: number;
+
+  @Column({ name: 'auto_topup_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  autoTopupAmount: number;
 }

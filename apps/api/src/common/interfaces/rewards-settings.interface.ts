@@ -11,6 +11,12 @@ export interface RewardsSettings {
 
   customRewardsEnabled: boolean;
 
+  giftCardsEnabled?: boolean;
+
+  giftCardCategories?: string[];
+
+  utilityPaymentsEnabled?: boolean;
+
   reloadlyProducts?: Array<{
     productId: number;
     name: string;

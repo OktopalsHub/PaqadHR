@@ -35,32 +35,6 @@ export function AttendancePage() {
 
   return (
     <AppPage>
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Attendance</h1>
-        <p className="text-sm text-muted-foreground">
-          {canViewTeam
-            ? 'Review your timesheet or browse attendance for your team'
-            : 'Filter and review your clock entries'}
-        </p>
-        {clockInEnabled && clockInfo ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            {clockInfo.activeSession ? (
-              <>
-                On the clock for{' '}
-                <span className="font-medium tabular-nums text-green-700 dark:text-green-400">
-                  {elapsed || '—'}
-                </span>{' '}
-                (since {formatTimeOnly(clockInfo.activeSession.clockIn)})
-              </>
-            ) : clockInfo.canClockIn ? (
-              'Off the clock — use the green Clock in button in the header'
-            ) : (
-              clockInfo.reason
-            )}
-          </p>
-        ) : null}
-      </div>
-
       <Tabs defaultValue="mine" className="w-full">
         <TabsList>
           <TabsTrigger value="mine">My timesheet</TabsTrigger>

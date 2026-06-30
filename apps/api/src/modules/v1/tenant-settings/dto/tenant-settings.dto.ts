@@ -436,6 +436,34 @@ export class RewardsSettingsDto {
   customRewardsEnabled?: boolean;
 
   @ApiProperty({
+    description: 'Whether gift cards rewards are enabled',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  giftCardsEnabled?: boolean;
+
+  @ApiProperty({
+    description: 'Allowed gift card categories to show',
+    type: [String],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  giftCardCategories?: string[];
+
+  @ApiProperty({
+    description: 'Whether utility payments are enabled',
+    example: true,
+    required: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  utilityPaymentsEnabled?: boolean;
+
+  @ApiProperty({
     description: 'Active configured Reloadly gift card products',
     type: [Object],
     required: false,

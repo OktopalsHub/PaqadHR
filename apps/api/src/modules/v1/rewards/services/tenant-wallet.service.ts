@@ -1,5 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
+import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
+import { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 
@@ -67,6 +70,46 @@ export class TenantWalletService {
     });
     await txRepo.save(tx);
 
+    // Auto-Topup check
+    if (
+      wallet.autoTopupEnabled &&
+      Number(wallet.autoTopupAmount) > 0 &&
+      Number(wallet.balanceAmount) <= Number(wallet.autoTopupThreshold)
+    ) {
+      const paymentMethodRepo = manager.getRepository(PaymentMethod);
+      const primaryMethod = await paymentMethodRepo.findOne({
+        where: {
+          tenantId,
+          isPrimary: true,
+          status: PaymentMethodStatus.VERIFIED,
+        },
+      });
+
+      if (primaryMethod) {
+        const topupAmount = Number(wallet.autoTopupAmount);
+        const autoRef = `auto-topup-${randomUUID()}`;
+        const autoDesc = `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`;
+
+        await walletRepo
+          .createQueryBuilder()
+          .update(TenantWallet)
+          .set({ balanceAmount: () => `balance_amount + ${topupAmount}` })
+          .where('tenant_id = :tenantId', { tenantId })
+          .execute();
+
+        const autoTx = txRepo.create({
+          tenantWalletId: wallet.id,
+          type: 'DEPOSIT' as const,
+          amount: topupAmount,
+          reference: autoRef,
+          description: autoDesc,
+        });
+        await txRepo.save(autoTx);
+
+        wallet.balanceAmount = Number(wallet.balanceAmount) + topupAmount;
+      }
+    }
+
     return wallet;
   }
 
@@ -112,5 +155,45 @@ export class TenantWalletService {
       order: { createdAt: 'DESC' },
       take: limit,
     });
+  }
+
+  async updateAutoTopupConfig(
+    tenantId: string,
+    enabled: boolean,
+    threshold: number,
+    amount: number,
+  ): Promise<TenantWallet> {
+    const repo = this.dataSource.getRepository(TenantWallet);
+    const wallet = await this.ensureWallet(tenantId);
+    wallet.autoTopupEnabled = enabled;
+    wallet.autoTopupThreshold = threshold;
+    wallet.autoTopupAmount = amount;
+    return repo.save(wallet);
+  }
+
+  async manualTopup(tenantId: string, amount: number): Promise<TenantWallet> {
+    if (amount <= 0) {
+      throw new BadRequestException('Top up amount must be greater than 0');
+    }
+
+    const paymentMethodRepo = this.dataSource.getRepository(PaymentMethod);
+    const primaryMethod = await paymentMethodRepo.findOne({
+      where: {
+        tenantId,
+        isPrimary: true,
+        status: PaymentMethodStatus.VERIFIED,
+      },
+    });
+
+    if (!primaryMethod) {
+      throw new BadRequestException(
+        'No primary verified payment method configured for billing. Please add a bank account in Payment Settings first.',
+      );
+    }
+
+    const reference = `manual-topup-${randomUUID()}`;
+    const description = `Manual top up via saved payment method ${primaryMethod.bankName || 'Bank'} (${primaryMethod.currency || 'NGN'})`;
+
+    return this.credit(tenantId, amount, 'DEPOSIT', reference, description);
   }
 }

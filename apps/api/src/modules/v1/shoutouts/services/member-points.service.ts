@@ -26,29 +26,29 @@ export class MemberPointsService {
     const repo = manager
       ? manager.getRepository(ShoutoutMemberPoints)
       : this.memberPointsRepository;
-    let row = await repo.findOne({ where: { tenantId, memberId } });
+    const row = await repo.findOne({ where: { tenantId, memberId } });
     if (row) return row;
 
     const startingBalance =
       (await this.tenantConfigService.getPointsStartingBalance(tenantId)) ?? 0;
 
-    row = repo.create({
-      tenantId,
-      memberId,
-      currentBalance: startingBalance,
-      lastResetDate: new Date(),
-    });
     try {
-      return await repo.save(row);
+      await repo
+        .createQueryBuilder()
+        .insert()
+        .into(ShoutoutMemberPoints)
+        .values({
+          tenantId,
+          memberId,
+          currentBalance: startingBalance,
+          lastResetDate: new Date(),
+        })
+        .orIgnore()
+        .execute();
     } catch (error) {
-      const isDuplicate =
-        error instanceof Error && 'code' in error && (error as { code?: string }).code === '23505';
-      if (isDuplicate) {
-        const existing = await repo.findOne({ where: { tenantId, memberId } });
-        if (existing) return existing;
-      }
-      throw error;
+      // Ignore database-level unique constraint exceptions on insert
     }
+    return repo.findOneOrFail({ where: { tenantId, memberId } });
   }
 
   async ensureMonthlyReset(
@@ -163,6 +163,57 @@ export class MemberPointsService {
       message: `Assigned ${points} Paq points to ${membersUpdated} members`,
       membersUpdated,
       pointsAssigned: points,
+    };
+  }
+
+  async assignPoints(
+    tenantId: string,
+    memberIds: string[],
+    points: number,
+    reason: string | undefined,
+    actorId: string,
+    assignments?: { memberId: string; points: number }[],
+  ) {
+    const allowancePeriod = await this.getAllowancePeriod(tenantId);
+    let membersUpdated = 0;
+    let totalPointsAssigned = 0;
+
+    await this.dataSource.transaction(async (manager) => {
+      const list =
+        assignments && assignments.length > 0
+          ? assignments
+          : memberIds.map((id) => ({ memberId: id, points }));
+
+      for (const item of list) {
+        const { memberId, points: pts } = item;
+        // Validate if member exists in tenant
+        await this.tenantMembersService.getTenantMemberId(tenantId, memberId);
+
+        let row = await this.ensureMemberRow(tenantId, memberId, manager);
+        row = await this.ensureMonthlyReset(row, manager, allowancePeriod);
+        row.currentBalance += pts;
+        row.totalEarned += pts;
+        await manager.save(row);
+
+        await this.memberPointsRepository.insertTransaction(manager, {
+          tenantId,
+          memberId: memberId,
+          type: ShoutoutPointTransactionType.ADMIN_ASSIGN,
+          points: pts,
+          runningBalance: row.currentBalance,
+          description: reason ?? 'Direct points assignment by admin',
+          createdBy: actorId,
+        });
+        membersUpdated++;
+        totalPointsAssigned += pts;
+      }
+    });
+
+    return {
+      success: true,
+      message: `Assigned points to ${membersUpdated} member(s)`,
+      membersUpdated,
+      pointsAssigned: totalPointsAssigned,
     };
   }
 

@@ -72,10 +72,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-medium">{name || 'Workspace'}</p>
-        <p className="text-xs text-muted-foreground">
-          Square logo, at least 128×128px recommended.
-        </p>
+        <p className="text-2xl font-semibold">{name || 'Workspace'}</p>
         {!disabled ? (
           <>
             <input

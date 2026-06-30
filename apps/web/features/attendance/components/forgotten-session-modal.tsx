@@ -1,8 +1,8 @@
 'use client';
 
+import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertCircle, Clock, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useClockInInfo, useClockOut } from '@/hooks/queries/use-attendance';
 import { formatRecordDate, formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
+import { useClockInInfo, useClockOut } from '@/hooks/queries/use-attendance';
 
 export function ForgottenSessionModal() {
   const { data: info } = useClockInInfo();
@@ -61,8 +61,8 @@ export function ForgottenSessionModal() {
       if (clockOutDate.getTime() <= clockInDate.getTime()) {
         setError(
           `Clock out time cannot be before or equal to clock in time (${formatTimeOnly(
-            forgottenSession.clockIn
-          )}).`
+            forgottenSession.clockIn,
+          )}).`,
         );
         return;
       }
@@ -81,7 +81,7 @@ export function ForgottenSessionModal() {
 
   return (
     <Dialog open={true} onOpenChange={() => {}}>
-      <DialogContent 
+      <DialogContent
         className="sm:max-w-[425px]"
         showCloseButton={false}
         // Prevent closing the modal by clicking outside or hitting escape
@@ -97,9 +97,11 @@ export function ForgottenSessionModal() {
             It looks like you forgot to clock out of your active session on{' '}
             <span className="font-semibold text-foreground">
               {formatRecordDate(forgottenSession.date)}
-            </span>.
+            </span>
+            .
             <br />
-            Please specify the time you finished working to close the session before clocking in today.
+            Please specify the time you finished working to close the session before clocking in
+            today.
           </DialogDescription>
         </DialogHeader>
 

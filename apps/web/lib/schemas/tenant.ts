@@ -20,6 +20,7 @@ export const tenantSchema = z
     companySize: z.string().optional(),
     employeeCode: z.string().optional(),
     member: tenantMemberSchema.optional(),
+    settings: z.any().optional(),
   })
   .passthrough();
 

@@ -3,6 +3,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
+import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
+import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
@@ -13,6 +15,7 @@ import { Task } from './entities/task.entity';
 import { TaskSubmission } from './entities/task-submission.entity';
 import { TenantWallet } from './entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from './entities/tenant-wallet-transaction.entity';
+import { RewardsListener } from './listeners/rewards.listener';
 import { CustomRewardsService } from './services/custom-rewards.service';
 import { RewardsService } from './services/rewards.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
@@ -37,8 +40,11 @@ import { TenantWalletService } from './services/tenant-wallet.service';
     TenantWalletService,
     CustomRewardsService,
     ReloadlyApiService,
+    ReloadlyTopupsApiService,
+    ReloadlyUtilitiesApiService,
     NombaBillApiService,
     NombaTransferApiService,
+    RewardsListener,
   ],
   exports: [RewardsService, TenantWalletService],
 })

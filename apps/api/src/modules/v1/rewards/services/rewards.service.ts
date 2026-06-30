@@ -5,10 +5,15 @@ import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.int
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
+import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
+import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { DataSource } from 'typeorm';
+import { Employment } from '../../employment/entities/employment.entity';
+import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { CustomReward } from '../entities/custom-reward.entity';
 import {
@@ -52,6 +57,9 @@ export interface ClaimInput {
 
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
+  billerId?: string | number;
+  accountNumber?: string;
+  serviceType?: string;
 }
 
 @Injectable()
@@ -64,6 +72,8 @@ export class RewardsService {
     private readonly customRewardsService: CustomRewardsService,
     private readonly tenantConfigService: TenantConfigService,
     private readonly reloadlyApi: ReloadlyApiService,
+    private readonly reloadlyTopupsApi: ReloadlyTopupsApiService,
+    private readonly reloadlyUtilitiesApi: ReloadlyUtilitiesApiService,
     private readonly nombaBillApi: NombaBillApiService,
     private readonly nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
@@ -112,8 +122,61 @@ export class RewardsService {
     return this.getSubscriptionFees(tenantId, currency);
   }
 
+  private getReloadlyCategory(
+    name: string,
+  ): 'Airtime' | 'Money Cards' | 'Gift Cards' | 'Gaming Cards' {
+    const lowerName = name.toLowerCase();
+
+    if (
+      lowerName.includes('airtime') ||
+      lowerName.includes('mobile topup') ||
+      lowerName.includes('refill') ||
+      lowerName.includes('top-up') ||
+      lowerName.includes('telecom') ||
+      lowerName.includes('mtn') ||
+      lowerName.includes('airtel') ||
+      lowerName.includes('orange') ||
+      lowerName.includes('vodafone') ||
+      lowerName.includes('safaricom') ||
+      lowerName.includes('tigo')
+    ) {
+      return 'Airtime';
+    }
+
+    if (
+      lowerName.includes('visa') ||
+      lowerName.includes('mastercard') ||
+      lowerName.includes('american express') ||
+      lowerName.includes('amex') ||
+      lowerName.includes('prepaid card') ||
+      lowerName.includes('cash') ||
+      lowerName.includes('money')
+    ) {
+      return 'Money Cards';
+    }
+
+    if (
+      lowerName.includes('playstation') ||
+      lowerName.includes('xbox') ||
+      lowerName.includes('steam') ||
+      lowerName.includes('nintendo') ||
+      lowerName.includes('roblox') ||
+      lowerName.includes('pubg') ||
+      lowerName.includes('razer') ||
+      lowerName.includes('gaming') ||
+      lowerName.includes('riot') ||
+      lowerName.includes('league of legends') ||
+      lowerName.includes('minecraft') ||
+      lowerName.includes('nexon') ||
+      lowerName.includes('twitch')
+    ) {
+      return 'Gaming Cards';
+    }
+
+    return 'Gift Cards';
+  }
+
   private async getRewardsSettings(tenantId: string): Promise<RewardsSettings> {
-    const _settingsRecord = await this.tenantConfigService.getPointsSettings(tenantId);
     const repo = this.dataSource.getRepository(
       (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
     );
@@ -121,12 +184,20 @@ export class RewardsService {
     const rewards = row?.settings?.rewards;
 
     return {
-      enabled: true,
+      enabled: rewards?.enabled ?? true,
       pointsExchangeRate: rewards?.pointsExchangeRate ?? 10,
       rewardsCurrency: rewards?.rewardsCurrency ?? 'NGN',
       catalogCountries: rewards?.catalogCountries ?? ['NG'],
-      airtimeEnabled: true,
-      customRewardsEnabled: true,
+      airtimeEnabled: rewards?.airtimeEnabled ?? true,
+      giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
+      giftCardCategories: rewards?.giftCardCategories ?? [
+        'Gift Cards',
+        'Gaming Cards',
+        'Money Cards',
+      ],
+      utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
+      customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
+      reloadlyProducts: rewards?.reloadlyProducts ?? [],
     };
   }
 
@@ -158,8 +229,23 @@ export class RewardsService {
     const exchangeRate = settings.pointsExchangeRate;
     const catalog: CatalogItem[] = [];
 
+    const giftCardsEnabled = settings.giftCardsEnabled ?? true;
+    const giftCardCategories = settings.giftCardCategories ?? [
+      'Gift Cards',
+      'Gaming Cards',
+      'Money Cards',
+    ];
+
     const reloadlyProducts = settings.reloadlyProducts ?? [];
     for (const p of reloadlyProducts) {
+      const cat = this.getReloadlyCategory(p.name);
+      if (cat === 'Airtime') {
+        if (!settings.airtimeEnabled) continue;
+      } else {
+        if (!giftCardsEnabled) continue;
+        if (!giftCardCategories.includes(cat)) continue;
+      }
+
       catalog.push({
         id: `reloadly_${p.productId}`,
         name: p.name,
@@ -259,22 +345,53 @@ export class RewardsService {
       settings.rewardsCurrency,
     );
 
-    const expectedConvertedValue = this.convertCurrency(
-      currencyValue,
-      currencyCode,
-      settings.rewardsCurrency,
-    );
+    let totalTenantDebit: number;
+    let expectedPointsCost: number;
+    let faceValueInRewardsCurrency: number;
 
-    let totalTenantDebit = expectedConvertedValue;
-    if (input.rewardType !== 'CUSTOM') {
-      const markupFactor = 1 + feePercentage / 100;
-      totalTenantDebit = expectedConvertedValue * markupFactor + flatFee;
+    if (input.rewardType === 'RELOADLY_AIRTIME') {
+      const calc = await this.calculateReloadlyAirtimeCost(
+        Number(input.billerId),
+        currencyValue,
+        tenantId,
+        settings,
+      );
+      totalTenantDebit = calc.totalTenantDebit;
+      expectedPointsCost = calc.pointsCost;
+      faceValueInRewardsCurrency = this.convertCurrency(
+        calc.senderAmount,
+        calc.senderCurrencyCode,
+        settings.rewardsCurrency,
+      );
+    } else if (input.rewardType === 'RELOADLY_UTILITY') {
+      const calc = await this.calculateReloadlyUtilityCost(
+        Number(input.billerId),
+        currencyValue,
+        tenantId,
+        settings,
+      );
+      totalTenantDebit = calc.totalTenantDebit;
+      expectedPointsCost = calc.pointsCost;
+      faceValueInRewardsCurrency = this.convertCurrency(
+        calc.senderAmount,
+        calc.senderCurrencyCode,
+        settings.rewardsCurrency,
+      );
+    } else {
+      const expectedConvertedValue = this.convertCurrency(
+        currencyValue,
+        currencyCode,
+        settings.rewardsCurrency,
+      );
+      faceValueInRewardsCurrency = expectedConvertedValue;
+      totalTenantDebit = expectedConvertedValue;
+      if (input.rewardType !== 'CUSTOM') {
+        const markupFactor = 1 + feePercentage / 100;
+        totalTenantDebit = expectedConvertedValue * markupFactor + flatFee;
+      }
+      expectedPointsCost =
+        input.rewardType === 'CUSTOM' ? pointsCost : Math.ceil(totalTenantDebit * exchangeRate);
     }
-
-    const expectedPointsCost =
-      input.rewardType === 'CUSTOM'
-        ? pointsCost // custom points cost is validated against CustomReward entity in transaction
-        : Math.ceil(totalTenantDebit * exchangeRate);
 
     if (input.rewardType !== 'CUSTOM' && pointsCost < expectedPointsCost) {
       throw new BadRequestException(
@@ -349,7 +466,7 @@ export class RewardsService {
           tenantId,
           totalTenantDebit,
           redemptionId,
-          `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((totalTenantDebit - expectedConvertedValue).toFixed(2))})`,
+          `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((totalTenantDebit - faceValueInRewardsCurrency).toFixed(2))})`,
           manager,
         );
       }
@@ -376,7 +493,13 @@ export class RewardsService {
       if (input.rewardType === 'RELOADLY') {
         await this.fulfillReloadly(redemption!, input);
       } else if (input.rewardType === 'NOMBA_AIRTIME') {
-        await this.fulfillAirtime(redemption!, input);
+        await this.fulfillNombaAirtime(redemption!, input);
+      } else if (input.rewardType === 'RELOADLY_AIRTIME') {
+        await this.fulfillReloadlyAirtime(redemption!, input);
+      } else if (input.rewardType === 'NOMBA_UTILITY') {
+        await this.fulfillNombaUtility(redemption!, input);
+      } else if (input.rewardType === 'RELOADLY_UTILITY') {
+        await this.fulfillReloadlyUtility(redemption!, input);
       } else if (input.rewardType === 'CUSTOM') {
         await this.fulfillCustom(redemption!);
       }
@@ -407,8 +530,6 @@ export class RewardsService {
         await txRepo.save(refundTx);
 
         if (input.rewardType !== 'CUSTOM') {
-          const markupFactor = 1 + feePercentage / 100;
-          const totalTenantDebit = expectedConvertedValue * markupFactor + flatFee;
           await this.walletService.credit(
             tenantId,
             totalTenantDebit,
@@ -485,7 +606,10 @@ export class RewardsService {
     });
   }
 
-  private async fulfillAirtime(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
+  private async fulfillNombaAirtime(
+    redemption: RewardRedemption,
+    input: ClaimInput,
+  ): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
       throw new Error('Phone number and network are required for airtime top-up');
     }
@@ -507,6 +631,190 @@ export class RewardsService {
       providerTxRef: result.transactionId,
       voucherInstructions: `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
     });
+  }
+
+  private async fulfillReloadlyAirtime(
+    redemption: RewardRedemption,
+    input: ClaimInput,
+  ): Promise<void> {
+    if (!input.recipientPhone || !input.billerId) {
+      throw new Error('Phone number and operatorId are required for Reloadly airtime');
+    }
+
+    const cleanedPhone = input.recipientPhone.replace(/^\+/, '');
+    const operators = await this.reloadlyTopupsApi.listOperators(input.currencyCode || 'US');
+    const op = operators.find((o) => o.operatorId === Number(input.billerId));
+    const countryIso = op?.country?.isoName || 'US';
+
+    const result = await this.reloadlyTopupsApi.topup({
+      operatorId: Number(input.billerId),
+      amount: redemption.currencyValue,
+      recipientPhone: {
+        countryCode: countryIso,
+        number: cleanedPhone,
+      },
+      customIdentifier: redemption.id,
+    });
+
+    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
+      status: 'SUCCESS' as RedemptionStatus,
+      providerTxRef: String(result.transactionId),
+      voucherInstructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+    });
+  }
+
+  private async fulfillNombaUtility(
+    redemption: RewardRedemption,
+    input: ClaimInput,
+  ): Promise<void> {
+    if (!input.accountNumber || !input.billerId || !input.serviceType) {
+      throw new Error(
+        'Meter number, biller ID, and service type are required for Nomba utility payment',
+      );
+    }
+
+    const result = await this.nombaBillApi.purchaseElectricity({
+      amount: redemption.currencyValue,
+      meterNumber: input.accountNumber,
+      billerId: String(input.billerId),
+      serviceType: input.serviceType as 'PREPAID' | 'POSTPAID',
+      merchantTxRef: redemption.id,
+    });
+
+    if (!result.success) {
+      throw new Error(`Electricity purchase failed: status ${result.status}`);
+    }
+
+    const instructions = result.token
+      ? `Utility payment successful. Prepaid token: ${result.token}`
+      : `Utility payment successful. Reference: ${result.transactionId}`;
+
+    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
+      status: 'SUCCESS' as RedemptionStatus,
+      providerTxRef: result.transactionId,
+      voucherCode: result.token || null,
+      voucherInstructions: instructions,
+    });
+  }
+
+  private async fulfillReloadlyUtility(
+    redemption: RewardRedemption,
+    input: ClaimInput,
+  ): Promise<void> {
+    if (!input.accountNumber || !input.billerId) {
+      throw new Error(
+        'Subscriber account number and biller ID are required for Reloadly utility payment',
+      );
+    }
+
+    const result = await this.reloadlyUtilitiesApi.payBill({
+      subscriberAccountNumber: input.accountNumber,
+      amount: redemption.currencyValue,
+      billerId: Number(input.billerId),
+      useLocalAmount: true,
+      referenceId: redemption.id,
+    });
+
+    const instructions = result.pin
+      ? `Utility payment successful. Pin: ${result.pin}. Code: ${result.code}`
+      : `Utility payment successful. Biller: ${result.billerName}`;
+
+    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
+      status: 'SUCCESS' as RedemptionStatus,
+      providerTxRef: String(result.id),
+      voucherCode: result.pin || result.code || null,
+      voucherInstructions: instructions,
+    });
+  }
+
+  async calculateReloadlyAirtimeCost(
+    operatorId: number,
+    localAmount: number,
+    tenantId: string,
+    settings: RewardsSettings,
+  ): Promise<{
+    pointsCost: number;
+    currencyValue: number;
+    currencyCode: string;
+    totalTenantDebit: number;
+    senderAmount: number;
+    senderCurrencyCode: string;
+  }> {
+    const fxInfo = await this.reloadlyTopupsApi.getOperatorFxRate(operatorId, localAmount);
+    const senderCurrencyCode = 'USD';
+    const senderAmount = localAmount / (fxInfo.fxRate || 1);
+
+    const convertedValue = this.convertCurrency(
+      senderAmount,
+      senderCurrencyCode,
+      settings.rewardsCurrency,
+    );
+
+    const { feePercentage, flatFee } = await this.getSubscriptionFees(
+      tenantId,
+      settings.rewardsCurrency,
+    );
+    const markupFactor = 1 + feePercentage / 100;
+    const totalTenantDebit = convertedValue * markupFactor + flatFee;
+
+    const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
+
+    return {
+      pointsCost,
+      currencyValue: localAmount,
+      currencyCode: fxInfo.currencyCode,
+      totalTenantDebit,
+      senderAmount,
+      senderCurrencyCode,
+    };
+  }
+
+  async calculateReloadlyUtilityCost(
+    billerId: number,
+    localAmount: number,
+    tenantId: string,
+    settings: RewardsSettings,
+  ): Promise<{
+    pointsCost: number;
+    currencyValue: number;
+    currencyCode: string;
+    totalTenantDebit: number;
+    senderAmount: number;
+    senderCurrencyCode: string;
+  }> {
+    const billers = await this.reloadlyUtilitiesApi.listBillers();
+    const biller = billers.find((b) => b.id === billerId);
+    if (!biller) {
+      throw new BadRequestException('Biller not found');
+    }
+
+    const fxRate = (biller as any).fx?.rate || 1;
+    const senderCurrencyCode = 'USD';
+    const senderAmount = localAmount / fxRate;
+
+    const convertedValue = this.convertCurrency(
+      senderAmount,
+      senderCurrencyCode,
+      settings.rewardsCurrency,
+    );
+
+    const { feePercentage, flatFee } = await this.getSubscriptionFees(
+      tenantId,
+      settings.rewardsCurrency,
+    );
+    const markupFactor = 1 + feePercentage / 100;
+    const totalTenantDebit = convertedValue * markupFactor + flatFee;
+
+    const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
+
+    return {
+      pointsCost,
+      currencyValue: localAmount,
+      currencyCode: biller.localTransactionCurrencyCode,
+      totalTenantDebit,
+      senderAmount,
+      senderCurrencyCode,
+    };
   }
 
   private async fulfillCustom(redemption: RewardRedemption): Promise<void> {
@@ -632,6 +940,7 @@ export class RewardsService {
         category?: string;
         imageUrl?: string;
         submissionType: 'instant' | 'text' | 'file';
+        isRecurring: boolean;
       }> = [
         {
           title: 'Welcome Tour',
@@ -642,6 +951,7 @@ export class RewardsService {
           imageUrl:
             'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=150&auto=format&fit=crop&q=60',
           submissionType: 'instant',
+          isRecurring: false,
         },
         {
           title: 'Profile Picture Check',
@@ -652,6 +962,7 @@ export class RewardsService {
           imageUrl:
             'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=60',
           submissionType: 'file',
+          isRecurring: false,
         },
         {
           title: 'Spread Appreciation',
@@ -662,26 +973,29 @@ export class RewardsService {
           imageUrl:
             'https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=150&auto=format&fit=crop&q=60',
           submissionType: 'instant',
+          isRecurring: false,
         },
         {
-          title: 'Core Value Champion',
-          description: 'Tag your shoutout with a company core value category.',
+          title: 'Daily 10k Steps Challenge',
+          description: 'Take 10,000 steps today and upload a screenshot of your tracker.',
           points: 20,
-          icon: 'Award',
+          icon: 'Activity',
+          category: 'Health',
+          imageUrl:
+            'https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=150&auto=format&fit=crop&q=60',
+          submissionType: 'file',
+          isRecurring: true,
+        },
+        {
+          title: 'Share Feedback',
+          description: 'Submit your text feedback on what we can improve in this workspace.',
+          points: 15,
+          icon: 'MessageSquare',
           category: 'Culture',
           imageUrl:
-            'https://images.unsplash.com/photo-1491336477066-31156b5e4f35?w=150&auto=format&fit=crop&q=60',
-          submissionType: 'instant',
-        },
-        {
-          title: 'Link Slack Profile',
-          description: 'Sync your Slack profile to receive real-time celebration updates.',
-          points: 10,
-          icon: 'Slack',
-          category: 'Integration',
-          imageUrl:
-            'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=150&auto=format&fit=crop&q=60',
+            'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=150&auto=format&fit=crop&q=60',
           submissionType: 'text',
+          isRecurring: true,
         },
       ];
 
@@ -701,7 +1015,31 @@ export class RewardsService {
     });
 
     return tasks.map((task) => {
-      const sub = submissions.find((s) => s.taskId === task.id);
+      // Find all submissions for this task, sorted by updatedAt descending
+      const taskSubs = submissions
+        .filter((s) => s.taskId === task.id)
+        .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+
+      const latestSub = taskSubs[0];
+
+      let completed = false;
+      let status: 'available' | 'pending' | 'completed' | 'rejected' = 'available';
+
+      if (latestSub) {
+        if (latestSub.status === 'completed') {
+          if (task.isRecurring) {
+            status = 'available';
+          } else {
+            status = 'completed';
+            completed = true;
+          }
+        } else if (latestSub.status === 'pending') {
+          status = 'pending';
+        } else if (latestSub.status === 'rejected') {
+          status = 'available';
+        }
+      }
+
       return {
         id: task.id,
         title: task.title,
@@ -711,18 +1049,61 @@ export class RewardsService {
         category: task.category,
         imageUrl: task.imageUrl,
         submissionType: task.submissionType,
-        completed: sub?.status === 'completed',
-        status: sub?.status ?? 'available',
-        submissionText: sub?.submissionText,
-        submissionFileName: sub?.submissionFileName,
-        submissionId: sub?.id,
+        isRecurring: task.isRecurring,
+        completed,
+        status,
+        submissionText: latestSub?.submissionText,
+        submissionFileName: latestSub?.submissionFileName,
+        submissionId: latestSub?.id,
       };
     });
   }
 
-  async listPendingSubmissions(tenantId: string) {
+  /**
+   * Returns whether the given actor is allowed to approve/reject a submission
+   * made by `submitterMemberId`.
+   *
+   * Rules:
+   *  - admin/owner: always allowed
+   *  - manager (reportsToId on the submitter's current active employment): allowed
+   *  - actor === submitter: never allowed
+   */
+  private async canActorApproveFor(
+    tenantId: string,
+    actorId: string,
+    submitterMemberId: string,
+  ): Promise<boolean> {
+    // Can never approve your own submission
+    if (actorId === submitterMemberId) return false;
+
+    const memberRepo = this.dataSource.getRepository(TenantMember);
+    const actor = await memberRepo.findOne({ where: { id: actorId, tenantId } });
+    if (!actor) return false;
+
+    const role = actor.role?.toLowerCase();
+    if (role === 'admin' || role === 'owner') return true;
+
+    // Check if actor is the line manager of the submitter via Employment.reportsToId
+    const employmentRepo = this.dataSource.getRepository(Employment);
+    const submitterEmployment = await employmentRepo.findOne({
+      where: { tenantMemberId: submitterMemberId, tenantId },
+      order: { startDate: 'DESC' },
+    });
+
+    if (submitterEmployment?.reportsToId === actorId) return true;
+
+    return false;
+  }
+
+  async listPendingSubmissions(tenantId: string, actorId: string) {
     const submissionRepo = this.dataSource.getRepository(TaskSubmission);
     const taskRepo = this.dataSource.getRepository(Task);
+    const memberRepo = this.dataSource.getRepository(TenantMember);
+
+    // Determine if actor is admin/owner
+    const actor = await memberRepo.findOne({ where: { id: actorId, tenantId } });
+    const role = actor?.role?.toLowerCase();
+    const isAdminOrOwner = role === 'admin' || role === 'owner';
 
     const submissions = await submissionRepo.find({
       where: { tenantId, status: 'pending' },
@@ -731,12 +1112,36 @@ export class RewardsService {
 
     if (submissions.length === 0) return [];
 
-    const tasks = await taskRepo.find({
-      where: { tenantId },
+    const tasks = await taskRepo.find({ where: { tenantId } });
+
+    // For non-admin/owner, filter to only submissions the actor manages
+    const employmentRepo = this.dataSource.getRepository(Employment);
+    let manageableSubmitterIds: Set<string> | null = null;
+    if (!isAdminOrOwner) {
+      const subordinates = await employmentRepo.find({
+        where: { reportsToId: actorId, tenantId },
+        select: ['tenantMemberId'],
+      });
+      manageableSubmitterIds = new Set(subordinates.map((e) => e.tenantMemberId));
+    }
+
+    const visibleSubmissions = submissions.filter((sub) => {
+      // Never show your own submissions in the approval queue
+      if (sub.memberId === actorId) return false;
+      // Admins/owners see all
+      if (isAdminOrOwner) return true;
+      // Managers see only their direct reports
+      return manageableSubmitterIds!.has(sub.memberId);
     });
 
-    return submissions.map((sub) => {
+    // Fetch submitter member info
+    const submitterIds = [...new Set(visibleSubmissions.map((s) => s.memberId))];
+    const members = submitterIds.length ? await memberRepo.findByIds(submitterIds) : [];
+    const memberMap = new Map(members.map((m) => [m.id, m]));
+
+    return visibleSubmissions.map((sub) => {
       const task = tasks.find((t) => t.id === sub.taskId);
+      const member = memberMap.get(sub.memberId);
       return {
         id: task?.id ?? sub.taskId,
         submissionId: sub.id,
@@ -751,6 +1156,7 @@ export class RewardsService {
         submissionText: sub.submissionText,
         submissionFileName: sub.submissionFileName,
         memberId: sub.memberId,
+        member: member ? { firstName: member.firstName, lastName: member.lastName } : undefined,
       };
     });
   }
@@ -765,6 +1171,7 @@ export class RewardsService {
       category?: string;
       imageUrl?: string;
       submissionType: 'instant' | 'text' | 'file';
+      isRecurring?: boolean;
     },
   ) {
     const taskRepo = this.dataSource.getRepository(Task);
@@ -777,6 +1184,7 @@ export class RewardsService {
       category: data.category ?? undefined,
       imageUrl: data.imageUrl ?? undefined,
       submissionType: data.submissionType,
+      isRecurring: data.isRecurring ?? false,
     });
     return taskRepo.save(task);
   }
@@ -844,7 +1252,7 @@ export class RewardsService {
     };
   }
 
-  async approveSubmission(tenantId: string, taskId: string, submissionId: string) {
+  async approveSubmission(tenantId: string, taskId: string, submissionId: string, actorId: string) {
     const taskRepo = this.dataSource.getRepository(Task);
     const submissionRepo = this.dataSource.getRepository(TaskSubmission);
 
@@ -854,6 +1262,19 @@ export class RewardsService {
     }
     if (sub.status === 'completed') {
       throw new BadRequestException('Submission already approved');
+    }
+
+    // Self-approval guard
+    if (actorId === sub.memberId) {
+      throw new BadRequestException('You cannot approve your own task submission');
+    }
+
+    // Permission check: admin/owner or manager of the submitter
+    const canApprove = await this.canActorApproveFor(tenantId, actorId, sub.memberId);
+    if (!canApprove) {
+      throw new BadRequestException(
+        'You do not have permission to approve this submission. Only admins, owners, or the direct manager of the employee can approve.',
+      );
     }
 
     const task = await taskRepo.findOne({ where: { id: taskId, tenantId } });
@@ -869,12 +1290,23 @@ export class RewardsService {
     return { success: true };
   }
 
-  async rejectSubmission(tenantId: string, taskId: string, submissionId: string) {
+  async rejectSubmission(tenantId: string, taskId: string, submissionId: string, actorId: string) {
     const submissionRepo = this.dataSource.getRepository(TaskSubmission);
 
     const sub = await submissionRepo.findOne({ where: { id: submissionId, tenantId, taskId } });
     if (!sub) {
       throw new BadRequestException('Submission not found');
+    }
+
+    // Self-rejection guard
+    if (actorId === sub.memberId) {
+      throw new BadRequestException('You cannot reject your own task submission');
+    }
+
+    // Permission check
+    const canApprove = await this.canActorApproveFor(tenantId, actorId, sub.memberId);
+    if (!canApprove) {
+      throw new BadRequestException('You do not have permission to reject this submission.');
     }
 
     sub.status = 'rejected';
@@ -892,6 +1324,7 @@ export class RewardsService {
     await this.dataSource.transaction(async (manager) => {
       const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
       const txRepo = manager.getRepository(ShoutoutPointTransaction);
+      const shoutoutRepo = manager.getRepository(Shoutout);
 
       let row = await pointsRepo.findOne({ where: { tenantId, memberId } });
       if (!row) {
@@ -919,6 +1352,55 @@ export class RewardsService {
           createdBy: memberId,
         }),
       );
+
+      // Create a shoutout feed entry so it shows up in the public activity feed
+      await shoutoutRepo.save(
+        shoutoutRepo.create({
+          tenantId,
+          totalPoints: points,
+          createdBy: memberId,
+          message: `completed task: ${taskTitle}`,
+        }),
+      );
     });
+  }
+
+  async listTopupOperators(countryCode: string) {
+    return this.reloadlyTopupsApi.listOperators(countryCode);
+  }
+
+  async listUtilityBillers(countryCode: string) {
+    return this.reloadlyUtilitiesApi.listBillers({ countryISOCode: countryCode });
+  }
+
+  async lookupUtilityMeter(
+    countryCode: string,
+    billerId: string,
+    accountNumber: string,
+    serviceType?: string,
+  ) {
+    if (countryCode.toUpperCase() === 'NG') {
+      return this.nombaBillApi.lookupElectricity(billerId, accountNumber, serviceType || 'PREPAID');
+    }
+    return {
+      customerName: 'Verified Account',
+      meterNumber: accountNumber,
+      address: null,
+      billerId,
+    };
+  }
+
+  async calculatePointsCost(
+    tenantId: string,
+    type: 'airtime' | 'utility',
+    billerId: number,
+    amount: number,
+  ) {
+    const settings = await this.getRewardsSettings(tenantId);
+    if (type === 'airtime') {
+      return this.calculateReloadlyAirtimeCost(billerId, amount, tenantId, settings);
+    } else {
+      return this.calculateReloadlyUtilityCost(billerId, amount, tenantId, settings);
+    }
   }
 }

@@ -11,7 +11,7 @@ export function formatTimeOnly(value?: string | null) {
   if (!value) return '—';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '—';
-  return format(date, 'h:mm a');
+  return format(date, 'h:mm:ss a');
 }
 
 export function formatElapsedMs(ms: number): string {
@@ -21,7 +21,7 @@ export function formatElapsedMs(ms: number): string {
   const seconds = totalSeconds % 60;
 
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return `${hours}h ${minutes}m ${seconds}s`;
   }
   if (minutes > 0) {
     return `${minutes}m ${seconds}s`;

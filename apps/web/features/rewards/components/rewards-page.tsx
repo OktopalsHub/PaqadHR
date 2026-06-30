@@ -12,8 +12,10 @@ import {
   Trash2,
   Trophy,
   Wallet,
+  Zap,
 } from 'lucide-react';
-import { useState } from 'react';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
@@ -40,9 +42,16 @@ import {
   useMyClaims,
   useRewardsCatalog,
   useTenantWallet,
+  useTopupOperators,
+  useUtilityBillers,
 } from '@/hooks/queries/use-rewards';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
-import type { CatalogItem, RewardRedemption } from '@/lib/api/rewards';
+import {
+  type CatalogItem,
+  calculatePointsCost,
+  lookupUtilityMeter,
+  type RewardRedemption,
+} from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
@@ -202,12 +211,19 @@ function CatalogCard({
   const typeColors: Record<string, string> = {
     RELOADLY: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
     NOMBA_AIRTIME: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+    RELOADLY_AIRTIME:
+      'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+    NOMBA_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
+    RELOADLY_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
     CUSTOM: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
   };
 
   const typeLabels: Record<string, string> = {
     RELOADLY: 'Digital Voucher',
     NOMBA_AIRTIME: 'Airtime',
+    RELOADLY_AIRTIME: 'Airtime',
+    NOMBA_UTILITY: 'Utility',
+    RELOADLY_UTILITY: 'Utility',
     CUSTOM: isTemplate ? 'Template Perk' : 'Custom Perk',
   };
 
@@ -215,10 +231,12 @@ function CatalogCard({
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-all hover:shadow-md hover:border-primary/30">
       {item.imageUrl ? (
         <div className="aspect-[16/10] w-full overflow-hidden bg-muted/30 relative">
-          <img
+          <Image
             src={item.imageUrl}
             alt={item.name}
-            className="size-full object-contain p-4 transition-transform group-hover:scale-105"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-contain p-4 transition-transform group-hover:scale-105"
           />
           {isTemplate && (
             <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 text-white border-none text-[9px] uppercase tracking-wider font-bold">
@@ -322,8 +340,10 @@ function ClaimRow({ claim }: { claim: RewardRedemption }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3 bg-card shadow-sm">
       <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {claim.rewardType === 'NOMBA_AIRTIME' ? (
+        {claim.rewardType === 'NOMBA_AIRTIME' || claim.rewardType === 'RELOADLY_AIRTIME' ? (
           <Phone className="size-4" />
+        ) : claim.rewardType === 'NOMBA_UTILITY' || claim.rewardType === 'RELOADLY_UTILITY' ? (
+          <Zap className="size-4 text-indigo-600" />
         ) : claim.rewardType === 'CUSTOM' ? (
           <Sparkles className="size-4" />
         ) : (
@@ -396,10 +416,31 @@ const DATA_BUNDLES: Record<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', DataBundle[]> =
   ],
 };
 
+const NG_UTILITIES = [
+  { id: 'EKEDC', name: 'Eko Electricity (EKEDC)' },
+  { id: 'IKEDC', name: 'Ikeja Electricity (IKEDC)' },
+  { id: 'AEDC', name: 'Abuja Electricity (AEDC)' },
+  { id: 'IBEDC', name: 'Ibadan Electricity (IBEDC)' },
+  { id: 'PHEDC', name: 'Port Harcourt Electricity (PHEDC)' },
+  { id: 'KEDCO', name: 'Kano Electricity (KEDCO)' },
+  { id: 'JED', name: 'Jos Electricity (JED)' },
+  { id: 'EEDC', name: 'Enugu Electricity (EEDC)' },
+  { id: 'KAEDCO', name: 'Kaduna Electricity (KAEDCO)' },
+  { id: 'BEDC', name: 'Benin Electricity (BEDC)' },
+  { id: 'YEDC', name: 'Yola Electricity (YEDC)' },
+];
+
 export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { tenant } = useTenant();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+  const settings = tenant?.settings?.rewards;
+
+  const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
+  const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
+  const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
+
+  const catalogCountries = (settings?.catalogCountries ?? ['NG']) as string[];
 
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
   const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog();
@@ -411,12 +452,272 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const createCustomReward = useCreateCustomReward();
   const deleteCustomReward = useDeleteCustomReward();
 
+  // Top-up (Airtime/Data) States
+  const [selectedCountryCode, setSelectedCountryCode] = useState(catalogCountries[0] || 'NG');
   const [airtimePhone, setAirtimePhone] = useState('');
   const [airtimeNetwork, setAirtimeNetwork] = useState<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE'>('MTN');
   const [airtimeAmount, setAirtimeAmount] = useState('1000');
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [topupMode, setTopupMode] = useState<'airtime' | 'data'>('airtime');
   const [selectedBundleId, setSelectedBundleId] = useState<string>('');
+
+  // Reloadly Topup specific states
+  const [selectedReloadlyOperatorId, setSelectedReloadlyOperatorId] = useState<string>('');
+  const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
+    selectedCountryCode !== 'NG' ? selectedCountryCode : '',
+  );
+
+  const selectedReloadlyOperator = reloadlyOperators.find(
+    (o) => String(o.operatorId) === selectedReloadlyOperatorId,
+  );
+
+  // Sync selected country code if settings change
+  useEffect(() => {
+    if (catalogCountries.length > 0 && !catalogCountries.includes(selectedCountryCode)) {
+      setSelectedCountryCode(catalogCountries[0]);
+    }
+  }, [catalogCountries]);
+
+  // Sync operator default when operators load
+  useEffect(() => {
+    if (reloadlyOperators.length > 0) {
+      setSelectedReloadlyOperatorId(String(reloadlyOperators[0].operatorId));
+      if (reloadlyOperators[0].denominationType === 'FIXED') {
+        setAirtimeAmount('');
+      }
+    }
+  }, [reloadlyOperators]);
+
+  // JIT Points calculation states for top-ups
+  const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
+  const [calculatedValue, setCalculatedValue] = useState<number | null>(null);
+  const [calculatedCurrency, setCalculatedCurrency] = useState<string>('NGN');
+  const [isCalculatingPoints, setIsCalculatingPoints] = useState(false);
+
+  useEffect(() => {
+    if (selectedCountryCode === 'NG') {
+      const amt = Number(airtimeAmount) || 0;
+      if (amt >= 100) {
+        const feePercentage = wallet?.feePercentage ?? 2;
+        const flatFee = wallet?.flatFee ?? 50;
+        const markupFactor = 1 + feePercentage / 100;
+        const totalDebit = amt * markupFactor + flatFee;
+        const points = Math.ceil(totalDebit * (wallet?.pointsExchangeRate ?? 10));
+        setCalculatedPoints(points);
+        setCalculatedValue(amt);
+        setCalculatedCurrency('NGN');
+      } else {
+        setCalculatedPoints(null);
+      }
+    } else {
+      const amt = Number(airtimeAmount) || 0;
+      if (amt > 0 && selectedReloadlyOperator) {
+        const delayDebounceFn = setTimeout(async () => {
+          setIsCalculatingPoints(true);
+          try {
+            const res = await calculatePointsCost({
+              type: 'airtime',
+              billerId: selectedReloadlyOperator.operatorId,
+              amount: amt,
+            });
+            setCalculatedPoints(res.pointsCost);
+            setCalculatedValue(res.currencyValue);
+            setCalculatedCurrency(res.currencyCode);
+          } catch (e) {
+            console.error(e);
+            setCalculatedPoints(null);
+          } finally {
+            setIsCalculatingPoints(false);
+          }
+        }, 500);
+        return () => clearTimeout(delayDebounceFn);
+      } else {
+        setCalculatedPoints(null);
+      }
+    }
+  }, [airtimeAmount, selectedReloadlyOperator, selectedCountryCode, wallet]);
+
+  // Utility Bill States
+  const [utilityCountryCode, setUtilityCountryCode] = useState(catalogCountries[0] || 'NG');
+  const [selectedUtilityBillerNg, setSelectedUtilityBillerNg] = useState('EKEDC');
+  const [selectedUtilityBillerReloadlyId, setSelectedUtilityBillerReloadlyId] =
+    useState<string>('');
+  const [utilityAccountNumber, setUtilityAccountNumber] = useState('');
+  const [utilityAmount, setUtilityAmount] = useState('1000');
+  const [utilityServiceType, setUtilityServiceType] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
+
+  const { data: reloadlyBillers = [], isLoading: billersLoading } = useUtilityBillers(
+    utilityCountryCode !== 'NG' ? utilityCountryCode : '',
+  );
+
+  const selectedUtilityBillerReloadly = reloadlyBillers.find(
+    (b) => String(b.id) === selectedUtilityBillerReloadlyId,
+  );
+
+  // Sync selected country code for utilities if settings change
+  useEffect(() => {
+    if (catalogCountries.length > 0 && !catalogCountries.includes(utilityCountryCode)) {
+      setUtilityCountryCode(catalogCountries[0]);
+    }
+  }, [catalogCountries]);
+
+  // Sync utility biller default when billers load
+  useEffect(() => {
+    if (reloadlyBillers.length > 0) {
+      setSelectedUtilityBillerReloadlyId(String(reloadlyBillers[0].id));
+    }
+  }, [reloadlyBillers]);
+
+  // Meter lookup/validation state
+  const [isLookingUpMeter, setIsLookingUpMeter] = useState(false);
+  const [lookupResult, setLookupResult] = useState<{
+    customerName: string | null;
+    meterNumber: string | null;
+    address: string | null;
+    billerId: string | null;
+  } | null>(null);
+
+  // Utility points calculation states
+  const [utilityPoints, setUtilityPoints] = useState<number | null>(null);
+  const [utilityCalculatedValue, setUtilityCalculatedValue] = useState<number | null>(null);
+  const [utilityCalculatedCurrency, setUtilityCalculatedCurrency] = useState<string>('NGN');
+  const [isCalculatingUtilityPoints, setIsCalculatingUtilityPoints] = useState(false);
+
+  useEffect(() => {
+    if (utilityCountryCode === 'NG') {
+      const amt = Number(utilityAmount) || 0;
+      if (amt >= 100) {
+        const feePercentage = wallet?.feePercentage ?? 2;
+        const flatFee = wallet?.flatFee ?? 50;
+        const markupFactor = 1 + feePercentage / 100;
+        const totalDebit = amt * markupFactor + flatFee;
+        const points = Math.ceil(totalDebit * (wallet?.pointsExchangeRate ?? 10));
+        setUtilityPoints(points);
+        setUtilityCalculatedValue(amt);
+        setUtilityCalculatedCurrency('NGN');
+      } else {
+        setUtilityPoints(null);
+      }
+    } else {
+      const amt = Number(utilityAmount) || 0;
+      if (amt > 0 && selectedUtilityBillerReloadly) {
+        const delayDebounceFn = setTimeout(async () => {
+          setIsCalculatingUtilityPoints(true);
+          try {
+            const res = await calculatePointsCost({
+              type: 'utility',
+              billerId: selectedUtilityBillerReloadly.id,
+              amount: amt,
+            });
+            setUtilityPoints(res.pointsCost);
+            setUtilityCalculatedValue(res.currencyValue);
+            setUtilityCalculatedCurrency(res.currencyCode);
+          } catch (e) {
+            console.error(e);
+            setUtilityPoints(null);
+          } finally {
+            setIsCalculatingUtilityPoints(false);
+          }
+        }, 500);
+        return () => clearTimeout(delayDebounceFn);
+      } else {
+        setUtilityPoints(null);
+      }
+    }
+  }, [utilityAmount, selectedUtilityBillerReloadly, utilityCountryCode, wallet]);
+
+  const handleLookupMeter = async () => {
+    if (!utilityAccountNumber.trim()) {
+      toast.error('Please enter meter / account number');
+      return;
+    }
+    setIsLookingUpMeter(true);
+    setLookupResult(null);
+    try {
+      const billerId =
+        utilityCountryCode === 'NG'
+          ? selectedUtilityBillerNg
+          : String(selectedUtilityBillerReloadly?.id);
+      const res = await lookupUtilityMeter({
+        countryCode: utilityCountryCode,
+        billerId,
+        accountNumber: utilityAccountNumber.trim(),
+        serviceType: utilityServiceType,
+      });
+      setLookupResult(res);
+      toast.success('Account / Meter verified successfully!');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to verify account / meter');
+    } finally {
+      setIsLookingUpMeter(false);
+    }
+  };
+
+  const handleUtilityClaim = async () => {
+    if (!utilityAccountNumber.trim()) {
+      toast.error('Enter recipient meter or account number.');
+      return;
+    }
+    const amount = Number(utilityAmount);
+    if (Number.isNaN(amount) || amount < 100) {
+      toast.error('Minimum amount is 100');
+      return;
+    }
+
+    if (!utilityPoints) {
+      toast.error('Please calculate point cost first.');
+      return;
+    }
+
+    if (pointsBalance && pointsBalance.currentBalance < utilityPoints) {
+      toast.error(`Insufficient points. Needed: ${utilityPoints} ${PAQ_POINTS_NAME}`);
+      return;
+    }
+
+    if (utilityCountryCode === 'NG' && !lookupResult) {
+      toast.error('Please verify meter before claiming.');
+      return;
+    }
+
+    setClaimingId('utility');
+    try {
+      const billerId =
+        utilityCountryCode === 'NG' ? selectedUtilityBillerNg : selectedUtilityBillerReloadly?.id;
+      const billerName =
+        utilityCountryCode === 'NG'
+          ? NG_UTILITIES.find((u) => u.id === selectedUtilityBillerNg)?.name
+          : selectedUtilityBillerReloadly?.name;
+
+      const rewardName = `${billerName} Utility Payment`;
+
+      const result = await claimReward.mutateAsync({
+        rewardType: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
+        rewardId: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
+        rewardName,
+        pointsCost: utilityPoints,
+        currencyValue: amount,
+        currencyCode: utilityCalculatedCurrency,
+        recipientPhone: undefined,
+        billerId,
+        accountNumber: utilityAccountNumber.trim(),
+        serviceType: utilityServiceType,
+      });
+
+      if (result.status === 'SUCCESS') {
+        toast.success(
+          `Utility payment successful! ${result.voucherCode ? `Token: ${result.voucherCode}` : ''}`,
+        );
+        setUtilityAccountNumber('');
+        setLookupResult(null);
+      } else if (result.status === 'FAILED') {
+        toast.error(result.errorMessage ?? 'Payment failed. Points refunded.');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to redeem utility payment');
+    } finally {
+      setClaimingId(null);
+    }
+  };
 
   const [isAddingPerk, setIsAddingPerk] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -495,55 +796,61 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
     const amount = Number(airtimeAmount);
     if (Number.isNaN(amount) || amount < 100) {
-      toast.error('Minimum amount is ₦100');
+      toast.error('Minimum amount is 100');
       return;
     }
 
-    const feePercentage = wallet?.feePercentage ?? 2;
-    const flatFee = wallet?.flatFee ?? 50;
-    const markupFactor = 1 + feePercentage / 100;
-    const totalDebit = amount * markupFactor + flatFee;
-    const pointsCost = Math.ceil(totalDebit * (wallet?.pointsExchangeRate ?? 10));
+    if (!calculatedPoints) {
+      toast.error('Please calculate point cost first.');
+      return;
+    }
 
-    if (pointsBalance && pointsBalance.currentBalance < pointsCost) {
-      toast.error(`Insufficient points. Needed: ${pointsCost} ${PAQ_POINTS_NAME}`);
+    if (pointsBalance && pointsBalance.currentBalance < calculatedPoints) {
+      toast.error(`Insufficient points. Needed: ${calculatedPoints} ${PAQ_POINTS_NAME}`);
       return;
     }
 
     setClaimingId('airtime');
     try {
       const selectedBundle =
-        topupMode === 'data'
+        selectedCountryCode === 'NG' && topupMode === 'data'
           ? DATA_BUNDLES[airtimeNetwork].find((b) => b.id === selectedBundleId)
           : null;
 
-      const rewardName = selectedBundle
-        ? `${airtimeNetwork} ${selectedBundle.name} Data Bundle`
-        : `${airtimeNetwork} Airtime Top-up`;
+      const providerProductId =
+        selectedCountryCode !== 'NG' ? selectedReloadlyOperator?.operatorId : undefined;
+
+      const rewardName =
+        selectedCountryCode === 'NG'
+          ? selectedBundle
+            ? `${airtimeNetwork} ${selectedBundle.name} Data Bundle`
+            : `${airtimeNetwork} Airtime Top-up`
+          : `${selectedReloadlyOperator?.name} Airtime`;
 
       const result = await claimReward.mutateAsync({
-        rewardType: 'NOMBA_AIRTIME',
-        rewardId: 'NOMBA_AIRTIME',
+        rewardType: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
+        rewardId: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
         rewardName,
-        pointsCost,
+        pointsCost: calculatedPoints,
         currencyValue: amount,
-        currencyCode: 'NGN',
+        currencyCode: calculatedCurrency,
         recipientPhone: airtimePhone.trim(),
-        airtimeNetwork,
+        airtimeNetwork: selectedCountryCode === 'NG' ? airtimeNetwork : undefined,
+        providerProductId,
       });
+
       if (result.status === 'SUCCESS') {
         toast.success(
-          selectedBundle ? 'Data bundle sent successfully!' : 'Airtime sent successfully!',
+          selectedCountryCode === 'NG' && selectedBundle
+            ? 'Data bundle sent successfully!'
+            : 'Airtime sent successfully!',
         );
-        if (topupMode === 'airtime') {
-          setAirtimeAmount('1000');
-        }
         setAirtimePhone('');
       } else if (result.status === 'FAILED') {
         toast.error(result.errorMessage ?? 'Purchase failed. Points refunded.');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed');
+      toast.error(err instanceof Error ? err.message : 'Failed to top-up');
     } finally {
       setClaimingId(null);
     }
@@ -608,6 +915,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
+  const defaultTab =
+    isGiftCardsEnabled && giftCards.length > 0
+      ? 'digital-cards'
+      : isAirtimeEnabled
+        ? 'airtime'
+        : isUtilitiesEnabled
+          ? 'utilities'
+          : 'perks';
+
   const content = (
     <>
       {!isTab ? (
@@ -624,9 +940,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         totalEarned={pointsBalance?.totalEarned ?? 0}
       />
 
-      <Tabs defaultValue={giftCards.length > 0 ? 'digital-cards' : 'airtime'} className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          {giftCards.length > 0 && (
+          {isGiftCardsEnabled && giftCards.length > 0 && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
               value="digital-cards"
@@ -635,13 +951,24 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
               Digital Cards
             </TabsTrigger>
           )}
-          <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-            value="airtime"
-          >
-            <Phone className="mr-1.5 size-3.5" />
-            Mobile Top-up
-          </TabsTrigger>
+          {isAirtimeEnabled && (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="airtime"
+            >
+              <Phone className="mr-1.5 size-3.5" />
+              Mobile Top-up
+            </TabsTrigger>
+          )}
+          {isUtilitiesEnabled && (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="utilities"
+            >
+              <Zap className="mr-1.5 size-3.5" />
+              Utility Bills
+            </TabsTrigger>
+          )}
           <TabsTrigger
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
             value="perks"
@@ -667,13 +994,20 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsList>
 
-        {}
-        {giftCards.length > 0 && (
+        {isGiftCardsEnabled && giftCards.length > 0 && (
           <TabsContent value="digital-cards" className="space-y-4">
-            {}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {
+                  // Filter out categories based on admin preferences
+                  if (
+                    settings?.giftCardCategories &&
+                    cat !== 'All' &&
+                    !settings.giftCardCategories.includes(cat)
+                  ) {
+                    return null;
+                  }
+
                   const count = giftCards.filter((item) => {
                     const isNgAirtime =
                       item.countryCode === 'NG' && getReloadlyCategory(item) === 'Airtime';
@@ -736,214 +1070,36 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           </TabsContent>
         )}
 
-        {}
-        <TabsContent value="airtime" className="space-y-6">
-          <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-              <div className="flex items-center gap-2">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <Phone className="size-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold">Mobile Top-up</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Send airtime or data bundles instantly
-                  </p>
-                </div>
-              </div>
-
-              {}
-              <div className="flex rounded-lg bg-muted p-1 border border-border/40 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTopupMode('airtime');
-                    setAirtimeAmount('1000');
-                  }}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
-                    topupMode === 'airtime'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Airtime
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTopupMode('data');
-                    const defaultBundle = DATA_BUNDLES[airtimeNetwork][0];
-                    setSelectedBundleId(defaultBundle.id);
-                    setAirtimeAmount(String(defaultBundle.price));
-                  }}
-                  className={cn(
-                    'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
-                    topupMode === 'data'
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground',
-                  )}
-                >
-                  Data Bundle
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {}
-              <div className="lg:col-span-7 space-y-6">
-                {}
-                <div className="space-y-3">
-                  <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Select Network Provider
-                  </Label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {(
-                      [
-                        { key: 'MTN', color: 'hover:border-[#FFCC00]/50' },
-                        { key: 'AIRTEL', color: 'hover:border-[#E11900]/50' },
-                        { key: 'GLO', color: 'hover:border-[#00824A]/50' },
-                        { key: '9MOBILE', color: 'hover:border-[#004F34]/50' },
-                      ] as const
-                    ).map(({ key, color }) => {
-                      const isSelected = airtimeNetwork === key;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => {
-                            setAirtimeNetwork(key);
-                            if (topupMode === 'data') {
-                              const defaultBundle = DATA_BUNDLES[key][0];
-                              setSelectedBundleId(defaultBundle.id);
-                              setAirtimeAmount(String(defaultBundle.price));
-                            }
-                          }}
-                          className={cn(
-                            'relative p-4 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center gap-2 bg-card cursor-pointer',
-                            isSelected
-                              ? 'border-primary ring-2 ring-primary/20 shadow-md scale-[1.02]'
-                              : 'border-border/60 shadow-sm hover:scale-[1.01]',
-                            color,
-                          )}
-                        >
-                          {}
-                          {key === 'MTN' && (
-                            <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#FFCC00] text-[11px] font-black text-black select-none tracking-tighter">
-                              <span className="border border-black rounded-full px-2 py-0.5 text-[9px] font-extrabold bg-[#FFCC00]">
-                                MTN
-                              </span>
-                            </div>
-                          )}
-                          {key === 'AIRTEL' && (
-                            <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#E11900] text-[13px] font-bold text-white select-none lowercase italic font-sans tracking-tighter">
-                              airtel
-                            </div>
-                          )}
-                          {key === 'GLO' && (
-                            <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#00824A] text-[14px] font-extrabold text-white select-none lowercase tracking-tighter italic">
-                              glo
-                            </div>
-                          )}
-                          {key === '9MOBILE' && (
-                            <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#004F34] text-[10px] font-bold text-[#A4C639] select-none tracking-tight">
-                              9<span className="text-white">mobile</span>
-                            </div>
-                          )}
-
-                          <span className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
-                            {key === '9MOBILE' ? '9mobile' : key}
-                          </span>
-
-                          {isSelected && (
-                            <div className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground rounded-full p-0.5">
-                              <Check className="size-3 stroke-[3]" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
+        {isAirtimeEnabled && (
+          <TabsContent value="airtime" className="space-y-6">
+            <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                    <Phone className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">Mobile Top-up</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Send airtime or data bundles instantly
+                    </p>
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
-                      Phone Number
-                    </Label>
-                    <Input
-                      placeholder="e.g. 08012345678"
-                      value={airtimePhone}
-                      onChange={(e) => setAirtimePhone(e.target.value)}
-                      className="h-10 text-sm font-medium"
-                    />
-                  </div>
-
-                  {topupMode === 'airtime' && (
-                    <div className="space-y-1.5">
-                      <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
-                        Amount (₦)
+                <div className="flex flex-wrap items-center gap-4">
+                  {catalogCountries.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">
+                        Country:
                       </Label>
-                      <Input
-                        type="number"
-                        min={100}
-                        value={airtimeAmount}
-                        onChange={(e) => setAirtimeAmount(e.target.value)}
-                        className="h-10 text-sm font-medium"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {topupMode === 'airtime' && (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Quick Select Amount
-                    </Label>
-                    <div className="flex flex-wrap gap-2">
-                      {['200', '500', '1000', '2000', '5000'].map((amt) => (
-                        <Button
-                          key={amt}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAirtimeAmount(amt)}
-                          className={cn(
-                            'h-9 px-4 text-xs font-semibold rounded-lg',
-                            airtimeAmount === amt && 'border-primary bg-primary/5 text-primary',
-                          )}
-                        >
-                          ₦{Number(amt).toLocaleString()}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {}
-              <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl bg-muted/30 border border-border/40 p-5 space-y-6">
-                <div className="space-y-5">
-                  {topupMode === 'data' && (
-                    <div className="space-y-2">
-                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                        Select Data Plan
-                      </Label>
-                      <Select
-                        value={selectedBundleId}
-                        onValueChange={(val) => {
-                          setSelectedBundleId(val);
-                          const b = DATA_BUNDLES[airtimeNetwork].find((item) => item.id === val);
-                          if (b) setAirtimeAmount(String(b.price));
-                        }}
-                      >
-                        <SelectTrigger className="h-10 text-xs font-medium">
+                      <Select value={selectedCountryCode} onValueChange={setSelectedCountryCode}>
+                        <SelectTrigger className="w-[140px] h-9 text-xs">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {DATA_BUNDLES[airtimeNetwork].map((bundle) => (
-                            <SelectItem key={bundle.id} value={bundle.id}>
-                              {bundle.name} ({bundle.validity}) — ₦{bundle.price.toLocaleString()}
+                          {catalogCountries.map((code) => (
+                            <SelectItem key={code} value={code} className="text-xs">
+                              {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -951,64 +1107,626 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     </div>
                   )}
 
-                  {}
-                  {Number(airtimeAmount) >= 100 && (
-                    <div className="rounded-xl border border-border/40 bg-card p-4 space-y-3 text-sm shadow-inner">
-                      <div className="flex justify-between text-xs text-muted-foreground font-medium">
-                        <span>Recharge Value</span>
-                        <span className="font-bold text-foreground">
-                          ₦{Number(airtimeAmount).toLocaleString()}
-                        </span>
+                  {selectedCountryCode === 'NG' && (
+                    <div className="flex rounded-lg bg-muted p-1 border border-border/40 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopupMode('airtime');
+                          setAirtimeAmount('1000');
+                        }}
+                        className={cn(
+                          'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
+                          topupMode === 'airtime'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Airtime
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTopupMode('data');
+                          const defaultBundle = DATA_BUNDLES[airtimeNetwork][0];
+                          setSelectedBundleId(defaultBundle.id);
+                          setAirtimeAmount(String(defaultBundle.price));
+                        }}
+                        className={cn(
+                          'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
+                          topupMode === 'data'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        Data Bundle
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-7 space-y-6">
+                  {selectedCountryCode === 'NG' ? (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Select Network Provider
+                      </Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {(
+                          [
+                            { key: 'MTN', color: 'hover:border-[#FFCC00]/50' },
+                            { key: 'AIRTEL', color: 'hover:border-[#E11900]/50' },
+                            { key: 'GLO', color: 'hover:border-[#00824A]/50' },
+                            { key: '9MOBILE', color: 'hover:border-[#004F34]/50' },
+                          ] as const
+                        ).map(({ key, color }) => {
+                          const isSelected = airtimeNetwork === key;
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => {
+                                setAirtimeNetwork(key);
+                                if (topupMode === 'data') {
+                                  const defaultBundle = DATA_BUNDLES[key][0];
+                                  setSelectedBundleId(defaultBundle.id);
+                                  setAirtimeAmount(String(defaultBundle.price));
+                                }
+                              }}
+                              className={cn(
+                                'relative p-4 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center gap-2 bg-card cursor-pointer',
+                                isSelected
+                                  ? 'border-primary ring-2 ring-primary/20 shadow-md scale-[1.02]'
+                                  : 'border-border/60 shadow-sm hover:scale-[1.01]',
+                                color,
+                              )}
+                            >
+                              {key === 'MTN' && (
+                                <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#FFCC00] text-[11px] font-black text-black select-none tracking-tighter">
+                                  <span className="border border-black rounded-full px-2 py-0.5 text-[9px] font-extrabold bg-[#FFCC00]">
+                                    MTN
+                                  </span>
+                                </div>
+                              )}
+                              {key === 'AIRTEL' && (
+                                <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#E11900] text-[13px] font-bold text-white select-none lowercase italic font-sans tracking-tighter">
+                                  airtel
+                                </div>
+                              )}
+                              {key === 'GLO' && (
+                                <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#00824A] text-[14px] font-extrabold text-white select-none lowercase tracking-tighter italic">
+                                  glo
+                                </div>
+                              )}
+                              {key === '9MOBILE' && (
+                                <div className="flex h-9 w-20 items-center justify-center rounded-lg bg-[#004F34] text-[10px] font-bold text-[#A4C639] select-none tracking-tight">
+                                  9<span className="text-white">mobile</span>
+                                </div>
+                              )}
+                              <span className="text-[10px] font-bold tracking-wide text-muted-foreground uppercase">
+                                {key === '9MOBILE' ? '9mobile' : key}
+                              </span>
+                              {isSelected && (
+                                <div className="absolute top-1.5 right-1.5 bg-primary text-primary-foreground rounded-full p-0.5">
+                                  <Check className="size-3 stroke-[3]" />
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <div className="flex justify-between text-xs text-muted-foreground font-medium">
-                        <span>Processing Fee</span>
-                        <span className="font-bold text-foreground">
-                          +₦
-                          {(
-                            Number(airtimeAmount) * ((wallet?.feePercentage ?? 2) / 100) +
-                            (wallet?.flatFee ?? 50)
-                          ).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="h-px bg-border/50 my-2" />
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-foreground">Total Cost in Points</span>
-                        <span className="text-lg font-black text-primary flex items-center gap-1">
-                          <Trophy className="size-4.5 text-amber-500 fill-amber-500" />
-                          {Math.ceil(
-                            (Number(airtimeAmount) * (1 + (wallet?.feePercentage ?? 2) / 100) +
-                              (wallet?.flatFee ?? 50)) *
-                              (wallet?.pointsExchangeRate ?? 10),
-                          ).toLocaleString()}{' '}
-                          pts
-                        </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Select Global Operator
+                      </Label>
+                      {operatorsLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin text-primary" /> Loading
+                          Operators...
+                        </div>
+                      ) : reloadlyOperators.length === 0 ? (
+                        <div className="text-xs text-muted-foreground italic">
+                          No operators available for this country.
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedReloadlyOperatorId}
+                          onValueChange={setSelectedReloadlyOperatorId}
+                        >
+                          <SelectTrigger className="h-10 text-xs">
+                            <SelectValue placeholder="Select operator..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {reloadlyOperators.map((operator) => (
+                              <SelectItem
+                                key={operator.operatorId}
+                                value={String(operator.operatorId)}
+                                className="text-xs"
+                              >
+                                {operator.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                        Recipient Phone Number
+                      </Label>
+                      <Input
+                        placeholder={
+                          selectedCountryCode === 'NG'
+                            ? 'e.g. 08012345678'
+                            : 'Include country code, e.g. +1...'
+                        }
+                        value={airtimePhone}
+                        onChange={(e) => setAirtimePhone(e.target.value)}
+                        className="h-10 text-sm font-medium"
+                      />
+                    </div>
+
+                    {selectedCountryCode === 'NG'
+                      ? topupMode === 'airtime' && (
+                          <div className="space-y-1.5">
+                            <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                              Amount (₦)
+                            </Label>
+                            <Input
+                              type="number"
+                              min={100}
+                              value={airtimeAmount}
+                              onChange={(e) => setAirtimeAmount(e.target.value)}
+                              className="h-10 text-sm font-medium"
+                            />
+                          </div>
+                        )
+                      : selectedReloadlyOperator && (
+                          <div className="space-y-1.5">
+                            <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                              Amount ({selectedReloadlyOperator.destinationCurrencyCode})
+                            </Label>
+                            {selectedReloadlyOperator.denominationType === 'FIXED' ? (
+                              <Select value={airtimeAmount} onValueChange={setAirtimeAmount}>
+                                <SelectTrigger className="h-10 text-xs font-medium">
+                                  <SelectValue placeholder="Select denomination" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {selectedReloadlyOperator.localMinAmount === null ? (
+                                    <SelectItem value="0" className="text-xs">
+                                      No denominations available
+                                    </SelectItem>
+                                  ) : (
+                                    [10, 20, 50, 100].map((val) => (
+                                      <SelectItem key={val} value={String(val)} className="text-xs">
+                                        {selectedReloadlyOperator.destinationCurrencyCode} {val}
+                                      </SelectItem>
+                                    ))
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input
+                                type="number"
+                                min={selectedReloadlyOperator.localMinAmount ?? 1}
+                                max={selectedReloadlyOperator.localMaxAmount ?? 1000}
+                                value={airtimeAmount}
+                                onChange={(e) => setAirtimeAmount(e.target.value)}
+                                placeholder={`Range: ${selectedReloadlyOperator.localMinAmount ?? 1} - ${selectedReloadlyOperator.localMaxAmount ?? 1000}`}
+                                className="h-10 text-sm font-medium"
+                              />
+                            )}
+                          </div>
+                        )}
+                  </div>
+
+                  {selectedCountryCode === 'NG' && topupMode === 'airtime' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Quick Select Amount
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {['200', '500', '1000', '2000', '5000'].map((amt) => (
+                          <Button
+                            key={amt}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setAirtimeAmount(amt)}
+                            className={cn(
+                              'h-9 px-4 text-xs font-semibold rounded-lg',
+                              airtimeAmount === amt && 'border-primary bg-primary/5 text-primary',
+                            )}
+                          >
+                            ₦{Number(amt).toLocaleString()}
+                          </Button>
+                        ))}
                       </div>
                     </div>
                   )}
                 </div>
 
-                <Button
-                  className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-indigo-600 hover:bg-indigo-700 text-white"
-                  disabled={claimingId === 'airtime' || !airtimePhone}
-                  onClick={handleAirtimeClaim}
-                >
-                  {claimingId === 'airtime' ? (
-                    <>
-                      <Loader2 className="mr-1.5 size-4 animate-spin" />
-                      Processing Vending...
-                    </>
-                  ) : topupMode === 'airtime' ? (
-                    'Send Airtime'
-                  ) : (
-                    'Send Data Bundle'
-                  )}
-                </Button>
+                <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl bg-muted/30 border border-border/40 p-5 space-y-6">
+                  <div className="space-y-5">
+                    {selectedCountryCode === 'NG' && topupMode === 'data' && (
+                      <div className="space-y-2">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Select Data Plan
+                        </Label>
+                        <Select
+                          value={selectedBundleId}
+                          onValueChange={(val) => {
+                            setSelectedBundleId(val);
+                            const b = DATA_BUNDLES[airtimeNetwork].find((item) => item.id === val);
+                            if (b) setAirtimeAmount(String(b.price));
+                          }}
+                        >
+                          <SelectTrigger className="h-10 text-xs font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {DATA_BUNDLES[airtimeNetwork].map((bundle) => (
+                              <SelectItem key={bundle.id} value={bundle.id}>
+                                {bundle.name} ({bundle.validity}) — ₦{bundle.price.toLocaleString()}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {Number(airtimeAmount) > 0 && (
+                      <div className="rounded-xl border border-border/40 bg-card p-4 space-y-3 text-sm shadow-inner">
+                        <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                          <span>Recharge Value</span>
+                          <span className="font-bold text-foreground">
+                            {selectedCountryCode === 'NG'
+                              ? '₦'
+                              : `${selectedReloadlyOperator?.destinationCurrencyCode} `}
+                            {Number(airtimeAmount).toLocaleString()}
+                          </span>
+                        </div>
+
+                        {selectedCountryCode === 'NG' ? (
+                          <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                            <span>Processing Fee</span>
+                            <span className="font-bold text-foreground">
+                              +₦
+                              {(
+                                Number(airtimeAmount) * ((wallet?.feePercentage ?? 2) / 100) +
+                                (wallet?.flatFee ?? 50)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                            <span>Global Processing</span>
+                            <span className="font-bold text-foreground">Inclusive of FX Rates</span>
+                          </div>
+                        )}
+
+                        <div className="h-px bg-border/50 my-2" />
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-foreground">Total Cost in Points</span>
+                          {isCalculatingPoints ? (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Loader2 className="size-3 animate-spin" /> Calculating...
+                            </span>
+                          ) : calculatedPoints ? (
+                            <span className="text-lg font-black text-primary flex items-center gap-1">
+                              <Trophy className="size-4.5 text-amber-500 fill-amber-500" />
+                              {calculatedPoints.toLocaleString()} pts
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">
+                              Enter valid amount
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                    disabled={claimingId === 'airtime' || !airtimePhone || !calculatedPoints}
+                    onClick={handleAirtimeClaim}
+                  >
+                    {claimingId === 'airtime' ? (
+                      <>
+                        <Loader2 className="mr-1.5 size-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : selectedCountryCode === 'NG' && topupMode === 'data' ? (
+                      'Send Data Bundle'
+                    ) : (
+                      'Send Airtime'
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </TabsContent>
+          </TabsContent>
+        )}
 
-        {}
+        {isUtilitiesEnabled && (
+          <TabsContent value="utilities" className="space-y-6">
+            <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
+                    <Zap className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold">Utility Bills</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Pay electricity, water, and internet bills instantly using points
+                    </p>
+                  </div>
+                </div>
+
+                {catalogCountries.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Label className="text-xs font-semibold text-muted-foreground">Country:</Label>
+                    <Select value={utilityCountryCode} onValueChange={setUtilityCountryCode}>
+                      <SelectTrigger className="w-[140px] h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {catalogCountries.map((code) => (
+                          <SelectItem key={code} value={code} className="text-xs">
+                            {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="lg:col-span-7 space-y-6">
+                  {utilityCountryCode === 'NG' ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Select Biller (Nigeria)
+                        </Label>
+                        <Select
+                          value={selectedUtilityBillerNg}
+                          onValueChange={setSelectedUtilityBillerNg}
+                        >
+                          <SelectTrigger className="h-10 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {NG_UTILITIES.map((u) => (
+                              <SelectItem key={u.id} value={u.id} className="text-xs">
+                                {u.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Service Type
+                        </Label>
+                        <Select
+                          value={utilityServiceType}
+                          onValueChange={(val: any) => setUtilityServiceType(val)}
+                        >
+                          <SelectTrigger className="h-10 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PREPAID" className="text-xs">
+                              Prepaid Meter
+                            </SelectItem>
+                            <SelectItem value="POSTPAID" className="text-xs">
+                              Postpaid Account
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Select Global Utility Biller
+                      </Label>
+                      {billersLoading ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="size-4 animate-spin text-primary" /> Loading
+                          Billers...
+                        </div>
+                      ) : reloadlyBillers.length === 0 ? (
+                        <div className="text-xs text-muted-foreground italic">
+                          No utility billers available for this country.
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedUtilityBillerReloadlyId}
+                          onValueChange={setSelectedUtilityBillerReloadlyId}
+                        >
+                          <SelectTrigger className="h-10 text-xs">
+                            <SelectValue placeholder="Select utility biller..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {reloadlyBillers.map((biller) => (
+                              <SelectItem
+                                key={biller.id}
+                                value={String(biller.id)}
+                                className="text-xs"
+                              >
+                                {biller.name} ({biller.type})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                        Meter / Subscriber Account Number
+                      </Label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="e.g. 0419283746"
+                          value={utilityAccountNumber}
+                          onChange={(e) => {
+                            setUtilityAccountNumber(e.target.value);
+                            setLookupResult(null);
+                          }}
+                          className="h-10 text-sm font-medium"
+                        />
+                        {utilityCountryCode === 'NG' && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleLookupMeter}
+                            disabled={isLookingUpMeter || !utilityAccountNumber.trim()}
+                            className="h-10 text-xs font-semibold shrink-0"
+                          >
+                            {isLookingUpMeter ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              'Verify'
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                        Amount to Pay
+                      </Label>
+                      <Input
+                        type="number"
+                        min={100}
+                        value={utilityAmount}
+                        onChange={(e) => setUtilityAmount(e.target.value)}
+                        className="h-10 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {lookupResult && (
+                    <div className="rounded-xl border border-green-200 dark:border-green-900 bg-green-50/20 dark:bg-green-950/10 p-4 space-y-1.5 text-xs text-foreground">
+                      <p className="font-bold text-green-700 dark:text-green-400">
+                        ✓ Account Verified
+                      </p>
+                      <div className="grid grid-cols-2 gap-2 mt-1">
+                        <div>
+                          <p className="text-[10px] text-muted-foreground">Customer Name</p>
+                          <p className="font-semibold">{lookupResult.customerName || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-muted-foreground">Meter Number</p>
+                          <p className="font-mono font-semibold">{lookupResult.meterNumber}</p>
+                        </div>
+                        {lookupResult.address && (
+                          <div className="col-span-2">
+                            <p className="text-[10px] text-muted-foreground">Address</p>
+                            <p className="font-semibold">{lookupResult.address}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="lg:col-span-5 flex flex-col justify-between rounded-2xl bg-muted/30 border border-border/40 p-5 space-y-6">
+                  <div className="space-y-5">
+                    {Number(utilityAmount) > 0 && (
+                      <div className="rounded-xl border border-border/40 bg-card p-4 space-y-3 text-sm shadow-inner">
+                        <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                          <span>Payment Value</span>
+                          <span className="font-bold text-foreground">
+                            {utilityCountryCode === 'NG'
+                              ? '₦'
+                              : `${selectedUtilityBillerReloadly?.localTransactionCurrencyCode || 'USD'} `}
+                            {Number(utilityAmount).toLocaleString()}
+                          </span>
+                        </div>
+
+                        {utilityCountryCode === 'NG' ? (
+                          <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                            <span>Processing Fee</span>
+                            <span className="font-bold text-foreground">
+                              +₦
+                              {(
+                                Number(utilityAmount) * ((wallet?.feePercentage ?? 2) / 100) +
+                                (wallet?.flatFee ?? 50)
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex justify-between text-xs text-muted-foreground font-medium">
+                            <span>Processing Fee</span>
+                            <span className="font-bold text-foreground">Inclusive of FX Rates</span>
+                          </div>
+                        )}
+
+                        <div className="h-px bg-border/50 my-2" />
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-foreground">Total Cost in Points</span>
+                          {isCalculatingUtilityPoints ? (
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Loader2 className="size-3 animate-spin" /> Calculating...
+                            </span>
+                          ) : utilityPoints ? (
+                            <span className="text-lg font-black text-primary flex items-center gap-1">
+                              <Trophy className="size-4.5 text-amber-500 fill-amber-500" />
+                              {utilityPoints.toLocaleString()} pts
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">
+                              Enter valid amount
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                    disabled={
+                      claimingId === 'utility' ||
+                      !utilityAccountNumber ||
+                      !utilityPoints ||
+                      (utilityCountryCode === 'NG' && !lookupResult)
+                    }
+                    onClick={handleUtilityClaim}
+                  >
+                    {claimingId === 'utility' ? (
+                      <>
+                        <Loader2 className="mr-1.5 size-4 animate-spin" />
+                        Processing Payment...
+                      </>
+                    ) : (
+                      'Pay Utility Bill'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        )}
+
         <TabsContent value="perks" className="space-y-4">
           {isAdmin && !isAddingPerk && (
             <div className="flex justify-end">
@@ -1163,7 +1881,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsContent>
 
-        {}
         <TabsContent value="history" className="space-y-3">
           {claimsLoading ? (
             <LoadingBlock />
@@ -1182,7 +1899,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsContent>
 
-        {}
         {isAdmin && (
           <TabsContent value="all-claims" className="space-y-4">
             {allClaimsLoading ? (
@@ -1241,10 +1957,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         >
                           <div className="flex items-start gap-3.5 min-w-0">
                             <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
-                              {claim.rewardType === 'NOMBA_AIRTIME' ? (
+                              {claim.rewardType === 'NOMBA_AIRTIME' ||
+                              claim.rewardType === 'RELOADLY_AIRTIME' ? (
                                 <Phone className="size-5" />
                               ) : claim.rewardType === 'CUSTOM' ? (
                                 <Sparkles className="size-5 text-amber-500" />
+                              ) : claim.rewardType === 'NOMBA_UTILITY' ||
+                                claim.rewardType === 'RELOADLY_UTILITY' ? (
+                                <Zap className="size-5 text-indigo-600" />
                               ) : (
                                 <ShoppingBag className="size-5" />
                               )}
@@ -1265,7 +1985,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 <span>{new Date(claim.createdAt).toLocaleDateString()}</span>
                               </p>
 
-                              {}
                               {(claim.recipientPhone || claim.recipientEmail) && (
                                 <p className="text-[11px] text-muted-foreground mt-1 bg-muted/40 px-2 py-0.5 rounded-md inline-block">
                                   {claim.recipientPhone
@@ -1274,7 +1993,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 </p>
                               )}
 
-                              {}
                               {(claim.voucherCode || claim.voucherInstructions) && (
                                 <div className="mt-2 text-xs space-y-1 bg-muted/50 p-2.5 rounded-lg border border-border/40">
                                   {claim.voucherCode && (

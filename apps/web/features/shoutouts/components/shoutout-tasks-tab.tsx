@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Activity,
   AlertCircle,
   Award,
   Check,
@@ -12,14 +13,19 @@ import {
   FileText,
   Heart,
   Loader2,
+  MessageSquare,
   Plus,
+  Repeat,
+  Send,
   Sparkles,
   Trash2,
   Trophy,
   Upload,
   User,
+  Users,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { SlackIcon } from '@/components/icons/slack-icon';
@@ -44,7 +50,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { useAssignPoints } from '@/hooks/queries/use-rewards';
+import { useMembersPoints } from '@/hooks/queries/use-tenant-settings';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -59,6 +68,7 @@ type Task = {
   completed: boolean;
   imageUrl?: string;
   submissionType: 'instant' | 'text' | 'file';
+  isRecurring: boolean;
   status: 'available' | 'pending' | 'completed' | 'rejected';
   submissionText?: string;
   submissionFileName?: string;
@@ -79,6 +89,10 @@ type PendingSubmission = {
   submissionText?: string;
   submissionFileName?: string;
   memberId: string;
+  member?: {
+    firstName: string | null;
+    lastName: string | null;
+  };
 };
 
 const ICON_MAP: Record<string, any> = {
@@ -88,6 +102,8 @@ const ICON_MAP: Record<string, any> = {
   Award,
   Slack: SlackIcon,
   Sparkles,
+  Activity,
+  MessageSquare,
 };
 
 export function ShoutoutTasksTab() {
@@ -110,8 +126,13 @@ export function ShoutoutTasksTab() {
       apiClient<PendingSubmission[]>(
         tenantPath(tenantId ?? '', 'rewards/tasks/submissions/pending'),
       ),
-    enabled: Boolean(tenantId) && isAdmin,
+    // All authenticated users can call this — the backend filters to only return
+    // submissions they are allowed to approve (admin/owner/manager of submitter)
+    enabled: Boolean(tenantId),
   });
+
+  const { data: members = [] } = useMembersPoints();
+  const assignPointsMutation = useAssignPoints();
 
   const [isAdding, setIsAdding] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -124,6 +145,15 @@ export function ShoutoutTasksTab() {
     'instant',
   );
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [newIsRecurring, setNewIsRecurring] = useState(false);
+
+  // Direct Point Assignment State
+  const [isAssigningPoints, setIsAssigningPoints] = useState(false);
+  const [assignSearch, setAssignSearch] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [assignments, setAssignments] = useState<{ memberId: string; points: number }[]>([]);
+  const [assignPointsAmount, setAssignPointsAmount] = useState('50');
+  const [assignReason, setAssignReason] = useState('');
 
   const [submittingTask, setSubmittingTask] = useState<Task | null>(null);
   const [submissionText, setSubmissionText] = useState('');
@@ -277,6 +307,7 @@ export function ShoutoutTasksTab() {
           category: newCategory.trim() || undefined,
           imageUrl: newImageUrl.trim() || undefined,
           submissionType: newSubmissionType,
+          isRecurring: newIsRecurring,
         }),
       });
       setNewTitle('');
@@ -284,6 +315,7 @@ export function ShoutoutTasksTab() {
       setNewCategory('');
       setNewImageUrl('');
       setNewSubmissionType('instant');
+      setNewIsRecurring(false);
       setIsAdding(false);
       toast.success(`Task created successfully!`);
       invalidateAll();
@@ -306,17 +338,71 @@ export function ShoutoutTasksTab() {
     }
   };
 
+  const handleDirectAssignPoints = async () => {
+    if (assignments.length === 0) {
+      toast.error('Please select at least one user');
+      return;
+    }
+
+    try {
+      await assignPointsMutation.mutateAsync({
+        memberIds: assignments.map((a) => a.memberId),
+        points: Number(assignPointsAmount) || 0,
+        reason: assignReason.trim() || undefined,
+        assignments: assignments,
+      });
+      toast.success(`Successfully assigned points to ${assignments.length} users!`);
+      setIsAssigningPoints(false);
+      setAssignments([]);
+      setAssignReason('');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to assign points');
+    }
+  };
+
+  const addAssignment = (memberId: string) => {
+    if (assignments.some((a) => a.memberId === memberId)) return;
+    setAssignments([...assignments, { memberId, points: Number(assignPointsAmount) || 50 }]);
+    setAssignSearch('');
+  };
+
+  const removeAssignment = (memberId: string) => {
+    setAssignments(assignments.filter((a) => a.memberId !== memberId));
+  };
+
+  const updateAssignmentPoints = (memberId: string, valStr: string) => {
+    const pts = Math.max(0, parseInt(valStr, 10) || 0);
+    setAssignments(assignments.map((a) => (a.memberId === memberId ? { ...a, points: pts } : a)));
+  };
+
+  const selectAllMembers = () => {
+    const currentVal = Number(assignPointsAmount) || 50;
+    setAssignments(members.map((m) => ({ memberId: m.memberId, points: currentVal })));
+  };
+
+  const deselectAllMembers = () => {
+    setAssignments([]);
+  };
+
   const invalidateAll = () => {
     void queryClient.invalidateQueries({ queryKey: ['shoutout-tasks', tenantId] });
     void queryClient.invalidateQueries({ queryKey: ['shoutout-tasks-pending', tenantId] });
     if (tenantId) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.points(tenantId) });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.settings.membersPoints, tenantId],
+      });
     }
   };
 
   const userPendingTasks = tasks.filter((t) => t.status === 'pending');
   const availableTasks = tasks.filter((t) => t.status === 'available' || t.status === 'rejected');
   const completedTasks = tasks.filter((t) => t.status === 'completed');
+
+  const filteredMembers = members.filter((m) => {
+    const fullName = `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase();
+    return fullName.includes(assignSearch.toLowerCase());
+  });
 
   if (tasksLoading) {
     return (
@@ -329,7 +415,7 @@ export function ShoutoutTasksTab() {
 
   return (
     <div className="space-y-8">
-      {}
+      {/* Header card */}
       <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 p-6 md:p-8 shadow-sm">
         <div className="absolute top-0 right-0 -mt-6 -mr-6 size-48 rounded-full bg-indigo-500/5 blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-6 -ml-6 size-48 rounded-full bg-purple-500/5 blur-3xl" />
@@ -380,31 +466,43 @@ export function ShoutoutTasksTab() {
         )}
       </div>
 
-      {}
+      {/* Admin Checklist Management Panel */}
       {isAdmin && (
-        <div className="flex items-center justify-between border-b pb-4">
+        <div className="flex flex-wrap items-center justify-between border-b pb-4 gap-4">
           <div>
             <h4 className="text-sm font-semibold text-foreground">Checklist Management</h4>
             <p className="text-xs text-muted-foreground">
-              Add new tasks, require submissions, and approve employee completed claims.
+              Configure checklist challenges, approve submissions, or award tokens directly to
+              members.
             </p>
           </div>
-          {!isAdding && (
+          <div className="flex items-center gap-3">
             <Button
               size="sm"
-              onClick={() => setIsAdding(true)}
-              className="gap-1.5 text-xs font-bold shadow-sm"
+              variant="outline"
+              onClick={() => setIsAssigningPoints(true)}
+              className="gap-1.5 text-xs font-bold border-indigo-100 hover:border-indigo-200 text-indigo-600 dark:border-indigo-950 dark:text-indigo-400 rounded-xl"
             >
-              <Plus className="size-4" />
-              Add Custom Task
+              <Users className="size-4" />
+              Direct Assign Points
             </Button>
-          )}
+            {!isAdding && (
+              <Button
+                size="sm"
+                onClick={() => setIsAdding(true)}
+                className="gap-1.5 text-xs font-bold shadow-sm rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                <Plus className="size-4" />
+                Add Custom Task
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
-      {}
+      {/* Add Custom Task Form */}
       {isAdmin && isAdding && (
-        <Card className="border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/5 shadow-sm">
+        <Card className="border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/5 shadow-sm rounded-2xl">
           <CardContent className="p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
@@ -427,10 +525,10 @@ export function ShoutoutTasksTab() {
                   Task Title <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  placeholder="e.g. Follow us on Twitter"
+                  placeholder="e.g. Daily Step Challenge"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
-                  className="h-9 text-xs"
+                  className="h-10 text-xs rounded-xl"
                 />
               </div>
 
@@ -441,17 +539,17 @@ export function ShoutoutTasksTab() {
                   placeholder="e.g. 50"
                   value={newPoints}
                   onChange={(e) => setNewPoints(e.target.value)}
-                  className="h-9 text-xs"
+                  className="h-10 text-xs rounded-xl"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Category (Optional)</Label>
                 <Input
-                  placeholder="e.g. Social, Feedback"
+                  placeholder="e.g. Health, Social"
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
-                  className="h-9 text-xs"
+                  className="h-10 text-xs rounded-xl"
                 />
               </div>
 
@@ -461,7 +559,7 @@ export function ShoutoutTasksTab() {
                   value={newSubmissionType}
                   onValueChange={(v: any) => setNewSubmissionType(v)}
                 >
-                  <SelectTrigger className="h-9 text-xs">
+                  <SelectTrigger className="h-10 text-xs rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -475,7 +573,7 @@ export function ShoutoutTasksTab() {
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">Icon</Label>
                 <Select value={newIcon} onValueChange={setNewIcon}>
-                  <SelectTrigger className="h-9 text-xs">
+                  <SelectTrigger className="h-10 text-xs rounded-xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -484,6 +582,8 @@ export function ShoutoutTasksTab() {
                     <SelectItem value="User">User (Profile)</SelectItem>
                     <SelectItem value="Heart">Heart (Appreciation)</SelectItem>
                     <SelectItem value="Award">Award (Achievement)</SelectItem>
+                    <SelectItem value="Activity">Activity (Challenge)</SelectItem>
+                    <SelectItem value="MessageSquare">Message (Feedback)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -496,7 +596,24 @@ export function ShoutoutTasksTab() {
                   placeholder="https://example.com/image.png"
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.target.value)}
-                  className="h-9 text-xs"
+                  className="h-10 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-3 flex items-center justify-between p-3 rounded-xl border bg-muted/20">
+                <div className="space-y-0.5">
+                  <Label className="text-xs font-semibold text-foreground">
+                    Recurring Challenge
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground">
+                    Enable if employees can complete this challenge multiple times (e.g.
+                    daily/weekly)
+                  </p>
+                </div>
+                <Switch
+                  checked={newIsRecurring}
+                  onCheckedChange={setNewIsRecurring}
+                  className="data-[state=checked]:bg-indigo-600"
                 />
               </div>
 
@@ -507,7 +624,7 @@ export function ShoutoutTasksTab() {
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
                   rows={2}
-                  className="text-xs resize-none"
+                  className="text-xs rounded-xl resize-none"
                 />
               </div>
             </div>
@@ -516,7 +633,7 @@ export function ShoutoutTasksTab() {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-9 text-xs font-semibold"
+                className="h-10 text-xs font-semibold rounded-xl"
                 onClick={() => setIsAdding(false)}
               >
                 Cancel
@@ -524,7 +641,7 @@ export function ShoutoutTasksTab() {
               <Button
                 size="sm"
                 disabled={isCreating}
-                className="h-9 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1"
+                className="h-10 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 rounded-xl"
                 onClick={handleCreateTask}
               >
                 {isCreating && <Loader2 className="size-3 animate-spin" />}
@@ -535,8 +652,8 @@ export function ShoutoutTasksTab() {
         </Card>
       )}
 
-      {}
-      {isAdmin && pendingSubmissions.length > 0 && (
+      {/* Submissions Pending Review — visible to anyone the backend returns items for (admin/owner/manager) */}
+      {pendingSubmissions.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 font-bold text-sm">
             <Clock className="size-4 animate-spin" />
@@ -547,7 +664,7 @@ export function ShoutoutTasksTab() {
             {pendingSubmissions.map((sub) => (
               <Card
                 key={sub.submissionId}
-                className="border-amber-200 bg-amber-50/5 dark:border-amber-900/40 shadow-sm relative overflow-hidden"
+                className="border-amber-200 bg-amber-50/5 dark:border-amber-900/40 shadow-sm relative overflow-hidden rounded-2xl"
               >
                 <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl">
                   Needs Approval
@@ -555,13 +672,15 @@ export function ShoutoutTasksTab() {
                 <CardContent className="p-5 space-y-4">
                   <div className="flex items-start gap-3">
                     {sub.imageUrl ? (
-                      <img
+                      <Image
                         src={sub.imageUrl}
                         alt=""
+                        width={44}
+                        height={44}
                         className="size-11 rounded-lg object-cover border border-border"
                       />
                     ) : (
-                      <div className="size-11 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center border border-amber-200/50">
+                      <div className="size-11 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center border border-amber-200/50 shrink-0">
                         <FileText className="size-5" />
                       </div>
                     )}
@@ -579,11 +698,14 @@ export function ShoutoutTasksTab() {
                             {sub.category}
                           </Badge>
                         )}
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          by {sub.member?.firstName} {sub.member?.lastName}
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {}
+                  {/* Submission Detail Block */}
                   <div className="rounded-lg bg-muted/50 p-3 text-xs border border-border/40 space-y-2">
                     <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
                       Submitted Proof:
@@ -601,19 +723,19 @@ export function ShoutoutTasksTab() {
                     )}
                   </div>
 
-                  {}
+                  {/* Action Buttons */}
                   <div className="flex justify-end gap-2">
                     <Button
                       size="sm"
                       variant="outline"
-                      className="h-8 text-xs font-bold text-destructive hover:bg-destructive/10 border-destructive/20"
+                      className="h-8 text-xs font-bold text-destructive hover:bg-destructive/10 border-destructive/20 rounded-lg"
                       onClick={() => handleRejectSubmission(sub.id, sub.submissionId, sub.title)}
                     >
-                      Reject / Request Fix
+                      Reject
                     </Button>
                     <Button
                       size="sm"
-                      className="h-8 text-xs font-bold bg-green-600 hover:bg-green-700 text-white flex items-center gap-1"
+                      className="h-8 text-xs font-bold bg-green-600 hover:bg-green-700 text-white flex items-center gap-1 rounded-lg"
                       onClick={() =>
                         handleApproveSubmission(sub.id, sub.submissionId, sub.title, sub.points)
                       }
@@ -629,9 +751,9 @@ export function ShoutoutTasksTab() {
         </div>
       )}
 
-      {}
+      {/* Main Checklist View */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-        {}
+        {/* Left Side: Available Tasks */}
         <div className="xl:col-span-8 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
@@ -657,17 +779,20 @@ export function ShoutoutTasksTab() {
                 return (
                   <Card
                     key={task.id}
-                    className="group transition-all duration-300 border-border/70 hover:border-indigo-500/20 hover:shadow-md dark:hover:bg-muted/10"
+                    className="group transition-all duration-300 border-border/70 hover:border-indigo-500/20 hover:shadow-md dark:hover:bg-muted/10 rounded-2xl"
                   >
                     <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      {}
                       <div className="flex items-start gap-4 flex-1">
                         {task.imageUrl ? (
-                          <img
-                            src={task.imageUrl}
-                            alt=""
-                            className="size-12 rounded-xl object-cover border border-border/80 group-hover:scale-105 transition-transform"
-                          />
+                          <div className="relative size-12 rounded-xl overflow-hidden border border-border/80 group-hover:scale-105 transition-transform shrink-0">
+                            <Image
+                              src={task.imageUrl}
+                              alt=""
+                              fill
+                              sizes="48px"
+                              className="object-cover"
+                            />
+                          </div>
                         ) : (
                           <div className="size-12 rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-100 dark:border-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                             <IconComponent className="size-5" />
@@ -693,9 +818,18 @@ export function ShoutoutTasksTab() {
                             >
                               +{task.points} Points
                             </Badge>
+                            {task.isRecurring && (
+                              <Badge
+                                variant="outline"
+                                className="text-[9px] font-bold py-px px-1.5 border-indigo-200 bg-indigo-500/5 text-indigo-600 dark:border-indigo-900/30 flex items-center gap-0.5"
+                              >
+                                <Repeat className="size-2.5" />
+                                Recurring
+                              </Badge>
+                            )}
                             {task.status === 'rejected' && (
                               <Badge variant="destructive" className="text-[9px] py-px px-1.5">
-                                Rejected / Needs Resubmission
+                                Rejected / Resubmit
                               </Badge>
                             )}
                           </div>
@@ -712,7 +846,6 @@ export function ShoutoutTasksTab() {
                         </div>
                       </div>
 
-                      {}
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         {isAdmin && (
                           <Button
@@ -727,7 +860,7 @@ export function ShoutoutTasksTab() {
 
                         <Button
                           size="sm"
-                          className="h-9 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm"
+                          className="h-9 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm"
                           onClick={() => {
                             if (task.submissionType === 'instant') {
                               handleCompleteInstant(task.id, task.title, task.points);
@@ -747,10 +880,9 @@ export function ShoutoutTasksTab() {
           )}
         </div>
 
-        {}
+        {/* Right Side: Pending User review & Completed Checklist */}
         <div className="xl:col-span-4 space-y-6">
-          {}
-          {!isAdmin && userPendingTasks.length > 0 && (
+          {userPendingTasks.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
                 <Clock className="size-4 text-amber-500" />
@@ -772,7 +904,6 @@ export function ShoutoutTasksTab() {
             </div>
           )}
 
-          {}
           <div className="space-y-4">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
               <CheckCircle2 className="size-4 text-green-500" />
@@ -803,7 +934,7 @@ export function ShoutoutTasksTab() {
                         </p>
                       </div>
                     </div>
-                    <Badge className="bg-green-600 hover:bg-green-600 text-white font-bold text-[10px]">
+                    <Badge className="bg-green-600 hover:bg-green-600 text-white font-bold text-[10px] rounded-full">
                       +{task.points} Pts
                     </Badge>
                   </div>
@@ -814,14 +945,14 @@ export function ShoutoutTasksTab() {
         </div>
       </div>
 
-      {}
+      {/* Task Submission Verification Modal */}
       <Dialog open={!!submittingTask} onOpenChange={(open) => !open && setSubmittingTask(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               {submittingTask?.submissionType === 'text'
                 ? 'Provide Response'
-                : 'Upload Screenshot proof'}
+                : 'Upload Screenshot Proof'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               This task requires verification before points can be awarded. Please provide the
@@ -831,8 +962,8 @@ export function ShoutoutTasksTab() {
 
           {submittingTask && (
             <div className="space-y-4 py-3">
-              <div className="flex items-center gap-2.5 p-3 rounded-lg bg-muted/40 border border-border/40">
-                <AlertCircle className="size-4.5 text-indigo-500 shrink-0" />
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/40">
+                <AlertCircle className="size-5 text-indigo-500 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <p className="font-bold text-foreground">{submittingTask.title}</p>
                   <p className="text-muted-foreground mt-0.5">{submittingTask.description}</p>
@@ -849,7 +980,7 @@ export function ShoutoutTasksTab() {
                     value={submissionText}
                     onChange={(e) => setSubmissionText(e.target.value)}
                     rows={4}
-                    className="text-xs resize-none"
+                    className="text-xs resize-none rounded-xl"
                   />
                 </div>
               ) : (
@@ -858,7 +989,7 @@ export function ShoutoutTasksTab() {
                     Upload Screenshot / Document <span className="text-destructive">*</span>
                   </Label>
 
-                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-border/75 rounded-xl p-6 bg-muted/10 hover:bg-muted/20 transition-all cursor-pointer relative">
+                  <div className="flex flex-col items-center justify-center border-2 border-dashed border-border/75 rounded-2xl p-6 bg-muted/10 hover:bg-muted/20 transition-all cursor-pointer relative">
                     <input
                       type="file"
                       accept="image/*,application/pdf"
@@ -875,7 +1006,7 @@ export function ShoutoutTasksTab() {
                   </div>
 
                   {selectedFileName && (
-                    <div className="p-3 rounded-lg border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/10 flex items-center justify-between text-xs">
+                    <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/10 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold min-w-0">
                         <FileCode className="size-4 shrink-0" />
                         <span className="truncate">{selectedFileName}</span>
@@ -905,7 +1036,7 @@ export function ShoutoutTasksTab() {
               variant="outline"
               size="sm"
               onClick={() => setSubmittingTask(null)}
-              className="h-9 text-xs font-semibold"
+              className="h-10 text-xs font-semibold rounded-xl"
             >
               Cancel
             </Button>
@@ -919,10 +1050,196 @@ export function ShoutoutTasksTab() {
                 (submittingTask?.submissionType === 'file' && !selectedFileName)
               }
               onClick={handleSubmitVerification}
-              className="h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1"
+              className="h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 rounded-xl"
             >
               {isMutatingSubmission && <Loader2 className="size-3 animate-spin" />}
               Submit Proof
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Direct Point Assignment Modal */}
+      <Dialog open={isAssigningPoints} onOpenChange={setIsAssigningPoints}>
+        <DialogContent className="sm:max-w-lg rounded-2xl max-h-[95vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <Users className="size-5 text-indigo-600" />
+              Direct Points Assignment
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Select members and specify the exact points you want to award each of them.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
+            {/* Search and Select Recipients */}
+            <div className="space-y-1.5 relative">
+              <Label className="text-xs font-bold text-muted-foreground uppercase">
+                1. Add Recipient(s)
+              </Label>
+              <div className="relative">
+                <Input
+                  placeholder="Type name to search and select members..."
+                  value={assignSearch}
+                  onChange={(e) => {
+                    setAssignSearch(e.target.value);
+                    setIsSearchFocused(true);
+                  }}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                  className="h-9 text-xs rounded-xl"
+                />
+
+                {/* Search Results Dropdown */}
+                {isSearchFocused && (
+                  <div className="absolute z-50 w-full mt-1 bg-popover text-popover-foreground border rounded-xl shadow-lg max-h-48 overflow-y-auto p-1 space-y-0.5">
+                    {members
+                      .filter((m) => {
+                        if (assignments.some((a) => a.memberId === m.memberId)) return false;
+                        const fullName = `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase();
+                        return fullName.includes(assignSearch.toLowerCase());
+                      })
+                      .map((m) => (
+                        <button
+                          key={m.memberId}
+                          type="button"
+                          onClick={() => addAssignment(m.memberId)}
+                          className="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-accent hover:text-accent-foreground rounded-lg transition-colors flex items-center justify-between"
+                        >
+                          <span>
+                            {m.firstName} {m.lastName}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {m.currentBalance} pts
+                          </span>
+                        </button>
+                      ))}
+                    {members.filter((m) => {
+                      if (assignments.some((a) => a.memberId === m.memberId)) return false;
+                      const fullName = `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase();
+                      return fullName.includes(assignSearch.toLowerCase());
+                    }).length === 0 && (
+                      <div className="text-center py-3 text-xs text-muted-foreground">
+                        No members available
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 justify-between items-center text-[10px] font-bold mt-1">
+                <span className="text-muted-foreground">Default points for new additions:</span>
+                <div className="flex gap-2 text-indigo-600 dark:text-indigo-400">
+                  <button type="button" onClick={selectAllMembers} className="hover:underline">
+                    Add All Members
+                  </button>
+                  <span className="text-muted-foreground">|</span>
+                  <button type="button" onClick={deselectAllMembers} className="hover:underline">
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Default Points Config */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-muted-foreground uppercase">
+                Default Point Value
+              </Label>
+              <Input
+                type="number"
+                value={assignPointsAmount}
+                onChange={(e) => setAssignPointsAmount(e.target.value)}
+                className="h-9 text-xs rounded-xl"
+              />
+            </div>
+
+            {/* Selected Recipients list with custom points inputs */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-muted-foreground uppercase flex justify-between">
+                <span>Selected Recipients</span>
+                <span className="text-[10px] lowercase font-normal">
+                  ({assignments.length} selected)
+                </span>
+              </Label>
+              <div className="border rounded-xl max-h-56 overflow-y-auto p-3 bg-muted/20 space-y-2">
+                {assignments.map((item) => {
+                  const member = members.find((m) => m.memberId === item.memberId);
+                  if (!member) return null;
+                  return (
+                    <div
+                      key={item.memberId}
+                      className="flex items-center justify-between p-2 rounded-xl bg-background border border-border"
+                    >
+                      <span className="text-xs font-semibold text-foreground truncate max-w-[200px]">
+                        {member.firstName} {member.lastName}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={item.points}
+                            onChange={(e) => updateAssignmentPoints(item.memberId, e.target.value)}
+                            className="w-16 h-8 text-center text-xs font-bold rounded-lg px-1"
+                          />
+                          <span className="text-[10px] font-bold text-muted-foreground">pts</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeAssignment(item.memberId)}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {assignments.length === 0 && (
+                  <div className="text-center py-8 text-xs text-muted-foreground">
+                    No recipients selected. Search and select above.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-muted-foreground uppercase">
+                Reason / Description
+              </Label>
+              <Textarea
+                placeholder="Provide a reason for the assignment (e.g. Excellent teamwork, event participation)..."
+                value={assignReason}
+                onChange={(e) => setAssignReason(e.target.value)}
+                rows={2}
+                className="text-xs rounded-xl resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2 shrink-0 border-t pt-3 mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAssigningPoints(false)}
+              className="h-10 text-xs font-semibold rounded-xl"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={assignments.length === 0 || assignPointsMutation.isPending}
+              onClick={handleDirectAssignPoints}
+              className="h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 rounded-xl px-4"
+            >
+              <Send className="size-3.5" />
+              {assignPointsMutation.isPending ? 'Assigning...' : 'Assign Points'}
             </Button>
           </DialogFooter>
         </DialogContent>

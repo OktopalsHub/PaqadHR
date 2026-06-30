@@ -11,6 +11,8 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
   private drainTimer: ReturnType<typeof setInterval> | null = null;
   private draining = false;
 
+  public static readonly testLogs: CreateAuditLogPayload[] = [];
+
   constructor(
     @InjectRepository(AuditLog)
     private readonly auditLogRepository: Repository<AuditLog>,
@@ -23,6 +25,10 @@ export class AuditLogsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async queueAuditLog(payload: CreateAuditLogPayload): Promise<void> {
+    if (process.env.NODE_ENV === 'test') {
+      AuditLogsService.testLogs.push(payload);
+      return;
+    }
     this.queue.push(payload);
   }
 
