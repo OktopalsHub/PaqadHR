@@ -10,7 +10,10 @@ export function middleware(request: NextRequest) {
   const slug = request.cookies.get('tenant_slug')?.value;
   if (slug) {
     const destination = rewriteLegacyAppPath(request.nextUrl.pathname, slug);
-    return NextResponse.redirect(new URL(destination, request.url));
+    // Guard against a self-redirect loop if the slug is itself "app".
+    if (destination !== request.nextUrl.pathname) {
+      return NextResponse.redirect(new URL(destination, request.url));
+    }
   }
   return NextResponse.next();
 }
