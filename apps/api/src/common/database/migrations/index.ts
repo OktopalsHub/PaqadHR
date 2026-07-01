@@ -67,5 +67,5 @@ export * from './1781549462132-CandidateCustomAnswers';
 export * from './1781550110123-AddColorToDepartment';
 export * from './1781550110124-AddColorToPosition';
 export * from './1782000000000-rewards-setup';
-export * from './1782838353633-AutoTopupAndRecurringTasks';
-export * from './1783000000000-tasks-setup';
+export * from './1782500000000-tasks-setup';
+export * from './1782838353633-auto-topup-and-recurring-tasks';

@@ -1,9 +1,9 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class TasksSetup1783000000000 implements MigrationInterface {
+export class TasksSetup1782500000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TABLE rewards_tasks (
+      CREATE TABLE IF NOT EXISTS rewards_tasks (
         id UUID NOT NULL DEFAULT uuid_generate_v4(),
         tenant_id UUID NOT NULL,
         title VARCHAR NOT NULL,
@@ -21,7 +21,7 @@ export class TasksSetup1783000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE rewards_task_submissions (
+      CREATE TABLE IF NOT EXISTS rewards_task_submissions (
         id UUID NOT NULL DEFAULT uuid_generate_v4(),
         tenant_id UUID NOT NULL,
         task_id UUID NOT NULL,
@@ -39,10 +39,10 @@ export class TasksSetup1783000000000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE INDEX idx_rewards_tasks_tenant_id ON rewards_tasks(tenant_id);
-      CREATE INDEX idx_task_submissions_tenant_id ON rewards_task_submissions(tenant_id);
-      CREATE INDEX idx_task_submissions_task_id ON rewards_task_submissions(task_id);
-      CREATE INDEX idx_task_submissions_member_id ON rewards_task_submissions(member_id);
+      CREATE INDEX IF NOT EXISTS idx_rewards_tasks_tenant_id ON rewards_tasks(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_task_submissions_tenant_id ON rewards_task_submissions(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_task_submissions_task_id ON rewards_task_submissions(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_submissions_member_id ON rewards_task_submissions(member_id);
     `);
   }
 

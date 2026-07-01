@@ -90,7 +90,7 @@ const AppDataSource = {
     Migrations.AddColorToDepartment1781550110123,
     Migrations.AddColorToPosition1781550110124,
     Migrations.RewardsSetup1782000000000,
-    Migrations.TasksSetup1783000000000,
+    Migrations.TasksSetup1782500000000,
     Migrations.AutoTopupAndRecurringTasks1782838353633,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
