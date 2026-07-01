@@ -21,8 +21,6 @@ export async function refreshAccessToken(): Promise<boolean> {
 
   refreshPromise = (async () => {
     try {
-      // Send the stored refresh token in the body so refresh works even when
-      // the httpOnly refresh_token cookie is a dropped third-party cookie.
       const stored = getRefreshToken();
       const response = await fetch(`${getApiV1Base()}/auth/refresh`, {
         method: 'POST',

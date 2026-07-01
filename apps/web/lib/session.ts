@@ -7,9 +7,6 @@ const TENANT_SLUG_KEY = 'paqad_tenant_slug';
 const AUTH_MARKER_KEY = 'paqad_auth';
 const AUTH_MARKER_MAX_AGE = 7 * 24 * 60 * 60;
 
-// First-party (web-domain) marker so middleware can gate protected routes.
-// The API's access_token/refresh_token cookies are set on the API domain and
-// are invisible to the web app when the two are on different hosts.
 function writeAuthMarker(active: boolean) {
   if (typeof window === 'undefined') return;
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
