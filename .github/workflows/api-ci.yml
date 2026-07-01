@@ -57,6 +57,11 @@ jobs:
       - name: Build API
         run: pnpm --filter api build
 
+      - name: Run API tests
+        run: pnpm --filter api test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+
   build-and-publish:
     if: github.event_name == 'push'
     needs: lint-and-test

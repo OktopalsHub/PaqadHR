@@ -1,12 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { EnvironmentValidationService } from '../config/environment-validation.service';
+import * as env from '../config/env.util';
 import type { SecretConfig } from '../interfaces/secret-config.interface';
 
 @Injectable()
 export class SecretsService {
   private readonly logger = new Logger(SecretsService.name);
   private secrets: SecretConfig;
-  private envValidator = new EnvironmentValidationService();
   constructor() {
     this.loadSecrets();
   }
@@ -14,26 +13,26 @@ export class SecretsService {
     try {
       this.secrets = {
         jwt: {
-          accessSecret: this.envValidator.getRequired('ACCESS_SECRET'),
-          refreshSecret: this.envValidator.getRequired('REFRESH_SECRET'),
+          accessSecret: env.getRequired('ACCESS_SECRET'),
+          refreshSecret: env.getRequired('REFRESH_SECRET'),
         },
         database: {
-          url: this.envValidator.getRequired('DATABASE_URL'),
-          testUrl: this.envValidator.getOptional('TEST_DATABASE_URL'),
+          url: env.getRequired('DATABASE_URL'),
+          testUrl: env.getOptional('TEST_DATABASE_URL'),
         },
         oauth: {
           google: {
-            clientId: this.envValidator.getRequired('GOOGLE_CLIENT_ID'),
-            clientSecret: this.envValidator.getRequired('GOOGLE_CLIENT_SECRET'),
+            clientId: env.getRequired('GOOGLE_CLIENT_ID'),
+            clientSecret: env.getRequired('GOOGLE_CLIENT_SECRET'),
           },
         },
         integrations: {
           slack: {
-            clientId: this.envValidator.getOptional('SLACK_CLIENT_ID'),
-            clientSecret: this.envValidator.getOptional('SLACK_CLIENT_SECRET'),
+            clientId: env.getOptional('SLACK_CLIENT_ID'),
+            clientSecret: env.getOptional('SLACK_CLIENT_SECRET'),
             signingSecret:
-              this.envValidator.getOptional('SLACK_SIGNING_SECRET') ||
-              this.envValidator.getOptional('SLACK_WEBHOOK_SECRET', ''),
+              env.getOptional('SLACK_SIGNING_SECRET') ||
+              env.getOptional('SLACK_WEBHOOK_SECRET', ''),
           },
         },
         email: {
@@ -41,13 +40,13 @@ export class SecretsService {
           defaultFromEmail: this.getDefaultFromEmail(),
         },
         encryption: {
-          key: this.envValidator.getRequired('ENCRYPTION_KEY'),
+          key: env.getRequired('ENCRYPTION_KEY'),
         },
         payments: {
           nomba: {
-            apiKey: this.envValidator.getOptional('NOMBA_CLIENT_ID'),
-            secretKey: this.envValidator.getOptional('NOMBA_CLIENT_SECRET'),
-            webhookSecret: this.envValidator.getOptional('NOMBA_WEBHOOK_SIGNATURE_KEY'),
+            apiKey: env.getOptional('NOMBA_CLIENT_ID'),
+            secretKey: env.getOptional('NOMBA_CLIENT_SECRET'),
+            webhookSecret: env.getOptional('NOMBA_WEBHOOK_SIGNATURE_KEY'),
           },
         },
       };
@@ -60,16 +59,16 @@ export class SecretsService {
   private getEmailApiKey(): string {
     const nodeEnv = process.env.NODE_ENV || 'development';
     if (nodeEnv === 'production') {
-      return this.envValidator.getRequired('ZEPTOMAIL_API_KEY');
+      return env.getRequired('ZEPTOMAIL_API_KEY');
     }
-    return this.envValidator.getOptional('ZEPTOMAIL_API_KEY');
+    return env.getOptional('ZEPTOMAIL_API_KEY');
   }
   private getDefaultFromEmail(): string {
     const nodeEnv = process.env.NODE_ENV || 'development';
     if (nodeEnv === 'production') {
-      return this.envValidator.getRequired('DEFAULT_FROM_EMAIL');
+      return env.getRequired('DEFAULT_FROM_EMAIL');
     }
-    return this.envValidator.getOptional('DEFAULT_FROM_EMAIL', 'noreply@localhost');
+    return env.getOptional('DEFAULT_FROM_EMAIL', 'noreply@localhost');
   }
   private validateSecrets(): void {
     const nodeEnv = process.env.NODE_ENV || 'development';

@@ -3,12 +3,19 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { NombaVirtualAccountApiService } from 'src/common/services/nomba-virtual-account-api.service';
 import { DataSource, EntityManager, Repository } from 'typeorm';
-import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
-import { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
+import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
+import {
+  isAmountWithinTolerance,
+  normalizeWebhookAmount,
+} from '../../subscriptions/utils/per-seat-pricing.util';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import {
+  WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_UNAVAILABLE_MEMBER,
+} from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import {
@@ -23,6 +30,8 @@ export interface WalletCreditOptions {
   status?: TenantWalletTransaction['status'];
 }
 
+type ChargeAudience = 'member' | 'admin';
+
 const PROVISIONING_STALE_MS = 15 * 60 * 1000;
 
 @Injectable()
@@ -35,6 +44,7 @@ export class TenantWalletService {
     private readonly nombaApi: NombaApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
+    private readonly emailService: ZeptomailEmailService,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
@@ -167,9 +177,7 @@ export class TenantWalletService {
       .execute();
 
     if (result.affected === 0) {
-      throw new BadRequestException(
-        'Insufficient wallet balance. Please fund your rewards wallet to continue.',
-      );
+      throw new BadRequestException(WALLET_UNAVAILABLE_MEMBER);
     }
 
     const wallet = await walletRepo.findOneOrFail({ where: { tenantId } });
@@ -189,19 +197,14 @@ export class TenantWalletService {
       Number(wallet.autoTopupAmount) > 0 &&
       Number(wallet.balanceAmount) <= Number(wallet.autoTopupThreshold)
     ) {
-      try {
-        await this.chargeAndCredit(
-          tenantId,
-          Number(wallet.autoTopupAmount),
-          `auto-topup-${randomUUID()}`,
-          `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
-          manager,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Auto-topup failed for tenant ${tenantId}: ${error instanceof Error ? error.message : error}`,
-        );
-      }
+      await this.chargeAndCredit(
+        tenantId,
+        Number(wallet.autoTopupAmount),
+        `auto-topup-${randomUUID()}`,
+        `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
+        manager,
+        'member',
+      );
     }
 
     return walletRepo.findOneOrFail({ where: { tenantId } });
@@ -247,7 +250,7 @@ export class TenantWalletService {
     return updated;
   }
 
-  private async resolveBillingEmail(tenantId: string): Promise<string> {
+  private async resolveBillingEmail(tenantId: string): Promise<string | null> {
     try {
       const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
       const contactEmail = settings.settings.billing?.contactEmail?.trim();
@@ -258,11 +261,49 @@ export class TenantWalletService {
       where: { id: tenantId },
       relations: ['createdBy'],
     });
-    const fallback = tenant?.createdBy?.email?.trim();
-    if (!fallback) {
-      throw new BadRequestException('Billing contact email is required for wallet top-up');
-    }
-    return fallback;
+    return tenant?.createdBy?.email?.trim() ?? null;
+  }
+
+  private notifyWalletChargeFailed(
+    tenantId: string,
+    amount: number,
+    currency: string,
+    reason: string,
+  ): void {
+    void this.sendWalletChargeFailedEmail(tenantId, amount, currency, reason).catch((err) => {
+      this.logger.warn(
+        `Failed to send wallet charge failure email for tenant ${tenantId}: ${err instanceof Error ? err.message : err}`,
+      );
+    });
+  }
+
+  private async sendWalletChargeFailedEmail(
+    tenantId: string,
+    amount: number,
+    currency: string,
+    reason: string,
+  ): Promise<void> {
+    const email = await this.resolveBillingEmail(tenantId);
+    if (!email) return;
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const settingsUrl = `${frontendUrl}/settings?tab=rewards`;
+
+    await this.emailService.sendEmail({
+      to: email,
+      subject: 'Paqad: Rewards wallet payment failed',
+      text: [
+        `A rewards wallet payment failed for ${tenant?.name ?? 'your workspace'}.`,
+        `Amount: ${currency} ${amount.toLocaleString()}`,
+        `Reason: ${reason}`,
+        `Update billing or fund via bank transfer: ${settingsUrl}`,
+      ].join('\n'),
+      html: `<p>A rewards wallet payment failed for <strong>${tenant?.name ?? 'your workspace'}</strong>.</p>
+<p>Amount: <strong>${currency} ${amount.toLocaleString()}</strong></p>
+<p>Reason: ${reason}</p>
+<p><a href="${settingsUrl}">Open Rewards &amp; Billing settings</a></p>`,
+    });
   }
 
   private async chargeAndCredit(
@@ -271,6 +312,7 @@ export class TenantWalletService {
     reference: string,
     description: string,
     manager?: EntityManager,
+    audience: ChargeAudience = 'admin',
   ): Promise<TenantWallet> {
     if (amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
@@ -280,32 +322,65 @@ export class TenantWalletService {
     const tokenKey = subscription?.paymentMethodId?.trim();
     if (!tokenKey) {
       throw new BadRequestException(
-        'No saved payment method on file. Add a card in Billing settings first.',
+        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
       );
     }
 
-    const customerEmail = await this.resolveBillingEmail(tenantId);
+    let customerEmail: string;
+    try {
+      const resolved = await this.resolveBillingEmail(tenantId);
+      if (!resolved) {
+        throw new Error('Billing contact email is not configured');
+      }
+      customerEmail = resolved;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.notifyWalletChargeFailed(tenantId, amount, 'NGN', reason);
+      throw new BadRequestException(
+        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
+      );
+    }
+
     const wallet = await this.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
 
-    const charge = await this.nombaApi.chargeTokenizedCard({
-      orderReference: reference,
-      customerEmail,
-      amount,
-      currency,
-      callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-      tokenKey,
-      meta: { tenantId, billingType: 'wallet_topup' },
-    });
+    try {
+      const charge = await this.nombaApi.chargeTokenizedCard({
+        orderReference: reference,
+        customerEmail,
+        amount,
+        currency,
+        callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+        tokenKey,
+        meta: { tenantId, billingType: 'wallet_topup' },
+      });
 
-    const verified = await this.nombaApi.verifyTransaction(charge.orderReference);
-    if (verified?.status?.toLowerCase() !== 'success') {
-      throw new BadRequestException('Wallet top-up payment could not be verified');
+      const verified = await this.nombaApi.verifyTransaction(charge.orderReference);
+      if (verified?.status?.toLowerCase() !== 'success') {
+        throw new Error('Payment verification failed');
+      }
+
+      const normalizedPaid = normalizeWebhookAmount(
+        Number(verified.amount ?? 0),
+        amount,
+        currency,
+      );
+      if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, amount)) {
+        throw new Error(
+          `Payment amount mismatch (expected ${amount}, got ${verified.amount ?? 'unknown'})`,
+        );
+      }
+
+      return this.credit(tenantId, amount, 'DEPOSIT', reference, description, manager, {
+        nombaEventId: charge.orderReference,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.notifyWalletChargeFailed(tenantId, amount, currency, reason);
+      throw new BadRequestException(
+        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
+      );
     }
-
-    return this.credit(tenantId, amount, 'DEPOSIT', reference, description, manager, {
-      nombaEventId: charge.orderReference,
-    });
   }
 
   async provisionMissingVirtualAccounts(options?: {
@@ -376,6 +451,6 @@ export class TenantWalletService {
   async manualTopup(tenantId: string, amount: number): Promise<TenantWallet> {
     const reference = `manual-topup-${randomUUID()}`;
     const description = 'Manual rewards wallet top-up via saved payment method';
-    return this.chargeAndCredit(tenantId, amount, reference, description);
+    return this.chargeAndCredit(tenantId, amount, reference, description, undefined, 'admin');
   }
 }

@@ -7,6 +7,7 @@ import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-ap
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
 import { RewardsController } from './controllers/rewards.controller';
@@ -40,6 +41,7 @@ import { ReloadlyWebhookService } from './services/reloadly-webhook.service';
     PaymentsModule,
     TenantSettingsModule,
     SubscriptionsModule,
+    NotificationsModule,
     ShoutoutsModule,
   ],
   controllers: [RewardsController, RewardsAdminController],

@@ -52,6 +52,7 @@ import {
   type RewardRedemption,
 } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { mapMemberWalletError } from '@/lib/wallet-error-message';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -747,7 +748,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         toast.error(result.errorMessage ?? 'Payment failed. Points refunded.');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to redeem utility payment');
+      toast.error(mapMemberWalletError(err, 'Failed to redeem utility payment'));
     } finally {
       setClaimingId(null);
     }
@@ -817,7 +818,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         toast.error(result.errorMessage ?? 'Claim failed. Points refunded.');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to claim reward');
+      toast.error(mapMemberWalletError(err, 'Failed to claim reward'));
     } finally {
       setClaimingId(null);
     }
@@ -884,7 +885,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         toast.error(result.errorMessage ?? 'Purchase failed. Points refunded.');
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to top-up');
+      toast.error(mapMemberWalletError(err, 'Failed to top-up'));
     } finally {
       setClaimingId(null);
     }

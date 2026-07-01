@@ -1,10 +1,9 @@
 import * as dotenv from 'dotenv';
-import { EnvironmentValidationService } from './environment-validation.service';
+import * as env from './env.util';
 import { resolveTrustedOrigins } from './trusted-origins';
 
 dotenv.config();
 
-const envValidator = new EnvironmentValidationService();
 
 type JwtExpiresIn = `${number}${'s' | 'm' | 'h' | 'd'}`;
 
@@ -63,42 +62,42 @@ export interface IEnvironment {
 export const ENVIRONMENT: IEnvironment = {
   APP: {
     NODE_ENV: process.env.NODE_ENV || 'development',
-    PORT: envValidator.getOptionalNumber('PORT', 9001),
-    FRONTEND_URL: envValidator.getOptional('FRONTEND_URL', 'http://localhost:3000'),
-    BASE_URL: envValidator.getOptional('BASE_URL', 'http://localhost:9001'),
+    PORT: env.getOptionalNumber('PORT', 9001),
+    FRONTEND_URL: env.getOptional('FRONTEND_URL', 'http://localhost:3000'),
+    BASE_URL: env.getOptional('BASE_URL', 'http://localhost:9001'),
     TRUSTED_ORIGINS: resolveTrustedOrigins(),
   },
   DB: {
     URL: process.env.DATABASE_URL || '',
   },
   JWT: {
-    ACCESS_SECRET: envValidator.getOptional('ACCESS_SECRET', 'dev-access-secret'),
-    REFRESH_SECRET: envValidator.getOptional('REFRESH_SECRET', 'dev-refresh-secret'),
+    ACCESS_SECRET: env.getOptional('ACCESS_SECRET', 'dev-access-secret'),
+    REFRESH_SECRET: env.getOptional('REFRESH_SECRET', 'dev-refresh-secret'),
     ACCESS_EXPIRES_IN: resolveJwtAccessExpiresIn(),
   },
   GOOGLE: {
-    CLIENT_ID: envValidator.getOptional('GOOGLE_CLIENT_ID', ''),
-    CLIENT_SECRET: envValidator.getOptional('GOOGLE_CLIENT_SECRET', ''),
-    CALLBACK_URL: envValidator.getOptional('GOOGLE_CALLBACK_URL', ''),
-    CALENDAR_API_KEY: envValidator.getOptional('GOOGLE_CALENDAR_API_KEY', ''),
+    CLIENT_ID: env.getOptional('GOOGLE_CLIENT_ID', ''),
+    CLIENT_SECRET: env.getOptional('GOOGLE_CLIENT_SECRET', ''),
+    CALLBACK_URL: env.getOptional('GOOGLE_CALLBACK_URL', ''),
+    CALENDAR_API_KEY: env.getOptional('GOOGLE_CALENDAR_API_KEY', ''),
   },
   SLACK: {
-    CLIENT_ID: envValidator.getOptional('SLACK_CLIENT_ID', ''),
-    CLIENT_SECRET: envValidator.getOptional('SLACK_CLIENT_SECRET', ''),
+    CLIENT_ID: env.getOptional('SLACK_CLIENT_ID', ''),
+    CLIENT_SECRET: env.getOptional('SLACK_CLIENT_SECRET', ''),
     SIGNING_SECRET:
-      envValidator.getOptional('SLACK_SIGNING_SECRET') ||
-      envValidator.getOptional('SLACK_WEBHOOK_SECRET', ''),
-    WEBHOOK_URL: envValidator.getOptional('SLACK_WEBHOOK_URL', ''),
+      env.getOptional('SLACK_SIGNING_SECRET') ||
+      env.getOptional('SLACK_WEBHOOK_SECRET', ''),
+    WEBHOOK_URL: env.getOptional('SLACK_WEBHOOK_URL', ''),
   },
   R2: {
-    ACCOUNT_ID: envValidator.getRequired('R2_ACCOUNT_ID'),
-    PUBLIC_ID: envValidator.getOptional('R2_PUBLIC_ID'),
-    CUSTOM_DOMAIN: envValidator.getOptional('R2_CUSTOM_DOMAIN'),
-    ACCESS_KEY_ID: envValidator.getRequired('R2_ACCESS_KEY_ID'),
-    SECRET_ACCESS_KEY: envValidator.getRequired('R2_SECRET_ACCESS_KEY'),
-    BUCKET_NAME: envValidator.getRequired('R2_BUCKET_NAME'),
+    ACCOUNT_ID: env.getRequired('R2_ACCOUNT_ID'),
+    PUBLIC_ID: env.getOptional('R2_PUBLIC_ID'),
+    CUSTOM_DOMAIN: env.getOptional('R2_CUSTOM_DOMAIN'),
+    ACCESS_KEY_ID: env.getRequired('R2_ACCESS_KEY_ID'),
+    SECRET_ACCESS_KEY: env.getRequired('R2_SECRET_ACCESS_KEY'),
+    BUCKET_NAME: env.getRequired('R2_BUCKET_NAME'),
   },
   ENCRYPTION: {
-    KEY: envValidator.getOptional('ENCRYPTION_KEY', '01234567890123456789012345678901'),
+    KEY: env.getOptional('ENCRYPTION_KEY', '01234567890123456789012345678901'),
   },
 };
