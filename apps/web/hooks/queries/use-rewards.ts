@@ -16,7 +16,9 @@ import {
   fetchTenantWallet,
   fetchTopupOperators,
   fetchUtilityBillers,
+  fetchWalletTransactions,
   manualTopupWallet,
+  provisionVirtualAccount,
   updateAutoTopupConfig,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
@@ -59,6 +61,11 @@ export function useMyClaims() {
     queryKey: [...queryKeys.rewards.claims, tenantId],
     queryFn: fetchMyClaims,
     enabled: !tenantLoading && Boolean(tenantId),
+    refetchInterval: (query) => {
+      const claims = query.state.data as any[];
+      const hasPending = claims?.some((c) => c.status === 'PENDING');
+      return hasPending ? 5000 : false;
+    },
   });
 }
 
@@ -69,6 +76,11 @@ export function useAllClaims() {
     queryKey: [...queryKeys.rewards.allClaims, tenantId],
     queryFn: fetchAllClaims,
     enabled: !tenantLoading && Boolean(tenantId),
+    refetchInterval: (query) => {
+      const claims = query.state.data as any[];
+      const hasPending = claims?.some((c) => c.status === 'PENDING');
+      return hasPending ? 5000 : false;
+    },
   });
 }
 
@@ -79,6 +91,31 @@ export function useTenantWallet() {
     queryKey: [...queryKeys.rewards.wallet, tenantId],
     queryFn: fetchTenantWallet,
     enabled: !tenantLoading && Boolean(tenantId),
+    refetchInterval: (query) => {
+      const w = query.state.data as { virtualAccountStatus?: string } | undefined;
+      return w?.virtualAccountStatus === 'PROVISIONING' ? 3000 : false;
+    },
+  });
+}
+
+export function useWalletTransactions() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.rewards.walletTransactions, tenantId],
+    queryFn: fetchWalletTransactions,
+    enabled: !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function useProvisionVirtualAccount() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => provisionVirtualAccount(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+    },
   });
 }
 

@@ -50,6 +50,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
     SubscriptionsService,
     SubscriptionBillingService,
     NombaSubscriptionProvider,
+    NombaApiService,
     FeatureAccessGuard,
   ],
 })

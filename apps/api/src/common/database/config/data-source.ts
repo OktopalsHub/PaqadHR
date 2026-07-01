@@ -92,6 +92,8 @@ const AppDataSource = {
     Migrations.RewardsSetup1782000000000,
     Migrations.TasksSetup1782500000000,
     Migrations.AutoTopupAndRecurringTasks1782838353633,
+    Migrations.TenantWalletVirtualAccounts1782913542028,
+    Migrations.SubscriptionDunningAndLifecycle1782914289290,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

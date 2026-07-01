@@ -106,6 +106,87 @@ function checkPayoutAuthCode(): CheckResult {
   };
 }
 
+function printDepositWebhookCurlExample(): void {
+  const secret = process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim();
+  if (!secret) return;
+
+  const appUrl = (process.env.APP_URL || 'https://your-api.example.com').replace(/\/$/, '');
+  const body =
+    '{"event_type":"deposit.success","data":{"virtualAccount":"9900012345","amount":5000,"transactionReference":"sandbox-deposit-001","senderName":"Sandbox Payer"}}';
+
+  console.log('\nExample rewards wallet deposit webhook curl:\n');
+  console.log(`BODY='${body}'`);
+  console.log(`SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "${secret}" | awk '{print $2}')`);
+  console.log(
+    `curl -X POST "${appUrl}/api/v1/webhooks/nomba" -H "Content-Type: application/json" -H "x-nomba-signature: $SIG" -d "$BODY"`,
+  );
+  console.log('');
+}
+
+async function checkVirtualAccountCreate(): Promise<CheckResult> {
+  const baseUrl = (process.env.NOMBA_BASE_URL || 'https://api.nomba.com').replace(/\/$/, '');
+  const clientId = process.env.NOMBA_CLIENT_ID?.trim();
+  const clientSecret = process.env.NOMBA_CLIENT_SECRET?.trim();
+  const accountId = process.env.NOMBA_ACCOUNT_ID?.trim();
+
+  if (!clientId || !clientSecret || !accountId) {
+    return { name: 'virtual-account/create', ok: false, detail: 'skipped — missing credentials' };
+  }
+
+  try {
+    const tokenRes = await fetch(`${baseUrl}/v1/auth/token/issue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret,
+      }),
+    });
+    const tokenPayload = (await tokenRes.json()) as { data?: { access_token?: string } };
+    const token = tokenPayload.data?.access_token;
+    if (!tokenRes.ok || !token) {
+      return { name: 'virtual-account/create', ok: false, detail: 'token issue failed' };
+    }
+
+    const accountRef = `rewards_wallet_sandbox_${Date.now()}`;
+    const vaRes = await fetch(`${baseUrl}/v1/accounts/virtual`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        accountId,
+      },
+      body: JSON.stringify({
+        accountRef,
+        accountName: 'Paqad Sandbox Wallet',
+        currency: 'NGN',
+      }),
+    });
+
+    const vaPayload = (await vaRes.json()) as { code?: string; data?: { accountNumber?: string } };
+    if (!vaRes.ok || vaPayload.code !== '00' || !vaPayload.data?.accountNumber) {
+      return {
+        name: 'virtual-account/create',
+        ok: false,
+        detail: `HTTP ${vaRes.status} — VA create failed`,
+      };
+    }
+
+    return {
+      name: 'virtual-account/create',
+      ok: true,
+      detail: `account ${vaPayload.data.accountNumber} (ref ${accountRef})`,
+    };
+  } catch (error) {
+    return {
+      name: 'virtual-account/create',
+      ok: false,
+      detail: error instanceof Error ? error.message : 'request failed',
+    };
+  }
+}
+
 function printWebhookCurlExample(): void {
   const secret = process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim();
   if (!secret) return;
@@ -118,7 +199,7 @@ function printWebhookCurlExample(): void {
   console.log(`BODY='${body}'`);
   console.log(`SIG=$(echo -n "$BODY" | openssl dgst -sha256 -hmac "${secret}" | awk '{print $2}')`);
   console.log(
-    `curl -X POST "${appUrl}/api/v1/payroll/webhooks/nomba" -H "Content-Type: application/json" -H "x-nomba-signature: $SIG" -d "$BODY"`,
+    `curl -X POST "${appUrl}/api/v1/webhooks/nomba" -H "Content-Type: application/json" -H "x-nomba-signature: $SIG" -d "$BODY"`,
   );
   console.log('');
 }
@@ -130,13 +211,15 @@ function printWebhookUrls(): void {
     'https://your-api.example.com'
   ).replace(/\/$/, '');
 
-  console.log('\nRegister these webhook URLs in the Nomba dashboard:\n');
-  console.log(`  Subscriptions:  ${appUrl}/api/v1/subscriptions/webhooks/nomba`);
-  console.log(`  Payroll payout: ${appUrl}/api/v1/payroll/webhooks/nomba`);
+  console.log('\nRegister this webhook URL in the Nomba dashboard:\n');
+  console.log(`  ${appUrl}/api/v1/webhooks/nomba`);
   console.log(
-    '\nEnsure PUBLIC_ROUTES includes both paths and NOMBA_WEBHOOK_SIGNATURE_KEY matches Nomba.\n',
+    '\nEnsure PUBLIC_ROUTES includes /api/v1/webhooks and NOMBA_WEBHOOK_SIGNATURE_KEY matches Nomba.\n',
   );
   printWebhookCurlExample();
+  printDepositWebhookCurlExample();
+  console.log('\nBackfill existing tenant wallets:\n');
+  console.log('  pnpm --filter api provision-reward-vas\n');
 }
 
 async function main(): Promise<void> {
@@ -157,9 +240,13 @@ async function main(): Promise<void> {
   const payoutAuth = checkPayoutAuthCode();
   console.log(`  ✓ ${payoutAuth.name}: ${payoutAuth.detail}`);
 
+  const vaResult = await checkVirtualAccountCreate();
+  const vaIcon = vaResult.ok ? '✓' : '✗';
+  console.log(`  ${vaIcon} ${vaResult.name}: ${vaResult.detail}`);
+
   printWebhookUrls();
 
-  const failed = [...envResults.filter((r) => !r.ok), authResult].filter((r) => !r.ok);
+  const failed = [...envResults.filter((r) => !r.ok), authResult, vaResult].filter((r) => !r.ok);
   if (failed.length > 0) {
     console.error(
       `\n${failed.length} check(s) failed. Fix env vars before enabling money features.\n`,
@@ -168,7 +255,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    'All checks passed. Run manual sandbox flows (see docs/billing-payroll-production.md).\n',
+    'All checks passed. Next: POST /api/v1/webhooks/nomba with sandbox deposit payload; verify wallet credit + subscription checkout.\n',
   );
 }
 

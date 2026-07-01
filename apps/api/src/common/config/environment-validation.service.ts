@@ -268,7 +268,27 @@ export class EnvironmentValidationService {
       }
     });
   }
-  private validatePaymentProviders(_warnings: string[]): void {}
+  private validatePaymentProviders(warnings: string[]): void {
+    const nodeEnv = process.env.NODE_ENV || 'development';
+    if (nodeEnv !== 'production') return;
+
+    const nombaOk =
+      process.env.NOMBA_CLIENT_ID?.trim() &&
+      process.env.NOMBA_CLIENT_SECRET?.trim() &&
+      process.env.NOMBA_ACCOUNT_ID?.trim();
+    if (!nombaOk) {
+      warnings.push('Nomba billing is not fully configured (NOMBA_CLIENT_ID/SECRET/ACCOUNT_ID)');
+    }
+    if (!process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim()) {
+      warnings.push('NOMBA_WEBHOOK_SIGNATURE_KEY is not set — Nomba webhooks will reject signatures');
+    }
+    if (
+      process.env.RELOADLY_CLIENT_ID?.trim() &&
+      !process.env.RELOADLY_WEBHOOK_SECRET?.trim()
+    ) {
+      warnings.push('RELOADLY_WEBHOOK_SECRET is not set — Reloadly webhooks will fail');
+    }
+  }
   getRequired(key: string): string {
     const value = process.env[key];
     if (!value || value.trim() === '') {

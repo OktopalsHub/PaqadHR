@@ -1,4 +1,4 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
@@ -36,9 +36,13 @@ export class PayrollPayoutService {
     try {
       payload = JSON.parse(rawBody);
     } catch {
-      return { received: true };
+      throw new BadRequestException('Invalid webhook JSON');
     }
 
+    return this.processNombaPayload(payload);
+  }
+
+  async processNombaPayload(payload: unknown): Promise<{ received: boolean }> {
     const event = this.nombaTransferApi.parseTransferWebhook(payload);
     if (!event) {
       return { received: true };

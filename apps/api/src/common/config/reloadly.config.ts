@@ -28,3 +28,7 @@ export function isReloadlyConfigured(): boolean {
 export function isReloadlySandbox(): boolean {
   return process.env.RELOADLY_SANDBOX === 'true';
 }
+
+export function getReloadlyWebhookSecret(): string {
+  return (process.env.RELOADLY_WEBHOOK_SECRET || '').trim();
+}

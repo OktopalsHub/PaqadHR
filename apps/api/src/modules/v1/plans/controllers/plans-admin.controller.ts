@@ -1,5 +1,8 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthOnly } from 'src/common/decorators';
+import { UserRole } from 'src/common/enums';
+import { RoleGuard, Roles } from 'src/common/guards/role.guard';
 import type { PlanRegionalConfig } from '../../../../common/interfaces/plan-regional-config.interface';
 import type { PlanPrice } from '../entities/plan-price.entity';
 import { PlansService } from '../services/plans.service';
@@ -19,6 +22,9 @@ class UpsertPlanPriceDto {
 }
 @ApiTags('Plans Admin')
 @Controller('admin/plans')
+@AuthOnly()
+@UseGuards(RoleGuard)
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
 export class PlansAdminController {
   constructor(private readonly plansService: PlansService) {}
   @Get()

@@ -83,6 +83,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
     subscriptionRepo.createQueryBuilder.mockReturnValue(queryBuilder);
 
     jest.spyOn(service as any, 'suspendPastGraceSubscriptions').mockResolvedValue(2);
+    jest.spyOn(service as any, 'finalizeScheduledCancellations').mockResolvedValue(undefined);
     const chargeSpy = jest
       .spyOn(service as any, 'chargeSubscriptionRenewal')
       .mockResolvedValueOnce('charged')
@@ -110,6 +111,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
       paymentMethodId: 'tok_123',
       nombaSubscriptionId: 'nomba_ref_1',
       status: SubscriptionStatus.ACTIVE,
+      dunningAttemptCount: 0,
     };
 
     jest.spyOn(service as any, 'hasProcessedEvent').mockResolvedValue(true);
@@ -200,6 +202,90 @@ describe('SubscriptionBillingService webhooks', () => {
       payment: { eventId: 'evt-fail', reference: 'ref-fail', tenantId: 'tenant-1' },
     });
     const spy = jest.spyOn(service as any, 'processPaymentFailed').mockResolvedValue(undefined);
+
+    await service.handleNombaWebhook('{}', 'sig');
+
+    expect(spy).toHaveBeenCalled();
+  });
+});
+
+describe('SubscriptionBillingService lifecycle', () => {
+  const createService = () => {
+    const nombaProvider = {
+      ensureConfigured: jest.fn(),
+      createCardUpdateCheckout: jest.fn(),
+      verifyWebhookSignature: jest.fn(),
+      parseWebhook: jest.fn(),
+    };
+    const nombaApi = { verifyTransaction: jest.fn() };
+    const subscriptionsService = {
+      getBillingStatus: jest.fn(),
+      getTenantSubscription: jest.fn(),
+    };
+    const tenantSettingsService = { getTenantSettings: jest.fn() };
+    const plansService = { getPlanPriceById: jest.fn() };
+    const subscriptionRepo = {
+      createQueryBuilder: jest.fn(),
+      save: jest.fn(async (s) => s),
+      findOne: jest.fn(),
+    };
+    const tenantRepo = { findOne: jest.fn() };
+    const userRepo = { findOne: jest.fn() };
+    const tenantMemberRepo = { count: jest.fn(), findOne: jest.fn() };
+    const billingEventRepo = {
+      exists: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn((x) => x),
+    };
+    const dataSource = { transaction: jest.fn() };
+
+    const service = new SubscriptionBillingService(
+      nombaProvider as never,
+      nombaApi as never,
+      subscriptionsService as never,
+      tenantSettingsService as never,
+      plansService as never,
+      subscriptionRepo as never,
+      tenantRepo as never,
+      userRepo as never,
+      tenantMemberRepo as never,
+      billingEventRepo as never,
+      dataSource as never,
+    );
+
+    return { service, subscriptionsService, subscriptionRepo, billingEventRepo, nombaApi, nombaProvider };
+  };
+
+  it('schedules cancel at period end by default', async () => {
+    const { service, subscriptionsService, subscriptionRepo } = createService();
+    const subscription = {
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      cancelAtPeriodEnd: false,
+    };
+    subscriptionsService.getTenantSubscription.mockResolvedValue(subscription);
+
+    const result = await service.cancelSubscription('tenant-1', {});
+
+    expect(result.cancelAtPeriodEnd).toBe(true);
+    expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('routes card_update success to card handler', async () => {
+    const { service, nombaProvider } = createService();
+    (nombaProvider.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
+    (nombaProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-card',
+        reference: 'ref-card',
+        tenantId: 'tenant-1',
+        billingType: 'card_update',
+        tokenKey: 'tok_new',
+      },
+    });
+    const spy = jest.spyOn(service as any, 'processCardUpdateSuccess').mockResolvedValue(undefined);
 
     await service.handleNombaWebhook('{}', 'sig');
 

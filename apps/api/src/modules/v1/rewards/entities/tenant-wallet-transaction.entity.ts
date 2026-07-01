@@ -22,4 +22,16 @@ export class TenantWalletTransaction extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   description: string | null;
+
+  @Column({ type: 'varchar', length: 16, default: 'COMPLETED' })
+  status: 'COMPLETED' | 'PENDING' | 'PARTIAL' | 'REJECTED';
+
+  @Column({ name: 'raw_amount', type: 'numeric', precision: 14, scale: 2, nullable: true })
+  rawAmount: number | null;
+
+  @Column({ name: 'nomba_event_id', type: 'varchar', nullable: true })
+  nombaEventId: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, unknown> | null;
 }

@@ -13,7 +13,8 @@ export class RewardsListener {
   async handleTenantCreated(event: TenantCreatedEvent) {
     try {
       this.logger.log(`Initializing tenant wallet for tenant: ${event.tenantId}`);
-      await this.walletService.ensureWallet(event.tenantId);
+      const tenantName = (event.tenantData as { name?: string })?.name;
+      await this.walletService.ensureWalletWithVirtualAccount(event.tenantId, tenantName);
       this.logger.log(`Successfully initialized tenant wallet for tenant: ${event.tenantId}`);
     } catch (error) {
       this.logger.error(

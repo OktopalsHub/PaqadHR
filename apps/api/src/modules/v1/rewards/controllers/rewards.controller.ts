@@ -3,23 +3,29 @@ import {
   Controller,
   Delete,
   Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
   Param,
   Patch,
   Post,
-  Req,
+  Query,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { Public } from 'src/common/decorators';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentTenantMember } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import type { MemberContext } from 'src/common/interfaces';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
+import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 
+const ALL_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER] as const;
+const ADMIN_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN] as const;
+
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')
+@UseGuards(TenantMemberGuard)
 export class RewardsController {
   constructor(
     private readonly rewardsService: RewardsService,
@@ -28,50 +34,51 @@ export class RewardsController {
     private readonly memberPointsService: MemberPointsService,
   ) {}
 
-  @Post('webhooks/nomba')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  async handleNombaWebhook(
-    @Req() req: any,
-    @Headers('nomba-signature') signature: string,
-    @Headers('nomba-sig-value') signatureAlt: string,
-    @Headers('x-nomba-signature') signatureLegacy: string,
-  ) {
-    const rawBody = req.rawBody?.toString('utf8') ?? '';
-    return this.rewardsService.handleNombaFundingWebhook(
-      rawBody,
-      signature || signatureAlt || signatureLegacy || '',
-    );
-  }
-
   @Get('catalog')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
   async getCatalog(@Param('tenantId') tenantId: string) {
     return this.rewardsService.getCatalog(tenantId);
   }
 
   @Get('countries')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
   async getCountries(@Param('tenantId') tenantId: string) {
     return this.rewardsService.getReloadlyCountries(tenantId);
   }
 
   @Post('claim')
-  async claim(@Param('tenantId') tenantId: string, @Body() body: ClaimInput, @Req() req: any) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.claim(tenantId, memberId, body);
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async claim(
+    @Param('tenantId') tenantId: string,
+    @Body() body: ClaimInput,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.rewardsService.claim(tenantId, member.id, body);
   }
 
   @Get('claims/me')
-  async getMyClaims(@Param('tenantId') tenantId: string, @Req() req: any) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.getMyClaims(tenantId, memberId);
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async getMyClaims(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.rewardsService.getMyClaims(tenantId, member.id);
   }
 
   @Get('claims')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async getAllClaims(@Param('tenantId') tenantId: string) {
     return this.rewardsService.getAllClaims(tenantId);
   }
 
   @Get('wallet')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async getWallet(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.getWallet(tenantId);
     const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
@@ -83,16 +90,36 @@ export class RewardsController {
   }
 
   @Get('wallet/transactions')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async getWalletTransactions(@Param('tenantId') tenantId: string) {
     return this.walletService.listTransactions(tenantId);
   }
 
+  @Post('wallet/provision-virtual-account')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Provision or retry Nomba virtual account for rewards wallet' })
+  async provisionVirtualAccount(@Param('tenantId') tenantId: string) {
+    const wallet = await this.walletService.provisionVirtualAccount(tenantId);
+    const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
+    return {
+      ...wallet,
+      feePercentage: fees.feePercentage,
+      flatFee: fees.flatFee,
+    };
+  }
+
   @Post('wallet/topup')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async manualTopup(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
     return this.walletService.manualTopup(tenantId, body.amount);
   }
 
   @Post('wallet/auto-topup')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async updateAutoTopup(
     @Param('tenantId') tenantId: string,
     @Body() body: { enabled: boolean; threshold: number; amount: number },
@@ -106,6 +133,8 @@ export class RewardsController {
   }
 
   @Post('assign-points')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async assignPoints(
     @Param('tenantId') tenantId: string,
     @Body() body: {
@@ -114,25 +143,28 @@ export class RewardsController {
       reason?: string;
       assignments?: { memberId: string; points: number }[];
     },
-    @Req() req: any,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    const actorId = req.user?.memberId ?? req.user?.id;
     return this.memberPointsService.assignPoints(
       tenantId,
       body.memberIds ?? [],
       body.points ?? 0,
       body.reason,
-      actorId,
+      member.id,
       body.assignments,
     );
   }
 
   @Get('custom')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async listCustomRewards(@Param('tenantId') tenantId: string) {
     return this.customRewardsService.list(tenantId, true);
   }
 
   @Post('custom')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async createCustomReward(
     @Param('tenantId') tenantId: string,
     @Body()
@@ -149,6 +181,8 @@ export class RewardsController {
   }
 
   @Patch('custom/:rewardId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async updateCustomReward(
     @Param('tenantId') tenantId: string,
     @Param('rewardId') rewardId: string,
@@ -167,6 +201,8 @@ export class RewardsController {
   }
 
   @Delete('custom/:rewardId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async deleteCustomReward(
     @Param('tenantId') tenantId: string,
     @Param('rewardId') rewardId: string,
@@ -176,18 +212,28 @@ export class RewardsController {
   }
 
   @Get('tasks')
-  async listTasks(@Param('tenantId') tenantId: string, @Req() req: any) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.listTasks(tenantId, memberId);
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async listTasks(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.rewardsService.listTasks(tenantId, member.id);
   }
 
   @Get('tasks/submissions/pending')
-  async listPendingSubmissions(@Param('tenantId') tenantId: string, @Req() req: any) {
-    const actorId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.listPendingSubmissions(tenantId, actorId);
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  async listPendingSubmissions(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.rewardsService.listPendingSubmissions(tenantId, member.id);
   }
 
   @Post('tasks')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async createTask(
     @Param('tenantId') tenantId: string,
     @Body()
@@ -206,54 +252,65 @@ export class RewardsController {
   }
 
   @Delete('tasks/:taskId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async deleteTask(@Param('tenantId') tenantId: string, @Param('taskId') taskId: string) {
     return this.rewardsService.deleteTask(tenantId, taskId);
   }
 
   @Post('tasks/:taskId/submit')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
   async submitTask(
     @Param('tenantId') tenantId: string,
     @Param('taskId') taskId: string,
-    @Req() req: any,
+    @CurrentTenantMember() member: MemberContext,
     @Body() body: { submissionText?: string; submissionFileName?: string },
   ) {
-    const memberId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.submitTask(tenantId, taskId, memberId, body);
+    return this.rewardsService.submitTask(tenantId, taskId, member.id, body);
   }
 
   @Post('tasks/:taskId/submissions/:submissionId/approve')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async approveSubmission(
     @Param('tenantId') tenantId: string,
     @Param('taskId') taskId: string,
     @Param('submissionId') submissionId: string,
-    @Req() req: any,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    const actorId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.approveSubmission(tenantId, taskId, submissionId, actorId);
+    return this.rewardsService.approveSubmission(tenantId, taskId, submissionId, member.id);
   }
 
   @Post('tasks/:taskId/submissions/:submissionId/reject')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
   async rejectSubmission(
     @Param('tenantId') tenantId: string,
     @Param('taskId') taskId: string,
     @Param('submissionId') submissionId: string,
-    @Req() req: any,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    const actorId = req.user?.memberId ?? req.user?.id;
-    return this.rewardsService.rejectSubmission(tenantId, taskId, submissionId, actorId);
+    return this.rewardsService.rejectSubmission(tenantId, taskId, submissionId, member.id);
   }
 
   @Get('operators/:countryCode')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
   async listTopupOperators(@Param('countryCode') countryCode: string) {
     return this.rewardsService.listTopupOperators(countryCode);
   }
 
   @Get('utilities/billers/:countryCode')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
   async listUtilityBillers(@Param('countryCode') countryCode: string) {
     return this.rewardsService.listUtilityBillers(countryCode);
   }
 
   @Post('utilities/lookup')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
   async lookupUtilityMeter(
     @Body() body: {
       countryCode: string;
@@ -271,10 +328,19 @@ export class RewardsController {
   }
 
   @Get('calculate-points')
-  async calculatePointsCost(@Param('tenantId') tenantId: string, @Req() req: any) {
-    const type = req.query.type as 'airtime' | 'utility';
-    const billerId = Number(req.query.billerId);
-    const amount = Number(req.query.amount);
-    return this.rewardsService.calculatePointsCost(tenantId, type, billerId, amount);
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async calculatePointsCost(
+    @Param('tenantId') tenantId: string,
+    @Query('type') type: string,
+    @Query('billerId') billerId?: string,
+    @Query('amount') amount?: string,
+  ) {
+    return this.rewardsService.calculatePointsCost(
+      tenantId,
+      type as 'airtime' | 'utility' | 'ng-airtime' | 'ng-utility',
+      billerId ? Number(billerId) : 0,
+      Number(amount) || 0,
+    );
   }
 }

@@ -2,9 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  cancelSubscription,
   createSubscriptionCheckout,
   fetchBillingOverview,
   fetchBillingStatus,
+  pauseSubscription,
+  resumeSubscription,
+  updatePaymentMethod,
 } from '@/lib/api/subscriptions';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -29,9 +33,21 @@ export function useBillingOverview() {
   });
 }
 
+function useInvalidateBilling() {
+  const { tenantId } = useTenant();
+  const queryClient = useQueryClient();
+
+  return () => {
+    if (tenantId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.billing.status(tenantId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.billing.overview(tenantId) });
+    }
+  };
+}
+
 export function useCreateSubscriptionCheckout() {
   const { tenantId, tenant } = useTenant();
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateBilling();
 
   return useMutation({
     mutationFn: async (planSlug: string) => {
@@ -46,11 +62,69 @@ export function useCreateSubscriptionCheckout() {
 
       return createSubscriptionCheckout(tenantId, planSlug, successUrl);
     },
-    onSuccess: () => {
-      if (tenantId) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.billing.status(tenantId) });
-        queryClient.invalidateQueries({ queryKey: queryKeys.billing.overview(tenantId) });
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdatePaymentMethod() {
+  const { tenantId, tenant } = useTenant();
+  const invalidate = useInvalidateBilling();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!tenantId || !tenant?.slug) {
+        throw new Error('Workspace not selected');
       }
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const successUrl = origin
+        ? `${origin}/${tenant.slug}/settings?tab=billing&billing=card-updated`
+        : undefined;
+      return updatePaymentMethod(tenantId, successUrl);
     },
+    onSuccess: (result) => {
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
+      invalidate();
+    },
+  });
+}
+
+export function useCancelSubscription() {
+  const { tenantId } = useTenant();
+  const invalidate = useInvalidateBilling();
+
+  return useMutation({
+    mutationFn: (options?: { atPeriodEnd?: boolean; reason?: string }) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return cancelSubscription(tenantId, options);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function usePauseSubscription() {
+  const { tenantId } = useTenant();
+  const invalidate = useInvalidateBilling();
+
+  return useMutation({
+    mutationFn: () => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return pauseSubscription(tenantId);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useResumeSubscription() {
+  const { tenantId } = useTenant();
+  const invalidate = useInvalidateBilling();
+
+  return useMutation({
+    mutationFn: () => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return resumeSubscription(tenantId);
+    },
+    onSuccess: invalidate,
   });
 }

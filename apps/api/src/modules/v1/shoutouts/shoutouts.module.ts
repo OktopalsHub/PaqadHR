@@ -8,7 +8,6 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { MemberPointsController } from './controllers/member-points.controller';
 import { ShoutoutCategoriesController } from './controllers/shoutout-categories.controller';
 import { ShoutoutsController } from './controllers/shoutouts.controller';
-import { SlackWebhookController } from './controllers/slack-webhook.controller';
 import { Shoutout } from './entities/shoutout.entity';
 import { ShoutoutCategory } from './entities/shoutout-category.entity';
 import { ShoutoutCategoryAssignment } from './entities/shoutout-category-assignment.entity';
@@ -44,7 +43,6 @@ import { ShoutoutPointsModule } from './shoutout-points.module';
     ShoutoutsController,
     ShoutoutCategoriesController,
     MemberPointsController,
-    SlackWebhookController,
   ],
   providers: [
     ShoutoutsService,
@@ -58,6 +56,6 @@ import { ShoutoutPointsModule } from './shoutout-points.module';
     CelebrationShoutoutService,
     CelebrationShoutoutCronService,
   ],
-  exports: [ShoutoutsService, ShoutoutPointsModule],
+  exports: [ShoutoutsService, ShoutoutPointsModule, SlackWebhookService],
 })
 export class ShoutoutsModule {}

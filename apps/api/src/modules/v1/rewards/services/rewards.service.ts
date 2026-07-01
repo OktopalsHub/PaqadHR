@@ -25,6 +25,7 @@ import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
 
@@ -79,25 +80,33 @@ export class RewardsService {
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
-  private convertCurrency(amount: number, from: string, to: string): number {
-    const fromUpper = from.toUpperCase();
-    const toUpper = to.toUpperCase();
-    if (fromUpper === toUpper) {
-      return amount;
+  private async toWalletCurrency(
+    localAmount: number,
+    localCurrency: string,
+    walletCurrency: string,
+    operatorId?: number,
+  ): Promise<number> {
+    const local = localCurrency.toUpperCase();
+    const wallet = walletCurrency.toUpperCase();
+    if (local === wallet) {
+      return localAmount;
     }
-
-    const ratesToNgn: Record<string, number> = {
-      USD: 1500,
-      EUR: 1600,
-      GBP: 1900,
-      NGN: 1,
-    };
-
-    const fromRate = ratesToNgn[fromUpper] ?? 1;
-    const toRate = ratesToNgn[toUpper] ?? 1;
-
-    const amountInNgn = amount * fromRate;
-    return Number((amountInNgn / toRate).toFixed(2));
+    if (!operatorId) {
+      return localAmount;
+    }
+    const fx = await this.reloadlyTopupsApi.getOperatorFxRate(operatorId, localAmount);
+    if (fx.currencyCode.toUpperCase() === wallet) {
+      return localAmount;
+    }
+    const senderAmount = localAmount / (fx.fxRate || 1);
+    if (wallet === 'NGN') {
+      const ngOperators = await this.reloadlyTopupsApi.listOperators('NG');
+      const refOp = ngOperators.find((o) => o.fx?.rate);
+      if (refOp?.fx?.rate) {
+        return Number((senderAmount * refOp.fx.rate).toFixed(2));
+      }
+    }
+    return Number(senderAmount.toFixed(2));
   }
 
   async getSubscriptionFees(
@@ -106,15 +115,11 @@ export class RewardsService {
   ): Promise<{ feePercentage: number; flatFee: number }> {
     try {
       const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
-      const feePercentage = subscription?.planPrice?.regionalConfig?.rewardsFeePercentage ?? 2; // Default 2%
-
+      const feePercentage = subscription?.planPrice?.regionalConfig?.rewardsFeePercentage ?? 2;
       const rawFlatFee = subscription?.planPrice?.regionalConfig?.rewardsFlatFee ?? 50;
-      const flatFee = this.convertCurrency(rawFlatFee, 'NGN', walletCurrency);
-
-      return { feePercentage, flatFee };
+      return { feePercentage, flatFee: rawFlatFee };
     } catch {
-      const flatFee = this.convertCurrency(50, 'NGN', walletCurrency);
-      return { feePercentage: 2, flatFee };
+      return { feePercentage: 2, flatFee: 50 };
     }
   }
 
@@ -295,30 +300,33 @@ export class RewardsService {
       );
       const exchangeRate = settings.pointsExchangeRate;
 
-      return products.map((p) => {
-        const currencyValue = p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
-        const convertedValue = this.convertCurrency(
-          currencyValue,
-          p.recipientCurrencyCode,
-          settings.rewardsCurrency,
-        );
+      return Promise.all(
+        products.map(async (p) => {
+          const currencyValue =
+            p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
+          const convertedValue = await this.toWalletCurrency(
+            currencyValue,
+            p.recipientCurrencyCode,
+            settings.rewardsCurrency,
+          );
 
-        const markupFactor = 1 + feePercentage / 100;
-        const chargedValue = convertedValue * markupFactor + flatFee;
-        const defaultPointsCost = Math.ceil(chargedValue * exchangeRate);
+          const markupFactor = 1 + feePercentage / 100;
+          const chargedValue = convertedValue * markupFactor + flatFee;
+          const defaultPointsCost = Math.ceil(chargedValue * exchangeRate);
 
-        return {
-          productId: p.productId,
-          name: p.productName,
-          countryCode: p.countryCode,
-          currencyCode: p.recipientCurrencyCode,
-          imageUrl: p.logoUrls?.[0] ?? null,
-          minDenomination: p.minRecipientDenomination ?? null,
-          maxDenomination: p.maxRecipientDenomination ?? null,
-          fixedDenominations: p.fixedRecipientDenominations ?? [],
-          defaultPointsCost,
-        };
-      });
+          return {
+            productId: p.productId,
+            name: p.productName,
+            countryCode: p.countryCode,
+            currencyCode: p.recipientCurrencyCode,
+            imageUrl: p.logoUrls?.[0] ?? null,
+            minDenomination: p.minRecipientDenomination ?? null,
+            maxDenomination: p.maxRecipientDenomination ?? null,
+            fixedDenominations: p.fixedRecipientDenominations ?? [],
+            defaultPointsCost,
+          };
+        }),
+      );
     } catch (error) {
       this.logger.warn(
         `Failed to fetch raw Reloadly catalog: ${error instanceof Error ? error.message : error}`,
@@ -358,10 +366,11 @@ export class RewardsService {
       );
       totalTenantDebit = calc.totalTenantDebit;
       expectedPointsCost = calc.pointsCost;
-      faceValueInRewardsCurrency = this.convertCurrency(
+      faceValueInRewardsCurrency = await this.toWalletCurrency(
         calc.senderAmount,
         calc.senderCurrencyCode,
         settings.rewardsCurrency,
+        Number(input.billerId),
       );
     } else if (input.rewardType === 'RELOADLY_UTILITY') {
       const calc = await this.calculateReloadlyUtilityCost(
@@ -372,13 +381,14 @@ export class RewardsService {
       );
       totalTenantDebit = calc.totalTenantDebit;
       expectedPointsCost = calc.pointsCost;
-      faceValueInRewardsCurrency = this.convertCurrency(
+      faceValueInRewardsCurrency = await this.toWalletCurrency(
         calc.senderAmount,
         calc.senderCurrencyCode,
         settings.rewardsCurrency,
+        Number(input.billerId),
       );
     } else {
-      const expectedConvertedValue = this.convertCurrency(
+      const expectedConvertedValue = await this.toWalletCurrency(
         currencyValue,
         currencyCode,
         settings.rewardsCurrency,
@@ -744,10 +754,11 @@ export class RewardsService {
     const senderCurrencyCode = 'USD';
     const senderAmount = localAmount / (fxInfo.fxRate || 1);
 
-    const convertedValue = this.convertCurrency(
-      senderAmount,
-      senderCurrencyCode,
+    const convertedValue = await this.toWalletCurrency(
+      localAmount,
+      fxInfo.currencyCode,
       settings.rewardsCurrency,
+      operatorId,
     );
 
     const { feePercentage, flatFee } = await this.getSubscriptionFees(
@@ -788,14 +799,16 @@ export class RewardsService {
       throw new BadRequestException('Biller not found');
     }
 
-    const fxRate = (biller as any).fx?.rate || 1;
     const senderCurrencyCode = 'USD';
-    const senderAmount = localAmount / fxRate;
+    const senderAmount = localAmount;
 
-    const convertedValue = this.convertCurrency(
-      senderAmount,
-      senderCurrencyCode,
+    const operators = await this.reloadlyTopupsApi.listOperators(biller.countryIsoCode);
+    const bridgeOperatorId = operators[0]?.operatorId;
+    const convertedValue = await this.toWalletCurrency(
+      localAmount,
+      biller.localTransactionCurrencyCode,
       settings.rewardsCurrency,
+      bridgeOperatorId,
     );
 
     const { feePercentage, flatFee } = await this.getSubscriptionFees(
@@ -847,27 +860,15 @@ export class RewardsService {
     });
   }
 
-  async handleNombaFundingWebhook(
-    rawBody: string,
-    signature: string,
-  ): Promise<{ received: boolean }> {
-    if (!signature?.trim()) {
-      throw new BadRequestException('Missing webhook signature');
-    }
-    if (!this.nombaTransferApi.verifyWebhookSignature(rawBody, signature)) {
-      throw new BadRequestException('Invalid webhook signature');
-    }
+  async processNombaFundingPayload(payload: unknown): Promise<{ received: boolean }> {
+    const body = payload as {
+      event_type?: string;
+      eventType?: string;
+      event?: string;
+      data?: Record<string, unknown>;
+    };
 
-    let payload: any;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      throw new BadRequestException('Invalid webhook JSON');
-    }
-
-    const eventType = String(
-      payload.event_type || payload.eventType || payload.event || '',
-    ).toLowerCase();
+    const eventType = String(body.event_type || body.eventType || body.event || '').toLowerCase();
 
     if (
       !eventType.includes('deposit') &&
@@ -877,7 +878,7 @@ export class RewardsService {
       return { received: true };
     }
 
-    const data = payload.data || {};
+    const data = body.data || {};
     const accountNumber = String(
       data.virtualAccount || data.accountNumber || data.virtualAccountNumber || '',
     );
@@ -885,6 +886,14 @@ export class RewardsService {
     const reference = String(
       data.transactionReference || data.orderReference || data.reference || data.id || '',
     );
+    const payloadMeta = body as { requestId?: string };
+    const nombaEventId = String(
+      data.transactionId || data.id || payloadMeta.requestId || reference || '',
+    );
+    const payerName = String(
+      data.senderName || data.payerName || data.originatorName || data.customerName || '',
+    );
+    const payerBank = String(data.senderBank || data.bankName || data.originatorBank || '');
 
     if (!accountNumber || amount <= 0 || !reference) {
       throw new BadRequestException('Invalid webhook payload structure');
@@ -895,15 +904,30 @@ export class RewardsService {
       where: { virtualAccountNumber: accountNumber },
     });
     if (!wallet) {
+      const misdirectedRepo = this.dataSource.getRepository(MisdirectedDeposit);
+      await misdirectedRepo.save(
+        misdirectedRepo.create({
+          accountNumber,
+          amount,
+          reference,
+          rawPayload: body as Record<string, unknown>,
+        }),
+      );
       this.logger.warn(
         `Received deposit webhook for unregistered virtual account: ${accountNumber}`,
       );
       return { received: true };
     }
 
+    const metadata: Record<string, unknown> = {};
+    if (payerName) metadata.payerName = payerName;
+    if (payerBank) metadata.payerBank = payerBank;
+
     await this.dataSource.transaction(async (manager) => {
       const txRepo = manager.getRepository(TenantWalletTransaction);
-      const existingTx = await txRepo.findOne({ where: { reference } });
+      const existingTx = await txRepo.findOne({
+        where: { tenantWalletId: wallet.id, reference },
+      });
       if (existingTx) {
         this.logger.log(`Skipping duplicate wallet deposit transaction: ${reference}`);
         return;
@@ -916,6 +940,12 @@ export class RewardsService {
         reference,
         `Bank deposit to virtual account ${accountNumber}`,
         manager,
+        {
+          rawAmount: amount,
+          nombaEventId: nombaEventId || undefined,
+          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+          status: 'COMPLETED',
+        },
       );
     });
 
@@ -1390,17 +1420,47 @@ export class RewardsService {
     };
   }
 
+  async calculateLocalRewardCost(
+    tenantId: string,
+    amount: number,
+  ): Promise<{
+    pointsCost: number;
+    currencyValue: number;
+    currencyCode: string;
+    totalTenantDebit: number;
+    processingFee: number;
+  }> {
+    const settings = await this.getRewardsSettings(tenantId);
+    const { feePercentage, flatFee } = await this.getSubscriptionFees(
+      tenantId,
+      settings.rewardsCurrency,
+    );
+    const markupFactor = 1 + feePercentage / 100;
+    const totalTenantDebit = amount * markupFactor + flatFee;
+    const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
+
+    return {
+      pointsCost,
+      currencyValue: amount,
+      currencyCode: settings.rewardsCurrency,
+      totalTenantDebit,
+      processingFee: Number((totalTenantDebit - amount).toFixed(2)),
+    };
+  }
+
   async calculatePointsCost(
     tenantId: string,
-    type: 'airtime' | 'utility',
+    type: 'airtime' | 'utility' | 'ng-airtime' | 'ng-utility',
     billerId: number,
     amount: number,
   ) {
+    if (type === 'ng-airtime' || type === 'ng-utility') {
+      return this.calculateLocalRewardCost(tenantId, amount);
+    }
     const settings = await this.getRewardsSettings(tenantId);
     if (type === 'airtime') {
       return this.calculateReloadlyAirtimeCost(billerId, amount, tenantId, settings);
-    } else {
-      return this.calculateReloadlyUtilityCost(billerId, amount, tenantId, settings);
     }
+    return this.calculateReloadlyUtilityCost(billerId, amount, tenantId, settings);
   }
 }

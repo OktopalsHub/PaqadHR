@@ -41,7 +41,6 @@ import {
   useDeleteCustomReward,
   useMyClaims,
   useRewardsCatalog,
-  useTenantWallet,
   useTopupOperators,
   useUtilityBillers,
 } from '@/hooks/queries/use-rewards';
@@ -332,9 +331,9 @@ function CatalogCard({
 
 function ClaimRow({ claim }: { claim: RewardRedemption }) {
   const statusColors: Record<string, string> = {
-    SUCCESS: 'bg-green-500/10 text-green-600 border-green-200',
-    PENDING: 'bg-amber-500/10 text-amber-600 border-amber-200',
-    FAILED: 'bg-red-500/10 text-red-600 border-red-200',
+    SUCCESS: 'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
+    PENDING: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+    FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
   };
 
   return (
@@ -366,12 +365,18 @@ function ClaimRow({ claim }: { claim: RewardRedemption }) {
             {claim.voucherInstructions}
           </p>
         ) : null}
+        {claim.status === 'FAILED' && claim.errorMessage && (
+          <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
+            Error: {claim.errorMessage}
+          </p>
+        )}
       </div>
       <Badge
         variant="outline"
-        className={cn('shrink-0 text-[10px] font-bold', statusColors[claim.status])}
+        className={cn('shrink-0 text-[10px] font-bold flex items-center gap-1.5', statusColors[claim.status])}
       >
-        {claim.status === 'SUCCESS' ? <Check className="mr-1 size-2.5" /> : null}
+        {claim.status === 'SUCCESS' ? <Check className="size-2.5" /> : null}
+        {claim.status === 'PENDING' ? <Loader2 className="size-2.5 animate-spin" /> : null}
         {claim.status}
       </Badge>
     </div>
@@ -446,7 +451,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog();
   const { data: claims = [], isLoading: claimsLoading } = useMyClaims();
   const { data: allClaims = [], isLoading: allClaimsLoading } = useAllClaims();
-  const { data: wallet } = useTenantWallet();
   const claimReward = useClaimReward();
 
   const createCustomReward = useCreateCustomReward();
@@ -492,50 +496,65 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
   const [calculatedValue, setCalculatedValue] = useState<number | null>(null);
   const [calculatedCurrency, setCalculatedCurrency] = useState<string>('NGN');
+  const [airtimeProcessingFee, setAirtimeProcessingFee] = useState<number | null>(null);
   const [isCalculatingPoints, setIsCalculatingPoints] = useState(false);
 
   useEffect(() => {
+    const amt = Number(airtimeAmount) || 0;
     if (selectedCountryCode === 'NG') {
-      const amt = Number(airtimeAmount) || 0;
       if (amt >= 100) {
-        const feePercentage = wallet?.feePercentage ?? 2;
-        const flatFee = wallet?.flatFee ?? 50;
-        const markupFactor = 1 + feePercentage / 100;
-        const totalDebit = amt * markupFactor + flatFee;
-        const points = Math.ceil(totalDebit * (wallet?.pointsExchangeRate ?? 10));
-        setCalculatedPoints(points);
-        setCalculatedValue(amt);
-        setCalculatedCurrency('NGN');
-      } else {
-        setCalculatedPoints(null);
-      }
-    } else {
-      const amt = Number(airtimeAmount) || 0;
-      if (amt > 0 && selectedReloadlyOperator) {
         const delayDebounceFn = setTimeout(async () => {
           setIsCalculatingPoints(true);
           try {
             const res = await calculatePointsCost({
-              type: 'airtime',
-              billerId: selectedReloadlyOperator.operatorId,
+              type: 'ng-airtime',
+              billerId: 0,
               amount: amt,
             });
             setCalculatedPoints(res.pointsCost);
             setCalculatedValue(res.currencyValue);
             setCalculatedCurrency(res.currencyCode);
+            setAirtimeProcessingFee(
+              'processingFee' in res ? Number(res.processingFee) : res.totalTenantDebit - res.currencyValue,
+            );
           } catch (e) {
             console.error(e);
             setCalculatedPoints(null);
+            setAirtimeProcessingFee(null);
           } finally {
             setIsCalculatingPoints(false);
           }
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-      } else {
-        setCalculatedPoints(null);
       }
+      setCalculatedPoints(null);
+      setAirtimeProcessingFee(null);
+      return;
     }
-  }, [airtimeAmount, selectedReloadlyOperator, selectedCountryCode, wallet]);
+
+    if (amt > 0 && selectedReloadlyOperator) {
+      const delayDebounceFn = setTimeout(async () => {
+        setIsCalculatingPoints(true);
+        try {
+          const res = await calculatePointsCost({
+            type: 'airtime',
+            billerId: selectedReloadlyOperator.operatorId,
+            amount: amt,
+          });
+          setCalculatedPoints(res.pointsCost);
+          setCalculatedValue(res.currencyValue);
+          setCalculatedCurrency(res.currencyCode);
+        } catch (e) {
+          console.error(e);
+          setCalculatedPoints(null);
+        } finally {
+          setIsCalculatingPoints(false);
+        }
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
+    setCalculatedPoints(null);
+  }, [airtimeAmount, selectedReloadlyOperator, selectedCountryCode]);
 
   // Utility Bill States
   const [utilityCountryCode, setUtilityCountryCode] = useState(catalogCountries[0] || 'NG');
@@ -581,50 +600,65 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [utilityPoints, setUtilityPoints] = useState<number | null>(null);
   const [utilityCalculatedValue, setUtilityCalculatedValue] = useState<number | null>(null);
   const [utilityCalculatedCurrency, setUtilityCalculatedCurrency] = useState<string>('NGN');
+  const [utilityProcessingFee, setUtilityProcessingFee] = useState<number | null>(null);
   const [isCalculatingUtilityPoints, setIsCalculatingUtilityPoints] = useState(false);
 
   useEffect(() => {
+    const amt = Number(utilityAmount) || 0;
     if (utilityCountryCode === 'NG') {
-      const amt = Number(utilityAmount) || 0;
       if (amt >= 100) {
-        const feePercentage = wallet?.feePercentage ?? 2;
-        const flatFee = wallet?.flatFee ?? 50;
-        const markupFactor = 1 + feePercentage / 100;
-        const totalDebit = amt * markupFactor + flatFee;
-        const points = Math.ceil(totalDebit * (wallet?.pointsExchangeRate ?? 10));
-        setUtilityPoints(points);
-        setUtilityCalculatedValue(amt);
-        setUtilityCalculatedCurrency('NGN');
-      } else {
-        setUtilityPoints(null);
-      }
-    } else {
-      const amt = Number(utilityAmount) || 0;
-      if (amt > 0 && selectedUtilityBillerReloadly) {
         const delayDebounceFn = setTimeout(async () => {
           setIsCalculatingUtilityPoints(true);
           try {
             const res = await calculatePointsCost({
-              type: 'utility',
-              billerId: selectedUtilityBillerReloadly.id,
+              type: 'ng-utility',
+              billerId: 0,
               amount: amt,
             });
             setUtilityPoints(res.pointsCost);
             setUtilityCalculatedValue(res.currencyValue);
             setUtilityCalculatedCurrency(res.currencyCode);
+            setUtilityProcessingFee(
+              'processingFee' in res ? Number(res.processingFee) : res.totalTenantDebit - res.currencyValue,
+            );
           } catch (e) {
             console.error(e);
             setUtilityPoints(null);
+            setUtilityProcessingFee(null);
           } finally {
             setIsCalculatingUtilityPoints(false);
           }
         }, 500);
         return () => clearTimeout(delayDebounceFn);
-      } else {
-        setUtilityPoints(null);
       }
+      setUtilityPoints(null);
+      setUtilityProcessingFee(null);
+      return;
     }
-  }, [utilityAmount, selectedUtilityBillerReloadly, utilityCountryCode, wallet]);
+
+    if (amt > 0 && selectedUtilityBillerReloadly) {
+      const delayDebounceFn = setTimeout(async () => {
+        setIsCalculatingUtilityPoints(true);
+        try {
+          const res = await calculatePointsCost({
+            type: 'utility',
+            billerId: selectedUtilityBillerReloadly.id,
+            amount: amt,
+          });
+          setUtilityPoints(res.pointsCost);
+          setUtilityCalculatedValue(res.currencyValue);
+          setUtilityCalculatedCurrency(res.currencyCode);
+        } catch (e) {
+          console.error(e);
+          setUtilityPoints(null);
+        } finally {
+          setIsCalculatingUtilityPoints(false);
+        }
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
+    }
+    setUtilityPoints(null);
+  }, [utilityAmount, selectedUtilityBillerReloadly, utilityCountryCode]);
 
   const handleLookupMeter = async () => {
     if (!utilityAccountNumber.trim()) {
@@ -1398,11 +1432,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           <div className="flex justify-between text-xs text-muted-foreground font-medium">
                             <span>Processing Fee</span>
                             <span className="font-bold text-foreground">
-                              +₦
-                              {(
-                                Number(airtimeAmount) * ((wallet?.feePercentage ?? 2) / 100) +
-                                (wallet?.flatFee ?? 50)
-                              ).toLocaleString()}
+                              +₦{(airtimeProcessingFee ?? 0).toLocaleString()}
                             </span>
                           </div>
                         ) : (
@@ -1666,11 +1696,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           <div className="flex justify-between text-xs text-muted-foreground font-medium">
                             <span>Processing Fee</span>
                             <span className="font-bold text-foreground">
-                              +₦
-                              {(
-                                Number(utilityAmount) * ((wallet?.feePercentage ?? 2) / 100) +
-                                (wallet?.flatFee ?? 50)
-                              ).toLocaleString()}
+                              +₦{(utilityProcessingFee ?? 0).toLocaleString()}
                             </span>
                           </div>
                         ) : (
@@ -2011,6 +2037,11 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                   )}
                                 </div>
                               )}
+                              {claim.status === 'FAILED' && claim.errorMessage && (
+                                <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
+                                  Error: {claim.errorMessage}
+                                </p>
+                              )}
                             </div>
                           </div>
 
@@ -2018,10 +2049,11 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                             <Badge
                               variant="outline"
                               className={cn(
-                                'text-[10px] py-1 px-2.5 font-bold',
+                                'text-[10px] py-1 px-2.5 font-bold flex items-center gap-1.5',
                                 statusColors[claim.status],
                               )}
                             >
+                              {claim.status === 'PENDING' ? <Loader2 className="size-2.5 animate-spin" /> : null}
                               {claim.status}
                             </Badge>
                           </div>

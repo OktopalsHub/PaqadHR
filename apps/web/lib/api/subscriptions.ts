@@ -26,3 +26,31 @@ export async function createSubscriptionCheckout(
     }),
   });
 }
+
+export async function updatePaymentMethod(
+  tenantId: string,
+  successUrl?: string,
+): Promise<{ checkoutUrl: string; id: string; reference: string }> {
+  return apiClient(`/subscriptions/tenant/${tenantId}/update-payment-method`, {
+    method: 'POST',
+    body: JSON.stringify(successUrl ? { successUrl } : {}),
+  });
+}
+
+export async function cancelSubscription(
+  tenantId: string,
+  options?: { atPeriodEnd?: boolean; reason?: string },
+) {
+  return apiClient(`/subscriptions/tenant/${tenantId}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify(options ?? {}),
+  });
+}
+
+export async function pauseSubscription(tenantId: string) {
+  return apiClient(`/subscriptions/tenant/${tenantId}/pause`, { method: 'POST' });
+}
+
+export async function resumeSubscription(tenantId: string) {
+  return apiClient(`/subscriptions/tenant/${tenantId}/resume`, { method: 'POST' });
+}

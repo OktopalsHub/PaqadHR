@@ -1,0 +1,64 @@
+import type { MigrationInterface, QueryRunner } from 'typeorm';
+
+export class TenantWalletVirtualAccounts1782913542028 implements MigrationInterface {
+  public async up(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      ALTER TABLE tenant_wallets
+        ADD COLUMN IF NOT EXISTS nomba_account_ref VARCHAR UNIQUE,
+        ADD COLUMN IF NOT EXISTS virtual_account_status VARCHAR,
+        ADD COLUMN IF NOT EXISTS virtual_account_provisioned_at TIMESTAMP,
+        ADD COLUMN IF NOT EXISTS virtual_account_error TEXT;
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS idx_tenant_wallets_virtual_account_number
+        ON tenant_wallets(virtual_account_number)
+        WHERE virtual_account_number IS NOT NULL;
+    `);
+
+    await queryRunner.query(`
+      ALTER TABLE tenant_wallet_transactions
+        ADD COLUMN IF NOT EXISTS status VARCHAR DEFAULT 'COMPLETED',
+        ADD COLUMN IF NOT EXISTS raw_amount NUMERIC(14,2),
+        ADD COLUMN IF NOT EXISTS nomba_event_id VARCHAR,
+        ADD COLUMN IF NOT EXISTS metadata JSONB;
+    `);
+
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS misdirected_deposits (
+        id UUID NOT NULL DEFAULT uuid_generate_v4(),
+        account_number VARCHAR NOT NULL,
+        amount NUMERIC(14,2) NOT NULL,
+        reference VARCHAR,
+        raw_payload JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+      );
+    `);
+
+    await queryRunner.query(`
+      CREATE INDEX IF NOT EXISTS idx_misdirected_deposits_account_number
+        ON misdirected_deposits(account_number);
+    `);
+  }
+
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`DROP TABLE IF EXISTS misdirected_deposits;`);
+    await queryRunner.query(`
+      ALTER TABLE tenant_wallet_transactions
+        DROP COLUMN IF EXISTS metadata,
+        DROP COLUMN IF EXISTS nomba_event_id,
+        DROP COLUMN IF EXISTS raw_amount,
+        DROP COLUMN IF EXISTS status;
+    `);
+    await queryRunner.query(`DROP INDEX IF EXISTS idx_tenant_wallets_virtual_account_number;`);
+    await queryRunner.query(`
+      ALTER TABLE tenant_wallets
+        DROP COLUMN IF EXISTS virtual_account_error,
+        DROP COLUMN IF EXISTS virtual_account_provisioned_at,
+        DROP COLUMN IF EXISTS virtual_account_status,
+        DROP COLUMN IF EXISTS nomba_account_ref;
+    `);
+  }
+}

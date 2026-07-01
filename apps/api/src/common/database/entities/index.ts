@@ -46,6 +46,7 @@ export * from '../../../modules/v1/rewards/entities/task.entity';
 export * from '../../../modules/v1/rewards/entities/task-submission.entity';
 export * from '../../../modules/v1/rewards/entities/tenant-wallet.entity';
 export * from '../../../modules/v1/rewards/entities/tenant-wallet-transaction.entity';
+export * from '../../../modules/v1/rewards/entities/misdirected-deposit.entity';
 export * from '../../../modules/v1/shoutouts/entities/shoutout.entity';
 export * from '../../../modules/v1/shoutouts/entities/shoutout-category.entity';
 export * from '../../../modules/v1/shoutouts/entities/shoutout-category-assignment.entity';

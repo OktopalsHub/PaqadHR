@@ -176,13 +176,13 @@ describe('PayrollPayoutService', () => {
       expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-123');
     });
 
-    it('ignores malformed JSON', async () => {
+    it('rejects malformed JSON', async () => {
       const { service, nombaTransferApi } = createService();
       (nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
 
-      const result = await service.handleNombaWebhook('not-json', 'valid-sig');
-
-      expect(result).toEqual({ received: true });
+      await expect(service.handleNombaWebhook('not-json', 'valid-sig')).rejects.toThrow(
+        'Invalid webhook JSON',
+      );
       expect(nombaTransferApi.parseTransferWebhook).not.toHaveBeenCalled();
     });
   });

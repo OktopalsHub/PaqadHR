@@ -69,3 +69,6 @@ export * from './1781550110124-AddColorToPosition';
 export * from './1782000000000-rewards-setup';
 export * from './1782500000000-tasks-setup';
 export * from './1782838353633-auto-topup-and-recurring-tasks';
+export * from './1782913542028-tenant-wallet-virtual-accounts';
+export * from './1782914289290-subscription-dunning-and-lifecycle';
+export * from './1782921523406-wallet-transaction-reference-scope';

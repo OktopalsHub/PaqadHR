@@ -15,7 +15,7 @@ export function getNombaAccountId(): string {
 }
 
 export function getNombaWebhookSecret(): string {
-  return (process.env.NOMBA_WEBHOOK_SIGNATURE_KEY || getNombaClientSecret()).trim();
+  return (process.env.NOMBA_WEBHOOK_SIGNATURE_KEY || '').trim();
 }
 
 export function getNombaPayoutAuthCode(): string {

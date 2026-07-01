@@ -92,6 +92,7 @@ export const queryKeys = {
     claims: ['rewards', 'claims'] as const,
     allClaims: ['rewards', 'all-claims'] as const,
     wallet: ['rewards', 'wallet'] as const,
+    walletTransactions: ['rewards', 'wallet-transactions'] as const,
     custom: ['rewards', 'custom'] as const,
   },
 } as const;

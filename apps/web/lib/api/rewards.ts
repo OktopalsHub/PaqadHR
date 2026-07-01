@@ -62,12 +62,25 @@ export interface TenantWallet {
   balanceAmount: number;
   virtualAccountNumber: string | null;
   virtualAccountBank: string | null;
+  virtualAccountStatus?: 'PROVISIONING' | 'ACTIVE' | 'FAILED' | null;
+  virtualAccountError?: string | null;
+  nombaAccountRef?: string | null;
   pointsExchangeRate: number;
   feePercentage?: number;
   flatFee?: number;
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
+}
+
+export interface TenantWalletTransaction {
+  id: string;
+  type: 'DEPOSIT' | 'SPENT' | 'REFUND';
+  amount: number;
+  reference: string | null;
+  description: string | null;
+  status?: string;
+  createdAt: string;
 }
 
 export interface CustomRewardInput {
@@ -121,6 +134,18 @@ export async function fetchAllClaims(): Promise<RewardRedemption[]> {
 export async function fetchTenantWallet(): Promise<TenantWallet> {
   const tenantId = await resolveTenantId();
   return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet'));
+}
+
+export async function fetchWalletTransactions(): Promise<TenantWalletTransaction[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<TenantWalletTransaction[]>(tenantPath(tenantId, 'rewards/wallet/transactions'));
+}
+
+export async function provisionVirtualAccount(): Promise<TenantWallet> {
+  const tenantId = await resolveTenantId();
+  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/provision-virtual-account'), {
+    method: 'POST',
+  });
 }
 
 export async function fetchCustomRewards(): Promise<
@@ -214,7 +239,7 @@ export async function lookupUtilityMeter(params: {
 }
 
 export async function calculatePointsCost(params: {
-  type: 'airtime' | 'utility';
+  type: 'airtime' | 'utility' | 'ng-airtime' | 'ng-utility';
   billerId: number;
   amount: number;
 }): Promise<{
@@ -222,13 +247,16 @@ export async function calculatePointsCost(params: {
   currencyValue: number;
   currencyCode: string;
   totalTenantDebit: number;
+  processingFee?: number;
 }> {
   const tenantId = await resolveTenantId();
   const query = new URLSearchParams({
     type: params.type,
-    billerId: String(params.billerId),
     amount: String(params.amount),
   });
+  if (params.billerId) {
+    query.set('billerId', String(params.billerId));
+  }
   return apiClient(tenantPath(tenantId, `rewards/calculate-points?${query.toString()}`));
 }
 

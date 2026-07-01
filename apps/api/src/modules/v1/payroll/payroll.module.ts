@@ -60,6 +60,7 @@ import { PayrollPayoutCronService } from './services/payroll-payout-cron.service
     PayrollFeeService,
     MultiPaymentService,
     AuditService,
+    PayrollPayoutService,
   ],
 })
 export class PayrollModule {}

@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { BillingChargeType } from '../constants/billing.constants';
+import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
@@ -22,6 +22,8 @@ interface NombaWebhookPayload {
     status?: string;
     tokenizedCardData?: {
       tokenKey?: string;
+      cardType?: string;
+      cardPan?: string;
     };
     meta?: SubscriptionBillingMetadata;
     order?: {
@@ -70,6 +72,35 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION,
         nombaPlanId: planPrice.nombaPlanId ?? undefined,
+      },
+    });
+
+    return {
+      id: result.orderReference,
+      checkoutUrl: result.checkoutLink,
+      reference: result.orderReference,
+      authorizationUrl: result.checkoutLink,
+    };
+  }
+
+  async createCardUpdateCheckout(
+    email: string,
+    metadata: SubscriptionBillingMetadata,
+    successUrl: string,
+    currency: string,
+  ): Promise<SubscriptionCheckoutResponse> {
+    const orderReference = `card_update_${metadata.tenantId}_${Date.now()}`;
+
+    const result = await this.nombaApi.createCheckoutOrder({
+      orderReference,
+      customerEmail: email,
+      amount: CARD_UPDATE_VERIFY_AMOUNT,
+      currency: currency.toUpperCase(),
+      callbackUrl: successUrl,
+      tokenizeCard: true,
+      meta: {
+        ...metadata,
+        billingType: BillingChargeType.CARD_UPDATE,
       },
     });
 
@@ -185,6 +216,8 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         return null;
       }
 
+      const card = this.parseTokenizedCard(data?.tokenizedCardData);
+
       return {
         kind: 'payment.success',
         payment: {
@@ -202,6 +235,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
           customerEmail: order?.customerEmail ?? data?.customerEmail,
           status: data?.status || 'success',
           billingType: meta.billingType ? String(meta.billingType) : undefined,
+          ...card,
         },
       };
     }
@@ -268,5 +302,17 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     if (!this.nombaApi.isConfigured()) {
       throw new BadRequestException('Nomba subscription billing is not configured');
     }
+  }
+
+  private parseTokenizedCard(data?: { cardType?: string; cardPan?: string }): {
+    cardBrand?: string;
+    cardLastFour?: string;
+  } {
+    if (!data) return {};
+    const digits = (data.cardPan ?? '').replace(/\D/g, '');
+    return {
+      cardBrand: data.cardType?.trim() || undefined,
+      cardLastFour: digits.length >= 4 ? digits.slice(-4) : undefined,
+    };
   }
 }

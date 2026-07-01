@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, RefreshCw, Save, Sparkles, Trash2, Wallet, X } from 'lucide-react';
+import { Copy, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, Wallet, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
@@ -35,8 +35,10 @@ import {
   useCustomRewards,
   useDeleteCustomReward,
   useManualTopupWallet,
+  useProvisionVirtualAccount,
   useTenantWallet,
   useUpdateAutoTopupConfig,
+  useWalletTransactions,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
@@ -66,6 +68,7 @@ const CURRENCIES = ['NGN', 'USD', 'GHS', 'KES', 'EUR', 'GBP', 'ZAR', 'CAD', 'AUD
 export function SettingsRewardsTab() {
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
+  const { data: walletTransactions = [] } = useWalletTransactions();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
   const createReward = useCreateCustomReward();
@@ -73,6 +76,7 @@ export function SettingsRewardsTab() {
 
   const manualTopupMutation = useManualTopupWallet();
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
+  const provisionVaMutation = useProvisionVirtualAccount();
 
   const rewards = settings?.settings?.rewards;
   const [exchangeRate, setExchangeRate] = useState('10');
@@ -347,28 +351,116 @@ export function SettingsRewardsTab() {
                 </p>
               </div>
 
-              {wallet?.virtualAccountNumber ? (
+              {wallet?.virtualAccountStatus === 'PROVISIONING' ? (
+                <div className="rounded-xl border border-dashed border-border/80 p-4 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  Setting up your deposit account…
+                </div>
+              ) : wallet?.virtualAccountStatus === 'FAILED' ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+                  <p className="text-xs text-destructive">
+                    {wallet.virtualAccountError || 'Could not set up virtual account.'}
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={provisionVaMutation.isPending}
+                    onClick={() => {
+                      provisionVaMutation.mutate(undefined, {
+                        onSuccess: () => toast.success('Virtual account setup retried'),
+                        onError: (e) =>
+                          toast.error(e instanceof Error ? e.message : 'Retry failed'),
+                      });
+                    }}
+                  >
+                    {provisionVaMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-1 size-3 animate-spin" />
+                        Retrying…
+                      </>
+                    ) : (
+                      'Retry setup'
+                    )}
+                  </Button>
+                </div>
+              ) : wallet?.virtualAccountNumber ? (
                 <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-muted-foreground font-medium">Bank Name</span>
                     <span className="font-bold text-foreground">{wallet.virtualAccountBank}</span>
                   </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-muted-foreground font-medium">Account Number</span>
-                    <span className="font-mono font-bold text-foreground tracking-wider">
-                      {wallet.virtualAccountNumber}
-                    </span>
+                  <div className="flex justify-between items-center text-xs gap-2">
+                    <span className="text-muted-foreground font-medium shrink-0">Account Number</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-foreground tracking-wider">
+                        {wallet.virtualAccountNumber}
+                      </span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-7"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(wallet.virtualAccountNumber ?? '');
+                          toast.success('Account number copied');
+                        }}
+                      >
+                        <Copy className="size-3.5" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-border/80 p-4 text-center">
+                <div className="rounded-xl border border-dashed border-border/80 p-4 text-center space-y-2">
                   <p className="text-xs text-muted-foreground">
                     Virtual transfer account not yet provisioned.
                   </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={provisionVaMutation.isPending}
+                    onClick={() => {
+                      provisionVaMutation.mutate(undefined, {
+                        onSuccess: () => toast.success('Virtual account setup started'),
+                        onError: (e) =>
+                          toast.error(e instanceof Error ? e.message : 'Setup failed'),
+                      });
+                    }}
+                  >
+                    Set up deposit account
+                  </Button>
                 </div>
               )}
             </div>
           </div>
+
+          {walletTransactions.length > 0 ? (
+            <div className="rounded-2xl border bg-background/50 p-5 space-y-3">
+              <h4 className="text-sm font-semibold text-foreground">Wallet activity</h4>
+              <div className="divide-y divide-border/60 rounded-xl border">
+                {walletTransactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs"
+                  >
+                    <div>
+                      <p className="font-medium capitalize">{tx.type.toLowerCase()}</p>
+                      <p className="text-muted-foreground">{tx.description || tx.reference || '—'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold tabular-nums">
+                        {Number(tx.amount) >= 0 ? '+' : ''}
+                        {wallet?.currencyCode ?? 'NGN'} {Number(tx.amount).toLocaleString()}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </ContentCard>
 

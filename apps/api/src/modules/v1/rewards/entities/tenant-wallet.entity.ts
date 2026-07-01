@@ -3,6 +3,7 @@ import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 @Entity('tenant_wallets')
 @Index(['tenantId'], { unique: true })
+@Index(['virtualAccountNumber'])
 export class TenantWallet extends BaseEntity {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;
@@ -18,6 +19,18 @@ export class TenantWallet extends BaseEntity {
 
   @Column({ name: 'virtual_account_bank', type: 'varchar', nullable: true })
   virtualAccountBank: string | null;
+
+  @Column({ name: 'nomba_account_ref', type: 'varchar', nullable: true, unique: true })
+  nombaAccountRef: string | null;
+
+  @Column({ name: 'virtual_account_status', type: 'varchar', nullable: true })
+  virtualAccountStatus: 'PROVISIONING' | 'ACTIVE' | 'FAILED' | null;
+
+  @Column({ name: 'virtual_account_provisioned_at', type: 'timestamp', nullable: true })
+  virtualAccountProvisionedAt: Date | null;
+
+  @Column({ name: 'virtual_account_error', type: 'text', nullable: true })
+  virtualAccountError: string | null;
 
   @Column({ name: 'points_exchange_rate', type: 'numeric', precision: 10, scale: 2, default: 10 })
   pointsExchangeRate: number;

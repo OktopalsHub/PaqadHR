@@ -31,6 +31,8 @@ export interface SubscriptionWebhookPayment {
   customerEmail?: string;
   status: string;
   billingType?: string;
+  cardBrand?: string;
+  cardLastFour?: string;
 }
 
 export type SubscriptionWebhookEvent =

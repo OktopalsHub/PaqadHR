@@ -10,7 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { useBillingOverview, useCreateSubscriptionCheckout } from '@/hooks/queries/use-billing';
+import {
+  useBillingOverview,
+  useCancelSubscription,
+  useCreateSubscriptionCheckout,
+  usePauseSubscription,
+  useResumeSubscription,
+  useUpdatePaymentMethod,
+} from '@/hooks/queries/use-billing';
 import { usePatchTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { BillingSettings } from '@/lib/api/tenant-settings';
 import { formatDate } from '@/lib/format-date';
@@ -134,20 +141,24 @@ export function BillingSection() {
   const searchParams = useSearchParams();
   const { data: overview, isLoading, isError, error } = useBillingOverview();
   const checkout = useCreateSubscriptionCheckout();
+  const updateCard = useUpdatePaymentMethod();
+  const cancelSub = useCancelSubscription();
+  const pauseSub = usePauseSubscription();
+  const resumeSub = useResumeSubscription();
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  const currentPlanSlug = overview?.subscription?.plan?.toLowerCase();
 
   useEffect(() => {
     if (searchParams.get('billing') === 'success') {
       setSuccessMessage('Payment received. Your plan will update shortly.');
     }
+    if (searchParams.get('billing') === 'card-updated') {
+      setSuccessMessage('Payment method updated successfully.');
+    }
   }, [searchParams]);
 
   const sortedPlans = useMemo(() => overview?.plans ?? [], [overview?.plans]);
   const billingHistory = overview?.billingHistory ?? [];
-  const payNowPlanSlug = currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading billing details…</p>;
@@ -168,6 +179,25 @@ export function BillingSection() {
     return null;
   }
 
+  const currentPlanSlug = overview.subscription?.plan?.toLowerCase();
+  const payNowPlanSlug = currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
+  const subStatus = overview.subscription?.status;
+  const isPastDue = subStatus === 'PAST_DUE';
+  const isPaused = subStatus === 'PAUSED';
+  const isActive = subStatus === 'ACTIVE';
+  const canManageSub =
+    overview.canManageBilling &&
+    overview.paymentsEnabled &&
+    Boolean(overview.subscription) &&
+    subStatus !== 'CANCELLED';
+
+  const paymentMethodLabel =
+    overview.paymentMethodBrand && overview.paymentMethodLastFour
+      ? `${overview.paymentMethodBrand} •••• ${overview.paymentMethodLastFour}`
+      : overview.hasPaymentMethodOnFile
+        ? 'Card on file'
+        : 'None on file';
+
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
     try {
@@ -187,7 +217,48 @@ export function BillingSection() {
         </Alert>
       ) : null}
 
-      {overview.needsPayment && overview.paymentsEnabled ? (
+      {isPastDue && overview.lastPaymentFailureReason ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Payment failed</AlertTitle>
+          <AlertDescription className="space-y-3">
+            <p>{overview.lastPaymentFailureReason}</p>
+            {overview.dunningNextRetryAt ? (
+              <p className="text-xs">
+                We&apos;ll retry on {formatDate(overview.dunningNextRetryAt)}.
+              </p>
+            ) : null}
+            {overview.canManageBilling ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={updateCard.isPending}
+                  onClick={() => updateCard.mutate()}
+                >
+                  {updateCard.isPending ? (
+                    <>
+                      <Loader2 className="mr-1 size-4 animate-spin" />
+                      Redirecting…
+                    </>
+                  ) : (
+                    'Update card'
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={checkout.isPending}
+                  onClick={() => handleCheckout(payNowPlanSlug)}
+                >
+                  Retry payment
+                </Button>
+              </div>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {overview.needsPayment && overview.paymentsEnabled && !isPastDue ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>Payment required</AlertTitle>
@@ -223,6 +294,11 @@ export function BillingSection() {
             <Badge variant="secondary" className="capitalize">
               {overview.subscription.status}
             </Badge>
+            {overview.cancelAtPeriodEnd && overview.subscription.currentPeriodEnd ? (
+              <Badge variant="outline">
+                Cancels {formatDate(overview.subscription.currentPeriodEnd)}
+              </Badge>
+            ) : null}
             {overview.subscription.daysRemaining != null ? (
               <span className="text-muted-foreground">
                 · {overview.subscription.daysRemaining} trial days left
@@ -237,6 +313,84 @@ export function BillingSection() {
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">No active subscription.</p>
         )}
+        {canManageSub ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(isActive || isPastDue) && !overview.cancelAtPeriodEnd ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={updateCard.isPending}
+                  onClick={() => updateCard.mutate()}
+                >
+                  {updateCard.isPending ? (
+                    <>
+                      <Loader2 className="mr-1 size-4 animate-spin" />
+                      Redirecting…
+                    </>
+                  ) : (
+                    'Update card'
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pauseSub.isPending}
+                  onClick={() =>
+                    pauseSub.mutate(undefined, {
+                      onSuccess: () => toast.success('Subscription paused'),
+                      onError: (err) =>
+                        toast.error(err instanceof Error ? err.message : 'Failed to pause'),
+                    })
+                  }
+                >
+                  Pause
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={cancelSub.isPending}
+                  onClick={() =>
+                    cancelSub.mutate(
+                      { atPeriodEnd: true },
+                      {
+                        onSuccess: () => toast.success('Subscription will cancel at period end'),
+                        onError: (err) =>
+                          toast.error(err instanceof Error ? err.message : 'Failed to cancel'),
+                      },
+                    )
+                  }
+                >
+                  Cancel at period end
+                </Button>
+              </>
+            ) : null}
+            {(isPaused || overview.cancelAtPeriodEnd) && (
+              <Button
+                size="sm"
+                disabled={resumeSub.isPending}
+                onClick={() =>
+                  resumeSub.mutate(undefined, {
+                    onSuccess: () => toast.success('Subscription resumed'),
+                    onError: (err) =>
+                      toast.error(err instanceof Error ? err.message : 'Failed to resume'),
+                  })
+                }
+              >
+                {resumeSub.isPending ? (
+                  <>
+                    <Loader2 className="mr-1 size-4 animate-spin" />
+                    Resuming…
+                  </>
+                ) : overview.cancelAtPeriodEnd ? (
+                  'Undo cancellation'
+                ) : (
+                  'Resume'
+                )}
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-lg border border-border/60 p-4">
@@ -284,9 +438,7 @@ export function BillingSection() {
           </div>
           <div>
             <dt className="text-muted-foreground">Payment method</dt>
-            <dd className="font-medium">
-              {overview.hasPaymentMethodOnFile ? 'Card on file' : 'None on file'}
-            </dd>
+            <dd className="font-medium">{paymentMethodLabel}</dd>
           </div>
         </dl>
       </div>

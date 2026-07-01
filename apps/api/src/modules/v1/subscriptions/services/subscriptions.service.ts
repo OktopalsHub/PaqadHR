@@ -7,6 +7,7 @@ import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
 import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
+import { isWithinRenewalGrace } from '../utils/dunning.util';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 
 @Injectable()
@@ -61,6 +62,12 @@ export class SubscriptionsService {
         return true;
       }
       return new Date() < subscription.trialEndsAt;
+    }
+    if (subscription.status === SubscriptionStatus.PAST_DUE) {
+      return isWithinRenewalGrace(subscription.nextBillingDate);
+    }
+    if (subscription.status === SubscriptionStatus.PAUSED) {
+      return new Date() < subscription.currentPeriodEnd;
     }
     return false;
   }
