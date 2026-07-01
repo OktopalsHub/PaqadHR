@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { verifyNombaWebhookSignature } from '../config/nomba-webhook.util';
 import {
   getNombaAccountId,
   getNombaBaseUrl,
@@ -8,6 +7,7 @@ import {
   getNombaPayoutAuthCode,
   isNombaConfigured,
 } from '../config/nomba.config';
+import { verifyNombaWebhookSignature } from '../config/nomba-webhook.util';
 
 interface NombaTokenResponse {
   data?: { access_token?: string; expires_in?: number };

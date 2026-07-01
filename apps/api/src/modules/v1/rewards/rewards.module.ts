@@ -5,11 +5,11 @@ import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service'
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
-import { NotificationsModule } from '../notifications/notifications.module';
-import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
+import { Tenant } from '../tenants/entities/tenant.entity';
 import { RewardsController } from './controllers/rewards.controller';
 import { RewardsAdminController } from './controllers/rewards-admin.controller';
 import { CustomReward } from './entities/custom-reward.entity';
@@ -21,10 +21,10 @@ import { TenantWallet } from './entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from './entities/tenant-wallet-transaction.entity';
 import { RewardsListener } from './listeners/rewards.listener';
 import { CustomRewardsService } from './services/custom-rewards.service';
-import { RewardsWalletVaCronService } from './services/rewards-wallet-va-cron.service';
-import { RewardsService } from './services/rewards.service';
-import { TenantWalletService } from './services/tenant-wallet.service';
 import { ReloadlyWebhookService } from './services/reloadly-webhook.service';
+import { RewardsService } from './services/rewards.service';
+import { RewardsWalletVaCronService } from './services/rewards-wallet-va-cron.service';
+import { TenantWalletService } from './services/tenant-wallet.service';
 
 @Module({
   imports: [

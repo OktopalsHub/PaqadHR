@@ -390,7 +390,9 @@ export function SettingsRewardsTab() {
                     <span className="font-bold text-foreground">{wallet.virtualAccountBank}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs gap-2">
-                    <span className="text-muted-foreground font-medium shrink-0">Account Number</span>
+                    <span className="text-muted-foreground font-medium shrink-0">
+                      Account Number
+                    </span>
                     <div className="flex items-center gap-1.5">
                       <span className="font-mono font-bold text-foreground tracking-wider">
                         {wallet.virtualAccountNumber}
@@ -445,7 +447,9 @@ export function SettingsRewardsTab() {
                   >
                     <div>
                       <p className="font-medium capitalize">{tx.type.toLowerCase()}</p>
-                      <p className="text-muted-foreground">{tx.description || tx.reference || '—'}</p>
+                      <p className="text-muted-foreground">
+                        {tx.description || tx.reference || '—'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-semibold tabular-nums">

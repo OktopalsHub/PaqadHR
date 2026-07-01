@@ -1,7 +1,7 @@
 import { DataSource } from 'typeorm';
-import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
+import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { ReloadlyWebhookService } from './reloadly-webhook.service';
 import { TenantWalletService } from './tenant-wallet.service';

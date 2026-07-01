@@ -52,8 +52,8 @@ import {
   type RewardRedemption,
 } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
-import { mapMemberWalletError } from '@/lib/wallet-error-message';
 import { cn } from '@/lib/utils';
+import { mapMemberWalletError } from '@/lib/wallet-error-message';
 import { useTenant } from '@/providers/tenant-provider';
 
 function PointsSummaryCard({ balance, totalEarned }: { balance: number; totalEarned: number }) {
@@ -374,7 +374,10 @@ function ClaimRow({ claim }: { claim: RewardRedemption }) {
       </div>
       <Badge
         variant="outline"
-        className={cn('shrink-0 text-[10px] font-bold flex items-center gap-1.5', statusColors[claim.status])}
+        className={cn(
+          'shrink-0 text-[10px] font-bold flex items-center gap-1.5',
+          statusColors[claim.status],
+        )}
       >
         {claim.status === 'SUCCESS' ? <Check className="size-2.5" /> : null}
         {claim.status === 'PENDING' ? <Loader2 className="size-2.5 animate-spin" /> : null}
@@ -516,7 +519,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             setCalculatedValue(res.currencyValue);
             setCalculatedCurrency(res.currencyCode);
             setAirtimeProcessingFee(
-              'processingFee' in res ? Number(res.processingFee) : res.totalTenantDebit - res.currencyValue,
+              'processingFee' in res
+                ? Number(res.processingFee)
+                : res.totalTenantDebit - res.currencyValue,
             );
           } catch (e) {
             console.error(e);
@@ -620,7 +625,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             setUtilityCalculatedValue(res.currencyValue);
             setUtilityCalculatedCurrency(res.currencyCode);
             setUtilityProcessingFee(
-              'processingFee' in res ? Number(res.processingFee) : res.totalTenantDebit - res.currencyValue,
+              'processingFee' in res
+                ? Number(res.processingFee)
+                : res.totalTenantDebit - res.currencyValue,
             );
           } catch (e) {
             console.error(e);
@@ -2054,7 +2061,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 statusColors[claim.status],
                               )}
                             >
-                              {claim.status === 'PENDING' ? <Loader2 className="size-2.5 animate-spin" /> : null}
+                              {claim.status === 'PENDING' ? (
+                                <Loader2 className="size-2.5 animate-spin" />
+                              ) : null}
                               {claim.status}
                             </Badge>
                           </div>

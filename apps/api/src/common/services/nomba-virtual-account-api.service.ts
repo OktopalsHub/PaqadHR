@@ -124,6 +124,8 @@ export class NombaVirtualAccountApiService {
 
   private isDuplicateRefError(message: string): boolean {
     const lower = message.toLowerCase();
-    return lower.includes('duplicate') || lower.includes('already exist') || lower.includes('exists');
+    return (
+      lower.includes('duplicate') || lower.includes('already exist') || lower.includes('exists')
+    );
   }
 }

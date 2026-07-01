@@ -1,13 +1,8 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
-import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { RewardsService } from '../../rewards/services/rewards.service';
+import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
   extractNombaEventType,
   extractPayrollMerchantRef,

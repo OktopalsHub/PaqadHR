@@ -2,9 +2,9 @@ import { Logger, RequestMethod, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
-import { validateEnvAtBoot } from './common/config/validate-env-at-boot';
 import { ExpressSetup } from './common/config/express.config';
 import { setupSwagger } from './common/config/swagger.config';
+import { validateEnvAtBoot } from './common/config/validate-env-at-boot';
 import { waitForDatabase } from './common/database/config/data-source';
 
 async function bootstrap() {

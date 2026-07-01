@@ -27,20 +27,17 @@ import type {
   SubscriptionWebhookPayment,
 } from '../interfaces/subscription-billing.interface';
 import { NombaSubscriptionProvider } from '../providers/nomba-subscription.provider';
+import { computeDunningNextRetryAt, maxDunningAttempts } from '../utils/dunning.util';
+import {
+  getBillingFailureMessage,
+  mapNombaBillingFailure,
+} from '../utils/nomba-billing-failure.util';
 import {
   calculatePerSeatTotal,
   isAmountWithinTolerance,
   normalizeWebhookAmount,
   resolveSeatCount,
 } from '../utils/per-seat-pricing.util';
-import {
-  computeDunningNextRetryAt,
-  maxDunningAttempts,
-} from '../utils/dunning.util';
-import {
-  getBillingFailureMessage,
-  mapNombaBillingFailure,
-} from '../utils/nomba-billing-failure.util';
 import { NombaApiService } from './nomba-api.service';
 import { SubscriptionsService } from './subscriptions.service';
 
@@ -144,9 +141,7 @@ export class SubscriptionBillingService {
       cancelledAt: subscription?.cancelledAt?.toISOString() ?? null,
       pausedAt: subscription?.pausedAt?.toISOString() ?? null,
       dunningNextRetryAt: subscription?.dunningNextRetryAt?.toISOString() ?? null,
-      lastPaymentFailureReason: getBillingFailureMessage(
-        subscription?.lastPaymentFailureReason,
-      ),
+      lastPaymentFailureReason: getBillingFailureMessage(subscription?.lastPaymentFailureReason),
       lastPaymentFailureCode: subscription?.lastPaymentFailureReason ?? null,
       billingHistory,
       needsPayment,
@@ -236,11 +231,7 @@ export class SubscriptionBillingService {
     };
   }
 
-  async createPaymentMethodUpdateCheckout(
-    tenantId: string,
-    userId: string,
-    successUrl?: string,
-  ) {
+  async createPaymentMethodUpdateCheckout(tenantId: string, userId: string, successUrl?: string) {
     this.nombaProvider.ensureConfigured();
 
     const [tenant, user, subscription] = await Promise.all([
@@ -336,10 +327,7 @@ export class SubscriptionBillingService {
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
-    if (
-      subscription.status !== SubscriptionStatus.PAUSED &&
-      !subscription.cancelAtPeriodEnd
-    ) {
+    if (subscription.status !== SubscriptionStatus.PAUSED && !subscription.cancelAtPeriodEnd) {
       throw new BadRequestException('Subscription is not paused or scheduled for cancellation');
     }
     if (!subscription.paymentMethodId) {

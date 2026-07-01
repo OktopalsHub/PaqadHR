@@ -5,11 +5,11 @@ import { NombaVirtualAccountApiService } from 'src/common/services/nomba-virtual
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
+import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import {
   isAmountWithinTolerance,
   normalizeWebhookAmount,
 } from '../../subscriptions/utils/per-seat-pricing.util';
-import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import {
@@ -360,11 +360,7 @@ export class TenantWalletService {
         throw new Error('Payment verification failed');
       }
 
-      const normalizedPaid = normalizeWebhookAmount(
-        Number(verified.amount ?? 0),
-        amount,
-        currency,
-      );
+      const normalizedPaid = normalizeWebhookAmount(Number(verified.amount ?? 0), amount, currency);
       if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, amount)) {
         throw new Error(
           `Payment amount mismatch (expected ${amount}, got ${verified.amount ?? 'unknown'})`,
@@ -395,7 +391,11 @@ export class TenantWalletService {
     const needing = targets.filter((w) => {
       if (w.virtualAccountStatus === 'ACTIVE' && w.virtualAccountNumber) return false;
       if (w.virtualAccountStatus === 'PROVISIONING' && !this.isProvisioningStale(w)) return false;
-      return !w.virtualAccountNumber || w.virtualAccountStatus === 'FAILED' || this.isProvisioningStale(w);
+      return (
+        !w.virtualAccountNumber ||
+        w.virtualAccountStatus === 'FAILED' ||
+        this.isProvisioningStale(w)
+      );
     });
 
     let provisioned = 0;

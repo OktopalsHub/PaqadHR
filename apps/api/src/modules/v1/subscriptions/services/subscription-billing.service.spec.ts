@@ -254,7 +254,14 @@ describe('SubscriptionBillingService lifecycle', () => {
       dataSource as never,
     );
 
-    return { service, subscriptionsService, subscriptionRepo, billingEventRepo, nombaApi, nombaProvider };
+    return {
+      service,
+      subscriptionsService,
+      subscriptionRepo,
+      billingEventRepo,
+      nombaApi,
+      nombaProvider,
+    };
   };
 
   it('schedules cancel at period end by default', async () => {

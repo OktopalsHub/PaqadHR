@@ -71,11 +71,9 @@ describe('TenantWalletService', () => {
 
     const nombaApi = {
       chargeTokenizedCard:
-        overrides?.nombaCharge ??
-        jest.fn().mockResolvedValue({ orderReference: 'order-1' }),
+        overrides?.nombaCharge ?? jest.fn().mockResolvedValue({ orderReference: 'order-1' }),
       verifyTransaction:
-        overrides?.nombaVerify ??
-        jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
+        overrides?.nombaVerify ?? jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
     };
 
     const subscriptionsService = {
@@ -139,9 +137,9 @@ describe('TenantWalletService', () => {
     it('throws member message when balance is insufficient', async () => {
       const { service, manager } = createService({ debitUpdateAffected: 0 });
 
-      await expect(
-        service.debit(tenantId, 100, 'ref-1', 'test', manager as any),
-      ).rejects.toThrow(WALLET_UNAVAILABLE_MEMBER);
+      await expect(service.debit(tenantId, 100, 'ref-1', 'test', manager as any)).rejects.toThrow(
+        WALLET_UNAVAILABLE_MEMBER,
+      );
     });
 
     it('throws when auto-topup charge fails', async () => {
@@ -155,9 +153,9 @@ describe('TenantWalletService', () => {
         nombaCharge: jest.fn().mockRejectedValue(new Error('card declined')),
       });
 
-      await expect(
-        service.debit(tenantId, 100, 'ref-1', 'test', manager as any),
-      ).rejects.toThrow(WALLET_UNAVAILABLE_MEMBER);
+      await expect(service.debit(tenantId, 100, 'ref-1', 'test', manager as any)).rejects.toThrow(
+        WALLET_UNAVAILABLE_MEMBER,
+      );
 
       expect(nombaApi.chargeTokenizedCard).toHaveBeenCalled();
       expect(emailService.sendEmail).toHaveBeenCalled();
@@ -170,9 +168,7 @@ describe('TenantWalletService', () => {
         nombaVerify: jest.fn().mockResolvedValue({ status: 'failed', amount: 5000 }),
       });
 
-      await expect(service.manualTopup(tenantId, 5000)).rejects.toThrow(
-        WALLET_CHARGE_FAILED_ADMIN,
-      );
+      await expect(service.manualTopup(tenantId, 5000)).rejects.toThrow(WALLET_CHARGE_FAILED_ADMIN);
 
       expect(txRepo.save).not.toHaveBeenCalled();
       expect(emailService.sendEmail).toHaveBeenCalled();
@@ -183,9 +179,7 @@ describe('TenantWalletService', () => {
         nombaVerify: jest.fn().mockResolvedValue({ status: 'success', amount: 100 }),
       });
 
-      await expect(service.manualTopup(tenantId, 5000)).rejects.toThrow(
-        WALLET_CHARGE_FAILED_ADMIN,
-      );
+      await expect(service.manualTopup(tenantId, 5000)).rejects.toThrow(WALLET_CHARGE_FAILED_ADMIN);
 
       expect(txRepo.save).not.toHaveBeenCalled();
       expect(emailService.sendEmail).toHaveBeenCalled();

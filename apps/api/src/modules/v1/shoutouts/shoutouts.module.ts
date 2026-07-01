@@ -39,11 +39,7 @@ import { ShoutoutPointsModule } from './shoutout-points.module';
     ShoutoutPointsModule,
     IntegrationModule,
   ],
-  controllers: [
-    ShoutoutsController,
-    ShoutoutCategoriesController,
-    MemberPointsController,
-  ],
+  controllers: [ShoutoutsController, ShoutoutCategoriesController, MemberPointsController],
   providers: [
     ShoutoutsService,
     ShoutoutCategoriesService,

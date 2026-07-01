@@ -12,15 +12,19 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
-import type { MemberContext } from 'src/common/interfaces';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+import type { MemberContext } from 'src/common/interfaces';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 
-const ALL_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER] as const;
+const ALL_ROLES = [
+  TenantMemberRole.OWNER,
+  TenantMemberRole.ADMIN,
+  TenantMemberRole.MEMBER,
+] as const;
 const ADMIN_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN] as const;
 
 @ApiTags('Rewards')

@@ -7,8 +7,8 @@ import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
 import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
-import { isWithinRenewalGrace } from '../utils/dunning.util';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
+import { isWithinRenewalGrace } from '../utils/dunning.util';
 
 @Injectable()
 export class SubscriptionsService {

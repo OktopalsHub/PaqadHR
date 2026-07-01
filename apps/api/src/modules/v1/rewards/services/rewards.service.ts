@@ -16,6 +16,7 @@ import { SubscriptionsService } from '../../subscriptions/services/subscriptions
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { CustomReward } from '../entities/custom-reward.entity';
+import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
 import {
   type RedemptionStatus,
   RewardRedemption,
@@ -25,7 +26,6 @@ import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
-import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
 

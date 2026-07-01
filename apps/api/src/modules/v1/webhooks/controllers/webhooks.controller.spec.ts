@@ -49,9 +49,7 @@ describe('WebhooksController', () => {
     });
 
     it('rejects missing raw body', () => {
-      expect(() => controller.handleNombaWebhook({} as any, {})).toThrow(
-        UnauthorizedException,
-      );
+      expect(() => controller.handleNombaWebhook({} as any, {})).toThrow(UnauthorizedException);
     });
   });
 

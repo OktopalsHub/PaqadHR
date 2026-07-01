@@ -4,7 +4,6 @@ import { resolveTrustedOrigins } from './trusted-origins';
 
 dotenv.config();
 
-
 type JwtExpiresIn = `${number}${'s' | 'm' | 'h' | 'd'}`;
 
 function resolveJwtAccessExpiresIn(): string | number {
@@ -85,8 +84,7 @@ export const ENVIRONMENT: IEnvironment = {
     CLIENT_ID: env.getOptional('SLACK_CLIENT_ID', ''),
     CLIENT_SECRET: env.getOptional('SLACK_CLIENT_SECRET', ''),
     SIGNING_SECRET:
-      env.getOptional('SLACK_SIGNING_SECRET') ||
-      env.getOptional('SLACK_WEBHOOK_SECRET', ''),
+      env.getOptional('SLACK_SIGNING_SECRET') || env.getOptional('SLACK_WEBHOOK_SECRET', ''),
     WEBHOOK_URL: env.getOptional('SLACK_WEBHOOK_URL', ''),
   },
   R2: {

@@ -14,8 +14,8 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { Public } from 'src/common/decorators';
 import { getReloadlyWebhookSecret } from 'src/common/config/reloadly.config';
+import { Public } from 'src/common/decorators';
 import type {
   SlackEventPayload,
   SlackInteractiveBody,

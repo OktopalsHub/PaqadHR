@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { DataSource } from 'typeorm';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
+import { DataSource } from 'typeorm';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 import { RewardRedemption } from '../entities/reward-redemption.entity';
@@ -32,7 +32,9 @@ export class ReloadlyWebhookService {
     });
 
     if (!redemption) {
-      this.logger.warn(`Reloadly webhook customIdentifier ${customIdentifier} not found in database`);
+      this.logger.warn(
+        `Reloadly webhook customIdentifier ${customIdentifier} not found in database`,
+      );
       return;
     }
 
