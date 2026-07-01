@@ -16,6 +16,46 @@ const CSRF_HEADER = 'x-csrf-token';
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 
+const ACCESS_TOKEN_KEY = 'paqad_access_token';
+const REFRESH_TOKEN_KEY = 'paqad_refresh_token';
+
+// ponytail: on a split-domain deployment (web on Cloudflare, API on Dokploy)
+// the API's httpOnly auth cookies are third-party and get dropped by the
+// browser, so cookie-only auth fails ("user not authenticated") even though it
+// works on localhost where both share the same host. We also keep the JWTs the
+// API returns in the response body and send them as `Authorization: Bearer`
+// (the API's jwt.strategy already accepts cookie OR Bearer). Tradeoff:
+// localStorage is XSS-readable; upgrade path is a shared parent-domain cookie
+// once web + API live under one registrable domain.
+let accessToken: string | null =
+  typeof window !== 'undefined' ? window.localStorage.getItem(ACCESS_TOKEN_KEY) : null;
+let refreshTokenValue: string | null =
+  typeof window !== 'undefined' ? window.localStorage.getItem(REFRESH_TOKEN_KEY) : null;
+
+function writeToken(key: string, value: string | null) {
+  if (typeof window === 'undefined') return;
+  if (value) window.localStorage.setItem(key, value);
+  else window.localStorage.removeItem(key);
+}
+
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+  writeToken(ACCESS_TOKEN_KEY, token);
+}
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+export function setRefreshToken(token: string | null) {
+  refreshTokenValue = token;
+  writeToken(REFRESH_TOKEN_KEY, token);
+}
+
+export function getRefreshToken(): string | null {
+  return refreshTokenValue;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -115,6 +155,9 @@ export async function fetchWithCsrf(
   const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   const headers = new Headers(init?.headers);
+  if (accessToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  }
   if (needsCsrf) {
     headers.set(CSRF_HEADER, await ensureCsrfToken());
   }
