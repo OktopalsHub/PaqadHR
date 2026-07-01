@@ -1,13 +1,26 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
-import { ApiError, apiClient, clearCsrfToken } from '@/lib/api/client';
+import {
+  ApiError,
+  apiClient,
+  clearCsrfToken,
+  setAccessToken,
+  setRefreshToken,
+} from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
 import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
 
 type AuthResponse = {
+  accessToken?: string;
+  refreshToken?: string;
   user: { id: string; email: string; role: string };
 };
+
+function storeAuthTokens(response: AuthResponse) {
+  if (response.accessToken) setAccessToken(response.accessToken);
+  if (response.refreshToken) setRefreshToken(response.refreshToken);
+}
 
 type ProfileResponse = {
   id: string;
@@ -88,6 +101,7 @@ export async function login(input: LoginInput): Promise<User> {
     skipCsrf: true,
   });
 
+  storeAuthTokens(response);
   const needsOnboarding = await syncTenantFromApi();
   const user = mapAuthUser(response.user, needsOnboarding);
   persistSession(user);
@@ -104,6 +118,7 @@ export async function register(input: SignupInput): Promise<User> {
     skipCsrf: true,
   });
 
+  storeAuthTokens(response);
   const user = mapAuthUser(response.user, true);
   persistSession(user);
   return user;

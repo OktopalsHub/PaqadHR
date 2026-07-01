@@ -16,6 +16,36 @@ const CSRF_HEADER = 'x-csrf-token';
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 
+const ACCESS_TOKEN_KEY = 'paqad_access_token';
+const REFRESH_TOKEN_KEY = 'paqad_refresh_token';
+
+function writeToken(key: string, value: string | null) {
+  if (typeof window === 'undefined') return;
+  if (value) window.localStorage.setItem(key, value);
+  else window.localStorage.removeItem(key);
+}
+
+function readToken(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(key);
+}
+
+export function setAccessToken(token: string | null) {
+  writeToken(ACCESS_TOKEN_KEY, token);
+}
+
+export function getAccessToken(): string | null {
+  return readToken(ACCESS_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string | null) {
+  writeToken(REFRESH_TOKEN_KEY, token);
+}
+
+export function getRefreshToken(): string | null {
+  return readToken(REFRESH_TOKEN_KEY);
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -115,6 +145,10 @@ export async function fetchWithCsrf(
   const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   const headers = new Headers(init?.headers);
+  const token = getAccessToken();
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
   if (needsCsrf) {
     headers.set(CSRF_HEADER, await ensureCsrfToken());
   }

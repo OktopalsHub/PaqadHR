@@ -12,7 +12,10 @@ const LEGACY_APP_PREFIX = '/app';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const hasSession = request.cookies.has('access_token') || request.cookies.has('refresh_token');
+  const hasSession =
+    request.cookies.has('access_token') ||
+    request.cookies.has('refresh_token') ||
+    request.cookies.has('paqad_auth');
 
   const tenantSlug = getTenantSlugFromPath(pathname);
   const isLegacyApp = pathname.startsWith(LEGACY_APP_PREFIX);
