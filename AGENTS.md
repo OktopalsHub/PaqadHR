@@ -12,7 +12,7 @@ Standard lint/test/build commands live in the root `package.json` and each app's
 
 ### Node version (important gotcha)
 
-The repo requires Node >= 24, but the VM's default `node` on `PATH` is `/exec-daemon/node` (v22), which is force-prepended to `PATH` on every new shell and shadows nvm. Setup appends a line to `~/.bashrc` that prepends the nvm Node 24 bin dir, so **new interactive shells already use Node 24** — verify with `node -v`. If you ever land on Node 22 (e.g. a non-login shell), run `export PATH="$HOME/.nvm/versions/node/v24.18.0/bin:$PATH"` (or `nvm use 24`).
+The repo requires Node >= 24, but the VM's default `node` on `PATH` is `/exec-daemon/node` (v22), which is force-prepended to `PATH` on every new shell and shadows nvm. Setup appends a line to `~/.bashrc` that prepends the nvm Node 24 bin dir, so **new interactive shells already use Node 24** — verify with `node -v`. If you ever land on Node 22 (e.g. a non-login shell), run ". \"$HOME/.nvm/nvm.sh\" && nvm use 24" to dynamically load and switch to Node 24.
 
 ### PostgreSQL
 
