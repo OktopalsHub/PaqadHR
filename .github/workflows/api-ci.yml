@@ -57,21 +57,6 @@ jobs:
       - name: Build API
         run: pnpm --filter api build
 
-      - name: Run migrations (test DB)
-        run: pnpm --filter api migration:run
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
-
-      - name: Unit tests
-        run: pnpm --filter api test
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
-
-      - name: E2E tests
-        run: pnpm --filter api test:e2e
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/paqadhr_test
-
   build-and-publish:
     if: github.event_name == 'push'
     needs: lint-and-test

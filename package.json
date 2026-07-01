@@ -13,7 +13,10 @@
     "format": "biome check --write .",
     "lint": "biome check .",
     "start": "turbo start",
-    "test": "turbo test"
+    "test": "turbo test",
+    "deploy": "pnpm --filter web deploy",
+    "cf-deploy": "pnpm --filter web cf-deploy",
+    "cf-typegen": "pnpm --filter web cf-typegen"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",

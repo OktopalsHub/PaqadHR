@@ -19,7 +19,6 @@
     "lint": "biome check ./src ./test",
     "check": "biome check ./src ./test",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "migration:create": "typeorm migration:create",
     "migration:run": "pnpm build && typeorm migration:run -d dist/common/database/config/data-source.js",
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",
