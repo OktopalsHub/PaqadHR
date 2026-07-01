@@ -40,8 +40,7 @@ export const LandingHero = () => {
           variants={fadeUp}
           className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground md:text-lg"
         >
-          Hire, pay, and recognize your people in one workspace — recruitment pipelines, payroll,
-          leave, and shoutouts without spreadsheet chaos.
+          Hire, pay, and recognize your people in one workspace without spreadsheet chaos.
         </motion.p>
 
         <motion.div variants={fadeUp} className="mt-8 flex justify-center">
