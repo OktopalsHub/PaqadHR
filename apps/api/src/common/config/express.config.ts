@@ -189,6 +189,9 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     max: 5,
     standardHeaders: true,
     legacyHeaders: false,
+    // Only count failed attempts so brute-force is still blocked while a
+    // legitimate user's successful logins don't lock them out of their account.
+    skipSuccessfulRequests: true,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
     message: {
       error: 'Too Many Authentication Attempts',
@@ -198,7 +201,9 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   });
   app.use('/api/v1/auth/login', authLimiter);
   app.use('/api/v1/auth/register', authLimiter);
-  app.use('/api/v1/auth/refresh', authLimiter);
+  // NOTE: /api/v1/auth/refresh is intentionally NOT under authLimiter — the
+  // client refreshes tokens automatically (it is not a login attempt) and the
+  // refresh token is unguessable. It stays covered by the general limiter above.
   app.use('/api/v1/auth/forgot-password', authLimiter);
   app.use('/api/v1/auth/reset-password', authLimiter);
   const webhookLimiter = rateLimit({
