@@ -54,7 +54,12 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       '/metrics',
     ];
     const isExcludedPath = excludedPaths.some((path) => req.path.startsWith(path));
-    if (isExcludedPath) {
+    // Bearer-authenticated requests are not CSRF-vulnerable (the token isn't
+    // sent automatically by the browser) and the CSRF secret cookie can't
+    // survive a cross-domain deployment, so skip CSRF for them. Cookie-based
+    // requests still go through CSRF protection.
+    const hasBearerAuth = req.headers.authorization?.startsWith('Bearer ') ?? false;
+    if (isExcludedPath || hasBearerAuth) {
       return next();
     }
     csrfProtection(req, res, next);
