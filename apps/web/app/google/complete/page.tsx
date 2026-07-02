@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
-import { getSession } from '@/lib/api/auth';
+import { getSession, refreshSession } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import {
@@ -26,6 +26,7 @@ export default function GoogleCompletePage() {
     void (async () => {
       try {
         await bootstrapCsrf();
+        await refreshSession();
         const user = await getSession();
         if (!user) {
           router.replace('/signin?error=google');

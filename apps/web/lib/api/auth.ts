@@ -3,6 +3,8 @@ import {
   ApiError,
   apiClient,
   clearCsrfToken,
+  getAccessToken,
+  getRefreshToken,
   setAccessToken,
   setRefreshToken,
 } from '@/lib/api/client';
@@ -63,6 +65,7 @@ export { invalidateSession };
 
 export async function getSession(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
+  if (!getAccessToken() && !getRefreshToken()) return null;
 
   try {
     const profile = await fetchProfile();
@@ -72,19 +75,6 @@ export async function getSession(): Promise<User | null> {
     return user;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        try {
-          const profile = await fetchProfile();
-          const needsOnboarding = await syncTenantFromApi();
-          const user = mapAuthUser(profile, needsOnboarding);
-          persistSession(user);
-          return user;
-        } catch {
-          invalidateSession();
-          return null;
-        }
-      }
       invalidateSession();
     }
     return null;

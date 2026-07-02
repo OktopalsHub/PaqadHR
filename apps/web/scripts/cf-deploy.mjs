@@ -4,7 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const branch = process.env.WORKERS_CI_BRANCH ?? process.env.GITHUB_REF_NAME ?? 'dev';
-const wranglerArgs = branch === 'main' ? ['--env', 'production'] : [];
+const isProd = branch === 'main';
+const wranglerArgs = isProd ? ['--env', 'production', '--keep-vars'] : ['--keep-vars'];
+const target = isProd ? 'paqadhr-prod' : 'paqadhr-dev';
+
+console.log(`[cf-deploy] branch=${branch} worker=${target}`);
 
 const result = spawnSync(
   'pnpm',

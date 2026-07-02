@@ -31,7 +31,10 @@ Clone the `.env.example` templates and set your local variables:
   *(Configure database URL, authentication keys, and integration secrets)*
 
 * **Frontend (`apps/web`)**:
-  Create a `.env.local` inside `apps/web/` if you need to override public api endpoints:
+  ```bash
+  cp apps/web/.env.example apps/web/.env.local
+  ```
+  Use the **base API URL only** (no `/api/v1` — the app appends that in `lib/api/client.ts`):
   ```env
   NEXT_PUBLIC_API_URL=http://localhost:9001
   ```
@@ -57,11 +60,10 @@ We use **Biome** for formatting and linting. Run from the root directory:
 
 ---
 
-## 🛳️ Deployment (Dokploy)
+## Deployment
 
-Both applications are configured for deployment on **Dokploy** via Docker containers.
+### Backend API (`apps/api`) — Dokploy + GHCR
 
-### 1. Backend API (`apps/api`)
 The API uses a **CI/CD Build & Publish** pipeline to keep production server resources free during builds.
 
 * **Deployment Flow**:
@@ -79,12 +81,55 @@ The API uses a **CI/CD Build & Publish** pipeline to keep production server reso
   * **Restore missing `:dev` tag**: push any commit to `dev` that touches `apps/api/**`, lockfiles, or `.github/workflows/api-ci.yml` so CI republishes the image.
   * **Host disk (optional)**: On the Dokploy server, schedule `docker image prune -af --filter "until=168h"` so pulled-but-unused layers do not accumulate locally. GHCR cleanup does not free space on the deploy host.
 
-### 2. Frontend Web (`apps/web`)
-The web application can be built directly on your server or via a similar Docker flow.
+* **Rollback & zero-downtime (Dokploy Swarm Settings)**:
+  The API exposes `GET /health` on port **9001** (DB readiness check). Use these in Dokploy → Advanced → Swarm Settings:
 
-* **Dokploy Config (Git Deployment)**:
-  * **Source Type**: `Git`
-  * **Build Type**: `Dockerfile`
-  * **Dockerfile Path**: `apps/web/Dockerfile`
-  * **Root Directory (Build Path)**: `/` (Must be `/` to allow access to root `pnpm-lock.yaml`)
-  * **Port**: `3000`
+  Health check:
+  ```json
+  {
+    "Test": ["CMD", "curl", "-f", "http://localhost:9001/health"],
+    "Interval": 30000000000,
+    "Timeout": 10000000000,
+    "StartPeriod": 30000000000,
+    "Retries": 3
+  }
+  ```
+
+  Update config (zero-downtime + auto-rollback on failed health):
+  ```json
+  {
+    "Parallelism": 1,
+    "Delay": 10000000000,
+    "FailureAction": "rollback",
+    "Order": "start-first"
+  }
+  ```
+
+  For rollback to any previous version, enable **Deployments → Rollback Settings** in Dokploy and point at your GHCR registry.
+
+### Frontend Web (`apps/web`) — Cloudflare Workers Builds
+
+GitHub Actions (`.github/workflows/web-ci.yml`) only **lints and build-checks**. Deploys happen via **Cloudflare Workers Builds** (git integration).
+
+Two separate workers, same repo:
+
+| Worker | Production branch | Domain | Build variable `NEXT_PUBLIC_API_URL` |
+|--------|-------------------|--------|--------------------------------------|
+| `paqadhr-dev` | `dev` | `dev.paqadhr.com` | `https://api-dev.paqadhr.com` |
+| `paqadhr-prod` | `main` | `paqadhr.com` | `https://api.paqadhr.com` |
+
+Use the **base URL only** (no `/api/v1`) — the web app normalizes it in `apps/web/lib/api/client.ts`.
+
+**Cloudflare Build settings** (both workers):
+
+| Setting | Value |
+|---------|-------|
+| Root directory | `/` (repo root — empty is fine) |
+| Build command | `pnpm install --frozen-lockfile && pnpm --filter web run cf:build` |
+| Deploy command | `pnpm --filter web run cf:deploy` |
+| Build watch paths | `apps/web` |
+| Node.js version | 24 |
+
+Branch routing in `cf-deploy.mjs`: `dev` → `paqadhr-dev`, `main` → `paqadhr-prod` (`wrangler deploy --env production`).
+
+If pushes to `dev` do not deploy, check **Cloudflare → Workers → Builds → Deployments** for failed logs (missing `pnpm install` is the most common cause).

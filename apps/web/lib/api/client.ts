@@ -1,6 +1,6 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 
-const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001/api/v1';
+const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001';
 
 function normalizeApiV1Base(url: string): string {
   const trimmed = url.replace(/\/$/, '');

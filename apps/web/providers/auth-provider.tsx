@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
@@ -12,14 +12,16 @@ import {
   logoutRequest,
   register as registerRequest,
 } from '@/lib/api/auth';
-import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
+import { bootstrapCsrf, clearCsrfToken, getAccessToken, getRefreshToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import {
   authDestinationToPath,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
+import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
+import { readSession } from '@/lib/session';
 
 interface AuthContextType {
   user: User | null;
@@ -39,12 +41,19 @@ function readRedirectParam(): string | null {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
+  const sessionBootstrapEnabled = !skipsSessionBootstrap(pathname);
 
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: getSession,
     staleTime: Infinity,
+    enabled: sessionBootstrapEnabled,
+    placeholderData: () => {
+      if (!getAccessToken() && !getRefreshToken()) return undefined;
+      return readSession() ?? undefined;
+    },
   });
 
   const navigateAfterAuth = useCallback(async () => {
