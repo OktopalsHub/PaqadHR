@@ -27,6 +27,13 @@ import {
   useUpdatePaymentMethod,
 } from '@/hooks/queries/use-payment-methods';
 import { lookupNigerianBankAccount } from '@/lib/api/payment-methods';
+import {
+  getPayoutFieldConfig,
+  isGlobalBankCurrency,
+  normalizeAccountInput,
+  normalizeInstitutionInput,
+  validateGlobalBankFields,
+} from '@/lib/payout-bank-fields';
 import type { PaymentMethodSummary } from '@/lib/schemas/payment-method';
 
 const COUNTRY_BY_CURRENCY: Record<string, string> = {
@@ -57,11 +64,39 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [bankName, setBankName] = useState('');
+  const [institutionCode, setInstitutionCode] = useState('');
+
+  const payoutConfig = getPayoutFieldConfig(method.currency);
+  const isGlobalBank = isGlobalBankCurrency(method.currency);
+
+  useEffect(() => {
+    if (!editOpen) return;
+    setBankName('');
+    setAccountName('');
+    setAccountNumber('');
+    setInstitutionCode('');
+    setCurrentPasscode('');
+  }, [editOpen]);
 
   const handleEdit = async () => {
     if (currentPasscode.length !== 6) {
       toast.error('Current passcode is required');
       return;
+    }
+    if (isGlobalBank && (accountNumber.trim() || institutionCode.trim())) {
+      if (!accountNumber.trim() || !institutionCode.trim()) {
+        toast.error('Enter both account and institution details when updating bank info');
+        return;
+      }
+      const validationError = validateGlobalBankFields(
+        method.currency,
+        accountNumber,
+        institutionCode,
+      );
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
     }
     try {
       await updateMethod.mutateAsync({
@@ -71,9 +106,10 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
           accountName: accountName.trim() || undefined,
           accountNumber: accountNumber.trim() || undefined,
           bankName: bankName.trim() || undefined,
+          bankCode: institutionCode.trim() || undefined,
         },
       });
-      toast.success('Payment method updated');
+      toast.success('Payment method updated. An admin may need to re-verify your account.');
       setEditOpen(false);
       setCurrentPasscode('');
     } catch (err) {
@@ -134,17 +170,44 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
             <DialogTitle>Edit bank details</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Current: {method.displayInfo} ({method.currency}). Only fill fields you want to
+              change.
+            </p>
             <div className="space-y-2">
               <Label>Bank name</Label>
               <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
             </div>
+            {isGlobalBank && payoutConfig ? (
+              <div className="space-y-2">
+                <Label>{payoutConfig.institutionLabel}</Label>
+                <Input
+                  value={institutionCode}
+                  placeholder={payoutConfig.institutionPlaceholder}
+                  onChange={(e) =>
+                    setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
+                  }
+                />
+              </div>
+            ) : null}
             <div className="space-y-2">
               <Label>Account name</Label>
               <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Account number</Label>
-              <Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+              <Label>
+                {isGlobalBank && payoutConfig ? payoutConfig.accountLabel : 'Account number'}
+              </Label>
+              <Input
+                value={accountNumber}
+                onChange={(e) => {
+                  if (payoutConfig) {
+                    setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
+                    return;
+                  }
+                  setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17));
+                }}
+              />
             </div>
             <div className="space-y-2">
               <Label>Current passcode</Label>
@@ -241,12 +304,15 @@ export function PaymentSettingsSection() {
   const [bankName, setBankName] = useState('');
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
+  const [institutionCode, setInstitutionCode] = useState('');
   const [passcode, setPasscode] = useState('');
   const [lookupVerified, setLookupVerified] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
 
   const fiatOptions = currencies?.fiat ?? [];
   const isNgn = currency === 'NGN';
+  const isGlobalBank = isGlobalBankCurrency(currency);
+  const payoutConfig = getPayoutFieldConfig(currency);
 
   useEffect(() => {
     if (fiatOptions.length === 0) return;
@@ -254,6 +320,16 @@ export function PaymentSettingsSection() {
       setCurrency(fiatOptions[0]);
     }
   }, [currency, fiatOptions]);
+
+  useEffect(() => {
+    setInstitutionCode('');
+    setBankCode('');
+    setBankName('');
+    setAccountName('');
+    setAccountNumber('');
+    setLookupVerified(false);
+    setLookupError(null);
+  }, [currency]);
 
   const bankOptions = useMemo(
     () => banks.map((bank) => ({ value: bank.code, label: bank.name })),
@@ -314,6 +390,14 @@ export function PaymentSettingsSection() {
       return;
     }
 
+    if (isGlobalBank) {
+      const validationError = validateGlobalBankFields(currency, accountNumber, institutionCode);
+      if (validationError) {
+        toast.error(validationError);
+        return;
+      }
+    }
+
     if (!accountNumber.trim()) {
       toast.error('Account number is required');
       return;
@@ -324,12 +408,19 @@ export function PaymentSettingsSection() {
     }
 
     try {
+      const normalizedAccount = payoutConfig
+        ? normalizeAccountInput(accountNumber, payoutConfig)
+        : accountNumber.trim();
+      const normalizedInstitution = payoutConfig
+        ? normalizeInstitutionInput(institutionCode, payoutConfig)
+        : bankCode.trim();
+
       await createMethod.mutateAsync({
         currency,
         bankName: bankName.trim(),
-        bankCode: bankCode.trim() || undefined,
+        bankCode: isNgn ? bankCode.trim() : normalizedInstitution || undefined,
         accountName: accountName.trim(),
-        accountNumber: accountNumber.trim(),
+        accountNumber: normalizedAccount,
         country: COUNTRY_BY_CURRENCY[currency] ?? 'NG',
         passcode,
         isPrimary: true,
@@ -337,6 +428,7 @@ export function PaymentSettingsSection() {
       setOpenForm(false);
       setBankName('');
       setBankCode('');
+      setInstitutionCode('');
       setAccountName('');
       setAccountNumber('');
       setPasscode('');
@@ -369,8 +461,11 @@ export function PaymentSettingsSection() {
         <Banknote className="size-4" />
         <AlertTitle>Payroll bank account</AlertTitle>
         <AlertDescription>
-          Add the account where you want salary paid. For NGN accounts, enter your account number
-          and bank — we will verify the account name automatically.
+          {isNgn
+            ? 'For NGN accounts, enter your account number and bank — we verify the account name automatically.'
+            : isGlobalBank && payoutConfig
+              ? payoutConfig.help
+              : 'Enter your bank details. An admin must verify non-NGN accounts before payroll can be sent.'}
         </AlertDescription>
       </Alert>
 
@@ -434,12 +529,22 @@ export function PaymentSettingsSection() {
           </div>
 
           <div className="space-y-2 sm:col-span-2">
-            <Label>Account number</Label>
+            <Label>{payoutConfig?.accountLabel ?? 'Account number'}</Label>
             <Input
               value={accountNumber}
-              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17))}
-              inputMode="numeric"
-              placeholder={isNgn ? '10-digit account number' : 'Account number'}
+              onChange={(e) => {
+                if (payoutConfig) {
+                  setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
+                  return;
+                }
+                setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17));
+              }}
+              inputMode={payoutConfig?.accountAlphanumeric ? 'text' : 'numeric'}
+              placeholder={
+                isNgn
+                  ? '10-digit account number'
+                  : (payoutConfig?.accountPlaceholder ?? 'Account number')
+              }
             />
           </div>
 
@@ -476,6 +581,27 @@ export function PaymentSettingsSection() {
                 ) : lookupVerified ? (
                   <p className="text-xs text-muted-foreground">Account verified</p>
                 ) : null}
+              </div>
+            </>
+          ) : isGlobalBank && payoutConfig ? (
+            <>
+              <div className="space-y-2">
+                <Label>Bank name</Label>
+                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>{payoutConfig.institutionLabel}</Label>
+                <Input
+                  value={institutionCode}
+                  placeholder={payoutConfig.institutionPlaceholder}
+                  onChange={(e) =>
+                    setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
+                  }
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account name</Label>
+                <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
               </div>
             </>
           ) : (

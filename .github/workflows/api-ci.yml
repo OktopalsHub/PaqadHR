@@ -105,6 +105,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # ponytail: single-platform image — prune untagged manifests first, then cap tagged versions
+      - name: Prune untagged GHCR manifests
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ github.event.repository.name }}
+          package-type: container
+          delete-only-untagged-versions: true
+          min-versions-to-keep: 5
+
+      - name: Prune old GHCR image versions
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ github.event.repository.name }}
+          package-type: container
+          min-versions-to-keep: 15
+          ignore-versions: '^latest|^main|^dev$'
+
       - name: Trigger Dokploy webhook
         env:
           DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}

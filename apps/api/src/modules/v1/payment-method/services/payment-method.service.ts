@@ -37,6 +37,12 @@ import type {
 } from '../dto/payment-method.dto';
 import { PaymentMethod } from '../entities/payment-method.entity';
 import { PaymentMethodPasscodeHistory } from '../entities/payment-method-passcode-history.entity';
+import {
+  normalizeAccountNumber,
+  normalizeInstitutionCode,
+  requiresGlobalInstitutionCode,
+  validateGlobalBankFields,
+} from '../utils/global-bank-validation.util';
 
 @Injectable()
 export class PaymentMethodService {
@@ -101,16 +107,26 @@ export class PaymentMethodService {
         verifiedAt = new Date();
       }
 
+      const normalizedCurrency = dto.currency.toUpperCase();
+      validateGlobalBankFields(normalizedCurrency, dto.accountNumber!, dto.bankCode);
+      const normalizedAccountNumber = normalizeAccountNumber(
+        normalizedCurrency,
+        dto.accountNumber!,
+      );
+      const normalizedBankCode = dto.bankCode
+        ? normalizeInstitutionCode(normalizedCurrency, dto.bankCode)
+        : dto.bankCode;
+
       const paymentMethod = this.paymentMethodRepository.create({
         tenantId,
         memberId,
         type: dto.type || PaymentMethodType.BANK,
-        currency: dto.currency.toUpperCase(),
+        currency: normalizedCurrency,
         displayName: dto.displayName,
         bankName: dto.bankName,
-        bankCode: dto.bankCode,
+        bankCode: normalizedBankCode,
         accountName: this.encryptField(accountName) ?? accountName,
-        accountNumber: this.encryptField(dto.accountNumber) ?? dto.accountNumber,
+        accountNumber: this.encryptField(normalizedAccountNumber) ?? normalizedAccountNumber,
         country: dto.country,
         isPrimary: dto.isPrimary || false,
         status,
@@ -172,7 +188,18 @@ export class PaymentMethodService {
       resolvedAccountName = lookup.accountName;
       status = PaymentMethodStatus.VERIFIED;
       verifiedAt = new Date();
-    } else if (dto.accountNumber) {
+    } else if (dto.accountNumber || dto.bankCode) {
+      const accNumber = dto.accountNumber ?? this.decryptField(paymentMethod.accountNumber) ?? '';
+      const bCode = dto.bankCode ?? paymentMethod.bankCode ?? '';
+      if (updatedCurrency && requiresGlobalInstitutionCode(updatedCurrency)) {
+        validateGlobalBankFields(updatedCurrency, accNumber, bCode);
+        if (dto.accountNumber) {
+          dto.accountNumber = normalizeAccountNumber(updatedCurrency, accNumber);
+        }
+        if (dto.bankCode) {
+          dto.bankCode = normalizeInstitutionCode(updatedCurrency, bCode);
+        }
+      }
       status = PaymentMethodStatus.PENDING_VERIFICATION;
       verifiedAt = null;
     }
@@ -399,6 +426,9 @@ export class PaymentMethodService {
     if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
       issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
     }
+    if (requiresGlobalInstitutionCode(normalizedCurrency) && !method.bankCode?.trim()) {
+      issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+    }
 
     const supported = ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
     if (!supported.includes(normalizedCurrency)) {
@@ -457,7 +487,7 @@ export class PaymentMethodService {
       return 'Payment settings are temporarily locked. Ask the employee to unlock their payment passcode.';
     }
     if (issues.includes(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS)) {
-      return 'Bank account details are incomplete. This employee will miss payment until their payment settings are completed.';
+      return 'Bank account details are incomplete (check routing number, IBAN/BIC, or sort code). This employee will miss payment until their payment settings are completed.';
     }
     if (issues.includes(PayrollPaymentIssue.CURRENCY_MISMATCH)) {
       return 'No verified payment method matches this payroll currency.';
@@ -496,6 +526,10 @@ export class PaymentMethodService {
         : method.memberId,
       currency: method.currency ?? 'NGN',
       displayInfo: this.formatDisplayInfo(method),
+      bankName: method.bankName ?? undefined,
+      accountName: this.decryptField(method.accountName) ?? undefined,
+      institutionCode: method.bankCode ?? undefined,
+      accountLast4: this.maskAccountLast4(method.accountNumber),
       status: method.status,
       createdAt: method.createdAt,
     }));
@@ -599,6 +633,12 @@ export class PaymentMethodService {
     const last4 = account.length >= 4 ? account.slice(-4) : '****';
     return `${method.bankName ?? 'Bank'} - ${last4}`;
   }
+
+  private maskAccountLast4(accountNumber: string | null): string | undefined {
+    const account = this.decryptField(accountNumber) ?? '';
+    if (!account) return undefined;
+    return account.length >= 4 ? account.slice(-4) : account;
+  }
   private async verifyPasscode(paymentMethod: PaymentMethod, passcode: string): Promise<void> {
     if (
       !paymentMethod.passcodeHash ||
@@ -644,9 +684,12 @@ export class PaymentMethodService {
         'Bank payment method requires account number, account name, bank name, and country',
       );
     }
-    if (dto.accountNumber.length > 17) {
-      throw new BadRequestException('Account number cannot exceed 17 digits');
+    const currency = dto.currency.toUpperCase();
+    const maxAccountLength = currency === 'EUR' ? 34 : 17;
+    if (dto.accountNumber.length > maxAccountLength) {
+      throw new BadRequestException(`Account number cannot exceed ${maxAccountLength} characters`);
     }
+    validateGlobalBankFields(currency, dto.accountNumber, dto.bankCode);
   }
   private async assertCurrencyAllowed(tenantId: string, currency: string): Promise<void> {
     const allowed = await this.getAllowedCurrencies(tenantId);

@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -175,6 +175,19 @@ export function PayrollPage() {
   const createRun = useCreatePayrollRun();
   const actions = usePayrollActions();
 
+  const fiatCurrencies = currencyOptions?.fiat ?? ['NGN'];
+
+  useEffect(() => {
+    const preferred = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency?.toUpperCase();
+    if (preferred && fiatCurrencies.includes(preferred)) {
+      setBaseCurrency(preferred);
+      return;
+    }
+    if (fiatCurrencies[0]) {
+      setBaseCurrency(fiatCurrencies[0]);
+    }
+  }, [tenant?.preferredCurrency, fiatCurrencies]);
+
   const busy =
     createRun.isPending ||
     actions.calculate.isPending ||
@@ -186,7 +199,6 @@ export function PayrollPage() {
     actions.notifyPaymentSetup.isPending;
 
   const activeEmployees = employees.filter((e) => e.status === 'Active');
-  const fiatCurrencies = currencyOptions?.fiat ?? ['NGN'];
 
   const handleCreate = async () => {
     if (!title.trim()) {

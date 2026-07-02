@@ -77,7 +77,7 @@ export class CreatePaymentMethodDto {
   @ValidateIf((o) => !o.type || o.type === PaymentMethodType.BANK)
   @IsNotEmpty({ message: 'Account number is required for bank payment method' })
   @IsString()
-  @MaxLength(17, { message: 'Account number cannot exceed 17 digits' })
+  @MaxLength(34, { message: 'Account number cannot exceed 34 characters' })
   accountNumber?: string;
   @ApiProperty({
     description: 'Country code (2 characters, ISO format) - Required for BANK payment method',
@@ -160,7 +160,7 @@ export class UpdatePaymentMethodDto {
   })
   @IsOptional()
   @IsString()
-  @MaxLength(17, { message: 'Account number cannot exceed 17 digits' })
+  @MaxLength(34, { message: 'Account number cannot exceed 34 characters' })
   accountNumber?: string;
   @ApiProperty({
     description: 'Country code (2 characters, ISO format)',

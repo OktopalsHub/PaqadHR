@@ -68,6 +68,7 @@ The API uses a **CI/CD Build & Publish** pipeline to keep production server reso
   1. Pushing to `main` or `dev` branches triggers the GitHub Action `.github/workflows/api-ci.yml`.
   2. The workflow builds the Docker image and publishes it to **GitHub Container Registry (GHCR)** as `ghcr.io/oktopalshub/paqadhr:latest`.
   3. The workflow triggers your Dokploy Webhook to pull the latest image.
+  4. Old GHCR images are pruned automatically (keeps `latest`, `main`, `dev`, and the 15 most recent versions).
 
 * **Dokploy Config**:
   * **Source Type**: `Docker Image`
@@ -75,6 +76,7 @@ The API uses a **CI/CD Build & Publish** pipeline to keep production server reso
   * **Registry**: Set up your GitHub Container Registry credentials in Dokploy.
   * **Port**: `9001`
   * **Webhook URL**: Copy this from Dokploy to your GitHub Repository Secrets as `DOKPLOY_WEBHOOK_URL`.
+  * **Host disk (optional)**: On the Dokploy server, schedule `docker image prune -af --filter "until=168h"` so pulled-but-unused layers do not accumulate locally. GHCR cleanup does not free space on the deploy host.
 
 ### 2. Frontend Web (`apps/web`)
 The web application can be built directly on your server or via a similar Docker flow.

@@ -35,6 +35,10 @@ export interface PendingPaymentMethod {
   employeeName: string;
   currency: string;
   displayInfo: string;
+  bankName?: string;
+  accountName?: string;
+  institutionCode?: string;
+  accountLast4?: string;
   status: string;
   createdAt: string;
 }

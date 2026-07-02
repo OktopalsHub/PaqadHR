@@ -21,7 +21,7 @@ export const createPaymentMethodInputSchema = z.object({
   bankName: z.string().min(1).max(120),
   bankCode: z.string().max(20).optional(),
   accountName: z.string().min(1).max(160),
-  accountNumber: z.string().min(1).max(17),
+  accountNumber: z.string().min(1).max(34),
   country: z.string().length(2),
   passcode: z.string().length(6),
   isPrimary: z.boolean().optional(),
