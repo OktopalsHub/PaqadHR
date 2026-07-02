@@ -37,8 +37,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint (Biome — monorepo)
+      - name: Lint
         run: pnpm check
 
-      - name: Build web (Next.js)
+      - name: Build web
         run: pnpm --filter web build
