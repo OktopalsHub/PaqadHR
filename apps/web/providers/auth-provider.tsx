@@ -14,11 +14,11 @@ import {
 } from '@/lib/api/auth';
 import { bootstrapCsrf, clearCsrfToken, getAccessToken, getRefreshToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
+import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import {
   authDestinationToPath,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { readSession } from '@/lib/session';

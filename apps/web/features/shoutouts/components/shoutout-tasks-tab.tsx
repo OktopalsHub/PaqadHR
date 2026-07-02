@@ -26,7 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { type ComponentType, useState } from 'react';
 import { toast } from 'sonner';
 import { SlackIcon } from '@/components/icons/slack-icon';
 import { Badge } from '@/components/ui/badge';
@@ -95,7 +95,7 @@ type PendingSubmission = {
   };
 };
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
   Compass,
   User,
   Heart,
@@ -118,9 +118,7 @@ export function ShoutoutTasksTab() {
     enabled: Boolean(tenantId),
   });
 
-  const { data: pendingSubmissions = [], isLoading: pendingLoading } = useQuery<
-    PendingSubmission[]
-  >({
+  const { data: pendingSubmissions = [] } = useQuery<PendingSubmission[]>({
     queryKey: ['shoutout-tasks-pending', tenantId],
     queryFn: () =>
       apiClient<PendingSubmission[]>(
@@ -182,8 +180,8 @@ export function ShoutoutTasksTab() {
         toast.success(`Task completed! You earned +${reward} points! 🎉`);
         invalidateAll();
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to complete task');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to complete task');
     }
   };
 
@@ -244,8 +242,8 @@ export function ShoutoutTasksTab() {
         setSubmittingTask(null);
         invalidateAll();
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to submit verification');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit verification');
     } finally {
       setIsMutatingSubmission(false);
     }
@@ -268,8 +266,8 @@ export function ShoutoutTasksTab() {
         toast.success(`Approved! +${reward} points awarded to employee for "${title}".`);
         invalidateAll();
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to approve submission');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to approve submission');
     }
   };
 
@@ -285,8 +283,8 @@ export function ShoutoutTasksTab() {
         toast.error(`Submission for "${title}" has been rejected. Resubmission enabled.`);
         invalidateAll();
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to reject submission');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reject submission');
     }
   };
 
@@ -319,8 +317,8 @@ export function ShoutoutTasksTab() {
       setIsAdding(false);
       toast.success(`Task created successfully!`);
       invalidateAll();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to create task');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create task');
     } finally {
       setIsCreating(false);
     }
@@ -333,8 +331,8 @@ export function ShoutoutTasksTab() {
       });
       toast.success('Task removed from checklist.');
       invalidateAll();
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to delete task');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete task');
     }
   };
 
@@ -355,8 +353,8 @@ export function ShoutoutTasksTab() {
       setIsAssigningPoints(false);
       setAssignments([]);
       setAssignReason('');
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to assign points');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to assign points');
     }
   };
 
@@ -398,11 +396,6 @@ export function ShoutoutTasksTab() {
   const userPendingTasks = tasks.filter((t) => t.status === 'pending');
   const availableTasks = tasks.filter((t) => t.status === 'available' || t.status === 'rejected');
   const completedTasks = tasks.filter((t) => t.status === 'completed');
-
-  const filteredMembers = members.filter((m) => {
-    const fullName = `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase();
-    return fullName.includes(assignSearch.toLowerCase());
-  });
 
   if (tasksLoading) {
     return (
@@ -557,7 +550,7 @@ export function ShoutoutTasksTab() {
                 <Label className="text-xs font-semibold">Submission Verification Mode</Label>
                 <Select
                   value={newSubmissionType}
-                  onValueChange={(v: any) => setNewSubmissionType(v)}
+                  onValueChange={(v) => setNewSubmissionType(v as Task['submissionType'])}
                 >
                   <SelectTrigger className="h-10 text-xs rounded-xl">
                     <SelectValue />

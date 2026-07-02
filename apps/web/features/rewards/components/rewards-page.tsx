@@ -484,7 +484,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     if (catalogCountries.length > 0 && !catalogCountries.includes(selectedCountryCode)) {
       setSelectedCountryCode(catalogCountries[0]);
     }
-  }, [catalogCountries]);
+  }, [catalogCountries, selectedCountryCode]);
 
   // Sync operator default when operators load
   useEffect(() => {
@@ -498,7 +498,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // JIT Points calculation states for top-ups
   const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
-  const [calculatedValue, setCalculatedValue] = useState<number | null>(null);
+  const [_calculatedValue, setCalculatedValue] = useState<number | null>(null);
   const [calculatedCurrency, setCalculatedCurrency] = useState<string>('NGN');
   const [airtimeProcessingFee, setAirtimeProcessingFee] = useState<number | null>(null);
   const [isCalculatingPoints, setIsCalculatingPoints] = useState(false);
@@ -584,7 +584,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     if (catalogCountries.length > 0 && !catalogCountries.includes(utilityCountryCode)) {
       setUtilityCountryCode(catalogCountries[0]);
     }
-  }, [catalogCountries]);
+  }, [catalogCountries, utilityCountryCode]);
 
   // Sync utility biller default when billers load
   useEffect(() => {
@@ -604,7 +604,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // Utility points calculation states
   const [utilityPoints, setUtilityPoints] = useState<number | null>(null);
-  const [utilityCalculatedValue, setUtilityCalculatedValue] = useState<number | null>(null);
+  const [_utilityCalculatedValue, setUtilityCalculatedValue] = useState<number | null>(null);
   const [utilityCalculatedCurrency, setUtilityCalculatedCurrency] = useState<string>('NGN');
   const [utilityProcessingFee, setUtilityProcessingFee] = useState<number | null>(null);
   const [isCalculatingUtilityPoints, setIsCalculatingUtilityPoints] = useState(false);
@@ -1560,7 +1560,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         </Label>
                         <Select
                           value={utilityServiceType}
-                          onValueChange={(val: any) => setUtilityServiceType(val)}
+                          onValueChange={(val) =>
+                            setUtilityServiceType(val as 'PREPAID' | 'POSTPAID')
+                          }
                         >
                           <SelectTrigger className="h-10 text-xs">
                             <SelectValue />
@@ -1971,7 +1973,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                       No claims found matching your search.
                     </div>
                   ) : (
-                    filteredAllClaims.map((claim: any) => {
+                    filteredAllClaims.map((claim: RewardRedemption) => {
                       const memberName = claim.member
                         ? `${claim.member.firstName} ${claim.member.lastName}`
                         : `Member #${claim.memberId.slice(0, 8)}`;

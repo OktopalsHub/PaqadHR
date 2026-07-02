@@ -447,9 +447,9 @@ export function BillingSection() {
         <div className="rounded-lg border border-border/60">
           <p className="border-b border-border/60 px-4 py-3 text-sm font-medium">Invoices</p>
           <div className="divide-y divide-border/60">
-            {billingHistory.map((entry, index) => (
+            {billingHistory.map((entry) => (
               <div
-                key={`${entry.invoiceId ?? entry.date}-${index}`}
+                key={entry.invoiceId ?? entry.date}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm"
               >
                 <div>

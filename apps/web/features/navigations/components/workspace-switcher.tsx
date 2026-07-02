@@ -20,7 +20,7 @@ import { useTenant } from '@/providers/tenant-provider';
 function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
   if (logoUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+      // biome-ignore lint/performance/noImgElement: external workspace logo URL
       <img src={logoUrl} alt="" className="size-8 shrink-0 rounded-lg object-cover" />
     );
   }

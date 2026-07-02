@@ -652,7 +652,7 @@ export function SettingsRewardsTab() {
       >
         <div className="space-y-4">
           <div className="grid gap-3">
-            {customRewards.map((reward: any) => (
+            {customRewards.map((reward) => (
               <div
                 key={reward.id}
                 className="flex items-center justify-between rounded-xl border border-border/60 p-4 bg-background/50 hover:bg-muted/10 transition-colors"

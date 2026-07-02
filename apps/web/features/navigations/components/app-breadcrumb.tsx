@@ -28,7 +28,7 @@ export function AppBreadcrumb() {
           const isLast = index === segments.length - 1;
 
           return (
-            <Fragment key={`${segment.label}-${index}`}>
+            <Fragment key={segment.href ?? segment.label}>
               {index > 0 ? <BreadcrumbSeparator /> : null}
               <BreadcrumbItem>
                 {isLast || !segment.href ? (

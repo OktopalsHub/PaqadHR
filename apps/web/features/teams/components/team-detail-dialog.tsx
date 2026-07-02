@@ -150,8 +150,8 @@ export function TeamDetailDialog({ open, onOpenChange, team }: TeamDetailDialogP
 
           <TabsContent value="members" className="space-y-4">
             <div className="grid gap-4">
-              {teamMembers.map((member, index) => (
-                <Card key={index}>
+              {teamMembers.map((member) => (
+                <Card key={member.name}>
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -178,8 +178,8 @@ export function TeamDetailDialog({ open, onOpenChange, team }: TeamDetailDialogP
 
           <TabsContent value="projects" className="space-y-4">
             <div className="grid gap-4">
-              {projects.map((project, index) => (
-                <Card key={index}>
+              {projects.map((project) => (
+                <Card key={project.name}>
                   <CardContent className="p-4">
                     <div className="flex justify-between items-start mb-3">
                       <div>

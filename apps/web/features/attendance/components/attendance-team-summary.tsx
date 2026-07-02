@@ -21,6 +21,7 @@ import { useMonthlyTimesheet } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { MonthlyTimesheetMember } from '@/lib/api/attendance';
+import type { TenantSettingsResponse } from '@/lib/api/tenant-settings';
 import { getInitials } from '@/lib/utils';
 
 function MonthYearPicker({
@@ -80,7 +81,7 @@ function MemberSummaryRow({
 }: {
   entry: MonthlyTimesheetMember;
   avatar?: string;
-  tenantSettings?: any;
+  tenantSettings?: TenantSettingsResponse;
 }) {
   const [expanded, setExpanded] = useState(false);
   const name = memberDisplayName(entry.member);

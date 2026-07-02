@@ -64,7 +64,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
         )}
       >
         {displaySrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
+          // biome-ignore lint/performance/noImgElement: blob preview URL from file input
           <img src={displaySrc} alt={`${name} logo`} className="size-full object-cover" />
         ) : (
           <Building2 className="size-8 text-muted-foreground" aria-hidden />

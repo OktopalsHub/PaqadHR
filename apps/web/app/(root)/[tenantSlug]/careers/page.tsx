@@ -433,6 +433,7 @@ export default function PublicCareersPage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-3">
             {tenant.logoUrl ? (
+              // biome-ignore lint/performance/noImgElement: external tenant logo URL
               <img
                 src={tenant.logoUrl}
                 alt={tenant.name}

@@ -22,8 +22,11 @@ export const LandingTestimonials = () => {
               className="flex flex-col rounded-2xl border border-border/60 bg-card/50 p-6"
             >
               <div className="flex gap-0.5">
-                {Array.from({ length: testimonial.rating }).map((_, i) => (
-                  <Star key={i} className="size-4 fill-primary text-primary" />
+                {[1, 2, 3, 4, 5].slice(0, testimonial.rating).map((star) => (
+                  <Star
+                    key={`${testimonial.name}-star-${star}`}
+                    className="size-4 fill-primary text-primary"
+                  />
                 ))}
               </div>
               <p className="mt-4 flex-1 text-sm leading-relaxed text-muted-foreground">

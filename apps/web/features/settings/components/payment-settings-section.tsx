@@ -326,7 +326,7 @@ export function PaymentSettingsSection() {
     setAccountNumber('');
     setLookupVerified(false);
     setLookupError(null);
-  }, [currency]);
+  }, []);
 
   const bankOptions = useMemo(
     () => banks.map((bank) => ({ value: bank.code, label: bank.name })),

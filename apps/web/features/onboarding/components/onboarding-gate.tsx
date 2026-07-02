@@ -14,7 +14,7 @@ import { useTenant } from '@/providers/tenant-provider';
 export function OnboardingGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { tenant, tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
+  const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
 

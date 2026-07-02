@@ -29,6 +29,7 @@ export function clearSessionStorage() {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
   document.cookie = 'tenant_slug=; path=/; max-age=0; SameSite=Lax';
 }
 
@@ -45,6 +46,7 @@ export function readTenantId(): string | null {
 export function persistTenantSlug(slug: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TENANT_SLUG_KEY, slug);
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
   document.cookie = `tenant_slug=${encodeURIComponent(slug)}; path=/; max-age=31536000; SameSite=Lax`;
 }
 
@@ -57,5 +59,6 @@ export function clearTenantId() {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
   document.cookie = 'tenant_slug=; path=/; max-age=0; SameSite=Lax';
 }

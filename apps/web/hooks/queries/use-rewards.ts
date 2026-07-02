@@ -19,6 +19,7 @@ import {
   fetchWalletTransactions,
   manualTopupWallet,
   provisionVirtualAccount,
+  type RewardRedemption,
   updateAutoTopupConfig,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
@@ -62,7 +63,7 @@ export function useMyClaims() {
     queryFn: fetchMyClaims,
     enabled: !tenantLoading && Boolean(tenantId),
     refetchInterval: (query) => {
-      const claims = query.state.data as any[];
+      const claims = query.state.data as RewardRedemption[] | undefined;
       const hasPending = claims?.some((c) => c.status === 'PENDING');
       return hasPending ? 5000 : false;
     },
@@ -77,7 +78,7 @@ export function useAllClaims() {
     queryFn: fetchAllClaims,
     enabled: !tenantLoading && Boolean(tenantId),
     refetchInterval: (query) => {
-      const claims = query.state.data as any[];
+      const claims = query.state.data as RewardRedemption[] | undefined;
       const hasPending = claims?.some((c) => c.status === 'PENDING');
       return hasPending ? 5000 : false;
     },

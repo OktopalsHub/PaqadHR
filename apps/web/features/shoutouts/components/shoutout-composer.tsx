@@ -187,6 +187,7 @@ export function ShoutoutComposer({
                 exit={{ opacity: 0, scale: 0.95 }}
                 className="relative mt-2 max-w-[200px] overflow-hidden rounded-lg border bg-background"
               >
+                {/* biome-ignore lint/performance/noImgElement: user attachment preview URL */}
                 <img
                   src={attachedGif || attachedImage || ''}
                   alt="Attachment"
@@ -424,6 +425,7 @@ export function ShoutoutComposer({
                       className="group relative overflow-hidden rounded border bg-muted aspect-video"
                       onClick={() => handleGifSelect(gif.url)}
                     >
+                      {/* biome-ignore lint/performance/noImgElement: external GIF picker thumbnail */}
                       <img src={gif.url} alt={gif.title} className="size-full object-cover" />
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <Plus className="size-5 text-white" />

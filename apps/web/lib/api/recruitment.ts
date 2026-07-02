@@ -135,8 +135,26 @@ export async function fetchPublicJob(jobId: string): Promise<JobOpening> {
   return jobOpeningSchema.parse(data);
 }
 
-export async function submitPublicApplication(jobId: string, body: any): Promise<any> {
-  return apiClient<any>(`/jobs/${jobId}/apply`, {
+export type PublicApplicationPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  portfolioUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  coverLetterText?: string;
+  resumeFilename: string;
+  coverLetterFilename?: string;
+  customAnswers: Record<string, string | string[] | boolean>;
+  experience: { years: number };
+};
+
+export async function submitPublicApplication(
+  jobId: string,
+  body: PublicApplicationPayload,
+): Promise<{ message?: string }> {
+  return apiClient<{ message?: string }>(`/jobs/${jobId}/apply`, {
     method: 'POST',
     body: JSON.stringify(body),
     skipCsrf: true,

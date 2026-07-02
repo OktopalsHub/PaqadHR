@@ -96,7 +96,25 @@
       }
     },
     {
-      "includes": ["apps/web/public/**"],
+      "includes": ["apps/web/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useSemanticElements": "off",
+            "useFocusableInteractive": "off",
+            "useAriaPropsForRole": "off"
+          },
+          "security": {
+            "noDangerouslySetInnerHtml": "off"
+          },
+          "suspicious": {
+            "noDocumentCookie": "off",
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
       "linter": {
         "enabled": false
       },

@@ -27,8 +27,8 @@ export const LandingTestimonials = () => {
             {testimonials.map((t) => (
               <motion.div key={t.name} variants={fadeUp} className="landing-testimonial-card">
                 <div className="landing-testimonial-stars">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={`star-${t.name}-${i}`} size={14} />
+                  {[1, 2, 3, 4, 5].slice(0, t.rating).map((star) => (
+                    <Star key={`star-${t.name}-${star}`} size={14} />
                   ))}
                 </div>
                 <p className="landing-testimonial-quote">&ldquo;{t.content}&rdquo;</p>
