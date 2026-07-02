@@ -135,6 +135,8 @@ export async function fetchPublicJob(jobId: string): Promise<JobOpening> {
   return jobOpeningSchema.parse(data);
 }
 
+export type PublicApplicationCustomAnswer = string | string[] | boolean | number;
+
 export type PublicApplicationPayload = {
   firstName: string;
   lastName: string;
@@ -146,7 +148,7 @@ export type PublicApplicationPayload = {
   coverLetterText?: string;
   resumeFilename: string;
   coverLetterFilename?: string;
-  customAnswers: Record<string, string | string[] | boolean>;
+  customAnswers: Record<string, PublicApplicationCustomAnswer>;
   experience: { years: number };
 };
 

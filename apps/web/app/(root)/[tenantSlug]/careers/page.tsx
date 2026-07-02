@@ -33,6 +33,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import {
   fetchPublicJobs,
+  type PublicApplicationCustomAnswer,
   submitPublicApplication,
   uploadPublicCandidateFile,
 } from '@/lib/api/recruitment';
@@ -87,7 +88,9 @@ export default function PublicCareersPage() {
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [coverLetterUploadProgress, setCoverLetterUploadProgress] = useState(false);
 
-  const [customAnswers, setCustomAnswers] = useState<Record<string, unknown>>({});
+  const [customAnswers, setCustomAnswers] = useState<
+    Record<string, PublicApplicationCustomAnswer>
+  >({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
