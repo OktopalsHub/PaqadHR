@@ -1,5 +1,5 @@
-export const PAQ_POINTS_NAME = 'Paq points';
 export const PAQ_POINT_NAME = 'Paq point';
+export const PAQ_POINTS_NAME = 'Paq points';
 
 export function paqPointsLabel(count: number): string {
   return count === 1 ? PAQ_POINT_NAME : PAQ_POINTS_NAME;
