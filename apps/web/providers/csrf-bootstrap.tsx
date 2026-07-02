@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { bootstrapCsrf } from '@/lib/api/client';
 
-/** Ensures CSRF cookie/token exist before the user triggers mutations. 
+/** Ensures CSRF cookie/token exist before the user triggers mutations.
  * TODO: this is a temporary solution to ensure CSRF cookie/token exist before the user triggers mutations.
-*/
+ */
 export function CsrfBootstrap() {
   useEffect(() => {
     void bootstrapCsrf();
