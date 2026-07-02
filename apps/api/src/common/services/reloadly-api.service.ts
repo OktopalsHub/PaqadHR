@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { formatNombaSenderName } from '../config/nomba.config';
 import {
   getReloadlyAuthUrl,
   getReloadlyBaseUrl,
@@ -199,7 +200,7 @@ export class ReloadlyApiService {
       unitPrice: params.unitPrice,
       customIdentifier: params.customIdentifier,
       recipientEmail: params.recipientEmail,
-      senderName: params.senderName ?? 'Paqad HR',
+      senderName: params.senderName ?? formatNombaSenderName(),
     });
   }
 

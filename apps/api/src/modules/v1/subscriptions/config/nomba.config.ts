@@ -4,7 +4,7 @@ export {
   getNombaClientId,
   getNombaClientSecret,
   getNombaPayoutAuthCode,
-  getNombaSenderName,
+  formatNombaSenderName,
   getNombaWebhookSecret,
   isNombaConfigured,
 } from '../../../../common/config/nomba.config';

@@ -17,7 +17,6 @@ export function normalizeFiatCurrencies(currencies: string[]): SupportedFiatCurr
   return [...seen];
 }
 
-/** ponytail: unsupported Reloadly recipient fiat bills via USD pivot */
 export function billingPivotCurrency(local: string): SupportedFiatCurrency | 'USD' {
   const upper = local.toUpperCase();
   return isSupportedFiatCurrency(upper) ? upper : 'USD';

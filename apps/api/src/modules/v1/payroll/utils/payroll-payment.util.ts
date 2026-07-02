@@ -1,3 +1,4 @@
+import { formatNombaSenderName } from 'src/common/config/nomba.config';
 import type { CreatePaymentData } from 'src/common/interfaces/create-payment-data.interface';
 import type { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
 import type { PayrollItem } from '../entities/payroll-item.entity';
@@ -22,7 +23,7 @@ export function buildPayrollPaymentData(
     bankCode: paymentMethod.bankCode ?? undefined,
     bankName: paymentMethod.bankName ?? undefined,
     countryCode: paymentMethod.country ?? undefined,
-    senderName: tenantName ? `${tenantName} via Paqad` : 'Paqad HR',
+    senderName: formatNombaSenderName(tenantName),
     merchantTxRef: `payroll_${item.payrollRunId}_${item.id}`,
     paymentRail: typeof meta.nombaPaymentMethod === 'string' ? meta.nombaPaymentMethod : undefined,
     institutionCode:

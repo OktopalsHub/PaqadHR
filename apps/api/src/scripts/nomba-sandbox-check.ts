@@ -35,7 +35,7 @@ function checkEnv(): CheckResult[] {
     'NOMBA_WEBHOOK_SIGNATURE_KEY',
   ] as const;
 
-  const optional = ['NOMBA_BASE_URL', 'NOMBA_PAYOUT_AUTH_CODE', 'NOMBA_SENDER_NAME'] as const;
+  const optional = ['NOMBA_BASE_URL', 'NOMBA_PAYOUT_AUTH_CODE'] as const;
 
   const results: CheckResult[] = required.map((key) => ({
     name: key,

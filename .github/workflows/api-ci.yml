@@ -108,7 +108,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # ponytail: untagged-only — never prune tagged :dev/:main/:latest manifests
       - name: Prune untagged GHCR manifests
         uses: actions/delete-package-versions@v5
         with:

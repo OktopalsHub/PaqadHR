@@ -44,9 +44,7 @@ export function verifyNombaWebhookSignature(rawBody: string, signature: string):
     ) {
       return true;
     }
-  } catch {
-    // ponytail: fallback below
-  }
+  } catch {}
 
   try {
     const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -56,9 +54,7 @@ export function verifyNombaWebhookSignature(rawBody: string, signature: string):
     ) {
       return true;
     }
-  } catch {
-    // ignore
-  }
+  } catch {}
 
   return false;
 }

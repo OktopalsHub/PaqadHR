@@ -22,8 +22,11 @@ export function getNombaPayoutAuthCode(): string {
   return (process.env.NOMBA_PAYOUT_AUTH_CODE || '').trim();
 }
 
-export function getNombaSenderName(): string {
-  return (process.env.NOMBA_SENDER_NAME || 'PAQAD HR').trim();
+const PLATFORM_NAME = 'PaqadHR';
+
+export function formatNombaSenderName(tenantName?: string | null): string {
+  const name = tenantName?.trim();
+  return name ? `${name} via ${PLATFORM_NAME}` : PLATFORM_NAME;
 }
 
 export function isNombaConfigured(): boolean {

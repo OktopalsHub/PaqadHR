@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getNombaSenderName, isNombaConfigured } from '../config/nomba.config';
+import { formatNombaSenderName, isNombaConfigured } from '../config/nomba.config';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
@@ -84,7 +84,11 @@ export class NombaProvider extends BasePaymentProvider {
           accountName: data.accountName,
           bankCode: data.bankCode,
           merchantTxRef,
-          senderName: data.senderName || getNombaSenderName(),
+          senderName:
+            data.senderName ||
+            formatNombaSenderName(
+              typeof data.metadata?.tenantName === 'string' ? data.metadata.tenantName : undefined,
+            ),
           narration: data.description,
         });
 

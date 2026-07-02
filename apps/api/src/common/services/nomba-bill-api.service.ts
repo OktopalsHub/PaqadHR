@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { getNombaAccountId, getNombaBaseUrl, isNombaConfigured } from '../config/nomba.config';
+import {
+  formatNombaSenderName,
+  getNombaAccountId,
+  getNombaBaseUrl,
+  isNombaConfigured,
+} from '../config/nomba.config';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
 
 export interface NombaAirtimeInput {
@@ -108,7 +113,7 @@ export class NombaBillApiService {
       phoneNumber: input.phoneNumber,
       network: input.network,
       merchantTxRef: input.merchantTxRef,
-      senderName: input.senderName ?? 'PAQAD HR',
+      senderName: input.senderName ?? formatNombaSenderName(),
     });
 
     return {

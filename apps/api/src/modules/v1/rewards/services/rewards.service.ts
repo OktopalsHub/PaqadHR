@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { formatNombaSenderName } from 'src/common/config/nomba.config';
 import { billingPivotCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
@@ -16,6 +17,7 @@ import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-poin
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
 import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
 import {
@@ -126,6 +128,14 @@ export class RewardsService {
       }
     }
     return Number(senderAmount.toFixed(2));
+  }
+
+  private async resolveSenderName(tenantId: string): Promise<string> {
+    const tenant = await this.dataSource.getRepository(Tenant).findOne({
+      where: { id: tenantId },
+      select: { name: true },
+    });
+    return formatNombaSenderName(tenant?.name);
   }
 
   async getSubscriptionFees(
@@ -611,13 +621,15 @@ export class RewardsService {
       throw new Error('Missing Reloadly productId for gift card order');
     }
 
+    const senderName = await this.resolveSenderName(redemption.tenantId);
+
     const orderResponse = await this.reloadlyApi.orderGiftCard({
       productId,
       quantity: 1,
       unitPrice: redemption.currencyValue,
       customIdentifier: redemption.id,
       recipientEmail: redemption.recipientEmail ?? undefined,
-      senderName: 'Paqad HR',
+      senderName,
     });
 
     const transactionId = orderResponse.transactionId;
@@ -654,12 +666,14 @@ export class RewardsService {
       throw new Error('Phone number and network are required for airtime top-up');
     }
 
+    const senderName = await this.resolveSenderName(redemption.tenantId);
+
     const result = await this.nombaBillApi.purchaseAirtime({
       amount: redemption.currencyValue,
       phoneNumber: input.recipientPhone,
       network: input.airtimeNetwork,
       merchantTxRef: redemption.id,
-      senderName: 'PAQAD HR',
+      senderName,
     });
 
     if (!result.success) {
