@@ -59,7 +59,8 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     // survive a cross-domain deployment, so skip CSRF for them. Cookie-based
     // requests still go through CSRF protection.
     const hasBearerAuth = req.headers.authorization?.startsWith('Bearer ') ?? false;
-    if (isExcludedPath || hasBearerAuth) {
+    const hasAuthCookie = req.cookies?.access_token !== undefined;
+    if (isExcludedPath || (hasBearerAuth && !hasAuthCookie)) {
       return next();
     }
     csrfProtection(req, res, next);
