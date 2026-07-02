@@ -41,9 +41,6 @@ const COUNTRY_BY_CURRENCY: Record<string, string> = {
   USD: 'US',
   GBP: 'GB',
   EUR: 'DE',
-  KES: 'KE',
-  GHS: 'GH',
-  ZAR: 'ZA',
 };
 
 function statusBadgeVariant(status: string) {

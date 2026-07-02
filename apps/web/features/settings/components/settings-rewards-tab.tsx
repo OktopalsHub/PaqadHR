@@ -41,6 +41,7 @@ import {
   useWalletTransactions,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
+import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 
 const ALL_COUNTRIES = [
@@ -62,8 +63,6 @@ const ALL_COUNTRIES = [
   { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
   { code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
 ];
-
-const CURRENCIES = ['NGN', 'USD', 'GHS', 'KES', 'EUR', 'GBP', 'ZAR', 'CAD', 'AUD'];
 
 export function SettingsRewardsTab() {
   const { data: settings, isLoading } = useTenantSettings();
@@ -496,7 +495,7 @@ export function SettingsRewardsTab() {
                   <SelectValue placeholder="Select Currency..." />
                 </SelectTrigger>
                 <SelectContent className="max-h-60">
-                  {CURRENCIES.map((cur) => (
+                  {SUPPORTED_FIAT_CURRENCIES.map((cur) => (
                     <SelectItem key={cur} value={cur}>
                       {cur}
                     </SelectItem>

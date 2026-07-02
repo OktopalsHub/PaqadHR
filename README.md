@@ -66,16 +66,17 @@ The API uses a **CI/CD Build & Publish** pipeline to keep production server reso
 
 * **Deployment Flow**:
   1. Pushing to `main` or `dev` branches triggers the GitHub Action `.github/workflows/api-ci.yml`.
-  2. The workflow builds the Docker image and publishes it to **GitHub Container Registry (GHCR)** as `ghcr.io/oktopalshub/paqadhr:latest`.
-  3. The workflow triggers your Dokploy Webhook to pull the latest image.
-  4. Old GHCR images are pruned automatically (keeps `latest`, `main`, `dev`, and the 15 most recent versions).
+  2. The workflow builds the Docker image and publishes it to **GitHub Container Registry (GHCR)** with branch tags (`dev`, `main`) plus `latest` and commit SHA.
+  3. The workflow triggers your Dokploy Webhook to pull the image.
+  4. CI prunes **untagged** GHCR manifests only — tagged images like `:dev` and `:main` are kept. Delete old tagged versions manually in GitHub Packages if the registry grows.
 
 * **Dokploy Config**:
   * **Source Type**: `Docker Image`
-  * **Docker Image**: `ghcr.io/oktopalshub/paqadhr:latest`
+  * **Docker Image**: `ghcr.io/oktopalshub/paqadhr:dev` (staging) or `:latest` / `:main` (prod)
   * **Registry**: Set up your GitHub Container Registry credentials in Dokploy.
   * **Port**: `9001`
   * **Webhook URL**: Copy this from Dokploy to your GitHub Repository Secrets as `DOKPLOY_WEBHOOK_URL`.
+  * **Restore missing `:dev` tag**: push any commit to `dev` that touches `apps/api/**`, lockfiles, or `.github/workflows/api-ci.yml` so CI republishes the image.
   * **Host disk (optional)**: On the Dokploy server, schedule `docker image prune -af --filter "until=168h"` so pulled-but-unused layers do not accumulate locally. GHCR cleanup does not free space on the deploy host.
 
 ### 2. Frontend Web (`apps/web`)

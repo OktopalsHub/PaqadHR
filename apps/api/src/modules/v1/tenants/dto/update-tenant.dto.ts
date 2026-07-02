@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { SUPPORTED_FIAT_CURRENCIES } from 'src/common/constants/supported-fiat-currencies.constant';
 export class UpdateTenantDto {
   @ApiProperty({
     description: 'Name of the tenant/organization',
@@ -40,12 +41,12 @@ export class UpdateTenantDto {
   @ApiProperty({
     description: 'Preferred currency for payroll and payments',
     example: 'USD',
-    enum: ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'],
+    enum: [...SUPPORTED_FIAT_CURRENCIES],
     required: false,
   })
   @IsOptional()
   @IsString()
-  @IsIn(['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'])
+  @IsIn([...SUPPORTED_FIAT_CURRENCIES])
   preferredCurrency?: string;
   @ApiProperty({
     description: 'Country code (ISO 3166-1 alpha-2)',

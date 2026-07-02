@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { billingPivotCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
@@ -85,16 +86,34 @@ export class RewardsService {
     localCurrency: string,
     walletCurrency: string,
     operatorId?: number,
+    countryCode?: string,
   ): Promise<number> {
     const local = localCurrency.toUpperCase();
     const wallet = walletCurrency.toUpperCase();
     if (local === wallet) {
       return localAmount;
     }
-    if (!operatorId) {
+
+    let opId = operatorId;
+    if (!opId && countryCode) {
+      const operators = await this.reloadlyTopupsApi.listOperators(countryCode);
+      opId = operators[0]?.operatorId;
+    }
+
+    const pivot = billingPivotCurrency(local);
+    if (pivot === 'USD' && local !== 'USD') {
+      if (!opId) {
+        return localAmount;
+      }
+      const fx = await this.reloadlyTopupsApi.getOperatorFxRate(opId, localAmount);
+      const usdAmount = localAmount / (fx.fxRate || 1);
+      return this.toWalletCurrency(usdAmount, 'USD', wallet, opId, countryCode);
+    }
+
+    if (!opId) {
       return localAmount;
     }
-    const fx = await this.reloadlyTopupsApi.getOperatorFxRate(operatorId, localAmount);
+    const fx = await this.reloadlyTopupsApi.getOperatorFxRate(opId, localAmount);
     if (fx.currencyCode.toUpperCase() === wallet) {
       return localAmount;
     }
@@ -308,6 +327,8 @@ export class RewardsService {
             currencyValue,
             p.recipientCurrencyCode,
             settings.rewardsCurrency,
+            undefined,
+            p.countryCode,
           );
 
           const markupFactor = 1 + feePercentage / 100;
@@ -388,10 +409,19 @@ export class RewardsService {
         Number(input.billerId),
       );
     } else {
+      let countryCode: string | undefined;
+      if (input.rewardType === 'RELOADLY' && input.rewardId.startsWith('reloadly_')) {
+        const productId = Number(input.rewardId.replace('reloadly_', ''));
+        countryCode = settings.reloadlyProducts?.find(
+          (p) => p.productId === productId,
+        )?.countryCode;
+      }
       const expectedConvertedValue = await this.toWalletCurrency(
         currencyValue,
         currencyCode,
         settings.rewardsCurrency,
+        undefined,
+        countryCode,
       );
       faceValueInRewardsCurrency = expectedConvertedValue;
       totalTenantDebit = expectedConvertedValue;

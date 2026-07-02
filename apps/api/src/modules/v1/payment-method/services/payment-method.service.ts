@@ -8,9 +8,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { PaymentMethodType, TenantMemberRole } from 'src/common/enums';
+import { isSupportedFiatCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
+import { PaymentMethodType, TenantMemberRole } from '../../../../common/enums';
 import {
   AuditAction,
   AuditSeverity,
@@ -430,8 +431,7 @@ export class PaymentMethodService {
       issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
     }
 
-    const supported = ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
-    if (!supported.includes(normalizedCurrency)) {
+    if (!isSupportedFiatCurrency(normalizedCurrency)) {
       issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
     }
 

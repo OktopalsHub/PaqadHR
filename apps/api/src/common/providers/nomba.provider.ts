@@ -8,7 +8,7 @@ import { NombaTransferApiService } from '../services/nomba-transfer-api.service'
 import { BasePaymentProvider } from './base-payment.provider';
 
 const NGN_BANK_CURRENCIES = new Set(['NGN']);
-const GLOBAL_PAYOUT_CURRENCIES = new Set(['USD', 'EUR', 'GBP', 'KES', 'GHS', 'ZAR']);
+const GLOBAL_PAYOUT_CURRENCIES = new Set(['USD', 'EUR', 'GBP']);
 
 const DEFAULT_PAYOUT_RAILS: Record<
   string,
@@ -17,9 +17,6 @@ const DEFAULT_PAYOUT_RAILS: Record<
   USD: { paymentMethod: 'ACH', country: 'US', bankAccountType: 'CHECKING' },
   EUR: { paymentMethod: 'SEPA', country: 'DE' },
   GBP: { paymentMethod: 'FASTER_PAYMENTS', country: 'GB' },
-  KES: { paymentMethod: 'MobileMoney', country: 'KE' },
-  GHS: { paymentMethod: 'MobileMoney', country: 'GH' },
-  ZAR: { paymentMethod: 'BANK', country: 'ZA' },
 };
 
 @Injectable()
@@ -33,7 +30,7 @@ export class NombaProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'].forEach((code) => {
+    ['NGN', 'USD', 'GBP', 'EUR'].forEach((code) => {
       this.currencyConfigs.set(code, {
         code,
         name: code,
@@ -185,7 +182,7 @@ export class NombaProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USD', 'GBP', 'EUR', 'KES', 'GHS', 'ZAR'];
+    return ['NGN', 'USD', 'GBP', 'EUR'];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

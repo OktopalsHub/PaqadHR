@@ -5,6 +5,7 @@ import {
   IsArray,
   IsBoolean,
   IsEmail,
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -14,6 +15,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
+import { SUPPORTED_FIAT_CURRENCIES } from 'src/common/constants/supported-fiat-currencies.constant';
 
 export class PointsSettingsDto {
   @ApiProperty({
@@ -405,6 +407,7 @@ export class RewardsSettingsDto {
   @ApiProperty({ description: 'The currency code for rewards', example: 'NGN', required: false })
   @IsOptional()
   @IsString()
+  @IsIn([...SUPPORTED_FIAT_CURRENCIES])
   rewardsCurrency?: string;
 
   @ApiProperty({

@@ -1,4 +1,4 @@
-export const SUPPORTED_FIAT_CURRENCIES = ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'] as const;
+export const SUPPORTED_FIAT_CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP'] as const;
 
 export type SupportedFiatCurrency = (typeof SUPPORTED_FIAT_CURRENCIES)[number];
 
@@ -15,4 +15,10 @@ export function normalizeFiatCurrencies(currencies: string[]): SupportedFiatCurr
     }
   }
   return [...seen];
+}
+
+/** ponytail: unsupported Reloadly recipient fiat bills via USD pivot */
+export function billingPivotCurrency(local: string): SupportedFiatCurrency | 'USD' {
+  const upper = local.toUpperCase();
+  return isSupportedFiatCurrency(upper) ? upper : 'USD';
 }

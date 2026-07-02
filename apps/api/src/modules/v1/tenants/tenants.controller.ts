@@ -13,6 +13,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import {
+  isSupportedFiatCurrency,
+  SUPPORTED_FIAT_CURRENCIES,
+} from 'src/common/constants/supported-fiat-currencies.constant';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import type { PaginationDto } from 'src/common/dto/pagination.dto';
 import { TenantMemberRole, UserRole } from 'src/common/enums';
@@ -148,8 +152,8 @@ export class TenantsController {
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: { currency: string },
   ) {
-    const supportedCurrencies = ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'];
-    if (!supportedCurrencies.includes(body.currency)) {
+    const supportedCurrencies = [...SUPPORTED_FIAT_CURRENCIES];
+    if (!isSupportedFiatCurrency(body.currency)) {
       throw new BadRequestException(`Currency must be one of: ${supportedCurrencies.join(', ')}`);
     }
     const updateDto: UpdateTenantDto = {
@@ -163,7 +167,7 @@ export class TenantsController {
     const tenant = await this.tenantsService.getTenant(tenantId);
     return {
       currency: tenant.preferredCurrency || 'USD',
-      supportedCurrencies: ['USD', 'EUR', 'GBP', 'NGN', 'KES', 'GHS', 'ZAR'],
+      supportedCurrencies: [...SUPPORTED_FIAT_CURRENCIES],
     };
   }
   @Get(':tenantId/profile')

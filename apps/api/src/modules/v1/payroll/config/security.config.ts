@@ -1,3 +1,5 @@
+import { SUPPORTED_FIAT_CURRENCIES } from 'src/common/constants/supported-fiat-currencies.constant';
+
 export const PAYROLL_SECURITY_CONFIG = {
   MAX_SALARY_LIMIT: 1000000,
   MAX_PAYMENT_LIMIT: 100000,
@@ -11,25 +13,7 @@ export const PAYROLL_SECURITY_CONFIG = {
   MAX_PAYROLL_RUNS_PER_DAY: 10,
   MAX_CALCULATION_RETRIES: 3,
   SUPPORTED_CURRENCIES: [
-    'USD',
-    'EUR',
-    'GBP',
-    'CAD',
-    'AUD',
-    'JPY',
-    'CHF',
-    'SEK',
-    'NOK',
-    'DKK',
-    'NGN',
-    'GHS',
-    'KES',
-    'ZAR',
-    'EGP',
-    'MAD',
-    'TND',
-    'UGX',
-    'TZS',
+    ...SUPPORTED_FIAT_CURRENCIES,
     'BTC',
     'ETH',
     'USDT',
