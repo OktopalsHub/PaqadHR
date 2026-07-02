@@ -15,6 +15,7 @@ import { RecruitmentApplicationsChart } from './dashboard/recruitment-applicatio
 import { RecruitmentDepartmentChart } from './dashboard/recruitment-department-chart';
 import { RecruitmentKpiRow } from './dashboard/recruitment-kpi-row';
 import { RecruitmentSourceChart } from './dashboard/recruitment-source-chart';
+import { ViewCareersPageLink } from './view-careers-page-link';
 
 export function RecruitmentPage() {
   const tenantHref = useTenantHref();
@@ -45,6 +46,7 @@ export function RecruitmentPage() {
   return (
     <AppPage className="space-y-5">
       <PageActions>
+        <ViewCareersPageLink />
         <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
           <Link href={tenantHref('recruitment')}>
             <Kanban className="mr-1.5 size-3.5" />

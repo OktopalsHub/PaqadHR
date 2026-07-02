@@ -34,8 +34,11 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - run: pnpm check
+      - name: Lint (Biome — monorepo)
+        run: pnpm check
 
-      - run: pnpm --filter web build
+      - name: Build web (Next.js)
+        run: pnpm --filter web build

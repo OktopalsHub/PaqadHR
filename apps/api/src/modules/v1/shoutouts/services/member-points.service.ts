@@ -45,7 +45,7 @@ export class MemberPointsService {
         })
         .orIgnore()
         .execute();
-    } catch (error) {
+    } catch (_error) {
       // Ignore database-level unique constraint exceptions on insert
     }
     return repo.findOneOrFail({ where: { tenantId, memberId } });

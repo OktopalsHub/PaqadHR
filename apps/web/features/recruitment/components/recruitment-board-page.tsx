@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
+import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   useCandidatesByJob,
@@ -19,6 +20,7 @@ import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
+import { ViewCareersPageLink } from './view-careers-page-link';
 
 type RecruitmentBoardPageProps = {
   jobId: string;
@@ -111,6 +113,10 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
 
   return (
     <AppPage className="space-y-4">
+      <PageActions>
+        <ViewCareersPageLink />
+      </PageActions>
+
       {candidatesError ? (
         <Alert variant="destructive">
           <AlertTitle>Unable to load candidates</AlertTitle>

@@ -36,7 +36,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "correctness": {
         "noUnusedVariables": "warn",
         "useExhaustiveDependencies": "warn"
@@ -115,6 +115,7 @@
       }
     },
     {
+      "includes": ["apps/web/public/**"],
       "linter": {
         "enabled": false
       },

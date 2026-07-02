@@ -88,9 +88,9 @@ export default function PublicCareersPage() {
   const [coverLetterFile, setCoverLetterFile] = useState<File | null>(null);
   const [coverLetterUploadProgress, setCoverLetterUploadProgress] = useState(false);
 
-  const [customAnswers, setCustomAnswers] = useState<
-    Record<string, PublicApplicationCustomAnswer>
-  >({});
+  const [customAnswers, setCustomAnswers] = useState<Record<string, PublicApplicationCustomAnswer>>(
+    {},
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);

@@ -74,12 +74,12 @@ export class RewardsService {
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
     private readonly customRewardsService: CustomRewardsService,
-    private readonly tenantConfigService: TenantConfigService,
+    readonly _tenantConfigService: TenantConfigService,
     private readonly reloadlyApi: ReloadlyApiService,
     private readonly reloadlyTopupsApi: ReloadlyTopupsApiService,
     private readonly reloadlyUtilitiesApi: ReloadlyUtilitiesApiService,
     private readonly nombaBillApi: NombaBillApiService,
-    private readonly nombaTransferApi: NombaTransferApiService,
+    readonly _nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
   ) {}
 

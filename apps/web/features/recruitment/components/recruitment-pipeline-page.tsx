@@ -18,6 +18,7 @@ import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
+import { ViewCareersPageLink } from './view-careers-page-link';
 
 export function RecruitmentPipelinePage() {
   const tenantHref = useTenantHref();
@@ -64,6 +65,7 @@ export function RecruitmentPipelinePage() {
   return (
     <AppPage className="space-y-4">
       <PageActions>
+        <ViewCareersPageLink />
         <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
           <Link href={tenantHref('recruitment/roles')}>
             <BarChart3 className="mr-1.5 size-3.5" />
