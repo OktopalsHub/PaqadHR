@@ -82,7 +82,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Lowercase repository name
-        run: echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+        run: |
+          REPO_LC=${GITHUB_REPOSITORY,,}
+          echo "REPO=${REPO_LC}" >> $GITHUB_ENV
+          echo "PACKAGE_NAME=${REPO_LC##*/}" >> $GITHUB_ENV
 
       - name: Extract Docker metadata
         id: meta
@@ -131,3 +134,11 @@ jobs:
           else
             echo "DOKPLOY_WEBHOOK_URL not set — skipping deploy trigger"
           fi
+
+      # Keep only the image we just pushed; delete every older version in GHCR.
+      - name: Prune old container images
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ env.PACKAGE_NAME }}
+          package-type: container
+          min-versions-to-keep: 1
