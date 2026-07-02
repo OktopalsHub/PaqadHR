@@ -9,7 +9,7 @@ type ForceLightThemeProps = {
   className?: string;
 };
 
-/** Marketing, auth, and onboarding — always light; restores prior theme on unmount (e.g. dashboard system/dark). */
+/** Marketing, auth, and onboarding — always light for now; restores prior theme on unmount (e.g. dashboard system/dark). */
 export function ForceLightTheme({ children, className }: ForceLightThemeProps) {
   const { theme, setTheme } = useTheme();
   const previousTheme = useRef<string | undefined>(undefined);
