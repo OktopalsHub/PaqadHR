@@ -13,7 +13,7 @@ import type { PayrollPayoutService } from './payroll-payout.service';
 describe('MultiPaymentService', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
-  const originalNombaAccountId = process.env.NOMBA_ACCOUNT_ID;
+  const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
 
   const createService = () => {
     const payrollRunRepository = {
@@ -65,14 +65,14 @@ describe('MultiPaymentService', () => {
   afterEach(() => {
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
-    process.env.NOMBA_ACCOUNT_ID = originalNombaAccountId;
+    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
     jest.restoreAllMocks();
   });
 
   it('throws when Nomba gateway is not configured', async () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
-    delete process.env.NOMBA_ACCOUNT_ID;
+    delete process.env.NOMBA_PARENT_ACCOUNT_ID;
     const { service } = createService();
 
     await expect(
@@ -83,7 +83,7 @@ describe('MultiPaymentService', () => {
   it('processes approved payroll and reconciles run status', async () => {
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';
-    process.env.NOMBA_ACCOUNT_ID = 'account';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
 
     const {
       service,

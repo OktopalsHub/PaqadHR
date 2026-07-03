@@ -14,6 +14,7 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
@@ -322,7 +323,7 @@ export class TenantWalletService {
     const tokenKey = subscription?.paymentMethodId?.trim();
     if (!tokenKey) {
       throw new BadRequestException(
-        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
+        audience === 'admin' ? WALLET_NO_BILLING_CARD : WALLET_UNAVAILABLE_MEMBER,
       );
     }
 

@@ -9,7 +9,7 @@ describe('NombaVirtualAccountApiService', () => {
   beforeEach(() => {
     process.env.NOMBA_CLIENT_ID = 'client';
     process.env.NOMBA_CLIENT_SECRET = 'secret';
-    process.env.NOMBA_ACCOUNT_ID = 'acct-id';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'acct-id';
     jest.restoreAllMocks();
     mockTransferApi.getAccessToken.mockResolvedValue('test-token');
   });
@@ -17,7 +17,36 @@ describe('NombaVirtualAccountApiService', () => {
   afterEach(() => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
-    delete process.env.NOMBA_ACCOUNT_ID;
+    delete process.env.NOMBA_PARENT_ACCOUNT_ID;
+  });
+
+  it('creates a virtual account on the sub-account path when configured', async () => {
+    process.env.NOMBA_SUB_ACCOUNT_ID = 'sub-acct-id';
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        code: '00',
+        data: {
+          accountNumber: '9900012345',
+          accountName: 'Paqad Test',
+          bankName: 'Nomba',
+          accountRef: 'rewards_wallet_test',
+        },
+      }),
+    } as Response);
+
+    const service = new NombaVirtualAccountApiService(mockTransferApi as any);
+    await service.createVirtualAccount({
+      accountRef: 'rewards_wallet_test',
+      accountName: 'Paqad Test Wallet',
+      currency: 'NGN',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/v1/accounts/virtual/sub-acct-id'),
+      expect.objectContaining({ method: 'POST' }),
+    );
+    delete process.env.NOMBA_SUB_ACCOUNT_ID;
   });
 
   it('creates a virtual account', async () => {

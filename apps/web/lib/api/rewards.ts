@@ -260,8 +260,7 @@ export async function calculatePointsCost(params: {
   return apiClient(tenantPath(tenantId, `rewards/calculate-points?${query.toString()}`));
 }
 
-export async function manualTopupWallet(amount: number): Promise<TenantWallet> {
-  const tenantId = await resolveTenantId();
+export async function manualTopupWallet(tenantId: string, amount: number): Promise<TenantWallet> {
   return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/topup'), {
     method: 'POST',
     body: JSON.stringify({ amount }),

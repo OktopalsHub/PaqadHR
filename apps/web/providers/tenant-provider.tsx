@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   createContext,
   type ReactNode,
@@ -11,7 +11,7 @@ import {
   useState,
 } from 'react';
 import { useUserTenants } from '@/hooks/queries/use-tenants';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { getTenantSlugFromPath, tenantRoot } from '@/lib/navigation/tenant-routes';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
 import { useAuth } from '@/providers/auth-provider';
@@ -30,6 +30,7 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const tenantsQuery = useUserTenants({ enabled: isAuthenticated });
   const tenants = tenantsQuery.data ?? [];
@@ -49,6 +50,16 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const isLoading = authLoading || (isAuthenticated && tenantsQuery.isPending);
   const hasResolvedTenants = !isAuthenticated || tenantsQuery.isFetched;
   const isError = isAuthenticated && tenantsQuery.isError;
+
+  useEffect(() => {
+    if (!tenants.length) return;
+    const slugFromPath = getTenantSlugFromPath(pathname);
+    if (!slugFromPath) return;
+    const match = tenants.find((item) => item.slug === slugFromPath);
+    if (match && match.id !== selectedId) {
+      setSelectedId(match.id);
+    }
+  }, [tenants, pathname, selectedId]);
 
   useEffect(() => {
     if (!tenant) return;

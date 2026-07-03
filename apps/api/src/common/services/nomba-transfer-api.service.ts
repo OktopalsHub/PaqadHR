@@ -5,6 +5,7 @@ import {
   getNombaClientId,
   getNombaClientSecret,
   getNombaPayoutAuthCode,
+  getNombaSubAccountId,
   isNombaConfigured,
 } from '../config/nomba.config';
 import { verifyNombaWebhookSignature } from '../config/nomba-webhook.util';
@@ -94,7 +95,10 @@ export class NombaTransferApiService {
 
     const response = await fetch(`${getNombaBaseUrl()}/v1/auth/token/issue`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        accountId: getNombaAccountId(),
+      },
       body: JSON.stringify({
         grant_type: 'client_credentials',
         client_id: getNombaClientId(),
@@ -210,8 +214,20 @@ export class NombaTransferApiService {
     };
   }
 
+  private singleTransactionPath(reference: string): string {
+    const subAccountId = getNombaSubAccountId();
+    const query = `transactionRef=${encodeURIComponent(reference)}`;
+    return subAccountId
+      ? `/v1/transactions/accounts/${encodeURIComponent(subAccountId)}/single?${query}`
+      : `/v1/transactions/accounts/single?${query}`;
+  }
+
   async bankTransfer(input: NombaBankTransferInput): Promise<NombaTransferResponse> {
-    return this.request<NombaTransferResponse>('/v2/transfers/bank', {
+    const subAccountId = getNombaSubAccountId();
+    const path = subAccountId
+      ? `/v2/transfers/bank/${encodeURIComponent(subAccountId)}`
+      : '/v2/transfers/bank';
+    return this.request<NombaTransferResponse>(path, {
       amount: input.amount,
       accountNumber: input.accountNumber,
       accountName: input.accountName,
@@ -252,15 +268,12 @@ export class NombaTransferApiService {
     this.ensureConfigured();
     try {
       const token = await this.getAccessToken();
-      const response = await fetch(
-        `${getNombaBaseUrl()}/v1/transactions/accounts/single?transactionRef=${encodeURIComponent(reference)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            accountId: getNombaAccountId(),
-          },
+      const response = await fetch(`${getNombaBaseUrl()}${this.singleTransactionPath(reference)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accountId: getNombaAccountId(),
         },
-      );
+      });
       const payload = (await response.json()) as { data?: { status?: string } };
       if (!response.ok) return null;
       return payload.data?.status ?? null;

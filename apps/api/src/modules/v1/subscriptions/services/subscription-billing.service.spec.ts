@@ -4,7 +4,7 @@ import { SubscriptionBillingService } from './subscription-billing.service';
 describe('SubscriptionBillingService renewal jobs', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
-  const originalNombaAccountId = process.env.NOMBA_ACCOUNT_ID;
+  const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
 
   const createService = () => {
     const nombaProvider = { ensureConfigured: jest.fn() };
@@ -51,14 +51,14 @@ describe('SubscriptionBillingService renewal jobs', () => {
   afterEach(() => {
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
-    process.env.NOMBA_ACCOUNT_ID = originalNombaAccountId;
+    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
     jest.restoreAllMocks();
   });
 
   it('returns empty result when Nomba is not configured', async () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
-    delete process.env.NOMBA_ACCOUNT_ID;
+    delete process.env.NOMBA_PARENT_ACCOUNT_ID;
     const { service, nombaProvider } = createService();
 
     const result = await service.processDueRenewals();
@@ -70,7 +70,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
   it('aggregates outcomes across due renewals', async () => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_ACCOUNT_ID = 'account-id';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
     const { service, subscriptionRepo, nombaProvider } = createService();
     const dueSubs = [{ id: 'sub-1' }, { id: 'sub-2' }, { id: 'sub-3' }];
 
@@ -100,7 +100,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
   it('skips renewal charge when renewal attempt was already processed', async () => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_ACCOUNT_ID = 'account-id';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
     const { service } = createService();
     const subscription = {
       id: 'sub-idempotent',

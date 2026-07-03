@@ -4,7 +4,11 @@ export {
   getNombaBaseUrl,
   getNombaClientId,
   getNombaClientSecret,
+  getNombaParentAccountId,
   getNombaPayoutAuthCode,
+  getNombaScopedAccountId,
+  getNombaSubAccountId,
   getNombaWebhookSecret,
+  hasNombaSubAccount,
   isNombaConfigured,
 } from '../../../../common/config/nomba.config';

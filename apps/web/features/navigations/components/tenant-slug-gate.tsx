@@ -43,9 +43,13 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (tenant && tenant.slug !== tenantSlug) {
-      const suffix = pathname.replace(`/${tenantSlug}`, '') || '';
-      router.replace(`${tenantRoot(tenant.slug)}${suffix}`);
+    const slugTenant = tenants.find((item) => item.slug === tenantSlug);
+    if (!slugTenant) {
+      if (tenant) {
+        const suffix = pathname.replace(`/${tenantSlug}`, '') || '';
+        router.replace(`${tenantRoot(tenant.slug)}${suffix}`);
+      }
+      return;
     }
   }, [
     authLoading,
@@ -87,7 +91,8 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (tenants.length === 0 || !tenant || tenant.slug !== tenantSlug) {
+  const slugTenant = tenants.find((item) => item.slug === tenantSlug);
+  if (tenants.length === 0 || !slugTenant || !tenant || tenant.id !== slugTenant.id) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
         <LoadingBlock />

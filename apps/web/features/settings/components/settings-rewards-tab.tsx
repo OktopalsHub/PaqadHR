@@ -1,10 +1,12 @@
 'use client';
 
 import { Copy, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, Wallet, X } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -30,6 +32,7 @@ import {
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
+import { useBillingOverview } from '@/hooks/queries/use-billing';
 import {
   useCreateCustomReward,
   useCustomRewards,
@@ -43,6 +46,7 @@ import {
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { useTenant } from '@/providers/tenant-provider';
 
 const ALL_COUNTRIES = [
   { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
@@ -65,8 +69,10 @@ const ALL_COUNTRIES = [
 ];
 
 export function SettingsRewardsTab() {
+  const { tenant } = useTenant();
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
+  const { data: billingOverview } = useBillingOverview();
   const { data: walletTransactions = [] } = useWalletTransactions();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
@@ -106,6 +112,10 @@ export function SettingsRewardsTab() {
   const [autoTopupEnabled, setAutoTopupEnabled] = useState(false);
   const [autoTopupThreshold, setAutoTopupThreshold] = useState('1000');
   const [autoTopupAmount, setAutoTopupAmount] = useState('5000');
+
+  const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
+  const billingSettingsHref = tenant?.slug ? `/${tenant.slug}/settings?tab=billing` : null;
+  const walletCurrency = wallet?.currencyCode ?? 'NGN';
 
   useEffect(() => {
     if (rewards) {
@@ -199,7 +209,7 @@ export function SettingsRewardsTab() {
     }
     try {
       await manualTopupMutation.mutateAsync(amount);
-      toast.success(`Wallet successfully funded with ${currency} ${amount.toLocaleString()}`);
+      toast.success(`Wallet successfully funded with ${walletCurrency} ${amount.toLocaleString()}`);
       setIsTopupOpen(false);
       setTopupAmount('');
     } catch (err) {
@@ -740,12 +750,31 @@ export function SettingsRewardsTab() {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
+            {!hasBillingCard ? (
+              <Alert>
+                <AlertTitle>Billing card required</AlertTitle>
+                <AlertDescription>
+                  Card top-up uses the billing card saved for your workspace subscription, not
+                  payroll bank accounts.{' '}
+                  {billingSettingsHref ? (
+                    <Link
+                      href={billingSettingsHref}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      Add a card in Billing settings
+                    </Link>
+                  ) : (
+                    'Add a card in Settings → Billing.'
+                  )}
+                </AlertDescription>
+              </Alert>
+            ) : null}
             <div className="space-y-1.5">
               <label
                 htmlFor="fund-amount"
                 className="text-xs font-bold text-muted-foreground uppercase"
               >
-                Amount to Fund ({currency})
+                Amount to Fund ({walletCurrency})
               </label>
               <Input
                 id="fund-amount"
@@ -768,7 +797,7 @@ export function SettingsRewardsTab() {
             </Button>
             <Button
               onClick={handleManualTopup}
-              disabled={manualTopupMutation.isPending}
+              disabled={manualTopupMutation.isPending || !hasBillingCard}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl"
             >
               {manualTopupMutation.isPending ? 'Processing...' : 'Confirm Top Up'}
