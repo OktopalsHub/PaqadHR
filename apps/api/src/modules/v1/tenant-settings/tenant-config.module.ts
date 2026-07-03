@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { RewardsModule } from '../rewards/rewards.module';
 import { TenantSettings } from './entities/tenant-settings.entity';

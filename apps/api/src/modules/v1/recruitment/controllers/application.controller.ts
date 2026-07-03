@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
+import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { FileService } from 'src/common/services/file.service';
 import type { CreateCandidateDto } from '../dto/index';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
@@ -25,12 +26,15 @@ export class ApplicationController {
     @Body() body: { location: string; originalName: string; contentType?: string },
   ) {
     const job = await this.jobOpeningService.getActiveJob(jobId);
-    if (!['resumes', 'cover-letters'].includes(body.location)) {
+    if (
+      body.location !== FileUploadLocation.RESUMES &&
+      body.location !== FileUploadLocation.COVER_LETTERS
+    ) {
       throw new BadRequestException('Invalid location for candidate upload');
     }
     return this.fileService.generateUploadUrl({
       tenantId: job.tenantId,
-      location: body.location as any,
+      location: body.location as FileUploadLocation,
       originalName: body.originalName,
       contentType: body.contentType,
     });

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 @Injectable()
 export class QuerySecurityService {
   private readonly logger = new Logger(QuerySecurityService.name);
-  validateQueryParameters(params: Record<string, any>): boolean {
+  validateQueryParameters(params: Record<string, unknown>): boolean {
     for (const [key, value] of Object.entries(params)) {
       if (typeof value === 'string') {
         if (value.includes('SELECT') || value.includes('DROP') || value.includes('--')) {

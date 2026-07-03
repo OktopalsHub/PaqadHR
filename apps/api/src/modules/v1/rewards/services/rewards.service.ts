@@ -16,8 +16,8 @@ import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-p
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
+import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
 import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
@@ -30,9 +30,9 @@ import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
-import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 
 export interface CatalogItem {
   id: string;
@@ -237,7 +237,7 @@ export class RewardsService {
     };
   }
 
-  async getReloadlyCountries(tenantId: string): Promise<any[]> {
+  async getReloadlyCountries(tenantId: string): Promise<Array<{ code: string; name: string }>> {
     if (!this.reloadlyApi.isConfigured()) {
       return [
         { code: 'NG', name: 'Nigeria' },
@@ -251,8 +251,8 @@ export class RewardsService {
     }
     const countries = await this.reloadlyApi.listCountries();
     return countries.map((c) => ({
-      code: c.code || c.countryCode,
-      name: c.name || c.countryName || c.code,
+      code: c.code || c.countryCode || '',
+      name: c.name || c.countryName || c.code || c.countryCode || '',
     }));
   }
 
@@ -372,8 +372,7 @@ export class RewardsService {
 
     const records = await Promise.all(
       products.map(async (p) => {
-        const currencyValue =
-          p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
+        const currencyValue = p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
         const convertedValue = await this.toWalletCurrency(
           currencyValue,
           p.recipientCurrencyCode,
@@ -401,7 +400,11 @@ export class RewardsService {
     return records;
   }
 
-  async getAvailableReloadlyProducts(tenantId: string): Promise<any[]> {
+  async getAvailableReloadlyProducts(
+    tenantId: string,
+  ): Promise<
+    Array<NonNullable<RewardsSettings['reloadlyProducts']>[number] & { defaultPointsCost: number }>
+  > {
     const settings = await this.getRewardsSettings(tenantId);
     if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
       return [];
@@ -491,11 +494,7 @@ export class RewardsService {
       faceValueInRewardsCurrency = expectedConvertedValue;
       totalTenantDebit = expectedConvertedValue;
       if (input.rewardType !== 'CUSTOM') {
-        totalTenantDebit = computeRedemptionDebit(
-          expectedConvertedValue,
-          feePercentage,
-          flatFee,
-        );
+        totalTenantDebit = computeRedemptionDebit(expectedConvertedValue, feePercentage, flatFee);
       }
       expectedPointsCost =
         input.rewardType === 'CUSTOM' ? pointsCost : Math.ceil(totalTenantDebit * exchangeRate);

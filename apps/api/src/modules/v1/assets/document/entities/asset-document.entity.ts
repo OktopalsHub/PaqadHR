@@ -21,7 +21,7 @@ export class AssetDocument extends BaseEntity {
   @Column({ name: 'mime_type', nullable: true })
   mimeType?: string;
   @Column({ type: 'json', nullable: true })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   @Column({ name: 'asset_id' })
   assetId: string;
   @ManyToOne(

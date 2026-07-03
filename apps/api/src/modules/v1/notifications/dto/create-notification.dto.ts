@@ -28,7 +28,7 @@ export class CreateNotificationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
@@ -52,7 +52,7 @@ export class CreateNotificationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  emailContext?: Record<string, any>;
+  emailContext?: Record<string, unknown>;
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -84,7 +84,7 @@ export class CreateBulkNotificationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
@@ -104,7 +104,7 @@ export class CreateBulkNotificationDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsObject()
-  emailContext?: Record<string, any>;
+  emailContext?: Record<string, unknown>;
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

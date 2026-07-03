@@ -138,7 +138,7 @@ export class PaymentMethod extends BaseEntity {
     nullable: true,
     comment: 'Additional payment method metadata',
   })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 
   get isVerified(): boolean {
     return this.status === PaymentMethodStatus.VERIFIED;

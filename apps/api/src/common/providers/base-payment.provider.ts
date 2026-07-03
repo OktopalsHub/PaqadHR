@@ -152,8 +152,8 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   }
-  protected sanitizeMetadata(metadata: Record<string, any>): Record<string, any> {
-    const sanitized: Record<string, any> = {};
+  protected sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(metadata)) {
       if (this.isSensitiveKey(key)) {
         continue;

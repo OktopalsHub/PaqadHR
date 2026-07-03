@@ -89,7 +89,7 @@ export class ZeptomailEmailService {
   async sendTemplateEmail(
     to: string | string[],
     templateKey: string,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     options?: {
       from?: string;
       replyTo?: string;
@@ -118,7 +118,7 @@ export class ZeptomailEmailService {
       return { success: false, error: error.message };
     }
   }
-  private renderTemplate(template: string, variables: Record<string, any>): string {
+  private renderTemplate(template: string, variables: Record<string, unknown>): string {
     let rendered = template;
     Object.entries(variables).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');

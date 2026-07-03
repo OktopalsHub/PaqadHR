@@ -80,7 +80,9 @@ describe('RewardsService catalog sync', () => {
       feePercentage: 2,
       flatFee: 50,
     });
-    jest.spyOn(service as any, 'toWalletCurrency').mockImplementation(async (amount: number) => amount);
+    jest
+      .spyOn(service as any, 'toWalletCurrency')
+      .mockImplementation(async (amount: number) => amount);
   });
 
   it('syncs Reloadly products when catalog is empty', async () => {

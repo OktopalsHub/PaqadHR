@@ -55,5 +55,5 @@ export class CreateAssetDocumentDto {
     required: false,
   })
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

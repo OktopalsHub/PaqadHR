@@ -1,7 +1,4 @@
-import {
-  computeRedemptionDebit,
-  REDEMPTION_FLAT_FEE_MIN_AMOUNT,
-} from './rewards-redemption.util';
+import { computeRedemptionDebit, REDEMPTION_FLAT_FEE_MIN_AMOUNT } from './rewards-redemption.util';
 
 describe('computeRedemptionDebit', () => {
   const feePercentage = 2;

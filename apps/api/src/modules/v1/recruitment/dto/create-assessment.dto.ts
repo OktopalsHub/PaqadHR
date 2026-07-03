@@ -1,53 +1,6 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
-class QuestionDto {
-  @ApiProperty({
-    description: 'Question text',
-    example: 'What is the difference between let, const, and var in JavaScript?',
-  })
-  @IsString()
-  @ApiProperty({
-    description: 'question',
-  })
-  @IsNotEmpty()
-  question: string;
-  @ApiProperty({
-    description: 'Question type',
-    enum: ['MULTIPLE_CHOICE', 'TEXT', 'BOOLEAN', 'RATING'],
-    example: 'MULTIPLE_CHOICE',
-  })
-  @IsString()
-  @ApiProperty({
-    description: 'type',
-  })
-  @IsNotEmpty()
-  type: 'MULTIPLE_CHOICE' | 'TEXT' | 'BOOLEAN' | 'RATING';
-  @ApiPropertyOptional({
-    description: 'Answer options for multiple choice questions',
-    type: [String],
-    example: ['let is block-scoped', 'const is block-scoped', 'var is function-scoped'],
-  })
-  @IsArray()
-  @IsString({ each: true })
-  @ApiProperty({
-    description: 'options',
-    required: false,
-  })
-  @IsOptional()
-  options?: string[];
-  @ApiPropertyOptional({
-    description: 'Correct answer for scoring',
-    example: 'let is block-scoped',
-  })
-  @IsString()
-  @ApiProperty({
-    description: 'correct answer',
-    required: false,
-  })
-  @IsOptional()
-  correctAnswer?: string;
-}
 export class CreateAssessmentDto {
   @ApiProperty({ description: 'Assessment name' })
   @ApiProperty({

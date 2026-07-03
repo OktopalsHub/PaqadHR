@@ -84,7 +84,7 @@ export class SlackWebhookService {
   }
   async handleInteractiveComponent(payload: SlackInteractivePayload): Promise<void> {
     try {
-      const { type, user, team, actions } = payload;
+      const { type, user } = payload;
       this.logger.log(`Handling interactive component: ${type} from user: ${user.id}`);
       switch (type) {
         case 'block_actions':

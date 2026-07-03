@@ -16,19 +16,24 @@ export class ReloadlyWebhookService {
     private readonly walletService: TenantWalletService,
   ) {}
 
-  async processReloadlyWebhookEvent(payload: any): Promise<void> {
-    const status = (payload.status || payload.transaction?.status || '').toUpperCase();
-    const customIdentifier = payload.transaction?.customIdentifier || payload.customIdentifier;
-    const providerTxRef = payload.transaction?.transactionId || payload.transactionId;
+  async processReloadlyWebhookEvent(payload: Record<string, unknown>): Promise<void> {
+    const status = String(
+      payload.status || (payload.transaction as Record<string, unknown> | undefined)?.status || '',
+    ).toUpperCase();
+    const transaction = payload.transaction as Record<string, unknown> | undefined;
+    const customIdentifier = transaction?.customIdentifier || payload.customIdentifier;
+    const providerTxRef = transaction?.transactionId || payload.transactionId;
 
     if (!customIdentifier) {
       this.logger.log('Reloadly webhook payload is missing customIdentifier — ignoring');
       return;
     }
 
+    const redemptionId = String(customIdentifier);
+
     const redemptionRepo = this.dataSource.getRepository(RewardRedemption);
     const redemption = await redemptionRepo.findOne({
-      where: { id: customIdentifier },
+      where: { id: redemptionId },
     });
 
     if (!redemption) {
@@ -98,7 +103,7 @@ export class ReloadlyWebhookService {
             where: {
               tenantWalletId: wallet.id,
               reference: currentRedemption.id,
-              type: 'SPENT' as any,
+              type: 'SPENT',
             },
           });
           const refundAmount = tx ? Math.abs(Number(tx.amount)) : 0;

@@ -91,7 +91,9 @@ export class WebhooksController {
       throw new BadRequestException('Invalid webhook JSON');
     }
 
-    await this.reloadlyWebhookService.processReloadlyWebhookEvent(payload);
+    await this.reloadlyWebhookService.processReloadlyWebhookEvent(
+      payload as Record<string, unknown>,
+    );
     return { received: true };
   }
 

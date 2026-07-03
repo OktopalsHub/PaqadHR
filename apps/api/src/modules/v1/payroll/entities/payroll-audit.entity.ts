@@ -38,13 +38,13 @@ export class PayrollAuditLog extends BaseEntity {
     nullable: true,
     comment: 'Event data before change',
   })
-  beforeData: Record<string, any> | null;
+  beforeData: Record<string, unknown> | null;
   @Column({
     type: 'json',
     nullable: true,
     comment: 'Event data after change',
   })
-  afterData: Record<string, any> | null;
+  afterData: Record<string, unknown> | null;
   @Column({
     type: 'varchar',
     length: 45,
@@ -71,5 +71,5 @@ export class PayrollAuditLog extends BaseEntity {
     nullable: true,
     comment: 'Additional metadata',
   })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 }

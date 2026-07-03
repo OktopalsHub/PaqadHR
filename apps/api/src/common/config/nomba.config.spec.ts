@@ -1,8 +1,8 @@
 import {
   defaultPayrollCurrency,
   getNombaParentAccountId,
-  getNombaScopedAccountId,
   getNombaPayoutCurrencies,
+  getNombaScopedAccountId,
   isNombaGlobalPayoutEnabled,
 } from './nomba.config';
 

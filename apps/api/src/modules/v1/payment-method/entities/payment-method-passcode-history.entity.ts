@@ -72,5 +72,5 @@ export class PaymentMethodPasscodeHistory extends BaseEntity {
     nullable: true,
     comment: 'Additional metadata about the change',
   })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 }

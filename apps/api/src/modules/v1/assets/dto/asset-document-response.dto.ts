@@ -23,7 +23,7 @@ export class AssetDocumentResponseDto {
   @ApiProperty({ description: 'MIME type', required: false })
   mimeType?: string;
   @ApiProperty({ description: 'Additional metadata', required: false })
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   @ApiProperty({ description: 'Asset ID' })
   assetId: string;
   @ApiProperty({ description: 'Creation timestamp' })

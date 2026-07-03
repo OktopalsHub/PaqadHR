@@ -15,6 +15,13 @@ interface ReloadlyTokenResponse {
   token_type?: string;
 }
 
+export interface ReloadlyCountryRecord {
+  code?: string;
+  countryCode?: string;
+  name?: string;
+  countryName?: string;
+}
+
 export interface ReloadlyProduct {
   productId: number;
   productName: string;
@@ -175,10 +182,10 @@ export class ReloadlyApiService {
     return products;
   }
 
-  async listCountries(): Promise<any[]> {
+  async listCountries(): Promise<ReloadlyCountryRecord[]> {
     if (!this.isConfigured()) return [];
     try {
-      const response = await this.request<any[]>('GET', '/countries');
+      const response = await this.request<ReloadlyCountryRecord[]>('GET', '/countries');
       return response ?? [];
     } catch (error) {
       this.logger.error(`Failed to fetch countries from Reloadly: ${error}`);

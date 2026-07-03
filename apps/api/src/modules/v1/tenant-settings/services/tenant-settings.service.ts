@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
@@ -126,8 +120,7 @@ export class TenantSettingsService {
         rewards: {
           ...existingSettings.settings.rewards,
           ...updateDto.rewards,
-          enabled:
-            updateDto.rewards.enabled ?? existingSettings.settings.rewards?.enabled ?? false,
+          enabled: updateDto.rewards.enabled ?? existingSettings.settings.rewards?.enabled ?? false,
           pointsExchangeRate:
             updateDto.rewards.pointsExchangeRate ??
             existingSettings.settings.rewards?.pointsExchangeRate ??
@@ -136,10 +129,8 @@ export class TenantSettingsService {
             updateDto.rewards.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
             'NGN',
-          catalogCountries:
-            updateDto.rewards.catalogCountries ??
-            existingSettings.settings.rewards?.catalogCountries ??
-            ['NG'],
+          catalogCountries: updateDto.rewards.catalogCountries ??
+            existingSettings.settings.rewards?.catalogCountries ?? ['NG'],
           airtimeEnabled:
             updateDto.rewards.airtimeEnabled ??
             existingSettings.settings.rewards?.airtimeEnabled ??
@@ -152,8 +143,7 @@ export class TenantSettingsService {
             updateDto.rewards.giftCardsEnabled ??
             existingSettings.settings.rewards?.giftCardsEnabled ??
             true,
-          giftCardCategories:
-            updateDto.rewards.giftCardCategories ??
+          giftCardCategories: updateDto.rewards.giftCardCategories ??
             existingSettings.settings.rewards?.giftCardCategories ?? [
               'Gift Cards',
               'Gaming Cards',
