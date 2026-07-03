@@ -12,7 +12,7 @@ export function getNombaClientSecret(): string {
 
 /** Parent (main) account — required in the accountId header for auth and all API calls. */
 export function getNombaParentAccountId(): string {
-  return (process.env.NOMBA_PARENT_ACCOUNT_ID || process.env.NOMBA_PARENT_ACCOUNT_ID || '').trim();
+  return (process.env.NOMBA_PARENT_ACCOUNT_ID || process.env.NOMBA_ACCOUNT_ID || '').trim();
 }
 
 /** Sub-account — optional; scopes VA creation, payouts, and checkout to this balance. */

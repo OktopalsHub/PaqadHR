@@ -39,15 +39,15 @@ describe('nomba.config parent/sub accounts', () => {
     process.env = { ...envBackup };
   });
 
-  it('uses NOMBA_PARENT_ACCOUNT_ID as parent when NOMBA_PARENT_ACCOUNT_ID is unset', () => {
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent-id';
+  it('uses NOMBA_ACCOUNT_ID as parent when NOMBA_PARENT_ACCOUNT_ID is unset', () => {
+    process.env.NOMBA_ACCOUNT_ID = 'parent-id';
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
     expect(getNombaParentAccountId()).toBe('parent-id');
   });
 
-  it('prefers NOMBA_PARENT_ACCOUNT_ID over NOMBA_PARENT_ACCOUNT_ID', () => {
+  it('prefers NOMBA_PARENT_ACCOUNT_ID over NOMBA_ACCOUNT_ID', () => {
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'explicit-parent';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'legacy-parent';
+    process.env.NOMBA_ACCOUNT_ID = 'legacy-parent';
     expect(getNombaParentAccountId()).toBe('explicit-parent');
   });
 
