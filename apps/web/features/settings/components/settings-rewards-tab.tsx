@@ -1,6 +1,6 @@
 'use client';
 
-import { Copy, Loader2, Plus, RefreshCw, Save, Sparkles, Trash2, Wallet, X } from 'lucide-react';
+import { Copy, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
@@ -35,7 +35,6 @@ import {
   useCustomRewards,
   useDeleteCustomReward,
   useManualTopupWallet,
-  useProvisionVirtualAccount,
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useWalletTransactions,
@@ -43,6 +42,9 @@ import {
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+
+const WALLET_TOPUP_FAILED =
+  'Top up failed. Check your billing payment method in Settings → Billing and try again.';
 
 const ALL_COUNTRIES = [
   { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
@@ -75,7 +77,9 @@ export function SettingsRewardsTab() {
 
   const manualTopupMutation = useManualTopupWallet();
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
-  const provisionVaMutation = useProvisionVirtualAccount();
+
+  const hasBankDeposit =
+    wallet?.virtualAccountStatus === 'ACTIVE' && Boolean(wallet.virtualAccountNumber);
 
   const rewards = settings?.settings?.rewards;
   const [exchangeRate, setExchangeRate] = useState('10');
@@ -203,7 +207,7 @@ export function SettingsRewardsTab() {
       setIsTopupOpen(false);
       setTopupAmount('');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Manual top-up failed');
+      toast.error(WALLET_TOPUP_FAILED);
     }
   };
 
@@ -259,7 +263,7 @@ export function SettingsRewardsTab() {
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className={hasBankDeposit ? 'grid gap-6 md:grid-cols-2' : 'grid gap-6'}>
             {/* Auto-Topup Configuration */}
             <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
               <div className="flex items-center justify-between">
@@ -337,52 +341,15 @@ export function SettingsRewardsTab() {
               </div>
             </div>
 
-            {/* Manual Bank Funding */}
-            <div className="rounded-2xl border bg-background/50 p-5 flex flex-col justify-between space-y-4">
-              <div className="space-y-1">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Sparkles className="size-4 text-violet-600 dark:text-violet-400" />
-                  Direct Bank Funding
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Alternative: Transfer funds directly to the virtual account below to credit your
-                  wallet instantly
-                </p>
-              </div>
-
-              {wallet?.virtualAccountStatus === 'PROVISIONING' ? (
-                <div className="rounded-xl border border-dashed border-border/80 p-4 flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
-                  Setting up your deposit account…
-                </div>
-              ) : wallet?.virtualAccountStatus === 'FAILED' ? (
-                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
-                  <p className="text-xs text-destructive">
-                    {wallet.virtualAccountError || 'Could not set up virtual account.'}
+            {hasBankDeposit ? (
+              <div className="rounded-2xl border bg-background/50 p-5 flex flex-col justify-between space-y-4">
+                <div className="space-y-1">
+                  <h4 className="text-sm font-semibold text-foreground">Bank transfer</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Transfer to this account to credit your wallet
                   </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={provisionVaMutation.isPending}
-                    onClick={() => {
-                      provisionVaMutation.mutate(undefined, {
-                        onSuccess: () => toast.success('Virtual account setup retried'),
-                        onError: (e) =>
-                          toast.error(e instanceof Error ? e.message : 'Retry failed'),
-                      });
-                    }}
-                  >
-                    {provisionVaMutation.isPending ? (
-                      <>
-                        <Loader2 className="mr-1 size-3 animate-spin" />
-                        Retrying…
-                      </>
-                    ) : (
-                      'Retry setup'
-                    )}
-                  </Button>
                 </div>
-              ) : wallet?.virtualAccountNumber ? (
+
                 <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-muted-foreground font-medium">Bank Name</span>
@@ -411,28 +378,8 @@ export function SettingsRewardsTab() {
                     </div>
                   </div>
                 </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-border/80 p-4 text-center space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Virtual transfer account not yet provisioned.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={provisionVaMutation.isPending}
-                    onClick={() => {
-                      provisionVaMutation.mutate(undefined, {
-                        onSuccess: () => toast.success('Virtual account setup started'),
-                        onError: (e) =>
-                          toast.error(e instanceof Error ? e.message : 'Setup failed'),
-                      });
-                    }}
-                  >
-                    Set up deposit account
-                  </Button>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
 
           {walletTransactions.length > 0 ? (

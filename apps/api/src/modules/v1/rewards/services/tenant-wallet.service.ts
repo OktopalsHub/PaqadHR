@@ -100,9 +100,7 @@ export class TenantWalletService {
     }
 
     if (!this.nombaVirtualAccountApi.isConfigured()) {
-      wallet.virtualAccountStatus = 'FAILED';
-      wallet.virtualAccountError = 'Nomba is not configured';
-      return repo.save(wallet);
+      return wallet;
     }
 
     const name =
@@ -136,11 +134,18 @@ export class TenantWalletService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       wallet.virtualAccountStatus = 'FAILED';
-      wallet.virtualAccountError = message;
+      wallet.virtualAccountError = this.sanitizeProviderError(message);
       await repo.save(wallet);
       this.logger.error(`Failed to provision VA for tenant ${tenantId}: ${message}`);
       throw error;
     }
+  }
+
+  private sanitizeProviderError(message: string): string {
+    if (/not configured|nomba|reloadly/i.test(message)) {
+      return 'Deposit account setup is unavailable.';
+    }
+    return message;
   }
 
   async getWallet(tenantId: string, tenantName?: string): Promise<TenantWallet> {
