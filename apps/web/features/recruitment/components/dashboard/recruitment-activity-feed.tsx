@@ -2,21 +2,12 @@
 
 import { formatDistanceToNow } from 'date-fns';
 import { ContentCard } from '@/components/content-card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import type { ActivityItem } from '../../lib/recruitment-types';
 
 type RecruitmentActivityFeedProps = {
   items: ActivityItem[];
 };
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((part) => part.charAt(0))
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 export function RecruitmentActivityFeed({ items }: RecruitmentActivityFeedProps) {
   return (
@@ -28,11 +19,11 @@ export function RecruitmentActivityFeed({ items }: RecruitmentActivityFeedProps)
       ) : (
         items.map((item) => (
           <div key={item.id} className="flex items-start gap-3">
-            <Avatar className="size-8 shrink-0">
-              <AvatarFallback className="bg-muted text-[10px] font-medium">
-                {initials(item.actor)}
-              </AvatarFallback>
-            </Avatar>
+            <PersonAvatar
+              name={item.actor}
+              className="size-8 shrink-0"
+              fallbackClassName="bg-muted text-[10px] font-medium"
+            />
             <div className="min-w-0 flex-1">
               <p className="text-sm">
                 <span className="font-medium">{item.actor}</span>{' '}

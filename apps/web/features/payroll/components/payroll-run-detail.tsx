@@ -3,8 +3,8 @@
 import { Download, Lock, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -34,7 +34,6 @@ import type {
   PayrollItem,
   PayrollRunDetail as PayrollRunDetailType,
 } from '@/lib/schemas/payroll';
-import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
 const ADJUSTMENT_TYPES = [
@@ -425,10 +424,11 @@ export function PayrollRunDetail({
                 <tr key={item.id} className="border-t">
                   <td className="p-3">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        {employee?.avatar ? <AvatarImage src={employee.avatar} /> : null}
-                        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee?.avatar}
+                        name={name}
+                        className="h-8 w-8 flex-shrink-0"
+                      />
                       <span>{name}</span>
                     </div>
                   </td>
@@ -519,10 +519,11 @@ export function PayrollRunDetail({
                     className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        {employee?.avatar ? <AvatarImage src={employee.avatar} /> : null}
-                        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee?.avatar}
+                        name={name}
+                        className="h-8 w-8 flex-shrink-0"
+                      />
                       <div>
                         <p className="font-medium text-sm">{name}</p>
                         <p className="text-xs text-muted-foreground">

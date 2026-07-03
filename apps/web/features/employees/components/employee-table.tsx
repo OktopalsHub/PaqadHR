@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import {
   Table,
   TableBody,
@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/table';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { canManageMember } from '@/lib/auth/manager-access';
-import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
@@ -61,18 +60,20 @@ export const EmployeeTable = ({ employees, viewerMemberId, viewerRole }: Employe
                       href={tenantHref(`employees/${employee.id}`)}
                       className="flex items-center gap-2 hover:underline"
                     >
-                      <Avatar className="h-8 w-8">
-                        {employee.avatar ? <AvatarImage src={employee.avatar} /> : null}
-                        <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee.avatar}
+                        name={employee.name}
+                        className="h-8 w-8"
+                      />
                       {employee.name}
                     </Link>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        {employee.avatar ? <AvatarImage src={employee.avatar} /> : null}
-                        <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee.avatar}
+                        name={employee.name}
+                        className="h-8 w-8"
+                      />
                       {employee.name}
                     </div>
                   )}

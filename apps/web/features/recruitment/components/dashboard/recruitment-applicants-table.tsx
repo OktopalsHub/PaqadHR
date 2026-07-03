@@ -3,11 +3,10 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ContentCard } from '@/components/content-card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { formatDate } from '@/lib/format-date';
-import { getInitials } from '@/lib/utils';
 import {
   type ApplicantRow,
   filterApplicantsByTab,
@@ -133,13 +132,11 @@ export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableP
                       href={tenantHref(`recruitment/roles/${row.jobOpeningId}`)}
                       className="flex items-center gap-3 hover:text-primary"
                     >
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback
-                          className={`bg-gradient-to-br ${getInitialsColor(row.name)} font-semibold text-xs`}
-                        >
-                          {getInitials(row.name)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        name={row.name}
+                        className="h-8 w-8 flex-shrink-0"
+                        fallbackClassName={`bg-gradient-to-br ${getInitialsColor(row.name)} font-semibold text-xs`}
+                      />
                       <div>
                         <p className="font-medium">{row.name}</p>
                         <p className="text-xs text-muted-foreground">{row.email}</p>

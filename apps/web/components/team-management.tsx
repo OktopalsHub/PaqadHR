@@ -3,7 +3,7 @@
 import { MoreHorizontal, Settings, Target, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { ContentCard } from '@/components/content-card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -105,10 +105,12 @@ export function TeamManagement() {
               <h3 className="mt-2 text-base font-semibold">{team.name}</h3>
 
               <div className="mt-3 flex items-center gap-3">
-                <Avatar className="size-8">
-                  <AvatarImage src={team.lead.avatar} />
-                  <AvatarFallback className="text-xs">{team.lead.initials}</AvatarFallback>
-                </Avatar>
+                <PersonAvatar
+                  src={team.lead.avatar}
+                  name={team.lead.name}
+                  className="size-8"
+                  fallbackClassName="text-xs"
+                />
                 <div>
                   <p className="text-sm font-medium">{team.lead.name}</p>
                   <p className="text-xs text-muted-foreground">Team lead</p>

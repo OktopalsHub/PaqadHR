@@ -6,8 +6,8 @@ import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -40,7 +40,6 @@ import { useEmployees } from '@/hooks/queries/use-employees';
 import { useAddCompensation } from '@/hooks/queries/use-employment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { numberToWords } from '@/lib/number-to-words';
-import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
@@ -165,10 +164,11 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                           href={tenantHref(`employees/${employee.id}`)}
                           className="flex items-center gap-2 hover:underline"
                         >
-                          <Avatar className="h-8 w-8">
-                            {employee.avatar ? <AvatarImage src={employee.avatar} /> : null}
-                            <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                          </Avatar>
+                          <PersonAvatar
+                            src={employee.avatar}
+                            name={employee.name}
+                            className="h-8 w-8"
+                          />
                           <div>
                             <p className="font-medium text-sm">{employee.name}</p>
                             <p className="text-xs text-muted-foreground">{employee.email}</p>

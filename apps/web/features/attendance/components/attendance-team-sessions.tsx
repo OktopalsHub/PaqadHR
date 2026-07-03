@@ -4,7 +4,7 @@ import { Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -25,7 +25,6 @@ import {
 } from '@/features/attendance/lib/attendance-utils';
 import { useTeamAttendanceRecords } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
-import { getInitials } from '@/lib/utils';
 
 function getAttendanceStatusStyles(status: string) {
   const key = status.toUpperCase();
@@ -146,10 +145,11 @@ export function AttendanceTeamSessions() {
                 <TableRow key={record.id}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
-                      <Avatar className="h-7 w-7 flex-shrink-0">
-                        {employee?.avatar ? <AvatarImage src={employee.avatar} /> : null}
-                        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee?.avatar}
+                        name={name}
+                        className="h-7 w-7 flex-shrink-0"
+                      />
                       <span>{name}</span>
                     </div>
                   </TableCell>

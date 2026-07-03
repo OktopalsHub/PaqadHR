@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { canManageMember } from '@/lib/auth/manager-access';
-import { getInitials } from '@/lib/utils';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 
@@ -29,12 +28,7 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
             <Card key={employee.id} className="overflow-hidden hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-10 w-10">
-                    {employee.avatar ? (
-                      <AvatarImage src={employee.avatar} alt={employee.name} />
-                    ) : null}
-                    <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                  </Avatar>
+                  <PersonAvatar src={employee.avatar} name={employee.name} className="h-10 w-10" />
                   <div>
                     <CardTitle className="text-base">{employee.name}</CardTitle>
                     <div className="flex items-center gap-1.5 mt-0.5">

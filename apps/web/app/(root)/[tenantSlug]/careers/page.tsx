@@ -17,6 +17,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { OrgAvatar } from '@/components/org-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -435,18 +436,7 @@ export default function PublicCareersPage() {
       <header className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-3">
-            {tenant.logoUrl ? (
-              // biome-ignore lint/performance/noImgElement: external tenant logo URL
-              <img
-                src={tenant.logoUrl}
-                alt={tenant.name}
-                className="h-9 w-9 rounded-lg object-contain bg-white p-0.5 border"
-              />
-            ) : (
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary font-bold border border-primary/20">
-                {tenant.name.substring(0, 2).toUpperCase()}
-              </div>
-            )}
+            <OrgAvatar src={tenant.logoUrl} name={tenant.name} className="h-9 w-9" />
             <span className="font-bold text-lg tracking-tight">{tenant.name}</span>
           </div>
 

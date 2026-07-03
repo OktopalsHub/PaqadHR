@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Button } from '@/components/ui/button';
 import {
   Table,
@@ -19,7 +19,6 @@ import {
 } from '@/hooks/queries/use-leaves';
 import { canApproveLeaveRequest } from '@/lib/auth/manager-access';
 import type { LeaveRequest } from '@/lib/schemas/leave';
-import { getInitials } from '@/lib/utils';
 import { LeaveStatusBadge } from './leave-status-badge';
 
 interface LeaveRequestsTableProps {
@@ -90,10 +89,11 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
             <TableRow key={request.id}>
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 flex-shrink-0">
-                    {requester?.avatar ? <AvatarImage src={requester.avatar} /> : null}
-                    <AvatarFallback>{getInitials(request.employee)}</AvatarFallback>
-                  </Avatar>
+                  <PersonAvatar
+                    src={requester?.avatar}
+                    name={request.employee}
+                    className="h-8 w-8 flex-shrink-0"
+                  />
                   <span>{request.employee}</span>
                 </div>
               </TableCell>

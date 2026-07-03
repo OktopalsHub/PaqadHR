@@ -1,7 +1,8 @@
 'use client';
 
-import { Building2, Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { OrgAvatar } from '@/components/org-avatar';
 import { Button } from '@/components/ui/button';
 import { IMAGE_ACCEPT, isAcceptedImageFile } from '@/lib/api/files';
 import { cn } from '@/lib/utils';
@@ -58,18 +59,12 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
 
   return (
     <div className="flex items-center gap-4">
-      <div
-        className={cn(
-          'relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40',
-        )}
-      >
-        {displaySrc ? (
-          // biome-ignore lint/performance/noImgElement: blob preview URL from file input
-          <img src={displaySrc} alt={`${name} logo`} className="size-full object-cover" />
-        ) : (
-          <Building2 className="size-8 text-muted-foreground" aria-hidden />
-        )}
-      </div>
+      <OrgAvatar
+        src={displaySrc}
+        name={name || 'Workspace'}
+        className={cn('size-20 rounded-xl')}
+        iconFallback={!displaySrc}
+      />
 
       <div className="space-y-2">
         <p className="text-2xl font-semibold">{name || 'Workspace'}</p>

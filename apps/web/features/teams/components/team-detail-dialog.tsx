@@ -1,5 +1,5 @@
 import { DollarSign, Target, TrendingUp, Users } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -155,10 +155,7 @@ export function TeamDetailDialog({ open, onOpenChange, team }: TeamDetailDialogP
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage src={member.avatar} />
-                          <AvatarFallback>{member.initials}</AvatarFallback>
-                        </Avatar>
+                        <PersonAvatar src={member.avatar} name={member.name} />
                         <div>
                           <p className="font-medium">{member.name}</p>
                           <p className="text-sm text-muted-foreground">{member.role}</p>

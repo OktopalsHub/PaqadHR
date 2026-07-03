@@ -2,6 +2,8 @@
 
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { OrgAvatar } from '@/components/org-avatar';
+import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,35 +15,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CreateWorkspaceDialog } from '@/features/navigations/components/create-workspace-dialog';
-import { useBrandMode } from '@/hooks/use-brand-mode';
-import { brandAssetUrl } from '@/lib/brand';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
 function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
-  const mode = useBrandMode();
-
   if (logoUrl) {
-    return (
-      // biome-ignore lint/performance/noImgElement: external workspace logo URL
-      <img src={logoUrl} alt="" className="size-8 shrink-0 rounded-lg object-cover" />
-    );
+    return <OrgAvatar src={logoUrl} name={name || 'Workspace'} />;
   }
 
   if (!name?.trim()) {
-    return (
-      // biome-ignore lint/performance/noImgElement: hosted brand asset on paqadhr.com
-      <img src={brandAssetUrl('icon', mode)} alt="" className="size-8 shrink-0 object-contain" />
-    );
+    return <PaqadLogo showWordmark={false} className="size-8" />;
   }
 
-  const letter = name.trim()[0]?.toUpperCase() ?? 'P';
-  return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-      {letter}
-    </span>
-  );
+  return <OrgAvatar name={name} />;
 }
 
 export const WorkspaceSwitcher = () => {

@@ -3,7 +3,7 @@
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -208,15 +208,12 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                   {unmatchedUsers.map((user) => (
                     <TableRow key={user.platformUserId}>
                       <TableCell className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarImage
-                            src={user.platformAvatarUrl}
-                            alt={user.platformDisplayName || 'Slack User'}
-                          />
-                          <AvatarFallback className="text-xs">
-                            {(user.platformDisplayName || 'U').substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <PersonAvatar
+                          src={user.platformAvatarUrl}
+                          name={user.platformDisplayName || user.platformUsername || 'Slack user'}
+                          className="size-8"
+                          fallbackClassName="text-xs"
+                        />
                         <div>
                           <p className="text-sm font-medium leading-none">
                             {user.platformDisplayName || user.platformUsername}

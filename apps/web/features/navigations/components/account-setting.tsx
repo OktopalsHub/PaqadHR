@@ -2,7 +2,7 @@
 
 import { Building2, CreditCard, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { settingsTabHref } from '@/features/settings/lib/settings-tabs';
-import {
-  memberFullName,
-  memberInitials,
-  useMemberProfile,
-} from '@/hooks/queries/use-member-profile';
+import { memberFullName, useMemberProfile } from '@/hooks/queries/use-member-profile';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { useTenant } from '@/providers/tenant-provider';
@@ -31,7 +27,6 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
   const settingsBase = tenantHref('settings');
 
   const name = memberFullName(profile, user?.name);
-  const initials = memberInitials(profile, user?.name);
   const position = profile?.position?.title?.trim();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
@@ -43,12 +38,12 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
           type="button"
           className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1 outline-none transition-colors hover:bg-muted/60"
         >
-          <Avatar className="size-8 shrink-0">
-            <AvatarImage src={profile?.avatarUrl ?? undefined} alt={name} />
-            <AvatarFallback className="bg-muted text-xs font-medium text-foreground">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <PersonAvatar
+            src={profile?.avatarUrl}
+            name={name}
+            className="size-8"
+            fallbackClassName="bg-muted text-xs font-medium text-foreground"
+          />
           <div className="hidden min-w-0 max-w-[140px] text-left lg:block">
             <p className="truncate text-sm font-semibold leading-tight">{name}</p>
             {position ? (
@@ -60,10 +55,7 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
       <DropdownMenuContent className="min-w-64 rounded-xl p-1" align="end" sideOffset={4}>
         <DropdownMenuLabel className="px-2 py-2 font-normal">
           <div className="flex items-center gap-3">
-            <Avatar className="size-10 shrink-0">
-              <AvatarImage src={profile?.avatarUrl ?? undefined} alt={name} />
-              <AvatarFallback className="text-sm font-medium">{initials}</AvatarFallback>
-            </Avatar>
+            <PersonAvatar src={profile?.avatarUrl} name={name} className="size-10" />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{name}</p>
               <p className="truncate text-xs text-muted-foreground">{user?.email}</p>

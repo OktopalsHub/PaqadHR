@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +22,6 @@ import { useEmployees } from '@/hooks/queries/use-employees';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { MonthlyTimesheetMember } from '@/lib/api/attendance';
 import type { TenantSettingsResponse } from '@/lib/api/tenant-settings';
-import { getInitials } from '@/lib/utils';
 
 function MonthYearPicker({
   month,
@@ -102,10 +101,7 @@ function MemberSummaryRow({
               {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
             </Button>
             <div className="flex items-center gap-2">
-              <Avatar className="h-7 w-7 flex-shrink-0">
-                {avatar ? <AvatarImage src={avatar} /> : null}
-                <AvatarFallback>{getInitials(name)}</AvatarFallback>
-              </Avatar>
+              <PersonAvatar src={avatar} name={name} className="h-7 w-7 flex-shrink-0" />
               <span className="font-medium">{name}</span>
             </div>
           </div>

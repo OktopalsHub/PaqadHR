@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <div className="grid min-h-screen lg:grid-cols-2">
         <div className="hidden flex-col justify-between border-r border-border bg-background p-12 lg:flex">
           <Link href="/" aria-label="Paqad home">
-            <PaqadLogo showWordmark={false} className="size-10" />
+            <PaqadLogo className="h-9 w-auto" />
           </Link>
           <div>
             <h1 className="text-3xl font-semibold tracking-[-0.02em]">
@@ -24,7 +24,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <div className="flex flex-col justify-center px-6 py-12 sm:px-12">
           <div className="mx-auto mb-8 w-full max-w-md lg:hidden">
             <Link href="/" aria-label="Paqad home" className="inline-flex">
-              <PaqadLogo showWordmark={false} className="size-9" />
+              <PaqadLogo className="h-8 w-auto" />
             </Link>
           </div>
           <div className="mx-auto w-full max-w-md">{children}</div>
