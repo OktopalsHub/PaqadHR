@@ -65,7 +65,7 @@ export class NombaBillApiService {
     return isNombaConfigured();
   }
 
-  private async request<T>(path: string, body: Record<string, any>): Promise<T> {
+  private async request<T>(path: string, body: Record<string, unknown>): Promise<T> {
     if (!this.isConfigured()) {
       throw new BadRequestException('Nomba billing api is not configured');
     }

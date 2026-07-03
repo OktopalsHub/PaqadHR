@@ -5,6 +5,8 @@ import {
   getNombaBaseUrl,
   getNombaClientId,
   getNombaClientSecret,
+  getNombaScopedAccountId,
+  getNombaSubAccountId,
   isNombaConfigured,
 } from '../config/nomba.config';
 import { formatNombaAmount } from '../utils/per-seat-pricing.util';
@@ -84,7 +86,10 @@ export class NombaApiService {
 
     const response = await fetch(`${getNombaBaseUrl()}/v1/auth/token/issue`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        accountId: getNombaAccountId(),
+      },
       body: JSON.stringify({
         grant_type: 'client_credentials',
         client_id: getNombaClientId(),
@@ -95,7 +100,7 @@ export class NombaApiService {
     const payload = (await response.json()) as NombaTokenResponse;
     const token = payload.data?.access_token;
     if (!response.ok || !token) {
-      throw new BadRequestException('Failed to authenticate with Nomba');
+      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
     }
 
     const ttl = (payload.data?.expires_in ?? 3600) * 1000;
@@ -166,7 +171,7 @@ export class NombaApiService {
           amount: formatNombaAmount(input.amount),
           currency: input.currency.toUpperCase(),
           callbackUrl: input.callbackUrl,
-          accountId: getNombaAccountId(),
+          accountId: getNombaScopedAccountId(),
           orderMetaData: stringifyOrderMeta(input.meta),
         },
       },
@@ -175,6 +180,14 @@ export class NombaApiService {
     return {
       orderReference: payload.data?.orderReference || input.orderReference,
     };
+  }
+
+  private singleTransactionPath(reference: string): string {
+    const subAccountId = getNombaSubAccountId();
+    const query = `transactionRef=${encodeURIComponent(reference)}`;
+    return subAccountId
+      ? `/v1/transactions/accounts/${encodeURIComponent(subAccountId)}/single?${query}`
+      : `/v1/transactions/accounts/single?${query}`;
   }
 
   async verifyTransaction(reference: string): Promise<NombaVerifyResponse['data'] | null> {
@@ -187,15 +200,12 @@ export class NombaApiService {
 
     try {
       const token = await this.getAccessToken();
-      const response = await fetch(
-        `${getNombaBaseUrl()}/v1/transactions/accounts/single?transactionRef=${encodeURIComponent(reference)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            accountId: getNombaAccountId(),
-          },
+      const response = await fetch(`${getNombaBaseUrl()}${this.singleTransactionPath(reference)}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accountId: getNombaAccountId(),
         },
-      );
+      });
 
       const payload = (await response.json()) as NombaVerifyResponse;
       if (!response.ok) {

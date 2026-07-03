@@ -11,6 +11,7 @@ import { Between, type FindOptionsWhere, In, LessThan } from 'typeorm';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
 import { LeaveService } from '../leave/leave.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import type { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
 import type { ClockInDto } from './dto/clock-in.dto';
@@ -719,7 +720,7 @@ export class AttendanceService {
       const startOfMonth = new Date(year, month - 1, 1);
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
       const daysInMonth = endOfMonth.getDate();
-      let tenantSettings;
+      let tenantSettings: TenantSettings;
       try {
         tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
         if (!tenantSettings.settings.attendance) {
@@ -735,7 +736,7 @@ export class AttendanceService {
               weekends: [0, 6],
             },
           },
-        };
+        } as TenantSettings;
       }
       const membersAttendance: unknown[] = [];
       for (const member of members.records) {

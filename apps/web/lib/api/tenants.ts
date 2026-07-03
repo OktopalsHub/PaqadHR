@@ -1,8 +1,9 @@
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { formatWorkspaceName } from '@/lib/format-name';
+import { getTenantSlugFromPath } from '@/lib/navigation/tenant-routes';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { paginatedTenantsSchema } from '@/lib/schemas/tenant';
-import { persistTenantId, readTenantId } from '@/lib/session';
+import { persistTenantId, readTenantId, readTenantSlug } from '@/lib/session';
 
 export interface CreateTenantInput {
   name: string;
@@ -41,10 +42,25 @@ export async function fetchUserTenants() {
 }
 
 export async function resolveTenantId(): Promise<string> {
-  const stored = readTenantId();
-  if (stored) return stored;
+  const slug =
+    (typeof window !== 'undefined' ? getTenantSlugFromPath(window.location.pathname) : null) ??
+    readTenantSlug();
 
   const tenants = await fetchUserTenants();
+
+  if (slug) {
+    const fromSlug = tenants.find((t) => t.slug === slug);
+    if (fromSlug) {
+      persistTenantId(fromSlug.id);
+      return fromSlug.id;
+    }
+  }
+
+  const stored = readTenantId();
+  if (stored && tenants.some((t) => t.id === stored)) {
+    return stored;
+  }
+
   const active = tenants.find((t) => t.isActive) ?? tenants[0];
 
   if (!active) {

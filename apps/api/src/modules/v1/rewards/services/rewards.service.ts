@@ -16,6 +16,7 @@ import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-p
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
@@ -29,6 +30,7 @@ import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
 
@@ -219,7 +221,7 @@ export class RewardsService {
 
     return {
       enabled: rewards?.enabled ?? true,
-      pointsExchangeRate: rewards?.pointsExchangeRate ?? 10,
+      pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
       rewardsCurrency: rewards?.rewardsCurrency ?? 'NGN',
       catalogCountries: rewards?.catalogCountries ?? ['NG'],
       airtimeEnabled: rewards?.airtimeEnabled ?? true,
@@ -235,7 +237,7 @@ export class RewardsService {
     };
   }
 
-  async getReloadlyCountries(tenantId: string): Promise<any[]> {
+  async getReloadlyCountries(tenantId: string): Promise<Array<{ code: string; name: string }>> {
     if (!this.reloadlyApi.isConfigured()) {
       return [
         { code: 'NG', name: 'Nigeria' },
@@ -249,15 +251,24 @@ export class RewardsService {
     }
     const countries = await this.reloadlyApi.listCountries();
     return countries.map((c) => ({
-      code: c.code || c.countryCode,
-      name: c.name || c.countryName || c.code,
+      code: c.code || c.countryCode || '',
+      name: c.name || c.countryName || c.code || c.countryCode || '',
     }));
   }
 
   async getCatalog(tenantId: string): Promise<CatalogItem[]> {
-    const settings = await this.getRewardsSettings(tenantId);
+    let settings = await this.getRewardsSettings(tenantId);
     if (!settings.enabled) {
       return [];
+    }
+
+    if (
+      (settings.reloadlyProducts ?? []).length === 0 &&
+      this.reloadlyApi.isConfigured() &&
+      settings.catalogCountries.length > 0
+    ) {
+      await this.syncReloadlyProducts(tenantId);
+      settings = await this.getRewardsSettings(tenantId);
     }
 
     const exchangeRate = settings.pointsExchangeRate;
@@ -315,49 +326,96 @@ export class RewardsService {
     return catalog;
   }
 
-  async getAvailableReloadlyProducts(tenantId: string): Promise<any[]> {
+  async syncReloadlyProducts(
+    tenantId: string,
+    options?: { force?: boolean },
+  ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
+    const repo = this.dataSource.getRepository(TenantSettings);
+    const row = await repo.findOne({ where: { tenantId } });
+    if (!row) {
+      return [];
+    }
+
+    const existing = row.settings?.rewards?.reloadlyProducts ?? [];
+    if (!options?.force && existing.length > 0) {
+      return existing;
+    }
+
+    const settings = await this.getRewardsSettings(tenantId);
+    if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
+      return existing;
+    }
+
+    const products = await this.buildReloadlyProductRecords(tenantId, settings);
+    row.settings = {
+      ...row.settings,
+      rewards: {
+        ...settings,
+        reloadlyProducts: products,
+      },
+    };
+    await repo.save(row);
+    this.logger.log(`Synced ${products.length} Reloadly products for tenant ${tenantId}`);
+    return products;
+  }
+
+  private async buildReloadlyProductRecords(
+    tenantId: string,
+    settings: RewardsSettings,
+  ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
+    const products = await this.reloadlyApi.listProductsByCountries(settings.catalogCountries);
+    const { feePercentage, flatFee } = await this.getSubscriptionFees(
+      tenantId,
+      settings.rewardsCurrency,
+    );
+    const exchangeRate = settings.pointsExchangeRate;
+
+    const records = await Promise.all(
+      products.map(async (p) => {
+        const currencyValue = p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
+        const convertedValue = await this.toWalletCurrency(
+          currencyValue,
+          p.recipientCurrencyCode,
+          settings.rewardsCurrency,
+          undefined,
+          p.countryCode,
+        );
+        const chargedValue = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+        const pointsCost = Math.ceil(chargedValue * exchangeRate);
+
+        return {
+          productId: p.productId,
+          name: p.productName,
+          countryCode: p.countryCode,
+          currencyCode: p.recipientCurrencyCode,
+          imageUrl: p.logoUrls?.[0] ?? null,
+          minDenomination: p.minRecipientDenomination ?? null,
+          maxDenomination: p.maxRecipientDenomination ?? null,
+          fixedDenominations: p.fixedRecipientDenominations ?? [],
+          pointsCost,
+        };
+      }),
+    );
+
+    return records;
+  }
+
+  async getAvailableReloadlyProducts(
+    tenantId: string,
+  ): Promise<
+    Array<NonNullable<RewardsSettings['reloadlyProducts']>[number] & { defaultPointsCost: number }>
+  > {
     const settings = await this.getRewardsSettings(tenantId);
     if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
       return [];
     }
 
     try {
-      const products = await this.reloadlyApi.listProductsByCountries(settings.catalogCountries);
-      const { feePercentage, flatFee } = await this.getSubscriptionFees(
-        tenantId,
-        settings.rewardsCurrency,
-      );
-      const exchangeRate = settings.pointsExchangeRate;
-
-      return Promise.all(
-        products.map(async (p) => {
-          const currencyValue =
-            p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
-          const convertedValue = await this.toWalletCurrency(
-            currencyValue,
-            p.recipientCurrencyCode,
-            settings.rewardsCurrency,
-            undefined,
-            p.countryCode,
-          );
-
-          const markupFactor = 1 + feePercentage / 100;
-          const chargedValue = convertedValue * markupFactor + flatFee;
-          const defaultPointsCost = Math.ceil(chargedValue * exchangeRate);
-
-          return {
-            productId: p.productId,
-            name: p.productName,
-            countryCode: p.countryCode,
-            currencyCode: p.recipientCurrencyCode,
-            imageUrl: p.logoUrls?.[0] ?? null,
-            minDenomination: p.minRecipientDenomination ?? null,
-            maxDenomination: p.maxRecipientDenomination ?? null,
-            fixedDenominations: p.fixedRecipientDenominations ?? [],
-            defaultPointsCost,
-          };
-        }),
-      );
+      const records = await this.buildReloadlyProductRecords(tenantId, settings);
+      return records.map((p) => ({
+        ...p,
+        defaultPointsCost: p.pointsCost,
+      }));
     } catch (error) {
       this.logger.warn(
         `Failed to fetch raw Reloadly catalog: ${error instanceof Error ? error.message : error}`,
@@ -436,8 +494,7 @@ export class RewardsService {
       faceValueInRewardsCurrency = expectedConvertedValue;
       totalTenantDebit = expectedConvertedValue;
       if (input.rewardType !== 'CUSTOM') {
-        const markupFactor = 1 + feePercentage / 100;
-        totalTenantDebit = expectedConvertedValue * markupFactor + flatFee;
+        totalTenantDebit = computeRedemptionDebit(expectedConvertedValue, feePercentage, flatFee);
       }
       expectedPointsCost =
         input.rewardType === 'CUSTOM' ? pointsCost : Math.ceil(totalTenantDebit * exchangeRate);
@@ -809,8 +866,7 @@ export class RewardsService {
       tenantId,
       settings.rewardsCurrency,
     );
-    const markupFactor = 1 + feePercentage / 100;
-    const totalTenantDebit = convertedValue * markupFactor + flatFee;
+    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
 
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
@@ -859,8 +915,7 @@ export class RewardsService {
       tenantId,
       settings.rewardsCurrency,
     );
-    const markupFactor = 1 + feePercentage / 100;
-    const totalTenantDebit = convertedValue * markupFactor + flatFee;
+    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
 
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
@@ -1479,8 +1534,7 @@ export class RewardsService {
       tenantId,
       settings.rewardsCurrency,
     );
-    const markupFactor = 1 + feePercentage / 100;
-    const totalTenantDebit = amount * markupFactor + flatFee;
+    const totalTenantDebit = computeRedemptionDebit(amount, feePercentage, flatFee);
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
     return {

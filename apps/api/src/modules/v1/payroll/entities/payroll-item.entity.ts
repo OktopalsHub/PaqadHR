@@ -134,5 +134,5 @@ export class PayrollItem extends BaseEntity {
     nullable: true,
     comment: 'Additional item metadata',
   })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
 }

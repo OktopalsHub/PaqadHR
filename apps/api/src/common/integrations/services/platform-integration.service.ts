@@ -6,6 +6,7 @@ import { In } from 'typeorm';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import { PlatformUser } from '../entities/platform-user.entity';
 import type {
   IntegrationConfig,
   PlatformUserData,
@@ -318,7 +319,7 @@ export class PlatformIntegrationService {
     userIds?: string[],
     sendWelcomeEmail: boolean = true,
   ) {
-    let usersToInvite;
+    let usersToInvite: PlatformUser[];
     if (userIds && userIds.length > 0) {
       const unmatchedUsers = await this.userSyncService.getUnmatchedUsers(integrationId);
       usersToInvite = unmatchedUsers.filter((user) => userIds.includes(user.platformUserId));

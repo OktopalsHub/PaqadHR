@@ -33,7 +33,7 @@ export class Notification extends BaseEntity {
   @Column('text')
   message: string;
   @Column('jsonb', { nullable: true })
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   @Column('jsonb', { nullable: true })
   actionData: {
     url?: string;
@@ -53,7 +53,7 @@ export class Notification extends BaseEntity {
   @Column({ nullable: true })
   emailTemplate: string;
   @Column('jsonb', { nullable: true })
-  emailContext: Record<string, any>;
+  emailContext: Record<string, unknown>;
   @Column({ nullable: true })
   emailSubject: string;
   @Column({ type: 'timestamp', nullable: true })

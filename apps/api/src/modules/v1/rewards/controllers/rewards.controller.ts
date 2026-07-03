@@ -45,6 +45,15 @@ export class RewardsController {
     return this.rewardsService.getCatalog(tenantId);
   }
 
+  @Post('catalog/sync')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Force sync Reloadly gift catalog into tenant settings' })
+  async syncCatalog(@Param('tenantId') tenantId: string) {
+    const products = await this.rewardsService.syncReloadlyProducts(tenantId, { force: true });
+    return { synced: products.length, products };
+  }
+
   @Get('countries')
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)

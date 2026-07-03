@@ -10,8 +10,28 @@ export function getNombaClientSecret(): string {
   return (process.env.NOMBA_CLIENT_SECRET || '').trim();
 }
 
+/** Parent (main) account — required in the accountId header for auth and all API calls. */
+export function getNombaParentAccountId(): string {
+  return (process.env.NOMBA_PARENT_ACCOUNT_ID || process.env.NOMBA_ACCOUNT_ID || '').trim();
+}
+
+/** Sub-account — optional; scopes VA creation, payouts, and checkout to this balance. */
+export function getNombaSubAccountId(): string {
+  return (process.env.NOMBA_SUB_ACCOUNT_ID || '').trim();
+}
+
+/** Parent accountId for Nomba auth headers (alias kept for existing call sites). */
 export function getNombaAccountId(): string {
-  return (process.env.NOMBA_ACCOUNT_ID || '').trim();
+  return getNombaParentAccountId();
+}
+
+/** Account Nomba should debit/credit for money movement (sub-account when configured). */
+export function getNombaScopedAccountId(): string {
+  return getNombaSubAccountId() || getNombaParentAccountId();
+}
+
+export function hasNombaSubAccount(): boolean {
+  return !!getNombaSubAccountId();
 }
 
 export function getNombaWebhookSecret(): string {
@@ -43,5 +63,5 @@ export function formatNombaSenderName(tenantName?: string | null): string {
 }
 
 export function isNombaConfigured(): boolean {
-  return !!(getNombaClientId() && getNombaClientSecret() && getNombaAccountId());
+  return !!(getNombaClientId() && getNombaClientSecret() && getNombaParentAccountId());
 }

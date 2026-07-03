@@ -117,7 +117,7 @@ export class CreatePaymentMethodDto {
   })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 export class UpdatePaymentMethodDto {
   @ApiProperty({
@@ -203,7 +203,7 @@ export class UpdatePaymentMethodDto {
   })
   @IsOptional()
   @IsObject()
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 export class PasscodeChangeDto {
   @ApiProperty({

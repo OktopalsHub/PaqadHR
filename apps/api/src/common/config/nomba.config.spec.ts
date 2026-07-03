@@ -1,6 +1,8 @@
 import {
   defaultPayrollCurrency,
+  getNombaParentAccountId,
   getNombaPayoutCurrencies,
+  getNombaScopedAccountId,
   isNombaGlobalPayoutEnabled,
 } from './nomba.config';
 
@@ -27,5 +29,31 @@ describe('nomba.config payout currencies', () => {
     expect(isNombaGlobalPayoutEnabled()).toBe(true);
     expect(getNombaPayoutCurrencies()).toEqual(['NGN', 'USD', 'EUR', 'GBP']);
     expect(defaultPayrollCurrency()).toBe('USD');
+  });
+});
+
+describe('nomba.config parent/sub accounts', () => {
+  const envBackup = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...envBackup };
+  });
+
+  it('uses NOMBA_ACCOUNT_ID as parent when NOMBA_PARENT_ACCOUNT_ID is unset', () => {
+    process.env.NOMBA_ACCOUNT_ID = 'parent-id';
+    delete process.env.NOMBA_PARENT_ACCOUNT_ID;
+    expect(getNombaParentAccountId()).toBe('parent-id');
+  });
+
+  it('prefers NOMBA_PARENT_ACCOUNT_ID over NOMBA_ACCOUNT_ID', () => {
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'explicit-parent';
+    process.env.NOMBA_ACCOUNT_ID = 'legacy-parent';
+    expect(getNombaParentAccountId()).toBe('explicit-parent');
+  });
+
+  it('scopes money movement to sub-account when configured', () => {
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent-id';
+    process.env.NOMBA_SUB_ACCOUNT_ID = 'sub-id';
+    expect(getNombaScopedAccountId()).toBe('sub-id');
   });
 });

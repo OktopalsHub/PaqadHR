@@ -17,11 +17,6 @@ import { RateLimitModule } from './common/modules/rate-limit.module';
 import { AuditLogsService } from './common/services/audit-logs.service';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
-import { AssetsModule } from './modules/v1/assets/assets.module';
-import { AssetAssignmentModule } from './modules/v1/assets/assignment/asset-assignment.module';
-import { AssetCategoryModule } from './modules/v1/assets/category/asset-category.module';
-import { AssetDocumentModule } from './modules/v1/assets/document/asset-document.module';
-import { AssetMaintenanceModule } from './modules/v1/assets/maintenance/asset-maintenance.module';
 import { AttendanceModule } from './modules/v1/attendance/attendance.module';
 import { AuthModule } from './modules/v1/auth/auth.module';
 import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
@@ -71,11 +66,6 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     LeaveTypeModule,
     LeaveModule,
     LeaveBalanceModule,
-    AssetsModule,
-    AssetAssignmentModule,
-    AssetMaintenanceModule,
-    AssetCategoryModule,
-    AssetDocumentModule,
     DepartmentsModule,
     PositionModule,
     EmploymentModule,

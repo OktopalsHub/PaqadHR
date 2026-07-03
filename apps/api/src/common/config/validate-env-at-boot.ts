@@ -43,9 +43,11 @@ export function validateEnvAtBoot(): void {
     const nombaOk =
       process.env.NOMBA_CLIENT_ID?.trim() &&
       process.env.NOMBA_CLIENT_SECRET?.trim() &&
-      process.env.NOMBA_ACCOUNT_ID?.trim();
+      (process.env.NOMBA_PARENT_ACCOUNT_ID?.trim() || process.env.NOMBA_ACCOUNT_ID?.trim());
     if (!nombaOk) {
-      warnings.push('Nomba billing is not fully configured (NOMBA_CLIENT_ID/SECRET/ACCOUNT_ID)');
+      warnings.push(
+        'Nomba billing is not fully configured (NOMBA_CLIENT_ID/SECRET/PARENT_ACCOUNT_ID)',
+      );
     }
     if (!process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim()) {
       warnings.push(

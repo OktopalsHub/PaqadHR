@@ -1,5 +1,6 @@
 import {
   WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
 import { TenantWalletService } from './tenant-wallet.service';
@@ -78,7 +79,8 @@ describe('TenantWalletService', () => {
 
     const subscriptionsService = {
       getTenantSubscription: jest.fn().mockResolvedValue({
-        paymentMethodId: overrides?.paymentMethodId ?? 'tok-1',
+        paymentMethodId:
+          overrides?.paymentMethodId !== undefined ? overrides.paymentMethodId : 'tok-1',
       }),
     };
 
@@ -163,6 +165,15 @@ describe('TenantWalletService', () => {
   });
 
   describe('manualTopup', () => {
+    it('throws billing card message when subscription has no tokenized card', async () => {
+      const { service, nombaApi, emailService } = createService({ paymentMethodId: null });
+
+      await expect(service.manualTopup(tenantId, 5000)).rejects.toThrow(WALLET_NO_BILLING_CARD);
+
+      expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
+    });
+
     it('throws admin message when verification fails', async () => {
       const { service, txRepo, emailService } = createService({
         nombaVerify: jest.fn().mockResolvedValue({ status: 'failed', amount: 5000 }),

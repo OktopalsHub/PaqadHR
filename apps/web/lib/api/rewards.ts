@@ -108,6 +108,13 @@ export interface ClaimInput {
   serviceType?: string;
 }
 
+export async function syncRewardsCatalog(): Promise<{ synced: number }> {
+  const tenantId = await resolveTenantId();
+  return apiClient<{ synced: number }>(tenantPath(tenantId, 'rewards/catalog/sync'), {
+    method: 'POST',
+  });
+}
+
 export async function fetchRewardsCatalog(): Promise<CatalogItem[]> {
   const tenantId = await resolveTenantId();
   return apiClient<CatalogItem[]>(tenantPath(tenantId, 'rewards/catalog'));
@@ -260,8 +267,7 @@ export async function calculatePointsCost(params: {
   return apiClient(tenantPath(tenantId, `rewards/calculate-points?${query.toString()}`));
 }
 
-export async function manualTopupWallet(amount: number): Promise<TenantWallet> {
-  const tenantId = await resolveTenantId();
+export async function manualTopupWallet(tenantId: string, amount: number): Promise<TenantWallet> {
   return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/topup'), {
     method: 'POST',
     body: JSON.stringify({ amount }),

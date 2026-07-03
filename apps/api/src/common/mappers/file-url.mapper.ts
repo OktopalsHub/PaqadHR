@@ -43,15 +43,6 @@ export class FileUrlMapper {
     });
   }
 
-  static mapAssetDocument(fileName: string | null, options: FileUrlMappingOptions): string | null {
-    if (!fileName) return null;
-    return options.fileUrlService.generateFileUrl({
-      tenantId: options.tenantId,
-      location: FileUploadLocation.ASSETS,
-      fileName,
-    });
-  }
-
   static mapFileByLocation(
     fileName: string | null,
     location: FileUploadLocation,

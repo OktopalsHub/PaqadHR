@@ -18,7 +18,7 @@ process.env.GOOGLE_CALLBACK_URL ??= 'http://localhost:9001/api/v1/auth/google/ca
 // Clear billing credentials to keep sandbox isolated
 process.env.NOMBA_CLIENT_ID = '';
 process.env.NOMBA_CLIENT_SECRET = '';
-process.env.NOMBA_ACCOUNT_ID = '';
+process.env.NOMBA_PARENT_ACCOUNT_ID = '';
 
 import { DataSource } from 'typeorm';
 

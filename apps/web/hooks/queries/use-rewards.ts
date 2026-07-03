@@ -182,8 +182,12 @@ export function useDeleteCustomReward() {
 
 export function useManualTopupWallet() {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   return useMutation({
-    mutationFn: (amount: number) => manualTopupWallet(amount),
+    mutationFn: (amount: number) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return manualTopupWallet(tenantId, amount);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
     },

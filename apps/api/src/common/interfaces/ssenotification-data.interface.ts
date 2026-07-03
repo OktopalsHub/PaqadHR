@@ -5,7 +5,7 @@ export interface SSENotificationData {
   message: string;
   tenantId?: string;
   recipientId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   actionData?: {
     url?: string;
     buttonText?: string;

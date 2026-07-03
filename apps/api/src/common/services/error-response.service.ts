@@ -330,7 +330,7 @@ export class ErrorResponseService {
     };
     return genericMessages[status] || 'An error occurred. Please try again.';
   }
-  private sanitizeContext(context: ErrorContext, status: HttpStatus): Record<string, any> {
+  private sanitizeContext(context: ErrorContext, status: HttpStatus): Record<string, unknown> {
     if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
       return {
         ...context,

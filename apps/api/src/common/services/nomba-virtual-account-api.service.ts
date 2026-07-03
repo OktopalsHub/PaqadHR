@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { getNombaAccountId, getNombaBaseUrl, isNombaConfigured } from '../config/nomba.config';
+import {
+  getNombaAccountId,
+  getNombaBaseUrl,
+  getNombaSubAccountId,
+  isNombaConfigured,
+} from '../config/nomba.config';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
 
 export interface NombaVirtualAccountResult {
@@ -53,6 +58,13 @@ export class NombaVirtualAccountApiService {
     }
   }
 
+  private virtualAccountCreatePath(): string {
+    const subAccountId = getNombaSubAccountId();
+    return subAccountId
+      ? `/v1/accounts/virtual/${encodeURIComponent(subAccountId)}`
+      : '/v1/accounts/virtual';
+  }
+
   async fetchVirtualAccount(identifier: string): Promise<NombaVirtualAccountResult> {
     if (!this.isConfigured()) {
       throw new BadRequestException('Nomba is not configured');
@@ -85,7 +97,7 @@ export class NombaVirtualAccountApiService {
     currency: 'NGN';
   }): Promise<NombaVirtualAccountResult> {
     const token = await this.nombaTransferApi.getAccessToken();
-    const response = await fetch(`${getNombaBaseUrl()}/v1/accounts/virtual`, {
+    const response = await fetch(`${getNombaBaseUrl()}${this.virtualAccountCreatePath()}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
