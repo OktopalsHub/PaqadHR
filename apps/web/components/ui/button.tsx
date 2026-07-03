@@ -9,13 +9,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+        default:
+          'bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover active:bg-primary-active disabled:bg-primary-disabled disabled:text-primary-foreground/80',
         destructive:
-          'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+          'bg-destructive text-destructive-foreground shadow-xs hover:bg-destructive-hover active:bg-destructive-active focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40',
         outline:
-          'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
-        secondary: 'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+          'border border-secondary-border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-card dark:border-input dark:hover:bg-accent',
+        secondary:
+          'border border-secondary-border bg-secondary text-secondary-foreground shadow-xs hover:bg-accent active:bg-accent-active',
+        ghost:
+          'text-primary hover:bg-primary-soft active:bg-primary-soft-active dark:hover:bg-primary-soft dark:active:bg-primary-soft-active',
         link: 'text-primary underline-offset-4 hover:underline',
       },
       size: {

@@ -209,13 +209,13 @@ function CatalogCard({
 }) {
   const isTemplate = item.id.startsWith('default_');
   const typeColors: Record<string, string> = {
-    RELOADLY: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
+    RELOADLY: 'bg-info/10 text-info border-info/30 dark:border-info/40',
     NOMBA_AIRTIME: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
     RELOADLY_AIRTIME:
       'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
-    NOMBA_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
-    RELOADLY_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
-    CUSTOM: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+    NOMBA_UTILITY: 'bg-primary/10 text-primary border-primary/20 dark:border-primary/30',
+    RELOADLY_UTILITY: 'bg-primary/10 text-primary border-primary/20 dark:border-primary/30',
+    CUSTOM: 'bg-warning/10 text-warning border-warning/30 dark:border-warning/30',
   };
 
   const typeLabels: Record<string, string> = {
@@ -239,7 +239,7 @@ function CatalogCard({
             className="object-contain p-4 transition-transform group-hover:scale-105"
           />
           {isTemplate && (
-            <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 text-white border-none text-[9px] uppercase tracking-wider font-bold">
+            <Badge className="absolute top-2 left-2 bg-warning hover:bg-warning/90 text-white border-none text-[9px] uppercase tracking-wider font-bold">
               Template
             </Badge>
           )}
@@ -248,7 +248,7 @@ function CatalogCard({
         <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-primary/5 to-primary/15 relative">
           <Gift className="size-10 text-primary/40" />
           {isTemplate && (
-            <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 text-white border-none text-[9px] uppercase tracking-wider font-bold">
+            <Badge className="absolute top-2 left-2 bg-warning hover:bg-warning/90 text-white border-none text-[9px] uppercase tracking-wider font-bold">
               Template
             </Badge>
           )}
@@ -296,7 +296,7 @@ function CatalogCard({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs gap-1 border-amber-300 bg-amber-500/5 text-amber-700 hover:bg-amber-50 hover:text-white"
+                  className="h-8 text-xs gap-1 border-warning/40 bg-warning/5 text-warning hover:bg-warning/10 hover:text-white"
                   disabled={isAddingDefault}
                   onClick={() => onAddDefault(item)}
                 >
@@ -332,8 +332,8 @@ function CatalogCard({
 
 function ClaimRow({ claim }: { claim: RewardRedemption }) {
   const statusColors: Record<string, string> = {
-    SUCCESS: 'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
-    PENDING: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+    SUCCESS: 'bg-success/10 text-green-600 border-green-200 dark:border-green-800',
+    PENDING: 'bg-warning/10 text-warning border-warning/30 dark:border-warning/30',
     FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
   };
 
@@ -343,7 +343,7 @@ function ClaimRow({ claim }: { claim: RewardRedemption }) {
         {claim.rewardType === 'NOMBA_AIRTIME' || claim.rewardType === 'RELOADLY_AIRTIME' ? (
           <Phone className="size-4" />
         ) : claim.rewardType === 'NOMBA_UTILITY' || claim.rewardType === 'RELOADLY_UTILITY' ? (
-          <Zap className="size-4 text-indigo-600" />
+          <Zap className="size-4 text-primary" />
         ) : claim.rewardType === 'CUSTOM' ? (
           <Sparkles className="size-4" />
         ) : (
@@ -1459,7 +1459,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                             </span>
                           ) : calculatedPoints ? (
                             <span className="text-lg font-black text-primary flex items-center gap-1">
-                              <Trophy className="size-4.5 text-amber-500 fill-amber-500" />
+                              <Trophy className="size-4.5 text-warning fill-warning" />
                               {calculatedPoints.toLocaleString()} pts
                             </span>
                           ) : (
@@ -1473,7 +1473,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                   </div>
 
                   <Button
-                    className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-primary hover:bg-primary-hover text-white"
                     disabled={claimingId === 'airtime' || !airtimePhone || !calculatedPoints}
                     onClick={handleAirtimeClaim}
                   >
@@ -1499,7 +1499,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex size-10 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600">
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Zap className="size-5" />
                   </div>
                   <div>
@@ -1725,7 +1725,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                             </span>
                           ) : utilityPoints ? (
                             <span className="text-lg font-black text-primary flex items-center gap-1">
-                              <Trophy className="size-4.5 text-amber-500 fill-amber-500" />
+                              <Trophy className="size-4.5 text-warning fill-warning" />
                               {utilityPoints.toLocaleString()} pts
                             </span>
                           ) : (
@@ -1739,7 +1739,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                   </div>
 
                   <Button
-                    className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="w-full h-11 font-bold text-sm tracking-wide shadow-md mt-auto bg-primary hover:bg-primary-hover text-white"
                     disabled={
                       claimingId === 'utility' ||
                       !utilityAccountNumber ||
@@ -1850,7 +1850,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
           {customPerks.length === 0 ? (
             <div className="space-y-4">
-              <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/40 p-4 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/60 dark:text-amber-300">
+              <div className="rounded-xl border border-dashed border-warning/40 bg-warning/10 p-4 text-xs text-warning dark:bg-warning/20 dark:border-warning/30/60 dark:text-warning">
                 <span className="font-bold">No custom perks set up yet.</span> Below are default
                 templates.{' '}
                 {isAdmin
@@ -1891,7 +1891,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 <div className="space-y-4 border-t pt-8">
                   <div>
                     <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                      <Sparkles className="size-4 text-amber-500 fill-amber-500/20" />
+                      <Sparkles className="size-4 text-warning fill-warning/20" />
                       Perk Templates
                     </h4>
                     <p className="text-xs text-muted-foreground">
@@ -1980,9 +1980,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
                       const statusColors: Record<string, string> = {
                         SUCCESS:
-                          'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
+                          'bg-success/10 text-green-600 border-green-200 dark:border-green-800',
                         PENDING:
-                          'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+                          'bg-warning/10 text-warning border-warning/30 dark:border-warning/30',
                         FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
                       };
 
@@ -1992,15 +1992,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-border/60 bg-card p-4 hover:border-primary/20 transition-all shadow-sm"
                         >
                           <div className="flex items-start gap-3.5 min-w-0">
-                            <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
+                            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
                               {claim.rewardType === 'NOMBA_AIRTIME' ||
                               claim.rewardType === 'RELOADLY_AIRTIME' ? (
                                 <Phone className="size-5" />
                               ) : claim.rewardType === 'CUSTOM' ? (
-                                <Sparkles className="size-5 text-amber-500" />
+                                <Sparkles className="size-5 text-warning" />
                               ) : claim.rewardType === 'NOMBA_UTILITY' ||
                                 claim.rewardType === 'RELOADLY_UTILITY' ? (
-                                <Zap className="size-5 text-indigo-600" />
+                                <Zap className="size-5 text-primary" />
                               ) : (
                                 <ShoppingBag className="size-5" />
                               )}
@@ -2014,7 +2014,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                   {memberName}
                                 </span>
                                 <span>·</span>
-                                <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                                <span className="font-bold text-primary">
                                   {claim.pointsSpent} pts
                                 </span>
                                 <span>·</span>

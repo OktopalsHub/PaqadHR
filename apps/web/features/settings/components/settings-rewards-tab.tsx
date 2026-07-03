@@ -234,9 +234,9 @@ export function SettingsRewardsTab() {
         description="Your tenant's internal wallet for funding gift card and airtime redemptions"
       >
         <div className="space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-primary/20 bg-gradient-to-br from-indigo-50/40 to-violet-50/40 dark:from-indigo-950/20 dark:to-violet-950/20 p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 p-6 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-indigo-600/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 dark:bg-primary/20 text-primary">
                 <Wallet className="size-7 animate-pulse" />
               </div>
               <div>
@@ -252,7 +252,7 @@ export function SettingsRewardsTab() {
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setIsTopupOpen(true)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl px-5 shadow-lg shadow-indigo-600/20 dark:shadow-none transition-all duration-200"
+                className="bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl px-5 shadow-lg shadow-primary/20 dark:shadow-none transition-all duration-200"
               >
                 Top Up Wallet
               </Button>
@@ -265,7 +265,7 @@ export function SettingsRewardsTab() {
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                    <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
+                    <RefreshCw className="size-4 text-primary" />
                     Auto-Replenish Rules
                   </h4>
                   <p className="text-xs text-muted-foreground">
@@ -275,7 +275,7 @@ export function SettingsRewardsTab() {
                 <Switch
                   checked={autoTopupEnabled}
                   onCheckedChange={setAutoTopupEnabled}
-                  className="data-[state=checked]:bg-indigo-600"
+                  className="data-[state=checked]:bg-primary"
                 />
               </div>
 
@@ -329,7 +329,7 @@ export function SettingsRewardsTab() {
                   variant="outline"
                   onClick={handleSaveAutoTopup}
                   disabled={updateAutoTopupMutation.isPending}
-                  className="rounded-xl font-semibold border-indigo-100 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/40 dark:border-indigo-950 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
+                  className="rounded-xl font-semibold border-primary/20 hover:border-primary/30 text-primary hover:bg-primary/10 dark:border-primary/30 dark:text-primary/70 dark:hover:bg-primary/20"
                 >
                   <Save className="size-3.5 mr-1.5" />
                   Save Auto-Topup Rules
@@ -341,7 +341,7 @@ export function SettingsRewardsTab() {
             <div className="rounded-2xl border bg-background/50 p-5 flex flex-col justify-between space-y-4">
               <div className="space-y-1">
                 <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Sparkles className="size-4 text-violet-600 dark:text-violet-400" />
+                  <Sparkles className="size-4 text-info" />
                   Direct Bank Funding
                 </h4>
                 <p className="text-xs text-muted-foreground">
@@ -528,7 +528,7 @@ export function SettingsRewardsTab() {
                     onCheckedChange={setGiftCardsEnabled}
                   />
                   {giftCardsEnabled && (
-                    <div className="pl-6 pt-2 space-y-2 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                    <div className="pl-6 pt-2 space-y-2 border-l-2 border-primary/20 dark:border-primary/30/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:
                       </p>
@@ -542,7 +542,7 @@ export function SettingsRewardsTab() {
                               type="checkbox"
                               checked={giftCardCategories.includes(cat)}
                               onChange={() => toggleCategory(cat)}
-                              className="rounded border-border bg-background text-indigo-600 focus:ring-indigo-500/30"
+                              className="rounded border-border bg-background text-primary focus:ring-primary/30"
                             />
                             <span>{cat}</span>
                           </label>
@@ -585,7 +585,7 @@ export function SettingsRewardsTab() {
                         <Badge
                           key={code}
                           variant="secondary"
-                          className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-indigo-100 dark:border-indigo-950 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 rounded-full"
+                          className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-primary/20 dark:border-primary/30 bg-primary/10 dark:bg-primary/20 text-primary rounded-full"
                         >
                           <span>{info.flag}</span>
                           <span>
@@ -594,7 +594,7 @@ export function SettingsRewardsTab() {
                           <button
                             type="button"
                             onClick={() => handleRemoveCountry(code)}
-                            className="rounded-full p-0.5 hover:bg-muted-foreground/20 text-indigo-500/80 hover:text-indigo-600 transition-colors"
+                            className="rounded-full p-0.5 hover:bg-muted-foreground/20 text-primary/80 hover:text-primary transition-colors"
                           >
                             <X className="size-3" />
                           </button>
@@ -659,7 +659,7 @@ export function SettingsRewardsTab() {
               >
                 <div>
                   <span className="font-semibold text-foreground">{reward.title}</span>
-                  <span className="ml-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full">
+                  <span className="ml-2 text-xs font-bold text-primary bg-primary/10 dark:bg-primary/20 px-2 py-0.5 rounded-full">
                     {reward.pointsCost} {PAQ_POINTS_NAME}
                   </span>
                   {reward.description && (
@@ -680,7 +680,7 @@ export function SettingsRewardsTab() {
 
           <div className="space-y-3.5 rounded-xl border border-dashed border-border/60 p-5 bg-muted/5 mt-4">
             <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <Plus className="size-4 text-indigo-600" />
+              <Plus className="size-4 text-primary" />
               Add New Custom Reward
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -716,7 +716,7 @@ export function SettingsRewardsTab() {
                 size="sm"
                 disabled={createReward.isPending || !newTitle.trim()}
                 onClick={handleCreateReward}
-                className="rounded-xl font-semibold bg-indigo-600 hover:bg-indigo-700 text-white"
+                className="rounded-xl font-semibold bg-primary hover:bg-primary-hover text-white"
               >
                 Add Reward
               </Button>
@@ -730,7 +730,7 @@ export function SettingsRewardsTab() {
         <DialogContent className="sm:max-w-[425px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Wallet className="size-5 text-indigo-600" />
+              <Wallet className="size-5 text-primary" />
               Top Up Rewards Wallet
             </DialogTitle>
             <DialogDescription>
@@ -769,7 +769,7 @@ export function SettingsRewardsTab() {
             <Button
               onClick={handleManualTopup}
               disabled={manualTopupMutation.isPending}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl"
+              className="bg-primary hover:bg-primary-hover text-white font-semibold rounded-xl"
             >
               {manualTopupMutation.isPending ? 'Processing...' : 'Confirm Top Up'}
             </Button>

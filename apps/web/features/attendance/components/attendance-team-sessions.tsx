@@ -32,7 +32,7 @@ function getAttendanceStatusStyles(status: string) {
     case 'PRESENT':
       return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900';
     case 'LATE':
-      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900';
+      return 'bg-warning/10 text-warning border-warning/30 dark:bg-warning/20 dark:text-warning dark:border-warning/30';
     case 'ABSENT':
       return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900';
     case 'ON_LEAVE':
@@ -48,9 +48,9 @@ function getAttendanceStatusDotClass(status: string) {
   const key = status.toUpperCase();
   switch (key) {
     case 'PRESENT':
-      return 'bg-green-500';
+      return 'bg-success';
     case 'LATE':
-      return 'bg-amber-500';
+      return 'bg-warning';
     case 'ABSENT':
       return 'bg-red-500';
     case 'ON_LEAVE':

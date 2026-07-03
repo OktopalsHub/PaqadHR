@@ -89,7 +89,7 @@ export function ForgottenSessionModal() {
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-500">
+          <div className="flex items-center gap-2.5 text-warning dark:text-warning">
             <Clock className="size-5" />
             <DialogTitle className="text-xl font-bold">Unclosed Attendance Session</DialogTitle>
           </div>
@@ -157,7 +157,7 @@ export function ForgottenSessionModal() {
             <Button
               type="submit"
               disabled={clockOutMutation.isPending}
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm transition-colors"
+              className="w-full bg-warning hover:bg-warning/90 text-foreground font-medium shadow-sm transition-colors"
             >
               {clockOutMutation.isPending ? (
                 <>
