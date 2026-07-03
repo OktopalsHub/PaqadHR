@@ -22,6 +22,19 @@ export function getNombaPayoutAuthCode(): string {
   return (process.env.NOMBA_PAYOUT_AUTH_CODE || '').trim();
 }
 
+export function isNombaGlobalPayoutEnabled(): boolean {
+  return !!getNombaPayoutAuthCode();
+}
+
+/** Currencies Nomba can disburse payroll to with current env config. */
+export function getNombaPayoutCurrencies(): readonly string[] {
+  return isNombaGlobalPayoutEnabled() ? ['NGN', 'USD', 'EUR', 'GBP'] : ['NGN'];
+}
+
+export function defaultPayrollCurrency(): string {
+  return isNombaGlobalPayoutEnabled() ? 'USD' : 'NGN';
+}
+
 const PLATFORM_NAME = 'PaqadHR';
 
 export function formatNombaSenderName(tenantName?: string | null): string {
