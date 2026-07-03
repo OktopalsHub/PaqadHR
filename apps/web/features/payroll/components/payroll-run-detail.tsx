@@ -57,7 +57,7 @@ function getPayrollStatusStyles(status: string) {
       return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-450 dark:border-blue-900';
     case 'draft':
     case 'unpublished':
-      return 'bg-warning/10 text-warning border-warning/30 dark:bg-warning/20 dark:text-warning dark:border-warning/30';
+      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-450 dark:border-amber-900';
     default:
       return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
   }
@@ -69,13 +69,13 @@ function getPayrollStatusDotClass(status: string) {
     case 'completed':
     case 'published':
     case 'paid':
-      return 'bg-success';
+      return 'bg-green-500';
     case 'processing':
     case 'approved':
       return 'bg-blue-500';
     case 'draft':
     case 'unpublished':
-      return 'bg-warning';
+      return 'bg-amber-500';
     default:
       return 'bg-gray-400 dark:bg-gray-500';
   }

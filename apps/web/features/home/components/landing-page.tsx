@@ -1,6 +1,6 @@
 'use client';
 
-// import { ForceLightTheme } from '@/providers/force-light-theme';
+import { ForceLightTheme } from '@/providers/force-light-theme';
 import { LandingCta } from './sections/landing-cta';
 import { LandingFeaturesSection } from './sections/landing-features-section';
 import { LandingFooter } from './sections/landing-footer';
@@ -12,8 +12,7 @@ import { LandingTestimonials } from './sections/landing-testimonials-row';
 
 export const LandingPage = () => {
   return (
-    /* ForceLightTheme disabled — landing follows user/system theme for now */
-    <div className="min-h-screen bg-background text-foreground">
+    <ForceLightTheme>
       <LandingNav />
       <main>
         <LandingHero />
@@ -24,6 +23,6 @@ export const LandingPage = () => {
         <LandingCta />
       </main>
       <LandingFooter />
-    </div>
+    </ForceLightTheme>
   );
 };

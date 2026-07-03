@@ -43,7 +43,6 @@ export interface IEnvironment {
     CLIENT_ID: string;
     CLIENT_SECRET: string;
     SIGNING_SECRET: string;
-    WEBHOOK_URL: string;
   };
   R2: {
     ACCOUNT_ID: string;
@@ -85,7 +84,6 @@ export const ENVIRONMENT: IEnvironment = {
     CLIENT_SECRET: env.getOptional('SLACK_CLIENT_SECRET', ''),
     SIGNING_SECRET:
       env.getOptional('SLACK_SIGNING_SECRET') || env.getOptional('SLACK_WEBHOOK_SECRET', ''),
-    WEBHOOK_URL: env.getOptional('SLACK_WEBHOOK_URL', ''),
   },
   R2: {
     ACCOUNT_ID: env.getRequired('R2_ACCOUNT_ID'),

@@ -1,14 +1,14 @@
 /* ─── Landing page — always dark, standalone tokens ─── */
 
 .landing-root {
-  --ld-bg: #121212;
-  --ld-surface: #1b1b1b;
-  --ld-surface-raised: #232323;
-  --ld-border: #313131;
-  --ld-border-hover: #454545;
-  --ld-text: #fbfbfb;
-  --ld-text-secondary: #d5d8dd;
-  --ld-text-tertiary: #9ea6af;
+  --ld-bg: #050505;
+  --ld-surface: #0d0d0d;
+  --ld-surface-raised: #141414;
+  --ld-border: rgba(255, 255, 255, 0.07);
+  --ld-border-hover: rgba(255, 255, 255, 0.14);
+  --ld-text: #f5f5f5;
+  --ld-text-secondary: #888888;
+  --ld-text-tertiary: #555555;
   --ld-brand: var(--brand);
   --ld-brand-dim: var(--brand-dim);
   --ld-brand-glow: var(--brand-glow);

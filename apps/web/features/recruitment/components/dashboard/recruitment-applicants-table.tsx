@@ -38,7 +38,7 @@ function getCandidateStatusStyles(status: string) {
     case 'SCREENING':
     case 'APPLIED':
     case 'UNDER_REVIEW':
-      return 'bg-warning/10 text-warning border-warning/30 dark:bg-warning/20 dark:text-warning dark:border-warning/30';
+      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-450 dark:border-amber-900';
     case 'REJECTED':
     case 'WITHDRAWN':
       return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900';
@@ -51,7 +51,7 @@ function getCandidateStatusDotClass(status: string) {
   const key = status.toUpperCase();
   switch (key) {
     case 'HIRED':
-      return 'bg-success animate-pulse';
+      return 'bg-green-500 animate-pulse';
     case 'OFFER':
       return 'bg-blue-500';
     case 'INTERVIEW':
@@ -59,7 +59,7 @@ function getCandidateStatusDotClass(status: string) {
     case 'SCREENING':
     case 'APPLIED':
     case 'UNDER_REVIEW':
-      return 'bg-warning';
+      return 'bg-amber-500';
     case 'REJECTED':
     case 'WITHDRAWN':
       return 'bg-red-500';
@@ -71,10 +71,10 @@ function getCandidateStatusDotClass(status: string) {
 function getInitialsColor(name: string): string {
   const colors = [
     'from-pink-500 to-rose-500 text-white',
-    'from-primary to-primary/80 text-white',
+    'from-purple-500 to-indigo-500 text-white',
     'from-blue-500 to-cyan-500 text-white',
     'from-teal-500 to-emerald-500 text-white',
-    'from-warning to-warning/80 text-white',
+    'from-amber-500 to-orange-500 text-white',
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {

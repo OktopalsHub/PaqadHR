@@ -229,7 +229,7 @@ export function ShoutoutComposer({
           {selectedCategory && (
             <Badge
               variant="secondary"
-              className="flex items-center gap-1 bg-primary/10 text-primary hover:bg-primary/15 border-primary/20"
+              className="flex items-center gap-1 bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/15 border-indigo-100"
             >
               <Award className="size-3" />
               {selectedCategory.name}
@@ -240,7 +240,7 @@ export function ShoutoutComposer({
           {Number(pointsValue) > 0 && (
             <Badge
               variant="secondary"
-              className="flex items-center gap-1 bg-warning/10 text-[#B38600] dark:text-warning hover:bg-warning/15 border-warning/20 font-mono"
+              className="flex items-center gap-1 bg-amber-500/10 text-amber-600 hover:bg-amber-500/15 border-amber-100 font-mono"
             >
               <Coins className="size-3" />+{pointsValue} {PAQ_POINTS_NAME}
               <X className="size-3 cursor-pointer ml-1" onClick={() => onPointsChange('0')} />
@@ -304,7 +304,7 @@ export function ShoutoutComposer({
                     size="sm"
                     className="h-9 px-3 gap-1.5 hover:bg-muted/80"
                   >
-                    <Award className="size-4 text-primary" />
+                    <Award className="size-4 text-indigo-500" />
                     <span className="hidden sm:inline">Core Value</span>
                   </Button>
                 </PopoverTrigger>
@@ -343,7 +343,7 @@ export function ShoutoutComposer({
                   size="sm"
                   className="h-9 px-3 gap-1.5 hover:bg-muted/80 font-mono"
                 >
-                  <Coins className="size-4 text-warning" />
+                  <Coins className="size-4 text-amber-500" />
                   <span className="hidden sm:inline">Points</span>
                 </Button>
               </PopoverTrigger>

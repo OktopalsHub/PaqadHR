@@ -400,7 +400,7 @@ export function ShoutoutTasksTab() {
   if (tasksLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 space-y-4">
-        <Loader2 className="size-8 text-primary animate-spin" />
+        <Loader2 className="size-8 text-indigo-600 animate-spin" />
         <p className="text-sm text-muted-foreground font-semibold">Loading points checklist...</p>
       </div>
     );
@@ -409,14 +409,14 @@ export function ShoutoutTasksTab() {
   return (
     <div className="space-y-8">
       {/* Header card */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-primary/10 via-primary/5 to-primary/10 p-6 md:p-8 shadow-sm">
-        <div className="absolute top-0 right-0 -mt-6 -mr-6 size-48 rounded-full bg-primary/5 blur-3xl" />
+      <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-pink-500/10 p-6 md:p-8 shadow-sm">
+        <div className="absolute top-0 right-0 -mt-6 -mr-6 size-48 rounded-full bg-indigo-500/5 blur-3xl" />
         <div className="absolute bottom-0 left-0 -mb-6 -ml-6 size-48 rounded-full bg-purple-500/5 blur-3xl" />
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-3">
             <h3 className="text-xl font-bold flex items-center gap-2 text-foreground">
-              <Trophy className="size-6 text-warning animate-pulse fill-warning/15" />
+              <Trophy className="size-6 text-amber-500 animate-pulse fill-amber-500/15" />
               Points Checklist
             </h3>
             <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
@@ -440,8 +440,8 @@ export function ShoutoutTasksTab() {
               <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-sans">
                 Points Earned
               </p>
-              <p className="text-3xl font-extrabold text-primary mt-1 flex items-center justify-center gap-1.5">
-                <Sparkles className="size-5 text-warning fill-warning/15" />
+              <p className="text-3xl font-extrabold text-indigo-600 dark:text-indigo-400 mt-1 flex items-center justify-center gap-1.5">
+                <Sparkles className="size-5 text-amber-500 fill-amber-500/15" />
                 {pointsEarned}
               </p>
             </div>
@@ -474,7 +474,7 @@ export function ShoutoutTasksTab() {
               size="sm"
               variant="outline"
               onClick={() => setIsAssigningPoints(true)}
-              className="gap-1.5 text-xs font-bold border-primary/20 hover:border-primary/30 text-primary dark:border-primary/30 dark:text-primary/70 rounded-xl"
+              className="gap-1.5 text-xs font-bold border-indigo-100 hover:border-indigo-200 text-indigo-600 dark:border-indigo-950 dark:text-indigo-400 rounded-xl"
             >
               <Users className="size-4" />
               Direct Assign Points
@@ -483,7 +483,7 @@ export function ShoutoutTasksTab() {
               <Button
                 size="sm"
                 onClick={() => setIsAdding(true)}
-                className="gap-1.5 text-xs font-bold shadow-sm rounded-xl bg-primary hover:bg-primary-hover text-white"
+                className="gap-1.5 text-xs font-bold shadow-sm rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
               >
                 <Plus className="size-4" />
                 Add Custom Task
@@ -495,10 +495,10 @@ export function ShoutoutTasksTab() {
 
       {/* Add Custom Task Form */}
       {isAdmin && isAdding && (
-        <Card className="border border-primary/20 dark:border-primary/30 bg-primary/10 dark:bg-primary/20 shadow-sm rounded-2xl">
+        <Card className="border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/5 shadow-sm rounded-2xl">
           <CardContent className="p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-bold text-primary flex items-center gap-1.5">
+              <h4 className="text-sm font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
                 <Sparkles className="size-4" />
                 Create New Task
               </h4>
@@ -606,7 +606,7 @@ export function ShoutoutTasksTab() {
                 <Switch
                   checked={newIsRecurring}
                   onCheckedChange={setNewIsRecurring}
-                  className="data-[state=checked]:bg-primary"
+                  className="data-[state=checked]:bg-indigo-600"
                 />
               </div>
 
@@ -634,7 +634,7 @@ export function ShoutoutTasksTab() {
               <Button
                 size="sm"
                 disabled={isCreating}
-                className="h-10 text-xs font-semibold bg-primary hover:bg-primary-hover text-white flex items-center gap-1 rounded-xl"
+                className="h-10 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 rounded-xl"
                 onClick={handleCreateTask}
               >
                 {isCreating && <Loader2 className="size-3 animate-spin" />}
@@ -648,7 +648,7 @@ export function ShoutoutTasksTab() {
       {/* Submissions Pending Review — visible to anyone the backend returns items for (admin/owner/manager) */}
       {pendingSubmissions.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center gap-1.5 text-warning dark:text-warning font-bold text-sm">
+          <div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-500 font-bold text-sm">
             <Clock className="size-4 animate-spin" />
             <span>Submissions Pending Review ({pendingSubmissions.length})</span>
           </div>
@@ -657,9 +657,9 @@ export function ShoutoutTasksTab() {
             {pendingSubmissions.map((sub) => (
               <Card
                 key={sub.submissionId}
-                className="border-warning/30 bg-warning/10 dark:border-warning/30 shadow-sm relative overflow-hidden rounded-2xl"
+                className="border-amber-200 bg-amber-50/5 dark:border-amber-900/40 shadow-sm relative overflow-hidden rounded-2xl"
               >
-                <div className="absolute top-0 right-0 bg-warning text-black text-[9px] font-bold px-2 py-0.5 rounded-bl">
+                <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-bl">
                   Needs Approval
                 </div>
                 <CardContent className="p-5 space-y-4">
@@ -673,7 +673,7 @@ export function ShoutoutTasksTab() {
                         className="size-11 rounded-lg object-cover border border-border"
                       />
                     ) : (
-                      <div className="size-11 rounded-lg bg-warning/15 dark:bg-warning/20 text-warning flex items-center justify-center border border-warning/30 shrink-0">
+                      <div className="size-11 rounded-lg bg-amber-100 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center border border-amber-200/50 shrink-0">
                         <FileText className="size-5" />
                       </div>
                     )}
@@ -682,7 +682,7 @@ export function ShoutoutTasksTab() {
                       <div className="flex items-center gap-1.5 mt-1">
                         <Badge
                           variant="outline"
-                          className="text-[10px] text-warning border-warning/30"
+                          className="text-[10px] text-amber-600 border-amber-200"
                         >
                           +{sub.points} pts
                         </Badge>
@@ -709,7 +709,7 @@ export function ShoutoutTasksTab() {
                       </p>
                     )}
                     {sub.submissionType === 'file' && (
-                      <div className="flex items-center gap-2 text-primary font-semibold">
+                      <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold">
                         <FileCode className="size-4" />
                         <span>{sub.submissionFileName}</span>
                       </div>
@@ -750,7 +750,7 @@ export function ShoutoutTasksTab() {
         <div className="xl:col-span-8 space-y-4">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <CheckCircle2 className="size-4 text-primary" />
+              <CheckCircle2 className="size-4 text-indigo-500" />
               Available Checklist ({availableTasks.length})
             </h4>
           </div>
@@ -772,7 +772,7 @@ export function ShoutoutTasksTab() {
                 return (
                   <Card
                     key={task.id}
-                    className="group transition-all duration-300 border-border/70 hover:border-primary/20 hover:shadow-md dark:hover:bg-muted/10 rounded-2xl"
+                    className="group transition-all duration-300 border-border/70 hover:border-indigo-500/20 hover:shadow-md dark:hover:bg-muted/10 rounded-2xl"
                   >
                     <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <div className="flex items-start gap-4 flex-1">
@@ -787,7 +787,7 @@ export function ShoutoutTasksTab() {
                             />
                           </div>
                         ) : (
-                          <div className="size-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 dark:border-primary/30 text-primary flex items-center justify-center shrink-0">
+                          <div className="size-12 rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-100 dark:border-indigo-950 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
                             <IconComponent className="size-5" />
                           </div>
                         )}
@@ -807,14 +807,14 @@ export function ShoutoutTasksTab() {
                             )}
                             <Badge
                               variant="outline"
-                              className="text-[9px] font-extrabold py-px px-1.5 border-warning/30 bg-warning/5 text-[#B38600] dark:text-warning dark:border-warning/30"
+                              className="text-[9px] font-extrabold py-px px-1.5 border-amber-200/60 bg-amber-500/5 text-amber-600 dark:border-amber-900/30"
                             >
                               +{task.points} Points
                             </Badge>
                             {task.isRecurring && (
                               <Badge
                                 variant="outline"
-                                className="text-[9px] font-bold py-px px-1.5 border-primary/20 bg-primary/5 text-primary dark:border-primary/30 flex items-center gap-0.5"
+                                className="text-[9px] font-bold py-px px-1.5 border-indigo-200 bg-indigo-500/5 text-indigo-600 dark:border-indigo-900/30 flex items-center gap-0.5"
                               >
                                 <Repeat className="size-2.5" />
                                 Recurring
@@ -830,7 +830,7 @@ export function ShoutoutTasksTab() {
                             {task.description}
                           </p>
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground pt-0.5">
-                            <span className="font-semibold text-[9px] uppercase tracking-wider text-primary">
+                            <span className="font-semibold text-[9px] uppercase tracking-wider text-indigo-500">
                               {task.submissionType === 'instant' && '⚡ Instant Claim'}
                               {task.submissionType === 'text' && '✍️ Text Verification'}
                               {task.submissionType === 'file' && '📎 File Submission'}
@@ -853,7 +853,7 @@ export function ShoutoutTasksTab() {
 
                         <Button
                           size="sm"
-                          className="h-9 px-4 text-xs font-bold bg-primary hover:bg-primary-hover text-white rounded-xl shadow-sm"
+                          className="h-9 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm"
                           onClick={() => {
                             if (task.submissionType === 'instant') {
                               handleCompleteInstant(task.id, task.title, task.points);
@@ -878,17 +878,17 @@ export function ShoutoutTasksTab() {
           {userPendingTasks.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                <Clock className="size-4 text-warning" />
+                <Clock className="size-4 text-amber-500" />
                 Under Admin Review ({userPendingTasks.length})
               </h4>
               <div className="space-y-2">
                 {userPendingTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2 relative overflow-hidden"
+                    className="rounded-xl border border-amber-200/60 bg-amber-500/5 p-4 space-y-2 relative overflow-hidden"
                   >
                     <h5 className="font-bold text-xs text-foreground pr-10">{task.title}</h5>
-                    <Badge variant="outline" className="text-[9px] text-warning border-warning/30">
+                    <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-200">
                       Pending review (+{task.points} pts)
                     </Badge>
                   </div>
@@ -914,10 +914,10 @@ export function ShoutoutTasksTab() {
                 {completedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center justify-between p-3.5 rounded-xl border border-green-200/50 bg-success/5 text-xs transition-all"
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-green-200/50 bg-green-500/5 text-xs transition-all"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="size-7 rounded-full bg-success/10 text-green-600 flex items-center justify-center border border-green-200/30 shrink-0">
+                      <div className="size-7 rounded-full bg-green-500/10 text-green-600 flex items-center justify-center border border-green-200/30 shrink-0">
                         <Check className="size-4" />
                       </div>
                       <div className="min-w-0">
@@ -956,7 +956,7 @@ export function ShoutoutTasksTab() {
           {submittingTask && (
             <div className="space-y-4 py-3">
               <div className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/40">
-                <AlertCircle className="size-5 text-primary shrink-0 mt-0.5" />
+                <AlertCircle className="size-5 text-indigo-500 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <p className="font-bold text-foreground">{submittingTask.title}</p>
                   <p className="text-muted-foreground mt-0.5">{submittingTask.description}</p>
@@ -999,14 +999,14 @@ export function ShoutoutTasksTab() {
                   </div>
 
                   {selectedFileName && (
-                    <div className="p-3 rounded-xl border border-primary/20 dark:border-primary/30 bg-primary/10 dark:bg-primary/20 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 text-primary font-semibold min-w-0">
+                    <div className="p-3 rounded-xl border border-indigo-100 dark:border-indigo-950 bg-indigo-50/10 dark:bg-indigo-950/10 flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-semibold min-w-0">
                         <FileCode className="size-4 shrink-0" />
                         <span className="truncate">{selectedFileName}</span>
                       </div>
                       {isUploadingFile ? (
                         <div className="flex items-center gap-1.5 shrink-0 text-muted-foreground">
-                          <Loader2 className="size-3 animate-spin text-primary" />
+                          <Loader2 className="size-3 animate-spin text-indigo-500" />
                           <span>Uploading...</span>
                         </div>
                       ) : (
@@ -1043,7 +1043,7 @@ export function ShoutoutTasksTab() {
                 (submittingTask?.submissionType === 'file' && !selectedFileName)
               }
               onClick={handleSubmitVerification}
-              className="h-10 text-xs font-bold bg-primary hover:bg-primary-hover text-white flex items-center gap-1 rounded-xl"
+              className="h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 rounded-xl"
             >
               {isMutatingSubmission && <Loader2 className="size-3 animate-spin" />}
               Submit Proof
@@ -1057,7 +1057,7 @@ export function ShoutoutTasksTab() {
         <DialogContent className="sm:max-w-lg rounded-2xl max-h-[95vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-              <Users className="size-5 text-primary" />
+              <Users className="size-5 text-indigo-600" />
               Direct Points Assignment
             </DialogTitle>
             <DialogDescription className="text-xs">
@@ -1123,7 +1123,7 @@ export function ShoutoutTasksTab() {
 
               <div className="flex gap-2 justify-between items-center text-[10px] font-bold mt-1">
                 <span className="text-muted-foreground">Default points for new additions:</span>
-                <div className="flex gap-2 text-primary">
+                <div className="flex gap-2 text-indigo-600 dark:text-indigo-400">
                   <button type="button" onClick={selectAllMembers} className="hover:underline">
                     Add All Members
                   </button>
@@ -1229,7 +1229,7 @@ export function ShoutoutTasksTab() {
               size="sm"
               disabled={assignments.length === 0 || assignPointsMutation.isPending}
               onClick={handleDirectAssignPoints}
-              className="h-10 text-xs font-bold bg-primary hover:bg-primary-hover text-white flex items-center gap-1.5 rounded-xl px-4"
+              className="h-10 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1.5 rounded-xl px-4"
             >
               <Send className="size-3.5" />
               {assignPointsMutation.isPending ? 'Assigning...' : 'Assign Points'}

@@ -183,9 +183,9 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                           <span
                             className={`size-1.5 rounded-full ${
                               employee.status === 'Active'
-                                ? 'bg-success animate-pulse'
+                                ? 'bg-green-500 animate-pulse'
                                 : employee.status === 'On Leave'
-                                  ? 'bg-warning'
+                                  ? 'bg-amber-500'
                                   : 'bg-gray-450 dark:bg-gray-500'
                             }`}
                           />

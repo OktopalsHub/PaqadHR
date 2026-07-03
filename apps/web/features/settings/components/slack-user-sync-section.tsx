@@ -158,8 +158,8 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Unmatched Profiles</CardDescription>
-              <CardTitle className="text-2xl text-warning flex items-center gap-1.5">
-                <AlertCircle className="size-5 text-warning" />
+              <CardTitle className="text-2xl text-amber-600 flex items-center gap-1.5">
+                <AlertCircle className="size-5 text-amber-600" />
                 {syncStatus.unmatched}
               </CardTitle>
             </CardHeader>
