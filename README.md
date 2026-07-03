@@ -32,7 +32,7 @@ Clone the `.env.example` templates and set your local variables:
 
 * **Frontend (`apps/web`)**:
   ```bash
-  cp apps/web/.env.example apps/web/.env.local
+  cp apps/web/.env.example apps/web/.env
   ```
   Use the **base API URL only** (no `/api/v1` — the app appends that in `lib/api/client.ts`):
   ```env

@@ -1,4 +1,8 @@
+'use client';
+
+import { brandAssetUrl } from '@/lib/brand';
 import { cn } from '@/lib/utils';
+import { useBrandMode } from '@/hooks/use-brand-mode';
 
 type PaqadLogoProps = {
   className?: string;
@@ -6,12 +10,16 @@ type PaqadLogoProps = {
 };
 
 export function PaqadLogo({ className, showWordmark = true }: PaqadLogoProps) {
+  const mode = useBrandMode();
+  const variant = showWordmark ? 'lockup' : 'icon';
+  const src = brandAssetUrl(variant, mode);
+
   return (
-    <span className={cn('inline-flex items-center gap-2.5', className)}>
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-        P
-      </span>
-      {showWordmark ? <span className="text-sm font-semibold tracking-tight">Paqad</span> : null}
-    </span>
+    // biome-ignore lint/performance/noImgElement: hosted brand asset on paqadhr.com
+    <img
+      src={src}
+      alt="Paqadhr"
+      className={cn(showWordmark ? 'h-8 w-auto' : 'size-8 object-contain', className)}
+    />
   );
 }
