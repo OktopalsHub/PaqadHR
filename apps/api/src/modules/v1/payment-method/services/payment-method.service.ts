@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { isSupportedFiatCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
+import { getNombaPayoutCurrencies } from 'src/common/config/nomba.config';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { PaymentMethodType, TenantMemberRole } from '../../../../common/enums';
@@ -431,7 +431,7 @@ export class PaymentMethodService {
       issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
     }
 
-    if (!isSupportedFiatCurrency(normalizedCurrency)) {
+    if (!getNombaPayoutCurrencies().includes(normalizedCurrency)) {
       issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
     }
 

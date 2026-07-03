@@ -24,7 +24,6 @@
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",
     "migration:generate": "typeorm migration:generate -d dist/common/database/config/data-source.js",
     "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts",
-    "nomba:check": "ts-node -r tsconfig-paths/register src/scripts/nomba-sandbox-check.ts",
     "provision-reward-vas": "ts-node -r tsconfig-paths/register src/scripts/provision-reward-virtual-accounts.ts"
   },
   "dependencies": {
