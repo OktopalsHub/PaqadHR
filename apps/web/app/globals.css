@@ -73,7 +73,7 @@
   --radius-xl: 1.5rem;
   --radius: var(--radius-md);
 
-  --brand: #00c389;
+  --brand: #00a070;
   --brand-foreground: #ffffff;
   --brand-soft: #e6fbf4;
   --brand-dim: color-mix(in oklch, var(--brand) 12%, transparent);
@@ -84,14 +84,14 @@
   --primary-foreground: #ffffff;
   --primary-soft: #e6fbf4;
   --primary-soft-active: #d0f7ea;
-  --primary-hover: #00b37e;
-  --primary-active: #009b6f;
+  --primary-hover: #008f65;
+  --primary-active: #007a58;
   --primary-disabled: #cfefe5;
 
-  --success: #00c389;
+  --success: var(--brand);
   --warning: #ffcc00;
   --info: #3b82f6;
-  --status-online: #00c389;
+  --status-online: var(--brand);
   --status-pending: #ffcc00;
   --status-offline: #8b949e;
 
@@ -121,11 +121,11 @@
   --border: #e6e8eb;
   --border-hover: #d4d8dd;
   --input: #d9dee3;
-  --ring: #00c389;
+  --ring: var(--brand);
 
   --chart-1: var(--brand);
   --chart-2: #3b82f6;
-  --chart-3: #00c389;
+  --chart-3: var(--brand);
   --chart-4: #a855f7;
   --chart-5: #ffcc00;
 
@@ -151,8 +151,8 @@
   --primary-foreground: #121212;
   --primary-soft: #08382c;
   --primary-soft-active: #0d4636;
-  --primary-hover: #00d697;
-  --primary-active: #00a877;
+  --primary-hover: #00b880;
+  --primary-active: #009566;
   --primary-disabled: #255a49;
 
   --background: #121212;
@@ -181,10 +181,10 @@
   --border: #313131;
   --border-hover: #454545;
   --input: #353535;
-  --ring: #00c389;
+  --ring: var(--brand);
 
   --chart-2: #60a5fa;
-  --chart-3: #00c389;
+  --chart-3: var(--brand);
   --chart-4: #c084fc;
   --chart-5: #ffcc00;
 
