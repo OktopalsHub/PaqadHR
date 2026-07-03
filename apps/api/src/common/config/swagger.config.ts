@@ -89,10 +89,6 @@ export function setupSwagger(app: INestApplication): void {
     )
     .addTag('Notifications', 'In-app and email notifications inbox and logs.')
     .addTag('Analytics', 'Workforce headcount metrics, demographics, and turn-over visual reports.')
-    .addTag(
-      'Assets',
-      'Company physical inventory, assignments, documents, and maintenance tracking.',
-    )
     .addTag('Integrations', 'Workspace platform links (Slack, etc.) and OAuth bindings.')
     .addTag(
       'Integration Management',

@@ -94,6 +94,8 @@ const AppDataSource = {
     Migrations.AutoTopupAndRecurringTasks1782838353633,
     Migrations.TenantWalletVirtualAccounts1782913542028,
     Migrations.SubscriptionDunningAndLifecycle1782914289290,
+    Migrations.WalletTransactionReferenceScope1782921523406,
+    Migrations.DropAssetManagement1783110763106,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
