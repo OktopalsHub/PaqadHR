@@ -1,8 +1,8 @@
 'use client';
 
+import { useBrandMode } from '@/hooks/use-brand-mode';
 import { brandAssetUrl } from '@/lib/brand';
 import { cn } from '@/lib/utils';
-import { useBrandMode } from '@/hooks/use-brand-mode';
 
 type PaqadLogoProps = {
   className?: string;

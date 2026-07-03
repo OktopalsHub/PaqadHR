@@ -32,11 +32,7 @@ function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | nu
   if (!name?.trim()) {
     return (
       // biome-ignore lint/performance/noImgElement: hosted brand asset on paqadhr.com
-      <img
-        src={brandAssetUrl('icon', mode)}
-        alt=""
-        className="size-8 shrink-0 object-contain"
-      />
+      <img src={brandAssetUrl('icon', mode)} alt="" className="size-8 shrink-0 object-contain" />
     );
   }
 
