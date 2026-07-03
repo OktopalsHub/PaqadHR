@@ -239,7 +239,7 @@ function CatalogCard({
             className="object-contain p-4 transition-transform group-hover:scale-105"
           />
           {isTemplate && (
-            <Badge className="absolute top-2 left-2 bg-warning hover:bg-warning/90 text-white border-none text-[9px] uppercase tracking-wider font-bold">
+            <Badge className="absolute top-2 left-2 bg-warning hover:bg-warning/90 text-black border-none text-[9px] uppercase tracking-wider font-bold">
               Template
             </Badge>
           )}
@@ -248,7 +248,7 @@ function CatalogCard({
         <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-primary/5 to-primary/15 relative">
           <Gift className="size-10 text-primary/40" />
           {isTemplate && (
-            <Badge className="absolute top-2 left-2 bg-warning hover:bg-warning/90 text-white border-none text-[9px] uppercase tracking-wider font-bold">
+            <Badge className="absolute top-2 left-2 bg-warning hover:bg-warning/90 text-black border-none text-[9px] uppercase tracking-wider font-bold">
               Template
             </Badge>
           )}
@@ -296,7 +296,7 @@ function CatalogCard({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs gap-1 border-warning/40 bg-warning/5 text-warning hover:bg-warning/10 hover:text-white"
+                  className="h-8 text-xs gap-1 border-warning/40 bg-warning/5 text-[#B38600] hover:bg-warning hover:text-black dark:text-warning dark:hover:text-black"
                   disabled={isAddingDefault}
                   onClick={() => onAddDefault(item)}
                 >
@@ -1850,7 +1850,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
           {customPerks.length === 0 ? (
             <div className="space-y-4">
-              <div className="rounded-xl border border-dashed border-warning/40 bg-warning/10 p-4 text-xs text-warning dark:bg-warning/20 dark:border-warning/30/60 dark:text-warning">
+              <div className="rounded-xl border border-dashed border-warning/40 bg-warning/10 p-4 text-xs text-[#B38600] dark:bg-warning/20 dark:border-warning/30 dark:text-warning">
                 <span className="font-bold">No custom perks set up yet.</span> Below are default
                 templates.{' '}
                 {isAdmin

@@ -157,7 +157,7 @@ export function ForgottenSessionModal() {
             <Button
               type="submit"
               disabled={clockOutMutation.isPending}
-              className="w-full bg-warning hover:bg-warning/90 text-foreground font-medium shadow-sm transition-colors"
+              className="w-full bg-warning hover:bg-warning/90 text-black font-medium shadow-sm transition-colors"
             >
               {clockOutMutation.isPending ? (
                 <>

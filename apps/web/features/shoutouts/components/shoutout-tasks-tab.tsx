@@ -659,7 +659,7 @@ export function ShoutoutTasksTab() {
                 key={sub.submissionId}
                 className="border-warning/30 bg-warning/10 dark:border-warning/30 shadow-sm relative overflow-hidden rounded-2xl"
               >
-                <div className="absolute top-0 right-0 bg-warning text-white text-[9px] font-bold px-2 py-0.5 rounded-bl">
+                <div className="absolute top-0 right-0 bg-warning text-black text-[9px] font-bold px-2 py-0.5 rounded-bl">
                   Needs Approval
                 </div>
                 <CardContent className="p-5 space-y-4">
@@ -807,7 +807,7 @@ export function ShoutoutTasksTab() {
                             )}
                             <Badge
                               variant="outline"
-                              className="text-[9px] font-extrabold py-px px-1.5 border-warning/30/60 bg-warning/5 text-warning dark:border-warning/30/30"
+                              className="text-[9px] font-extrabold py-px px-1.5 border-warning/30 bg-warning/5 text-[#B38600] dark:text-warning dark:border-warning/30"
                             >
                               +{task.points} Points
                             </Badge>
@@ -885,7 +885,7 @@ export function ShoutoutTasksTab() {
                 {userPendingTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="rounded-xl border border-warning/30/60 bg-warning/5 p-4 space-y-2 relative overflow-hidden"
+                    className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2 relative overflow-hidden"
                   >
                     <h5 className="font-bold text-xs text-foreground pr-10">{task.title}</h5>
                     <Badge variant="outline" className="text-[9px] text-warning border-warning/30">

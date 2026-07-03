@@ -528,7 +528,7 @@ export function SettingsRewardsTab() {
                     onCheckedChange={setGiftCardsEnabled}
                   />
                   {giftCardsEnabled && (
-                    <div className="pl-6 pt-2 space-y-2 border-l-2 border-primary/20 dark:border-primary/30/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                    <div className="pl-6 pt-2 space-y-2 border-l-2 border-primary/20 dark:border-primary/30 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:
                       </p>

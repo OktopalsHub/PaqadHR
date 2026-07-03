@@ -240,7 +240,7 @@ export function ShoutoutComposer({
           {Number(pointsValue) > 0 && (
             <Badge
               variant="secondary"
-              className="flex items-center gap-1 bg-warning/10 text-warning hover:bg-warning/15 border-warning/20 font-mono"
+              className="flex items-center gap-1 bg-warning/10 text-[#B38600] dark:text-warning hover:bg-warning/15 border-warning/20 font-mono"
             >
               <Coins className="size-3" />+{pointsValue} {PAQ_POINTS_NAME}
               <X className="size-3 cursor-pointer ml-1" onClick={() => onPointsChange('0')} />
