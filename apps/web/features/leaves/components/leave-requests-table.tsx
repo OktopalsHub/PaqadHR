@@ -91,7 +91,7 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
               <TableCell className="font-medium">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8 flex-shrink-0">
-                    <AvatarImage src={requester?.avatar || '/placeholder.svg'} />
+                    {requester?.avatar ? <AvatarImage src={requester.avatar} /> : null}
                     <AvatarFallback>{getInitials(request.employee)}</AvatarFallback>
                   </Avatar>
                   <span>{request.employee}</span>

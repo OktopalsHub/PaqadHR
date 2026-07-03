@@ -103,7 +103,7 @@ function MemberSummaryRow({
             </Button>
             <div className="flex items-center gap-2">
               <Avatar className="h-7 w-7 flex-shrink-0">
-                <AvatarImage src={avatar || '/placeholder.svg'} />
+                {avatar ? <AvatarImage src={avatar} /> : null}
                 <AvatarFallback>{getInitials(name)}</AvatarFallback>
               </Avatar>
               <span className="font-medium">{name}</span>

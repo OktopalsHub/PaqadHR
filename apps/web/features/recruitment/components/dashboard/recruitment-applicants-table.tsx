@@ -134,7 +134,6 @@ export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableP
                       className="flex items-center gap-3 hover:text-primary"
                     >
                       <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarImage src="/placeholder.svg" />
                         <AvatarFallback
                           className={`bg-gradient-to-br ${getInitialsColor(row.name)} font-semibold text-xs`}
                         >

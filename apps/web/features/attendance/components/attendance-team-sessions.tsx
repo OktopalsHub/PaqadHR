@@ -147,7 +147,7 @@ export function AttendanceTeamSessions() {
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-7 w-7 flex-shrink-0">
-                        <AvatarImage src={employee?.avatar || '/placeholder.svg'} />
+                        {employee?.avatar ? <AvatarImage src={employee.avatar} /> : null}
                         <AvatarFallback>{getInitials(name)}</AvatarFallback>
                       </Avatar>
                       <span>{name}</span>

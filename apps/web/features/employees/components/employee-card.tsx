@@ -30,7 +30,9 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={employee.avatar || '/placeholder.svg'} alt={employee.name} />
+                    {employee.avatar ? (
+                      <AvatarImage src={employee.avatar} alt={employee.name} />
+                    ) : null}
                     <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
                   </Avatar>
                   <div>

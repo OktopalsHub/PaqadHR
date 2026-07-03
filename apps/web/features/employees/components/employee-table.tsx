@@ -62,7 +62,7 @@ export const EmployeeTable = ({ employees, viewerMemberId, viewerRole }: Employe
                       className="flex items-center gap-2 hover:underline"
                     >
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={employee.avatar || '/placeholder.svg'} />
+                        {employee.avatar ? <AvatarImage src={employee.avatar} /> : null}
                         <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
                       </Avatar>
                       {employee.name}
@@ -70,7 +70,7 @@ export const EmployeeTable = ({ employees, viewerMemberId, viewerRole }: Employe
                   ) : (
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={employee.avatar || '/placeholder.svg'} />
+                        {employee.avatar ? <AvatarImage src={employee.avatar} /> : null}
                         <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
                       </Avatar>
                       {employee.name}

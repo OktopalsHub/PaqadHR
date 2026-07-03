@@ -166,7 +166,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                           className="flex items-center gap-2 hover:underline"
                         >
                           <Avatar className="h-8 w-8">
-                            <AvatarImage src={employee.avatar || '/placeholder.svg'} />
+                            {employee.avatar ? <AvatarImage src={employee.avatar} /> : null}
                             <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
                           </Avatar>
                           <div>

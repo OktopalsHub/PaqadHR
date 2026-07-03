@@ -34,6 +34,13 @@ const Register = () => {
 
   return (
     <div className="space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+        <p className="text-sm text-muted-foreground">
+          Start your 14-day free trial. No card required.
+        </p>
+      </div>
+
       <SocialAuthButtons />
 
       <div className="relative">

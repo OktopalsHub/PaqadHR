@@ -426,7 +426,7 @@ export function PayrollRunDetail({
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarImage src={employee?.avatar || '/placeholder.svg'} />
+                        {employee?.avatar ? <AvatarImage src={employee.avatar} /> : null}
                         <AvatarFallback>{getInitials(name)}</AvatarFallback>
                       </Avatar>
                       <span>{name}</span>
@@ -520,7 +520,7 @@ export function PayrollRunDetail({
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarImage src={employee?.avatar || '/placeholder.svg'} />
+                        {employee?.avatar ? <AvatarImage src={employee.avatar} /> : null}
                         <AvatarFallback>{getInitials(name)}</AvatarFallback>
                       </Avatar>
                       <div>
