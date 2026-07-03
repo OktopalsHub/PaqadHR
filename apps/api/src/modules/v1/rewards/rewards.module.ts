@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
@@ -40,7 +40,7 @@ import { TenantWalletService } from './services/tenant-wallet.service';
       Tenant,
     ]),
     PaymentsModule,
-    TenantSettingsModule,
+    forwardRef(() => TenantSettingsModule),
     SubscriptionsModule,
     NotificationsModule,
     ShoutoutsModule,

@@ -32,7 +32,7 @@ export class TenantWallet extends BaseEntity {
   @Column({ name: 'virtual_account_error', type: 'text', nullable: true })
   virtualAccountError: string | null;
 
-  @Column({ name: 'points_exchange_rate', type: 'numeric', precision: 10, scale: 2, default: 10 })
+  @Column({ name: 'points_exchange_rate', type: 'numeric', precision: 10, scale: 2, default: 1 })
   pointsExchangeRate: number;
 
   @Column({ name: 'auto_topup_enabled', default: false })

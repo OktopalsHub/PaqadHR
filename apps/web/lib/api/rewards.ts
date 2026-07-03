@@ -108,6 +108,13 @@ export interface ClaimInput {
   serviceType?: string;
 }
 
+export async function syncRewardsCatalog(): Promise<{ synced: number }> {
+  const tenantId = await resolveTenantId();
+  return apiClient<{ synced: number }>(tenantPath(tenantId, 'rewards/catalog/sync'), {
+    method: 'POST',
+  });
+}
+
 export async function fetchRewardsCatalog(): Promise<CatalogItem[]> {
   const tenantId = await resolveTenantId();
   return apiClient<CatalogItem[]>(tenantPath(tenantId, 'rewards/catalog'));
