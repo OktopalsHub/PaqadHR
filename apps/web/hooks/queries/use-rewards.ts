@@ -7,6 +7,7 @@ import {
   type CustomRewardInput,
   claimReward,
   createCustomReward,
+  createWalletTopupCheckout,
   deleteCustomReward,
   fetchAllClaims,
   fetchCustomRewards,
@@ -190,6 +191,21 @@ export function useManualTopupWallet() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+    },
+  });
+}
+
+export function useWalletTopupCheckout() {
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: (amount: number) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return createWalletTopupCheckout(tenantId, amount);
+    },
+    onSuccess: (result) => {
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
     },
   });
 }

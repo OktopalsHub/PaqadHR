@@ -31,6 +31,7 @@ describe('TenantWalletService', () => {
     const txRepo = {
       create: jest.fn((data) => data),
       save: jest.fn(async (tx) => tx),
+      findOne: jest.fn().mockResolvedValue(null),
     };
 
     const walletRepo = {
@@ -71,10 +72,15 @@ describe('TenantWalletService', () => {
     };
 
     const nombaApi = {
+      isConfigured: jest.fn().mockReturnValue(true),
       chargeTokenizedCard:
         overrides?.nombaCharge ?? jest.fn().mockResolvedValue({ orderReference: 'order-1' }),
       verifyTransaction:
         overrides?.nombaVerify ?? jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
+      createCheckoutOrder: jest.fn().mockResolvedValue({
+        checkoutLink: 'https://checkout.nomba.com/test',
+        orderReference: 'wallet-topup-ref',
+      }),
     };
 
     const subscriptionsService = {
@@ -95,7 +101,7 @@ describe('TenantWalletService', () => {
     };
 
     const tenantRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: tenantId, name: 'Acme Corp' }),
+      findOne: jest.fn().mockResolvedValue({ id: tenantId, name: 'Acme Corp', slug: 'acme' }),
     };
 
     const service = new TenantWalletService(
@@ -194,6 +200,83 @@ describe('TenantWalletService', () => {
 
       expect(txRepo.save).not.toHaveBeenCalled();
       expect(emailService.sendEmail).toHaveBeenCalled();
+    });
+  });
+
+  describe('createTopupCheckout', () => {
+    it('creates checkout with wallet_topup billing meta', async () => {
+      const { service, nombaApi } = createService();
+
+      const result = await service.createTopupCheckout(tenantId, 2500);
+
+      expect(result.checkoutUrl).toBe('https://checkout.nomba.com/test');
+      expect(nombaApi.createCheckoutOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 2500,
+          currency: 'NGN',
+          customerEmail: 'billing@test.com',
+          tokenizeCard: false,
+          meta: expect.objectContaining({
+            tenantId,
+            billingType: 'wallet_topup',
+            expectedAmount: 2500,
+          }),
+        }),
+      );
+      expect(nombaApi.createCheckoutOrder.mock.calls[0][0].orderReference).toMatch(
+        new RegExp(`^wallet-topup-${tenantId}-`),
+      );
+      expect(nombaApi.createCheckoutOrder.mock.calls[0][0].callbackUrl).toContain(
+        '/acme/settings?tab=rewards&wallet_topup=done',
+      );
+    });
+
+    it('rejects non-positive amounts', async () => {
+      const { service, nombaApi } = createService();
+
+      await expect(service.createTopupCheckout(tenantId, 0)).rejects.toThrow(
+        'Top up amount must be greater than 0',
+      );
+      expect(nombaApi.createCheckoutOrder).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('completeCheckoutTopup', () => {
+    it('credits wallet once for a successful checkout payment', async () => {
+      const { service, txRepo, nombaApi } = createService({
+        nombaVerify: jest.fn().mockResolvedValue({ status: 'success', amount: 2500 }),
+      });
+
+      const result = await service.completeCheckoutTopup({
+        tenantId,
+        orderReference: 'wallet-topup-ref-1',
+        amount: 2500,
+      });
+
+      expect(result).toEqual({ received: true, credited: true });
+      expect(nombaApi.verifyTransaction).toHaveBeenCalledWith('wallet-topup-ref-1');
+      expect(txRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'DEPOSIT',
+          amount: 2500,
+          reference: 'wallet-topup-ref-1',
+        }),
+      );
+    });
+
+    it('is idempotent when reference already exists', async () => {
+      const { service, txRepo, nombaApi } = createService();
+      txRepo.findOne.mockResolvedValue({ id: 'tx-1', reference: 'wallet-topup-ref-1' });
+
+      const result = await service.completeCheckoutTopup({
+        tenantId,
+        orderReference: 'wallet-topup-ref-1',
+        amount: 2500,
+      });
+
+      expect(result).toEqual({ received: true, credited: false });
+      expect(nombaApi.verifyTransaction).not.toHaveBeenCalled();
+      expect(txRepo.save).not.toHaveBeenCalled();
     });
   });
 });

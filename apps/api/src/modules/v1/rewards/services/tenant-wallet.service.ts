@@ -459,4 +459,109 @@ export class TenantWalletService {
     const description = 'Manual rewards wallet top-up via saved payment method';
     return this.chargeAndCredit(tenantId, amount, reference, description, undefined, 'admin');
   }
+
+  async createTopupCheckout(
+    tenantId: string,
+    amount: number,
+  ): Promise<{ checkoutUrl: string; orderReference: string }> {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Top up amount must be greater than 0');
+    }
+    if (!this.nombaApi.isConfigured()) {
+      throw new BadRequestException('Nomba checkout is not configured');
+    }
+
+    const customerEmail = await this.resolveBillingEmail(tenantId);
+    if (!customerEmail) {
+      throw new BadRequestException(
+        'Billing contact email is not configured. Add it in Settings → Billing.',
+      );
+    }
+
+    const wallet = await this.ensureWallet(tenantId);
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const callbackUrl = tenant?.slug
+      ? `${frontendBase}/${tenant.slug}/settings?tab=rewards&wallet_topup=done`
+      : `${frontendBase}/settings?tab=rewards&wallet_topup=done`;
+
+    const orderReference = `wallet-topup-${tenantId}-${randomUUID()}`;
+    const result = await this.nombaApi.createCheckoutOrder({
+      orderReference,
+      customerEmail,
+      amount,
+      currency: (wallet.currencyCode || 'NGN').toUpperCase(),
+      callbackUrl,
+      tokenizeCard: false,
+      meta: {
+        tenantId,
+        billingType: 'wallet_topup',
+        expectedAmount: amount,
+      },
+    });
+
+    return {
+      checkoutUrl: result.checkoutLink,
+      orderReference: result.orderReference,
+    };
+  }
+
+  /**
+   * Credits wallet after Nomba checkout payment_success for billingType=wallet_topup.
+   * Idempotent on orderReference.
+   */
+  async completeCheckoutTopup(input: {
+    tenantId: string;
+    orderReference: string;
+    amount?: number;
+  }): Promise<{ received: boolean; credited: boolean }> {
+    const txRepo = this.dataSource.getRepository(TenantWalletTransaction);
+    const existing = await txRepo.findOne({ where: { reference: input.orderReference } });
+    if (existing) {
+      return { received: true, credited: false };
+    }
+
+    const verified = await this.nombaApi.verifyTransaction(input.orderReference);
+    const status = verified?.status?.toLowerCase() ?? '';
+    if (status !== 'success' && status !== 'successful') {
+      this.logger.warn(
+        `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
+      );
+      return { received: true, credited: false };
+    }
+
+    const wallet = await this.ensureWallet(input.tenantId);
+    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
+    const expected = input.amount ?? Number(verified?.amount ?? 0);
+    const paid = normalizeWebhookAmount(Number(verified?.amount ?? 0), expected, currency);
+    if (!Number.isFinite(paid) || paid <= 0) {
+      this.logger.warn(`Wallet checkout top-up invalid amount for ${input.orderReference}`);
+      return { received: true, credited: false };
+    }
+
+    if (
+      input.amount &&
+      Number.isFinite(input.amount) &&
+      !isAmountWithinTolerance(paid, input.amount)
+    ) {
+      this.logger.warn(
+        `Wallet checkout top-up amount mismatch for ${input.orderReference}: expected ${input.amount}, got ${paid}`,
+      );
+      return { received: true, credited: false };
+    }
+
+    await this.credit(
+      input.tenantId,
+      paid,
+      'DEPOSIT',
+      input.orderReference,
+      'Rewards wallet top-up via Nomba checkout',
+      undefined,
+      { nombaEventId: input.orderReference },
+    );
+    this.logger.log(
+      `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
+    );
+    return { received: true, credited: true };
+  }
 }

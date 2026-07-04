@@ -274,6 +274,19 @@ export async function manualTopupWallet(tenantId: string, amount: number): Promi
   });
 }
 
+export async function createWalletTopupCheckout(
+  tenantId: string,
+  amount: number,
+): Promise<{ checkoutUrl: string; orderReference: string }> {
+  return apiClient<{ checkoutUrl: string; orderReference: string }>(
+    tenantPath(tenantId, 'rewards/wallet/topup/checkout'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    },
+  );
+}
+
 export async function updateAutoTopupConfig(params: {
   enabled: boolean;
   threshold: number;

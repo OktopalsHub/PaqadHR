@@ -130,6 +130,14 @@ export class RewardsController {
     return this.walletService.manualTopup(tenantId, body.amount);
   }
 
+  @Post('wallet/topup/checkout')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Create Nomba checkout link to fund rewards wallet' })
+  async topupCheckout(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
+    return this.walletService.createTopupCheckout(tenantId, Number(body.amount));
+  }
+
   @Post('wallet/auto-topup')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)

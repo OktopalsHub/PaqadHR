@@ -1,7 +1,9 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { Copy, Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
@@ -39,18 +41,18 @@ import {
   useDeleteCustomReward,
   useTenantWallet,
   useUpdateAutoTopupConfig,
+  useWalletTopupCheckout,
   useWalletTransactions,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { syncRewardsCatalog } from '@/lib/api/rewards';
 import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-const REWARDS_WALLET_SUPPORT_EMAIL = 'support@paqadhr.com';
-
-const _WALLET_TOPUP_FAILED =
-  'Top up failed. Check your billing payment method in Settings → Billing and try again.';
+const NOMBA_SANDBOX_DOCS =
+  'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing';
 
 const ALL_COUNTRIES = [
   { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
@@ -74,6 +76,8 @@ const ALL_COUNTRIES = [
 
 export function SettingsRewardsTab() {
   const { tenant } = useTenant();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
   const { data: billingOverview } = useBillingOverview();
@@ -84,6 +88,7 @@ export function SettingsRewardsTab() {
   const deleteReward = useDeleteCustomReward();
 
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
+  const topupCheckout = useWalletTopupCheckout();
 
   const rewards = settings?.settings?.rewards;
   const [exchangeRate, setExchangeRate] = useState('1');
@@ -108,6 +113,7 @@ export function SettingsRewardsTab() {
 
   // Top Up Modal State
   const [isTopupOpen, setIsTopupOpen] = useState(false);
+  const [topupAmount, setTopupAmount] = useState('');
 
   // Auto Top Up State
   const [autoTopupEnabled, setAutoTopupEnabled] = useState(false);
@@ -120,6 +126,16 @@ export function SettingsRewardsTab() {
   const hasDepositAccount =
     wallet?.virtualAccountStatus === 'ACTIVE' && Boolean(wallet.virtualAccountNumber);
   const depositAccountPending = wallet?.virtualAccountStatus === 'PROVISIONING';
+  const topupAmountValue = Number(topupAmount);
+  const topupAmountValid = Number.isFinite(topupAmountValue) && topupAmountValue > 0;
+
+  useEffect(() => {
+    if (searchParams.get('wallet_topup') === 'done') {
+      toast.success('Payment received—balance updates when confirmed');
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+    }
+  }, [searchParams, queryClient]);
 
   useEffect(() => {
     if (rewards) {
@@ -236,6 +252,18 @@ export function SettingsRewardsTab() {
       toast.success('Auto-topup rules updated successfully');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save auto-topup config');
+    }
+  };
+
+  const handlePayWithNomba = async () => {
+    if (!topupAmountValid) {
+      toast.error('Enter a valid amount greater than 0');
+      return;
+    }
+    try {
+      await topupCheckout.mutateAsync(topupAmountValue);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start checkout');
     }
   };
 
@@ -666,8 +694,14 @@ export function SettingsRewardsTab() {
         </div>
       </ContentCard>
 
-      {/* Bank transfer top-up */}
-      <Dialog open={isTopupOpen} onOpenChange={setIsTopupOpen}>
+      {/* Wallet top-up: Nomba checkout + bank transfer */}
+      <Dialog
+        open={isTopupOpen}
+        onOpenChange={(open) => {
+          setIsTopupOpen(open);
+          if (!open) setTopupAmount('');
+        }}
+      >
         <DialogContent className="sm:max-w-[425px] rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -675,12 +709,56 @@ export function SettingsRewardsTab() {
               Top Up Rewards Wallet
             </DialogTitle>
             <DialogDescription>
-              Transfer funds from your bank to the dedicated account below. Your wallet is credited
-              when the transfer is received.
+              Pay with Nomba (card, transfer, and other methods) or transfer to your dedicated bank
+              account. Your wallet is credited when payment is confirmed.
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
+            <div className="space-y-2">
+              <label htmlFor="topup-amount" className="text-sm font-medium">
+                Amount ({walletCurrency})
+              </label>
+              <Input
+                id="topup-amount"
+                type="number"
+                min={1}
+                step="1"
+                placeholder="e.g. 5000"
+                value={topupAmount}
+                onChange={(e) => setTopupAmount(e.target.value)}
+                className="rounded-xl h-10"
+              />
+              <p className="text-xs text-muted-foreground">
+                Required for Pay with Nomba. Bank transfer accepts any amount.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              disabled={!topupAmountValid || topupCheckout.isPending}
+              onClick={() => void handlePayWithNomba()}
+              className="rounded-xl font-semibold w-full"
+            >
+              {topupCheckout.isPending ? (
+                <>
+                  <Loader2 className="size-4 animate-spin mr-2" />
+                  Redirecting…
+                </>
+              ) : (
+                'Pay with Nomba'
+              )}
+            </Button>
+
+            <div className="relative py-1">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">or bank transfer</span>
+              </div>
+            </div>
+
             {hasDepositAccount ? (
               <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
                 <div className="flex justify-between items-center text-sm gap-2">
@@ -715,26 +793,36 @@ export function SettingsRewardsTab() {
                 </p>
               </div>
             ) : depositAccountPending ? (
-              <div className="rounded-xl border border-dashed border-border/80 p-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="size-4 animate-spin shrink-0" />
-                Your deposit account is being set up. Check back shortly.
+              <div className="rounded-xl border border-dashed border-border/80 p-4 space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="size-4 animate-spin shrink-0" />
+                  Your deposit account is being set up. Check back shortly.
+                </div>
+                <p className="text-xs">Use Pay with Nomba above to fund now.</p>
               </div>
             ) : (
               <Alert>
-                <AlertTitle>Deposit account not ready</AlertTitle>
+                <AlertTitle>Bank transfer not available</AlertTitle>
                 <AlertDescription>
-                  Your dedicated bank account for wallet funding is not available yet. If you need
-                  to fund immediately, contact{' '}
-                  <a
-                    href={`mailto:${REWARDS_WALLET_SUPPORT_EMAIL}`}
-                    className="font-medium underline underline-offset-2"
-                  >
-                    {REWARDS_WALLET_SUPPORT_EMAIL}
-                  </a>
-                  .
+                  Your dedicated deposit account is not ready. Use Pay with Nomba above to fund your
+                  wallet.
                 </AlertDescription>
               </Alert>
             )}
+
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Sandbox: use Nomba{' '}
+              <a
+                href={NOMBA_SANDBOX_DOCS}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium underline underline-offset-2"
+              >
+                test cards and payment methods
+              </a>
+              . Bank transfer has low limits in sandbox; live funding works like a normal transfer
+              once the account is active.
+            </p>
           </div>
 
           <DialogFooter>
@@ -743,7 +831,7 @@ export function SettingsRewardsTab() {
               onClick={() => setIsTopupOpen(false)}
               className="rounded-xl font-semibold"
             >
-              {hasDepositAccount ? 'Done' : 'Close'}
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
