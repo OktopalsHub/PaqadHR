@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   useApproveLeave,
   useLeaveApprovalContext,
@@ -61,20 +62,20 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
   };
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Employee</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>From</TableHead>
-          <TableHead>To</TableHead>
-          <TableHead>Days</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Reason</TableHead>
-          {canApproveAny ? <TableHead>Actions</TableHead> : null}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <AppTable className="min-w-[980px]">
+      <AppTableHeaderSection>
+        <AppTableHeaderRow>
+          <AppTableHeadCell>Employee</AppTableHeadCell>
+          <AppTableHeadCell>Type</AppTableHeadCell>
+          <AppTableHeadCell>From</AppTableHeadCell>
+          <AppTableHeadCell>To</AppTableHeadCell>
+          <AppTableHeadCell>Days</AppTableHeadCell>
+          <AppTableHeadCell>Status</AppTableHeadCell>
+          <AppTableHeadCell>Reason</AppTableHeadCell>
+          {canApproveAny ? <AppTableHeadCell>Actions</AppTableHeadCell> : null}
+        </AppTableHeaderRow>
+      </AppTableHeaderSection>
+      <AppTableBodySection>
         {requests.map((request) => {
           const isPending = request.status.toLowerCase() === 'pending';
           const isBusy = pendingId === request.id;
@@ -87,32 +88,32 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
           const requester = employees.find((emp) => emp.id === request.requesterId);
 
           return (
-            <TableRow key={request.id}>
-              <TableCell className="font-medium">
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-8 w-8 flex-shrink-0">
+            <AppTableBodyRow key={request.id}>
+              <AppTableCell className="font-medium">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
                     <AvatarImage src={requester?.avatar || '/placeholder.svg'} />
                     <AvatarFallback>{getInitials(request.employee)}</AvatarFallback>
                   </Avatar>
                   <span>{request.employee}</span>
                 </div>
-              </TableCell>
-              <TableCell>{request.type}</TableCell>
-              <TableCell>{request.startDate}</TableCell>
-              <TableCell>{request.endDate}</TableCell>
-              <TableCell>{request.days}</TableCell>
-              <TableCell>
+              </AppTableCell>
+              <AppTableCell>{request.type}</AppTableCell>
+              <AppTableCell>{request.startDate}</AppTableCell>
+              <AppTableCell>{request.endDate}</AppTableCell>
+              <AppTableCell>{request.days}</AppTableCell>
+              <AppTableCell>
                 <LeaveStatusBadge status={request.status} />
-              </TableCell>
-              <TableCell className="max-w-[200px] truncate">{request.reason}</TableCell>
+              </AppTableCell>
+              <AppTableCell className="max-w-[200px] truncate">{request.reason}</AppTableCell>
               {canApproveAny ? (
-                <TableCell>
+                <AppTableCell>
                   {isPending && canApprove ? (
-                    <div className="flex space-x-2">
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="h-8 px-2 text-xs"
+                        variant="brandSolid"
+                        className="h-8 px-3 text-xs font-semibold"
                         disabled={isBusy}
                         onClick={() => void handleApprove(request.id)}
                       >
@@ -121,7 +122,7 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 px-2 text-xs text-red-500 border-red-200 hover:bg-red-50"
+                        className="h-8 border-red-200 px-3 text-xs text-red-600 shadow-none hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:hover:bg-red-950/20"
                         disabled={isBusy}
                         onClick={() => void handleReject(request.id)}
                       >
@@ -129,14 +130,14 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
                       </Button>
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">—</span>
                   )}
-                </TableCell>
+                </AppTableCell>
               ) : null}
-            </TableRow>
+            </AppTableBodyRow>
           );
         })}
-      </TableBody>
-    </Table>
+      </AppTableBodySection>
+    </AppTable>
   );
 }

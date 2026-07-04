@@ -41,18 +41,22 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1 outline-none transition-colors hover:bg-muted/60"
+          className="flex cursor-pointer items-center gap-3 rounded-[12px] border border-[#d7e3f6] bg-white px-3 py-2 shadow-[0_12px_24px_-20px_rgba(11,28,48,0.28)] outline-none transition-[box-shadow,border-color,background-color] hover:border-[#c7d7f1] hover:bg-white hover:shadow-[0_16px_28px_-20px_rgba(11,28,48,0.34)] dark:border-slate-700 dark:bg-slate-950/80 dark:hover:border-slate-600 dark:hover:bg-slate-950"
         >
-          <Avatar className="size-8 shrink-0">
+          <Avatar className="size-10 shrink-0 border border-[#d7e3f6] shadow-sm dark:border-slate-700">
             <AvatarImage src={profile?.avatarUrl ?? undefined} alt={name} />
-            <AvatarFallback className="bg-muted text-xs font-medium text-foreground">
+            <AvatarFallback className="bg-[#fff3d6] text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="hidden min-w-0 max-w-[140px] text-left lg:block">
-            <p className="truncate text-sm font-semibold leading-tight">{name}</p>
+            <p className="truncate text-sm font-semibold leading-tight text-slate-950 dark:text-slate-50">
+              {name}
+            </p>
             {position ? (
-              <p className="truncate text-xs leading-tight text-muted-foreground">{position}</p>
+              <p className="truncate text-xs leading-tight text-slate-500 dark:text-slate-400">
+                {position}
+              </p>
             ) : null}
           </div>
         </button>

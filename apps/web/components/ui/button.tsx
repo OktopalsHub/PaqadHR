@@ -5,11 +5,15 @@ import type * as React from 'react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-[8px] text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+        brand:
+          'bg-[#fea619] text-[#2a1700] shadow-[0_12px_24px_-18px_rgba(245,158,11,0.9)] hover:bg-[#f19d16]',
+        brandSolid:
+          'bg-[#fbbf24] text-white shadow-[0_12px_24px_-18px_rgba(245,158,11,0.9)] hover:bg-amber-500',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline:
@@ -20,8 +24,10 @@ const buttonVariants = cva(
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
-        sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
-        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
+        sm: 'h-8 gap-1.5 px-3 has-[>svg]:px-2.5',
+        lg: 'h-10 px-6 has-[>svg]:px-4',
+        app: 'h-10 px-6 py-2.5 text-sm font-bold has-[>svg]:px-5',
+        appCta: 'h-11 px-4 text-xs font-semibold uppercase tracking-[0.1em]',
         icon: 'size-9',
       },
     },

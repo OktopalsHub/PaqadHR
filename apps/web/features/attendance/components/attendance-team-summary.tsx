@@ -4,18 +4,19 @@ import { ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableFooterBar,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { memberDisplayName, statusLabel } from '@/features/attendance/lib/attendance-utils';
 import { useMonthlyTimesheet } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
@@ -24,7 +25,7 @@ import type { MonthlyTimesheetMember } from '@/lib/api/attendance';
 import type { TenantSettingsResponse } from '@/lib/api/tenant-settings';
 import { getInitials } from '@/lib/utils';
 
-function MonthYearPicker({
+export function AttendanceSummaryMonthPicker({
   month,
   year,
   onMonthChange,
@@ -38,23 +39,21 @@ function MonthYearPicker({
   const monthValue = `${year}-${String(month).padStart(2, '0')}`;
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-2">
-        <Label htmlFor="team-month">Month</Label>
-        <Input
-          id="team-month"
-          type="month"
-          value={monthValue}
-          onChange={(e) => {
-            const [y, m] = e.target.value.split('-').map(Number);
-            if (y && m) {
-              onYearChange(y);
-              onMonthChange(m);
-            }
-          }}
-          className="w-[180px]"
-        />
-      </div>
+    <div className="flex items-center gap-3">
+      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Month</span>
+      <Input
+        id="team-month"
+        type="month"
+        value={monthValue}
+        onChange={(e) => {
+          const [y, m] = e.target.value.split('-').map(Number);
+          if (y && m) {
+            onYearChange(y);
+            onMonthChange(m);
+          }
+        }}
+        className="w-[180px] border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+      />
     </div>
   );
 }
@@ -64,7 +63,7 @@ function isHolidayDate(
   customHolidays?: Array<{ date: string; name: string; recursYearly?: boolean }>,
 ) {
   if (!customHolidays || !Array.isArray(customHolidays)) return null;
-  const mmdd = dateStr.substring(5); // MM-DD
+  const mmdd = dateStr.substring(5);
   const holiday = customHolidays.find((h) => {
     if (h.recursYearly) {
       return h.date.endsWith(mmdd);
@@ -89,8 +88,8 @@ function MemberSummaryRow({
 
   return (
     <>
-      <TableRow>
-        <TableCell>
+      <AppTableBodyRow>
+        <AppTableCell>
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -109,18 +108,18 @@ function MemberSummaryRow({
               <span className="font-medium">{name}</span>
             </div>
           </div>
-        </TableCell>
-        <TableCell className="text-muted-foreground">
+        </AppTableCell>
+        <AppTableCell className="text-slate-500 dark:text-slate-400">
           {entry.member.employeeNumber ?? '—'}
-        </TableCell>
-        <TableCell>{stats.presentDays}</TableCell>
-        <TableCell>{stats.absentDays}</TableCell>
-        <TableCell>{stats.leaveDays}</TableCell>
-        <TableCell>{stats.attendanceRate.toFixed(1)}%</TableCell>
-      </TableRow>
+        </AppTableCell>
+        <AppTableCell>{stats.presentDays}</AppTableCell>
+        <AppTableCell>{stats.absentDays}</AppTableCell>
+        <AppTableCell>{stats.leaveDays}</AppTableCell>
+        <AppTableCell>{stats.attendanceRate.toFixed(1)}%</AppTableCell>
+      </AppTableBodyRow>
       {expanded ? (
-        <TableRow>
-          <TableCell colSpan={6} className="bg-muted/20">
+        <AppTableBodyRow className="bg-slate-50/70 hover:bg-slate-50/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/40">
+          <AppTableCell colSpan={6}>
             <div className="flex flex-wrap gap-1 py-2">
               {entry.dailyAttendance.map((day) => {
                 const todayStr = new Date().toISOString().split('T')[0];
@@ -134,19 +133,18 @@ function MemberSummaryRow({
                 );
 
                 const isPast = day.date < todayStr;
-                const _isFuture = day.date > todayStr;
                 const isToday = day.date === todayStr;
                 const isPresent = day.status === 'PRESENT' || day.status === 'LATE';
 
                 let cellColorClass =
-                  'bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-650'; // default future / Gray
+                  'bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500';
 
                 if (isPresent) {
-                  cellColorClass = 'bg-emerald-500 text-white dark:bg-emerald-600'; // Green
+                  cellColorClass = 'bg-emerald-500 text-white dark:bg-emerald-600';
                 } else if (isWeekend || holidayName) {
-                  cellColorClass = 'bg-zinc-700 text-zinc-100 dark:bg-zinc-800 dark:text-zinc-200'; // Dark Gray
+                  cellColorClass = 'bg-zinc-700 text-zinc-100 dark:bg-zinc-800 dark:text-zinc-200';
                 } else if (isPast || isToday) {
-                  cellColorClass = 'bg-rose-500 text-white dark:bg-rose-600'; // Red
+                  cellColorClass = 'bg-rose-500 text-white dark:bg-rose-600';
                 }
 
                 const dayOfWeekName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
@@ -163,24 +161,21 @@ function MemberSummaryRow({
                   <div
                     key={day.date}
                     title={hoverText}
-                    className={`flex size-7 items-center justify-center rounded text-[10px] font-medium transition-colors ${cellColorClass}`}
+                    className={`flex size-7 items-center justify-center rounded-[6px] text-[10px] font-medium transition-colors ${cellColorClass}`}
                   >
                     {day.day}
                   </div>
                 );
               })}
             </div>
-          </TableCell>
-        </TableRow>
+          </AppTableCell>
+        </AppTableBodyRow>
       ) : null}
     </>
   );
 }
 
-export function AttendanceTeamSummary() {
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear] = useState(now.getFullYear());
+export function AttendanceTeamSummary({ month, year }: { month: number; year: number }) {
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useMonthlyTimesheet(month, year, page);
@@ -192,21 +187,6 @@ export function AttendanceTeamSummary() {
 
   return (
     <>
-      <div className="border-b border-border/60 px-4 py-3">
-        <MonthYearPicker
-          month={month}
-          year={year}
-          onMonthChange={(value) => {
-            setMonth(value);
-            setPage(1);
-          }}
-          onYearChange={(value) => {
-            setYear(value);
-            setPage(1);
-          }}
-        />
-      </div>
-
       {isLoading ? (
         <div className="p-4">
           <LoadingBlock />
@@ -221,18 +201,18 @@ export function AttendanceTeamSummary() {
         </div>
       ) : (
         <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Employee #</TableHead>
-                <TableHead>Present</TableHead>
-                <TableHead>Absent</TableHead>
-                <TableHead>Leave</TableHead>
-                <TableHead>Attendance %</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <AppTable className="min-w-[860px]">
+            <AppTableHeaderSection>
+              <AppTableHeaderRow>
+                <AppTableHeadCell>Member</AppTableHeadCell>
+                <AppTableHeadCell>Employee #</AppTableHeadCell>
+                <AppTableHeadCell>Present</AppTableHeadCell>
+                <AppTableHeadCell>Absent</AppTableHeadCell>
+                <AppTableHeadCell>Leave</AppTableHeadCell>
+                <AppTableHeadCell>Attendance %</AppTableHeadCell>
+              </AppTableHeaderRow>
+            </AppTableHeaderSection>
+            <AppTableBodySection>
               {members.map((entry) => {
                 const employee = employees.find((emp) => emp.id === entry.member.id);
                 return (
@@ -244,17 +224,18 @@ export function AttendanceTeamSummary() {
                   />
                 );
               })}
-            </TableBody>
-          </Table>
+            </AppTableBodySection>
+          </AppTable>
           {pagination && pagination.totalPages > 1 ? (
-            <div className="flex items-center justify-between border-t border-border/60 px-4 py-3">
-              <p className="text-sm text-muted-foreground">
+            <AppTableFooterBar>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 Page {pagination.page} of {pagination.totalPages} · {pagination.total} members
               </p>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
                   disabled={!pagination.hasPrev}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
@@ -263,13 +244,14 @@ export function AttendanceTeamSummary() {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
                   disabled={!pagination.hasNext}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next
                 </Button>
               </div>
-            </div>
+            </AppTableFooterBar>
           ) : null}
         </>
       )}

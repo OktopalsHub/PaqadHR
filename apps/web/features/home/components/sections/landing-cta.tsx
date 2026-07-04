@@ -8,9 +8,14 @@ import { Button } from '@/components/ui/button';
 import { landingPricingByCurrency } from '../../constants/landing-demo-data';
 import { fadeUp, stagger } from '../../constants/landing-motion';
 
+const currencyLocales: Record<string, string> = {
+  NGN: 'en-NG',
+  USD: 'en-US',
+};
+
 function formatMoney(amount: number, currency: string) {
   try {
-    return new Intl.NumberFormat(undefined, {
+    return new Intl.NumberFormat(currencyLocales[currency] ?? 'en-US', {
       style: 'currency',
       currency,
       maximumFractionDigits: 0,

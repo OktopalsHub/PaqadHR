@@ -57,22 +57,27 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
   };
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
       <div
         className={cn(
-          'relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40',
+          'relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-[8px] border border-[#d7e3f6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/70',
         )}
       >
         {displaySrc ? (
           // biome-ignore lint/performance/noImgElement: blob preview URL from file input
           <img src={displaySrc} alt={`${name} logo`} className="size-full object-cover" />
         ) : (
-          <Building2 className="size-8 text-muted-foreground" aria-hidden />
+          <Building2 className="size-9 text-slate-500 dark:text-slate-300" aria-hidden />
         )}
       </div>
 
       <div className="space-y-2">
-        <p className="text-2xl font-semibold">{name || 'Workspace'}</p>
+        <p className="text-[28px] font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+          {name || 'Workspace'}
+        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Upload a square logo to keep branding consistent across the workspace.
+        </p>
         {!disabled ? (
           <>
             <input
@@ -98,7 +103,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
             </Button>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Only admins can change the workspace logo.
           </p>
         )}

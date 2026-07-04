@@ -18,11 +18,9 @@ import {
   useUpdateMemberProfile,
 } from '@/hooks/queries/use-member-profile';
 import { useAuth } from '@/hooks/use-auth';
-import { useTenant } from '@/providers/tenant-provider';
 
 export function SettingsProfileTab() {
   const { user } = useAuth();
-  const { tenant } = useTenant();
   const { data: profile, isLoading } = useMemberProfile();
   const updateProfile = useUpdateMemberProfile();
   const avatarUpload = useMemberAvatarUpload({ isSelf: true });
@@ -42,7 +40,6 @@ export function SettingsProfileTab() {
 
   const name = memberFullName(profile, user?.name);
   const initials = memberInitials(profile, user?.name);
-  const _memberRole = tenant?.member?.role?.replace('_', ' ') ?? user?.role?.replace('_', ' ');
 
   const saveProfile = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -68,27 +65,37 @@ export function SettingsProfileTab() {
 
   return (
     <div className="space-y-5">
-      <div className="app-card flex flex-col items-center gap-4 rounded-xl p-6 sm:flex-row sm:items-start">
-        <AvatarUpload
-          src={avatarUrl}
-          alt={name}
-          fallback={initials}
-          size="lg"
-          disabled={avatarUpload.isPending}
-          onUpload={async (file) => {
-            const url = await avatarUpload.mutateAsync(file);
-            if (url) setAvatarUrl(url);
-            return url;
-          }}
-          onError={(message) => toast.error(message)}
-        />
+      <div className="dashboard-panel flex flex-col gap-5 rounded-[8px] px-6 py-6 sm:flex-row sm:items-center">
+        <div className="dashboard-soft-tile flex justify-center rounded-[8px] px-4 py-4 sm:justify-start">
+          <AvatarUpload
+            src={avatarUrl}
+            alt={name}
+            fallback={initials}
+            size="lg"
+            disabled={avatarUpload.isPending}
+            onUpload={async (file) => {
+              const url = await avatarUpload.mutateAsync(file);
+              if (url) setAvatarUrl(url);
+              return url;
+            }}
+            onError={(message) => toast.error(message)}
+          />
+        </div>
         <div className="min-w-0 flex-1 text-center sm:text-left">
-          <h2 className="text-lg font-semibold">{name}</h2>
+          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Account</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+            {name}
+          </h2>
           {profile?.position?.title ? (
-            <p className="text-sm text-muted-foreground">{profile.position.title}</p>
+            <p className="mt-1 text-sm font-medium text-slate-600 dark:text-slate-400">
+              {profile.position.title}
+            </p>
           ) : null}
           {user?.email ? (
-            <p className="mt-1 truncate text-sm text-muted-foreground" title={user.email}>
+            <p
+              className="mt-1 truncate text-sm text-slate-500 dark:text-slate-400"
+              title={user.email}
+            >
               {user.email}
             </p>
           ) : null}

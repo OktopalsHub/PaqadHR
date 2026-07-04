@@ -21,12 +21,12 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
   const recipients = hasRecipients ? shoutout.recipients.map((r) => memberLabel(r)).join(', ') : '';
 
   return (
-    <article className="culture-card overflow-hidden rounded-xl">
-      <div className="flex gap-3 p-3">
+    <article className="culture-card overflow-hidden rounded-[8px]">
+      <div className="flex gap-3 p-4">
         <MemberAvatar member={shoutout.sender} className="size-8 text-[10px]" />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <p className="text-xs leading-snug">
+            <p className="text-sm leading-snug text-slate-700 dark:text-slate-200">
               <span className="font-semibold">{memberLabel(shoutout.sender)}</span>
               {hasRecipients ? (
                 <>
@@ -49,7 +49,7 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
                   key={category.id}
                   variant="outline"
                   className={cn(
-                    'rounded-full px-2 py-0 text-[10px] font-medium',
+                    'rounded-full px-2 py-0.5 text-[10px] font-medium',
                     !category.color && 'border-primary/20 bg-primary/5 text-primary',
                   )}
                   style={categoryStyle(category.color)}
@@ -60,11 +60,11 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
             </div>
           ) : null}
 
-          <div className="culture-message mt-2 rounded-lg px-3 py-2 text-xs leading-relaxed">
+          <div className="culture-message mt-3 rounded-[8px] px-3 py-2.5 text-sm leading-relaxed">
             {shoutout.message}
           </div>
 
-          <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
             <Sparkles className="size-3 text-primary/70" />
             {formatDateTime(shoutout.createdAt)}
           </div>

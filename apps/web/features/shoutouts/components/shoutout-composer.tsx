@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -142,17 +143,19 @@ export function ShoutoutComposer({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20',
+        'app-card relative overflow-hidden rounded-[8px] p-5 transition-all duration-300 hover:border-primary/20',
         className,
       )}
     >
-      <div className="flex items-center gap-3 pb-3 border-b border-border/50">
-        <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/20 text-primary shadow-sm">
+      <div className="flex items-center gap-3 border-b border-[#d7e3f6] pb-3 dark:border-slate-700">
+        <div className="flex size-10 items-center justify-center rounded-[8px] bg-gradient-to-br from-[#ffe1b7] to-[#ffd292] text-[#7a4a00] shadow-sm dark:from-amber-500/20 dark:to-amber-400/10 dark:text-amber-300">
           <Sparkles className="size-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold">Celebrate your team</h3>
-          <p className="text-xs text-muted-foreground">
+          <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
+            Celebrate your team
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Give shoutouts, share recognition, and award points
           </p>
         </div>
@@ -160,7 +163,7 @@ export function ShoutoutComposer({
           <div className="text-right">
             <Badge
               variant="outline"
-              className="px-2.5 py-0.5 font-medium border-primary/20 bg-primary/5 text-primary"
+              className="border-[#d7e3f6] bg-[#eef4ff] px-2.5 py-0.5 font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {allowance.toLocaleString()} {PAQ_POINTS_NAME} left
             </Badge>
@@ -169,8 +172,7 @@ export function ShoutoutComposer({
       </div>
 
       <div className="mt-4 space-y-4">
-        {}
-        <div className="relative rounded-xl border border-border/60 bg-muted/20 p-3 transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+        <div className="dashboard-soft-tile relative rounded-[8px] p-3 transition-all focus-within:border-[#c7d7f1] focus-within:ring-1 focus-within:ring-[#c7d7f1] dark:focus-within:border-slate-700 dark:focus-within:ring-slate-700">
           <textarea
             className="w-full min-h-[90px] bg-transparent text-sm resize-none outline-none placeholder:text-muted-foreground/80"
             placeholder="Write a message to appreciate someone... Use buttons below to add teammate, value, and points!"
@@ -178,14 +180,13 @@ export function ShoutoutComposer({
             onChange={(e) => onMessageChange(e.target.value)}
           />
 
-          {}
           <AnimatePresence>
             {(attachedGif || attachedImage) && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="relative mt-2 max-w-[200px] overflow-hidden rounded-lg border bg-background"
+                className="relative mt-2 max-w-[200px] overflow-hidden rounded-[8px] border bg-background"
               >
                 {/* biome-ignore lint/performance/noImgElement: user attachment preview URL */}
                 <img
@@ -209,7 +210,6 @@ export function ShoutoutComposer({
           </AnimatePresence>
         </div>
 
-        {}
         <div className="flex flex-wrap gap-1.5 min-h-[24px]">
           {selectedRecipients.map((recipient) => (
             <Badge
@@ -248,10 +248,8 @@ export function ShoutoutComposer({
           )}
         </div>
 
-        {}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            {}
             <Popover open={recipientOpen} onOpenChange={setRecipientOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -295,7 +293,6 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {}
             {categories.length > 0 && (
               <Popover open={valueOpen} onOpenChange={setValueOpen}>
                 <PopoverTrigger asChild>
@@ -335,7 +332,6 @@ export function ShoutoutComposer({
               </Popover>
             )}
 
-            {}
             <Popover open={pointsOpen} onOpenChange={setPointsOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -383,7 +379,6 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {}
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9 hover:bg-muted/80">
@@ -406,7 +401,6 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {}
             <Popover open={gifOpen} onOpenChange={setGifOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="icon" className="h-9 w-9 hover:bg-muted/80">
@@ -436,7 +430,6 @@ export function ShoutoutComposer({
               </PopoverContent>
             </Popover>
 
-            {}
             <Button
               variant="outline"
               size="icon"
@@ -464,7 +457,7 @@ export function ShoutoutComposer({
       </div>
 
       {disabled && disabledHint ? (
-        <p className="mt-3 rounded-lg border border-dashed border-border/80 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        <p className="mt-3 rounded-[8px] border border-dashed border-border/80 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           {disabledHint}
         </p>
       ) : null}
@@ -475,5 +468,3 @@ export function ShoutoutComposer({
     </div>
   );
 }
-
-import { toast } from 'sonner';

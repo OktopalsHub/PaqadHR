@@ -21,12 +21,16 @@ function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | nu
   if (logoUrl) {
     return (
       // biome-ignore lint/performance/noImgElement: external workspace logo URL
-      <img src={logoUrl} alt="" className="size-8 shrink-0 rounded-lg object-cover" />
+      <img
+        src={logoUrl}
+        alt=""
+        className="size-9 shrink-0 rounded-[10px] border border-[#d7e3f6] bg-white object-cover shadow-sm dark:border-slate-700 dark:bg-slate-950"
+      />
     );
   }
   const letter = (name?.trim()?.[0] ?? 'P').toUpperCase();
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-sm font-bold text-primary-foreground shadow-[0_10px_18px_-14px_rgba(234,179,8,0.72)]">
       {letter}
     </span>
   );
@@ -48,7 +52,7 @@ export const WorkspaceSwitcher = () => {
   if (!tenants.length) {
     return (
       <>
-        <div className="flex items-center gap-2.5 px-1">
+        <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <WorkspaceMark />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-tight">Paqad</p>
@@ -72,7 +76,7 @@ export const WorkspaceSwitcher = () => {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="h-auto w-full justify-start gap-2.5 px-1 py-1.5 font-normal hover:bg-sidebar-accent"
+            className="h-auto w-full justify-start gap-2.5 rounded-[10px] px-1.5 py-1.5 font-normal hover:bg-sidebar-accent group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
             <WorkspaceMark
               name={tenant?.name}

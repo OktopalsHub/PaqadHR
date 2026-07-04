@@ -124,12 +124,12 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   return wrap(
     <>
       <Card>
-        <CardHeader>
-          <CardTitle>Team Salary</CardTitle>
-          <CardDescription>Manage salary for all team members in one place.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="relative max-w-sm">
+        <CardHeader className="!flex flex-col gap-4 border-b border-[#d7e3f6] md:flex-row md:items-end md:justify-between dark:border-slate-800">
+          <div className="min-w-0 space-y-1">
+            <CardTitle>Team Salary</CardTitle>
+            <CardDescription>Manage salary for all team members in one place.</CardDescription>
+          </div>
+          <div className="relative w-full md:w-[420px] md:max-w-[420px] md:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               id="compensation-search"
@@ -139,15 +139,16 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-
+        </CardHeader>
+        <CardContent className="p-0">
           {filteredEmployees.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
+            <p className="px-6 py-8 text-center text-sm text-muted-foreground">
               {employees.length === 0
                 ? 'No employees in your workspace yet.'
                 : 'No employees match your search.'}
             </p>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

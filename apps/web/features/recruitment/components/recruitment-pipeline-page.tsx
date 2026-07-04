@@ -1,16 +1,14 @@
 'use client';
 
-import { BarChart3, Plus } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, Search, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
+import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useAllCandidates, useUpdateCandidateStatus } from '@/hooks/queries/use-recruitment';
-import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import type { CandidateStatus } from '@/lib/schemas/recruitment';
 import { AddCandidateDialog } from './add-candidate-dialog';
 import { isDisqualified } from './board/board-columns';
@@ -18,10 +16,10 @@ import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { RecruitmentCandidateList } from './board/recruitment-candidate-list';
 import { candidatesToBoardData, RecruitmentKanbanBoard } from './board/recruitment-kanban-board';
 import { type RecruitmentViewMode, RecruitmentViewToggle } from './board/recruitment-view-toggle';
+import { RecruitmentSectionTabs } from './recruitment-section-tabs';
 import { ViewCareersPageLink } from './view-careers-page-link';
 
 export function RecruitmentPipelinePage() {
-  const tenantHref = useTenantHref();
   const [search, setSearch] = useState('');
   const [view, setView] = useState<RecruitmentViewMode>('kanban');
   const [addOpen, setAddOpen] = useState(false);
@@ -63,20 +61,22 @@ export function RecruitmentPipelinePage() {
   }
 
   return (
-    <AppPage className="space-y-4">
-      <PageActions>
-        <ViewCareersPageLink />
-        <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
-          <Link href={tenantHref('recruitment/roles')}>
-            <BarChart3 className="mr-1.5 size-3.5" />
-            Roles & analytics
-          </Link>
-        </Button>
-        <Button size="sm" className="h-8 rounded-lg text-xs" onClick={() => setAddOpen(true)}>
-          <Plus className="mr-1.5 size-3.5" />
-          Add candidate
-        </Button>
-      </PageActions>
+    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <RecruitmentSectionTabs active="pipeline" />
+        <div className="flex flex-wrap items-center gap-3">
+          <ViewCareersPageLink />
+          <Button
+            variant="brandSolid"
+            size="app"
+            className="w-max"
+            onClick={() => setAddOpen(true)}
+          >
+            <Plus className="size-4" />
+            Add candidate
+          </Button>
+        </div>
+      </div>
 
       {isError ? (
         <Alert variant="destructive">
@@ -87,7 +87,7 @@ export function RecruitmentPipelinePage() {
 
       <RecruitmentBoardToolbar
         title="Candidate pipeline"
-        description="Manage your candidate pipeline"
+        description="Track applicants across every hiring stage and keep the process moving."
         qualifiedCount={qualifiedCount}
         disqualifiedCount={disqualifiedCount}
         search={search}
@@ -96,21 +96,25 @@ export function RecruitmentPipelinePage() {
       />
 
       {candidates.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
-          <p className="text-sm font-medium">No candidates yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Add your first candidate, or publish a role under Roles & analytics for public
-            applications.
-          </p>
-          <Button
-            size="sm"
-            className="mt-4 h-8 rounded-lg text-xs"
-            onClick={() => setAddOpen(true)}
-          >
-            <Plus className="mr-1.5 size-3.5" />
-            Add candidate
-          </Button>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="No candidates yet"
+          description="Add your first candidate or publish a role to start receiving applications."
+          action={
+            <Button variant="brandSolid" size="app" onClick={() => setAddOpen(true)}>
+              <Plus className="size-4" />
+              Add candidate
+            </Button>
+          }
+          className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+        />
+      ) : boardCandidates.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="No matching candidates"
+          description="Try a different search term to find applicants in the pipeline."
+          className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+        />
       ) : view === 'kanban' ? (
         <RecruitmentKanbanBoard
           candidates={boardCandidates}

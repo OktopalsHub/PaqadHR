@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-montserrat);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-primary-soft: var(--primary-soft);
@@ -49,7 +49,8 @@
 /* App light — neutral surfaces, Nomba yellow accent */
 :root {
   --font-inter: "Inter", sans-serif;
-  --radius: 0.75rem;
+  --font-montserrat: "Montserrat", sans-serif;
+  --radius: 0.5rem;
   --brand: #ffcc00;
   --brand-foreground: #0a0a0a;
   --primary-soft: #fff9e0;
@@ -84,6 +85,14 @@
   --sidebar-accent-foreground: #171717;
   --sidebar-border: #e5e5e5;
   --sidebar-ring: #ffcc00;
+  --app-page-background:
+    radial-gradient(circle at top right, rgba(173, 198, 255, 0.24), transparent 30%),
+    linear-gradient(140deg, #f1f5ff 0%, #e8efff 42%, #dde8ff 100%);
+  --app-panel-bg: rgba(255, 255, 255, 0.96);
+  --app-panel-border: rgba(214, 225, 247, 0.98);
+  --app-panel-shadow: 0 12px 30px -24px rgba(71, 95, 140, 0.22);
+  --app-soft-panel-bg: linear-gradient(180deg, #f1f6ff 0%, #e8f0ff 100%);
+  --app-soft-panel-border: rgba(214, 225, 247, 0.98);
 }
 
 /* App dark — Nomba-inspired: true black, white text, yellow accent */
@@ -122,6 +131,18 @@
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: #ffcc00;
+  --app-page-background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.16), transparent 28%),
+    linear-gradient(140deg, #0b1120 0%, #111827 42%, #0f172a 100%);
+  --app-panel-bg: rgba(15, 23, 42, 0.88);
+  --app-panel-border: rgba(71, 85, 105, 0.78);
+  --app-panel-shadow: 0 18px 38px -26px rgba(2, 6, 23, 0.85);
+  --app-soft-panel-bg: linear-gradient(
+    180deg,
+    rgba(30, 41, 59, 0.82) 0%,
+    rgba(15, 23, 42, 0.92) 100%
+  );
+  --app-soft-panel-border: rgba(71, 85, 105, 0.78);
 }
 
 /* Marketing landing — always light, scoped tokens */
@@ -186,6 +207,10 @@
 }
 
 @layer utilities {
+  .app-page-canvas,
+  .dashboard-canvas {
+    background: var(--app-page-background);
+  }
   .marketing-glow {
     background:
       radial-gradient(ellipse 80% 50% at 50% -20%, rgba(255, 204, 0, 0.08), transparent),
@@ -202,7 +227,10 @@
     @apply bg-gradient-to-r from-primary to-amber-400 bg-clip-text text-transparent;
   }
   .app-card {
-    @apply border border-border/60 bg-card shadow-sm;
+    border-radius: 8px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-panel-border);
+    box-shadow: var(--app-panel-shadow);
   }
   .app-surface {
     @apply bg-muted/30;
@@ -221,5 +249,38 @@
   }
   .culture-points-pill {
     @apply inline-flex items-center rounded-full border border-primary/30 bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-foreground dark:text-primary;
+  }
+  .dashboard-panel {
+    border-radius: 8px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-panel-border);
+    box-shadow: var(--app-panel-shadow);
+  }
+  .dashboard-soft-tile {
+    border-radius: 8px;
+    background: var(--app-soft-panel-bg);
+    border: 1px solid var(--app-soft-panel-border);
+  }
+  .dashboard-font {
+    font-family: var(--font-montserrat);
+  }
+  .dashboard-outline-label {
+    color: #516079;
+    letter-spacing: 0.08em;
+  }
+  .dark .dashboard-outline-label {
+    color: #94a3b8;
+  }
+  .dashboard-link {
+    color: #2d63c8;
+  }
+  .dark .dashboard-link {
+    color: #8ab4ff;
+  }
+  .dashboard-link:hover {
+    color: #1d4fa9;
+  }
+  .dark .dashboard-link:hover {
+    color: #bfd4ff;
   }
 }

@@ -22,6 +22,18 @@ import {
 import { buildTabUrl } from '@/lib/navigation/tab-query';
 import { useTenant } from '@/providers/tenant-provider';
 
+const TAB_LABELS: Record<SettingsTab, string> = {
+  profile: 'Profile',
+  workspace: 'Workspace',
+  leave: 'Leave',
+  shoutouts: 'Shoutouts',
+  rewards: 'Rewards',
+  holidays: 'Holidays',
+  notifications: 'Notifications',
+  attendance: 'Attendance',
+  billing: 'Billing',
+};
+
 function SettingsPageContent() {
   const router = useRouter();
   const pathname = usePathname();
@@ -45,128 +57,91 @@ function SettingsPageContent() {
   };
 
   const visibleTab = !isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab) ? 'profile' : activeTab;
+  const tabOrder: SettingsTab[] = isAdmin
+    ? [
+        'profile',
+        'workspace',
+        'leave',
+        'shoutouts',
+        'rewards',
+        'holidays',
+        'notifications',
+        'attendance',
+        'billing',
+      ]
+    : ['profile'];
 
   return (
-    <AppPage className="space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your account and workspace</p>
+    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+      <div className="space-y-1.5">
+        <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Workspace</p>
+        <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
+          Settings
+        </h1>
+        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+          Manage your account preferences and workspace configuration.
+        </p>
       </div>
 
-      <Tabs value={visibleTab} onValueChange={(value) => setTab(value as SettingsTab)}>
-        <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-            value="profile"
-          >
-            Profile
-          </TabsTrigger>
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="workspace"
-            >
-              Workspace
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="leave"
-            >
-              Leave
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="shoutouts"
-            >
-              Shoutouts
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="rewards"
-            >
-              Rewards
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="holidays"
-            >
-              Holidays
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="notifications"
-            >
-              Notifications
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="attendance"
-            >
-              Attendance
-            </TabsTrigger>
-          ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="billing"
-            >
-              Billing
-            </TabsTrigger>
-          ) : null}
-        </TabsList>
+      <Tabs
+        value={visibleTab}
+        onValueChange={(value) => setTab(value as SettingsTab)}
+        className="space-y-5"
+      >
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="inline-flex h-auto min-w-max items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
+            {tabOrder.map((tab) => (
+              <TabsTrigger
+                key={tab}
+                className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
+                value={tab}
+              >
+                {TAB_LABELS[tab]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
-        <TabsContent value="profile" className="mt-5">
+        <TabsContent value="profile" className="mt-0">
           <SettingsProfileTab />
         </TabsContent>
         {isAdmin ? (
-          <TabsContent value="workspace" className="mt-5">
+          <TabsContent value="workspace" className="mt-0">
             <SettingsWorkspaceTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="leave" className="mt-5">
+          <TabsContent value="leave" className="mt-0">
             <SettingsLeaveTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="shoutouts" className="mt-5">
+          <TabsContent value="shoutouts" className="mt-0">
             <SettingsShoutoutsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="rewards" className="mt-5">
+          <TabsContent value="rewards" className="mt-0">
             <SettingsRewardsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="holidays" className="mt-5">
+          <TabsContent value="holidays" className="mt-0">
             <SettingsHolidaysTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="notifications" className="mt-5">
+          <TabsContent value="notifications" className="mt-0">
             <SettingsNotificationsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="attendance" className="mt-5">
+          <TabsContent value="attendance" className="mt-0">
             <SettingsAttendanceTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="billing" className="mt-5">
+          <TabsContent value="billing" className="mt-0">
             <SettingsBillingTab />
           </TabsContent>
         ) : null}

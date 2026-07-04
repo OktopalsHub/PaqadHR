@@ -7,6 +7,16 @@ import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+  AppTablePanel,
+} from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -27,14 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import {
   useCreatePosition,
@@ -55,6 +57,81 @@ const COLORS = [
   '#06b6d4', // Cyan
   '#64748b', // Slate
 ];
+
+function getPositionStatusStyles(isActive: boolean) {
+  return isActive
+    ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-450 dark:border-green-900'
+    : 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
+}
+
+function PositionTable({
+  positions,
+  onEdit,
+  onDelete,
+  faded = false,
+}: {
+  positions: ApiPosition[];
+  onEdit: (position: ApiPosition) => void;
+  onDelete: (id: string) => void;
+  faded?: boolean;
+}) {
+  return (
+    <AppTablePanel>
+      <AppTable className="min-w-[760px]">
+        <AppTableHeaderSection>
+          <AppTableHeaderRow>
+            <AppTableHeadCell>Title</AppTableHeadCell>
+            <AppTableHeadCell>Department</AppTableHeadCell>
+            <AppTableHeadCell className="hidden md:table-cell">Description</AppTableHeadCell>
+            <AppTableHeadCell>Status</AppTableHeadCell>
+            <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
+          </AppTableHeaderRow>
+        </AppTableHeaderSection>
+        <AppTableBodySection>
+          {positions.map((position) => (
+            <AppTableBodyRow key={position.id} className={faded ? 'opacity-60' : undefined}>
+              <AppTableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="size-2.5 shrink-0 rounded-full border border-black/10"
+                    style={{ backgroundColor: position.color || '#64748b' }}
+                  />
+                  <span>{position.title}</span>
+                </div>
+              </AppTableCell>
+              <AppTableCell>{position.department || '—'}</AppTableCell>
+              <AppTableCell className="hidden max-w-[200px] truncate md:table-cell">
+                {position.description || '—'}
+              </AppTableCell>
+              <AppTableCell>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getPositionStatusStyles(
+                    position.isActive,
+                  )}`}
+                >
+                  <span
+                    className={`size-1.5 rounded-full ${position.isActive ? 'animate-pulse bg-green-500' : 'bg-gray-400 dark:bg-gray-500'}`}
+                  />
+                  {position.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </AppTableCell>
+              <AppTableCell className="text-right">
+                <div className="flex justify-end gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => onEdit(position)}>
+                    <Edit className="size-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => void onDelete(position.id)}>
+                    <Trash2 className="size-4 text-destructive" />
+                  </Button>
+                </div>
+              </AppTableCell>
+            </AppTableBodyRow>
+          ))}
+        </AppTableBodySection>
+      </AppTable>
+    </AppTablePanel>
+  );
+}
 
 export function PositionsManager({
   hidePageActions = false,
@@ -289,7 +366,7 @@ export function PositionsManager({
         {!hidePageActions && (
           <PageActions>
             <DialogTrigger asChild>
-              <Button className="flex items-center gap-2">
+              <Button variant="brandSolid" size="app" className="flex items-center gap-2">
                 <Plus size={16} />
                 <span>Add position</span>
               </Button>
@@ -329,62 +406,11 @@ export function PositionsManager({
           ) : (
             <div className="space-y-6">
               {activePositions.length > 0 ? (
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead className="hidden md:table-cell">Description</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {activePositions.map((position) => (
-                        <TableRow key={position.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="size-2.5 rounded-full shrink-0 border border-black/10"
-                                style={{ backgroundColor: position.color || '#64748b' }}
-                              />
-                              <span>{position.title}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>{position.department || '—'}</TableCell>
-                          <TableCell className="hidden md:table-cell max-w-[200px] truncate">
-                            {position.description || '—'}
-                          </TableCell>
-                          <TableCell>
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-450 dark:border-green-900">
-                              <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
-                              Active
-                            </span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEdit(position)}
-                              >
-                                <Edit className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => void handleDelete(position.id)}
-                              >
-                                <Trash2 className="size-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <PositionTable
+                  positions={activePositions}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                />
               ) : null}
 
               {inactivePositions.length > 0 ? (
@@ -392,62 +418,12 @@ export function PositionsManager({
                   <h4 className="text-sm font-medium text-muted-foreground">
                     Inactive positions ({inactivePositions.length})
                   </h4>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Title</TableHead>
-                          <TableHead>Department</TableHead>
-                          <TableHead className="hidden md:table-cell">Description</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {inactivePositions.map((position) => (
-                          <TableRow key={position.id} className="opacity-60">
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className="size-2.5 rounded-full shrink-0 border border-black/10"
-                                  style={{ backgroundColor: position.color || '#64748b' }}
-                                />
-                                <span>{position.title}</span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{position.department || '—'}</TableCell>
-                            <TableCell className="hidden md:table-cell max-w-[200px] truncate">
-                              {position.description || '—'}
-                            </TableCell>
-                            <TableCell>
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800">
-                                <span className="size-1.5 rounded-full bg-gray-450 dark:bg-gray-500" />
-                                Inactive
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => openEdit(position)}
-                                >
-                                  <Edit className="size-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => void handleDelete(position.id)}
-                                >
-                                  <Trash2 className="size-4 text-destructive" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <PositionTable
+                    positions={inactivePositions}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                    faded
+                  />
                 </div>
               ) : null}
             </div>

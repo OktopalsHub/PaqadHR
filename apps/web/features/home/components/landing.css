@@ -17,7 +17,7 @@
 
   background: var(--ld-bg);
   color: var(--ld-text);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Montserrat", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;

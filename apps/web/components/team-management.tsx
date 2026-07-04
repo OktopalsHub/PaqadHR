@@ -93,7 +93,7 @@ export function TeamManagement() {
           {teams.map((team) => (
             <article
               key={team.id}
-              className="app-card rounded-xl p-4 transition-colors hover:border-primary/25"
+              className="app-card p-4 transition-colors hover:border-primary/25"
             >
               <div className="flex items-center justify-between">
                 <Badge variant="outline">{team.department}</Badge>

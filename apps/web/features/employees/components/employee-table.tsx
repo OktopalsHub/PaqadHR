@@ -1,15 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  AppTable,
+  AppTableBodyRow,
+  AppTableBodySection,
+  AppTableCell,
+  AppTableHeadCell,
+  AppTableHeaderRow,
+  AppTableHeaderSection,
+} from '@/components/ui/app-table';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { canManageMember } from '@/lib/auth/manager-access';
 import { getInitials } from '@/lib/utils';
@@ -36,100 +37,111 @@ export const EmployeeTable = ({ employees, viewerMemberId, viewerRole }: Employe
     return `${prefix}${employee.employeeNumber}`;
   };
 
+  const getStatusDotClass = (status: Employee['status']) => {
+    switch (status) {
+      case 'Active':
+        return 'bg-green-500';
+      case 'On Leave':
+        return 'bg-amber-500';
+      default:
+        return 'bg-slate-400';
+    }
+  };
+
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Department</TableHead>
-            <TableHead>Position</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Join Date</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {employees.length > 0 ? (
-            employees.map((employee) => (
-              <TableRow key={employee.id}>
-                <TableCell className="font-mono text-xs">{getEmployeeId(employee)}</TableCell>
-                <TableCell className="font-medium">
-                  {canLinkToDetail(employee) ? (
-                    <Link
-                      href={tenantHref(`employees/${employee.id}`)}
-                      className="flex items-center gap-2 hover:underline"
-                    >
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={employee.avatar || '/placeholder.svg'} />
-                        <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                      </Avatar>
-                      {employee.name}
-                    </Link>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={employee.avatar || '/placeholder.svg'} />
-                        <AvatarFallback>{getInitials(employee.name)}</AvatarFallback>
-                      </Avatar>
-                      {employee.name}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell>{employee.email}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {employee.department ? (
-                      <span
-                        className="size-2 rounded-full shrink-0 border border-black/10"
-                        style={{
-                          backgroundColor: employee.departmentColor || '#9ca3af',
-                        }}
-                      />
-                    ) : null}
-                    <span>{employee.department || '—'}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {employee.role ? (
-                      <span
-                        className="size-2 rounded-full shrink-0 border border-black/10"
-                        style={{ backgroundColor: employee.positionColor || '#9ca3af' }}
-                      />
-                    ) : null}
-                    <span>{employee.role || '—'}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusStyles(employee.status)}`}
+    <AppTable className="min-w-[980px]">
+      <AppTableHeaderSection>
+        <AppTableHeaderRow>
+          <AppTableHeadCell>ID</AppTableHeadCell>
+          <AppTableHeadCell>Name</AppTableHeadCell>
+          <AppTableHeadCell>Email</AppTableHeadCell>
+          <AppTableHeadCell>Department</AppTableHeadCell>
+          <AppTableHeadCell>Position</AppTableHeadCell>
+          <AppTableHeadCell>Status</AppTableHeadCell>
+          <AppTableHeadCell>Join Date</AppTableHeadCell>
+        </AppTableHeaderRow>
+      </AppTableHeaderSection>
+      <AppTableBodySection>
+        {employees.length > 0 ? (
+          employees.map((employee) => (
+            <AppTableBodyRow key={employee.id}>
+              <AppTableCell className="whitespace-normal font-medium">
+                {getEmployeeId(employee)}
+              </AppTableCell>
+              <AppTableCell>
+                {canLinkToDetail(employee) ? (
+                  <Link
+                    href={tenantHref(`employees/${employee.id}`)}
+                    className="flex items-center gap-3 hover:underline"
                   >
+                    <Avatar className="size-8 border border-slate-200 bg-slate-100">
+                      <AvatarImage
+                        src={employee.avatar || '/placeholder.svg'}
+                        alt={employee.name}
+                      />
+                      <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-800">
+                        {getInitials(employee.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-semibold text-slate-800">{employee.name}</span>
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-8 border border-slate-200 bg-slate-100">
+                      <AvatarImage
+                        src={employee.avatar || '/placeholder.svg'}
+                        alt={employee.name}
+                      />
+                      <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-800">
+                        {getInitials(employee.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-semibold text-slate-800">{employee.name}</span>
+                  </div>
+                )}
+              </AppTableCell>
+              <AppTableCell>{employee.email}</AppTableCell>
+              <AppTableCell>
+                <div className="flex items-center gap-2">
+                  {employee.department ? (
                     <span
-                      className={`size-1.5 rounded-full ${
-                        employee.status === 'Active'
-                          ? 'bg-green-500 animate-pulse'
-                          : employee.status === 'On Leave'
-                            ? 'bg-amber-500'
-                            : 'bg-gray-450 dark:bg-gray-500'
-                      }`}
+                      className="size-2 shrink-0 rounded-full border border-black/10"
+                      style={{ backgroundColor: employee.departmentColor || '#c0cadc' }}
                     />
-                    {employee.status}
-                  </span>
-                </TableCell>
-                <TableCell>{employee.joinDate || '—'}</TableCell>
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={7} className="text-center py-8">
-                No employees found
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+                  ) : null}
+                  <span>{employee.department || '—'}</span>
+                </div>
+              </AppTableCell>
+              <AppTableCell>
+                <div className="flex items-center gap-2">
+                  {employee.role ? (
+                    <span
+                      className="size-2 shrink-0 rounded-full border border-black/10"
+                      style={{ backgroundColor: employee.positionColor || '#c0cadc' }}
+                    />
+                  ) : null}
+                  <span>{employee.role || '—'}</span>
+                </div>
+              </AppTableCell>
+              <AppTableCell>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(employee.status)}`}
+                >
+                  <span className={`size-2 rounded-full ${getStatusDotClass(employee.status)}`} />
+                  {employee.status}
+                </span>
+              </AppTableCell>
+              <AppTableCell>{employee.joinDate || '—'}</AppTableCell>
+            </AppTableBodyRow>
+          ))
+        ) : (
+          <AppTableBodyRow className="hover:bg-transparent">
+            <AppTableCell colSpan={7} className="py-12 text-center text-sm text-slate-500">
+              No employees found
+            </AppTableCell>
+          </AppTableBodyRow>
+        )}
+      </AppTableBodySection>
+    </AppTable>
   );
 };
