@@ -311,9 +311,7 @@ export class RewardsService {
         minDenomination: p.minDenomination ?? null,
         maxDenomination: p.maxDenomination ?? null,
         fixedDenominations: p.fixedDenominations ?? [],
-        ...(options?.includeAdminPricing &&
-        p.listReloadlyCost != null &&
-        p.listReloadlyCostCurrency
+        ...(options?.includeAdminPricing && p.listReloadlyCost != null && p.listReloadlyCostCurrency
           ? {
               adminPricing: {
                 reloadlyCost: p.listReloadlyCost,
