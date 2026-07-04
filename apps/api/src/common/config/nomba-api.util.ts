@@ -1,10 +1,15 @@
-/** Nomba accepts sync success (`00`) and async accepted (`202`). */
+/**
+ * Nomba success / accepted codes:
+ * - `00` — sync success (most endpoints)
+ * - `200` — success on some transfer responses
+ * - `202` — accepted / processing (airtime, async ops)
+ */
 export function isNombaAcceptedCode(code?: string | number | null): boolean {
   if (code === undefined || code === null || code === '') {
     return false;
   }
   const normalized = String(code).trim();
-  return normalized === '00' || normalized === '202';
+  return normalized === '00' || normalized === '200' || normalized === '202';
 }
 
 /** True when status text indicates Nomba accepted or completed the request. */

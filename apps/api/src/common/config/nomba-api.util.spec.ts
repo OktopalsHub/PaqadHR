@@ -7,6 +7,7 @@ import {
 describe('nomba-api.util', () => {
   it('accepts Nomba success and processing codes', () => {
     expect(isNombaAcceptedCode('00')).toBe(true);
+    expect(isNombaAcceptedCode('200')).toBe(true);
     expect(isNombaAcceptedCode('202')).toBe(true);
     expect(isNombaAcceptedCode(202)).toBe(true);
     expect(isNombaAcceptedCode('02')).toBe(false);

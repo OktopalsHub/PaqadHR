@@ -49,7 +49,7 @@ import { useTenant } from '@/providers/tenant-provider';
 
 const REWARDS_WALLET_SUPPORT_EMAIL = 'support@paqadhr.com';
 
-const WALLET_TOPUP_FAILED =
+const _WALLET_TOPUP_FAILED =
   'Top up failed. Check your billing payment method in Settings → Billing and try again.';
 
 const ALL_COUNTRIES = [

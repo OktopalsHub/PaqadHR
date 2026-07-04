@@ -44,7 +44,7 @@ describe('WebhooksController', () => {
       const req = { rawBody: Buffer.from('{}') } as any;
       const result = await controller.handleNombaWebhook(req, { 'nomba-signature': 'sig' });
 
-      expect(mockNombaWebhookService.dispatch).toHaveBeenCalledWith('{}', 'sig');
+      expect(mockNombaWebhookService.dispatch).toHaveBeenCalledWith('{}', 'sig', '');
       expect(result).toEqual({ received: true });
     });
 

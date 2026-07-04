@@ -20,11 +20,15 @@ export class NombaWebhookService {
     private readonly rewardsService: RewardsService,
   ) {}
 
-  async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
+  async dispatch(
+    rawBody: string,
+    signature: string,
+    timestamp?: string,
+  ): Promise<{ received: boolean }> {
     if (!signature?.trim()) {
       throw new UnauthorizedException('Missing webhook signature');
     }
-    if (!verifyNombaWebhookSignature(rawBody, signature)) {
+    if (!verifyNombaWebhookSignature(rawBody, signature, timestamp)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 

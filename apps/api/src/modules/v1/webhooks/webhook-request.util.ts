@@ -9,7 +9,11 @@ export function getNombaRawBody(req: RawBodyRequest): string {
 }
 
 export function resolveNombaSignature(headers: Record<string, string | undefined>): string {
-  return headers['nomba-signature'] || '';
+  return headers['nomba-signature'] ?? '';
+}
+
+export function resolveNombaTimestamp(headers: Record<string, string | undefined>): string {
+  return headers['nomba-timestamp'] || '';
 }
 
 export function extractNombaEventType(payload: unknown): string {

@@ -199,7 +199,15 @@ export class NombaApiService {
 
   private singleTransactionPath(reference: string): string {
     const subAccountId = getNombaSubAccountId();
-    const query = `transactionRef=${encodeURIComponent(reference)}`;
+    // Billing uses our orderReference (sub_*, card_update_*); Nomba txn IDs use transactionRef.
+    const looksLikeTxnId =
+      reference.startsWith('WEB-') ||
+      reference.startsWith('API-') ||
+      reference.includes('TRANSFER') ||
+      reference.includes('ONLINE_C');
+    const query = looksLikeTxnId
+      ? `transactionRef=${encodeURIComponent(reference)}`
+      : `orderReference=${encodeURIComponent(reference)}`;
     return subAccountId
       ? `/v1/transactions/accounts/${encodeURIComponent(subAccountId)}/single?${query}`
       : `/v1/transactions/accounts/single?${query}`;
