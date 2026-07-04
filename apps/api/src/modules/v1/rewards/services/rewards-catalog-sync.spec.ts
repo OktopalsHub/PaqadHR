@@ -73,6 +73,7 @@ describe('RewardsService catalog sync', () => {
       {} as any,
       reloadlyApi as any,
       {} as any,
+      { convert: jest.fn() } as any,
       {} as any,
       {} as any,
       {} as any,
@@ -99,10 +100,12 @@ describe('RewardsService catalog sync', () => {
     expect(products[0].productId).toBe(101);
     expect(products[0].listReloadlyCost).toBe(980);
     expect(products[0].listReloadlyCostCurrency).toBe('NGN');
+    expect(products[0].wholesaleInRewardsCurrency).toBe(980);
+    expect(products[0].pointsCost).toBe(1000);
     expect(settingsRow.settings.rewards.reloadlyProducts).toHaveLength(1);
   });
 
-  it('stores raw USD sender cost during sync', async () => {
+  it('prices USD sender cost with FX conversion', async () => {
     listProductsByCountries.mockResolvedValue([
       {
         productId: 202,
@@ -121,6 +124,8 @@ describe('RewardsService catalog sync', () => {
     const products = await service.syncReloadlyProducts('tenant-1');
     expect(products[0].listReloadlyCost).toBe(10);
     expect(products[0].listReloadlyCostCurrency).toBe('USD');
+    expect(products[0].wholesaleInRewardsCurrency).toBe(15000);
+    expect(products[0].pointsCost).toBe(15300);
   });
 
   it('dedupes products with the same productId across countries', async () => {

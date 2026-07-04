@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { formatNombaSenderName } from 'src/common/config/nomba.config';
-import { billingPivotCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
+import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
@@ -85,6 +85,7 @@ export class RewardsService {
     readonly _tenantConfigService: TenantConfigService,
     private readonly reloadlyApi: ReloadlyApiService,
     private readonly reloadlyTopupsApi: ReloadlyTopupsApiService,
+    private readonly fiatExchange: FiatExchangeService,
     private readonly reloadlyUtilitiesApi: ReloadlyUtilitiesApiService,
     private readonly nombaBillApi: NombaBillApiService,
     readonly _nombaTransferApi: NombaTransferApiService,
@@ -99,44 +100,10 @@ export class RewardsService {
     operatorId?: number,
     countryCode?: string,
   ): Promise<number> {
-    const local = localCurrency.toUpperCase();
-    const wallet = walletCurrency.toUpperCase();
-    if (local === wallet) {
-      return localAmount;
-    }
-
-    let opId = operatorId;
-    if (!opId && countryCode) {
-      const operators = await this.reloadlyTopupsApi.listOperators(countryCode);
-      opId = operators[0]?.operatorId;
-    }
-
-    const pivot = billingPivotCurrency(local);
-    if (pivot === 'USD' && local !== 'USD') {
-      if (!opId) {
-        return localAmount;
-      }
-      const fx = await this.reloadlyTopupsApi.getOperatorFxRate(opId, localAmount);
-      const usdAmount = localAmount / (fx.fxRate || 1);
-      return this.toWalletCurrency(usdAmount, 'USD', wallet, opId, countryCode);
-    }
-
-    if (!opId) {
-      return localAmount;
-    }
-    const fx = await this.reloadlyTopupsApi.getOperatorFxRate(opId, localAmount);
-    if (fx.currencyCode.toUpperCase() === wallet) {
-      return localAmount;
-    }
-    const senderAmount = localAmount / (fx.fxRate || 1);
-    if (wallet === 'NGN') {
-      const ngOperators = await this.reloadlyTopupsApi.listOperators('NG');
-      const refOp = ngOperators.find((o) => o.fx?.rate);
-      if (refOp?.fx?.rate) {
-        return Number((senderAmount * refOp.fx.rate).toFixed(2));
-      }
-    }
-    return Number(senderAmount.toFixed(2));
+    return this.fiatExchange.convert(localAmount, localCurrency, walletCurrency, {
+      operatorId,
+      countryCode,
+    });
   }
 
   private async resolveSenderName(tenantId: string): Promise<string> {
@@ -423,22 +390,24 @@ export class RewardsService {
     const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
     const exchangeRate = settings.pointsExchangeRate;
 
-    const records = await Promise.all(
-      products.map(async (p) => {
-        const currencyValue = p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
-        const convertedValue = await this.toWalletCurrency(
-          currencyValue,
-          p.recipientCurrencyCode,
+    const records: NonNullable<RewardsSettings['reloadlyProducts']> = [];
+
+    for (const p of products) {
+      try {
+        const senderCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? 0;
+        const wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          senderCost,
+          p.senderCurrencyCode,
           settings.rewardsCurrency,
           undefined,
           p.countryCode,
         );
-        const chargedValue = computeRedemptionDebit(convertedValue, feePercentage);
+        const chargedValue = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
         const pointsCost = Math.ceil(chargedValue * exchangeRate);
         const rawCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
         const rawCurrency = p.senderCurrencyCode;
 
-        return {
+        records.push({
           productId: p.productId,
           name: p.productName,
           countryCode: p.countryCode,
@@ -450,9 +419,14 @@ export class RewardsService {
           pointsCost,
           listReloadlyCost: rawCost,
           listReloadlyCostCurrency: rawCurrency,
-        };
-      }),
-    );
+          wholesaleInRewardsCurrency,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Skipping Reloadly product ${p.productId} (${p.productName}): FX conversion failed — ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
 
     const seen = new Set<number>();
     const deduped = records.filter((record) => {
@@ -526,15 +500,25 @@ export class RewardsService {
       if (!product) {
         throw new BadRequestException('Reloadly product not found in catalog');
       }
-      const faceValue = product.fixedDenominations?.[0] ?? product.minDenomination ?? currencyValue;
-      faceValueInRewardsCurrency = await this.toWalletCurrency(
-        faceValue,
-        product.currencyCode,
-        settings.rewardsCurrency,
-        undefined,
-        product.countryCode,
-      );
-      totalTenantDebit = computeRedemptionDebit(faceValueInRewardsCurrency, feePercentage);
+
+      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
+      if (wholesaleInRewardsCurrency == null) {
+        if (product.listReloadlyCost == null || !product.listReloadlyCostCurrency) {
+          throw new BadRequestException(
+            'Gift card pricing is not available. Please refresh the rewards catalog.',
+          );
+        }
+        wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          product.listReloadlyCost,
+          product.listReloadlyCostCurrency,
+          settings.rewardsCurrency,
+          undefined,
+          product.countryCode,
+        );
+      }
+
+      faceValueInRewardsCurrency = wholesaleInRewardsCurrency;
+      totalTenantDebit = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
       expectedPointsCost = product.pointsCost;
     } else if (input.rewardType === 'RELOADLY_AIRTIME') {
       const calc = await this.calculateReloadlyAirtimeCost(
@@ -814,10 +798,7 @@ export class RewardsService {
     });
   }
 
-  private async fulfillNombaTopup(
-    redemption: RewardRedemption,
-    input: ClaimInput,
-  ): Promise<void> {
+  private async fulfillNombaTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
       throw new Error('Phone number and network are required for mobile top-up');
     }

@@ -29,5 +29,6 @@ export interface RewardsSettings {
     fixedDenominations?: number[];
     listReloadlyCost?: number | null;
     listReloadlyCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
   }>;
 }

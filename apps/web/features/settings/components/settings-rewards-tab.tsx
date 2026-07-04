@@ -470,15 +470,16 @@ export function SettingsRewardsTab() {
                   <SettingsSwitchRow
                     id="giftCardsEnabled"
                     label="Gift Cards & Prepaid Vouchers"
-                    hint="Reloadly vouchers. List price = lowest denomination, plus plan fee, then × exchange rate. Members pay more for higher amounts."
+                    hint="Reloadly vouchers. Points = wholesale cost converted to your workspace currency, plus plan fee, then × exchange rate. Members pay more for higher amounts."
                     checked={giftCardsEnabled}
                     onCheckedChange={setGiftCardsEnabled}
                   />
                   {giftCardsEnabled && (
                     <div className="pl-6 pt-2 space-y-2 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
                       <p className="text-xs text-muted-foreground leading-relaxed">
-                        Points on each card are a starting price (lowest amount). Wallet is charged
-                        the face value + plan fee when someone redeems.
+                        Points on each card are a starting price (lowest amount). Your wallet is
+                        charged the Reloadly wholesale cost (converted to your workspace currency)
+                        plus plan fee when someone redeems.
                       </p>
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:

@@ -163,11 +163,7 @@ export class NombaBillApiService {
       `/v1/bill/data-plan/${encodeURIComponent(normalized)}`,
     );
 
-    const rows = Array.isArray(payload.data)
-      ? payload.data
-      : payload.data
-        ? [payload.data]
-        : [];
+    const rows = Array.isArray(payload.data) ? payload.data : payload.data ? [payload.data] : [];
 
     return rows
       .filter((row) => row.amount != null && row.plan)

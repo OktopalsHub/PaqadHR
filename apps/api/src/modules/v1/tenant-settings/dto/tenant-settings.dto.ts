@@ -486,6 +486,7 @@ export class RewardsSettingsDto {
     fixedDenominations?: number[];
     listReloadlyCost?: number | null;
     listReloadlyCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
   }>;
 }
 export class UpdateTenantSettingsDto {

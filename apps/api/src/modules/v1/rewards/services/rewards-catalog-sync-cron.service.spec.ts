@@ -1,5 +1,5 @@
-import { RewardsCatalogSyncCronService } from './rewards-catalog-sync-cron.service';
 import { RewardsService } from './rewards.service';
+import { RewardsCatalogSyncCronService } from './rewards-catalog-sync-cron.service';
 
 jest.mock('src/common/config/reloadly.config', () => ({
   isReloadlyConfigured: jest.fn().mockReturnValue(true),
