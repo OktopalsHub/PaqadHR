@@ -7,6 +7,7 @@ import { TenantWalletService } from './tenant-wallet.service';
 
 describe('TenantWalletService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
+  const walletTopupRef = `wt_${tenantId.replace(/-/g, '')}_ref1`;
 
   function createService(overrides?: {
     wallet?: Record<string, unknown>;
@@ -46,6 +47,8 @@ describe('TenantWalletService', () => {
         execute: jest.fn().mockResolvedValue({
           affected: overrides?.debitUpdateAffected ?? 1,
         }),
+        setLock: jest.fn().mockReturnThis(),
+        getOneOrFail: jest.fn().mockResolvedValue(wallet),
       }),
     };
 
@@ -64,6 +67,7 @@ describe('TenantWalletService', () => {
         return {};
       }),
       manager,
+      transaction: jest.fn(async (fn: (mgr: typeof manager) => Promise<unknown>) => fn(manager)),
     };
 
     const nombaVirtualAccountApi = {
@@ -254,28 +258,42 @@ describe('TenantWalletService', () => {
 
       const result = await service.completeCheckoutTopup({
         tenantId,
-        orderReference: 'wallet-topup-ref-1',
+        orderReference: walletTopupRef,
         amount: 2500,
       });
 
       expect(result).toEqual({ received: true, credited: true });
-      expect(nombaApi.verifyTransaction).toHaveBeenCalledWith('wallet-topup-ref-1');
+      expect(nombaApi.verifyTransaction).toHaveBeenCalledWith(walletTopupRef);
       expect(txRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'DEPOSIT',
           amount: 2500,
-          reference: 'wallet-topup-ref-1',
+          reference: walletTopupRef,
         }),
       );
     });
 
     it('is idempotent when reference already exists', async () => {
       const { service, txRepo, nombaApi } = createService();
-      txRepo.findOne.mockResolvedValue({ id: 'tx-1', reference: 'wallet-topup-ref-1' });
+      txRepo.findOne.mockResolvedValue({ id: 'tx-1', reference: walletTopupRef });
 
       const result = await service.completeCheckoutTopup({
         tenantId,
-        orderReference: 'wallet-topup-ref-1',
+        orderReference: walletTopupRef,
+        amount: 2500,
+      });
+
+      expect(result).toEqual({ received: true, credited: false });
+      expect(nombaApi.verifyTransaction).not.toHaveBeenCalled();
+      expect(txRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects references that do not match the tenant', async () => {
+      const { service, nombaApi, txRepo } = createService();
+
+      const result = await service.completeCheckoutTopup({
+        tenantId,
+        orderReference: 'wt_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_ref1',
         amount: 2500,
       });
 

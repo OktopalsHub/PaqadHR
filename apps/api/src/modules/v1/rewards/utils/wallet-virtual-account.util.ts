@@ -8,11 +8,7 @@ export function buildNombaAccountRef(tenantId: string): string {
 }
 
 export function buildNombaWalletTopupOrderRef(tenantId: string): string {
-  // Nomba checkout orderReference max is 50 chars. Strip UUID hyphens and use a
-  // base36 timestamp plus a short random suffix to avoid same-ms collisions.
-  const timestamp = Date.now().toString(36);
-  const suffix = randomBytes(2).toString('hex').slice(0, 3);
-  return `wt_${tenantId.replace(/-/g, '')}_${timestamp}${suffix}`;
+  return `wt_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}${randomBytes(2).toString('hex').slice(0, 3)}`;
 }
 
 export function buildVirtualAccountName(tenantName?: string): string {

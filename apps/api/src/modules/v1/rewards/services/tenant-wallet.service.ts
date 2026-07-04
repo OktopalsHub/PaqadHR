@@ -535,8 +535,17 @@ export class TenantWalletService {
     orderReference: string;
     amount?: number;
   }): Promise<{ received: boolean; credited: boolean }> {
-    const txRepo = this.dataSource.getRepository(TenantWalletTransaction);
-    const existing = await txRepo.findOne({ where: { reference: input.orderReference } });
+    const tenantKey = input.tenantId.replace(/-/g, '');
+    if (!input.orderReference.startsWith(`wt_${tenantKey}_`)) {
+      this.logger.warn(
+        `Wallet checkout top-up reference tenant mismatch for ${input.orderReference}`,
+      );
+      return { received: true, credited: false };
+    }
+
+    const existing = await this.dataSource.getRepository(TenantWalletTransaction).findOne({
+      where: { reference: input.orderReference },
+    });
     if (existing) {
       return { received: true, credited: false };
     }
@@ -570,18 +579,34 @@ export class TenantWalletService {
       return { received: true, credited: false };
     }
 
-    await this.credit(
-      input.tenantId,
-      paid,
-      'DEPOSIT',
-      input.orderReference,
-      'Rewards wallet top-up via Nomba checkout',
-      undefined,
-      { nombaEventId: input.orderReference },
-    );
-    this.logger.log(
-      `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
-    );
-    return { received: true, credited: true };
+    return this.dataSource.transaction(async (manager) => {
+      await manager
+        .getRepository(TenantWallet)
+        .createQueryBuilder('w')
+        .setLock('pessimistic_write')
+        .where('w.tenant_id = :tenantId', { tenantId: input.tenantId })
+        .getOneOrFail();
+
+      const existing = await manager.getRepository(TenantWalletTransaction).findOne({
+        where: { reference: input.orderReference },
+      });
+      if (existing) {
+        return { received: true, credited: false };
+      }
+
+      await this.credit(
+        input.tenantId,
+        paid,
+        'DEPOSIT',
+        input.orderReference,
+        'Rewards wallet top-up via Nomba checkout',
+        manager,
+        { nombaEventId: input.orderReference },
+      );
+      this.logger.log(
+        `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
+      );
+      return { received: true, credited: true };
+    });
   }
 }
