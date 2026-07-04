@@ -358,7 +358,7 @@ export function PositionsManager({
                           </TableCell>
                           <TableCell>
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-450 dark:border-green-900">
-                              <span className="size-1.5 rounded-full bg-green-500 animate-pulse" />
+                              <span className="size-1.5 rounded-full bg-success animate-pulse" />
                               Active
                             </span>
                           </TableCell>

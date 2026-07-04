@@ -243,7 +243,7 @@ function ShoutoutsPageContent() {
               {pointsBalance && (
                 <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
                   <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                    <Trophy className="size-4 text-amber-500" />
+                    <Trophy className="size-4 text-warning" />
                     Your Point Allowance
                   </h3>
 
@@ -270,7 +270,7 @@ function ShoutoutsPageContent() {
                         Redeemable Balance
                       </p>
                       <p className="text-lg font-bold text-primary flex items-center justify-center gap-1">
-                        <Coins className="size-4 text-amber-500" />
+                        <Coins className="size-4 text-warning" />
                         {pointsBalance.currentBalance.toLocaleString()}
                       </p>
                     </div>
@@ -298,7 +298,7 @@ function ShoutoutsPageContent() {
               {}
               <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
                 <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Award className="size-4 text-indigo-500" />
+                  <Award className="size-4 text-primary" />
                   Company Core Values
                 </h3>
 
@@ -313,15 +313,15 @@ function ShoutoutsPageContent() {
                     {categories.map((c) => (
                       <span
                         key={c.id}
-                        className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-indigo-500/5 text-indigo-700 dark:text-indigo-400 border border-indigo-500/10 group"
+                        className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-primary/5 text-primary dark:text-primary/70 border border-primary/10 group"
                       >
-                        <Sparkles className="size-3 text-indigo-500" />
+                        <Sparkles className="size-3 text-primary" />
                         {c.name}
                         {isAdmin && (
                           <button
                             type="button"
                             onClick={() => handleDeleteCategory(c.id)}
-                            className="ml-1 text-indigo-400 hover:text-indigo-600 rounded-full hover:bg-indigo-500/10 p-0.5 transition-colors"
+                            className="ml-1 text-primary/70 hover:text-primary rounded-full hover:bg-primary/10 p-0.5 transition-colors"
                             disabled={deleteCategory.isPending}
                           >
                             <X className="size-3" />
