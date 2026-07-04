@@ -1,8 +1,8 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { AuditLog } from '../database/entities/audit-log.entity';
-import type { CreateAuditLogPayload } from '../interfaces/create-audit-log-payload.interface';
+import type { CreateAuditLogPayload } from '../../../../common/interfaces/create-audit-log-payload.interface';
+import { AuditLog } from '../entities/audit-log.entity';
 
 @Injectable()
 export class AuditLogsService implements OnModuleInit, OnModuleDestroy {

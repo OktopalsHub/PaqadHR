@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
+import { SlackIcon } from '@/components/icons/slack-icon';
 import { LogoUpload } from '@/components/logo-upload';
 import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
@@ -57,8 +58,20 @@ function WorkspaceSlackStatus() {
     <ContentCard title="Slack" description="Post team shoutouts to a Slack channel">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">{statusText}</p>
-        <Button size="sm" variant="outline" asChild>
-          <Link href={slackPageHref}>{status?.configured ? 'Manage Slack' : 'Connect Slack'}</Link>
+        <Button
+          size="sm"
+          variant={status?.configured ? 'outline' : 'default'}
+          className={
+            status?.configured
+              ? undefined
+              : 'bg-[#4A154B] text-white hover:bg-[#611f69] hover:text-white border-transparent'
+          }
+          asChild
+        >
+          <Link href={slackPageHref}>
+            {!status?.configured ? <SlackIcon className="mr-1.5 size-4" /> : null}
+            {status?.configured ? 'Manage Slack' : 'Connect Slack'}
+          </Link>
         </Button>
       </div>
     </ContentCard>

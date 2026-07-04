@@ -8,6 +8,7 @@ export const SETTINGS_TABS = [
   'notifications',
   'attendance',
   'billing',
+  'activities',
 ] as const;
 
 export type SettingsTab = (typeof SETTINGS_TABS)[number];
@@ -21,6 +22,7 @@ export const ADMIN_SETTINGS_TABS: SettingsTab[] = [
   'notifications',
   'attendance',
   'billing',
+  'activities',
 ];
 
 export function isSettingsTab(value: string | null | undefined): value is SettingsTab {

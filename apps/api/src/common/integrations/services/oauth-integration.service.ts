@@ -66,11 +66,23 @@ export class OAuthIntegrationService {
           tokenData,
         );
       }
+      if (!tokenData.access_token) {
+        throw new BadRequestException(
+          'OAuth did not return an access token. Reconnect the integration and try again.',
+        );
+      }
+      const platformUserId = tokenData.user_id || tokenData.username;
+      if (!platformUserId) {
+        throw new BadRequestException(
+          'OAuth did not return a platform user id. Reconnect the integration and try again.',
+        );
+      }
+
       const existingUserToken = await manager.findOne(UserIntegrationToken, {
         where: {
           tenantMemberId,
           integrationId: integration.id,
-          platformUserId: tokenData.user_id,
+          platformUserId,
         },
       });
       let userToken: UserIntegrationToken;
@@ -92,7 +104,7 @@ export class OAuthIntegrationService {
           platformType,
           userAccessToken: tokenData.access_token,
           userRefreshToken: tokenData.refresh_token,
-          platformUserId: tokenData.user_id,
+          platformUserId,
           platformUsername: tokenData.username,
           scopes: tokenData.scope?.split(',') || [],
           expiresAt: tokenData.expires_in
@@ -142,16 +154,25 @@ export class OAuthIntegrationService {
     if (!data.ok) {
       throw new BadRequestException(`Slack OAuth error: ${data.error}`);
     }
+
+    // Bot installs expose workspace token on `access_token`; user token is optional under `authed_user`.
+    const userAccessToken = data.authed_user?.access_token ?? data.access_token;
+    if (!userAccessToken) {
+      throw new BadRequestException(
+        'Slack OAuth did not return an access token. Check app scopes and try connecting again.',
+      );
+    }
+
     return {
-      access_token: data.authed_user.access_token,
-      refresh_token: data.authed_user.refresh_token,
-      user_id: data.authed_user.id,
-      username: data.authed_user.id,
-      scope: data.authed_user.scope,
-      expires_in: data.authed_user.expires_in,
+      access_token: userAccessToken,
+      refresh_token: data.authed_user?.refresh_token,
+      user_id: data.authed_user?.id ?? data.bot_user_id ?? data.team?.id,
+      username: data.authed_user?.id ?? data.bot_user_id ?? data.team?.name,
+      scope: data.authed_user?.scope ?? data.scope,
+      expires_in: data.authed_user?.expires_in,
       team_id: data.team?.id,
       team_name: data.team?.name,
-      bot_token: data.bot?.token || data.access_token,
+      bot_token: data.access_token ?? data.bot?.token,
     };
   }
   private async exchangeGoogleToken(code: string, redirectUri: string): Promise<OAuthTokenData> {

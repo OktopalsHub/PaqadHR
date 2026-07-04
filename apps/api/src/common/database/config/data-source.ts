@@ -89,6 +89,7 @@ const AppDataSource = {
     Migrations.SubscriptionDunningAndLifecycle1782914289290,
     Migrations.WalletTransactionReferenceScope1782921523406,
     Migrations.DropAssetManagement1783110763106,
+    Migrations.DropPayrollAuditLogsCreateTenantActivities1783160913090,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

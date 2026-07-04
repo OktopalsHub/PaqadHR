@@ -24,11 +24,11 @@ import {
   PayrollPaymentIssue,
   type PayrollPaymentReadiness,
 } from '../../../../common/interfaces/payroll-payment-readiness.interface';
-import { AuditLogsService } from '../../../../common/services/audit-logs.service';
 import { EncryptionService } from '../../../../common/services/encryption.service';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {

@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
@@ -9,7 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
-import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
+import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RewardsController } from './controllers/rewards.controller';
 import { RewardsAdminController } from './controllers/rewards-admin.controller';
@@ -40,7 +40,7 @@ import { TenantWalletService } from './services/tenant-wallet.service';
       Tenant,
     ]),
     PaymentsModule,
-    forwardRef(() => TenantSettingsModule),
+    TenantConfigModule,
     SubscriptionsModule,
     NotificationsModule,
     ShoutoutsModule,

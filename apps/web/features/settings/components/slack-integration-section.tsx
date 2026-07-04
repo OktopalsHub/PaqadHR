@@ -10,7 +10,15 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { useTenant } from '@/providers/tenant-provider';
 import { SlackUserSyncSection } from './slack-user-sync-section';
 
-export function SlackIntegrationSection() {
+const slackBrandButtonClass =
+  'bg-[#4A154B] text-white hover:bg-[#611f69] hover:text-white border-transparent shadow-sm';
+
+type SlackIntegrationSectionProps = {
+  /** When true, Connect starts OAuth. When false, navigates to the Slack integrations page. */
+  enableOAuth?: boolean;
+};
+
+export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegrationSectionProps) {
   const { tenant } = useTenant();
   const tenantHref = useTenantHref();
   const role = tenant?.member?.role?.toLowerCase();
@@ -22,6 +30,7 @@ export function SlackIntegrationSection() {
     return null;
   }
 
+  const slackPageHref = tenantHref('integrations/slack');
   const setupHref = status?.integrationId
     ? tenantHref(`integrations/setup-channel?integration_id=${status.integrationId}&platform=slack`)
     : tenantHref('integrations/setup-channel');
@@ -55,8 +64,30 @@ export function SlackIntegrationSection() {
           <p className="text-sm text-muted-foreground">
             Slack is connected. Choose a channel where shoutouts should be posted.
           </p>
-          <Button size="sm" asChild>
-            <Link href={setupHref}>Select shoutout channel</Link>
+          <Button size="sm" className={slackBrandButtonClass} asChild>
+            <Link href={setupHref}>
+              <SlackIcon className="mr-1.5 size-4" />
+              Select shoutout channel
+            </Link>
+          </Button>
+        </div>
+      ) : enableOAuth ? (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Connect Slack so team shoutouts appear in your workspace channel.
+          </p>
+          <Button
+            size="sm"
+            className={slackBrandButtonClass}
+            disabled={connectSlack.isPending}
+            onClick={handleConnect}
+          >
+            {connectSlack.isPending ? (
+              <Loader2 className="mr-1.5 size-4 animate-spin" />
+            ) : (
+              <SlackIcon className="mr-1.5 size-4" />
+            )}
+            Add to Slack
           </Button>
         </div>
       ) : (
@@ -64,10 +95,11 @@ export function SlackIntegrationSection() {
           <p className="text-sm text-muted-foreground">
             Connect Slack so team shoutouts appear in your workspace channel.
           </p>
-          <Button size="sm" disabled={connectSlack.isPending} onClick={handleConnect}>
-            {connectSlack.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
-            <SlackIcon className="mr-1 size-4" />
-            Connect Slack
+          <Button size="sm" className={slackBrandButtonClass} asChild>
+            <Link href={slackPageHref}>
+              <SlackIcon className="mr-1.5 size-4" />
+              Connect Slack
+            </Link>
           </Button>
         </div>
       )}

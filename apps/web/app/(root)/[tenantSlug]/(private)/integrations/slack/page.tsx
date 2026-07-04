@@ -24,7 +24,7 @@ export default function SlackIntegrationPage() {
         description="Recognition posts from Paqad appear in your Slack workspace"
       >
         {isAdmin ? (
-          <SlackIntegrationSection />
+          <SlackIntegrationSection enableOAuth />
         ) : (
           <p className="text-sm text-muted-foreground">
             Ask a workspace admin to connect Slack for shoutouts.

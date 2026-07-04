@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuditModule } from 'src/common/modules/audit.module';
 import { PaymentsModule } from 'src/common/providers/payments.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -15,7 +15,7 @@ import { PaymentMethodService } from './services/payment-method.service';
   imports: [
     TypeOrmModule.forFeature([PaymentMethod, PaymentMethodPasscodeHistory]),
     PaymentsModule,
-    AuditModule,
+    AuditLogsModule,
     TenantsModule,
     TenantMembersModule,
     TenantConfigModule,

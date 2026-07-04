@@ -1,6 +1,10 @@
 import { Column, Entity } from 'typeorm';
-import { type AuditAction, AuditSeverity, AuditStatus } from '../../enums/audit-action.enum';
-import { BaseEntity } from './base.entity';
+import { BaseEntity } from '../../../../common/database/entities/base.entity';
+import {
+  type AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from '../../../../common/enums/audit-action.enum';
 
 @Entity('audit_logs')
 export class AuditLog extends BaseEntity {

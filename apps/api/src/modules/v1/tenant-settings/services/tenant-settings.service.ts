@@ -1,9 +1,9 @@
-import { BadRequestException, forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource } from 'typeorm';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
-import { RewardsService } from '../../rewards/services/rewards.service';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
 import { TenantSettingRepository } from './tenant-setting.repository';
@@ -14,8 +14,7 @@ export class TenantSettingsService {
   constructor(
     private readonly tenantSettingsRepository: TenantSettingRepository,
     readonly _dataSource: DataSource,
-    @Inject(forwardRef(() => RewardsService))
-    private readonly rewardsService: RewardsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
   async getTenantSettings(tenantId: string): Promise<TenantSettings> {
     const settings = await this.tenantSettingsRepository.findOne({
@@ -175,13 +174,7 @@ export class TenantSettingsService {
       updateDto.rewards?.catalogCountries !== undefined &&
       !sameCountrySet(prevCatalogCountries, newCatalogCountries);
     if (catalogCountriesChanged) {
-      try {
-        await this.rewardsService.syncReloadlyProducts(tenantId, { force: true });
-      } catch (err) {
-        this.logger.warn(
-          `Reloadly catalog sync failed for tenant ${tenantId}: ${err instanceof Error ? err.message : err}`,
-        );
-      }
+      this.eventEmitter.emit('rewards.catalogCountriesChanged', { tenantId });
     }
 
     return result;

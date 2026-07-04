@@ -1,41 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { AuditLogEntry } from '../../../../common/interfaces/audit-log-entry.interface';
-import { PayrollAuditLog } from '../entities/payroll-audit.entity';
+import type { TenantActivity } from '../../activities/entities/tenant-activity.entity';
+import { ActivitiesService } from '../../activities/services/activities.service';
 
 @Injectable()
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
-  constructor(
-    @InjectRepository(PayrollAuditLog)
-    private auditLogRepository: Repository<PayrollAuditLog>,
-  ) {}
-  async logEvent(context: AuditContext, entry: AuditLogEntry): Promise<PayrollAuditLog> {
-    try {
-      const auditLog = this.auditLogRepository.create({
-        payrollRunId: context.payrollRunId || null,
-        memberId: context.memberId || null,
-        performedById: context.performedById || null,
-        eventType: entry.eventType,
-        description: entry.description,
-        beforeData: entry.beforeData || null,
-        afterData: entry.afterData || null,
-        ipAddress: context.ipAddress || null,
-        userAgent: context.userAgent || null,
-        sessionId: context.sessionId || null,
-        metadata: entry.metadata || null,
-      });
-      const savedLog = await this.auditLogRepository.save(auditLog);
-      this.logger.log(`Audit event logged: ${entry.eventType} - ${entry.description}`);
-      return savedLog;
-    } catch (error) {
-      this.logger.error('Failed to log audit event:', error);
-      throw error;
+
+  constructor(private readonly activitiesService: ActivitiesService) {}
+
+  async logEvent(context: AuditContext, entry: AuditLogEntry): Promise<void> {
+    if (!context.tenantId) {
+      this.logger.warn(`Skipping activity log (missing tenantId): ${entry.eventType}`);
+      return;
     }
+
+    await this.activitiesService.queueActivity({
+      tenantId: context.tenantId,
+      actorMemberId: context.performedById ?? null,
+      action: entry.eventType,
+      resourceType: 'payroll',
+      resourceId: context.payrollRunId ?? null,
+      description: entry.description,
+      status: entry.eventType.includes('failed') ? 'FAILED' : 'SUCCESS',
+      severity: entry.eventType.includes('failed') ? 'HIGH' : 'LOW',
+      ipAddress: context.ipAddress ?? null,
+      userAgent: context.userAgent ?? null,
+      metadata: {
+        ...(entry.metadata ?? {}),
+        memberId: context.memberId ?? null,
+        sessionId: context.sessionId ?? null,
+        beforeData: entry.beforeData ?? null,
+        afterData: entry.afterData ?? null,
+      },
+    });
   }
+
   async logPayrollCreated(
     context: AuditContext,
     payrollRunData: Record<string, unknown>,
@@ -51,6 +53,7 @@ export class AuditService {
       },
     });
   }
+
   async logPayrollApproved(
     context: AuditContext,
     payrollRunData: Record<string, unknown>,
@@ -145,6 +148,7 @@ export class AuditService {
       },
     });
   }
+
   async logPaymentSent(context: AuditContext, paymentData: Record<string, unknown>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.PAYMENT_SENT,
@@ -158,6 +162,7 @@ export class AuditService {
       },
     });
   }
+
   async logPaymentFailed(
     context: AuditContext,
     paymentData: Record<string, unknown>,
@@ -175,6 +180,7 @@ export class AuditService {
       },
     });
   }
+
   async logTaxCalculated(context: AuditContext, taxData: Record<string, unknown>): Promise<void> {
     await this.logEvent(context, {
       eventType: AuditEventType.TAX_CALCULATED,
@@ -188,6 +194,7 @@ export class AuditService {
       },
     });
   }
+
   async logComplianceCheck(
     context: AuditContext,
     complianceResults: Record<string, unknown>,
@@ -203,6 +210,7 @@ export class AuditService {
       },
     });
   }
+
   async logPaymentAttempt(
     context: AuditContext,
     paymentData: Record<string, unknown>,
@@ -219,6 +227,7 @@ export class AuditService {
       },
     });
   }
+
   async logLargePaymentDetected(
     context: AuditContext,
     paymentData: Record<string, unknown>,
@@ -236,6 +245,7 @@ export class AuditService {
       },
     });
   }
+
   async logSalaryCalculated(
     context: AuditContext,
     salaryData: Record<string, unknown>,
@@ -255,6 +265,7 @@ export class AuditService {
       },
     });
   }
+
   async logAdjustmentCalculated(
     context: AuditContext,
     adjustmentData: Record<string, unknown>,
@@ -273,6 +284,7 @@ export class AuditService {
       },
     });
   }
+
   async logPayrollAdjustmentSummary(
     context: AuditContext,
     summaryData: Record<string, unknown>,
@@ -290,67 +302,31 @@ export class AuditService {
       },
     });
   }
-  async getAuditTrail(
-    payrollRunId?: string,
-    tenantId?: string,
-    memberId?: string,
-    eventType?: AuditEventType,
-    startDate?: Date,
-    endDate?: Date,
-    limit = 100,
-  ): Promise<PayrollAuditLog[]> {
-    const query = this.auditLogRepository
-      .createQueryBuilder('audit')
-      .leftJoinAndSelect('audit.payrollRun', 'payrollRun')
-      .leftJoinAndSelect('audit.employee', 'employee')
-      .leftJoinAndSelect('audit.performedBy', 'performedBy')
-      .orderBy('audit.createdAt', 'DESC')
-      .limit(limit);
-    if (payrollRunId) {
-      query.andWhere('audit.payrollRunId = :payrollRunId', { payrollRunId });
-    }
-    if (tenantId) {
-      query.andWhere('payrollRun.tenantId = :tenantId', { tenantId });
-    }
-    if (memberId) {
-      query.andWhere('audit.memberId = :memberId', { memberId });
-    }
-    if (eventType) {
-      query.andWhere('audit.eventType = :eventType', { eventType });
-    }
-    if (startDate) {
-      query.andWhere('audit.createdAt >= :startDate', { startDate });
-    }
-    if (endDate) {
-      query.andWhere('audit.createdAt <= :endDate', { endDate });
-    }
-    return query.getMany();
+
+  async getAuditTrail(payrollRunId: string, tenantId: string): Promise<TenantActivity[]> {
+    return this.activitiesService.listForResource(tenantId, 'payroll', payrollRunId, 100);
   }
-  async generateAuditReport(payrollRunId: string): Promise<{
+
+  async generateAuditReport(
+    payrollRunId: string,
+    tenantId: string,
+  ): Promise<{
     payrollRunId: string;
     totalEvents: number;
     eventsByType: Record<string, number>;
-    timeline: PayrollAuditLog[];
+    timeline: TenantActivity[];
     generatedAt: Date;
   }> {
-    const auditLogs = await this.getAuditTrail(
-      payrollRunId,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      1000,
-    );
+    const activities = await this.getAuditTrail(payrollRunId, tenantId);
     const eventsByType: Record<string, number> = {};
-    for (const log of auditLogs) {
-      eventsByType[log.eventType] = (eventsByType[log.eventType] || 0) + 1;
+    for (const log of activities) {
+      eventsByType[log.action] = (eventsByType[log.action] || 0) + 1;
     }
     return {
       payrollRunId,
-      totalEvents: auditLogs.length,
+      totalEvents: activities.length,
       eventsByType,
-      timeline: auditLogs,
+      timeline: activities,
       generatedAt: new Date(),
     };
   }

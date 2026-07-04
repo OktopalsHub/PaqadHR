@@ -68,3 +68,4 @@ export * from './1782913542028-tenant-wallet-virtual-accounts';
 export * from './1782914289290-subscription-dunning-and-lifecycle';
 export * from './1782921523406-wallet-transaction-reference-scope';
 export * from './1783110763106-DropAssetManagement';
+export * from './1783160913090-DropPayrollAuditLogsCreateTenantActivities';
