@@ -3,13 +3,16 @@ import {
   WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
-import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 import { TenantWalletService } from './tenant-wallet.service';
+import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 
 describe('TenantWalletService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
 
-  function createWalletService(overrides?: { wallet?: Record<string, unknown>; debitUpdateAffected?: number }) {
+  function createWalletService(overrides?: {
+    wallet?: Record<string, unknown>;
+    debitUpdateAffected?: number;
+  }) {
     const wallet = {
       id: 'wallet-1',
       tenantId,
@@ -209,7 +212,9 @@ describe('TenantWalletTopupService', () => {
 
   describe('manualTopup', () => {
     it('throws billing card message when subscription has no tokenized card', async () => {
-      const { topupService, nombaApi, emailService } = createTopupService({ paymentMethodId: null });
+      const { topupService, nombaApi, emailService } = createTopupService({
+        paymentMethodId: null,
+      });
 
       await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
         WALLET_NO_BILLING_CARD,

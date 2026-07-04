@@ -81,6 +81,17 @@ export function ShoutoutComposer({
     [message, employeeLookup, categoryLookup],
   );
 
+  const recipientBadges = useMemo(() => {
+    const seen = new Map<string, number>();
+    return parsed.recipients.map((r) => {
+      const stem = `${r.recipientId}-${r.points}-${r.name}`;
+      const n = seen.get(stem) ?? 0;
+      seen.set(stem, n + 1);
+      const key = n === 0 ? stem : `${stem}-${n}`;
+      return { ...r, key };
+    });
+  }, [parsed.recipients]);
+
   const suggestions = useMemo(() => {
     if (!active) return [];
     const source = active.type === '@' ? employees : categories;
@@ -237,9 +248,9 @@ export function ShoutoutComposer({
 
         {parsed.recipients.length > 0 || parsed.categoryNames.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {parsed.recipients.map((r, idx) => (
+            {recipientBadges.map((r) => (
               <Badge
-                key={`${r.recipientId}-${idx}`}
+                key={r.key}
                 variant="secondary"
                 className={cn(
                   'flex items-center gap-1 border-sky-100 bg-sky-500/10 text-sky-600',

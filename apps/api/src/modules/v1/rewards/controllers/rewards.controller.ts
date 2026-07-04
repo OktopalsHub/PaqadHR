@@ -19,8 +19,8 @@ import { MemberPointsService } from '../../shoutouts/services/member-points.serv
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
-import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
+import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
 
 const ALL_ROLES = [
   TenantMemberRole.OWNER,

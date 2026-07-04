@@ -257,9 +257,17 @@ export class TenantWalletTopupService {
         );
       }
 
-      return this.walletService.credit(tenantId, amount, 'DEPOSIT', reference, description, manager, {
-        nombaEventId: charge.orderReference,
-      });
+      return this.walletService.credit(
+        tenantId,
+        amount,
+        'DEPOSIT',
+        reference,
+        description,
+        manager,
+        {
+          nombaEventId: charge.orderReference,
+        },
+      );
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       this.notifyWalletChargeFailed(tenantId, amount, currency, reason);

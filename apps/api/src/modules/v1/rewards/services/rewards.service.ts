@@ -28,12 +28,10 @@ import {
 } from '../entities/reward-redemption.entity';
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
-import { TenantWallet } from '../entities/tenant-wallet.entity';
-import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
-import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 import { TenantWalletService } from './tenant-wallet.service';
+import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 
 export interface CatalogItem {
   id: string;
