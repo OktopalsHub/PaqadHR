@@ -584,7 +584,7 @@ export class TenantWalletService {
         .getRepository(TenantWallet)
         .createQueryBuilder('w')
         .setLock('pessimistic_write')
-        .where('w.tenant_id = :tenantId', { tenantId: input.tenantId })
+        .where('w.tenantId = :tenantId', { tenantId: input.tenantId })
         .getOneOrFail();
 
       const existing = await manager.getRepository(TenantWalletTransaction).findOne({
