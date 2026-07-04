@@ -49,11 +49,6 @@ function SettingsPageContent() {
 
   return (
     <AppPage className="space-y-5">
-      <div>
-        <h1 className="text-lg font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your account and workspace</p>
-      </div>
-
       <Tabs value={visibleTab} onValueChange={(value) => setTab(value as SettingsTab)}>
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
           <TabsTrigger

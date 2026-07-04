@@ -154,12 +154,14 @@ export class OAuthIntegrationController {
       };
     }
   }
-  @Get('integrations/:integrationId/channels')
+  @Get('tenants/:tenantId/integrations/:integrationId/channels')
   @UseGuards(TenantMemberGuard)
   async getAvailableChannels(
+    @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
     const member = req.member;
     const userToken = await this.oauthService.getUserToken(integrationId, member.id);
     if (!userToken?.userAccessToken) {
@@ -167,20 +169,20 @@ export class OAuthIntegrationController {
     }
     return this.channelService.getAvailableChannels(integrationId, userToken.userAccessToken);
   }
-  @Post('integrations/:integrationId/channels/create')
+  @Post('tenants/:tenantId/integrations/:integrationId/channels/create')
   @UseGuards(TenantMemberGuard)
   async createChannel(
+    @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
     @Body() body: { name: string },
-    @Req() req: IAuthenticatedMemberRequest,
   ) {
-    void req.member;
-    const channel = await this.channelService.createSlackChannel(integrationId, body.name);
-    return channel;
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
+    return this.channelService.createSlackChannel(integrationId, body.name);
   }
-  @Post('integrations/:integrationId/setup-channel')
+  @Post('tenants/:tenantId/integrations/:integrationId/setup-channel')
   @UseGuards(TenantMemberGuard)
   async setupChannel(
+    @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
     @Body()
     body: {
@@ -189,6 +191,7 @@ export class OAuthIntegrationController {
     },
     @Req() req: IAuthenticatedMemberRequest,
   ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
     const member = req.member;
     const userToken = await this.oauthService.getUserToken(integrationId, member.id);
     const result = await this.channelService.configureShoutoutChannel(

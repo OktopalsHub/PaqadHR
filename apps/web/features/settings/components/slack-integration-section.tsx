@@ -43,7 +43,6 @@ export function SlackIntegrationSection() {
 
   const integrationId = searchParams.get('integration_id') ?? status?.integrationId ?? undefined;
   const shouldAutoOpen = searchParams.get('slack_setup') === '1';
-  const isConnected = Boolean(status?.integrationId);
 
   useEffect(() => {
     if (shouldAutoOpen && integrationId) {
@@ -55,6 +54,12 @@ export function SlackIntegrationSection() {
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }
   }, [shouldAutoOpen, integrationId, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (status?.integrationId && !status.configured) {
+      setPickerOpen(true);
+    }
+  }, [status?.integrationId, status?.configured]);
 
   if (!isAdmin) {
     return null;
@@ -98,11 +103,8 @@ export function SlackIntegrationSection() {
                 Change channel
               </Button>
             ) : null}
-            <SlackConnectionActions
-              isConnected={isConnected}
-              connectPending={connectSlack.isPending}
-              disconnectPending={disconnectSlack.isPending}
-              onConnect={handleConnect}
+            <DisconnectSlackButton
+              pending={disconnectSlack.isPending}
               onDisconnect={handleDisconnect}
             />
           </div>
@@ -112,25 +114,10 @@ export function SlackIntegrationSection() {
           <p className="text-sm text-muted-foreground">
             Connected. Choose a channel for shoutouts.
           </p>
-          <div className="flex flex-wrap gap-2">
-            {!pickerOpen ? (
-              <Button
-                size="sm"
-                className={slackBrandButtonClass}
-                onClick={() => setPickerOpen(true)}
-              >
-                <SlackIcon className="mr-1.5 size-4" />
-                Select channel
-              </Button>
-            ) : null}
-            <SlackConnectionActions
-              isConnected={isConnected}
-              connectPending={connectSlack.isPending}
-              disconnectPending={disconnectSlack.isPending}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
-            />
-          </div>
+          <DisconnectSlackButton
+            pending={disconnectSlack.isPending}
+            onDisconnect={handleDisconnect}
+          />
         </div>
       ) : (
         <div className="space-y-3">
@@ -165,61 +152,37 @@ export function SlackIntegrationSection() {
   );
 }
 
-function SlackConnectionActions({
-  isConnected,
-  connectPending,
-  disconnectPending,
-  onConnect,
+function DisconnectSlackButton({
+  pending,
   onDisconnect,
 }: {
-  isConnected: boolean;
-  connectPending: boolean;
-  disconnectPending: boolean;
-  onConnect: () => void;
+  pending: boolean;
   onDisconnect: () => void;
 }) {
-  if (!isConnected) return null;
-
   return (
-    <>
-      <Button
-        size="sm"
-        variant="outline"
-        className={slackBrandButtonClass}
-        disabled={connectPending}
-        onClick={onConnect}
-      >
-        {connectPending ? (
-          <Loader2 className="mr-1.5 size-4 animate-spin" />
-        ) : (
-          <SlackIcon className="mr-1.5 size-4" />
-        )}
-        Reconnect
-      </Button>
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button size="sm" variant="outline" disabled={disconnectPending}>
-            {disconnectPending ? <Loader2 className="size-4 animate-spin" /> : 'Disconnect'}
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Slack?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Shoutouts will stop posting to Slack until you connect again.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={onDisconnect}
-            >
-              Disconnect
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" variant="ghost" disabled={pending}>
+          {pending ? <Loader2 className="size-4 animate-spin" /> : 'Disconnect'}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Disconnect Slack?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Shoutouts will stop posting to Slack until you connect again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={onDisconnect}
+          >
+            Disconnect
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

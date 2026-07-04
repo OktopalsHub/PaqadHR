@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { IPlatformClient } from 'src/common/interfaces';
@@ -61,6 +61,19 @@ export class PlatformIntegrationService {
       where: { tenantId, isActive: true },
       relations: ['platformUsers'],
     });
+  }
+
+  async requireTenantIntegration(
+    tenantId: string,
+    integrationId: string,
+  ): Promise<PlatformIntegration> {
+    const integration = await this.integrationRepo.findOne({
+      where: { id: integrationId, tenantId },
+    });
+    if (!integration) {
+      throw new NotFoundException('Integration not found');
+    }
+    return integration;
   }
 
   async getShoutoutSlackStatus(tenantId: string): Promise<{
