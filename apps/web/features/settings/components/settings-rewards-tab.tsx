@@ -187,11 +187,7 @@ export function SettingsRewardsTab() {
       });
       if (countriesChanged) {
         try {
-          const { synced } = await syncRewardsCatalog();
-          if (synced > 0) {
-            toast.success(`Rewards settings saved — synced ${synced} gift cards`);
-            return;
-          }
+          await syncRewardsCatalog();
         } catch {
           // Backend may have synced during settings save; don't fail the whole save flow.
         }

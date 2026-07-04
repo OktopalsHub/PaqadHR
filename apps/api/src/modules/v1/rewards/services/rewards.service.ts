@@ -68,6 +68,7 @@ export interface ClaimInput {
 
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
+  topupKind?: 'airtime' | 'data';
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -144,6 +145,45 @@ export class RewardsService {
       select: { name: true },
     });
     return formatNombaSenderName(tenant?.name);
+  }
+
+  private resolveReloadlyProduct(
+    settings: RewardsSettings,
+    rewardId: string,
+  ): NonNullable<RewardsSettings['reloadlyProducts']>[number] | undefined {
+    if (!rewardId.startsWith('reloadly_')) return undefined;
+    const productId = Number(rewardId.replace('reloadly_', ''));
+    if (!Number.isFinite(productId)) return undefined;
+    return settings.reloadlyProducts?.find((p) => p.productId === productId);
+  }
+
+  private assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
+    const isNgCurrency =
+      (input.currencyCode ?? settings.rewardsCurrency).toUpperCase() === 'NGN' &&
+      settings.rewardsCurrency.toUpperCase() === 'NGN';
+
+    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
+      if (!this.nombaBillApi.isConfigured()) {
+        throw new BadRequestException('Nomba billing is not configured for Nigeria redemptions');
+      }
+      return;
+    }
+
+    if (
+      isNgCurrency &&
+      (input.rewardType === 'RELOADLY_AIRTIME' || input.rewardType === 'RELOADLY_UTILITY')
+    ) {
+      throw new BadRequestException(
+        'Nigeria airtime and utilities must use Nomba. Select Nigeria as the country.',
+      );
+    }
+  }
+
+  async listNombaDataPlans(network: string) {
+    if (!this.nombaBillApi.isConfigured()) {
+      throw new BadRequestException('Nomba billing is not configured');
+    }
+    return this.nombaBillApi.listDataPlans(network);
   }
 
   async getSubscriptionFees(
@@ -304,7 +344,7 @@ export class RewardsService {
         name: p.name,
         type: 'RELOADLY',
         pointsCost: p.pointsCost,
-        currencyValue: p.pointsCost / exchangeRate,
+        currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
         currencyCode: p.currencyCode,
         countryCode: p.countryCode,
         imageUrl: p.imageUrl,
@@ -462,7 +502,8 @@ export class RewardsService {
       throw new BadRequestException('Rewards are not enabled for this workspace');
     }
 
-    const exchangeRate = settings.pointsExchangeRate;
+    this.assertNgNombaRouting(input, settings);
+
     const currencyCode = input.currencyCode ?? settings.rewardsCurrency;
     const currencyValue = input.currencyValue;
     const pointsCost = input.pointsCost;
@@ -475,7 +516,27 @@ export class RewardsService {
     let expectedPointsCost: number;
     let faceValueInRewardsCurrency: number;
 
-    if (input.rewardType === 'RELOADLY_AIRTIME') {
+    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
+      const calc = await this.calculateLocalRewardCost(tenantId, currencyValue);
+      totalTenantDebit = calc.totalTenantDebit;
+      expectedPointsCost = calc.pointsCost;
+      faceValueInRewardsCurrency = calc.currencyValue;
+    } else if (input.rewardType === 'RELOADLY') {
+      const product = this.resolveReloadlyProduct(settings, input.rewardId);
+      if (!product) {
+        throw new BadRequestException('Reloadly product not found in catalog');
+      }
+      const faceValue = product.fixedDenominations?.[0] ?? product.minDenomination ?? currencyValue;
+      faceValueInRewardsCurrency = await this.toWalletCurrency(
+        faceValue,
+        product.currencyCode,
+        settings.rewardsCurrency,
+        undefined,
+        product.countryCode,
+      );
+      totalTenantDebit = computeRedemptionDebit(faceValueInRewardsCurrency, feePercentage);
+      expectedPointsCost = product.pointsCost;
+    } else if (input.rewardType === 'RELOADLY_AIRTIME') {
       const calc = await this.calculateReloadlyAirtimeCost(
         Number(input.billerId),
         currencyValue,
@@ -505,33 +566,17 @@ export class RewardsService {
         settings.rewardsCurrency,
         Number(input.billerId),
       );
+    } else if (input.rewardType === 'CUSTOM') {
+      totalTenantDebit = currencyValue;
+      faceValueInRewardsCurrency = currencyValue;
+      expectedPointsCost = pointsCost;
     } else {
-      let countryCode: string | undefined;
-      if (input.rewardType === 'RELOADLY' && input.rewardId.startsWith('reloadly_')) {
-        const productId = Number(input.rewardId.replace('reloadly_', ''));
-        countryCode = settings.reloadlyProducts?.find(
-          (p) => p.productId === productId,
-        )?.countryCode;
-      }
-      const expectedConvertedValue = await this.toWalletCurrency(
-        currencyValue,
-        currencyCode,
-        settings.rewardsCurrency,
-        undefined,
-        countryCode,
-      );
-      faceValueInRewardsCurrency = expectedConvertedValue;
-      totalTenantDebit = expectedConvertedValue;
-      if (input.rewardType !== 'CUSTOM') {
-        totalTenantDebit = computeRedemptionDebit(expectedConvertedValue, feePercentage);
-      }
-      expectedPointsCost =
-        input.rewardType === 'CUSTOM' ? pointsCost : Math.ceil(totalTenantDebit * exchangeRate);
+      throw new BadRequestException(`Unsupported reward type: ${input.rewardType}`);
     }
 
-    if (input.rewardType !== 'CUSTOM' && pointsCost < expectedPointsCost) {
+    if (input.rewardType !== 'CUSTOM' && pointsCost !== expectedPointsCost) {
       throw new BadRequestException(
-        `Invalid points cost. Expected at least ${expectedPointsCost} points for this reward.`,
+        `Invalid points cost. Expected ${expectedPointsCost} points for this reward.`,
       );
     }
 
@@ -629,7 +674,7 @@ export class RewardsService {
       if (input.rewardType === 'RELOADLY') {
         await this.fulfillReloadly(redemption!, input);
       } else if (input.rewardType === 'NOMBA_AIRTIME') {
-        await this.fulfillNombaAirtime(redemption!, input);
+        await this.fulfillNombaTopup(redemption!, input);
       } else if (input.rewardType === 'RELOADLY_AIRTIME') {
         await this.fulfillReloadlyAirtime(redemption!, input);
       } else if (input.rewardType === 'NOMBA_UTILITY') {
@@ -723,8 +768,12 @@ export class RewardsService {
   }
 
   private async fulfillReloadly(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
-    const productId = input.providerProductId;
-    if (!productId) {
+    const productId =
+      input.providerProductId ??
+      (input.rewardId.startsWith('reloadly_')
+        ? Number(input.rewardId.replace('reloadly_', ''))
+        : undefined);
+    if (!productId || !Number.isFinite(productId)) {
       throw new Error('Missing Reloadly productId for gift card order');
     }
 
@@ -765,32 +814,40 @@ export class RewardsService {
     });
   }
 
-  private async fulfillNombaAirtime(
+  private async fulfillNombaTopup(
     redemption: RewardRedemption,
     input: ClaimInput,
   ): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
-      throw new Error('Phone number and network are required for airtime top-up');
+      throw new Error('Phone number and network are required for mobile top-up');
     }
 
     const senderName = await this.resolveSenderName(redemption.tenantId);
-
-    const result = await this.nombaBillApi.purchaseAirtime({
+    const purchaseInput = {
       amount: redemption.currencyValue,
       phoneNumber: input.recipientPhone,
       network: input.airtimeNetwork,
       merchantTxRef: redemption.id,
       senderName,
-    });
+    };
+
+    const isData = input.topupKind === 'data';
+    const result = isData
+      ? await this.nombaBillApi.purchaseDataBundle(purchaseInput)
+      : await this.nombaBillApi.purchaseAirtime(purchaseInput);
 
     if (!result.success) {
-      throw new Error(`Airtime purchase failed: status ${result.status}`);
+      throw new Error(
+        `${isData ? 'Data bundle' : 'Airtime'} purchase failed: status ${result.status}`,
+      );
     }
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
       providerTxRef: result.transactionId,
-      voucherInstructions: `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      voucherInstructions: isData
+        ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
+        : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
     });
   }
 

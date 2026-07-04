@@ -12,6 +12,7 @@ import {
   fetchAllClaims,
   fetchCustomRewards,
   fetchMyClaims,
+  fetchNombaDataPlans,
   fetchReloadlyCountries,
   fetchRewardsCatalog,
   fetchTenantWallet,
@@ -25,6 +26,16 @@ import {
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
+export function useNombaDataPlans(network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: ['rewards-nomba-data-plans', tenantId, network],
+    queryFn: () => fetchNombaDataPlans(network),
+    enabled: !tenantLoading && Boolean(tenantId) && enabled,
+  });
+}
 
 export function useTopupOperators(countryCode: string) {
   const { tenantId, isLoading: tenantLoading } = useTenant();

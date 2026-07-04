@@ -157,10 +157,28 @@ describe('RewardsService catalog sync', () => {
     const catalog = await service.getCatalog('tenant-1', { includeAdminPricing: true });
     const reloadlyItem = catalog.find((item) => item.type === 'RELOADLY');
     expect(reloadlyItem).toBeDefined();
+    expect(reloadlyItem?.currencyValue).toBe(1000);
     expect(reloadlyItem?.adminPricing).toEqual({
       reloadlyCost: 980,
       reloadlyCostCurrency: 'NGN',
     });
+  });
+
+  it('validates reloadly gift card points against stored catalog cost', async () => {
+    await service.syncReloadlyProducts('tenant-1');
+    const catalog = await service.getCatalog('tenant-1');
+    const item = catalog.find((i) => i.id === 'reloadly_101');
+    expect(item).toBeDefined();
+
+    await expect(
+      service.claim('tenant-1', 'member-1', {
+        rewardType: 'RELOADLY',
+        rewardId: item!.id,
+        pointsCost: item!.pointsCost - 1,
+        currencyValue: item!.currencyValue,
+        currencyCode: item!.currencyCode,
+      }),
+    ).rejects.toThrow('Invalid points cost');
   });
 
   it('omits admin pricing for members', async () => {

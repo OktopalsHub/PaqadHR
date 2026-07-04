@@ -40,6 +40,7 @@ import {
   useCreateCustomReward,
   useDeleteCustomReward,
   useMyClaims,
+  useNombaDataPlans,
   useRewardsCatalog,
   useTopupOperators,
   useUtilityBillers,
@@ -409,43 +410,9 @@ function ClaimRow({ claim }: { claim: RewardRedemption }) {
   );
 }
 
-interface DataBundle {
-  id: string;
-  name: string;
-  price: number;
-  validity: string;
+function dataPlanId(plan: { amount: number; plan: string }) {
+  return `${plan.amount}:${plan.plan}`;
 }
-
-const DATA_BUNDLES: Record<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', DataBundle[]> = {
-  MTN: [
-    { id: 'mtn_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: 'mtn_3gb', name: '3GB', price: 1600, validity: '30 Days' },
-    { id: 'mtn_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: 'mtn_10gb', name: '10GB', price: 4000, validity: '30 Days' },
-    { id: 'mtn_20gb', name: '20GB', price: 7500, validity: '30 Days' },
-  ],
-  AIRTEL: [
-    { id: 'airtel_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: 'airtel_3gb', name: '3GB', price: 1600, validity: '30 Days' },
-    { id: 'airtel_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: 'airtel_10gb', name: '10GB', price: 4000, validity: '30 Days' },
-    { id: 'airtel_20gb', name: '20GB', price: 7500, validity: '30 Days' },
-  ],
-  GLO: [
-    { id: 'glo_1.8gb', name: '1.8GB', price: 1000, validity: '30 Days' },
-    { id: 'glo_3.9gb', name: '3.9GB', price: 1600, validity: '30 Days' },
-    { id: 'glo_5.8gb', name: '5.8GB', price: 2500, validity: '30 Days' },
-    { id: 'glo_12gb', name: '12GB', price: 4000, validity: '30 Days' },
-    { id: 'glo_24gb', name: '24GB', price: 7500, validity: '30 Days' },
-  ],
-  '9MOBILE': [
-    { id: '9mobile_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: '9mobile_3gb', name: '3GB', price: 1500, validity: '30 Days' },
-    { id: '9mobile_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: '9mobile_11gb', name: '11GB', price: 4000, validity: '30 Days' },
-    { id: '9mobile_22gb', name: '22GB', price: 7500, validity: '30 Days' },
-  ],
-};
 
 const NG_UTILITIES = [
   { id: 'EKEDC', name: 'Eko Electricity (EKEDC)' },
@@ -499,6 +466,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
     selectedCountryCode !== 'NG' ? selectedCountryCode : '',
   );
+  const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
+    airtimeNetwork,
+    selectedCountryCode === 'NG' && topupMode === 'data',
+  );
+
+  const selectedDataPlan = nombaDataPlans.find((plan) => dataPlanId(plan) === selectedBundleId);
 
   const selectedReloadlyOperator = reloadlyOperators.find(
     (o) => String(o.operatorId) === selectedReloadlyOperatorId,
@@ -526,6 +499,21 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       }
     }
   }, [reloadlyOperators]);
+
+  useEffect(() => {
+    if (topupMode !== 'data' || selectedCountryCode !== 'NG' || nombaDataPlans.length === 0) {
+      return;
+    }
+    const first = nombaDataPlans[0];
+    const id = dataPlanId(first);
+    if (
+      !selectedBundleId ||
+      !nombaDataPlans.some((plan) => dataPlanId(plan) === selectedBundleId)
+    ) {
+      setSelectedBundleId(id);
+      setAirtimeAmount(String(first.amount));
+    }
+  }, [nombaDataPlans, topupMode, selectedCountryCode, selectedBundleId]);
 
   // JIT Points calculation states for top-ups
   const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
@@ -890,9 +878,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     setClaimingId('airtime');
     try {
       const selectedBundle =
-        selectedCountryCode === 'NG' && topupMode === 'data'
-          ? DATA_BUNDLES[airtimeNetwork].find((b) => b.id === selectedBundleId)
-          : null;
+        selectedCountryCode === 'NG' && topupMode === 'data' ? selectedDataPlan : null;
 
       const providerProductId =
         selectedCountryCode !== 'NG' ? selectedReloadlyOperator?.operatorId : undefined;
@@ -900,7 +886,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       const rewardName =
         selectedCountryCode === 'NG'
           ? selectedBundle
-            ? `${airtimeNetwork} ${selectedBundle.name} Data Bundle`
+            ? `${airtimeNetwork} ${selectedBundle.plan} Data Bundle`
             : `${airtimeNetwork} Airtime Top-up`
           : `${selectedReloadlyOperator?.name} Airtime`;
 
@@ -913,6 +899,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         currencyCode: calculatedCurrency,
         recipientPhone: airtimePhone.trim(),
         airtimeNetwork: selectedCountryCode === 'NG' ? airtimeNetwork : undefined,
+        topupKind: selectedCountryCode === 'NG' ? topupMode : undefined,
         providerProductId,
       });
 
@@ -1222,9 +1209,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         type="button"
                         onClick={() => {
                           setTopupMode('data');
-                          const defaultBundle = DATA_BUNDLES[airtimeNetwork][0];
-                          setSelectedBundleId(defaultBundle.id);
-                          setAirtimeAmount(String(defaultBundle.price));
                         }}
                         className={cn(
                           'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
@@ -1263,11 +1247,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                               type="button"
                               onClick={() => {
                                 setAirtimeNetwork(key);
-                                if (topupMode === 'data') {
-                                  const defaultBundle = DATA_BUNDLES[key][0];
-                                  setSelectedBundleId(defaultBundle.id);
-                                  setAirtimeAmount(String(defaultBundle.price));
-                                }
                               }}
                               className={cn(
                                 'relative p-4 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center gap-2 bg-card cursor-pointer',
@@ -1454,25 +1433,33 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Select Data Plan
                         </Label>
-                        <Select
-                          value={selectedBundleId}
-                          onValueChange={(val) => {
-                            setSelectedBundleId(val);
-                            const b = DATA_BUNDLES[airtimeNetwork].find((item) => item.id === val);
-                            if (b) setAirtimeAmount(String(b.price));
-                          }}
-                        >
-                          <SelectTrigger className="h-10 text-xs font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {DATA_BUNDLES[airtimeNetwork].map((bundle) => (
-                              <SelectItem key={bundle.id} value={bundle.id}>
-                                {bundle.name} ({bundle.validity}) — ₦{bundle.price.toLocaleString()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {dataPlansLoading ? (
+                          <p className="text-xs text-muted-foreground">Loading data plans…</p>
+                        ) : nombaDataPlans.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No data plans available for this network.
+                          </p>
+                        ) : (
+                          <Select
+                            value={selectedBundleId}
+                            onValueChange={(val) => {
+                              setSelectedBundleId(val);
+                              const plan = nombaDataPlans.find((item) => dataPlanId(item) === val);
+                              if (plan) setAirtimeAmount(String(plan.amount));
+                            }}
+                          >
+                            <SelectTrigger className="h-10 text-xs font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {nombaDataPlans.map((plan) => (
+                                <SelectItem key={dataPlanId(plan)} value={dataPlanId(plan)}>
+                                  {plan.plan} — ₦{plan.amount.toLocaleString()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     )}
 

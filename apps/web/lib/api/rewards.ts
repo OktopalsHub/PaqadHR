@@ -107,6 +107,7 @@ export interface ClaimInput {
   recipientPhone?: string;
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
+  topupKind?: 'airtime' | 'data';
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -217,6 +218,18 @@ export interface ReloadlyBiller {
   localTransactionCurrencyCode: string;
   minLocalTransactionAmount: number | null;
   maxLocalTransactionAmount: number | null;
+}
+
+export interface NombaDataPlan {
+  amount: number;
+  plan: string;
+}
+
+export async function fetchNombaDataPlans(
+  network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE',
+): Promise<NombaDataPlan[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<NombaDataPlan[]>(tenantPath(tenantId, `rewards/data-plans/${network}`));
 }
 
 export async function fetchTopupOperators(countryCode: string): Promise<ReloadlyOperator[]> {

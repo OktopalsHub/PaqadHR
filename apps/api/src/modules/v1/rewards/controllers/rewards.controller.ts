@@ -327,6 +327,13 @@ export class RewardsController {
     return this.rewardsService.listTopupOperators(countryCode);
   }
 
+  @Get('data-plans/:network')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async listNombaDataPlans(@Param('network') network: string) {
+    return this.rewardsService.listNombaDataPlans(network);
+  }
+
   @Get('utilities/billers/:countryCode')
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)

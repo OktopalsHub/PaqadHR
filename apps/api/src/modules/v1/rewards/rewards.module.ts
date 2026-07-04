@@ -11,6 +11,7 @@ import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
+import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RewardsController } from './controllers/rewards.controller';
 import { RewardsAdminController } from './controllers/rewards-admin.controller';
@@ -25,6 +26,7 @@ import { RewardsListener } from './listeners/rewards.listener';
 import { CustomRewardsService } from './services/custom-rewards.service';
 import { ReloadlyWebhookService } from './services/reloadly-webhook.service';
 import { RewardsService } from './services/rewards.service';
+import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
 import { RewardsWalletVaCronService } from './services/rewards-wallet-va-cron.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
 
@@ -39,6 +41,7 @@ import { TenantWalletService } from './services/tenant-wallet.service';
       Task,
       TaskSubmission,
       Tenant,
+      TenantSettings,
     ]),
     PaymentsModule,
     TenantConfigModule,
@@ -60,6 +63,7 @@ import { TenantWalletService } from './services/tenant-wallet.service';
     NombaBillApiService,
     RewardsListener,
     RewardsWalletVaCronService,
+    RewardsCatalogSyncCronService,
   ],
   exports: [RewardsService, TenantWalletService, ReloadlyWebhookService],
 })

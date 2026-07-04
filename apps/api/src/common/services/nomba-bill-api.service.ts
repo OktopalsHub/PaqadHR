@@ -39,6 +39,17 @@ interface NombaBillResponse {
   };
 }
 
+export interface NombaDataPlan {
+  amount: number;
+  plan: string;
+}
+
+interface NombaDataPlansResponse {
+  code?: string;
+  description?: string;
+  data?: Array<{ amount?: number; plan?: string }> | { amount?: number; plan?: string };
+}
+
 interface NombaElectricityLookupResponse {
   code?: string;
   description?: string;
@@ -103,6 +114,67 @@ export class NombaBillApiService {
     }
 
     return payload;
+  }
+
+  private async getRequest<T extends { code?: string; description?: string }>(
+    path: string,
+  ): Promise<T> {
+    if (!this.isConfigured()) {
+      throw new BadRequestException('Nomba billing api is not configured');
+    }
+
+    const token = await this.nombaTransferApi.getAccessToken();
+
+    const response = await fetch(`${getNombaBaseUrl()}${path}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        accountId: getNombaAccountId(),
+      },
+    });
+
+    const responseText = await response.text();
+
+    let payload: T;
+    try {
+      payload = JSON.parse(responseText) as T;
+    } catch {
+      throw new BadRequestException('Nomba billing error: invalid JSON response');
+    }
+
+    if (!response.ok && !isNombaAcceptedCode(payload.code)) {
+      const message = payload.description || `Nomba billing request failed (${response.status})`;
+      this.logger.error(`Nomba billing GET ${path} failed: ${message}`);
+      throw new BadRequestException(`Nomba billing error: ${message}`);
+    }
+
+    if (payload.code !== undefined && !isNombaAcceptedCode(payload.code)) {
+      const message = payload.description || `Nomba billing error: code ${payload.code}`;
+      this.logger.error(`Nomba billing GET ${path} failed: ${message}`);
+      throw new BadRequestException(`Nomba billing error: ${message}`);
+    }
+
+    return payload;
+  }
+
+  async listDataPlans(telco: string): Promise<NombaDataPlan[]> {
+    const normalized = telco.toUpperCase();
+    const payload = await this.getRequest<NombaDataPlansResponse>(
+      `/v1/bill/data-plan/${encodeURIComponent(normalized)}`,
+    );
+
+    const rows = Array.isArray(payload.data)
+      ? payload.data
+      : payload.data
+        ? [payload.data]
+        : [];
+
+    return rows
+      .filter((row) => row.amount != null && row.plan)
+      .map((row) => ({
+        amount: Number(row.amount),
+        plan: String(row.plan),
+      }));
   }
 
   async purchaseAirtime(input: NombaAirtimeInput): Promise<{
