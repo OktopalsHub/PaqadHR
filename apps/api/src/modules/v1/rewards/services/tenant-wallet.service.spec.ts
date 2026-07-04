@@ -228,9 +228,9 @@ describe('TenantWalletService', () => {
           }),
         }),
       );
-      expect(nombaApi.createCheckoutOrder.mock.calls[0][0].orderReference).toMatch(
-        new RegExp(`^wallet-topup-${tenantId}-`),
-      );
+      const orderReference = nombaApi.createCheckoutOrder.mock.calls[0][0].orderReference;
+      expect(orderReference).toMatch(new RegExp(`^wt_${tenantId.replace(/-/g, '')}_`));
+      expect(orderReference.length).toBeLessThanOrEqual(50);
       expect(nombaApi.createCheckoutOrder.mock.calls[0][0].callbackUrl).toContain(
         '/acme/settings?tab=rewards&wallet_topup=done',
       );

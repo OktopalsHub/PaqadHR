@@ -22,6 +22,7 @@ import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import {
   buildNombaAccountRef,
+  buildNombaWalletTopupOrderRef,
   buildVirtualAccountName,
 } from '../utils/wallet-virtual-account.util';
 
@@ -504,7 +505,7 @@ export class TenantWalletService {
       ? `${frontendBase}/${tenant.slug}/settings?tab=rewards&wallet_topup=done`
       : `${frontendBase}/settings?tab=rewards&wallet_topup=done`;
 
-    const orderReference = `wallet-topup-${tenantId}-${randomUUID()}`;
+    const orderReference = buildNombaWalletTopupOrderRef(tenantId);
     const result = await this.nombaApi.createCheckoutOrder({
       orderReference,
       customerEmail,
