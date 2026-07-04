@@ -69,6 +69,7 @@ describe('RewardsService catalog sync', () => {
         }),
       } as unknown as DataSource,
       {} as any,
+      {} as any,
       { list: jest.fn().mockResolvedValue([]) } as any,
       {} as any,
       reloadlyApi as any,
