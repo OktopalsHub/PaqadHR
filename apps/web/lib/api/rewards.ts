@@ -75,6 +75,8 @@ export interface TenantWallet {
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
+  /** True when API runs with NOMBA_LIVE=true (real payments, not sandbox UI). */
+  nombaLive?: boolean;
 }
 
 export interface TenantWalletTransaction {

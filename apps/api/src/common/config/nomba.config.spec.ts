@@ -4,6 +4,7 @@ import {
   getNombaPayoutCurrencies,
   getNombaScopedAccountId,
   isNombaGlobalPayoutEnabled,
+  isNombaLive,
 } from './nomba.config';
 
 describe('nomba.config payout currencies', () => {
@@ -29,6 +30,28 @@ describe('nomba.config payout currencies', () => {
     expect(isNombaGlobalPayoutEnabled()).toBe(true);
     expect(getNombaPayoutCurrencies()).toEqual(['NGN', 'USD', 'EUR', 'GBP']);
     expect(defaultPayrollCurrency()).toBe('USD');
+  });
+});
+
+describe('nomba.config live mode', () => {
+  const original = process.env.NOMBA_LIVE;
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.NOMBA_LIVE;
+    } else {
+      process.env.NOMBA_LIVE = original;
+    }
+  });
+
+  it('is false by default', () => {
+    delete process.env.NOMBA_LIVE;
+    expect(isNombaLive()).toBe(false);
+  });
+
+  it('is true when NOMBA_LIVE=true', () => {
+    process.env.NOMBA_LIVE = 'true';
+    expect(isNombaLive()).toBe(true);
   });
 });
 

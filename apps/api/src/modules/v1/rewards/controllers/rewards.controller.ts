@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { isNombaLive } from 'src/common/config/nomba.config';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
@@ -26,6 +27,18 @@ const ALL_ROLES = [
   TenantMemberRole.MEMBER,
 ] as const;
 const ADMIN_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN] as const;
+
+function withWalletResponse(
+  wallet: Awaited<ReturnType<TenantWalletService['getWallet']>>,
+  fees: { feePercentage: number; flatFee: number },
+) {
+  return {
+    ...wallet,
+    feePercentage: fees.feePercentage,
+    flatFee: fees.flatFee,
+    nombaLive: isNombaLive(),
+  };
+}
 
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')
@@ -100,11 +113,7 @@ export class RewardsController {
   async getWallet(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.getWallet(tenantId);
     const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return {
-      ...wallet,
-      feePercentage: fees.feePercentage,
-      flatFee: fees.flatFee,
-    };
+    return withWalletResponse(wallet, fees);
   }
 
   @Get('wallet/transactions')
@@ -121,11 +130,7 @@ export class RewardsController {
   async provisionVirtualAccount(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.provisionVirtualAccount(tenantId);
     const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return {
-      ...wallet,
-      feePercentage: fees.feePercentage,
-      flatFee: fees.flatFee,
-    };
+    return withWalletResponse(wallet, fees);
   }
 
   @Post('wallet/topup')

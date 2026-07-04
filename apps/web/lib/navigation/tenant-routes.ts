@@ -3,6 +3,7 @@ import type { Tenant } from '@/lib/schemas/tenant';
 export const RESERVED_ROUTE_SEGMENTS = new Set([
   'signin',
   'signup',
+  'accept-invite',
   'forgot-password',
   'onboarding',
   'app',

@@ -23,7 +23,7 @@ export class ZeptomailEmailService {
 
   constructor(private readonly emailTemplateService: EmailTemplateService) {
     this.zeptomailApiKey = process.env.ZEPTOMAIL_API_KEY || '';
-    this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@teamlyf.com';
+    this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@paqadhr.com';
     if (!this.zeptomailApiKey) {
       this.logger.warn('ZEPTOMAIL_API_KEY is not configured. Email sending will fail.');
     }

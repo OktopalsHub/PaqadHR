@@ -725,17 +725,19 @@ export function SettingsRewardsTab() {
               )}
             </Button>
 
-            <p className="text-xs text-muted-foreground">
-              <a
-                href={NOMBA_SANDBOX_DOCS}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium underline underline-offset-2"
-              >
-                Test payments
-              </a>{' '}
-              (sandbox)
-            </p>
+            {!wallet?.nombaLive ? (
+              <p className="text-xs text-muted-foreground">
+                <a
+                  href={NOMBA_SANDBOX_DOCS}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline underline-offset-2"
+                >
+                  Test payments
+                </a>{' '}
+                (sandbox)
+              </p>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

@@ -11,4 +11,5 @@ export {
   getNombaWebhookSecret,
   hasNombaSubAccount,
   isNombaConfigured,
+  isNombaLive,
 } from '../../../../common/config/nomba.config';

@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CalendarClock, FileText, Gift, ScrollText, Settings, Wallet } from 'lucide-react';
+import { CalendarClock, FileText, Gift, ScrollText, Settings, UserPlus, Wallet } from 'lucide-react';
 import type { TenantActivity } from '@/lib/api/activities';
 
 export type ActivityCategory = 'all' | 'leave' | 'payroll' | 'rewards' | 'other';
@@ -34,6 +34,7 @@ function resolveCategory(activity: TenantActivity): ActivityCategory {
   ) {
     return 'rewards';
   }
+  if (resourceType === 'invitation' || action.startsWith('invite.')) return 'other';
   return 'other';
 }
 
@@ -68,6 +69,13 @@ export function getActivityPresentation(activity: TenantActivity): ActivityPrese
         return {
           icon: Settings,
           iconClassName: 'bg-muted text-muted-foreground',
+          title: activity.description,
+        };
+      }
+      if (activity.resourceType === 'invitation' || activity.action.startsWith('invite.')) {
+        return {
+          icon: UserPlus,
+          iconClassName: 'bg-primary/10 text-primary',
           title: activity.description,
         };
       }
