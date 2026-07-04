@@ -26,6 +26,10 @@ export interface CatalogItem {
   deliveryInstructions?: string | null;
   stockLimit?: number | null;
   description?: string | null;
+  adminPricing?: {
+    reloadlyCost: number;
+    reloadlyCostCurrency: string;
+  };
 }
 
 export interface RewardRedemption {

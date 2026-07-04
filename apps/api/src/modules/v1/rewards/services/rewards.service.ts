@@ -10,6 +10,7 @@ import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { DataSource } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';
 import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
@@ -49,6 +50,10 @@ export interface CatalogItem {
   fixedDenominations?: number[];
   deliveryInstructions?: string | null;
   stockLimit?: number | null;
+  adminPricing?: {
+    reloadlyCost: number;
+    reloadlyCostCurrency: string;
+  };
 }
 
 export interface ClaimInput {
@@ -83,6 +88,7 @@ export class RewardsService {
     private readonly nombaBillApi: NombaBillApiService,
     readonly _nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   private async toWalletCurrency(
@@ -255,7 +261,10 @@ export class RewardsService {
     }));
   }
 
-  async getCatalog(tenantId: string): Promise<CatalogItem[]> {
+  async getCatalog(
+    tenantId: string,
+    options?: { includeAdminPricing?: boolean },
+  ): Promise<CatalogItem[]> {
     let settings = await this.getRewardsSettings(tenantId);
     if (!settings.enabled) {
       return [];
@@ -302,6 +311,14 @@ export class RewardsService {
         minDenomination: p.minDenomination ?? null,
         maxDenomination: p.maxDenomination ?? null,
         fixedDenominations: p.fixedDenominations ?? [],
+        ...(options?.includeAdminPricing && p.listReloadlyCost != null && p.listReloadlyCostCurrency
+          ? {
+              adminPricing: {
+                reloadlyCost: p.listReloadlyCost,
+                reloadlyCostCurrency: p.listReloadlyCostCurrency,
+              },
+            }
+          : {}),
       });
     }
 
@@ -378,6 +395,7 @@ export class RewardsService {
         );
         const chargedValue = computeRedemptionDebit(convertedValue, feePercentage);
         const pointsCost = Math.ceil(chargedValue * exchangeRate);
+        const reloadlyCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
 
         return {
           productId: p.productId,
@@ -389,6 +407,8 @@ export class RewardsService {
           maxDenomination: p.maxRecipientDenomination ?? null,
           fixedDenominations: p.fixedRecipientDenominations ?? [],
           pointsCost,
+          listReloadlyCost: reloadlyCost,
+          listReloadlyCostCurrency: p.senderCurrencyCode,
         };
       }),
     );
@@ -660,7 +680,28 @@ export class RewardsService {
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
         where: { id: redemptionId },
       });
+      return redemption!;
     }
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'reward.redeemed',
+        resourceType: 'reward',
+        resourceId: redemptionId,
+        description: `${input.rewardName ?? input.rewardId} redeemed for ${pointsCost} points`,
+        metadata: {
+          rewardName: input.rewardName ?? input.rewardId,
+          pointsCost,
+          rewardType: input.rewardType,
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to queue reward redemption activity: ${err instanceof Error ? err.message : err}`,
+        );
+      });
 
     return redemption!;
   }

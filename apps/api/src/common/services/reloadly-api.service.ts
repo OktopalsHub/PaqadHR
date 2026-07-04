@@ -33,6 +33,9 @@ export interface ReloadlyProduct {
   fixedRecipientDenominations: number[];
   recipientCurrencyCode: string;
   senderCurrencyCode: string;
+  minSenderDenomination?: number | null;
+  maxSenderDenomination?: number | null;
+  fixedSenderDenominations?: number[];
   logoUrls: string[];
   brand?: { brandId: number; brandName: string };
 }

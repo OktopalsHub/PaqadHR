@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { LeaveBalanceModule } from '../leave-balance/leave-balance.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
@@ -16,6 +17,7 @@ import { LeaveService } from './leave.service';
     TenantMembersModule,
     TenantSettingsModule,
     LeaveBalanceModule,
+    ActivitiesModule,
   ],
   controllers: [LeaveController],
   providers: [LeaveService, LeaveRepository],

@@ -32,7 +32,7 @@ export class OAuthIntegrationService {
         return (
           `https://slack.com/oauth/v2/authorize?` +
           `client_id=${ENVIRONMENT.SLACK.CLIENT_ID}&` +
-          `scope=chat:write,channels:read,users:read,channels:join&` +
+          `scope=chat:write,channels:read,channels:join,channels:manage,users:read&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
           `state=${state}`
         );

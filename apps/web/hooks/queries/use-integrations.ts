@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   bulkInviteUsers,
   connectSlackOAuth,
+  createSlackChannel,
   fetchShoutoutSlackStatus,
   fetchSlackChannels,
   fetchSyncStatus,
@@ -25,11 +26,11 @@ export function useShoutoutSlackStatus() {
   });
 }
 
-export function useSlackChannels(integrationId?: string) {
+export function useSlackChannels(integrationId?: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.integrations.slackChannels(integrationId ?? ''),
     queryFn: () => fetchSlackChannels(integrationId!),
-    enabled: Boolean(integrationId),
+    enabled: Boolean(integrationId) && enabled,
   });
 }
 
@@ -41,6 +42,20 @@ export function useConnectSlack() {
       if (!tenantId) throw new Error('No tenant selected');
       const { url } = await connectSlackOAuth(tenantId);
       window.location.href = url;
+    },
+  });
+}
+
+export function useCreateSlackChannel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ integrationId, name }: { integrationId: string; name: string }) =>
+      createSlackChannel(integrationId, name),
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.integrations.slackChannels(variables.integrationId),
+      });
     },
   });
 }

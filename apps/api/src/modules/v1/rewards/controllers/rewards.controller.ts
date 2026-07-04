@@ -41,8 +41,13 @@ export class RewardsController {
   @Get('catalog')
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
-  async getCatalog(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.getCatalog(tenantId);
+  async getCatalog(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    const role = member.role?.toLowerCase();
+    const includeAdminPricing = role === 'owner' || role === 'admin';
+    return this.rewardsService.getCatalog(tenantId, { includeAdminPricing });
   }
 
   @Post('catalog/sync')

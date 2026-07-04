@@ -5,7 +5,6 @@ import { Suspense, useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SettingsActivitiesTab } from '@/features/settings/components/settings-activities-tab';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
@@ -135,14 +134,6 @@ function SettingsPageContent() {
               Integrations
             </TabsTrigger>
           ) : null}
-          {isAdmin ? (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="activities"
-            >
-              Activities
-            </TabsTrigger>
-          ) : null}
         </TabsList>
 
         <TabsContent value="profile" className="mt-5">
@@ -191,11 +182,6 @@ function SettingsPageContent() {
         {isAdmin ? (
           <TabsContent value="integrations" className="mt-5">
             <SettingsIntegrationsTab />
-          </TabsContent>
-        ) : null}
-        {isAdmin ? (
-          <TabsContent value="activities" className="mt-5">
-            <SettingsActivitiesTab />
           </TabsContent>
         ) : null}
       </Tabs>

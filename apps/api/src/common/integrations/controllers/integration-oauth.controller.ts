@@ -145,7 +145,7 @@ export class OAuthIntegrationController {
         integrationId: result.integrationId,
       });
       return {
-        url: `${baseTarget}/integrations/setup-channel?integration_id=${result.integrationId}&platform=${stateData.platformType}`,
+        url: `${integrationsSettings}&slack_setup=1&integration_id=${result.integrationId}`,
       };
     } catch (err) {
       this.logger.error('OAuth callback processing failed', err);
@@ -166,6 +166,17 @@ export class OAuthIntegrationController {
       throw new BadRequestException('User token not found. Re-authorize integration.');
     }
     return this.channelService.getAvailableChannels(integrationId, userToken.userAccessToken);
+  }
+  @Post('integrations/:integrationId/channels/create')
+  @UseGuards(TenantMemberGuard)
+  async createChannel(
+    @Param('integrationId') integrationId: string,
+    @Body() body: { name: string },
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    void req.member;
+    const channel = await this.channelService.createSlackChannel(integrationId, body.name);
+    return channel;
   }
   @Post('integrations/:integrationId/setup-channel')
   @UseGuards(TenantMemberGuard)

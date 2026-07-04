@@ -5,6 +5,7 @@ export interface TenantActivity {
   id: string;
   tenantId: string;
   actorMemberId: string | null;
+  actorName: string | null;
   action: string;
   resourceType: string | null;
   resourceId: string | null;

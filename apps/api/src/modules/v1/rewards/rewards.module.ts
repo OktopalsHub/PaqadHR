@@ -5,6 +5,7 @@ import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service'
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
+import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -45,6 +46,7 @@ import { TenantWalletService } from './services/tenant-wallet.service';
     NotificationsModule,
     ShoutoutsModule,
     TenantMembersModule,
+    ActivitiesModule,
   ],
   controllers: [RewardsController, RewardsAdminController],
   providers: [

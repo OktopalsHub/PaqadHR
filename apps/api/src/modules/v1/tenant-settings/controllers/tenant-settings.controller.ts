@@ -40,8 +40,9 @@ export class TenantSettingsController {
   async updateTenantSettings(
     @TenantId() tenantId: string,
     @Body() updateDto: UpdateTenantSettingsDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.tenantSettingsService.updateTenantSettings(tenantId, updateDto);
+    return this.tenantSettingsService.updateTenantSettings(tenantId, updateDto, member.id);
   }
   @Post('assign-points')
   @UseGuards(TenantRoleGuard)

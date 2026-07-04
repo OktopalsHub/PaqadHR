@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { NombaVirtualAccountApiService } from 'src/common/services/nomba-virtual-account-api.service';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
@@ -46,6 +47,7 @@ export class TenantWalletService {
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly emailService: ZeptomailEmailService,
+    private readonly activitiesService: ActivitiesService,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
@@ -252,6 +254,23 @@ export class TenantWalletService {
       metadata: options?.metadata ?? null,
     });
     await txRepo.save(tx);
+
+    if (type === 'DEPOSIT') {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          action: 'wallet.deposit',
+          resourceType: 'rewards_wallet',
+          resourceId: reference,
+          description,
+          metadata: { amount, reference },
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to queue wallet deposit activity: ${err instanceof Error ? err.message : err}`,
+          );
+        });
+    }
 
     return updated;
   }

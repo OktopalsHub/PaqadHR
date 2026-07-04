@@ -23,14 +23,30 @@ describe('ActivitiesService', () => {
   });
 
   it('lists activities for a single tenant only', async () => {
-    const items = [{ id: 'a1', tenantId: 'tenant-1' }];
+    const rows = [
+      {
+        id: 'a1',
+        tenantId: 'tenant-1',
+        actorMemberId: null,
+        action: 'payroll.created',
+        resourceType: 'payroll',
+        resourceId: 'run-1',
+        description: 'Payroll run created',
+        status: 'SUCCESS',
+        severity: 'LOW',
+        metadata: null,
+        createdAt: new Date('2026-01-01'),
+        actorMember: null,
+      },
+    ];
     const qb = {
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([items, 1]),
+      getManyAndCount: jest.fn().mockResolvedValue([rows, 1]),
     };
     const repo = {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
@@ -42,7 +58,7 @@ describe('ActivitiesService', () => {
     expect(qb.where).toHaveBeenCalledWith('activity.tenant_id = :tenantId', {
       tenantId: 'tenant-1',
     });
-    expect(result.items).toEqual(items);
+    expect(result.items[0].description).toBe('Payroll run created');
     expect(result.total).toBe(1);
   });
 });

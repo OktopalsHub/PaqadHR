@@ -161,25 +161,63 @@ export class ChannelManagementService {
         throw new BadRequestException(`Unsupported platform: ${integration.type}`);
     }
   }
-  private async getSlackChannels(client: SlackClient): Promise<ChannelInfo[]> {
-    try {
-      const response: ConversationsListResponse = await client.client.conversations.list({
-        types: 'public_channel,private_channel',
-        exclude_archived: true,
-        limit: 100,
-      });
-      return (
-        response.channels?.map((channel) => ({
-          id: channel.id ?? '',
-          name: channel.name ?? '',
-          type: channel.is_private ? ('private' as const) : ('public' as const),
-          memberCount: channel.num_members,
-          description: channel.purpose?.value || channel.topic?.value,
-        })) || []
-      );
-    } catch (_error) {
-      return [];
+  async createSlackChannel(integrationId: string, rawName: string): Promise<ChannelInfo> {
+    const integration = await this.integrationRepo.findOne({ where: { id: integrationId } });
+    if (!integration) {
+      throw new NotFoundException('Integration not found');
     }
+    if (!integration.botToken) {
+      throw new BadRequestException('Slack bot token is missing. Reconnect Slack.');
+    }
+
+    const name = rawName
+      .trim()
+      .replace(/^#/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+    if (!name) {
+      throw new BadRequestException('Channel name is required');
+    }
+
+    const client = new SlackClient(integration.botToken);
+    const response = await client.client.conversations.create({ name, is_private: false });
+    if (!response.ok || !response.channel?.id) {
+      throw new BadRequestException(
+        `Slack could not create the channel: ${response.error ?? 'unknown error'}`,
+      );
+    }
+
+    return {
+      id: response.channel.id,
+      name: response.channel.name ?? name,
+      type: 'public',
+      memberCount: response.channel.num_members,
+      description: response.channel.purpose?.value || response.channel.topic?.value,
+    };
+  }
+
+  private async getSlackChannels(client: SlackClient): Promise<ChannelInfo[]> {
+    const response: ConversationsListResponse = await client.client.conversations.list({
+      types: 'public_channel,private_channel',
+      exclude_archived: true,
+      limit: 100,
+    });
+    if (!response.ok) {
+      throw new BadRequestException(
+        `Slack could not list channels: ${response.error ?? 'unknown error'}`,
+      );
+    }
+    return (
+      response.channels?.map((channel) => ({
+        id: channel.id ?? '',
+        name: channel.name ?? '',
+        type: channel.is_private ? ('private' as const) : ('public' as const),
+        memberCount: channel.num_members,
+        description: channel.purpose?.value || channel.topic?.value,
+      })) || []
+    );
   }
   private isShoutoutForTeam(shoutout: ShoutoutBroadcast, teamId: string): boolean {
     return (

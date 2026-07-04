@@ -135,6 +135,18 @@ function getReloadlyCategory(
   return 'Gift Cards';
 }
 
+function formatReloadlyCost(amount: number, currency: string) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString()}`;
+  }
+}
+
 const DEFAULT_CUSTOM_PERKS: CatalogItem[] = [
   {
     id: 'default_swag',
@@ -272,11 +284,22 @@ function CatalogCard({
           </p>
         ) : null}
         <div className="mt-auto flex items-center justify-between pt-2">
-          <div>
-            <p className="text-lg font-bold tabular-nums text-primary">
-              {item.pointsCost.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
+          <div className="flex items-end gap-3">
+            <div>
+              <p className="text-lg font-bold tabular-nums text-primary">
+                {item.pointsCost.toLocaleString()}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
+            </div>
+            {isAdmin && item.type === 'RELOADLY' && item.adminPricing ? (
+              <p className="pb-0.5 text-[10px] text-muted-foreground tabular-nums">
+                Reloadly{' '}
+                {formatReloadlyCost(
+                  item.adminPricing.reloadlyCost,
+                  item.adminPricing.reloadlyCostCurrency,
+                )}
+              </p>
+            ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && item.type === 'CUSTOM' && onDelete && !isTemplate && (

@@ -29,6 +29,16 @@ export async function fetchSlackChannels(integrationId: string): Promise<SlackCh
   return Array.isArray(data) ? data : (data.channels ?? []);
 }
 
+export async function createSlackChannel(
+  integrationId: string,
+  name: string,
+): Promise<SlackChannel> {
+  return apiClient<SlackChannel>(`/integrations/${integrationId}/channels/create`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
 export async function setupShoutoutChannel(
   integrationId: string,
   platformChannelId: string,

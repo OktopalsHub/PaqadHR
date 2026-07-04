@@ -48,7 +48,9 @@ describe('RewardsService catalog sync', () => {
           productName: 'Amazon NG',
           countryCode: 'NG',
           recipientCurrencyCode: 'NGN',
+          senderCurrencyCode: 'NGN',
           fixedRecipientDenominations: [1000],
+          fixedSenderDenominations: [980],
           minRecipientDenomination: 1000,
           maxRecipientDenomination: 50000,
           logoUrls: ['https://example.com/amazon.png'],
@@ -74,6 +76,7 @@ describe('RewardsService catalog sync', () => {
       {
         getRedemptionFees: jest.fn().mockResolvedValue({ feePercentage: 2, flatFee: 0 }),
       } as any,
+      {} as any,
     );
 
     jest.spyOn(service as any, 'getSubscriptionFees').mockResolvedValue({
@@ -89,11 +92,24 @@ describe('RewardsService catalog sync', () => {
     const products = await service.syncReloadlyProducts('tenant-1');
     expect(products).toHaveLength(1);
     expect(products[0].productId).toBe(101);
+    expect(products[0].listReloadlyCost).toBe(980);
+    expect(products[0].listReloadlyCostCurrency).toBe('NGN');
     expect(settingsRow.settings.rewards.reloadlyProducts).toHaveLength(1);
   });
 
   it('returns non-empty catalog after sync', async () => {
+    const catalog = await service.getCatalog('tenant-1', { includeAdminPricing: true });
+    const reloadlyItem = catalog.find((item) => item.type === 'RELOADLY');
+    expect(reloadlyItem).toBeDefined();
+    expect(reloadlyItem?.adminPricing).toEqual({
+      reloadlyCost: 980,
+      reloadlyCostCurrency: 'NGN',
+    });
+  });
+
+  it('omits admin pricing for members', async () => {
     const catalog = await service.getCatalog('tenant-1');
-    expect(catalog.some((item) => item.type === 'RELOADLY')).toBe(true);
+    const reloadlyItem = catalog.find((item) => item.type === 'RELOADLY');
+    expect(reloadlyItem?.adminPricing).toBeUndefined();
   });
 });

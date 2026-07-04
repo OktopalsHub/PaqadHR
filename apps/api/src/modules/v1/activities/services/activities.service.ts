@@ -1,6 +1,10 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import {
+  type TenantActivityListItemDto,
+  toTenantActivityListItem,
+} from '../dto/tenant-activity-list-item.dto';
 import { TenantActivity } from '../entities/tenant-activity.entity';
 import type { CreateActivityPayload } from '../interfaces/create-activity-payload.interface';
 
@@ -10,6 +14,13 @@ export interface ListActivitiesQuery {
   resourceType?: string;
   action?: string;
   resourceId?: string;
+}
+
+export interface TenantActivitiesListResult {
+  items: TenantActivityListItemDto[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 @Injectable()
@@ -51,12 +62,14 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
   async listForTenant(
     tenantId: string,
     query: ListActivitiesQuery = {},
-  ): Promise<{ items: TenantActivity[]; total: number; page: number; limit: number }> {
+  ): Promise<TenantActivitiesListResult> {
     const page = Math.max(1, query.page ?? 1);
     const limit = Math.min(100, Math.max(1, query.limit ?? 20));
 
     const qb = this.activityRepository
       .createQueryBuilder('activity')
+      .leftJoinAndSelect('activity.actorMember', 'actorMember')
+      .leftJoinAndSelect('actorMember.user', 'actorUser')
       .where('activity.tenant_id = :tenantId', { tenantId })
       .orderBy('activity.created_at', 'DESC')
       .skip((page - 1) * limit)
@@ -74,8 +87,13 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       qb.andWhere('activity.resource_id = :resourceId', { resourceId: query.resourceId });
     }
 
-    const [items, total] = await qb.getManyAndCount();
-    return { items, total, page, limit };
+    const [rows, total] = await qb.getManyAndCount();
+    return {
+      items: rows.map(toTenantActivityListItem),
+      total,
+      page,
+      limit,
+    };
   }
 
   async listForResource(

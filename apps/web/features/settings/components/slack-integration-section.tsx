@@ -1,13 +1,14 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { SlackIcon } from '@/components/icons/slack-icon';
 import { Button } from '@/components/ui/button';
 import { useConnectSlack, useShoutoutSlackStatus } from '@/hooks/queries/use-integrations';
-import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { useTenant } from '@/providers/tenant-provider';
+import { SlackChannelPickerInline } from './slack-channel-picker-inline';
 import { SlackUserSyncSection } from './slack-user-sync-section';
 
 const slackBrandButtonClass =
@@ -15,19 +16,32 @@ const slackBrandButtonClass =
 
 export function SlackIntegrationSection() {
   const { tenant } = useTenant();
-  const tenantHref = useTenantHref();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const { data: status, isLoading } = useShoutoutSlackStatus();
   const connectSlack = useConnectSlack();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const integrationId = searchParams.get('integration_id') ?? status?.integrationId ?? undefined;
+  const shouldAutoOpen = searchParams.get('slack_setup') === '1';
+
+  useEffect(() => {
+    if (shouldAutoOpen && integrationId) {
+      setPickerOpen(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('slack_setup');
+      params.delete('integration_id');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+  }, [shouldAutoOpen, integrationId, pathname, router, searchParams]);
 
   if (!isAdmin) {
     return null;
   }
-
-  const setupHref = status?.integrationId
-    ? tenantHref(`integrations/setup-channel?integration_id=${status.integrationId}&platform=slack`)
-    : tenantHref('integrations/setup-channel');
 
   const handleConnect = async () => {
     try {
@@ -41,6 +55,8 @@ export function SlackIntegrationSection() {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
+  const activeIntegrationId = status?.integrationId ?? integrationId;
+
   return (
     <div className="space-y-6">
       {status?.configured ? (
@@ -48,21 +64,23 @@ export function SlackIntegrationSection() {
           <p className="text-sm text-muted-foreground">
             Posting to <span className="font-medium text-foreground">{status.channelName}</span>
           </p>
-          <Button size="sm" variant="outline" asChild>
-            <Link href={setupHref}>Change channel</Link>
-          </Button>
+          {!pickerOpen ? (
+            <Button size="sm" variant="outline" onClick={() => setPickerOpen(true)}>
+              Change channel
+            </Button>
+          ) : null}
         </div>
       ) : status?.integrationId ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Connected. Choose a channel for shoutouts.
           </p>
-          <Button size="sm" className={slackBrandButtonClass} asChild>
-            <Link href={setupHref}>
+          {!pickerOpen ? (
+            <Button size="sm" className={slackBrandButtonClass} onClick={() => setPickerOpen(true)}>
               <SlackIcon className="mr-1.5 size-4" />
               Select channel
-            </Link>
-          </Button>
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-3">
@@ -82,6 +100,15 @@ export function SlackIntegrationSection() {
           </Button>
         </div>
       )}
+
+      {pickerOpen && activeIntegrationId ? (
+        <SlackChannelPickerInline
+          integrationId={activeIntegrationId}
+          onSaved={() => setPickerOpen(false)}
+          onCancel={() => setPickerOpen(false)}
+          onReconnect={handleConnect}
+        />
+      ) : null}
 
       {status?.integrationId && <SlackUserSyncSection integrationId={status.integrationId} />}
     </div>

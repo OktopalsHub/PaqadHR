@@ -104,6 +104,10 @@ describe('TenantWalletService', () => {
       findOne: jest.fn().mockResolvedValue({ id: tenantId, name: 'Acme Corp', slug: 'acme' }),
     };
 
+    const activitiesService = {
+      queueActivity: jest.fn().mockResolvedValue(undefined),
+    };
+
     const service = new TenantWalletService(
       dataSource as any,
       nombaVirtualAccountApi as any,
@@ -111,6 +115,7 @@ describe('TenantWalletService', () => {
       subscriptionsService as any,
       tenantSettingsService as any,
       emailService as any,
+      activitiesService as any,
       tenantRepository as any,
     );
 
