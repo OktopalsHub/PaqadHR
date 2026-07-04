@@ -245,9 +245,25 @@ describe('TenantWalletTopupService', () => {
       const result = await topupService.createTopupCheckout(tenantId, 2500);
 
       expect(result.checkoutUrl).toBe('https://checkout.nomba.com/test');
+      expect(nombaApi.createCheckoutOrder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 2500,
+          currency: 'NGN',
+          customerEmail: 'billing@test.com',
+          tokenizeCard: false,
+          meta: expect.objectContaining({
+            tenantId,
+            billingType: 'wallet_topup',
+            expectedAmount: 2500,
+          }),
+        }),
+      );
       const orderReference = nombaApi.createCheckoutOrder.mock.calls[0][0].orderReference;
       expect(orderReference).toMatch(new RegExp(`^wt_${tenantId.replace(/-/g, '')}_`));
       expect(orderReference.length).toBeLessThanOrEqual(50);
+      expect(nombaApi.createCheckoutOrder.mock.calls[0][0].callbackUrl).toContain(
+        '/acme/settings?tab=rewards&wallet_topup=done',
+      );
     });
 
     it('rejects non-positive amounts', async () => {
