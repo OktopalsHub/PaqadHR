@@ -91,7 +91,8 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     successUrl: string,
     currency: string,
   ): Promise<SubscriptionCheckoutResponse> {
-    const orderReference = `card_update_${metadata.tenantId}_${Date.now()}`;
+    // Keep under Nomba's 50-char reference limit (see createCheckout).
+    const orderReference = `cu_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     const result = await this.nombaApi.createCheckoutOrder({
       orderReference,
@@ -129,7 +130,8 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_renew_${metadata.tenantId}_${Date.now()}`;
+    // Keep under Nomba's 50-char reference limit (see createCheckout).
+    const orderReference = `sub_ren_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     this.logger.log(
       `Renewing Nomba subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
@@ -163,7 +165,10 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_qty_${subscriptionReference}_${Date.now()}`;
+    // Don't nest the (already long) subscription reference; derive a bounded
+    // tenant part so we stay under Nomba's 50-char reference limit.
+    const tenantPart = (metadata?.tenantId ?? subscriptionReference).replace(/-/g, '').slice(0, 32);
+    const orderReference = `sub_qty_${tenantPart}_${Date.now().toString(36)}`;
 
     this.logger.log(
       `Charging Nomba tokenized subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
