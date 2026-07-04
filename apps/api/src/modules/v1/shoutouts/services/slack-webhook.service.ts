@@ -248,8 +248,7 @@ export class SlackWebhookService {
         };
       }
       const shoutout = await this.shoutoutsService.createShoutout(integration.tenantId, sender.id, {
-        recipientIds: uniqueRecipientIds,
-        pointsPerRecipient: points,
+        recipients: uniqueRecipientIds.map((recipientId) => ({ recipientId, points })),
         message,
         categoryIds: [],
         source: 'slack',

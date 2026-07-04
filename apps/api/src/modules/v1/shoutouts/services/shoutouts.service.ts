@@ -37,25 +37,44 @@ export class ShoutoutsService {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const { points, shoutouts: shoutoutSettings } = settings.settings;
 
-    const recipientIds = [...new Set(input.recipientIds)];
-    if (recipientIds.length === 0) {
+    // Merge duplicate mentions of the same recipient by summing their points,
+    // preserving first-seen order.
+    const mergedPoints = new Map<string, number>();
+    for (const recipient of input.recipients ?? []) {
+      if (!recipient?.recipientId || !Number.isFinite(recipient.points)) {
+        throw new BadRequestException('Each recipient needs an id and a points amount');
+      }
+      mergedPoints.set(
+        recipient.recipientId,
+        (mergedPoints.get(recipient.recipientId) ?? 0) + Math.trunc(recipient.points),
+      );
+    }
+    const recipients = [...mergedPoints.entries()].map(([recipientId, pts]) => ({
+      recipientId,
+      points: pts,
+    }));
+    const recipientIds = recipients.map((r) => r.recipientId);
+
+    if (recipients.length === 0) {
       throw new BadRequestException('At least one recipient is required');
     }
     if (recipientIds.includes(senderMemberId)) {
       throw new BadRequestException('You cannot give a shoutout to yourself');
     }
-    if (recipientIds.length > shoutoutSettings.maxRecipientsPerShoutout) {
+    if (recipients.length > shoutoutSettings.maxRecipientsPerShoutout) {
       throw new BadRequestException(
         `Maximum ${shoutoutSettings.maxRecipientsPerShoutout} recipients per shoutout`,
       );
     }
-    if (
-      input.pointsPerRecipient < points.minPointsPerShoutout ||
-      input.pointsPerRecipient > points.maxPointsPerShoutout
-    ) {
-      throw new BadRequestException(
-        `Points must be between ${points.minPointsPerShoutout} and ${points.maxPointsPerShoutout} Paq points`,
-      );
+    for (const recipient of recipients) {
+      if (
+        recipient.points < points.minPointsPerShoutout ||
+        recipient.points > points.maxPointsPerShoutout
+      ) {
+        throw new BadRequestException(
+          `Points for each recipient must be between ${points.minPointsPerShoutout} and ${points.maxPointsPerShoutout} Paq points`,
+        );
+      }
     }
 
     for (const recipientId of recipientIds) {
@@ -82,7 +101,7 @@ export class ShoutoutsService {
       shoutoutSettings.enableCategories,
     );
 
-    const totalPoints = input.pointsPerRecipient * recipientIds.length;
+    const totalPoints = recipients.reduce((sum, r) => sum + r.points, 0);
 
     const shoutout = await this.dataSource.transaction(async (manager) => {
       await this.memberPointsService.validateSenderAllowance(
@@ -97,8 +116,7 @@ export class ShoutoutsService {
         createdBy: senderMemberId,
         message: input.message,
         totalPoints,
-        recipientIds,
-        pointsPerRecipient: input.pointsPerRecipient,
+        recipients,
         categoryIds,
       });
 
@@ -106,8 +124,7 @@ export class ShoutoutsService {
         manager,
         tenantId,
         senderMemberId,
-        recipientIds,
-        input.pointsPerRecipient,
+        recipients,
         saved.id,
       );
 
@@ -123,9 +140,9 @@ export class ShoutoutsService {
       tenantId,
       shoutoutId: full.id,
       senderMemberId,
+      recipients,
       recipientIds,
       totalPoints,
-      pointsPerRecipient: input.pointsPerRecipient,
       message: full.message,
       categoryNames:
         (full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[]) ?? [],
@@ -175,8 +192,7 @@ export class ShoutoutsService {
         createdBy: input.actorMemberId,
         message: input.message,
         totalPoints: input.points,
-        recipientIds: [input.recipientId],
-        pointsPerRecipient: input.points,
+        recipients: [{ recipientId: input.recipientId, points: input.points }],
         categoryIds,
       });
 
@@ -200,9 +216,9 @@ export class ShoutoutsService {
       tenantId: input.tenantId,
       shoutoutId: full.id,
       senderMemberId: input.actorMemberId,
+      recipients: [{ recipientId: input.recipientId, points: input.points }],
       recipientIds: [input.recipientId],
       totalPoints: input.points,
-      pointsPerRecipient: input.points,
       message: full.message,
       categoryNames:
         (full.categoryAssignments?.map((a) => a.category?.name).filter(Boolean) as string[]) ?? [],

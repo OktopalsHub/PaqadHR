@@ -72,8 +72,7 @@ export class ShoutoutsRepository extends Repository<Shoutout> {
       createdBy: string;
       message: string;
       totalPoints: number;
-      recipientIds: string[];
-      pointsPerRecipient: number;
+      recipients: { recipientId: string; points: number }[];
       categoryIds: string[];
     },
   ): Promise<Shoutout> {
@@ -85,12 +84,12 @@ export class ShoutoutsRepository extends Repository<Shoutout> {
     });
     const saved = await manager.save(shoutout);
 
-    const recipients = data.recipientIds.map((recipientId) =>
+    const recipients = data.recipients.map((recipient) =>
       manager.create(ShoutoutRecipient, {
         tenantId: data.tenantId,
         shoutoutId: saved.id,
-        recipientId,
-        points: data.pointsPerRecipient,
+        recipientId: recipient.recipientId,
+        points: recipient.points,
       }),
     );
     await manager.save(recipients);

@@ -56,8 +56,7 @@ describe('ShoutoutsService Slack gating', () => {
 
     await expect(
       service.createShoutout('tenant-1', 'member-1', {
-        recipientIds: ['member-2'],
-        pointsPerRecipient: 10,
+        recipients: [{ recipientId: 'member-2', points: 10 }],
         message: 'Great job',
         source: 'api',
       }),

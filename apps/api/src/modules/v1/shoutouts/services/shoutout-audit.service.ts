@@ -27,8 +27,8 @@ export class ShoutoutAuditService {
       userId: payload.senderMemberId,
       metadata: {
         recipientIds: payload.recipientIds,
+        recipients: payload.recipients,
         totalPoints: payload.totalPoints,
-        pointsPerRecipient: payload.pointsPerRecipient,
         categoryNames: payload.categoryNames,
         source: payload.source,
         messagePreview: payload.message.slice(0, 200),
