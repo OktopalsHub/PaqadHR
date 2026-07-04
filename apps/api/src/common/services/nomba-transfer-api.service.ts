@@ -8,10 +8,12 @@ import {
   getNombaSubAccountId,
   isNombaConfigured,
 } from '../config/nomba.config';
+import { isNombaAcceptedCode, resolveNombaTokenExpiresAtMs } from '../config/nomba-api.util';
 import { verifyNombaWebhookSignature } from '../config/nomba-webhook.util';
 
 interface NombaTokenResponse {
-  data?: { access_token?: string; expires_in?: number };
+  code?: string;
+  data?: { access_token?: string; expires_in?: number; expiresAt?: string; expires_at?: string };
 }
 
 interface NombaTransferResponse {
@@ -106,10 +108,6 @@ export class NombaTransferApiService {
       }),
     });
 
-    if (!response.ok) {
-      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
-    }
-
     let payload: NombaTokenResponse;
     try {
       payload = (await response.json()) as NombaTokenResponse;
@@ -118,12 +116,11 @@ export class NombaTransferApiService {
     }
 
     const token = payload.data?.access_token;
-    if (!token) {
-      throw new BadRequestException('Failed to authenticate with Nomba: missing access token');
+    if (!response.ok || (payload.code && !isNombaAcceptedCode(payload.code)) || !token) {
+      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
     }
 
-    const ttl = (payload.data?.expires_in ?? 3600) * 1000;
-    this.cachedToken = { token, expiresAt: Date.now() + ttl - 60_000 };
+    this.cachedToken = { token, expiresAt: resolveNombaTokenExpiresAtMs(payload.data) };
     return token;
   }
 
@@ -156,11 +153,17 @@ export class NombaTransferApiService {
       throw new BadRequestException(`Nomba payout error: ${message}`);
     }
 
-    let payload: T;
+    let payload: T & { code?: string; description?: string };
     try {
-      payload = JSON.parse(responseText) as T;
+      payload = JSON.parse(responseText) as T & { code?: string; description?: string };
     } catch {
       throw new BadRequestException('Nomba payout error: invalid JSON response');
+    }
+
+    if (payload.code !== undefined && !isNombaAcceptedCode(payload.code)) {
+      throw new BadRequestException(
+        payload.description || `Nomba payout error: code ${payload.code}`,
+      );
     }
 
     return payload;
@@ -184,7 +187,7 @@ export class NombaTransferApiService {
     });
 
     const payload = (await response.json()) as NombaBanksResponse;
-    if (!response.ok || payload.code !== '00') {
+    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
       throw new BadRequestException('Failed to fetch bank list from Nomba');
     }
 
@@ -204,7 +207,7 @@ export class NombaTransferApiService {
       bankCode,
     });
 
-    if (payload.code !== '00' || !payload.data?.accountName) {
+    if (!isNombaAcceptedCode(payload.code) || !payload.data?.accountName) {
       throw new BadRequestException('Could not verify this bank account');
     }
 

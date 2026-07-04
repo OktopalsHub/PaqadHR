@@ -5,6 +5,7 @@ import {
   getNombaBaseUrl,
   isNombaConfigured,
 } from '../config/nomba.config';
+import { isNombaAcceptedCode, isNombaOperationSuccessful } from '../config/nomba-api.util';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
 
 export interface NombaAirtimeInput {
@@ -23,13 +24,18 @@ export interface NombaElectricityInput {
   merchantTxRef: string;
 }
 
-interface NombaTopupResponse {
+interface NombaBillResponse {
   code?: string;
   description?: string;
   data?: {
     id?: string;
     status?: string;
-    amount?: number;
+    amount?: number | string;
+    token?: string;
+    meta?: {
+      merchantTxRef?: string;
+      rrn?: string;
+    };
   };
 }
 
@@ -44,17 +50,6 @@ interface NombaElectricityLookupResponse {
   };
 }
 
-interface NombaElectricityPayResponse {
-  code?: string;
-  description?: string;
-  data?: {
-    id?: string;
-    status?: string;
-    token?: string;
-    amount?: number;
-  };
-}
-
 @Injectable()
 export class NombaBillApiService {
   private readonly logger = new Logger(NombaBillApiService.name);
@@ -65,7 +60,10 @@ export class NombaBillApiService {
     return isNombaConfigured();
   }
 
-  private async request<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  private async request<T extends { code?: string; description?: string }>(
+    path: string,
+    body: Record<string, unknown>,
+  ): Promise<T> {
     if (!this.isConfigured()) {
       throw new BadRequestException('Nomba billing api is not configured');
     }
@@ -84,23 +82,27 @@ export class NombaBillApiService {
 
     const responseText = await response.text();
 
-    if (!response.ok) {
-      let message = `Nomba billing request failed (${response.status})`;
-      try {
-        const errorPayload = JSON.parse(responseText) as { message?: string; description?: string };
-        if (errorPayload?.message || errorPayload?.description) {
-          message = errorPayload.message || errorPayload.description || message;
-        }
-      } catch {}
+    let payload: T;
+    try {
+      payload = JSON.parse(responseText) as T;
+    } catch {
+      throw new BadRequestException('Nomba billing error: invalid JSON response');
+    }
+
+    // Nomba may return HTTP 200 with code "202" (accepted/processing) or "00" (success).
+    if (!response.ok && !isNombaAcceptedCode(payload.code)) {
+      const message = payload.description || `Nomba billing request failed (${response.status})`;
       this.logger.error(`Nomba billing request to ${path} failed: ${message}`);
       throw new BadRequestException(`Nomba billing error: ${message}`);
     }
 
-    try {
-      return JSON.parse(responseText) as T;
-    } catch {
-      throw new BadRequestException('Nomba billing error: invalid JSON response');
+    if (payload.code !== undefined && !isNombaAcceptedCode(payload.code)) {
+      const message = payload.description || `Nomba billing error: code ${payload.code}`;
+      this.logger.error(`Nomba billing request to ${path} failed: ${message}`);
+      throw new BadRequestException(`Nomba billing error: ${message}`);
     }
+
+    return payload;
   }
 
   async purchaseAirtime(input: NombaAirtimeInput): Promise<{
@@ -108,7 +110,7 @@ export class NombaBillApiService {
     transactionId: string | null;
     status: string;
   }> {
-    const payload = await this.request<NombaTopupResponse>('/v1/bill/topup', {
+    const payload = await this.request<NombaBillResponse>('/v1/bill/topup', {
       amount: input.amount,
       phoneNumber: input.phoneNumber,
       network: input.network,
@@ -116,10 +118,44 @@ export class NombaBillApiService {
       senderName: input.senderName ?? formatNombaSenderName(),
     });
 
+    const status = payload.data?.status ?? payload.description ?? 'UNKNOWN';
+    const success = isNombaOperationSuccessful({ code: payload.code, status });
+
     return {
-      success: payload.code === '00',
-      transactionId: payload.data?.id ?? null,
-      status: payload.data?.status ?? 'UNKNOWN',
+      success,
+      transactionId:
+        payload.data?.id ??
+        payload.data?.meta?.rrn ??
+        payload.data?.meta?.merchantTxRef ??
+        input.merchantTxRef,
+      status,
+    };
+  }
+
+  async purchaseDataBundle(input: NombaAirtimeInput): Promise<{
+    success: boolean;
+    transactionId: string | null;
+    status: string;
+  }> {
+    const payload = await this.request<NombaBillResponse>('/v1/bill/data', {
+      amount: input.amount,
+      phoneNumber: input.phoneNumber,
+      network: input.network,
+      merchantTxRef: input.merchantTxRef,
+      senderName: input.senderName ?? formatNombaSenderName(),
+    });
+
+    const status = payload.data?.status ?? payload.description ?? 'UNKNOWN';
+    const success = isNombaOperationSuccessful({ code: payload.code, status });
+
+    return {
+      success,
+      transactionId:
+        payload.data?.id ??
+        payload.data?.meta?.rrn ??
+        payload.data?.meta?.merchantTxRef ??
+        input.merchantTxRef,
+      status,
     };
   }
 
@@ -156,7 +192,7 @@ export class NombaBillApiService {
     status: string;
     token: string | null;
   }> {
-    const payload = await this.request<NombaElectricityPayResponse>('/v1/bill/electricity', {
+    const payload = await this.request<NombaBillResponse>('/v1/bill/electricity', {
       amount: input.amount,
       meterNumber: input.meterNumber,
       billerId: input.billerId,
@@ -164,10 +200,17 @@ export class NombaBillApiService {
       merchantTxRef: input.merchantTxRef,
     });
 
+    const status = payload.data?.status ?? payload.description ?? 'UNKNOWN';
+    const success = isNombaOperationSuccessful({ code: payload.code, status });
+
     return {
-      success: payload.code === '00',
-      transactionId: payload.data?.id ?? null,
-      status: payload.data?.status ?? 'UNKNOWN',
+      success,
+      transactionId:
+        payload.data?.id ??
+        payload.data?.meta?.rrn ??
+        payload.data?.meta?.merchantTxRef ??
+        input.merchantTxRef,
+      status,
       token: payload.data?.token ?? null,
     };
   }

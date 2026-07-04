@@ -72,13 +72,13 @@ describe('RewardsService catalog sync', () => {
       {} as any,
       {} as any,
       {
-        getRedemptionFees: jest.fn().mockResolvedValue({ feePercentage: 2, flatFee: 50 }),
+        getRedemptionFees: jest.fn().mockResolvedValue({ feePercentage: 2, flatFee: 0 }),
       } as any,
     );
 
     jest.spyOn(service as any, 'getSubscriptionFees').mockResolvedValue({
       feePercentage: 2,
-      flatFee: 50,
+      flatFee: 0,
     });
     jest
       .spyOn(service as any, 'toWalletCurrency')

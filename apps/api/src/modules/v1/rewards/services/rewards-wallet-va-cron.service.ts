@@ -10,7 +10,7 @@ export class RewardsWalletVaCronService {
 
   constructor(private readonly walletService: TenantWalletService) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  @Cron(CronExpression.EVERY_30_MINUTES)
   async provisionMissingVirtualAccounts(): Promise<void> {
     if (!isNombaConfigured()) {
       return;

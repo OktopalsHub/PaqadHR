@@ -5,6 +5,7 @@ import {
   getNombaSubAccountId,
   isNombaConfigured,
 } from '../config/nomba.config';
+import { isNombaAcceptedCode } from '../config/nomba-api.util';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
 
 export interface NombaVirtualAccountResult {
@@ -15,15 +16,29 @@ export interface NombaVirtualAccountResult {
   accountHolderId?: string;
 }
 
+/** Nomba returns bankAccountNumber / bankAccountName; older shapes may use accountNumber. */
+interface NombaVirtualAccountData {
+  accountNumber?: string;
+  bankAccountNumber?: string;
+  accountName?: string;
+  bankAccountName?: string;
+  bankName?: string;
+  accountRef?: string;
+  accountHolderId?: string;
+}
+
 interface NombaVirtualAccountResponse {
   code?: string;
   description?: string;
+  data?: NombaVirtualAccountData;
+}
+
+interface NombaVirtualAccountListResponse {
+  code?: string;
+  description?: string;
   data?: {
-    accountNumber?: string;
-    accountName?: string;
-    bankName?: string;
-    accountRef?: string;
-    accountHolderId?: string;
+    results?: NombaVirtualAccountData[];
+    cursor?: string;
   };
 }
 
@@ -51,8 +66,8 @@ export class NombaVirtualAccountApiService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (this.isDuplicateRefError(message)) {
-        this.logger.warn(`VA ref ${input.accountRef} exists — fetching existing account`);
-        return this.fetchVirtualAccount(input.accountRef);
+        this.logger.warn(`VA ref ${input.accountRef} exists — looking up existing account`);
+        return this.findVirtualAccountByRef(input.accountRef);
       }
       throw error;
     }
@@ -65,14 +80,15 @@ export class NombaVirtualAccountApiService {
       : '/v1/accounts/virtual';
   }
 
-  async fetchVirtualAccount(identifier: string): Promise<NombaVirtualAccountResult> {
+  /** Lookup by bank account number (Nomba GET /v1/accounts/virtual/{virtualAcctNumber}). */
+  async fetchVirtualAccount(virtualAcctNumber: string): Promise<NombaVirtualAccountResult> {
     if (!this.isConfigured()) {
       throw new BadRequestException('Nomba is not configured');
     }
 
     const token = await this.nombaTransferApi.getAccessToken();
     const response = await fetch(
-      `${getNombaBaseUrl()}/v1/accounts/virtual/${encodeURIComponent(identifier)}`,
+      `${getNombaBaseUrl()}/v1/accounts/virtual/${encodeURIComponent(virtualAcctNumber)}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -82,13 +98,44 @@ export class NombaVirtualAccountApiService {
     );
 
     const payload = (await response.json()) as NombaVirtualAccountResponse;
-    if (!response.ok || payload.code !== '00' || !payload.data?.accountNumber) {
+    const mapped = payload.data ? this.mapResult(payload.data, virtualAcctNumber) : null;
+    if (!response.ok || !isNombaAcceptedCode(payload.code) || !mapped) {
       throw new BadRequestException(
         payload.description || `Failed to fetch Nomba virtual account (${response.status})`,
       );
     }
 
-    return this.mapResult(payload.data, identifier);
+    return mapped;
+  }
+
+  /** Recover an existing VA by our accountRef (POST /v1/accounts/virtual/list). */
+  async findVirtualAccountByRef(accountRef: string): Promise<NombaVirtualAccountResult> {
+    if (!this.isConfigured()) {
+      throw new BadRequestException('Nomba is not configured');
+    }
+
+    const token = await this.nombaTransferApi.getAccessToken();
+    const response = await fetch(`${getNombaBaseUrl()}/v1/accounts/virtual/list?limit=10`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        accountId: getNombaAccountId(),
+      },
+      body: JSON.stringify({ accountRef }),
+    });
+
+    const payload = (await response.json()) as NombaVirtualAccountListResponse;
+    const match = payload.data?.results?.find((row) => row.accountRef === accountRef);
+    const mapped = match ? this.mapResult(match, accountRef) : null;
+    if (!response.ok || !isNombaAcceptedCode(payload.code) || !mapped) {
+      throw new BadRequestException(
+        payload.description ||
+          `Failed to find Nomba virtual account for ref ${accountRef} (${response.status})`,
+      );
+    }
+
+    return mapped;
   }
 
   private async requestCreate(input: {
@@ -112,23 +159,29 @@ export class NombaVirtualAccountApiService {
     });
 
     const payload = (await response.json()) as NombaVirtualAccountResponse;
-    if (!response.ok || payload.code !== '00' || !payload.data?.accountNumber) {
+    const mapped = payload.data ? this.mapResult(payload.data, input.accountRef) : null;
+    if (!response.ok || !isNombaAcceptedCode(payload.code) || !mapped) {
       throw new BadRequestException(
         payload.description || `Nomba virtual account creation failed (${response.status})`,
       );
     }
 
-    return this.mapResult(payload.data, input.accountRef);
+    return mapped;
   }
 
   private mapResult(
-    data: NonNullable<NombaVirtualAccountResponse['data']>,
+    data: NombaVirtualAccountData,
     fallbackRef: string,
-  ): NombaVirtualAccountResult {
+  ): NombaVirtualAccountResult | null {
+    const accountNumber = (data.bankAccountNumber || data.accountNumber || '').trim();
+    if (!accountNumber) {
+      return null;
+    }
+
     return {
-      accountNumber: data.accountNumber!,
-      accountName: data.accountName || '',
-      bankName: data.bankName || 'Nomba',
+      accountNumber,
+      accountName: (data.bankAccountName || data.accountName || '').trim(),
+      bankName: (data.bankName || 'Nomba').trim(),
       accountRef: data.accountRef || fallbackRef,
       accountHolderId: data.accountHolderId,
     };

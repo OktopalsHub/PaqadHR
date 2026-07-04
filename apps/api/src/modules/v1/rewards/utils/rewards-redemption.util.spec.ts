@@ -1,17 +1,16 @@
-import { computeRedemptionDebit, REDEMPTION_FLAT_FEE_MIN_AMOUNT } from './rewards-redemption.util';
+import { computeRedemptionDebit } from './rewards-redemption.util';
 
 describe('computeRedemptionDebit', () => {
   const feePercentage = 2;
-  const flatFee = 50;
 
-  it('waives flat fee below threshold', () => {
-    expect(computeRedemptionDebit(500, feePercentage, flatFee)).toBe(510);
+  it('charges percentage only on small amounts', () => {
+    expect(computeRedemptionDebit(100, feePercentage)).toBe(102);
+    expect(computeRedemptionDebit(500, feePercentage)).toBe(510);
+    expect(computeRedemptionDebit(1000, feePercentage)).toBe(1020);
   });
 
-  it('applies flat fee at or above threshold', () => {
-    expect(computeRedemptionDebit(REDEMPTION_FLAT_FEE_MIN_AMOUNT, feePercentage, flatFee)).toBe(
-      2090,
-    );
-    expect(computeRedemptionDebit(5000, feePercentage, flatFee)).toBe(5150);
+  it('charges percentage only on large amounts', () => {
+    expect(computeRedemptionDebit(10000, feePercentage)).toBe(10200);
+    expect(computeRedemptionDebit(50000, feePercentage)).toBe(51000);
   });
 });

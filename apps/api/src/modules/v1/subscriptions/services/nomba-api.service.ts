@@ -1,4 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  isNombaAcceptedCode,
+  resolveNombaTokenExpiresAtMs,
+} from 'src/common/config/nomba-api.util';
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
 import {
   getNombaAccountId,
@@ -23,10 +27,13 @@ function stringifyOrderMeta(
 }
 
 interface NombaTokenResponse {
-  data?: { access_token?: string; expires_in?: number };
+  code?: string;
+  data?: { access_token?: string; expires_in?: number; expiresAt?: string; expires_at?: string };
 }
 
 interface NombaCheckoutResponse {
+  code?: string;
+  description?: string;
   data?: {
     checkoutLink?: string;
     orderReference?: string;
@@ -99,12 +106,11 @@ export class NombaApiService {
 
     const payload = (await response.json()) as NombaTokenResponse;
     const token = payload.data?.access_token;
-    if (!response.ok || !token) {
+    if (!response.ok || (payload.code && !isNombaAcceptedCode(payload.code)) || !token) {
       throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
     }
 
-    const ttl = (payload.data?.expires_in ?? 3600) * 1000;
-    this.cachedToken = { token, expiresAt: Date.now() + ttl - 60_000 };
+    this.cachedToken = { token, expiresAt: resolveNombaTokenExpiresAtMs(payload.data) };
     return token;
   }
 
@@ -120,12 +126,20 @@ export class NombaApiService {
       body: JSON.stringify(body),
     });
 
-    const payload = (await response.json()) as T & { message?: string };
-    if (!response.ok) {
+    const payload = (await response.json()) as T & {
+      code?: string;
+      message?: string;
+      description?: string;
+    };
+    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
       const message =
-        typeof payload === 'object' && payload && 'message' in payload
+        (typeof payload === 'object' && payload && 'description' in payload
+          ? payload.description
+          : undefined) ||
+        (typeof payload === 'object' && payload && 'message' in payload
           ? String(payload.message)
-          : `Nomba request failed (${response.status})`;
+          : undefined) ||
+        `Nomba request failed (${response.status})`;
       this.logger.error(`Nomba ${path} failed: ${message}`);
       throw new BadRequestException(`Nomba Error: ${message}`);
     }
@@ -144,6 +158,7 @@ export class NombaApiService {
         amount: formatNombaAmount(input.amount),
         currency: input.currency.toUpperCase(),
         callbackUrl: input.callbackUrl,
+        accountId: getNombaScopedAccountId(),
         orderMetaData: stringifyOrderMeta(input.meta),
       },
       tokenizeCard: input.tokenizeCard ?? true,
@@ -151,7 +166,7 @@ export class NombaApiService {
 
     const checkoutLink = payload.data?.checkoutLink;
     if (!checkoutLink) {
-      throw new BadRequestException('Failed to initialize Nomba checkout');
+      throw new BadRequestException(payload.description || 'Failed to initialize Nomba checkout');
     }
 
     return {

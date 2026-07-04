@@ -142,15 +142,14 @@ export class RewardsService {
 
   async getSubscriptionFees(
     tenantId: string,
-    walletCurrency: string,
+    _walletCurrency: string,
   ): Promise<{ feePercentage: number; flatFee: number }> {
     try {
       const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
       const feePercentage = subscription?.planPrice?.regionalConfig?.rewardsFeePercentage ?? 2;
-      const rawFlatFee = subscription?.planPrice?.regionalConfig?.rewardsFlatFee ?? 50;
-      return { feePercentage, flatFee: rawFlatFee };
+      return { feePercentage, flatFee: 0 };
     } catch {
-      return { feePercentage: 2, flatFee: 50 };
+      return { feePercentage: 2, flatFee: 0 };
     }
   }
 
@@ -364,10 +363,7 @@ export class RewardsService {
     settings: RewardsSettings,
   ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
     const products = await this.reloadlyApi.listProductsByCountries(settings.catalogCountries);
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
     const exchangeRate = settings.pointsExchangeRate;
 
     const records = await Promise.all(
@@ -380,7 +376,7 @@ export class RewardsService {
           undefined,
           p.countryCode,
         );
-        const chargedValue = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+        const chargedValue = computeRedemptionDebit(convertedValue, feePercentage);
         const pointsCost = Math.ceil(chargedValue * exchangeRate);
 
         return {
@@ -437,10 +433,7 @@ export class RewardsService {
 
     const redemptionId = randomUUID();
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
 
     let totalTenantDebit: number;
     let expectedPointsCost: number;
@@ -494,7 +487,7 @@ export class RewardsService {
       faceValueInRewardsCurrency = expectedConvertedValue;
       totalTenantDebit = expectedConvertedValue;
       if (input.rewardType !== 'CUSTOM') {
-        totalTenantDebit = computeRedemptionDebit(expectedConvertedValue, feePercentage, flatFee);
+        totalTenantDebit = computeRedemptionDebit(expectedConvertedValue, feePercentage);
       }
       expectedPointsCost =
         input.rewardType === 'CUSTOM' ? pointsCost : Math.ceil(totalTenantDebit * exchangeRate);
@@ -862,11 +855,8 @@ export class RewardsService {
       operatorId,
     );
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
-    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage);
 
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
@@ -911,11 +901,8 @@ export class RewardsService {
       bridgeOperatorId,
     );
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
-    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage);
 
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
@@ -1530,11 +1517,8 @@ export class RewardsService {
     processingFee: number;
   }> {
     const settings = await this.getRewardsSettings(tenantId);
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
-    const totalTenantDebit = computeRedemptionDebit(amount, feePercentage, flatFee);
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const totalTenantDebit = computeRedemptionDebit(amount, feePercentage);
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
     return {
