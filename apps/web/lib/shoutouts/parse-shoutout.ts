@@ -79,7 +79,7 @@ export function parseShoutout(
   employees: ShoutoutLookupItem[],
   categories: ShoutoutLookupItem[],
 ): ParsedShoutout {
-  const recipientsById = new Map<string, ParsedRecipient>();
+  const recipients: ParsedRecipient[] = [];
   const pending: ParsedRecipient[] = [];
   const categoryIds: string[] = [];
   const categoryNames: string[] = [];
@@ -90,15 +90,27 @@ export function parseShoutout(
   while (i < message.length) {
     const char = message[i];
 
+    // Only treat @ / # / + as triggers at the start of a token, so emails
+    // (support@company.com) and URL fragments (page#section) aren't mistaken
+    // for mentions/tags/points.
+    if ((char === '@' || char === '#' || char === '+') && i > 0 && WORD_CHAR.test(message[i - 1])) {
+      i += 1;
+      continue;
+    }
+
     if (char === '@') {
       const match = matchAt(message, i + 1, employees);
       if (match) {
-        let recipient = recipientsById.get(match.item.id);
-        if (!recipient) {
-          recipient = { recipientId: match.item.id, name: match.item.name, points: 0 };
-          recipientsById.set(match.item.id, recipient);
-        }
-        if (!pending.includes(recipient)) pending.push(recipient);
+        // Each mention is its own occurrence; duplicates are intentional so the
+        // caller can sum ("@Dan +10 @Dan +20") or flag a points-less mention
+        // ("@Dan +10 @Dan"). The backend merges duplicate recipient ids.
+        const recipient: ParsedRecipient = {
+          recipientId: match.item.id,
+          name: match.item.name,
+          points: 0,
+        };
+        recipients.push(recipient);
+        pending.push(recipient);
         i += 1 + match.length;
         continue;
       }
@@ -136,7 +148,6 @@ export function parseShoutout(
     i += 1;
   }
 
-  const recipients = [...recipientsById.values()];
   return {
     recipients,
     categoryIds,

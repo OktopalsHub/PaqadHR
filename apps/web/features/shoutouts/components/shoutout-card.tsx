@@ -17,7 +17,7 @@ function categoryStyle(color?: string | null) {
 }
 
 function renderMessage(message: string) {
-  const parts = message.split(/(@[\p{L}\p{N}_'-]+|#[\p{L}\p{N}_'-]+|\+\d+)/u);
+  const parts = message.split(/(?<![\p{L}\p{N}_'-])(@[\p{L}\p{N}_'-]+|#[\p{L}\p{N}_'-]+|\+\d+)/u);
   return parts.map((part, index) => {
     const key = `${index}-${part}`;
     if (/^@/.test(part)) {
