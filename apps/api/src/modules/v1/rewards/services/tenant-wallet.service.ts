@@ -535,8 +535,8 @@ export class TenantWalletService {
     orderReference: string;
     amount?: number;
   }): Promise<{ received: boolean; credited: boolean }> {
-    const tenantKey = input.tenantId.replace(/-/g, '');
-    if (!input.orderReference.startsWith(`wt_${tenantKey}_`)) {
+    const tenantKey = input.tenantId?.replace(/-/g, '') ?? '';
+    if (!input.orderReference || !input.orderReference.startsWith(`wt_${tenantKey}_`)) {
       this.logger.warn(
         `Wallet checkout top-up reference tenant mismatch for ${input.orderReference}`,
       );
