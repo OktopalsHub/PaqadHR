@@ -70,13 +70,13 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       .createQueryBuilder('activity')
       .leftJoinAndSelect('activity.actorMember', 'actorMember')
       .leftJoinAndSelect('actorMember.user', 'actorUser')
-      .where('activity.tenant_id = :tenantId', { tenantId })
-      .orderBy('activity.created_at', 'DESC')
+      .where('activity.tenantId = :tenantId', { tenantId })
+      .orderBy('activity.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
 
     if (query.resourceType) {
-      qb.andWhere('activity.resource_type = :resourceType', {
+      qb.andWhere('activity.resourceType = :resourceType', {
         resourceType: query.resourceType,
       });
     }
@@ -84,7 +84,7 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       qb.andWhere('activity.action = :action', { action: query.action });
     }
     if (query.resourceId) {
-      qb.andWhere('activity.resource_id = :resourceId', { resourceId: query.resourceId });
+      qb.andWhere('activity.resourceId = :resourceId', { resourceId: query.resourceId });
     }
 
     const [rows, total] = await qb.getManyAndCount();

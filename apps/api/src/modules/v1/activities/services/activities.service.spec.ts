@@ -55,7 +55,7 @@ describe('ActivitiesService', () => {
 
     const result = await service.listForTenant('tenant-1', { page: 1, limit: 20 });
 
-    expect(qb.where).toHaveBeenCalledWith('activity.tenant_id = :tenantId', {
+    expect(qb.where).toHaveBeenCalledWith('activity.tenantId = :tenantId', {
       tenantId: 'tenant-1',
     });
     expect(result.items[0].description).toBe('Payroll run created');
