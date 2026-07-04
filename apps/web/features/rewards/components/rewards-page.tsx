@@ -277,9 +277,6 @@ function CatalogCard({
               {item.pointsCost.toLocaleString()}
             </p>
             <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
-            {isAdmin && item.type === 'RELOADLY' ? (
-              <p className="text-[10px] text-muted-foreground mt-0.5">From lowest amount</p>
-            ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && item.type === 'CUSTOM' && onDelete && !isTemplate && (
