@@ -21,7 +21,9 @@ describe('InvitationsService acceptInvitation', () => {
   }) {
     const invitationsRepository = {
       findInvitationByToken: jest.fn().mockResolvedValue(invitation),
-      acceptInvitation: jest.fn().mockResolvedValue({ ...invitation, status: InvitationStatus.ACCEPTED }),
+      acceptInvitation: jest
+        .fn()
+        .mockResolvedValue({ ...invitation, status: InvitationStatus.ACCEPTED }),
       softDelete: jest.fn().mockResolvedValue(undefined),
     };
     const tenantMembersService = {

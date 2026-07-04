@@ -185,8 +185,7 @@ export class InvitationsService {
       throw new BadRequestException('Invitation has expired');
     }
 
-    const firstName =
-      acceptInvitationDto?.firstName?.trim() || invitation.firstName?.trim() || '';
+    const firstName = acceptInvitationDto?.firstName?.trim() || invitation.firstName?.trim() || '';
     const lastName = acceptInvitationDto?.lastName?.trim() || invitation.lastName?.trim() || '';
 
     const existingUser = await this.usersService.getUserByEmail(invitation.email);

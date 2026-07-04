@@ -1,5 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
-import { CalendarClock, FileText, Gift, ScrollText, Settings, UserPlus, Wallet } from 'lucide-react';
+import {
+  CalendarClock,
+  FileText,
+  Gift,
+  ScrollText,
+  Settings,
+  UserPlus,
+  Wallet,
+} from 'lucide-react';
 import type { TenantActivity } from '@/lib/api/activities';
 
 export type ActivityCategory = 'all' | 'leave' | 'payroll' | 'rewards' | 'other';

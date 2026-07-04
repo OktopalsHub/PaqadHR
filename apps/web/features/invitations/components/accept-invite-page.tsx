@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
+import { useAuth } from '@/hooks/use-auth';
 import { login } from '@/lib/api/auth';
 import {
   acceptInvitation,
@@ -20,7 +21,6 @@ import {
 import { fetchUserTenants } from '@/lib/api/tenants';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
-import { useAuth } from '@/hooks/use-auth';
 
 function buildAcceptInvitePath(token: string, email: string) {
   return `/accept-invite?token=${encodeURIComponent(token)}&email=${encodeURIComponent(email)}`;
@@ -206,8 +206,7 @@ export function AcceptInvitePage() {
     );
   }
 
-  const signedInWrongAccount =
-    isAuthenticated && user?.email.toLowerCase() !== email.toLowerCase();
+  const signedInWrongAccount = isAuthenticated && user?.email.toLowerCase() !== email.toLowerCase();
 
   return (
     <div className="space-y-6">
@@ -222,7 +221,8 @@ export function AcceptInvitePage() {
       <div className="rounded-xl border border-border/70 bg-muted/30 p-4 text-sm">
         <p className="font-medium">{details.email}</p>
         <p className="mt-1 text-muted-foreground">
-          Expires {new Date(details.expiresAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+          Expires{' '}
+          {new Date(details.expiresAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
         </p>
       </div>
 
@@ -280,7 +280,9 @@ export function AcceptInvitePage() {
             You already have a Paqad account. Sign in to accept this invitation.
           </p>
           <Button asChild className="w-full h-11">
-            <Link href={`/signin?redirect=${encodeURIComponent(invitePath)}`}>Sign in to accept</Link>
+            <Link href={`/signin?redirect=${encodeURIComponent(invitePath)}`}>
+              Sign in to accept
+            </Link>
           </Button>
         </div>
       ) : (
@@ -292,7 +294,9 @@ export function AcceptInvitePage() {
           <Button
             className="h-11 flex-1"
             onClick={() => void handleAccept()}
-            disabled={isSubmitting || signedInWrongAccount || (details.userExists && !isAuthenticated)}
+            disabled={
+              isSubmitting || signedInWrongAccount || (details.userExists && !isAuthenticated)
+            }
           >
             {isSubmitting ? 'Joining…' : 'Accept invitation'}
           </Button>
