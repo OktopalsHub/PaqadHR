@@ -960,11 +960,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
-  const defaultTab = isAirtimeEnabled
-    ? 'airtime'
-    : isUtilitiesEnabled
-      ? 'utilities'
-      : 'perks';
+  const defaultTab = isAirtimeEnabled ? 'airtime' : isUtilitiesEnabled ? 'utilities' : 'perks';
 
   const content = (
     <>
