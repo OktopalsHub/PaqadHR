@@ -4,7 +4,6 @@ import { DataSource } from 'typeorm';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
-import { ActivitiesService } from '../../activities/services/activities.service';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
 import { TenantSettingRepository } from './tenant-setting.repository';
@@ -16,7 +15,6 @@ export class TenantSettingsService {
     private readonly tenantSettingsRepository: TenantSettingRepository,
     readonly _dataSource: DataSource,
     private readonly eventEmitter: EventEmitter2,
-    private readonly activitiesService: ActivitiesService,
   ) {}
   async getTenantSettings(tenantId: string): Promise<TenantSettings> {
     const settings = await this.tenantSettingsRepository.findOne({
@@ -178,21 +176,6 @@ export class TenantSettingsService {
       !sameCountrySet(prevCatalogCountries, newCatalogCountries);
     if (catalogCountriesChanged) {
       this.eventEmitter.emit('rewards.catalogCountriesChanged', { tenantId });
-    }
-
-    const changedSections = Object.keys(updateDto).filter(
-      (key) => updateDto[key as keyof UpdateTenantSettingsDto] !== undefined,
-    );
-    if (changedSections.length > 0) {
-      await this.activitiesService.queueActivity({
-        tenantId,
-        actorMemberId: actorMemberId ?? null,
-        action: 'settings.updated',
-        resourceType: 'settings',
-        resourceId: tenantId,
-        description: `Settings updated: ${changedSections.join(', ')}`,
-        metadata: { sections: changedSections },
-      });
     }
 
     return result;

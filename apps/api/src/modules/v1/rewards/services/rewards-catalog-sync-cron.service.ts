@@ -17,7 +17,7 @@ export class RewardsCatalogSyncCronService {
     private readonly rewardsService: RewardsService,
   ) {}
 
-  @Cron('0 0,12 * * *')
+  @Cron('0 */4 * * *')
   async syncAllTenantCatalogs(): Promise<void> {
     if (!isReloadlyConfigured()) {
       return;

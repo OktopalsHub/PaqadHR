@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { UsersModule } from '../users/users.module';
@@ -15,6 +16,7 @@ import { InvitationsRepository } from './repositories/invitations.repository';
     TenantMembersModule,
     UsersModule,
     TenantsModule,
+    NotificationsModule,
   ],
   controllers: [InvitationsController, PublicInvitesController],
   providers: [InvitationsService, InvitationsRepository],

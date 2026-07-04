@@ -10,6 +10,7 @@ import { PasswordService } from 'src/common/utils';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
+import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
@@ -28,6 +29,7 @@ export class InvitationsService {
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
     private readonly rateLimitService: RateLimitService,
+    private readonly zeptomailEmailService: ZeptomailEmailService,
   ) {}
   private generateInvitationToken(): string {
     const crypto = require('node:crypto');
@@ -460,14 +462,41 @@ export class InvitationsService {
     return this.mapToResponseDto(updatedInvitation);
   }
   private async sendInvitationEmail(invitation: Invitation): Promise<void> {
-    const _tenant = await this.tenantsService.getTenant(invitation.tenantId);
-    const baseUrl = process.env.FRONTEND_URL || '';
-    const inviteUrl = `${baseUrl}/invite.html?token=${invitation.token}&email=${invitation.email}`;
-    this.logger.log(`Sending invitation email to: ${invitation.email}`);
-    this.logger.log(`Invitation URL: ${inviteUrl}`);
-    this.logger.log(`Tenant ID: ${invitation.tenantId}`);
-    this.logger.log(`Role: ${invitation.role}`);
-    this.logger.log(`Token: ${invitation.token}`);
+    const tenant = await this.tenantsService.getTenant(invitation.tenantId);
+    const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    const inviteLink = `${baseUrl}/accept-invite?token=${invitation.token}&email=${encodeURIComponent(invitation.email)}`;
+
+    let inviterName = 'A team member';
+    try {
+      const inviter = await this.tenantMembersService.getTenantMember(
+        invitation.invitedBy,
+        invitation.tenantId,
+      );
+      const name = [inviter.firstName, inviter.lastName].filter(Boolean).join(' ').trim();
+      inviterName = name || inviter.user?.email || inviterName;
+    } catch {
+      this.logger.warn(`Could not resolve inviter for invitation ${invitation.id}`);
+    }
+
+    const firstName = invitation.firstName?.trim() || invitation.email.split('@')[0] || 'there';
+
+    const result = await this.zeptomailEmailService.sendTemplateEmail(
+      invitation.email,
+      'invitation',
+      {
+        tenantName: tenant?.name ?? 'your workspace',
+        inviterName,
+        inviteLink,
+        firstName,
+      },
+    );
+
+    if (!result.success) {
+      this.logger.error(`Failed to send invitation email to ${invitation.email}: ${result.error}`);
+      return;
+    }
+
+    this.logger.log(`Invitation email sent to ${invitation.email}`);
   }
   private async mapToResponseDto(invitation: Invitation): Promise<IInvitationResponseDto> {
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);

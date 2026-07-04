@@ -16,6 +16,9 @@ export interface ListActivitiesQuery {
   resourceId?: string;
 }
 
+/** Actions omitted from the default workspace activity feed. */
+export const DEFAULT_EXCLUDED_ACTIVITY_ACTIONS = ['settings.updated'] as const;
+
 export interface TenantActivitiesListResult {
   items: TenantActivityListItemDto[];
   total: number;
@@ -85,6 +88,12 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
     }
     if (query.resourceId) {
       qb.andWhere('activity.resourceId = :resourceId', { resourceId: query.resourceId });
+    }
+
+    if (DEFAULT_EXCLUDED_ACTIVITY_ACTIONS.length > 0) {
+      qb.andWhere('activity.action NOT IN (:...excludedActions)', {
+        excludedActions: [...DEFAULT_EXCLUDED_ACTIVITY_ACTIONS],
+      });
     }
 
     const [rows, total] = await qb.getManyAndCount();

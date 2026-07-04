@@ -2,9 +2,7 @@
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { ClockInOutControl } from '@/features/attendance/components/clock-in-out-control';
-import { TenantLogSheet } from '@/features/log/components/tenant-log-sheet';
 import { useAuth } from '@/hooks/use-auth';
-import { useTenant } from '@/providers/tenant-provider';
 import { AccountSetting } from './account-setting';
 import { AppBreadcrumb } from './app-breadcrumb';
 import { NotificationBell } from './notification-bell';
@@ -12,9 +10,6 @@ import { QuickActionsMenu } from './quick-actions-menu';
 
 export const AppTopBar = () => {
   const { logout } = useAuth();
-  const { tenant } = useTenant();
-  const role = tenant?.member?.role?.toLowerCase();
-  const isAdmin = role === 'owner' || role === 'admin';
 
   return (
     <header className="sticky top-0 z-40 flex h-12 shrink-0 items-center justify-between border-b border-border/60 bg-background px-3 md:px-4">
@@ -25,7 +20,6 @@ export const AppTopBar = () => {
       <div className="flex items-center">
         <div className="flex items-center gap-1.5">
           <ClockInOutControl />
-          {isAdmin ? <TenantLogSheet /> : null}
           <NotificationBell />
           <QuickActionsMenu />
         </div>
