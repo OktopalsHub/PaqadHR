@@ -32,6 +32,7 @@ import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
+import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 import { TenantWalletService } from './tenant-wallet.service';
 
 export interface CatalogItem {
@@ -80,6 +81,7 @@ export class RewardsService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
+    private readonly walletTopupService: TenantWalletTopupService,
     private readonly customRewardsService: CustomRewardsService,
     readonly _tenantConfigService: TenantConfigService,
     private readonly reloadlyApi: ReloadlyApiService,
@@ -633,6 +635,7 @@ export class RewardsService {
           `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((totalTenantDebit - faceValueInRewardsCurrency).toFixed(2))})`,
           manager,
         );
+        await this.walletTopupService.maybeAutoTopupAfterDebit(tenantId, manager);
       }
 
       const redemptionRepo = manager.getRepository(RewardRedemption);

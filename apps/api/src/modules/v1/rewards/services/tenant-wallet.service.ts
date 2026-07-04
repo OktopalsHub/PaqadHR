@@ -1,12 +1,9 @@
-import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
 import { DataSource, EntityManager } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { WALLET_UNAVAILABLE_MEMBER } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
-import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 
 export interface WalletCreditOptions {
   rawAmount?: number;
@@ -22,7 +19,6 @@ export class TenantWalletService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly activitiesService: ActivitiesService,
-    private readonly moduleRef: ModuleRef,
   ) {}
 
   async ensureWallet(tenantId: string, manager?: EntityManager): Promise<TenantWallet> {
@@ -83,21 +79,6 @@ export class TenantWalletService {
       status: 'COMPLETED',
     });
     await txRepo.save(tx);
-
-    if (
-      wallet.autoTopupEnabled &&
-      Number(wallet.autoTopupAmount) > 0 &&
-      Number(wallet.balanceAmount) <= Number(wallet.autoTopupThreshold)
-    ) {
-      await this.moduleRef.get(TenantWalletTopupService).chargeAndCredit(
-        tenantId,
-        Number(wallet.autoTopupAmount),
-        `auto-topup-${randomUUID()}`,
-        `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
-        manager,
-        'member',
-      );
-    }
 
     return walletRepo.findOneOrFail({ where: { tenantId } });
   }

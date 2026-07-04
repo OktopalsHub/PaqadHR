@@ -3,17 +3,13 @@ import {
   WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
-import { TenantWalletService } from './tenant-wallet.service';
 import { TenantWalletTopupService } from './tenant-wallet-topup.service';
+import { TenantWalletService } from './tenant-wallet.service';
 
 describe('TenantWalletService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
 
-  function createWalletService(overrides?: {
-    wallet?: Record<string, unknown>;
-    debitUpdateAffected?: number;
-    nombaCharge?: jest.Mock;
-  }) {
+  function createWalletService(overrides?: { wallet?: Record<string, unknown>; debitUpdateAffected?: number }) {
     const wallet = {
       id: 'wallet-1',
       tenantId,
@@ -63,46 +59,12 @@ describe('TenantWalletService', () => {
       manager,
     };
 
-    const nombaApi = {
-      chargeTokenizedCard:
-        overrides?.nombaCharge ?? jest.fn().mockResolvedValue({ orderReference: 'order-1' }),
-      verifyTransaction: jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
-    };
-
-    const subscriptionsService = {
-      getTenantSubscription: jest.fn().mockResolvedValue({ paymentMethodId: 'tok-1' }),
-    };
-
-    const tenantSettingsService = {
-      getTenantSettings: jest.fn().mockResolvedValue({
-        settings: { billing: { contactEmail: 'billing@test.com' } },
-      }),
-    };
-
-    const emailService = { sendEmail: jest.fn().mockResolvedValue(undefined) };
-    const tenantRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: tenantId, name: 'Acme Corp', slug: 'acme' }),
-    };
-
-    const topupService = new TenantWalletTopupService(
-      dataSource as any,
-      {} as TenantWalletService,
-      nombaApi as any,
-      subscriptionsService as any,
-      tenantSettingsService as any,
-      emailService as any,
-      tenantRepository as any,
-    );
-
     const walletService = new TenantWalletService(
       dataSource as any,
       { queueActivity: jest.fn().mockResolvedValue(undefined) } as any,
-      { get: () => topupService } as any,
     );
 
-    (topupService as any).walletService = walletService;
-
-    return { walletService, topupService, walletRepo, txRepo, nombaApi, emailService, manager };
+    return { walletService, walletRepo, txRepo, manager };
   }
 
   describe('debit', () => {
@@ -113,25 +75,6 @@ describe('TenantWalletService', () => {
         walletService.debit(tenantId, 100, 'ref-1', 'test', manager as any),
       ).rejects.toThrow(WALLET_UNAVAILABLE_MEMBER);
     });
-
-    it('throws when auto-topup charge fails', async () => {
-      const { walletService, manager, nombaApi, emailService } = createWalletService({
-        wallet: {
-          autoTopupEnabled: true,
-          autoTopupThreshold: 1000,
-          autoTopupAmount: 5000,
-          balanceAmount: 500,
-        },
-        nombaCharge: jest.fn().mockRejectedValue(new Error('card declined')),
-      });
-
-      await expect(
-        walletService.debit(tenantId, 100, 'ref-1', 'test', manager as any),
-      ).rejects.toThrow(WALLET_UNAVAILABLE_MEMBER);
-
-      expect(nombaApi.chargeTokenizedCard).toHaveBeenCalled();
-      expect(emailService.sendEmail).toHaveBeenCalled();
-    });
   });
 });
 
@@ -140,6 +83,7 @@ describe('TenantWalletTopupService', () => {
   const walletTopupRef = `wt_${tenantId.replace(/-/g, '')}_ref1`;
 
   function createTopupService(overrides?: {
+    wallet?: Record<string, unknown>;
     nombaCharge?: jest.Mock;
     nombaVerify?: jest.Mock;
     paymentMethodId?: string | null;
@@ -149,6 +93,10 @@ describe('TenantWalletTopupService', () => {
       tenantId,
       currencyCode: 'NGN',
       balanceAmount: 500,
+      autoTopupEnabled: false,
+      autoTopupThreshold: 1000,
+      autoTopupAmount: 5000,
+      ...overrides?.wallet,
     };
 
     const txRepo = {
@@ -235,8 +183,29 @@ describe('TenantWalletTopupService', () => {
       tenantRepository as any,
     );
 
-    return { topupService, walletService, txRepo, nombaApi, emailService };
+    return { topupService, walletService, txRepo, nombaApi, emailService, manager, walletRepo };
   }
+
+  describe('maybeAutoTopupAfterDebit', () => {
+    it('throws when auto-topup charge fails', async () => {
+      const { topupService, manager, nombaApi, emailService } = createTopupService({
+        wallet: {
+          autoTopupEnabled: true,
+          autoTopupThreshold: 1000,
+          autoTopupAmount: 5000,
+          balanceAmount: 500,
+        },
+        nombaCharge: jest.fn().mockRejectedValue(new Error('card declined')),
+      });
+
+      await expect(topupService.maybeAutoTopupAfterDebit(tenantId, manager as any)).rejects.toThrow(
+        WALLET_UNAVAILABLE_MEMBER,
+      );
+
+      expect(nombaApi.chargeTokenizedCard).toHaveBeenCalled();
+      expect(emailService.sendEmail).toHaveBeenCalled();
+    });
+  });
 
   describe('manualTopup', () => {
     it('throws billing card message when subscription has no tokenized card', async () => {

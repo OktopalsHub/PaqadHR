@@ -176,6 +176,26 @@ export class TenantWalletTopupService {
     });
   }
 
+  async maybeAutoTopupAfterDebit(tenantId: string, manager: EntityManager): Promise<void> {
+    const wallet = await manager.getRepository(TenantWallet).findOneOrFail({ where: { tenantId } });
+    if (
+      !wallet.autoTopupEnabled ||
+      Number(wallet.autoTopupAmount) <= 0 ||
+      Number(wallet.balanceAmount) > Number(wallet.autoTopupThreshold)
+    ) {
+      return;
+    }
+
+    await this.chargeAndCredit(
+      tenantId,
+      Number(wallet.autoTopupAmount),
+      `auto-topup-${randomUUID()}`,
+      `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
+      manager,
+      'member',
+    );
+  }
+
   async chargeAndCredit(
     tenantId: string,
     amount: number,
