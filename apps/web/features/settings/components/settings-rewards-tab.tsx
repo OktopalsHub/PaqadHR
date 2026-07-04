@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -11,14 +11,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -123,15 +116,12 @@ export function SettingsRewardsTab() {
   const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
   const billingSettingsHref = tenant?.slug ? `/${tenant.slug}/settings?tab=billing` : null;
   const walletCurrency = wallet?.currencyCode ?? 'NGN';
-  const hasDepositAccount =
-    wallet?.virtualAccountStatus === 'ACTIVE' && Boolean(wallet.virtualAccountNumber);
-  const depositAccountPending = wallet?.virtualAccountStatus === 'PROVISIONING';
   const topupAmountValue = Number(topupAmount);
   const topupAmountValid = Number.isFinite(topupAmountValue) && topupAmountValue > 0;
 
   useEffect(() => {
     if (searchParams.get('wallet_topup') === 'done') {
-      toast.success('Payment received—balance updates when confirmed');
+      toast.success('Wallet will update shortly');
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
     }
@@ -249,21 +239,21 @@ export function SettingsRewardsTab() {
         threshold: Number(autoTopupThreshold) || 0,
         amount: Number(autoTopupAmount) || 0,
       });
-      toast.success('Auto-topup rules updated successfully');
+      toast.success('Auto topup enabled');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save auto-topup config');
+      toast.error(err instanceof Error ? err.message : 'Failed to save auto-topup');
     }
   };
 
-  const handlePayWithNomba = async () => {
+  const handleTopup = async () => {
     if (!topupAmountValid) {
-      toast.error('Enter a valid amount greater than 0');
+      toast.error('Enter a valid amount');
       return;
     }
     try {
       await topupCheckout.mutateAsync(topupAmountValue);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start checkout');
+      toast.error(err instanceof Error ? err.message : 'Top up failed');
     }
   };
 
@@ -301,7 +291,7 @@ export function SettingsRewardsTab() {
                 onClick={() => setIsTopupOpen(true)}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl px-5 shadow-lg shadow-indigo-600/20 dark:shadow-none transition-all duration-200"
               >
-                Top Up Wallet
+                Top up
               </Button>
             </div>
           </div>
@@ -311,11 +301,10 @@ export function SettingsRewardsTab() {
               <div className="space-y-1">
                 <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
                   <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
-                  Auto-Replenish Rules
+                  Auto-topup
                 </h4>
                 <p className="text-xs text-muted-foreground">
-                  Optionally charge your saved billing card when the wallet balance falls below a
-                  threshold
+                  Charge your billing card when balance is low
                 </p>
               </div>
               <Switch
@@ -329,13 +318,12 @@ export function SettingsRewardsTab() {
               <Alert>
                 <AlertTitle>Billing card required</AlertTitle>
                 <AlertDescription>
-                  Auto-replenish uses the billing card on file.{' '}
                   {billingSettingsHref ? (
                     <Link
                       href={billingSettingsHref}
                       className="font-medium underline underline-offset-2"
                     >
-                      Add a card in Billing settings
+                      Add a card in Billing
                     </Link>
                   ) : (
                     'Add a card in Settings → Billing.'
@@ -351,7 +339,7 @@ export function SettingsRewardsTab() {
                     htmlFor="auto-topup-threshold"
                     className="text-xs font-semibold text-muted-foreground"
                   >
-                    Trigger Threshold ({currency})
+                    When below ({currency})
                   </label>
                   <Input
                     id="auto-topup-threshold"
@@ -361,9 +349,6 @@ export function SettingsRewardsTab() {
                     onChange={(e) => setAutoTopupThreshold(e.target.value)}
                     className="rounded-xl h-10"
                   />
-                  <span className="text-[10px] text-muted-foreground block">
-                    Trigger replenishment when balance falls below this
-                  </span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -371,7 +356,7 @@ export function SettingsRewardsTab() {
                     htmlFor="auto-topup-amount"
                     className="text-xs font-semibold text-muted-foreground"
                   >
-                    Replenish Amount ({currency})
+                    Top up amount ({currency})
                   </label>
                   <Input
                     id="auto-topup-amount"
@@ -381,9 +366,6 @@ export function SettingsRewardsTab() {
                     onChange={(e) => setAutoTopupAmount(e.target.value)}
                     className="rounded-xl h-10"
                   />
-                  <span className="text-[10px] text-muted-foreground block">
-                    Amount to charge and top up when triggered
-                  </span>
                 </div>
               </div>
             )}
@@ -397,7 +379,7 @@ export function SettingsRewardsTab() {
                 className="rounded-xl font-semibold border-indigo-100 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/40 dark:border-indigo-950 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
               >
                 <Save className="size-3.5 mr-1.5" />
-                Save Auto-Topup Rules
+                Save
               </Button>
             </div>
           </div>
@@ -694,7 +676,6 @@ export function SettingsRewardsTab() {
         </div>
       </ContentCard>
 
-      {/* Wallet top-up: Nomba checkout + bank transfer */}
       <Dialog
         open={isTopupOpen}
         onOpenChange={(open) => {
@@ -706,12 +687,8 @@ export function SettingsRewardsTab() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wallet className="size-5 text-indigo-600" />
-              Top Up Rewards Wallet
+              Top up
             </DialogTitle>
-            <DialogDescription>
-              Pay with Nomba (card, transfer, and other methods) or transfer to your dedicated bank
-              account. Your wallet is credited when payment is confirmed.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
@@ -729,15 +706,12 @@ export function SettingsRewardsTab() {
                 onChange={(e) => setTopupAmount(e.target.value)}
                 className="rounded-xl h-10"
               />
-              <p className="text-xs text-muted-foreground">
-                Required for Pay with Nomba. Bank transfer accepts any amount.
-              </p>
             </div>
 
             <Button
               type="button"
               disabled={!topupAmountValid || topupCheckout.isPending}
-              onClick={() => void handlePayWithNomba()}
+              onClick={() => void handleTopup()}
               className="rounded-xl font-semibold w-full"
             >
               {topupCheckout.isPending ? (
@@ -746,94 +720,22 @@ export function SettingsRewardsTab() {
                   Redirecting…
                 </>
               ) : (
-                'Pay with Nomba'
+                'Top up'
               )}
             </Button>
 
-            <div className="relative py-1">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">or bank transfer</span>
-              </div>
-            </div>
-
-            {hasDepositAccount ? (
-              <div className="rounded-xl border bg-muted/20 p-4 space-y-3">
-                <div className="flex justify-between items-center text-sm gap-2">
-                  <span className="text-muted-foreground font-medium">Bank</span>
-                  <span className="font-semibold text-foreground">
-                    {wallet?.virtualAccountBank}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm gap-2">
-                  <span className="text-muted-foreground font-medium shrink-0">Account number</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-bold text-foreground tracking-wider">
-                      {wallet?.virtualAccountNumber}
-                    </span>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="size-7"
-                      onClick={() => {
-                        void navigator.clipboard.writeText(wallet?.virtualAccountNumber ?? '');
-                        toast.success('Account number copied');
-                      }}
-                    >
-                      <Copy className="size-3.5" />
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground pt-1 border-t border-border/60">
-                  Transfer any amount in {walletCurrency}. Use your company name as the payment
-                  reference if your bank asks for one.
-                </p>
-              </div>
-            ) : depositAccountPending ? (
-              <div className="rounded-xl border border-dashed border-border/80 p-4 space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="size-4 animate-spin shrink-0" />
-                  Your deposit account is being set up. Check back shortly.
-                </div>
-                <p className="text-xs">Use Pay with Nomba above to fund now.</p>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Bank transfer not available</AlertTitle>
-                <AlertDescription>
-                  Your dedicated deposit account is not ready. Use Pay with Nomba above to fund your
-                  wallet.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Sandbox: use Nomba{' '}
+            <p className="text-xs text-muted-foreground">
               <a
                 href={NOMBA_SANDBOX_DOCS}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-medium underline underline-offset-2"
               >
-                test cards and payment methods
-              </a>
-              . Bank transfer has low limits in sandbox; live funding works like a normal transfer
-              once the account is active.
+                Test payments
+              </a>{' '}
+              (sandbox)
             </p>
           </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsTopupOpen(false)}
-              className="rounded-xl font-semibold"
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
