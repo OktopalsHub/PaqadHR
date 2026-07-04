@@ -58,7 +58,9 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_${metadata.tenantId}_${Date.now()}`;
+    // Keep under Nomba's 50-char reference limit: raw UUID (36) + "sub_" +
+    // timestamp overflows, so strip UUID hyphens and use a base36 timestamp.
+    const orderReference = `sub_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     const result = await this.nombaApi.createCheckoutOrder({
       orderReference,
