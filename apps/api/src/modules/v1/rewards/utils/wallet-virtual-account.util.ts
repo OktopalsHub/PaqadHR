@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 export function buildNombaAccountRef(tenantId: string): string {
   // Nomba rejects references longer than 50 characters. "rewards_wallet_" (15)
   // plus a 36-char UUID is 51, so drop the UUID hyphens (→ 47) while keeping the
@@ -7,8 +9,10 @@ export function buildNombaAccountRef(tenantId: string): string {
 
 export function buildNombaWalletTopupOrderRef(tenantId: string): string {
   // Nomba checkout orderReference max is 50 chars. Strip UUID hyphens and use a
-  // base36 timestamp for uniqueness (same pattern as subscription checkout).
-  return `wt_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
+  // base36 timestamp plus a short random suffix to avoid same-ms collisions.
+  const timestamp = Date.now().toString(36);
+  const suffix = randomBytes(2).toString('hex').slice(0, 3);
+  return `wt_${tenantId.replace(/-/g, '')}_${timestamp}${suffix}`;
 }
 
 export function buildVirtualAccountName(tenantName?: string): string {

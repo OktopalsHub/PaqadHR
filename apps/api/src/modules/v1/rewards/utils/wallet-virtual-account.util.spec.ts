@@ -17,8 +17,9 @@ describe('wallet-virtual-account.util', () => {
   it('builds wallet top-up checkout refs within Nomba 50-char limit', () => {
     const tenantId = '4986dd87-d1ea-4c33-adee-c2b0148b368f';
     const ref = buildNombaWalletTopupOrderRef(tenantId);
-    expect(ref).toMatch(/^wt_4986dd87d1ea4c33adeec2b0148b368f_/);
+    expect(ref).toMatch(/^wt_4986dd87d1ea4c33adeec2b0148b368f_[a-z0-9]+$/);
     expect(ref.length).toBeLessThanOrEqual(50);
+    expect(buildNombaWalletTopupOrderRef(tenantId)).not.toBe(ref);
   });
 
   it('pads short tenant names to meet Nomba minimum', () => {
