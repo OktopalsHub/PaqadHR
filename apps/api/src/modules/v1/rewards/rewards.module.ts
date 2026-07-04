@@ -28,8 +28,8 @@ import { CustomRewardsService } from './services/custom-rewards.service';
 import { ReloadlyWebhookService } from './services/reloadly-webhook.service';
 import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
-import { RewardsWalletVaCronService } from './services/rewards-wallet-va-cron.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
+import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
 
 @Module({
   imports: [
@@ -56,6 +56,7 @@ import { TenantWalletService } from './services/tenant-wallet.service';
   providers: [
     RewardsService,
     TenantWalletService,
+    TenantWalletTopupService,
     CustomRewardsService,
     ReloadlyWebhookService,
     ReloadlyApiService,
@@ -64,9 +65,8 @@ import { TenantWalletService } from './services/tenant-wallet.service';
     ReloadlyUtilitiesApiService,
     NombaBillApiService,
     RewardsListener,
-    RewardsWalletVaCronService,
     RewardsCatalogSyncCronService,
   ],
-  exports: [RewardsService, TenantWalletService, ReloadlyWebhookService],
+  exports: [RewardsService, TenantWalletService, TenantWalletTopupService, ReloadlyWebhookService],
 })
 export class RewardsModule {}

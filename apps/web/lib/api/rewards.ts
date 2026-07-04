@@ -155,13 +155,6 @@ export async function fetchWalletTransactions(): Promise<TenantWalletTransaction
   return apiClient<TenantWalletTransaction[]>(tenantPath(tenantId, 'rewards/wallet/transactions'));
 }
 
-export async function provisionVirtualAccount(): Promise<TenantWallet> {
-  const tenantId = await resolveTenantId();
-  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/provision-virtual-account'), {
-    method: 'POST',
-  });
-}
-
 export async function fetchCustomRewards(): Promise<
   Array<CustomRewardInput & { id: string; isActive: boolean }>
 > {

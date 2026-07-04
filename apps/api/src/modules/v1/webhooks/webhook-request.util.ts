@@ -44,11 +44,3 @@ export function isSubscriptionPaymentEvent(eventType: string): boolean {
     eventType === 'payment.failure'
   );
 }
-
-export function isWalletFundingEvent(eventType: string): boolean {
-  return (
-    eventType.includes('deposit') ||
-    eventType.includes('virtualaccount') ||
-    eventType.includes('transfer.success')
-  );
-}

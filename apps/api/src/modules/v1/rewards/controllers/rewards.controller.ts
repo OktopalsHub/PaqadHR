@@ -19,6 +19,7 @@ import { MemberPointsService } from '../../shoutouts/services/member-points.serv
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
+import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 
 const ALL_ROLES = [
@@ -47,6 +48,7 @@ export class RewardsController {
   constructor(
     private readonly rewardsService: RewardsService,
     private readonly walletService: TenantWalletService,
+    private readonly walletTopupService: TenantWalletTopupService,
     private readonly customRewardsService: CustomRewardsService,
     private readonly memberPointsService: MemberPointsService,
   ) {}
@@ -123,21 +125,11 @@ export class RewardsController {
     return this.walletService.listTransactions(tenantId);
   }
 
-  @Post('wallet/provision-virtual-account')
-  @UseGuards(TenantRoleGuard)
-  @Roles(...ADMIN_ROLES)
-  @ApiOperation({ summary: 'Provision or retry Nomba virtual account for rewards wallet' })
-  async provisionVirtualAccount(@Param('tenantId') tenantId: string) {
-    const wallet = await this.walletService.provisionVirtualAccount(tenantId);
-    const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return withWalletResponse(wallet, fees);
-  }
-
   @Post('wallet/topup')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async manualTopup(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
-    return this.walletService.manualTopup(tenantId, body.amount);
+    return this.walletTopupService.manualTopup(tenantId, body.amount);
   }
 
   @Post('wallet/topup/checkout')
@@ -145,7 +137,7 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   @ApiOperation({ summary: 'Create Nomba checkout link to fund rewards wallet' })
   async topupCheckout(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
-    return this.walletService.createTopupCheckout(tenantId, Number(body.amount));
+    return this.walletTopupService.createTopupCheckout(tenantId, Number(body.amount));
   }
 
   @Post('wallet/auto-topup')

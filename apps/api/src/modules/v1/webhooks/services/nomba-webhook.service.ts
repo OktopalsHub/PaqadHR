@@ -1,14 +1,12 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
-import { RewardsService } from '../../rewards/services/rewards.service';
-import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
+import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
   extractNombaEventType,
   extractPayrollMerchantRef,
   isSubscriptionPaymentEvent,
-  isWalletFundingEvent,
 } from '../webhook-request.util';
 
 /** Checkout wallet top-up shares payment_success with subscriptions; route by order meta. */
@@ -65,8 +63,7 @@ export class NombaWebhookService {
   constructor(
     private readonly subscriptionBillingService: SubscriptionBillingService,
     private readonly payrollPayoutService: PayrollPayoutService,
-    private readonly rewardsService: RewardsService,
-    private readonly walletService: TenantWalletService,
+    private readonly walletTopupService: TenantWalletTopupService,
   ) {}
 
   async dispatch(
@@ -93,17 +90,13 @@ export class NombaWebhookService {
     if (isSubscriptionPaymentEvent(eventType)) {
       const walletTopup = extractWalletTopupCheckout(payload);
       if (walletTopup) {
-        return this.walletService.completeCheckoutTopup(walletTopup);
+        return this.walletTopupService.completeCheckoutTopup(walletTopup);
       }
       return this.subscriptionBillingService.processNombaPayload(payload);
     }
 
     if (extractPayrollMerchantRef(payload)) {
       return this.payrollPayoutService.processNombaPayload(payload);
-    }
-
-    if (isWalletFundingEvent(eventType)) {
-      return this.rewardsService.processNombaFundingPayload(payload);
     }
 
     this.logger.debug(`Ignoring unhandled Nomba webhook event: ${eventType || 'unknown'}`);
