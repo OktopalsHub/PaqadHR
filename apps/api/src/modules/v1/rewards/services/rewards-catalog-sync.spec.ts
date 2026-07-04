@@ -102,7 +102,7 @@ describe('RewardsService catalog sync', () => {
     expect(settingsRow.settings.rewards.reloadlyProducts).toHaveLength(1);
   });
 
-  it('converts USD sender cost to rewards currency during sync', async () => {
+  it('stores raw USD sender cost during sync', async () => {
     listProductsByCountries.mockResolvedValue([
       {
         productId: 202,
@@ -119,8 +119,8 @@ describe('RewardsService catalog sync', () => {
     ]);
 
     const products = await service.syncReloadlyProducts('tenant-1');
-    expect(products[0].listReloadlyCost).toBe(15000);
-    expect(products[0].listReloadlyCostCurrency).toBe('NGN');
+    expect(products[0].listReloadlyCost).toBe(10);
+    expect(products[0].listReloadlyCostCurrency).toBe('USD');
   });
 
   it('dedupes products with the same productId across countries', async () => {
@@ -169,11 +169,11 @@ describe('RewardsService catalog sync', () => {
     expect(reloadlyItem?.adminPricing).toBeUndefined();
   });
 
-  it('omits admin pricing when cost currency does not match rewards currency', async () => {
+  it('includes admin pricing for non-rewards currency costs', async () => {
     settingsRow.settings.rewards.reloadlyProducts = [
       {
         productId: 999,
-        name: 'Stale USD cost',
+        name: 'USD cost card',
         countryCode: 'US',
         currencyCode: 'USD',
         imageUrl: null,
@@ -185,6 +185,9 @@ describe('RewardsService catalog sync', () => {
 
     const catalog = await service.getCatalog('tenant-1', { includeAdminPricing: true });
     const reloadlyItem = catalog.find((item) => item.id === 'reloadly_999');
-    expect(reloadlyItem?.adminPricing).toBeUndefined();
+    expect(reloadlyItem?.adminPricing).toEqual({
+      reloadlyCost: 10,
+      reloadlyCostCurrency: 'USD',
+    });
   });
 });

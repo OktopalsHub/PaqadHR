@@ -284,22 +284,21 @@ function CatalogCard({
           </p>
         ) : null}
         <div className="mt-auto flex items-center justify-between pt-2">
-          <div className="flex items-end gap-3">
-            <div>
-              <p className="text-lg font-bold tabular-nums text-primary">
-                {item.pointsCost.toLocaleString()}
-              </p>
-              <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
-            </div>
-            {isAdmin && item.type === 'RELOADLY' && item.adminPricing ? (
-              <p className="pb-0.5 text-[10px] text-muted-foreground tabular-nums">
-                Reloadly{' '}
-                {formatReloadlyCost(
-                  item.adminPricing.reloadlyCost,
-                  item.adminPricing.reloadlyCostCurrency,
-                )}
-              </p>
-            ) : null}
+          <div>
+            <p className="text-lg font-bold tabular-nums text-primary">
+              {item.pointsCost.toLocaleString()}
+              {isAdmin && item.type === 'RELOADLY' && item.adminPricing ? (
+                <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                  (
+                  {formatReloadlyCost(
+                    item.adminPricing.reloadlyCost,
+                    item.adminPricing.reloadlyCostCurrency,
+                  )}
+                  )
+                </span>
+              ) : null}
+            </p>
+            <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && item.type === 'CUSTOM' && onDelete && !isTemplate && (

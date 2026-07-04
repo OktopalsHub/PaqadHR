@@ -313,7 +313,7 @@ export class RewardsService {
         fixedDenominations: p.fixedDenominations ?? [],
         ...(options?.includeAdminPricing &&
         p.listReloadlyCost != null &&
-        p.listReloadlyCostCurrency?.toUpperCase() === settings.rewardsCurrency.toUpperCase()
+        p.listReloadlyCostCurrency
           ? {
               adminPricing: {
                 reloadlyCost: p.listReloadlyCost,
@@ -399,22 +399,6 @@ export class RewardsService {
         const pointsCost = Math.ceil(chargedValue * exchangeRate);
         const rawCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
         const rawCurrency = p.senderCurrencyCode;
-        let listReloadlyCost = rawCost;
-        let listReloadlyCostCurrency = rawCurrency;
-
-        if (
-          rawCost != null &&
-          rawCurrency.toUpperCase() !== settings.rewardsCurrency.toUpperCase()
-        ) {
-          listReloadlyCost = await this.toWalletCurrency(
-            rawCost,
-            rawCurrency,
-            settings.rewardsCurrency,
-            undefined,
-            p.countryCode,
-          );
-          listReloadlyCostCurrency = settings.rewardsCurrency;
-        }
 
         return {
           productId: p.productId,
@@ -426,8 +410,8 @@ export class RewardsService {
           maxDenomination: p.maxRecipientDenomination ?? null,
           fixedDenominations: p.fixedRecipientDenominations ?? [],
           pointsCost,
-          listReloadlyCost,
-          listReloadlyCostCurrency,
+          listReloadlyCost: rawCost,
+          listReloadlyCostCurrency: rawCurrency,
         };
       }),
     );

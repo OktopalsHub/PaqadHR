@@ -32,24 +32,32 @@ export async function disconnectSlackIntegration(
   );
 }
 
-export async function fetchSlackChannels(integrationId: string): Promise<SlackChannel[]> {
+export async function fetchSlackChannels(
+  tenantId: string,
+  integrationId: string,
+): Promise<SlackChannel[]> {
   const data = await apiClient<SlackChannel[] | { channels: SlackChannel[] }>(
-    `/integrations/${integrationId}/channels`,
+    tenantPath(tenantId, `integrations/${integrationId}/channels`),
   );
   return Array.isArray(data) ? data : (data.channels ?? []);
 }
 
 export async function createSlackChannel(
+  tenantId: string,
   integrationId: string,
   name: string,
 ): Promise<SlackChannel> {
-  return apiClient<SlackChannel>(`/integrations/${integrationId}/channels/create`, {
-    method: 'POST',
-    body: JSON.stringify({ name }),
-  });
+  return apiClient<SlackChannel>(
+    tenantPath(tenantId, `integrations/${integrationId}/channels/create`),
+    {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    },
+  );
 }
 
 export async function setupShoutoutChannel(
+  tenantId: string,
   integrationId: string,
   platformChannelId: string,
   platformChannelName: string,
@@ -59,7 +67,7 @@ export async function setupShoutoutChannel(
   testMessageSent?: boolean;
   testMessageError?: string;
 }> {
-  return apiClient(`/integrations/${integrationId}/setup-channel`, {
+  return apiClient(tenantPath(tenantId, `integrations/${integrationId}/setup-channel`), {
     method: 'POST',
     body: JSON.stringify({ platformChannelId, platformChannelName }),
   });
