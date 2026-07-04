@@ -193,7 +193,6 @@ export class ChannelManagementService {
       id: response.channel.id,
       name: response.channel.name ?? name,
       type: 'public',
-      memberCount: response.channel.num_members,
       description: response.channel.purpose?.value || response.channel.topic?.value,
     };
   }

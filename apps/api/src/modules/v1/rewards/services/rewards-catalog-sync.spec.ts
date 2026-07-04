@@ -17,6 +17,7 @@ describe('RewardsService catalog sync', () => {
     };
   };
   let settingsRepo: { findOne: jest.Mock; save: jest.Mock };
+  let listProductsByCountries: jest.Mock;
 
   beforeEach(() => {
     settingsRow = {
@@ -40,22 +41,24 @@ describe('RewardsService catalog sync', () => {
       }),
     };
 
+    listProductsByCountries = jest.fn().mockResolvedValue([
+      {
+        productId: 101,
+        productName: 'Amazon NG',
+        countryCode: 'NG',
+        recipientCurrencyCode: 'NGN',
+        senderCurrencyCode: 'NGN',
+        fixedRecipientDenominations: [1000],
+        fixedSenderDenominations: [980],
+        minRecipientDenomination: 1000,
+        maxRecipientDenomination: 50000,
+        logoUrls: ['https://example.com/amazon.png'],
+      },
+    ]);
+
     const reloadlyApi = {
       isConfigured: jest.fn().mockReturnValue(true),
-      listProductsByCountries: jest.fn().mockResolvedValue([
-        {
-          productId: 101,
-          productName: 'Amazon NG',
-          countryCode: 'NG',
-          recipientCurrencyCode: 'NGN',
-          senderCurrencyCode: 'NGN',
-          fixedRecipientDenominations: [1000],
-          fixedSenderDenominations: [980],
-          minRecipientDenomination: 1000,
-          maxRecipientDenomination: 50000,
-          logoUrls: ['https://example.com/amazon.png'],
-        },
-      ]),
+      listProductsByCountries,
     };
 
     service = new RewardsService(
@@ -85,7 +88,9 @@ describe('RewardsService catalog sync', () => {
     });
     jest
       .spyOn(service as any, 'toWalletCurrency')
-      .mockImplementation(async (amount: number) => amount);
+      .mockImplementation(async (amount: number, from?: string) =>
+        from?.toUpperCase() === 'USD' ? amount * 1500 : amount,
+      );
   });
 
   it('syncs Reloadly products when catalog is empty', async () => {
@@ -95,6 +100,57 @@ describe('RewardsService catalog sync', () => {
     expect(products[0].listReloadlyCost).toBe(980);
     expect(products[0].listReloadlyCostCurrency).toBe('NGN');
     expect(settingsRow.settings.rewards.reloadlyProducts).toHaveLength(1);
+  });
+
+  it('converts USD sender cost to rewards currency during sync', async () => {
+    listProductsByCountries.mockResolvedValue([
+      {
+        productId: 202,
+        productName: 'Amazon US',
+        countryCode: 'US',
+        recipientCurrencyCode: 'USD',
+        senderCurrencyCode: 'USD',
+        fixedRecipientDenominations: [10],
+        fixedSenderDenominations: [10],
+        minRecipientDenomination: 10,
+        maxRecipientDenomination: 100,
+        logoUrls: ['https://example.com/amazon-us.png'],
+      },
+    ]);
+
+    const products = await service.syncReloadlyProducts('tenant-1');
+    expect(products[0].listReloadlyCost).toBe(15000);
+    expect(products[0].listReloadlyCostCurrency).toBe('NGN');
+  });
+
+  it('dedupes products with the same productId across countries', async () => {
+    listProductsByCountries.mockResolvedValue([
+      {
+        productId: 303,
+        productName: 'Global Card',
+        countryCode: 'NG',
+        recipientCurrencyCode: 'NGN',
+        senderCurrencyCode: 'NGN',
+        fixedRecipientDenominations: [500],
+        fixedSenderDenominations: [490],
+        logoUrls: [],
+      },
+      {
+        productId: 303,
+        productName: 'Global Card',
+        countryCode: 'US',
+        recipientCurrencyCode: 'USD',
+        senderCurrencyCode: 'USD',
+        fixedRecipientDenominations: [5],
+        fixedSenderDenominations: [5],
+        logoUrls: [],
+      },
+    ]);
+
+    const products = await service.syncReloadlyProducts('tenant-1');
+    expect(products).toHaveLength(1);
+    expect(products[0].productId).toBe(303);
+    expect(products[0].countryCode).toBe('NG');
   });
 
   it('returns non-empty catalog after sync', async () => {
@@ -110,6 +166,25 @@ describe('RewardsService catalog sync', () => {
   it('omits admin pricing for members', async () => {
     const catalog = await service.getCatalog('tenant-1');
     const reloadlyItem = catalog.find((item) => item.type === 'RELOADLY');
+    expect(reloadlyItem?.adminPricing).toBeUndefined();
+  });
+
+  it('omits admin pricing when cost currency does not match rewards currency', async () => {
+    settingsRow.settings.rewards.reloadlyProducts = [
+      {
+        productId: 999,
+        name: 'Stale USD cost',
+        countryCode: 'US',
+        currencyCode: 'USD',
+        imageUrl: null,
+        pointsCost: 100,
+        listReloadlyCost: 10,
+        listReloadlyCostCurrency: 'USD',
+      },
+    ];
+
+    const catalog = await service.getCatalog('tenant-1', { includeAdminPricing: true });
+    const reloadlyItem = catalog.find((item) => item.id === 'reloadly_999');
     expect(reloadlyItem?.adminPricing).toBeUndefined();
   });
 });

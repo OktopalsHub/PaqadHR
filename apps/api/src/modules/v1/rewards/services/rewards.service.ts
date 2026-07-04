@@ -311,7 +311,9 @@ export class RewardsService {
         minDenomination: p.minDenomination ?? null,
         maxDenomination: p.maxDenomination ?? null,
         fixedDenominations: p.fixedDenominations ?? [],
-        ...(options?.includeAdminPricing && p.listReloadlyCost != null && p.listReloadlyCostCurrency
+        ...(options?.includeAdminPricing &&
+        p.listReloadlyCost != null &&
+        p.listReloadlyCostCurrency?.toUpperCase() === settings.rewardsCurrency.toUpperCase()
           ? {
               adminPricing: {
                 reloadlyCost: p.listReloadlyCost,
@@ -395,7 +397,24 @@ export class RewardsService {
         );
         const chargedValue = computeRedemptionDebit(convertedValue, feePercentage);
         const pointsCost = Math.ceil(chargedValue * exchangeRate);
-        const reloadlyCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
+        const rawCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
+        const rawCurrency = p.senderCurrencyCode;
+        let listReloadlyCost = rawCost;
+        let listReloadlyCostCurrency = rawCurrency;
+
+        if (
+          rawCost != null &&
+          rawCurrency.toUpperCase() !== settings.rewardsCurrency.toUpperCase()
+        ) {
+          listReloadlyCost = await this.toWalletCurrency(
+            rawCost,
+            rawCurrency,
+            settings.rewardsCurrency,
+            undefined,
+            p.countryCode,
+          );
+          listReloadlyCostCurrency = settings.rewardsCurrency;
+        }
 
         return {
           productId: p.productId,
@@ -407,13 +426,28 @@ export class RewardsService {
           maxDenomination: p.maxRecipientDenomination ?? null,
           fixedDenominations: p.fixedRecipientDenominations ?? [],
           pointsCost,
-          listReloadlyCost: reloadlyCost,
-          listReloadlyCostCurrency: p.senderCurrencyCode,
+          listReloadlyCost,
+          listReloadlyCostCurrency,
         };
       }),
     );
 
-    return records;
+    const seen = new Set<number>();
+    const deduped = records.filter((record) => {
+      if (seen.has(record.productId)) {
+        return false;
+      }
+      seen.add(record.productId);
+      return true;
+    });
+
+    if (deduped.length < records.length) {
+      this.logger.log(
+        `Dropped ${records.length - deduped.length} duplicate Reloadly productId(s) during sync`,
+      );
+    }
+
+    return deduped;
   }
 
   async getAvailableReloadlyProducts(

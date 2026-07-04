@@ -116,7 +116,10 @@ export class OAuthIntegrationService {
       if (tokenData.bot_token || tokenData.botToken) {
         await manager.update(PlatformIntegration, integration.id, {
           botToken: tokenData.bot_token || tokenData.botToken,
+          isActive: true,
         });
+      } else if (!integration.isActive) {
+        await manager.update(PlatformIntegration, integration.id, { isActive: true });
       }
       const userTokenId = userToken.id;
       return {

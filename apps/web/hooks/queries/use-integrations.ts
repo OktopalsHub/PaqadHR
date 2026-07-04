@@ -5,6 +5,7 @@ import {
   bulkInviteUsers,
   connectSlackOAuth,
   createSlackChannel,
+  disconnectSlackIntegration,
   fetchShoutoutSlackStatus,
   fetchSlackChannels,
   fetchSyncStatus,
@@ -42,6 +43,34 @@ export function useConnectSlack() {
       if (!tenantId) throw new Error('No tenant selected');
       const { url } = await connectSlackOAuth(tenantId);
       window.location.href = url;
+    },
+  });
+}
+
+export function useDisconnectSlack() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (integrationId: string) => {
+      if (!tenantId) throw new Error('No tenant selected');
+      return disconnectSlackIntegration(tenantId, integrationId);
+    },
+    onSuccess: (_, integrationId) => {
+      if (tenantId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.integrations.shoutoutSlackStatus(tenantId),
+        });
+      }
+      void queryClient.removeQueries({
+        queryKey: queryKeys.integrations.slackChannels(integrationId),
+      });
+      void queryClient.removeQueries({
+        queryKey: queryKeys.integrations.syncStatus(integrationId),
+      });
+      void queryClient.removeQueries({
+        queryKey: queryKeys.integrations.unmatchedUsers(integrationId),
+      });
     },
   });
 }

@@ -485,6 +485,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // Top-up (Airtime/Data) States
   const [selectedCountryCode, setSelectedCountryCode] = useState(catalogCountries[0] || 'NG');
+  const [digitalCardsCountryCode, setDigitalCardsCountryCode] = useState(
+    catalogCountries[0] || 'NG',
+  );
   const [airtimePhone, setAirtimePhone] = useState('');
   const [airtimeNetwork, setAirtimeNetwork] = useState<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE'>('MTN');
   const [airtimeAmount, setAirtimeAmount] = useState('1000');
@@ -508,6 +511,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       setSelectedCountryCode(catalogCountries[0]);
     }
   }, [catalogCountries, selectedCountryCode]);
+
+  useEffect(() => {
+    if (catalogCountries.length > 0 && !catalogCountries.includes(digitalCardsCountryCode)) {
+      setDigitalCardsCountryCode(catalogCountries[0]);
+    }
+  }, [catalogCountries, digitalCardsCountryCode]);
 
   // Sync operator default when operators load
   useEffect(() => {
@@ -800,10 +809,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const giftCards = catalog.filter((i) => i.type === 'RELOADLY');
   const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
 
+  const matchesDigitalCardsCountry = (item: CatalogItem) =>
+    catalogCountries.length <= 1 || item.countryCode === digitalCardsCountryCode;
+
   const filteredReloadlyCards = giftCards.filter((item) => {
     const category = getReloadlyCategory(item);
     const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
     if (isNgAirtime) return false;
+    if (!matchesDigitalCardsCountry(item)) return false;
 
     if (selectedCategory === 'All') return true;
     return category === selectedCategory;
@@ -1060,6 +1073,23 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 amounts cost more. Configure rate and fees in Settings → Rewards.
               </p>
             ) : null}
+            {catalogCountries.length > 1 ? (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-semibold text-muted-foreground">Country:</Label>
+                <Select value={digitalCardsCountryCode} onValueChange={setDigitalCardsCountryCode}>
+                  <SelectTrigger className="w-[140px] h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {catalogCountries.map((code) => (
+                      <SelectItem key={code} value={code} className="text-xs">
+                        {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {
@@ -1076,6 +1106,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     const isNgAirtime =
                       item.countryCode === 'NG' && getReloadlyCategory(item) === 'Airtime';
                     if (isNgAirtime) return false;
+                    if (!matchesDigitalCardsCountry(item)) return false;
                     if (cat === 'All') return true;
                     return getReloadlyCategory(item) === cat;
                   }).length;

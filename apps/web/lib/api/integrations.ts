@@ -22,6 +22,16 @@ export async function connectSlackOAuth(tenantId: string): Promise<{ url: string
   return apiClient<{ url: string }>(tenantPath(tenantId, 'integrations/oauth/connect/slack'));
 }
 
+export async function disconnectSlackIntegration(
+  tenantId: string,
+  integrationId: string,
+): Promise<{ success: boolean; message: string }> {
+  return apiClient<{ success: boolean; message: string }>(
+    tenantPath(tenantId, `integrations/${integrationId}/disconnect`),
+    { method: 'POST' },
+  );
+}
+
 export async function fetchSlackChannels(integrationId: string): Promise<SlackChannel[]> {
   const data = await apiClient<SlackChannel[] | { channels: SlackChannel[] }>(
     `/integrations/${integrationId}/channels`,
