@@ -13,12 +13,7 @@ import { SlackUserSyncSection } from './slack-user-sync-section';
 const slackBrandButtonClass =
   'bg-[#4A154B] text-white hover:bg-[#611f69] hover:text-white border-transparent shadow-sm';
 
-type SlackIntegrationSectionProps = {
-  /** When true, Connect starts OAuth. When false, navigates to the Slack integrations page. */
-  enableOAuth?: boolean;
-};
-
-export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegrationSectionProps) {
+export function SlackIntegrationSection() {
   const { tenant } = useTenant();
   const tenantHref = useTenantHref();
   const role = tenant?.member?.role?.toLowerCase();
@@ -30,7 +25,6 @@ export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegratio
     return null;
   }
 
-  const slackPageHref = tenantHref('integrations/slack');
   const setupHref = status?.integrationId
     ? tenantHref(`integrations/setup-channel?integration_id=${status.integrationId}&platform=slack`)
     : tenantHref('integrations/setup-channel');
@@ -39,12 +33,12 @@ export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegratio
     try {
       await connectSlack.mutateAsync();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start Slack connection');
+      toast.error(err instanceof Error ? err.message : 'Failed to connect Slack');
     }
   };
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading Slack integration…</p>;
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
   return (
@@ -52,8 +46,7 @@ export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegratio
       {status?.configured ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Shoutouts are posted to{' '}
-            <span className="font-medium text-foreground">{status.channelName}</span> on Slack.
+            Posting to <span className="font-medium text-foreground">{status.channelName}</span>
           </p>
           <Button size="sm" variant="outline" asChild>
             <Link href={setupHref}>Change channel</Link>
@@ -61,21 +54,17 @@ export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegratio
         </div>
       ) : status?.integrationId ? (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Slack is connected. Choose a channel where shoutouts should be posted.
-          </p>
+          <p className="text-sm text-muted-foreground">Connected. Choose a channel for shoutouts.</p>
           <Button size="sm" className={slackBrandButtonClass} asChild>
             <Link href={setupHref}>
               <SlackIcon className="mr-1.5 size-4" />
-              Select shoutout channel
+              Select channel
             </Link>
           </Button>
         </div>
-      ) : enableOAuth ? (
+      ) : (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Connect Slack so team shoutouts appear in your workspace channel.
-          </p>
+          <p className="text-sm text-muted-foreground">Connect Slack to post shoutouts.</p>
           <Button
             size="sm"
             className={slackBrandButtonClass}
@@ -88,18 +77,6 @@ export function SlackIntegrationSection({ enableOAuth = false }: SlackIntegratio
               <SlackIcon className="mr-1.5 size-4" />
             )}
             Add to Slack
-          </Button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Connect Slack so team shoutouts appear in your workspace channel.
-          </p>
-          <Button size="sm" className={slackBrandButtonClass} asChild>
-            <Link href={slackPageHref}>
-              <SlackIcon className="mr-1.5 size-4" />
-              Connect Slack
-            </Link>
           </Button>
         </div>
       )}

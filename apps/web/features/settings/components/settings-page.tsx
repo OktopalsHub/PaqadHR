@@ -9,6 +9,7 @@ import { SettingsActivitiesTab } from '@/features/settings/components/settings-a
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
+import { SettingsIntegrationsTab } from '@/features/settings/components/settings-integrations-tab';
 import { SettingsLeaveTab } from '@/features/settings/components/settings-leave-tab';
 import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import { SettingsProfileTab } from '@/features/settings/components/settings-profile-tab';
@@ -129,6 +130,14 @@ function SettingsPageContent() {
           {isAdmin ? (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="integrations"
+            >
+              Integrations
+            </TabsTrigger>
+          ) : null}
+          {isAdmin ? (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
               value="activities"
             >
               Activities
@@ -177,6 +186,11 @@ function SettingsPageContent() {
         {isAdmin ? (
           <TabsContent value="billing" className="mt-5">
             <SettingsBillingTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="integrations" className="mt-5">
+            <SettingsIntegrationsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (

@@ -8,6 +8,7 @@ export const SETTINGS_TABS = [
   'notifications',
   'attendance',
   'billing',
+  'integrations',
   'activities',
 ] as const;
 
@@ -22,6 +23,7 @@ export const ADMIN_SETTINGS_TABS: SettingsTab[] = [
   'notifications',
   'attendance',
   'billing',
+  'integrations',
   'activities',
 ];
 

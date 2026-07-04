@@ -1,23 +1,18 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
-import { SlackIcon } from '@/components/icons/slack-icon';
 import { LogoUpload } from '@/components/logo-upload';
 import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
 import { useWorkspaceLogoUpload } from '@/hooks/queries/use-image-upload';
-import { useShoutoutSlackStatus } from '@/hooks/queries/use-integrations';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { useUpdateTenant } from '@/hooks/queries/use-tenants';
-import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
@@ -26,57 +21,6 @@ const timezoneOptions = Intl.supportedValuesOf('timeZone').map((tz) => ({
   value: tz,
   label: tz,
 }));
-
-function WorkspaceSlackStatus() {
-  const { tenant } = useTenant();
-  const tenantHref = useTenantHref();
-  const role = tenant?.member?.role?.toLowerCase();
-  const isAdmin = role === 'owner' || role === 'admin';
-  const { data: status, isLoading } = useShoutoutSlackStatus();
-  const slackPageHref = tenantHref('integrations/slack');
-
-  if (!isAdmin) {
-    return null;
-  }
-
-  if (isLoading) {
-    return (
-      <ContentCard title="Slack" description="Shoutouts integration">
-        <p className="text-sm text-muted-foreground">Loading Slack status…</p>
-      </ContentCard>
-    );
-  }
-
-  let statusText = 'Slack is not connected. Connect to post shoutouts to a channel.';
-  if (status?.configured) {
-    statusText = `Connected · shoutouts post to ${status.channelName ?? 'your channel'}`;
-  } else if (status?.integrationId) {
-    statusText = 'Slack is connected. Choose a channel for shoutouts.';
-  }
-
-  return (
-    <ContentCard title="Slack" description="Post team shoutouts to a Slack channel">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted-foreground">{statusText}</p>
-        <Button
-          size="sm"
-          variant={status?.configured ? 'outline' : 'default'}
-          className={
-            status?.configured
-              ? undefined
-              : 'bg-[#4A154B] text-white hover:bg-[#611f69] hover:text-white border-transparent'
-          }
-          asChild
-        >
-          <Link href={slackPageHref}>
-            {!status?.configured ? <SlackIcon className="mr-1.5 size-4" /> : null}
-            {status?.configured ? 'Manage Slack' : 'Connect Slack'}
-          </Link>
-        </Button>
-      </div>
-    </ContentCard>
-  );
-}
 
 export function SettingsWorkspaceTab() {
   const { tenant, tenantId } = useTenant();
@@ -324,8 +268,6 @@ export function SettingsWorkspaceTab() {
           <SettingsFormActions onSave={saveEmailSettings} isPending={patchSettings.isPending} />
         </div>
       </ContentCard>
-
-      <WorkspaceSlackStatus />
     </div>
   );
 }

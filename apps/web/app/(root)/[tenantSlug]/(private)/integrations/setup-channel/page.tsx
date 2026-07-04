@@ -22,7 +22,7 @@ export default function SetupChannelPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const tenantHref = useTenantHref();
-  const slackPageHref = tenantHref('integrations/slack');
+  const integrationsHref = tenantHref('settings?tab=integrations');
   const integrationId = searchParams.get('integration_id') ?? '';
   const [channelId, setChannelId] = useState('');
   const { data: channels = [], isLoading } = useSlackChannels(integrationId || undefined);
@@ -53,7 +53,7 @@ export default function SetupChannelPage() {
         toast.success(result.message || 'Channel configured');
       }
 
-      router.push(slackPageHref);
+      router.push(integrationsHref);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save channel');
     }
@@ -62,12 +62,12 @@ export default function SetupChannelPage() {
   if (!integrationId) {
     return (
       <AppPage>
-        <ContentCard title="Slack channel setup" description="Missing integration ID">
+        <ContentCard title="Slack channel" description="Missing integration">
           <p className="text-sm text-muted-foreground">
-            Connect Slack from the Slack integration page, then return here to pick a channel.
+            Connect Slack from Settings → Integrations, then pick a channel.
           </p>
-          <Button className="mt-4" variant="outline" onClick={() => router.push(slackPageHref)}>
-            Back to Slack
+          <Button className="mt-4" variant="outline" onClick={() => router.push(integrationsHref)}>
+            Back
           </Button>
         </ContentCard>
       </AppPage>
@@ -76,15 +76,12 @@ export default function SetupChannelPage() {
 
   return (
     <AppPage>
-      <ContentCard
-        title="Choose a Slack channel"
-        description="Shoutouts from PaqadHR will be posted to this channel"
-      >
+      <ContentCard title="Slack channel" description="Shoutouts post here">
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading Slack channels…</p>
+          <p className="text-sm text-muted-foreground">Loading channels…</p>
         ) : channels.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No channels found. Make sure the PaqadHR app is invited to the channel you want to use.
+            No channels found. Invite the PaqadHR bot to the channel you want.
           </p>
         ) : (
           <div className="space-y-4">
@@ -106,9 +103,9 @@ export default function SetupChannelPage() {
             <div className="flex flex-wrap gap-2">
               <Button disabled={!channelId || setupChannel.isPending} onClick={handleSave}>
                 {setupChannel.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
-                Save channel
+                Save
               </Button>
-              <Button variant="outline" onClick={() => router.push(slackPageHref)}>
+              <Button variant="outline" onClick={() => router.push(integrationsHref)}>
                 Cancel
               </Button>
             </div>
