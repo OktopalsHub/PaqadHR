@@ -5,6 +5,12 @@ export function buildNombaAccountRef(tenantId: string): string {
   return `rewards_wallet_${tenantId.replace(/-/g, '')}`;
 }
 
+export function buildNombaWalletTopupOrderRef(tenantId: string): string {
+  // Nomba checkout orderReference max is 50 chars. Strip UUID hyphens and use a
+  // base36 timestamp for uniqueness (same pattern as subscription checkout).
+  return `wt_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
+}
+
 export function buildVirtualAccountName(tenantName?: string): string {
   const base = (tenantName || 'Paqad Rewards Wallet').replace(/[^\w\s-]/g, '').trim();
   const name = base.length >= 8 ? base : `Paqad ${base}`.trim();
