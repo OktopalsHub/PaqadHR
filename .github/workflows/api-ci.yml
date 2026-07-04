@@ -17,6 +17,8 @@ on:
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
+      - 'biome.json'
+      - '.github/workflows/api-ci.yml'
 
 jobs:
   lint-and-test:
@@ -51,8 +53,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Biome check
-        run: pnpm check
+      - name: Lint API
+        run: pnpm --filter api check
 
       - name: Build API
         run: pnpm --filter api build
