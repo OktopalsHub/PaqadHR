@@ -51,6 +51,7 @@ describe('RewardsService.processNombaFundingPayload', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
   });
 
