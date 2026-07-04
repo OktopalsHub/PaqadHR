@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Award, Coins, Heart, Sparkles, Trophy, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
@@ -29,15 +29,10 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
-import { ShoutoutComposer } from './shoutout-composer';
+import { ShoutoutComposer, type ShoutoutSubmitPayload } from './shoutout-composer';
 import { ShoutoutTasksTab } from './shoutout-tasks-tab';
 
 function ShoutoutsPageContent() {
-  const [message, setMessage] = useState('');
-  const [points, setPoints] = useState('10');
-  const [recipientIds, setRecipientIds] = useState<string[]>([]);
-  const [categoryId, setCategoryId] = useState('');
-
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -81,38 +76,13 @@ function ShoutoutsPageContent() {
 
   const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
 
-  useEffect(() => {
-    if (categories[0] && !categoryId) {
-      setCategoryId(categories[0].id);
-    }
-  }, [categories, categoryId]);
-
-  const handleCreate = async () => {
-    if (recipientIds.length === 0 || !message.trim()) {
-      toast.error('Select at least one recipient and write a message');
-      return;
-    }
-    const pointsNum = Number(points) || 10;
-    const totalPointsNeeded = pointsNum * recipientIds.length;
-    if (pointsBalance && totalPointsNeeded > pointsBalance.remainingAllowance) {
-      toast.error(
-        `You don't have enough points left. Needed: ${totalPointsNeeded}, remaining: ${pointsBalance.remainingAllowance}`,
-      );
-      return;
-    }
-    try {
-      await createShoutout.mutateAsync({
-        recipientIds,
-        pointsPerRecipient: pointsNum,
-        message: message.trim(),
-        categoryIds: categoryId ? [categoryId] : undefined,
-      });
-      setMessage('');
-      setRecipientIds([]);
-      toast.success('Shoutout sent successfully!');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send');
-    }
+  const handleCreate = async (payload: ShoutoutSubmitPayload) => {
+    await createShoutout.mutateAsync({
+      recipients: payload.recipients,
+      message: payload.message,
+      categoryIds: payload.categoryIds.length ? payload.categoryIds : undefined,
+    });
+    toast.success('Shoutout sent successfully!');
   };
 
   const handleAddCategory = async () => {
@@ -201,14 +171,6 @@ function ShoutoutsPageContent() {
                   .map((e) => ({ id: e.id, name: e.name }))}
                 categories={categories}
                 points={pointsBalance}
-                recipientIds={recipientIds}
-                onRecipientChange={setRecipientIds}
-                categoryId={categoryId}
-                onCategoryChange={setCategoryId}
-                pointsValue={points}
-                onPointsChange={setPoints}
-                message={message}
-                onMessageChange={setMessage}
                 onSubmit={handleCreate}
                 isSubmitting={createShoutout.isPending}
               />
