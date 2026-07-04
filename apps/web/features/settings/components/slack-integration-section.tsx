@@ -54,7 +54,9 @@ export function SlackIntegrationSection() {
         </div>
       ) : status?.integrationId ? (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Connected. Choose a channel for shoutouts.</p>
+          <p className="text-sm text-muted-foreground">
+            Connected. Choose a channel for shoutouts.
+          </p>
           <Button size="sm" className={slackBrandButtonClass} asChild>
             <Link href={setupHref}>
               <SlackIcon className="mr-1.5 size-4" />

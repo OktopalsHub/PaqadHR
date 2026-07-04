@@ -425,7 +425,7 @@ export function SettingsRewardsTab() {
           <div className="grid gap-5 sm:grid-cols-2">
             <SettingsFieldHint
               label="Points Exchange Rate"
-              hint={`Points charged per 1 ${currency} of reward value. Rate 1 means a ${currency} 1,000 gift costs 1,000 ${PAQ_POINTS_NAME}. Minimum 1.`}
+              hint={`Points per 1 ${currency} of cost after fees. Rate 1 → ${currency} 1,000 costs 1,000 ${PAQ_POINTS_NAME}. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
             >
               <Input
                 type="number"
@@ -474,12 +474,16 @@ export function SettingsRewardsTab() {
                   <SettingsSwitchRow
                     id="giftCardsEnabled"
                     label="Gift Cards & Prepaid Vouchers"
-                    hint="Allow users to redeem points for global gift cards, money cards, and gaming vouchers."
+                    hint="Reloadly vouchers. List price = lowest denomination, plus plan fee, then × exchange rate. Members pay more for higher amounts."
                     checked={giftCardsEnabled}
                     onCheckedChange={setGiftCardsEnabled}
                   />
                   {giftCardsEnabled && (
                     <div className="pl-6 pt-2 space-y-2 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Points on each card are a starting price (lowest amount). Wallet is charged
+                        the face value + plan fee when someone redeems.
+                      </p>
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:
                       </p>

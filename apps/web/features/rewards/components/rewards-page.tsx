@@ -277,6 +277,9 @@ function CatalogCard({
               {item.pointsCost.toLocaleString()}
             </p>
             <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
+            {isAdmin && item.type === 'RELOADLY' ? (
+              <p className="text-[10px] text-muted-foreground mt-0.5">From lowest amount</p>
+            ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             {isAdmin && item.type === 'CUSTOM' && onDelete && !isTemplate && (
@@ -957,14 +960,11 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
-  const defaultTab =
-    isGiftCardsEnabled && giftCards.length > 0
-      ? 'digital-cards'
-      : isAirtimeEnabled
-        ? 'airtime'
-        : isUtilitiesEnabled
-          ? 'utilities'
-          : 'perks';
+  const defaultTab = isAirtimeEnabled
+    ? 'airtime'
+    : isUtilitiesEnabled
+      ? 'utilities'
+      : 'perks';
 
   const content = (
     <>
@@ -984,15 +984,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          {isGiftCardsEnabled && giftCards.length > 0 && (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="digital-cards"
-            >
-              <ShoppingBag className="mr-1.5 size-3.5" />
-              Digital Cards
-            </TabsTrigger>
-          )}
           {isAirtimeEnabled && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
@@ -1018,6 +1009,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             <Sparkles className="mr-1.5 size-3.5" />
             Custom Perks
           </TabsTrigger>
+          {isGiftCardsEnabled && giftCards.length > 0 && (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="digital-cards"
+            >
+              <ShoppingBag className="mr-1.5 size-3.5" />
+              Digital Cards
+            </TabsTrigger>
+          )}
           <TabsTrigger
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
             value="history"
@@ -1038,6 +1038,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
         {isGiftCardsEnabled && giftCards.length > 0 && (
           <TabsContent value="digital-cards" className="space-y-4">
+            {isAdmin ? (
+              <p className="text-xs text-muted-foreground">
+                Points shown are for the lowest amount (plus plan fee × exchange rate). Higher
+                amounts cost more. Configure rate and fees in Settings → Rewards.
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {
