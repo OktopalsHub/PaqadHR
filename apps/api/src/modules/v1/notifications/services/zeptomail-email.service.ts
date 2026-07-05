@@ -44,7 +44,8 @@ export function buildZeptomailPayload(emailData: EmailData, defaultFromEmail: st
 
   if (emailData.html?.trim()) {
     payload.htmlbody = emailData.html;
-  } else if (emailData.text?.trim()) {
+  }
+  if (emailData.text?.trim()) {
     payload.textbody = emailData.text;
   }
 
