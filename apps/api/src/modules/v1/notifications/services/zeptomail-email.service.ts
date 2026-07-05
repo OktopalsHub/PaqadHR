@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EmailTemplateService } from './email-template.service';
 
 interface EmailData {
@@ -14,6 +14,80 @@ interface EmailData {
     contentType?: string;
   }>;
 }
+
+type ZeptomailErrorBody = {
+  error?: {
+    code?: string;
+    message?: string;
+    request_id?: string;
+    details?: Array<{ code?: string; message?: string; target?: string }>;
+  };
+  message?: string;
+  request_id?: string;
+  rawBody?: string;
+};
+
+export function buildZeptomailPayload(emailData: EmailData, defaultFromEmail: string) {
+  const toArray = Array.isArray(emailData.to) ? emailData.to : [emailData.to];
+  const payload: Record<string, unknown> = {
+    from: {
+      address: emailData.from || defaultFromEmail,
+      name: 'PaqadHR',
+    },
+    to: toArray.map((email) => ({
+      email_address: {
+        address: email,
+      },
+    })),
+    subject: emailData.subject,
+  };
+
+  if (emailData.html?.trim()) {
+    payload.htmlbody = emailData.html;
+  }
+  if (emailData.text?.trim()) {
+    payload.textbody = emailData.text;
+  }
+
+  if (emailData.replyTo) {
+    payload.reply_to = [{ address: emailData.replyTo }];
+  }
+
+  if (emailData.attachments?.length) {
+    payload.attachments = emailData.attachments.map((att) => ({
+      name: att.filename,
+      content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
+      mime_type: att.contentType,
+    }));
+  }
+
+  return payload;
+}
+
+export function formatZeptomailError(status: number, result: ZeptomailErrorBody): string {
+  const error = result.error;
+  const detailMessages =
+    error?.details
+      ?.map((detail) => {
+        const parts = [detail.message, detail.target ? `(${detail.target})` : ''].filter(Boolean);
+        return parts.join(' ');
+      })
+      .filter(Boolean) ?? [];
+
+  const message =
+    error?.message ||
+    detailMessages.join('; ') ||
+    result.message ||
+    result.rawBody ||
+    'Unknown error';
+
+  const code = error?.code ? ` [${error.code}]` : '';
+  const requestId = error?.request_id || result.request_id;
+  const requestSuffix = requestId ? ` (request_id: ${requestId})` : '';
+
+  return `Zeptomail API error (${status})${code}: ${message}${requestSuffix}`;
+}
+
 @Injectable()
 export class ZeptomailEmailService {
   private readonly logger = new Logger(ZeptomailEmailService.name);
@@ -28,6 +102,7 @@ export class ZeptomailEmailService {
       this.logger.warn('ZEPTOMAIL_API_KEY is not configured. Email sending will fail.');
     }
   }
+
   async sendEmail(
     emailData: EmailData,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
@@ -36,28 +111,16 @@ export class ZeptomailEmailService {
       return { success: false, error: 'Zeptomail API key not configured' };
     }
 
+    if (!emailData.subject?.trim()) {
+      return { success: false, error: 'Email subject is required' };
+    }
+
+    if (!emailData.html?.trim() && !emailData.text?.trim()) {
+      return { success: false, error: 'Email body is required' };
+    }
+
     try {
-      const toArray = Array.isArray(emailData.to) ? emailData.to : [emailData.to];
-      const payload = {
-        from: {
-          address: emailData.from || this.defaultFromEmail,
-          name: 'PaqadHR',
-        },
-        to: toArray.map((email) => ({
-          email_address: {
-            address: email,
-          },
-        })),
-        subject: emailData.subject,
-        htmlbody: emailData.html,
-        textbody: emailData.text,
-        reply_to: emailData.replyTo ? [{ address: emailData.replyTo }] : undefined,
-        attachments: emailData.attachments?.map((att) => ({
-          name: att.filename,
-          content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
-          mime_type: att.contentType,
-        })),
-      };
+      const payload = buildZeptomailPayload(emailData, this.defaultFromEmail);
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -68,26 +131,20 @@ export class ZeptomailEmailService {
         body: JSON.stringify(payload),
       });
       const bodyText = await response.text();
-      const result = this.parseZeptomailResponse(bodyText, response.status);
+      const result = this.parseZeptomailResponse(bodyText, response.status) as ZeptomailErrorBody;
+
       if (!response.ok) {
-        const error = result.error as { message?: string } | undefined;
-        const rawBody = result.rawBody as string | undefined;
-        throw new BadRequestException(
-          `Zeptomail API error (${response.status}): ${error?.message || result.message || rawBody || 'Unknown error'}`,
-        );
+        const errorMessage = formatZeptomailError(response.status, result);
+        this.logger.warn(`Failed to send email to ${emailData.to}: ${errorMessage}`);
+        return { success: false, error: errorMessage };
       }
-      const data = result.data as Array<{ message_id?: string }> | undefined;
+
+      const data = (result as { data?: Array<{ message_id?: string }> }).data;
       this.logger.log(`Email sent successfully to ${emailData.to}`);
       return { success: true, messageId: data?.[0]?.message_id || 'unknown' };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const isExpectedFailure =
-        message.includes('not configured') || /\(\s*4\d{2}\s*\)/.test(message);
-      if (isExpectedFailure) {
-        this.logger.warn(`Failed to send email to ${emailData.to}: ${message}`);
-      } else {
-        this.logger.error(`Failed to send email to ${emailData.to}:`, error);
-      }
+      this.logger.error(`Failed to send email to ${emailData.to}: ${message}`);
       return { success: false, error: message };
     }
   }
@@ -108,6 +165,7 @@ export class ZeptomailEmailService {
       return { rawBody: trimmed.slice(0, 500) };
     }
   }
+
   async sendBulkEmails(
     emails: EmailData[],
   ): Promise<Array<{ success: boolean; messageId?: string; error?: string }>> {
@@ -118,6 +176,7 @@ export class ZeptomailEmailService {
         : { success: false, error: result.reason?.message || 'Unknown error' },
     );
   }
+
   async sendTemplateEmail(
     to: string | string[],
     templateKey: string,
@@ -158,13 +217,15 @@ export class ZeptomailEmailService {
         replyTo: options?.replyTo,
       });
     } catch (error) {
-      this.logger.error(`Failed to send template email '${templateKey}' to ${to}:`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to send template email '${templateKey}' to ${to}: ${message}`);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error),
+        error: message,
       };
     }
   }
+
   private renderTemplate(template: string, variables: Record<string, unknown>): string {
     let rendered = template;
     Object.entries(variables).forEach(([key, value]) => {
@@ -173,6 +234,7 @@ export class ZeptomailEmailService {
     });
     return rendered;
   }
+
   private getEmailTemplates(): Record<string, { subject: string; html: string; text: string }> {
     return {
       welcome: {
