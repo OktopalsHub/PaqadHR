@@ -237,9 +237,9 @@ export function ShoutoutComposer({
 
         {parsed.recipients.length > 0 || parsed.categoryNames.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
-            {parsed.recipients.map((r, idx) => (
+            {parsed.recipients.map((r) => (
               <Badge
-                key={`${r.recipientId}-${idx}`}
+                key={`${r.recipientId}-${r.name}-${r.points}`}
                 variant="secondary"
                 className={cn(
                   'flex items-center gap-1 border-sky-100 bg-sky-500/10 text-sky-600',

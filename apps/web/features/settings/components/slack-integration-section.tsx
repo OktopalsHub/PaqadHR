@@ -21,6 +21,7 @@ import {
   useConnectSlack,
   useDisconnectSlack,
   useShoutoutSlackStatus,
+  useSlackChannels,
 } from '@/hooks/queries/use-integrations';
 import { useTenant } from '@/providers/tenant-provider';
 import { SlackChannelPickerInline } from './slack-channel-picker-inline';
@@ -43,6 +44,15 @@ export function SlackIntegrationSection() {
 
   const integrationId = searchParams.get('integration_id') ?? status?.integrationId ?? undefined;
   const shouldAutoOpen = searchParams.get('slack_setup') === '1';
+  const activeIntegrationId = status?.integrationId ?? integrationId;
+  const channelsQuery = useSlackChannels(
+    activeIntegrationId,
+    Boolean(isAdmin && activeIntegrationId && !isLoading),
+  );
+  const needsReconnect = Boolean(
+    activeIntegrationId && !channelsQuery.isLoading && channelsQuery.isError,
+  );
+  const isConnected = Boolean(activeIntegrationId);
 
   useEffect(() => {
     if (shouldAutoOpen && integrationId) {
@@ -88,8 +98,6 @@ export function SlackIntegrationSection() {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
-  const activeIntegrationId = status?.integrationId ?? integrationId;
-
   return (
     <div className="space-y-6">
       {status?.configured ? (
@@ -103,38 +111,43 @@ export function SlackIntegrationSection() {
                 Change channel
               </Button>
             ) : null}
-            <DisconnectSlackButton
-              pending={disconnectSlack.isPending}
+            <SlackConnectionActions
+              isConnected={isConnected}
+              needsReconnect={needsReconnect}
+              connectPending={connectSlack.isPending}
+              disconnectPending={disconnectSlack.isPending}
+              onConnect={handleConnect}
               onDisconnect={handleDisconnect}
             />
           </div>
         </div>
-      ) : status?.integrationId ? (
+      ) : isConnected ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Connected. Choose a channel for shoutouts.
+            {needsReconnect
+              ? 'Slack connection failed. Reconnect to load channels.'
+              : 'Connected. Choose a channel for shoutouts.'}
           </p>
-          <DisconnectSlackButton
-            pending={disconnectSlack.isPending}
+          <SlackConnectionActions
+            isConnected={isConnected}
+            needsReconnect={needsReconnect}
+            connectPending={connectSlack.isPending}
+            disconnectPending={disconnectSlack.isPending}
+            onConnect={handleConnect}
             onDisconnect={handleDisconnect}
           />
         </div>
       ) : (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">Connect Slack to post shoutouts.</p>
-          <Button
-            size="sm"
-            className={slackBrandButtonClass}
-            disabled={connectSlack.isPending}
-            onClick={handleConnect}
-          >
-            {connectSlack.isPending ? (
-              <Loader2 className="mr-1.5 size-4 animate-spin" />
-            ) : (
-              <SlackIcon className="mr-1.5 size-4" />
-            )}
-            Connect Slack
-          </Button>
+          <SlackConnectionActions
+            isConnected={isConnected}
+            needsReconnect={needsReconnect}
+            connectPending={connectSlack.isPending}
+            disconnectPending={disconnectSlack.isPending}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
         </div>
       )}
 
@@ -143,13 +156,61 @@ export function SlackIntegrationSection() {
           integrationId={activeIntegrationId}
           onSaved={() => setPickerOpen(false)}
           onCancel={() => setPickerOpen(false)}
-          onReconnect={handleConnect}
+          onReconnect={needsReconnect ? handleConnect : undefined}
         />
       ) : null}
 
       {status?.integrationId && <SlackUserSyncSection integrationId={status.integrationId} />}
     </div>
   );
+}
+
+function SlackConnectionActions({
+  isConnected,
+  needsReconnect,
+  connectPending,
+  disconnectPending,
+  onConnect,
+  onDisconnect,
+}: {
+  isConnected: boolean;
+  needsReconnect: boolean;
+  connectPending: boolean;
+  disconnectPending: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  if (!isConnected) {
+    return (
+      <Button
+        size="sm"
+        className={slackBrandButtonClass}
+        disabled={connectPending}
+        onClick={onConnect}
+      >
+        {connectPending ? (
+          <Loader2 className="mr-1.5 size-4 animate-spin" />
+        ) : (
+          <SlackIcon className="mr-1.5 size-4" />
+        )}
+        Connect
+      </Button>
+    );
+  }
+
+  if (needsReconnect) {
+    return (
+      <>
+        <Button size="sm" variant="outline" disabled={connectPending} onClick={onConnect}>
+          {connectPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+          Reconnect
+        </Button>
+        <DisconnectSlackButton pending={disconnectPending} onDisconnect={onDisconnect} />
+      </>
+    );
+  }
+
+  return <DisconnectSlackButton pending={disconnectPending} onDisconnect={onDisconnect} />;
 }
 
 function DisconnectSlackButton({

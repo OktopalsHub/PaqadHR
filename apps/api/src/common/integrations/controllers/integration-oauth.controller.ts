@@ -159,15 +159,9 @@ export class OAuthIntegrationController {
   async getAvailableChannels(
     @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
-    @Req() req: IAuthenticatedMemberRequest,
   ) {
     await this.integrationService.requireTenantIntegration(tenantId, integrationId);
-    const member = req.member;
-    const userToken = await this.oauthService.getUserToken(integrationId, member.id);
-    if (!userToken?.userAccessToken) {
-      throw new BadRequestException('User token not found. Re-authorize integration.');
-    }
-    return this.channelService.getAvailableChannels(integrationId, userToken.userAccessToken);
+    return this.channelService.getAvailableChannels(integrationId);
   }
   @Post('tenants/:tenantId/integrations/:integrationId/channels/create')
   @UseGuards(TenantMemberGuard)

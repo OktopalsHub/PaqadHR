@@ -1,11 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { ConversationsListResponse } from '@slack/web-api';
+import { type ConversationsListResponse, ErrorCode } from '@slack/web-api';
 import { ChannelType } from 'src/common/enums';
 import type { ChannelInfo } from 'src/common/interfaces';
-import { IPlatformClient } from 'src/common/interfaces';
 import { SlackClient } from '../clients/slack.client';
 import { IntegrationChannel } from '../entities/integration-channel.entity';
-import type { PlatformIntegration } from '../entities/platform-integration.entity';
 import type { ShoutoutBroadcast } from '../integration.types';
 import { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
 import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
@@ -16,23 +14,23 @@ export class ChannelManagementService {
     private readonly channelRepo: IntegrationChannelRepository,
     private readonly integrationRepo: PlatformIntegrationRepository,
   ) {}
-  async getAvailableChannels(
-    integrationId: string,
-    userAccessToken?: string,
-  ): Promise<ChannelInfo[]> {
+  async getAvailableChannels(integrationId: string): Promise<ChannelInfo[]> {
     const integration = await this.integrationRepo.findOne({
       where: { id: integrationId },
     });
     if (!integration) {
       throw new NotFoundException('Integration not found');
     }
-    const client = this.createClientWithUserToken(integration, userAccessToken);
     switch (integration.type) {
       case 'slack': {
-        const slackChannels = await this.getSlackChannels(client as SlackClient);
+        if (!integration.botToken) {
+          throw new BadRequestException('Slack bot token is missing. Reconnect Slack.');
+        }
+        const client = new SlackClient(integration.botToken);
+        const slackChannels = await this.getSlackChannels(client);
         for (const ch of slackChannels.filter((c) => c.type === 'private')) {
           try {
-            await (client as SlackClient).client.conversations.join({ channel: ch.id });
+            await client.client.conversations.join({ channel: ch.id });
           } catch (_err) {}
         }
         return slackChannels;
@@ -149,18 +147,6 @@ export class ChannelManagementService {
     }
     return eligibleChannels;
   }
-  private createClientWithUserToken(
-    integration: PlatformIntegration,
-    userAccessToken?: string,
-  ): IPlatformClient {
-    const token = userAccessToken || integration.botToken;
-    switch (integration.type) {
-      case 'slack':
-        return new SlackClient(token);
-      default:
-        throw new BadRequestException(`Unsupported platform: ${integration.type}`);
-    }
-  }
   async createSlackChannel(integrationId: string, rawName: string): Promise<ChannelInfo> {
     const integration = await this.integrationRepo.findOne({ where: { id: integrationId } });
     if (!integration) {
@@ -198,25 +184,92 @@ export class ChannelManagementService {
   }
 
   private async getSlackChannels(client: SlackClient): Promise<ChannelInfo[]> {
-    const response: ConversationsListResponse = await client.client.conversations.list({
-      types: 'public_channel,private_channel',
-      exclude_archived: true,
-      limit: 100,
-    });
-    if (!response.ok) {
-      throw new BadRequestException(
-        `Slack could not list channels: ${response.error ?? 'unknown error'}`,
-      );
+    const channels: ChannelInfo[] = [];
+    let cursor: string | undefined;
+
+    try {
+      do {
+        const response: ConversationsListResponse = await client.client.conversations.list({
+          types: 'public_channel,private_channel',
+          exclude_archived: true,
+          limit: 200,
+          cursor,
+        });
+        if (!response.ok) {
+          throw new BadRequestException(
+            `Slack could not list channels: ${response.error ?? 'unknown error'}`,
+          );
+        }
+        for (const channel of response.channels ?? []) {
+          channels.push({
+            id: channel.id ?? '',
+            name: channel.name ?? '',
+            type: channel.is_private ? ('private' as const) : ('public' as const),
+            memberCount: channel.num_members,
+            description: channel.purpose?.value || channel.topic?.value,
+          });
+        }
+        cursor = response.response_metadata?.next_cursor || undefined;
+      } while (cursor);
+    } catch (err) {
+      this.throwSlackError(err);
     }
-    return (
-      response.channels?.map((channel) => ({
-        id: channel.id ?? '',
-        name: channel.name ?? '',
-        type: channel.is_private ? ('private' as const) : ('public' as const),
-        memberCount: channel.num_members,
-        description: channel.purpose?.value || channel.topic?.value,
-      })) || []
-    );
+
+    return channels;
+  }
+
+  private throwSlackError(err: unknown): never {
+    if (err instanceof BadRequestException) {
+      throw err;
+    }
+
+    const slackError = this.getSlackErrorCode(err);
+    if (slackError) {
+      const reconnectErrors = new Set([
+        'invalid_auth',
+        'token_revoked',
+        'account_inactive',
+        'missing_scope',
+        'not_authed',
+      ]);
+      if (reconnectErrors.has(slackError)) {
+        const needed = this.getSlackNeededScope(err);
+        const detail = needed ? `${slackError}: ${needed}` : slackError;
+        throw new BadRequestException(`Slack authorization failed (${detail}). Reconnect Slack.`);
+      }
+      throw new BadRequestException(`Slack could not list channels: ${slackError}`);
+    }
+
+    if (err instanceof Error) {
+      throw new BadRequestException(`Slack could not list channels: ${err.message}`);
+    }
+
+    throw err;
+  }
+
+  private getSlackErrorCode(err: unknown): string | undefined {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code: string }).code === ErrorCode.PlatformError &&
+      'data' in err
+    ) {
+      return (err as { data?: { error?: string } }).data?.error;
+    }
+    return undefined;
+  }
+
+  private getSlackNeededScope(err: unknown): string | undefined {
+    if (
+      typeof err === 'object' &&
+      err !== null &&
+      'data' in err &&
+      typeof (err as { data?: { needed?: string } }).data?.needed === 'string'
+    ) {
+      return (err as { data: { needed: string } }).data.needed;
+    }
+    return undefined;
   }
   private isShoutoutForTeam(shoutout: ShoutoutBroadcast, teamId: string): boolean {
     return (

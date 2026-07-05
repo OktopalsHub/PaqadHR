@@ -1,23 +1,19 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { SearchSelect, type SearchSelectOption } from '@/components/search-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   useCreateSlackChannel,
   useSetupShoutoutChannel,
   useSlackChannels,
 } from '@/hooks/queries/use-integrations';
+
+const SLACK_CHANNEL_ID_PATTERN = /^[CG][A-Z0-9]+$/;
 
 type SlackChannelPickerInlineProps = {
   integrationId: string;
@@ -26,8 +22,20 @@ type SlackChannelPickerInlineProps = {
   onReconnect?: () => void;
 };
 
-function formatChannelLabel(name: string) {
-  return name.startsWith('#') ? name : `#${name}`;
+function formatChannelLabel(name: string, isPrivate?: boolean) {
+  const label = name.startsWith('#') ? name : `#${name}`;
+  return isPrivate ? `🔒 ${label}` : label;
+}
+
+function getExtraChannelOptions(search: string, channels: { id: string }[]): SearchSelectOption[] {
+  const trimmed = search.trim().toUpperCase();
+  if (!SLACK_CHANNEL_ID_PATTERN.test(trimmed)) {
+    return [];
+  }
+  if (channels.some((channel) => channel.id === trimmed)) {
+    return [];
+  }
+  return [{ value: trimmed, label: `Use channel ID: ${trimmed}` }];
 }
 
 export function SlackChannelPickerInline({
@@ -38,11 +46,26 @@ export function SlackChannelPickerInline({
 }: SlackChannelPickerInlineProps) {
   const [channelId, setChannelId] = useState('');
   const [newChannelName, setNewChannelName] = useState('shoutouts');
-  const { data: channels = [], isLoading, isError, error } = useSlackChannels(integrationId, true);
+  const {
+    data: channels = [],
+    isLoading,
+    isError,
+    isFetching,
+    error,
+    refetch,
+  } = useSlackChannels(integrationId, true);
   const setupChannel = useSetupShoutoutChannel();
   const createChannel = useCreateSlackChannel();
 
-  const selectedChannel = channels.find((channel) => channel.id === channelId);
+  const channelOptions = useMemo<SearchSelectOption[]>(
+    () =>
+      channels.map((channel) => ({
+        value: channel.id,
+        label: formatChannelLabel(channel.name, channel.type === 'private'),
+      })),
+    [channels],
+  );
+
   const listError = isError
     ? error instanceof Error
       ? error.message
@@ -68,12 +91,14 @@ export function SlackChannelPickerInline({
   };
 
   const handleSave = async () => {
-    if (!selectedChannel) {
+    if (!channelId) {
       toast.error('Select a Slack channel');
       return;
     }
+    const selectedChannel = channels.find((channel) => channel.id === channelId);
+    const name = selectedChannel?.name ?? channelId;
     try {
-      await saveChannel(selectedChannel.id, selectedChannel.name);
+      await saveChannel(channelId, name);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save channel');
     }
@@ -103,7 +128,7 @@ export function SlackChannelPickerInline({
         <p className="text-sm text-destructive">{listError}</p>
         {onReconnect ? (
           <Button size="sm" variant="outline" onClick={onReconnect}>
-            Reconnect Slack
+            Reconnect
           </Button>
         ) : null}
       </div>
@@ -155,18 +180,32 @@ export function SlackChannelPickerInline({
     <div className="space-y-4 rounded-lg border border-dashed p-4">
       <div className="space-y-2">
         <Label htmlFor="slack-channel">Channel</Label>
-        <Select value={channelId} onValueChange={setChannelId}>
-          <SelectTrigger id="slack-channel">
-            <SelectValue placeholder="Select a channel" />
-          </SelectTrigger>
-          <SelectContent>
-            {channels.map((channel) => (
-              <SelectItem key={channel.id} value={channel.id}>
-                {formatChannelLabel(channel.name)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchSelect
+          options={channelOptions}
+          value={channelId}
+          onValueChange={setChannelId}
+          placeholder="Select a channel"
+          searchPlaceholder="Search channels or paste channel ID…"
+          emptyMessage="No channels found."
+          getExtraOptions={(search) => getExtraChannelOptions(search, channels)}
+          footer={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+            >
+              {isFetching ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 size-4" />
+              )}
+              Refresh channels
+            </Button>
+          }
+        />
       </div>
       <div className="flex flex-wrap gap-2">
         <Button disabled={!channelId || setupChannel.isPending} onClick={handleSave}>
