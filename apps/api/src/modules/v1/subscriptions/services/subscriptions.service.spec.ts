@@ -78,4 +78,24 @@ describe('SubscriptionsService', () => {
       expect(allowed).toBe(false);
     });
   });
+
+  describe('computeNeedsPayment', () => {
+    it('requires payment when trial days are zero', () => {
+      expect(
+        service.computeNeedsPayment({
+          status: SubscriptionStatus.TRIAL,
+          daysRemaining: 0,
+        }),
+      ).toBe(true);
+    });
+
+    it('does not require payment for active subscription', () => {
+      expect(
+        service.computeNeedsPayment({
+          status: SubscriptionStatus.ACTIVE,
+          daysRemaining: null,
+        }),
+      ).toBe(false);
+    });
+  });
 });

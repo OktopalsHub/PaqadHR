@@ -3,6 +3,8 @@ import { apiClient, tenantPath } from '@/lib/api/client';
 export type ShoutoutSlackStatus = {
   configured: boolean;
   channelName?: string;
+  channelNames?: string[];
+  configuredChannels?: Array<{ platformChannelId: string; platformChannelName: string }>;
   integrationId?: string;
 };
 
@@ -66,10 +68,36 @@ export async function setupShoutoutChannel(
   message: string;
   testMessageSent?: boolean;
   testMessageError?: string;
+  needsInvite?: boolean;
 }> {
   return apiClient(tenantPath(tenantId, `integrations/${integrationId}/setup-channel`), {
     method: 'POST',
     body: JSON.stringify({ platformChannelId, platformChannelName }),
+  });
+}
+
+export type ShoutoutChannelSetupResult = {
+  platformChannelId: string;
+  platformChannelName: string;
+  testMessageSent: boolean;
+  testMessageError?: string;
+  needsInvite?: boolean;
+};
+
+export async function setupShoutoutChannels(
+  tenantId: string,
+  integrationId: string,
+  channels: Array<{ platformChannelId: string; platformChannelName: string }>,
+): Promise<{
+  success: boolean;
+  message: string;
+  allTestsPassed: boolean;
+  inviteRequired: string[];
+  channels: ShoutoutChannelSetupResult[];
+}> {
+  return apiClient(tenantPath(tenantId, `integrations/${integrationId}/setup-channels`), {
+    method: 'POST',
+    body: JSON.stringify({ channels }),
   });
 }
 

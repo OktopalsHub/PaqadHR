@@ -3,6 +3,7 @@
 import { Banknote, CheckCircle2, Loader2, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
 import { SearchSelect } from '@/components/search-select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -56,6 +57,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
   const [editOpen, setEditOpen] = useState(false);
   const [passcodeOpen, setPasscodeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [otpOpen, setOtpOpen] = useState(false);
   const [currentPasscode, setCurrentPasscode] = useState('');
   const [newPasscode, setNewPasscode] = useState('');
   const [accountName, setAccountName] = useState('');
@@ -75,7 +77,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
     setCurrentPasscode('');
   }, [editOpen]);
 
-  const handleEdit = async () => {
+  const handleEdit = async (otpProof: string) => {
     if (currentPasscode.length !== 6) {
       toast.error('Current passcode is required');
       return;
@@ -100,18 +102,27 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
         paymentMethodId: method.id,
         input: {
           currentPasscode,
+          otpProof,
           accountName: accountName.trim() || undefined,
           accountNumber: accountNumber.trim() || undefined,
           bankName: bankName.trim() || undefined,
           bankCode: institutionCode.trim() || undefined,
         },
       });
-      toast.success('Payment method updated. An admin may need to re-verify your account.');
+      toast.success('Payment method updated');
       setEditOpen(false);
       setCurrentPasscode('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Update failed');
     }
+  };
+
+  const requestEdit = () => {
+    if (currentPasscode.length !== 6) {
+      toast.error('Current passcode is required');
+      return;
+    }
+    setOtpOpen(true);
   };
 
   const handleChangePasscode = async () => {
@@ -215,12 +226,20 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
                 onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               />
             </div>
-            <Button className="w-full" disabled={updateMethod.isPending} onClick={handleEdit}>
+            <Button className="w-full" disabled={updateMethod.isPending} onClick={requestEdit}>
               Save changes
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <OtpVerificationDialog
+        open={otpOpen}
+        onOpenChange={setOtpOpen}
+        purpose="payment_method"
+        title="Verify to update payment method"
+        onVerified={(proof) => void handleEdit(proof)}
+      />
 
       <Dialog open={passcodeOpen} onOpenChange={setPasscodeOpen}>
         <DialogContent>
@@ -304,6 +323,7 @@ export function PaymentSettingsSection() {
   const [passcode, setPasscode] = useState('');
   const [lookupVerified, setLookupVerified] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [otpOpen, setOtpOpen] = useState(false);
 
   const fiatOptions = currencies?.fiat ?? [];
   const isNgn = currency === 'NGN';
@@ -378,7 +398,7 @@ export function PaymentSettingsSection() {
     };
   }, [accountNumber, bankCode, banks, isNgn]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (isNgn) {
       if (!bankCode || !lookupVerified || !accountName.trim()) {
         toast.error('Verify your account number and bank first');
@@ -406,6 +426,10 @@ export function PaymentSettingsSection() {
       return;
     }
 
+    setOtpOpen(true);
+  };
+
+  const submitWithOtp = async (otpProof: string) => {
     try {
       const normalizedAccount = payoutConfig
         ? normalizeAccountInput(accountNumber, payoutConfig)
@@ -422,6 +446,7 @@ export function PaymentSettingsSection() {
         accountNumber: normalizedAccount,
         country: COUNTRY_BY_CURRENCY[currency] ?? 'NG',
         passcode,
+        otpProof,
         isPrimary: true,
       });
       setOpenForm(false);
@@ -641,6 +666,14 @@ export function PaymentSettingsSection() {
           {methods.length ? 'Add another account' : 'Add bank account'}
         </Button>
       )}
+
+      <OtpVerificationDialog
+        open={otpOpen}
+        onOpenChange={setOtpOpen}
+        purpose="payment_method"
+        title="Verify to save payment method"
+        onVerified={(proof) => void submitWithOtp(proof)}
+      />
     </div>
   );
 }

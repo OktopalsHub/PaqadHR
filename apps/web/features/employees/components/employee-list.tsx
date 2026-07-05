@@ -16,6 +16,7 @@ import { useEmployeeFilters } from '../hooks/';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { EmployeeCards } from './employee-card';
 import { EmployeeFiltersComponent } from './employee-filters';
+import { EmployeeInvitationsTab } from './employee-invitations-tab';
 import { EmployeePagination } from './employee-pagination';
 import { EmployeeTable } from './employee-table';
 import { PositionsManager } from './positions-manager';
@@ -28,9 +29,9 @@ const EMPLOYEE_TABS = [
 
 export const EmployeeList = () => {
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'employees' | 'departments' | 'positions'>(
-    'employees',
-  );
+  const [activeTab, setActiveTab] = useState<
+    'employees' | 'invitations' | 'departments' | 'positions'
+  >('employees');
   const [createDeptOpen, setCreateDeptOpen] = useState(false);
   const [createPositionOpen, setCreatePositionOpen] = useState(false);
 
@@ -77,7 +78,7 @@ export const EmployeeList = () => {
   }
 
   const actionConfig =
-    activeTab === 'employees'
+    (activeTab === 'employees' || activeTab === 'invitations') && isAdmin
       ? {
           label: 'Add employee',
           onClick: () => setInviteOpen(true),
@@ -116,6 +117,20 @@ export const EmployeeList = () => {
                 {tab.label}
               </button>
             ))}
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('invitations')}
+                className={cn(
+                  'rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors sm:px-6',
+                  activeTab === 'invitations'
+                    ? 'border border-slate-200 bg-slate-50 text-slate-800 shadow-sm font-semibold'
+                    : 'font-medium text-slate-500 hover:text-slate-800',
+                )}
+              >
+                Invitations
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -131,6 +146,8 @@ export const EmployeeList = () => {
           </Button>
         ) : null}
       </div>
+
+      {activeTab === 'invitations' && isAdmin ? <EmployeeInvitationsTab /> : null}
 
       {activeTab === 'employees' && (
         <div className="space-y-5">

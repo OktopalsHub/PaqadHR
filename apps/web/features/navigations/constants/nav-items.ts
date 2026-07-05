@@ -31,7 +31,7 @@ export const navItemDefs: Omit<NavItem, 'href'>[] = [
   { name: 'Payroll', segment: 'payroll', icon: FileText },
   { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
   { name: 'Analytics', segment: 'analytics', icon: BarChart2 },
-  { name: 'Activity', segment: 'activity', icon: ScrollText },
+  { name: 'Logs', segment: 'activity', icon: ScrollText },
   { name: 'Settings', segment: 'settings', icon: Settings },
 ];
 

@@ -13,6 +13,7 @@ import {
   VERSION_NEUTRAL,
   Version,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { Public } from 'src/common/decorators';
@@ -24,6 +25,7 @@ import type { OAuthStateData } from '../integration.types';
 import { ChannelManagementService } from '../services/channel-management.service';
 import { OAuthIntegrationService } from '../services/oauth-integration.service';
 import { PlatformIntegrationService } from '../services/platform-integration.service';
+import { UserSyncService } from '../services/user-sync.service';
 
 @Controller()
 export class OAuthIntegrationController {
@@ -33,6 +35,8 @@ export class OAuthIntegrationController {
     private readonly channelService: ChannelManagementService,
     private readonly tenantService: TenantsService,
     private readonly integrationService: PlatformIntegrationService,
+    private readonly userSyncService: UserSyncService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
   @Get('tenants/:tenantId/integrations/oauth/connect/:platform')
   @UseGuards(TenantMemberGuard)
@@ -141,6 +145,11 @@ export class OAuthIntegrationController {
     try {
       this.logger.log('Processing OAuth callback...');
       const result = await this.oauthService.handleOAuthCallback(code, state);
+      this.eventEmitter.emit('integration.connected', {
+        integrationId: result.integrationId,
+        tenantId: stateData.tenantId,
+        platform: stateData.platformType,
+      });
       this.logger.log('OAuth callback processed successfully', {
         integrationId: result.integrationId,
       });
@@ -159,15 +168,9 @@ export class OAuthIntegrationController {
   async getAvailableChannels(
     @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
-    @Req() req: IAuthenticatedMemberRequest,
   ) {
     await this.integrationService.requireTenantIntegration(tenantId, integrationId);
-    const member = req.member;
-    const userToken = await this.oauthService.getUserToken(integrationId, member.id);
-    if (!userToken?.userAccessToken) {
-      throw new BadRequestException('User token not found. Re-authorize integration.');
-    }
-    return this.channelService.getAvailableChannels(integrationId, userToken.userAccessToken);
+    return this.channelService.getAvailableChannels(integrationId);
   }
   @Post('tenants/:tenantId/integrations/:integrationId/channels/create')
   @UseGuards(TenantMemberGuard)
@@ -201,7 +204,7 @@ export class OAuthIntegrationController {
       member.id,
       userToken?.userAccessToken,
     );
-    await this.integrationService.syncUsers(integrationId, body.platformChannelId);
+    await this.userSyncService.syncAllUsers(integrationId, tenantId);
     return {
       success: true,
       message: result.testMessageSent
@@ -209,6 +212,45 @@ export class OAuthIntegrationController {
         : 'Channel configured and users synced.',
       testMessageSent: result.testMessageSent,
       testMessageError: result.testMessageError,
+      needsInvite: result.needsInvite ?? false,
+    };
+  }
+
+  @Post('tenants/:tenantId/integrations/:integrationId/setup-channels')
+  @UseGuards(TenantMemberGuard)
+  async setupChannels(
+    @Param('tenantId') tenantId: string,
+    @Param('integrationId') integrationId: string,
+    @Body()
+    body: {
+      channels: Array<{ platformChannelId: string; platformChannelName: string }>;
+    },
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
+    const member = req.member;
+    const result = await this.channelService.configureShoutoutChannels(
+      integrationId,
+      body.channels ?? [],
+      member.id,
+    );
+
+    await this.userSyncService.syncAllUsers(integrationId, tenantId);
+
+    return {
+      success: true,
+      message: result.allTestsPassed
+        ? 'Channels configured, users synced, and test messages sent!'
+        : 'Channels configured and users synced.',
+      allTestsPassed: result.allTestsPassed,
+      inviteRequired: result.inviteRequired,
+      channels: result.channels.map((channel) => ({
+        platformChannelId: channel.channelId,
+        platformChannelName: channel.channelName,
+        testMessageSent: channel.testMessageSent,
+        testMessageError: channel.testMessageError,
+        needsInvite: channel.needsInvite ?? false,
+      })),
     };
   }
   private getRedirectUri(request: Request, platform: IntegrationType): string {

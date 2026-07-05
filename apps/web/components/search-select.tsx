@@ -1,6 +1,7 @@
 'use client';
 
 import { Check, ChevronsUpDown } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +29,8 @@ type SearchSelectProps = {
   emptyMessage?: string;
   disabled?: boolean;
   className?: string;
+  getExtraOptions?: (search: string) => SearchSelectOption[];
+  footer?: ReactNode;
 };
 
 export function SearchSelect({
@@ -39,12 +42,21 @@ export function SearchSelect({
   emptyMessage = 'No results found.',
   disabled = false,
   className,
+  getExtraOptions,
+  footer,
 }: SearchSelectProps) {
   const [open, setOpen] = useState(false);
-  const selected = useMemo(
-    () => options.find((option) => option.value === value),
-    [options, value],
-  );
+  const [search, setSearch] = useState('');
+  const selected = useMemo(() => {
+    const base = options.find((option) => option.value === value);
+    if (base) return base;
+    return getExtraOptions?.(value).find((option) => option.value === value);
+  }, [getExtraOptions, options, value]);
+  const visibleOptions = useMemo(() => {
+    const extra = getExtraOptions?.(search) ?? [];
+    const seen = new Set(options.map((option) => option.value));
+    return [...options, ...extra.filter((option) => !seen.has(option.value))];
+  }, [getExtraOptions, options, search]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -60,19 +72,20 @@ export function SearchSelect({
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+          <CommandInput placeholder={searchPlaceholder} value={search} onValueChange={setSearch} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {visibleOptions.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.label}
                   onSelect={() => {
                     onValueChange(option.value);
                     setOpen(false);
+                    setSearch('');
                   }}
                 >
                   <Check
@@ -86,6 +99,7 @@ export function SearchSelect({
               ))}
             </CommandGroup>
           </CommandList>
+          {footer ? <div className="border-t p-2">{footer}</div> : null}
         </Command>
       </PopoverContent>
     </Popover>

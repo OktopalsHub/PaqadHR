@@ -136,3 +136,33 @@ export async function requestPasswordReset(email: string): Promise<void> {
 export function clearSession() {
   invalidateSession();
 }
+
+export type OtpPurpose = 'password_change' | 'payment_method';
+
+export async function fetchAuthSecurity(): Promise<{ canChangePassword: boolean }> {
+  return apiClient('/auth/security');
+}
+
+export async function sendOtp(purpose: OtpPurpose): Promise<{ message: string }> {
+  return apiClient('/auth/otp/send', {
+    method: 'POST',
+    body: JSON.stringify({ purpose }),
+  });
+}
+
+export async function verifyOtp(purpose: OtpPurpose, code: string): Promise<{ otpProof: string }> {
+  return apiClient('/auth/otp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ purpose, code }),
+  });
+}
+
+export async function changePassword(
+  otpProof: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  return apiClient('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ otpProof, newPassword }),
+  });
+}

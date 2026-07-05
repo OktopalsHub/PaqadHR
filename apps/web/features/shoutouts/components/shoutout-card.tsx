@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatPaqPointsDelta } from '@/lib/constants/paq-points';
 import { formatDateTime } from '@/lib/format-date';
 import type { Shoutout } from '@/lib/schemas/shoutout';
+import { renderShoutoutMessage } from '@/lib/shoutouts/render-shoutout-message';
 import { cn } from '@/lib/utils';
 
 function categoryStyle(color?: string | null) {
@@ -14,35 +15,6 @@ function categoryStyle(color?: string | null) {
     return { backgroundColor: `${color}20`, color, borderColor: `${color}40` };
   }
   return undefined;
-}
-
-function renderMessage(message: string) {
-  const parts = message.split(/(?<![\p{L}\p{N}_'-])(@[\p{L}\p{N}_'-]+|#[\p{L}\p{N}_'-]+|\+\d+)/u);
-  return parts.map((part, index) => {
-    const key = `${index}-${part}`;
-    if (/^@/.test(part)) {
-      return (
-        <span key={key} className="font-medium text-sky-600 dark:text-sky-400">
-          {part}
-        </span>
-      );
-    }
-    if (/^#/.test(part)) {
-      return (
-        <span key={key} className="font-medium text-indigo-600 dark:text-indigo-400">
-          {part}
-        </span>
-      );
-    }
-    if (/^\+\d+$/.test(part)) {
-      return (
-        <span key={key} className="font-mono font-medium text-amber-600 dark:text-amber-400">
-          {part}
-        </span>
-      );
-    }
-    return <span key={key}>{part}</span>;
-  });
 }
 
 export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
@@ -92,7 +64,7 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
           ) : null}
 
           <div className="culture-message mt-3 whitespace-pre-wrap rounded-[8px] px-3 py-2.5 text-sm leading-relaxed">
-            {renderMessage(shoutout.message)}
+            {renderShoutoutMessage(shoutout.message)}
           </div>
 
           <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">

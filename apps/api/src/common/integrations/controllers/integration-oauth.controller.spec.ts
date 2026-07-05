@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { OAuthIntegrationController } from './integration-oauth.controller';
 
 describe('OAuthIntegrationController channels', () => {
@@ -9,8 +9,8 @@ describe('OAuthIntegrationController channels', () => {
   let controller: OAuthIntegrationController;
   let integrationService: {
     requireTenantIntegration: jest.Mock;
-    syncUsers: jest.Mock;
   };
+  let userSyncService: { syncAllUsers: jest.Mock };
   let oauthService: { getUserToken: jest.Mock };
   let channelService: {
     getAvailableChannels: jest.Mock;
@@ -21,7 +21,11 @@ describe('OAuthIntegrationController channels', () => {
   beforeEach(() => {
     integrationService = {
       requireTenantIntegration: jest.fn().mockResolvedValue({ id: integrationId, tenantId }),
-      syncUsers: jest.fn().mockResolvedValue(undefined),
+    };
+    userSyncService = {
+      syncAllUsers: jest
+        .fn()
+        .mockResolvedValue({ matched: 1, unmatched: 0, created: 0, errors: 0 }),
     };
     oauthService = {
       getUserToken: jest.fn().mockResolvedValue({ userAccessToken: 'user-token' }),
@@ -37,19 +41,19 @@ describe('OAuthIntegrationController channels', () => {
       channelService as any,
       {} as any,
       integrationService as any,
+      userSyncService as any,
+      { emit: jest.fn() } as any,
     );
   });
 
   it('lists channels for a tenant-owned integration', async () => {
-    const result = await controller.getAvailableChannels(tenantId, integrationId, {
-      member,
-    } as any);
+    const result = await controller.getAvailableChannels(tenantId, integrationId);
 
     expect(integrationService.requireTenantIntegration).toHaveBeenCalledWith(
       tenantId,
       integrationId,
     );
-    expect(channelService.getAvailableChannels).toHaveBeenCalledWith(integrationId, 'user-token');
+    expect(channelService.getAvailableChannels).toHaveBeenCalledWith(integrationId);
     expect(result).toEqual([{ id: 'C1', name: 'general' }]);
   });
 
@@ -58,17 +62,9 @@ describe('OAuthIntegrationController channels', () => {
       new NotFoundException('Integration not found'),
     );
 
-    await expect(
-      controller.getAvailableChannels(tenantId, integrationId, { member } as any),
-    ).rejects.toBeInstanceOf(NotFoundException);
-  });
-
-  it('requires re-auth when user token is missing', async () => {
-    oauthService.getUserToken.mockResolvedValue(null);
-
-    await expect(
-      controller.getAvailableChannels(tenantId, integrationId, { member } as any),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.getAvailableChannels(tenantId, integrationId)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 
   it('creates a channel for a tenant-owned integration', async () => {
@@ -93,7 +89,7 @@ describe('OAuthIntegrationController channels', () => {
       member.id,
       'user-token',
     );
-    expect(integrationService.syncUsers).toHaveBeenCalledWith(integrationId, 'C1');
+    expect(userSyncService.syncAllUsers).toHaveBeenCalledWith(integrationId, tenantId);
     expect(result.success).toBe(true);
   });
 });

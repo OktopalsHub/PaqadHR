@@ -64,12 +64,12 @@ export function RecruitmentPipelinePage() {
     <AppPage className="mx-auto w-full max-w-7xl space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <RecruitmentSectionTabs active="pipeline" />
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-nowrap lg:justify-end">
           <ViewCareersPageLink />
           <Button
             variant="brandSolid"
-            size="app"
-            className="w-full sm:w-max"
+            size="appCta"
+            className="w-full normal-case tracking-normal text-sm sm:w-max"
             onClick={() => setAddOpen(true)}
           >
             <Plus className="size-4" />

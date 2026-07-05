@@ -19,21 +19,29 @@ export class AcceptInvitationDto {
   @IsNotEmpty()
   email: string;
   @ApiProperty({
-    description: 'First name of the user',
+    description: 'First name of the user (required for new users)',
     example: 'John',
-    required: true,
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  firstName: string;
+  @IsOptional()
+  firstName?: string;
   @ApiProperty({
-    description: 'Last name of the user',
+    description: 'Last name of the user (required for new users)',
     example: 'Doe',
-    required: true,
+    required: false,
   })
   @IsString()
-  @IsNotEmpty()
-  lastName: string;
+  @IsOptional()
+  lastName?: string;
+  @ApiProperty({
+    description: 'Preferred display name',
+    example: 'Johnny',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  preferredName?: string;
   @ApiProperty({
     description: 'Password for the new account (required only for new users)',
     example: 'securepassword123',

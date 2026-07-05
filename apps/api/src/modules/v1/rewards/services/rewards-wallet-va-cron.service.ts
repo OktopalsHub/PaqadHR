@@ -16,6 +16,10 @@ export class RewardsWalletVaCronService {
       return;
     }
 
+    if (!(await this.walletService.hasWalletsNeedingVirtualAccountProvision())) {
+      return;
+    }
+
     await runCronJob(this.logger, 'rewards-wallet-va-provision', async () => {
       return this.walletService.provisionMissingVirtualAccounts();
     });

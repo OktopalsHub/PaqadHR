@@ -75,6 +75,8 @@ export class SubscriptionsService {
   async getBillingStatus(tenantId: string): Promise<{
     paymentsEnabled: boolean;
     featureGatingEnabled: boolean;
+    entitled: boolean;
+    needsPayment: boolean;
     subscription: {
       status: SubscriptionStatus;
       plan: string;
@@ -89,6 +91,8 @@ export class SubscriptionsService {
       return {
         paymentsEnabled: isBillingGatewayEnabled(),
         featureGatingEnabled: isFeatureGatingEnabled(),
+        entitled: false,
+        needsPayment: true,
         subscription: null,
       };
     }
@@ -99,18 +103,46 @@ export class SubscriptionsService {
       daysRemaining = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
     }
 
+    const subscriptionSummary = {
+      status: subscription.status,
+      plan: subscription.plan?.slug ?? subscription.plan?.name ?? 'starter',
+      trialEndsAt: subscription.trialEndsAt,
+      isOnTrial: subscription.isOnTrial,
+      daysRemaining,
+      currentPeriodEnd: subscription.currentPeriodEnd,
+    };
+
     return {
       paymentsEnabled: isBillingGatewayEnabled(),
       featureGatingEnabled: isFeatureGatingEnabled(),
-      subscription: {
-        status: subscription.status,
-        plan: subscription.plan?.slug ?? subscription.plan?.name ?? 'starter',
-        trialEndsAt: subscription.trialEndsAt,
-        isOnTrial: subscription.isOnTrial,
-        daysRemaining,
-        currentPeriodEnd: subscription.currentPeriodEnd,
-      },
+      entitled: this.isSubscriptionEntitled(subscription),
+      needsPayment: this.computeNeedsPayment(subscriptionSummary),
+      subscription: subscriptionSummary,
     };
+  }
+
+  computeNeedsPayment(
+    subscription: {
+      status: SubscriptionStatus;
+      daysRemaining: number | null;
+    } | null,
+  ): boolean {
+    if (!subscription) {
+      return true;
+    }
+    if (
+      subscription.status === SubscriptionStatus.EXPIRED ||
+      subscription.status === SubscriptionStatus.PAST_DUE ||
+      subscription.status === SubscriptionStatus.SUSPENDED ||
+      subscription.status === SubscriptionStatus.INACTIVE ||
+      subscription.status === SubscriptionStatus.CANCELLED
+    ) {
+      return true;
+    }
+    if (subscription.status === SubscriptionStatus.TRIAL && subscription.daysRemaining === 0) {
+      return true;
+    }
+    return false;
   }
 
   async activateTenantSubscription(

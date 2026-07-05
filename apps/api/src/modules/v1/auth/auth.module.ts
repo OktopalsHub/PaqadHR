@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { InvitationsModule } from '../invitations/invitations.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { User } from '../users/entities/user.entity';
@@ -29,6 +30,7 @@ import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
     }),
     TypeOrmModule.forFeature([User, Account, Session, Verification]),
     InvitationsModule,
+    NotificationsModule,
     UsersModule,
     TenantMembersModule,
     TenantsModule,

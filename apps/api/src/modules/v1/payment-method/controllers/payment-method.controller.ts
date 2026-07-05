@@ -70,7 +70,7 @@ export class PaymentMethodController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     this.logger.log(`Creating payment method for member ${member.id} in tenant ${tenantId}`);
-    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, dto);
+    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, member.userId, dto);
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -151,7 +151,13 @@ export class PaymentMethodController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     this.logger.log(`Updating payment method ${paymentMethodId} for member ${member.id}`);
-    return this.paymentMethodService.updatePaymentMethod(paymentMethodId, tenantId, member.id, dto);
+    return this.paymentMethodService.updatePaymentMethod(
+      paymentMethodId,
+      tenantId,
+      member.id,
+      member.userId,
+      dto,
+    );
   }
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)

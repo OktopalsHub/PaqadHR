@@ -30,10 +30,33 @@ import {
   useTriggerUserSync,
   useUnmatchedUsers,
 } from '@/hooks/queries/use-integrations';
+import type { SlackUnmatchedUser } from '@/lib/api/integrations';
+import type { Employee } from '@/lib/schemas/employee';
 
 type SlackUserSyncSectionProps = {
   integrationId: string;
 };
+
+type LastSyncResult = {
+  matched: number;
+  unmatched: number;
+  created: number;
+  errors: number;
+};
+
+function getUnmatchedReason(user: SlackUnmatchedUser, employees: Employee[]): string {
+  const email = user.platformEmail?.trim().toLowerCase();
+  if (!email) {
+    return 'No email on Slack profile — link manually or add email in Slack';
+  }
+  const hasEmployee = employees.some(
+    (emp) => emp.status === 'Active' && emp.email?.trim().toLowerCase() === email,
+  );
+  if (!hasEmployee) {
+    return `No employee with email ${user.platformEmail}`;
+  }
+  return 'Could not auto-match — link manually';
+}
 
 export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProps) {
   const { data: syncStatus, isLoading: isStatusLoading } = useSyncStatus(integrationId);
@@ -46,11 +69,17 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
   const bulkInviteMutation = useBulkInviteUsers();
 
   const [selectedMembers, setSelectedMembers] = useState<Record<string, string>>({});
+  const [lastSyncResult, setLastSyncResult] = useState<LastSyncResult | null>(null);
 
   const handleSync = async () => {
     try {
       const result = await triggerSync.mutateAsync(integrationId);
+      setLastSyncResult(result);
+      const total = result.matched + result.unmatched;
       toast.success(`Sync completed: ${result.matched} matched, ${result.unmatched} unmatched.`);
+      if (total === 0) {
+        toast.message('No Slack users were returned. Reconnect Slack if this persists.');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sync failed');
     }
@@ -100,10 +129,8 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
     );
   }
 
-  // Filter out employees who are already matched to make the dropdown cleaner.
-  // Note: Since we don't have matched ids in syncStatus, we can filter by matching emails or simply list all active employees.
-  // Listing all employees is safer and allows overriding matches.
   const employeeOptions = employees.filter((emp) => emp.status === 'Active');
+  const displayTotal = syncStatus?.total ?? 0;
 
   return (
     <div className="mt-8 space-y-6">
@@ -174,13 +201,29 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
         </div>
       )}
 
+      {lastSyncResult ? (
+        <p className="text-sm text-muted-foreground">
+          Last sync: {lastSyncResult.matched + lastSyncResult.unmatched} Slack users —{' '}
+          {lastSyncResult.matched} matched, {lastSyncResult.unmatched} unmatched
+          {lastSyncResult.errors > 0 ? `, ${lastSyncResult.errors} errors` : ''}.
+        </p>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle>Unmatched</CardTitle>
           <CardDescription>Map Slack users to employees</CardDescription>
         </CardHeader>
         <CardContent>
-          {unmatchedUsers.length === 0 ? (
+          {displayTotal === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <RefreshCw className="size-10 text-muted-foreground mb-2" />
+              <p className="font-medium text-foreground">No Slack users synced yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Click Sync to pull users from Slack
+              </p>
+            </div>
+          ) : unmatchedUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle2 className="size-10 text-emerald-500 mb-2" />
               <p className="font-medium text-foreground">All users matched</p>
@@ -190,9 +233,10 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Slack Member</TableHead>
-                    <TableHead>Email Address</TableHead>
-                    <TableHead>Link to Employee Profile</TableHead>
+                    <TableHead>Slack member</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Link to employee</TableHead>
                     <TableHead className="w-[100px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -220,6 +264,9 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                           <span className="text-muted-foreground italic">No email</span>
                         )}
                       </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-[220px]">
+                        {getUnmatchedReason(user, employees)}
+                      </TableCell>
                       <TableCell>
                         <Select
                           value={selectedMembers[user.platformUserId] || ''}
@@ -231,7 +278,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                           }
                         >
                           <SelectTrigger className="w-[240px] h-9">
-                            <SelectValue placeholder="Select HR Employee..." />
+                            <SelectValue placeholder="Select employee…" />
                           </SelectTrigger>
                           <SelectContent>
                             {employeeOptions.map((emp) => (

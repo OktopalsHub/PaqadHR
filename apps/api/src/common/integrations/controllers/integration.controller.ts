@@ -33,11 +33,6 @@ export class IntegrationController {
     return this.integrationService.getShoutoutSlackStatus(tenantId);
   }
 
-  @Post('/:id/sync-users')
-  async syncUsers(@Param('id') integrationId: string, @Body() body: { channelId?: string }) {
-    return this.integrationService.syncUsers(integrationId, body.channelId);
-  }
-
   @Post('/:id/disconnect')
   async disconnectIntegration(
     @Param('tenantId') tenantId: string,

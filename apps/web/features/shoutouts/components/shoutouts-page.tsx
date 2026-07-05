@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Coins, Heart, Sparkles, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -27,10 +27,21 @@ import {
 } from '@/hooks/queries/use-shoutouts';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
-import { ShoutoutComposer, type ShoutoutSubmitPayload } from './shoutout-composer';
+import {
+  ShoutoutComposer,
+  type ShoutoutComposerHandle,
+  type ShoutoutSubmitPayload,
+} from './shoutout-composer';
 import { ShoutoutTasksTab } from './shoutout-tasks-tab';
+
+function allowancePeriodLabel(period?: string): string {
+  if (period === 'weekly') return 'weekly';
+  if (period === 'quarterly') return 'quarterly';
+  return 'monthly';
+}
 
 function ShoutoutsPageContent() {
   const searchParams = useSearchParams();
@@ -46,7 +57,6 @@ function ShoutoutsPageContent() {
 
   const { tenant } = useTenant();
   const currentMemberId = tenant?.member?.id;
-
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
 
@@ -64,12 +74,13 @@ function ShoutoutsPageContent() {
   });
 
   const availableCount = tasks.filter(
-    (t) => t.status === 'available' || t.status === 'rejected',
+    (task) => task.status === 'available' || task.status === 'rejected',
   ).length;
 
   const createCategory = useCreateShoutoutCategoryAdmin();
   const deleteCategory = useDeleteShoutoutCategoryAdmin();
   const [newCategoryName, setNewCategoryName] = useState('');
+  const composerRef = useRef<ShoutoutComposerHandle>(null);
 
   const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
 
@@ -117,9 +128,13 @@ function ShoutoutsPageContent() {
     );
   }
 
-  const totalAllowance = pointsBalance?.monthlyAllowance ?? 100;
-  const remainingAllowance = pointsBalance?.remainingAllowance ?? 100;
-  const allowancePercent = Math.min(100, Math.max(0, (remainingAllowance / totalAllowance) * 100));
+  const totalAllowance = pointsBalance?.monthlyAllowance ?? 0;
+  const remainingAllowance = pointsBalance?.remainingAllowance ?? 0;
+  const allowancePercent =
+    totalAllowance > 0
+      ? Math.min(100, Math.max(0, (remainingAllowance / totalAllowance) * 100))
+      : 0;
+  const periodLabel = allowancePeriodLabel(pointsBalance?.allowancePeriod);
 
   return (
     <div className="space-y-6">
@@ -175,11 +190,11 @@ function ShoutoutsPageContent() {
               value="tasks"
             >
               Points Tasks
-              {availableCount > 0 && (
+              {availableCount > 0 ? (
                 <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
                   {availableCount}
                 </span>
-              )}
+              ) : null}
             </TabsTrigger>
             <TabsTrigger
               className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
@@ -194,10 +209,11 @@ function ShoutoutsPageContent() {
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-12 xl:items-start">
             <div className="space-y-5 xl:col-span-8">
               <ShoutoutComposer
+                ref={composerRef}
                 variant="feed"
                 employees={employees
-                  .filter((e) => e.id !== currentMemberId)
-                  .map((e) => ({ id: e.id, name: e.name }))}
+                  .filter((employee) => employee.id !== currentMemberId)
+                  .map((employee) => ({ id: employee.id, name: employee.name }))}
                 categories={categories}
                 points={pointsBalance}
                 onSubmit={handleCreate}
@@ -228,7 +244,7 @@ function ShoutoutsPageContent() {
             </div>
 
             <div className="space-y-5 xl:col-span-4">
-              {pointsBalance && (
+              {pointsBalance ? (
                 <ContentCard
                   title="Allowance overview"
                   description="Track how much recognition budget you still have this cycle"
@@ -237,7 +253,7 @@ function ShoutoutsPageContent() {
                   <div className="dashboard-soft-tile space-y-3 rounded-[8px] px-4 py-4">
                     <div className="flex items-center justify-between gap-3 text-xs">
                       <span className="font-medium text-slate-500 dark:text-slate-400">
-                        Monthly give allowance
+                        {periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1)} give allowance
                       </span>
                       <span className="font-semibold text-slate-900 dark:text-slate-100">
                         {remainingAllowance} / {totalAllowance} pts left
@@ -268,6 +284,9 @@ function ShoutoutsPageContent() {
                       <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
                         {pointsBalance.totalEarned.toLocaleString()}
                       </p>
+                      <p className="mt-1 text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+                        Points you&apos;ve received from others
+                      </p>
                     </div>
                   </div>
 
@@ -275,14 +294,12 @@ function ShoutoutsPageContent() {
                     size="sm"
                     variant="outline"
                     className="w-full text-xs"
-                    onClick={() => {
-                      setTab('redeem');
-                    }}
+                    onClick={() => setTab('redeem')}
                   >
                     Go to Rewards Catalog
                   </Button>
                 </ContentCard>
-              )}
+              ) : null}
 
               <ContentCard
                 title="Company core values"
@@ -296,50 +313,60 @@ function ShoutoutsPageContent() {
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {categories.map((c) => (
-                      <span
-                        key={c.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-primary/10 bg-primary/5 py-1 pl-2.5 pr-1.5 text-xs font-medium text-primary group dark:text-primary/80"
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {categories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="inline-flex shrink-0 items-center rounded-full border border-primary/10 bg-primary/5 text-xs font-medium text-primary dark:text-primary/80"
                       >
-                        <Sparkles className="size-3 text-primary" />
-                        {c.name}
-                        {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => composerRef.current?.insertAtCursor(`#${category.name} `)}
+                          className={cn(
+                            'inline-flex items-center gap-1 py-1 pl-2.5 transition-colors hover:bg-primary/10',
+                            isAdmin ? 'pr-1' : 'pr-2.5',
+                          )}
+                        >
+                          <Sparkles className="size-3 text-primary" />
+                          {category.name}
+                        </button>
+                        {isAdmin ? (
                           <button
                             type="button"
-                            onClick={() => handleDeleteCategory(c.id)}
-                            className="ml-1 rounded-full p-0.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
+                            onClick={() => void handleDeleteCategory(category.id)}
                             disabled={deleteCategory.isPending}
+                            aria-label={`Remove ${category.name}`}
+                            className="rounded-full p-1 pr-1.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                           >
                             <X className="size-3" />
                           </button>
-                        )}
-                      </span>
+                        ) : null}
+                      </div>
                     ))}
                   </div>
                 )}
 
-                {isAdmin && (
+                {isAdmin ? (
                   <div className="flex gap-2 border-t border-[#d7e3f6] pt-4 dark:border-slate-700">
                     <Input
                       placeholder="Add core value..."
                       className="text-sm placeholder:text-muted-foreground/75"
                       value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddCategory();
+                      onChange={(event) => setNewCategoryName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void handleAddCategory();
                       }}
                     />
                     <Button
                       size="sm"
                       className="px-3 text-xs font-semibold"
-                      onClick={handleAddCategory}
+                      onClick={() => void handleAddCategory()}
                       disabled={createCategory.isPending}
                     >
                       Add
                     </Button>
                   </div>
-                )}
+                ) : null}
               </ContentCard>
             </div>
           </div>

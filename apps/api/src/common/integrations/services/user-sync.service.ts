@@ -186,6 +186,6 @@ export class UserSyncService {
       await this.platformUserRepo.update(existingUser.id, userData);
       return this.platformUserRepo.findOne({ where: { id: existingUser.id } });
     }
-    return this.platformUserRepo.create(userData);
+    return this.platformUserRepo.save(userData);
   }
 }

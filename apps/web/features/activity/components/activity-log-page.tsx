@@ -63,7 +63,7 @@ export function ActivityLogPage() {
           className="dashboard-panel rounded-[8px]"
           bodyClassName="p-5"
         >
-          <div className="dashboard-soft-tile flex min-h-[180px] flex-col items-center justify-center rounded-[8px] border border-dashed border-[#d7e3f6] px-6 py-8 text-center dark:border-slate-700">
+          <div className="dashboard-soft-tile flex min-h-45 flex-col items-center justify-center rounded-[8px] border border-dashed border-[#d7e3f6] px-6 py-8 text-center dark:border-slate-700">
             <div className="mb-4 flex size-12 items-center justify-center rounded-full border border-border/70 bg-background text-primary shadow-sm">
               <ShieldAlert className="size-5" />
             </div>
@@ -160,7 +160,7 @@ export function ActivityLogPage() {
               <LoadingBlock />
             </div>
           ) : isError ? (
-            <div className="dashboard-soft-tile flex min-h-[220px] items-center justify-center rounded-[8px] border border-dashed border-[#d7e3f6] px-6 py-8 text-center dark:border-slate-700">
+            <div className="dashboard-soft-tile flex min-h-55 items-center justify-center rounded-[8px] border border-dashed border-[#d7e3f6] px-6 py-8 text-center dark:border-slate-700">
               <div>
                 <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
                   Unable to load activity
@@ -171,7 +171,7 @@ export function ActivityLogPage() {
               </div>
             </div>
           ) : groups.length === 0 ? (
-            <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[8px] border border-dashed border-[#d7e3f6] bg-white px-6 py-8 text-center dark:border-slate-700 dark:bg-slate-950/70">
+            <div className="flex min-h-70 flex-col items-center justify-center rounded-[8px] border border-dashed border-[#d7e3f6] bg-white px-6 py-8 text-center dark:border-slate-700 dark:bg-slate-950/70">
               <div className="mb-4 flex size-12 items-center justify-center rounded-full border border-border/70 bg-background text-primary shadow-sm">
                 <Activity className="size-5" />
               </div>
