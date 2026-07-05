@@ -37,7 +37,6 @@ export * from '../../../modules/v1/recruitment/entities/candidate-note.entity';
 export * from '../../../modules/v1/recruitment/entities/interview.entity';
 export * from '../../../modules/v1/recruitment/entities/job-opening.entity';
 export * from '../../../modules/v1/rewards/entities/custom-reward.entity';
-export * from '../../../modules/v1/rewards/entities/misdirected-deposit.entity';
 export * from '../../../modules/v1/rewards/entities/reward-redemption.entity';
 export * from '../../../modules/v1/rewards/entities/task.entity';
 export * from '../../../modules/v1/rewards/entities/task-submission.entity';

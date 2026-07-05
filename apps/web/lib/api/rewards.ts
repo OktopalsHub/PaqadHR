@@ -64,11 +64,6 @@ export interface TenantWallet {
   tenantId: string;
   currencyCode: string;
   balanceAmount: number;
-  virtualAccountNumber: string | null;
-  virtualAccountBank: string | null;
-  virtualAccountStatus?: 'PROVISIONING' | 'ACTIVE' | 'FAILED' | null;
-  virtualAccountError?: string | null;
-  nombaAccountRef?: string | null;
   pointsExchangeRate: number;
   feePercentage?: number;
   flatFee?: number;

@@ -34,7 +34,14 @@ function withWalletResponse(
   fees: { feePercentage: number; flatFee: number },
 ) {
   return {
-    ...wallet,
+    id: wallet.id,
+    tenantId: wallet.tenantId,
+    currencyCode: wallet.currencyCode,
+    balanceAmount: wallet.balanceAmount,
+    pointsExchangeRate: wallet.pointsExchangeRate,
+    autoTopupEnabled: wallet.autoTopupEnabled,
+    autoTopupThreshold: wallet.autoTopupThreshold,
+    autoTopupAmount: wallet.autoTopupAmount,
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
     nombaLive: isNombaLive(),

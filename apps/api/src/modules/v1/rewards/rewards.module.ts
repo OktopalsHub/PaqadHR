@@ -15,9 +15,7 @@ import { TenantSettings } from '../tenant-settings/entities/tenant-settings.enti
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RewardsController } from './controllers/rewards.controller';
-import { RewardsAdminController } from './controllers/rewards-admin.controller';
 import { CustomReward } from './entities/custom-reward.entity';
-import { MisdirectedDeposit } from './entities/misdirected-deposit.entity';
 import { RewardRedemption } from './entities/reward-redemption.entity';
 import { Task } from './entities/task.entity';
 import { TaskSubmission } from './entities/task-submission.entity';
@@ -36,7 +34,6 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     TypeOrmModule.forFeature([
       TenantWallet,
       TenantWalletTransaction,
-      MisdirectedDeposit,
       CustomReward,
       RewardRedemption,
       Task,
@@ -52,7 +49,7 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     TenantMembersModule,
     ActivitiesModule,
   ],
-  controllers: [RewardsController, RewardsAdminController],
+  controllers: [RewardsController],
   providers: [
     RewardsService,
     TenantWalletService,
