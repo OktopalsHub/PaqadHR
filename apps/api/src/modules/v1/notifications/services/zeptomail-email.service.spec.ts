@@ -1,7 +1,7 @@
 import { buildZeptomailPayload, formatZeptomailError } from './zeptomail-email.service';
 
 describe('zeptomail helpers', () => {
-  it('sends htmlbody only when html is present', () => {
+  it('sends both htmlbody and textbody when both are present', () => {
     const payload = buildZeptomailPayload(
       {
         to: 'user@example.com',
@@ -13,7 +13,7 @@ describe('zeptomail helpers', () => {
     );
 
     expect(payload.htmlbody).toBe('<p>Hi</p>');
-    expect(payload.textbody).toBeUndefined();
+    expect(payload.textbody).toBe('Hi');
   });
 
   it('falls back to textbody when html is missing', () => {
