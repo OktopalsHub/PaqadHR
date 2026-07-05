@@ -31,7 +31,7 @@ describe('ChannelManagementService', () => {
   const integrationRepo = { findOne: jest.fn() };
   const channelRepo = {
     createQueryBuilder: jest.fn(),
-    create: jest.fn(),
+    save: jest.fn(),
     find: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
@@ -51,7 +51,7 @@ describe('ChannelManagementService', () => {
     mockPostMessage.mockResolvedValue({ ok: true });
     channelRepo.update.mockResolvedValue(undefined);
     channelRepo.findOne.mockResolvedValue(null);
-    channelRepo.create.mockImplementation(async (data) => ({
+    channelRepo.save.mockImplementation(async (data) => ({
       id: `ch-${data.platformChannelId}`,
       ...data,
     }));
@@ -180,7 +180,7 @@ describe('ChannelManagementService', () => {
         }),
         { isActive: false, isPrimary: false },
       );
-      expect(channelRepo.create).toHaveBeenCalledTimes(2);
+      expect(channelRepo.save).toHaveBeenCalledTimes(2);
       expect(result.channels).toHaveLength(2);
       expect(result.allTestsPassed).toBe(true);
       expect(result.inviteRequired).toEqual([]);

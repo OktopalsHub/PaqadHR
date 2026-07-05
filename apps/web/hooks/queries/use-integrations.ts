@@ -110,9 +110,9 @@ export function useSetupShoutoutChannels() {
       if (!tenantId) throw new Error('No tenant selected');
       return setupShoutoutChannels(tenantId, integrationId, channels);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       if (tenantId) {
-        void queryClient.invalidateQueries({
+        await queryClient.refetchQueries({
           queryKey: queryKeys.integrations.shoutoutSlackStatus(tenantId),
         });
       }
@@ -137,9 +137,9 @@ export function useSetupShoutoutChannel() {
       if (!tenantId) throw new Error('No tenant selected');
       return setupShoutoutChannel(tenantId, integrationId, platformChannelId, platformChannelName);
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       if (tenantId) {
-        void queryClient.invalidateQueries({
+        await queryClient.refetchQueries({
           queryKey: queryKeys.integrations.shoutoutSlackStatus(tenantId),
         });
       }
@@ -193,10 +193,19 @@ export function useMatchUser() {
 }
 
 export function useBulkInviteUsers() {
+  const queryClient = useQueryClient();
   const { tenantId } = useTenant();
 
   return useMutation({
     mutationFn: (integrationId: string) => bulkInviteUsers(tenantId!, integrationId),
+    onSuccess: (_, integrationId) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.integrations.syncStatus(integrationId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.integrations.unmatchedUsers(integrationId),
+      });
+    },
   });
 }
 

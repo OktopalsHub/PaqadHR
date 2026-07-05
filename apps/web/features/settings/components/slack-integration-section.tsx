@@ -30,6 +30,9 @@ import { SlackUserSyncSection } from './slack-user-sync-section';
 const slackBrandButtonClass =
   'bg-[#4A154B] text-white hover:bg-[#611f69] hover:text-white border-transparent shadow-sm';
 
+const slackDisconnectButtonClass =
+  'border-[#4A154B] text-foreground hover:bg-[#4A154B]/15 hover:text-foreground';
+
 export function SlackIntegrationSection() {
   const { tenant } = useTenant();
   const router = useRouter();
@@ -236,8 +239,18 @@ function DisconnectSlackButton({
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button size="sm" variant="ghost" disabled={pending}>
-          {pending ? <Loader2 className="size-4 animate-spin" /> : 'Disconnect'}
+        <Button
+          size="sm"
+          variant="outline"
+          className={slackDisconnectButtonClass}
+          disabled={pending}
+        >
+          {pending ? (
+            <Loader2 className="mr-1.5 size-4 animate-spin" />
+          ) : (
+            <SlackIcon className="mr-1.5 size-4" />
+          )}
+          Disconnect
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

@@ -152,7 +152,7 @@ export class ChannelManagementService {
       ...channelConfig,
       createdBy,
     };
-    return this.channelRepo.create(channel);
+    return this.channelRepo.save(channel);
   }
   async getConfiguredChannels(integrationId: string) {
     return this.channelRepo.find({

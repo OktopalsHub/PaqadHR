@@ -206,7 +206,7 @@ export class PlatformIntegrationService {
       await this.platformUserRepo.update(existingUser.id, platformUserDataToSave);
       return this.platformUserRepo.findOne({ where: { id: existingUser.id } });
     }
-    return this.platformUserRepo.create(platformUserDataToSave);
+    return this.platformUserRepo.save(platformUserDataToSave);
   }
   private async formatShoutoutMessage(
     client: IPlatformClient,
