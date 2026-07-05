@@ -1,7 +1,17 @@
-import { buildZeptomailPayload, formatZeptomailError } from './zeptomail-email.service';
+import {
+  buildZeptomailPayload,
+  formatZeptomailError,
+  formatZeptomailSdkError,
+  normalizeZeptomailToken,
+} from './zeptomail-email.service';
 
 describe('zeptomail helpers', () => {
-  it('sends both htmlbody and textbody when both are present', () => {
+  it('normalizes bare api keys to Zeptomail auth tokens', () => {
+    expect(normalizeZeptomailToken('abc123')).toBe('Zoho-enczapikey abc123');
+    expect(normalizeZeptomailToken('Zoho-enczapikey abc123')).toBe('Zoho-enczapikey abc123');
+  });
+
+  it('sends htmlbody only when html is present', () => {
     const payload = buildZeptomailPayload(
       {
         to: 'user@example.com',
@@ -13,7 +23,7 @@ describe('zeptomail helpers', () => {
     );
 
     expect(payload.htmlbody).toBe('<p>Hi</p>');
-    expect(payload.textbody).toBe('Hi');
+    expect(payload.textbody).toBeUndefined();
   });
 
   it('falls back to textbody when html is missing', () => {
@@ -43,5 +53,14 @@ describe('zeptomail helpers', () => {
     expect(message).toContain('TM_5001');
     expect(message).toContain('Credit exhausted');
     expect(message).toContain('request_id: req-123');
+  });
+
+  it('formats SDK rejection payloads', () => {
+    const message = formatZeptomailSdkError({
+      error: { code: 'TM_4001', message: 'Sender address domain is not verified in your Agent.' },
+    });
+
+    expect(message).toContain('TM_4001');
+    expect(message).toContain('Sender address domain is not verified');
   });
 });

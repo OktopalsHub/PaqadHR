@@ -15,6 +15,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CreateDepartmentDialog } from '@/features/teams/components/create-department-dialog';
 import { useDepartments } from '@/hooks/queries/use-departments';
 import { usePositions } from '@/hooks/queries/use-positions';
@@ -29,12 +36,18 @@ interface AddEmployeeDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const INVITE_ROLES = [
+  { value: 'member', label: 'Member' },
+  { value: 'admin', label: 'Admin' },
+] as const;
+
 export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogProps) => {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   const { data: departments = [] } = useDepartments();
   const { data: positions = [] } = usePositions();
   const [email, setEmail] = useState('');
+  const [role, setRole] = useState<(typeof INVITE_ROLES)[number]['value']>('member');
   const [departmentId, setDepartmentId] = useState('');
   const [positionId, setPositionId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,13 +68,14 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
 
   const resetForm = () => {
     setEmail('');
+    setRole('member');
     setDepartmentId('');
     setPositionId('');
   };
 
   const handleSubmit = async () => {
     if (!email.trim()) {
-      toast.error('Email is required.');
+      toast.error('Email is required');
       return;
     }
 
@@ -69,14 +83,14 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
     try {
       const result = await createEmployeeInvite({
         email: email.trim(),
-        role: 'member',
+        role,
         departmentId: departmentId || undefined,
         positionId: positionId || undefined,
       });
 
       toastInvitationDelivery(result, {
-        successMessage: 'Invitation sent successfully.',
-        failureMessage: 'Invitation saved but email not sent',
+        successMessage: 'Invite sent',
+        failureMessage: 'Invite saved, email failed',
       });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.all, tenantId],
@@ -87,10 +101,10 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to send invitation';
+      const message = err instanceof Error ? err.message : 'Failed to send invite';
       if (message.includes('already been sent')) {
-        toast.error(message, {
-          description: 'Open the Invitations tab to resend or revoke.',
+        toast.error('Invite already pending', {
+          description: 'Resend or revoke from Invitations.',
         });
       } else {
         toast.error(message);
@@ -105,7 +119,7 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Add employee</DialogTitle>
+            <DialogTitle>Invite employee</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
@@ -119,14 +133,29 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
               />
             </div>
             <div className="grid gap-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={role} onValueChange={(value) => setRole(value as typeof role)}>
+                <SelectTrigger id="role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {INVITE_ROLES.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="department">Department</Label>
               <SearchSelect
                 options={departmentOptions}
                 value={departmentId}
                 onValueChange={setDepartmentId}
-                placeholder="Department (optional)"
-                searchPlaceholder="Search departments…"
-                emptyMessage="No departments found."
+                placeholder="Optional"
+                searchPlaceholder="Search…"
+                emptyMessage="No departments"
                 footer={
                   <Button
                     type="button"
@@ -147,9 +176,9 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
                 options={positionOptions}
                 value={positionId}
                 onValueChange={setPositionId}
-                placeholder="Position (optional)"
-                searchPlaceholder="Search positions…"
-                emptyMessage="No positions found."
+                placeholder="Optional"
+                searchPlaceholder="Search…"
+                emptyMessage="No positions"
                 footer={
                   <Button
                     type="button"
@@ -175,7 +204,7 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
               Cancel
             </Button>
             <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'Sending…' : 'Send invitation'}
+              {isSubmitting ? 'Sending…' : 'Send invite'}
             </Button>
           </DialogFooter>
         </DialogContent>

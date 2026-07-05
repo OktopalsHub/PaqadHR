@@ -80,7 +80,7 @@ export const EmployeeList = () => {
   const actionConfig =
     (activeTab === 'employees' || activeTab === 'invitations') && isAdmin
       ? {
-          label: 'Add employee',
+          label: 'Invite',
           onClick: () => setInviteOpen(true),
         }
       : activeTab === 'departments' && isAdmin

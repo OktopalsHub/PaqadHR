@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { SendMailClient } from 'zeptomail';
 import { EmailTemplateService } from './email-template.service';
 
 interface EmailData {
@@ -27,9 +28,29 @@ type ZeptomailErrorBody = {
   rawBody?: string;
 };
 
-export function buildZeptomailPayload(emailData: EmailData, defaultFromEmail: string) {
+export function normalizeZeptomailToken(apiKey: string): string {
+  const trimmed = apiKey.trim();
+  if (!trimmed) return '';
+  if (trimmed.toLowerCase().startsWith('zoho-enczapikey')) return trimmed;
+  return `Zoho-enczapikey ${trimmed}`;
+}
+
+type ZeptomailSendPayload = {
+  from: { address: string; name: string };
+  to: Array<{ email_address: { address: string; name: string } }>;
+  subject: string;
+  htmlbody?: string;
+  textbody?: string;
+  reply_to?: Array<{ address: string; name: string }>;
+  attachments?: Array<{ name: string; content: string; mime_type?: string }>;
+};
+
+export function buildZeptomailPayload(
+  emailData: EmailData,
+  defaultFromEmail: string,
+): ZeptomailSendPayload {
   const toArray = Array.isArray(emailData.to) ? emailData.to : [emailData.to];
-  const payload: Record<string, unknown> = {
+  const payload: ZeptomailSendPayload = {
     from: {
       address: emailData.from || defaultFromEmail,
       name: 'PaqadHR',
@@ -37,6 +58,7 @@ export function buildZeptomailPayload(emailData: EmailData, defaultFromEmail: st
     to: toArray.map((email) => ({
       email_address: {
         address: email,
+        name: email.split('@')[0] || email,
       },
     })),
     subject: emailData.subject,
@@ -44,13 +66,14 @@ export function buildZeptomailPayload(emailData: EmailData, defaultFromEmail: st
 
   if (emailData.html?.trim()) {
     payload.htmlbody = emailData.html;
-  }
-  if (emailData.text?.trim()) {
+  } else if (emailData.text?.trim()) {
     payload.textbody = emailData.text;
   }
 
   if (emailData.replyTo) {
-    payload.reply_to = [{ address: emailData.replyTo }];
+    payload.reply_to = [
+      { address: emailData.replyTo, name: emailData.replyTo.split('@')[0] || 'Reply' },
+    ];
   }
 
   if (emailData.attachments?.length) {
@@ -88,16 +111,33 @@ export function formatZeptomailError(status: number, result: ZeptomailErrorBody)
   return `Zeptomail API error (${status})${code}: ${message}${requestSuffix}`;
 }
 
+export function formatZeptomailSdkError(error: unknown, status = 500): string {
+  if (error && typeof error === 'object') {
+    return formatZeptomailError(status, error as ZeptomailErrorBody);
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
 @Injectable()
 export class ZeptomailEmailService {
   private readonly logger = new Logger(ZeptomailEmailService.name);
   private readonly zeptomailApiKey: string;
   private readonly defaultFromEmail: string;
-  private readonly apiUrl = 'https://api.zeptomail.com/v1.1/email';
+  private readonly mailClient: SendMailClient | null;
 
   constructor(private readonly emailTemplateService: EmailTemplateService) {
     this.zeptomailApiKey = process.env.ZEPTOMAIL_API_KEY || '';
     this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@paqadhr.com';
+    this.mailClient = this.zeptomailApiKey
+      ? new SendMailClient({
+          url: 'api.zeptomail.com/',
+          token: normalizeZeptomailToken(this.zeptomailApiKey),
+        })
+      : null;
+
     if (!this.zeptomailApiKey) {
       this.logger.warn('ZEPTOMAIL_API_KEY is not configured. Email sending will fail.');
     }
@@ -106,7 +146,7 @@ export class ZeptomailEmailService {
   async sendEmail(
     emailData: EmailData,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.zeptomailApiKey) {
+    if (!this.mailClient) {
       this.logger.warn(`Email to ${emailData.to} skipped: ZEPTOMAIL_API_KEY not configured`);
       return { success: false, error: 'Zeptomail API key not configured' };
     }
@@ -121,48 +161,23 @@ export class ZeptomailEmailService {
 
     try {
       const payload = buildZeptomailPayload(emailData, this.defaultFromEmail);
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Zoho-enczapikey ${this.zeptomailApiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-      const bodyText = await response.text();
-      const result = this.parseZeptomailResponse(bodyText, response.status) as ZeptomailErrorBody;
-
-      if (!response.ok) {
-        const errorMessage = formatZeptomailError(response.status, result);
-        this.logger.warn(`Failed to send email to ${emailData.to}: ${errorMessage}`);
-        return { success: false, error: errorMessage };
-      }
-
-      const data = (result as { data?: Array<{ message_id?: string }> }).data;
+      const result = (await this.mailClient.sendMail(payload)) as {
+        data?: Array<{ message_id?: string }>;
+        request_id?: string;
+      };
       this.logger.log(`Email sent successfully to ${emailData.to}`);
-      return { success: true, messageId: data?.[0]?.message_id || 'unknown' };
+      return {
+        success: true,
+        messageId: result.data?.[0]?.message_id || result.request_id || 'unknown',
+      };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to send email to ${emailData.to}: ${message}`);
-      return { success: false, error: message };
-    }
-  }
-
-  /** Zeptomail often returns 2xx with an empty body; treat that as success. */
-  private parseZeptomailResponse(bodyText: string, status: number): Record<string, unknown> {
-    const trimmed = bodyText.trim();
-    if (!trimmed) {
-      return {};
-    }
-    try {
-      return JSON.parse(trimmed) as Record<string, unknown>;
-    } catch {
-      if (status >= 200 && status < 300) {
-        this.logger.warn(`Zeptomail returned non-JSON success body (${status}); continuing`);
-        return {};
-      }
-      return { rawBody: trimmed.slice(0, 500) };
+      const status =
+        error && typeof error === 'object' && 'status' in error
+          ? Number((error as { status?: number }).status) || 500
+          : 500;
+      const errorMessage = formatZeptomailSdkError(error, status);
+      this.logger.warn(`Failed to send email to ${emailData.to}: ${errorMessage}`);
+      return { success: false, error: errorMessage };
     }
   }
 
