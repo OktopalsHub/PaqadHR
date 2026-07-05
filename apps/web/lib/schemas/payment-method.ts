@@ -24,6 +24,7 @@ export const createPaymentMethodInputSchema = z.object({
   accountNumber: z.string().min(1).max(34),
   country: z.string().length(2),
   passcode: z.string().length(6),
+  otpProof: z.string().min(1),
   isPrimary: z.boolean().optional(),
 });
 

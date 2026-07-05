@@ -200,7 +200,7 @@ export class DepartmentsService {
       tenantId,
       createdBy: memberId,
     };
-    return this.departmentsRepository.create(departmentData);
+    return this.departmentsRepository.save(this.departmentsRepository.create(departmentData));
   }
   async updateDepartment(tenantId: string, id: string, dto: UpdateDepartmentDto) {
     await this.departmentsRepository.update(id, {
@@ -227,13 +227,15 @@ export class DepartmentsService {
     if (existingMembership) {
       throw new NotFoundException('Member is already in this department');
     }
-    await this.departmentMembersRepository.create({
-      departmentId,
-      memberId,
-      role: 'MEMBER',
-      joinedAt: new Date(),
-      isActive: true,
-    });
+    await this.departmentMembersRepository.save(
+      this.departmentMembersRepository.create({
+        departmentId,
+        memberId,
+        role: 'MEMBER',
+        joinedAt: new Date(),
+        isActive: true,
+      }),
+    );
     return { success: true };
   }
   async removeMemberFromDepartment(tenantId: string, departmentId: string, memberId: string) {

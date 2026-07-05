@@ -12,15 +12,18 @@ import { ENVIRONMENT } from 'src/common/config/env.config';
 import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
+import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { GeoLocationHelper, PasswordService, StringUtility } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
+import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../users/repositories/users.repository';
+import type { OtpPurpose } from './dto/otp.dto';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
@@ -34,6 +37,9 @@ interface AuthAuditContext {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly otpFailedAttempts = new Map<string, { count: number; lockedUntil?: number }>();
+  private readonly maxOtpFailedAttempts = 5;
+  private readonly otpLockDurationMinutes = 30;
 
   constructor(
     private readonly userRepository: UserRepository,
@@ -48,6 +54,8 @@ export class AuthService {
     private readonly tenantMembersService: TenantMembersService,
     private readonly tenantsService: TenantsService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly rateLimitService: RateLimitService,
+    private readonly zeptomailEmailService: ZeptomailEmailService,
   ) {}
 
   async validateUser(
@@ -277,7 +285,24 @@ export class AuthService {
 
     const existingUser = await this.userRepository.findUserByEmail(normalizedEmail);
     if (existingUser) {
-      throw new UnauthorizedException('Email already exists with another account');
+      if (!existingUser.isActive) {
+        throw new UnauthorizedException('User account is inactive');
+      }
+
+      await this.accountRepository.save(
+        this.accountRepository.create({
+          userId: existingUser.id,
+          providerId: 'google',
+          accountId: googleId,
+        }),
+      );
+
+      if (!existingUser.emailVerified) {
+        await this.userRepository.update(existingUser.id, { emailVerified: true });
+        existingUser.emailVerified = true;
+      }
+
+      return existingUser;
     }
 
     const countryCode = await GeoLocationHelper.getCountryCode(ip ?? '');
@@ -407,5 +432,127 @@ export class AuthService {
 
     await this.verificationRepository.delete(verification.id);
     return { message: 'Password reset successfully' };
+  }
+
+  async hasCredentialAccount(userId: string): Promise<boolean> {
+    const account = await this.accountRepository.findOne({
+      where: { userId, providerId: 'credential' },
+    });
+    return Boolean(account?.password);
+  }
+
+  private otpPurposeLabel(purpose: OtpPurpose): string {
+    return purpose === 'password_change' ? 'changing your password' : 'updating payment details';
+  }
+
+  private otpIdentifier(userId: string, purpose: OtpPurpose): string {
+    return `otp:${purpose}:${userId}`;
+  }
+
+  async sendOtp(userId: string, email: string, purpose: OtpPurpose) {
+    const rate = await this.rateLimitService.checkRateLimit(`otp:send:${userId}:${purpose}`, {
+      rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }],
+    });
+    if (!rate.allowed) {
+      throw new BadRequestException(
+        `Too many code requests. Try again in ${rate.retryAfter ?? 60}s`,
+      );
+    }
+
+    const lockKey = `${userId}:${purpose}`;
+    const lock = this.otpFailedAttempts.get(lockKey);
+    if (lock?.lockedUntil && lock.lockedUntil > Date.now()) {
+      throw new UnauthorizedException('Too many failed attempts. Try again later.');
+    }
+
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const identifier = this.otpIdentifier(userId, purpose);
+    await this.verificationRepository.delete({ identifier });
+    await this.verificationRepository.save(
+      this.verificationRepository.create({
+        identifier,
+        token: code,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      }),
+    );
+
+    await this.zeptomailEmailService.sendTemplateEmail(email, 'otp-verification', {
+      code,
+      purposeLabel: this.otpPurposeLabel(purpose),
+    });
+
+    return { message: 'Verification code sent' };
+  }
+
+  async verifyOtp(userId: string, purpose: OtpPurpose, code: string) {
+    const lockKey = `${userId}:${purpose}`;
+    const lock = this.otpFailedAttempts.get(lockKey);
+    if (lock?.lockedUntil && lock.lockedUntil > Date.now()) {
+      throw new UnauthorizedException('Too many failed attempts. Try again later.');
+    }
+
+    const identifier = this.otpIdentifier(userId, purpose);
+    const verification = await this.verificationRepository.findOne({
+      where: { identifier, token: code },
+    });
+    if (!verification || verification.expiresAt < new Date()) {
+      const entry = this.otpFailedAttempts.get(lockKey) ?? { count: 0 };
+      entry.count += 1;
+      if (entry.count >= this.maxOtpFailedAttempts) {
+        entry.lockedUntil = Date.now() + this.otpLockDurationMinutes * 60 * 1000;
+      }
+      this.otpFailedAttempts.set(lockKey, entry);
+      throw new BadRequestException('Invalid or expired verification code');
+    }
+
+    await this.verificationRepository.delete(verification.id);
+    this.otpFailedAttempts.delete(lockKey);
+
+    const otpProof = this.jwtService.sign(
+      { sub: userId, purpose, type: 'otp_proof' },
+      { expiresIn: '5m' },
+    );
+    return { otpProof };
+  }
+
+  assertOtpProof(otpProof: string, userId: string, purpose: OtpPurpose): void {
+    try {
+      const payload = this.jwtService.verify<{
+        sub: string;
+        purpose: OtpPurpose;
+        type: string;
+      }>(otpProof);
+      if (payload.type !== 'otp_proof' || payload.sub !== userId || payload.purpose !== purpose) {
+        throw new UnauthorizedException('Invalid verification');
+      }
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
+      throw new UnauthorizedException('Invalid or expired verification');
+    }
+  }
+
+  async changePassword(userId: string, otpProof: string, newPassword: string) {
+    this.assertOtpProof(otpProof, userId, 'password_change');
+
+    const account = await this.accountRepository.findOne({
+      where: { userId, providerId: 'credential' },
+    });
+    if (!account) {
+      throw new BadRequestException(
+        'No password account found. Sign in with Google or contact support.',
+      );
+    }
+
+    const hashedPassword = await PasswordService.hashPassword(newPassword);
+    account.password = hashedPassword;
+    await this.accountRepository.save(account);
+
+    const user = await this.userRepository.findUser(userId);
+    if (user) {
+      user.password = hashedPassword;
+      await this.userRepository.save(user);
+    }
+
+    return { message: 'Password changed successfully' };
   }
 }

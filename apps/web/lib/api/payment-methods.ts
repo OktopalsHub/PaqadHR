@@ -89,6 +89,7 @@ export type UpdatePaymentMethodInput = {
   accountNumber?: string;
   country?: string;
   currentPasscode: string;
+  otpProof: string;
   newPasscode?: string;
   isPrimary?: boolean;
 };

@@ -29,6 +29,7 @@ import { ManagerAccessService } from '../../../../common/services/manager-access
 import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
+import { AuthService } from '../../auth/auth.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {
@@ -62,6 +63,7 @@ export class PaymentMethodService {
     private readonly managerAccessService: ManagerAccessService,
     private readonly tenantConfigService: TenantConfigService,
     private readonly tenantsService: TenantsService,
+    private readonly authService: AuthService,
   ) {}
   async getAllowedCurrencies(tenantId: string): Promise<string[]> {
     try {
@@ -74,9 +76,11 @@ export class PaymentMethodService {
   async createPaymentMethod(
     tenantId: string,
     memberId: string,
+    userId: string,
     dto: CreatePaymentMethodDto,
   ): Promise<PaymentMethod> {
     try {
+      this.authService.assertOtpProof(dto.otpProof, userId, 'payment_method');
       await this.validatePaymentMethodData(dto);
       await this.assertCurrencyAllowed(tenantId, dto.currency);
       if (!dto.passcode) {
@@ -155,8 +159,10 @@ export class PaymentMethodService {
     paymentMethodId: string,
     tenantId: string,
     memberId: string,
+    userId: string,
     dto: UpdatePaymentMethodDto,
   ): Promise<PaymentMethod> {
+    this.authService.assertOtpProof(dto.otpProof, userId, 'payment_method');
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: paymentMethodId, tenantId, memberId },
     });

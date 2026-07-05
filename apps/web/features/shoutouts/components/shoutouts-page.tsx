@@ -1,9 +1,9 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Award, Coins, Heart, Sparkles, Trophy, X } from 'lucide-react';
+import { Award, Coins, Heart, Plus, Sparkles, Trophy, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
@@ -27,10 +27,21 @@ import {
 } from '@/hooks/queries/use-shoutouts';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { apiClient, tenantPath } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
-import { ShoutoutComposer, type ShoutoutSubmitPayload } from './shoutout-composer';
+import {
+  ShoutoutComposer,
+  type ShoutoutComposerHandle,
+  type ShoutoutSubmitPayload,
+} from './shoutout-composer';
 import { ShoutoutTasksTab } from './shoutout-tasks-tab';
+
+function allowancePeriodLabel(period?: string): string {
+  if (period === 'weekly') return 'weekly';
+  if (period === 'quarterly') return 'quarterly';
+  return 'monthly';
+}
 
 function ShoutoutsPageContent() {
   const searchParams = useSearchParams();
@@ -73,6 +84,8 @@ function ShoutoutsPageContent() {
   const createCategory = useCreateShoutoutCategoryAdmin();
   const deleteCategory = useDeleteShoutoutCategoryAdmin();
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [addValueOpen, setAddValueOpen] = useState(false);
+  const composerRef = useRef<ShoutoutComposerHandle>(null);
 
   const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
 
@@ -90,6 +103,7 @@ function ShoutoutsPageContent() {
     try {
       await createCategory.mutateAsync({ name: newCategoryName.trim() });
       setNewCategoryName('');
+      setAddValueOpen(false);
       toast.success('Core value category added!');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add core value');
@@ -120,9 +134,13 @@ function ShoutoutsPageContent() {
     );
   }
 
-  const totalAllowance = pointsBalance?.monthlyAllowance ?? 100;
-  const remainingAllowance = pointsBalance?.remainingAllowance ?? 100;
-  const allowancePercent = Math.min(100, Math.max(0, (remainingAllowance / totalAllowance) * 100));
+  const totalAllowance = pointsBalance?.monthlyAllowance;
+  const remainingAllowance = pointsBalance?.remainingAllowance;
+  const allowancePercent =
+    totalAllowance != null && remainingAllowance != null && totalAllowance > 0
+      ? Math.min(100, Math.max(0, (remainingAllowance / totalAllowance) * 100))
+      : 0;
+  const periodLabel = allowancePeriodLabel(pointsBalance?.allowancePeriod);
 
   return (
     <div className="space-y-6">
@@ -165,6 +183,7 @@ function ShoutoutsPageContent() {
             {}
             <div className="lg:col-span-8 space-y-6">
               <ShoutoutComposer
+                ref={composerRef}
                 variant="feed"
                 employees={employees
                   .filter((e) => e.id !== currentMemberId)
@@ -202,17 +221,17 @@ function ShoutoutsPageContent() {
             {}
             <div className="lg:col-span-4 space-y-6">
               {}
-              {pointsBalance && (
+              {pointsBalance && totalAllowance != null && remainingAllowance != null ? (
                 <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
                   <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
                     <Trophy className="size-4 text-warning" />
-                    Your Point Allowance
+                    Your points
                   </h3>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground font-medium">
-                        Monthly Give Allowance
+                        Give budget ({periodLabel})
                       </span>
                       <span className="font-bold text-foreground">
                         {remainingAllowance} / {totalAllowance} pts left
@@ -229,7 +248,7 @@ function ShoutoutsPageContent() {
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/50 text-center">
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground font-medium">
-                        Redeemable Balance
+                        Redeemable balance
                       </p>
                       <p className="text-lg font-bold text-primary flex items-center justify-center gap-1">
                         <Coins className="size-4 text-warning" />
@@ -237,9 +256,12 @@ function ShoutoutsPageContent() {
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">Lifetime Earned</p>
+                      <p className="text-xs text-muted-foreground font-medium">Lifetime earned</p>
                       <p className="text-lg font-bold text-foreground">
                         {pointsBalance.totalEarned.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">
+                        Points you&apos;ve received from others
                       </p>
                     </div>
                   </div>
@@ -255,7 +277,7 @@ function ShoutoutsPageContent() {
                     Go to Rewards Catalog
                   </Button>
                 </div>
-              )}
+              ) : null}
 
               {}
               <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
@@ -264,55 +286,82 @@ function ShoutoutsPageContent() {
                   Company Core Values
                 </h3>
 
-                {categories.length === 0 ? (
+                {categories.length === 0 && !isAdmin ? (
                   <div className="rounded-lg border border-dashed p-4 text-center space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground">
                       No core values set up yet
                     </p>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
                     {categories.map((c) => (
-                      <span
+                      <div
                         key={c.id}
-                        className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-medium bg-primary/5 text-primary dark:text-primary/70 border border-primary/10 group"
+                        className="inline-flex shrink-0 items-center rounded-full border border-primary/10 bg-primary/5 text-xs font-medium text-primary dark:text-primary/70"
                       >
-                        <Sparkles className="size-3 text-primary" />
-                        {c.name}
-                        {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => composerRef.current?.insertAtCursor(`#${c.name} `)}
+                          className={cn(
+                            'inline-flex items-center gap-1 py-1 pl-2.5 transition-colors hover:bg-primary/10',
+                            isAdmin ? 'pr-1' : 'pr-2.5',
+                          )}
+                        >
+                          <Sparkles className="size-3 text-primary" />
+                          {c.name}
+                        </button>
+                        {isAdmin ? (
                           <button
                             type="button"
-                            onClick={() => handleDeleteCategory(c.id)}
-                            className="ml-1 text-primary/70 hover:text-primary rounded-full hover:bg-primary/10 p-0.5 transition-colors"
+                            onClick={() => void handleDeleteCategory(c.id)}
                             disabled={deleteCategory.isPending}
+                            aria-label={`Remove ${c.name}`}
+                            className="rounded-full p-1 pr-1.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                           >
                             <X className="size-3" />
                           </button>
-                        )}
-                      </span>
+                        ) : null}
+                      </div>
                     ))}
-                  </div>
-                )}
-
-                {isAdmin && (
-                  <div className="flex gap-1.5 pt-2 border-t border-border/40">
-                    <Input
-                      placeholder="Add core value..."
-                      className="h-8 text-xs placeholder:text-muted-foreground/75"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddCategory();
-                      }}
-                    />
-                    <Button
-                      size="sm"
-                      className="h-8 px-2.5 text-xs font-semibold"
-                      onClick={handleAddCategory}
-                      disabled={createCategory.isPending}
-                    >
-                      Add
-                    </Button>
+                    {isAdmin ? (
+                      addValueOpen ? (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Input
+                            autoFocus
+                            placeholder="Name…"
+                            className="h-7 w-28 text-xs"
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') void handleAddCategory();
+                              if (e.key === 'Escape') {
+                                setAddValueOpen(false);
+                                setNewCategoryName('');
+                              }
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={() => void handleAddCategory()}
+                            disabled={createCategory.isPending}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="size-7 shrink-0 rounded-full p-0"
+                          onClick={() => setAddValueOpen(true)}
+                          title="Add core value"
+                        >
+                          <Plus className="size-3.5" />
+                        </Button>
+                      )
+                    ) : null}
                   </div>
                 )}
               </div>

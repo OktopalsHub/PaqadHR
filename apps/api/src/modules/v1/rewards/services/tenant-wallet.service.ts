@@ -95,6 +95,24 @@ export class TenantWalletService {
     return Date.now() - updatedAt > PROVISIONING_STALE_MS;
   }
 
+  private walletNeedsVirtualAccountProvision(wallet: TenantWallet): boolean {
+    if (wallet.virtualAccountStatus === 'ACTIVE' && wallet.virtualAccountNumber) return false;
+    if (wallet.virtualAccountStatus === 'PROVISIONING' && !this.isProvisioningStale(wallet)) {
+      return false;
+    }
+    return (
+      !wallet.virtualAccountNumber ||
+      wallet.virtualAccountStatus === 'FAILED' ||
+      this.isProvisioningStale(wallet)
+    );
+  }
+
+  async hasWalletsNeedingVirtualAccountProvision(): Promise<boolean> {
+    if (!this.nombaVirtualAccountApi.isConfigured()) return false;
+    const targets = await this.dataSource.getRepository(TenantWallet).find();
+    return targets.some((wallet) => this.walletNeedsVirtualAccountProvision(wallet));
+  }
+
   async provisionVirtualAccount(tenantId: string, tenantName?: string): Promise<TenantWallet> {
     const repo = this.dataSource.getRepository(TenantWallet);
     const wallet = await this.ensureWallet(tenantId);
@@ -414,15 +432,7 @@ export class TenantWalletService {
 
     const repo = this.dataSource.getRepository(TenantWallet);
     const targets = await repo.find();
-    const needing = targets.filter((w) => {
-      if (w.virtualAccountStatus === 'ACTIVE' && w.virtualAccountNumber) return false;
-      if (w.virtualAccountStatus === 'PROVISIONING' && !this.isProvisioningStale(w)) return false;
-      return (
-        !w.virtualAccountNumber ||
-        w.virtualAccountStatus === 'FAILED' ||
-        this.isProvisioningStale(w)
-      );
-    });
+    const needing = targets.filter((wallet) => this.walletNeedsVirtualAccountProvision(wallet));
 
     let provisioned = 0;
     let skipped = 0;

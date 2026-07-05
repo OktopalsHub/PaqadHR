@@ -47,7 +47,7 @@ export function ActivityLogPage() {
       <AppPage>
         <Card>
           <CardHeader>
-            <CardTitle>Activity</CardTitle>
+            <CardTitle>Logs</CardTitle>
             <CardDescription>
               Only workspace owners and admins can view the activity log.
             </CardDescription>
@@ -61,7 +61,7 @@ export function ActivityLogPage() {
     <AppPage>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Activity</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Logs</h1>
           <p className="text-sm text-muted-foreground">
             Important workspace events — leave, payroll, rewards, and more.
           </p>

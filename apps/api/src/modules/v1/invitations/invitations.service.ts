@@ -559,7 +559,9 @@ export class InvitationsService {
     );
 
     if (!result.success) {
-      this.logger.error(`Failed to send invitation email to ${invitation.email}: ${result.error}`);
+      this.logger.warn(
+        `Invitation saved but email not sent to ${invitation.email}: ${result.error}`,
+      );
       return;
     }
 

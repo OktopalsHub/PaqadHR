@@ -31,10 +31,12 @@ export class ZeptomailEmailService {
   async sendEmail(
     emailData: EmailData,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.zeptomailApiKey) {
+      this.logger.warn(`Email to ${emailData.to} skipped: ZEPTOMAIL_API_KEY not configured`);
+      return { success: false, error: 'Zeptomail API key not configured' };
+    }
+
     try {
-      if (!this.zeptomailApiKey) {
-        throw new BadRequestException('Zeptomail API key not configured');
-      }
       const toArray = Array.isArray(emailData.to) ? emailData.to : [emailData.to];
       const payload = {
         from: {
@@ -65,17 +67,36 @@ export class ZeptomailEmailService {
         },
         body: JSON.stringify(payload),
       });
-      const result = await response.json();
+      const bodyText = await response.text();
+      let result: Record<string, unknown> = {};
+      if (bodyText) {
+        try {
+          result = JSON.parse(bodyText) as Record<string, unknown>;
+        } catch {
+          throw new BadRequestException(
+            `Zeptomail returned non-JSON response (${response.status})`,
+          );
+        }
+      }
       if (!response.ok) {
+        const error = result.error as { message?: string } | undefined;
         throw new BadRequestException(
-          `Zeptomail API error: ${result.error?.message || result.message || 'Unknown error'}`,
+          `Zeptomail API error (${response.status}): ${error?.message || result.message || bodyText || 'Unknown error'}`,
         );
       }
+      const data = result.data as Array<{ message_id?: string }> | undefined;
       this.logger.log(`Email sent successfully to ${emailData.to}`);
-      return { success: true, messageId: result.data?.[0]?.message_id || 'unknown' };
+      return { success: true, messageId: data?.[0]?.message_id || 'unknown' };
     } catch (error) {
-      this.logger.error(`Failed to send email to ${emailData.to}:`, error);
-      return { success: false, error: error.message };
+      const message = error instanceof Error ? error.message : String(error);
+      const isExpectedFailure =
+        message.includes('not configured') || /\(\s*4\d{2}\s*\)/.test(message);
+      if (isExpectedFailure) {
+        this.logger.warn(`Failed to send email to ${emailData.to}: ${message}`);
+      } else {
+        this.logger.error(`Failed to send email to ${emailData.to}:`, error);
+      }
+      return { success: false, error: message };
     }
   }
   async sendBulkEmails(
@@ -129,7 +150,10 @@ export class ZeptomailEmailService {
       });
     } catch (error) {
       this.logger.error(`Failed to send template email '${templateKey}' to ${to}:`, error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
   private renderTemplate(template: string, variables: Record<string, unknown>): string {
