@@ -633,7 +633,6 @@ export class RewardsService {
           `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((totalTenantDebit - faceValueInRewardsCurrency).toFixed(2))})`,
           manager,
         );
-        await this.walletTopupService.maybeAutoTopupAfterDebit(tenantId, manager);
       }
 
       const redemptionRepo = manager.getRepository(RewardRedemption);
@@ -653,6 +652,14 @@ export class RewardsService {
       });
       await redemptionRepo.save(redemption);
     });
+
+    if (input.rewardType !== 'CUSTOM') {
+      void this.walletTopupService.maybeAutoTopupAfterDebit(tenantId).catch((err) => {
+        this.logger.warn(
+          `Auto-topup after redemption failed for ${tenantId}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
+    }
 
     try {
       if (input.rewardType === 'RELOADLY') {

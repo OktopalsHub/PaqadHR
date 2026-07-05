@@ -13,6 +13,7 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_CREDIT_FAILED,
   WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
@@ -150,7 +151,7 @@ export class TenantWalletTopupService {
         .getRepository(TenantWallet)
         .createQueryBuilder('w')
         .setLock('pessimistic_write')
-        .where('w.tenant_id = :tenantId', { tenantId: input.tenantId })
+        .where('w.tenantId = :tenantId', { tenantId: input.tenantId })
         .getOneOrFail();
 
       const dup = await manager.getRepository(TenantWalletTransaction).findOne({
@@ -176,8 +177,10 @@ export class TenantWalletTopupService {
     });
   }
 
-  async maybeAutoTopupAfterDebit(tenantId: string, manager: EntityManager): Promise<void> {
-    const wallet = await manager.getRepository(TenantWallet).findOneOrFail({ where: { tenantId } });
+  async maybeAutoTopupAfterDebit(tenantId: string): Promise<void> {
+    const wallet = await this.dataSource
+      .getRepository(TenantWallet)
+      .findOneOrFail({ where: { tenantId } });
     if (
       !wallet.autoTopupEnabled ||
       Number(wallet.autoTopupAmount) <= 0 ||
@@ -191,7 +194,7 @@ export class TenantWalletTopupService {
       Number(wallet.autoTopupAmount),
       `auto-topup-${randomUUID()}`,
       `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
-      manager,
+      undefined,
       'member',
     );
   }
@@ -234,6 +237,7 @@ export class TenantWalletTopupService {
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
 
+    let chargeReference = reference;
     try {
       const charge = await this.nombaApi.chargeTokenizedCard({
         orderReference: reference,
@@ -245,7 +249,8 @@ export class TenantWalletTopupService {
         meta: { tenantId, billingType: 'wallet_topup' },
       });
 
-      const verified = await this.nombaApi.verifyTransaction(charge.orderReference);
+      chargeReference = charge.orderReference;
+      const verified = await this.nombaApi.verifyTransaction(chargeReference);
       if (verified?.status?.toLowerCase() !== 'success') {
         throw new Error('Payment verification failed');
       }
@@ -256,8 +261,16 @@ export class TenantWalletTopupService {
           `Payment amount mismatch (expected ${amount}, got ${verified.amount ?? 'unknown'})`,
         );
       }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.notifyWalletChargeFailed(tenantId, amount, currency, reason);
+      throw new BadRequestException(
+        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
+      );
+    }
 
-      return this.walletService.credit(
+    try {
+      return await this.walletService.credit(
         tenantId,
         amount,
         'DEPOSIT',
@@ -265,15 +278,15 @@ export class TenantWalletTopupService {
         description,
         manager,
         {
-          nombaEventId: charge.orderReference,
+          nombaEventId: chargeReference,
         },
       );
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      this.notifyWalletChargeFailed(tenantId, amount, currency, reason);
-      throw new BadRequestException(
-        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
+      this.logger.error(
+        `CRITICAL: Payment charged (${chargeReference}) but wallet credit failed for tenant ${tenantId}: ${error instanceof Error ? error.message : error}`,
+        error instanceof Error ? error.stack : undefined,
       );
+      throw new BadRequestException(WALLET_CREDIT_FAILED);
     }
   }
 

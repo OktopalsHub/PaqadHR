@@ -1,5 +1,6 @@
 import {
   WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_CREDIT_FAILED,
   WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
@@ -191,7 +192,7 @@ describe('TenantWalletTopupService', () => {
 
   describe('maybeAutoTopupAfterDebit', () => {
     it('throws when auto-topup charge fails', async () => {
-      const { topupService, manager, nombaApi, emailService } = createTopupService({
+      const { topupService, nombaApi, emailService } = createTopupService({
         wallet: {
           autoTopupEnabled: true,
           autoTopupThreshold: 1000,
@@ -201,7 +202,7 @@ describe('TenantWalletTopupService', () => {
         nombaCharge: jest.fn().mockRejectedValue(new Error('card declined')),
       });
 
-      await expect(topupService.maybeAutoTopupAfterDebit(tenantId, manager as any)).rejects.toThrow(
+      await expect(topupService.maybeAutoTopupAfterDebit(tenantId)).rejects.toThrow(
         WALLET_UNAVAILABLE_MEMBER,
       );
 
@@ -235,6 +236,15 @@ describe('TenantWalletTopupService', () => {
 
       expect(walletService.credit).not.toHaveBeenCalled();
       expect(emailService.sendEmail).toHaveBeenCalled();
+    });
+
+    it('does not send charge-failed email when payment succeeds but credit fails', async () => {
+      const { topupService, walletService, emailService } = createTopupService({});
+      walletService.credit.mockRejectedValue(new Error('db deadlock'));
+
+      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(WALLET_CREDIT_FAILED);
+
+      expect(emailService.sendEmail).not.toHaveBeenCalled();
     });
   });
 
