@@ -90,7 +90,7 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
 
       toastInvitationDelivery(result, {
         successMessage: 'Invite sent',
-        failureMessage: 'Invite saved, email failed',
+        failureMessage: 'Invite saved — email not sent',
       });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.all, tenantId],

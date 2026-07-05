@@ -125,6 +125,44 @@ export function formatZeptomailSdkError(error: unknown, status = 500): string {
   return String(error);
 }
 
+export function toUserFacingEmailError(technicalMessage: string): string {
+  const lower = technicalMessage.toLowerCase();
+
+  if (lower.includes('not configured') || lower.includes('token cannot be empty')) {
+    return 'Email delivery is not set up on this server. Contact your workspace admin.';
+  }
+  if (lower.includes('sender address') && lower.includes('not verified')) {
+    return 'The sender email is not verified for delivery. Your admin needs to verify it in Zeptomail.';
+  }
+  if (lower.includes('credit exhausted') || lower.includes('quota')) {
+    return 'Email sending limit reached. Try again later or contact support.';
+  }
+  if (lower.includes('subject is required') || lower.includes('subject cannot be empty')) {
+    return 'Could not send the email because the message subject was missing.';
+  }
+  if (lower.includes('body is required')) {
+    return 'Could not send the email because the message body was empty.';
+  }
+  if (lower.includes('timeout') || lower.includes('network error')) {
+    return 'Email service timed out. Try resending in a moment.';
+  }
+
+  const cleaned = technicalMessage
+    .replace(/^Zeptomail API error \(\d+\)(?:\s*\[[^\]]+\])?:\s*/i, '')
+    .replace(/\s*\(request_id:[^)]+\)\s*$/i, '')
+    .trim();
+
+  if (!cleaned || cleaned.toLowerCase() === 'unknown error') {
+    return 'We could not send the invite email. Try resend from Invitations, or contact support if it keeps failing.';
+  }
+
+  if (/^TM_\d+/i.test(cleaned) || cleaned.length > 140) {
+    return 'We could not send the invite email. Try resend from Invitations.';
+  }
+
+  return cleaned;
+}
+
 @Injectable()
 export class ZeptomailEmailService {
   private readonly logger = new Logger(ZeptomailEmailService.name);
@@ -154,15 +192,24 @@ export class ZeptomailEmailService {
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.mailClient) {
       this.logger.warn(`Email to ${emailData.to} skipped: ZEPTOMAIL_API_KEY not configured`);
-      return { success: false, error: 'Zeptomail API key not configured' };
+      return {
+        success: false,
+        error: toUserFacingEmailError('Zeptomail API key not configured'),
+      };
     }
 
     if (!emailData.subject?.trim()) {
-      return { success: false, error: 'Email subject is required' };
+      return {
+        success: false,
+        error: toUserFacingEmailError('Email subject is required'),
+      };
     }
 
     if (!emailData.html?.trim() && !emailData.text?.trim()) {
-      return { success: false, error: 'Email body is required' };
+      return {
+        success: false,
+        error: toUserFacingEmailError('Email body is required'),
+      };
     }
 
     try {
@@ -183,7 +230,7 @@ export class ZeptomailEmailService {
           : 500;
       const errorMessage = formatZeptomailSdkError(error, status);
       this.logger.warn(`Failed to send email to ${emailData.to}: ${errorMessage}`);
-      return { success: false, error: errorMessage };
+      return { success: false, error: toUserFacingEmailError(errorMessage) };
     }
   }
 

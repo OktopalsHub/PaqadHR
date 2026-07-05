@@ -3,6 +3,7 @@ import {
   formatZeptomailError,
   formatZeptomailSdkError,
   normalizeZeptomailToken,
+  toUserFacingEmailError,
 } from './zeptomail-email.service';
 
 describe('zeptomail helpers', () => {
@@ -67,5 +68,19 @@ describe('zeptomail helpers', () => {
 
   it('formats standard Error instances without Zeptomail body shape', () => {
     expect(formatZeptomailSdkError(new Error('network timeout'))).toBe('network timeout');
+  });
+
+  it('maps technical Zeptomail errors to user-facing messages', () => {
+    expect(
+      toUserFacingEmailError(
+        'Zeptomail API error (500) [TM_5001]: Unknown error (request_id: req-123)',
+      ),
+    ).toBe('We could not send the invite email. Try resend from Invitations, or contact support if it keeps failing.');
+
+    expect(
+      toUserFacingEmailError(
+        'Zeptomail API error (400) [TM_4001]: Sender address domain is not verified in your Agent.',
+      ),
+    ).toBe('The sender email is not verified for delivery. Your admin needs to verify it in Zeptomail.');
   });
 });

@@ -89,7 +89,7 @@ export function EmployeeInvitationsTab() {
                           const result = await resend.mutateAsync(invitation.id);
                           toastInvitationDelivery(result, {
                             successMessage: 'Invite resent',
-                            failureMessage: 'Updated, email failed',
+                            failureMessage: 'Invite updated — email not sent',
                           });
                         } catch (err) {
                           toast.error(err instanceof Error ? err.message : 'Resend failed');
