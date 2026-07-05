@@ -136,10 +136,11 @@ describe('InvitationsService', () => {
       expect(result.emailError).toBe('smtp down');
     });
 
-    it('allows inviting an existing user who is not yet in the tenant', async () => {
+    it('allows inviting a user who belongs to another workspace', async () => {
       const { service, tenantMembersService } = buildService({
         existingUser: { id: 'user-existing', email: 'existing@other.com', role: 'member' },
       });
+      tenantMembersService.findUserTenantMembership.mockResolvedValue(null);
 
       const result = await service.createInvitation(
         { email: 'existing@other.com', role: 'member' },
@@ -153,6 +154,21 @@ describe('InvitationsService', () => {
       );
       expect(result.email).toBe('existing@other.com');
       expect(result.emailSent).toBe(true);
+    });
+
+    it('blocks inviting someone who is already on this workspace', async () => {
+      const { service, tenantMembersService } = buildService({
+        existingUser: { id: 'user-existing', email: 'member@example.com', role: 'member' },
+      });
+      tenantMembersService.findUserTenantMembership.mockResolvedValue({ id: 'member-existing' });
+
+      await expect(
+        service.createInvitation(
+          { email: 'member@example.com', role: 'member' },
+          'tenant-1',
+          'member-1',
+        ),
+      ).rejects.toThrow('already a member of this tenant');
     });
   });
 
