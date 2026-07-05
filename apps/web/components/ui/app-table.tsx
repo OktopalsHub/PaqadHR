@@ -15,7 +15,7 @@ function AppTablePanel({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-none',
+        'min-w-0 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-none',
         className,
       )}
       {...props}
@@ -68,7 +68,7 @@ function AppTableHeadCell({ className, ...props }: React.ComponentProps<typeof T
   return (
     <TableHead
       className={cn(
-        'px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400',
+        'px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 sm:px-6 dark:text-slate-400',
         className,
       )}
       {...props}
@@ -79,7 +79,7 @@ function AppTableHeadCell({ className, ...props }: React.ComponentProps<typeof T
 function AppTableCell({ className, ...props }: React.ComponentProps<typeof TableCell>) {
   return (
     <TableCell
-      className={cn('px-6 py-4 text-sm text-slate-700 dark:text-slate-300', className)}
+      className={cn('px-4 py-4 text-sm text-slate-700 sm:px-6 dark:text-slate-300', className)}
       {...props}
     />
   );
@@ -89,7 +89,7 @@ function AppTableFooterBar({ className, ...props }: React.ComponentProps<'div'>)
   return (
     <div
       className={cn(
-        'flex items-center justify-between border-t border-slate-100 bg-slate-50/30 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50',
+        'flex flex-col items-start gap-3 border-t border-slate-100 bg-slate-50/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-slate-800 dark:bg-slate-900/50',
         className,
       )}
       {...props}

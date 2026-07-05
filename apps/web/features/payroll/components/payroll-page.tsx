@@ -323,28 +323,30 @@ export function PayrollPage() {
   return (
     <AppPage className="mx-auto w-full max-w-7xl space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <TabsList className="inline-flex h-auto w-max flex-wrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
-            <TabsTrigger
-              value="runs"
-              className="rounded-[8px] px-6 py-2 text-sm font-medium text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
-            >
-              Runs
-            </TabsTrigger>
-            {isAdmin && (
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="inline-flex h-auto min-w-max flex-nowrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
               <TabsTrigger
-                value="salaries"
-                className="rounded-[8px] px-6 py-2 text-sm font-medium text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
+                value="runs"
+                className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
               >
-                Salaries
+                Runs
               </TabsTrigger>
-            )}
-          </TabsList>
+              {isAdmin && (
+                <TabsTrigger
+                  value="salaries"
+                  className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+                >
+                  Salaries
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
 
           {isAdmin && activeTab === 'runs' ? (
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button variant="brandSolid" size="app" className="w-max">
+                <Button variant="brandSolid" size="app" className="w-full sm:w-max">
                   <Plus className="size-4" />
                   New run
                 </Button>

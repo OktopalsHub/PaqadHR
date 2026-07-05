@@ -150,7 +150,7 @@ export class PayrollService {
       }
       await queryRunner.commitTransaction();
       await this.auditService.logPayrollCreated(
-        { payrollRunId: savedPayrollRun.id, performedById: createdById },
+        { tenantId, payrollRunId: savedPayrollRun.id, performedById: createdById },
         {
           title: dto.title,
           frequency: dto.frequency,

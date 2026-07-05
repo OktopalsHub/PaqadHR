@@ -3,6 +3,7 @@
 import { Download, Lock, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   AppTable,
@@ -14,7 +15,6 @@ import {
   AppTableHeaderSection,
   AppTablePanel,
 } from '@/components/ui/app-table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -44,7 +44,6 @@ import type {
   PayrollItem,
   PayrollRunDetail as PayrollRunDetailType,
 } from '@/lib/schemas/payroll';
-import { getInitials } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
 const ADJUSTMENT_TYPES = [
@@ -454,10 +453,12 @@ export function PayrollRunDetail({
                 <AppTableBodyRow key={item.id}>
                   <AppTableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
-                        <AvatarImage src={employee?.avatar || '/placeholder.svg'} />
-                        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee?.avatar}
+                        name={name}
+                        className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                        fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                      />
                       <span className="font-medium">{name}</span>
                     </div>
                   </AppTableCell>
@@ -553,10 +554,12 @@ export function PayrollRunDetail({
                     className="flex flex-col gap-3 border-b border-[#d7e3f6] bg-white/65 p-4 last:border-b-0 dark:border-slate-800 dark:bg-slate-950/45 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
-                        <AvatarImage src={employee?.avatar || '/placeholder.svg'} />
-                        <AvatarFallback>{getInitials(name)}</AvatarFallback>
-                      </Avatar>
+                      <PersonAvatar
+                        src={employee?.avatar}
+                        name={name}
+                        className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                        fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                      />
                       <div>
                         <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
                           {name}

@@ -18,4 +18,5 @@ export interface IInvitationResponseDto {
   expiresAt: Date;
   token: string;
   tenantName: string;
+  tenantSlug?: string;
 }

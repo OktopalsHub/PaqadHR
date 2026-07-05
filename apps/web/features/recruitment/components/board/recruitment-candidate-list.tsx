@@ -1,3 +1,4 @@
+import { PersonAvatar } from '@/components/person-avatar';
 import {
   AppTable,
   AppTableBodyRow,
@@ -8,7 +9,6 @@ import {
   AppTableHeaderSection,
   AppTablePanel,
 } from '@/components/ui/app-table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { CandidateStatus } from './board-columns';
 import type { BoardCandidate } from './recruitment-kanban-board';
 
@@ -64,12 +64,11 @@ function CandidateListRow({ candidate }: { candidate: BoardCandidate }) {
     <AppTableBodyRow>
       <AppTableCell>
         <div className="flex items-center gap-3">
-          <Avatar className="size-8 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
-            <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200">
-              {candidate.firstName.charAt(0)}
-              {candidate.lastName.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
+          <PersonAvatar
+            name={fullName}
+            className="size-8 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+            fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          />
           <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {fullName}
           </span>

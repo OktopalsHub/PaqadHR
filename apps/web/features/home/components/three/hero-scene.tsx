@@ -4,6 +4,7 @@ import { Float, MeshTransmissionMaterial } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { useBrandColor } from '@/hooks/use-brand-color';
 
 function Node({
   position,
@@ -115,7 +116,7 @@ function Particles({ count = 400 }: { count?: number }) {
   );
 }
 
-function GlassOrb() {
+function GlassOrb({ brandColor }: { brandColor: string }) {
   const ref = useRef<THREE.Mesh>(null!);
 
   useFrame((state) => {
@@ -138,7 +139,7 @@ function GlassOrb() {
           distortion={0.15}
           distortionScale={0.25}
           temporalDistortion={0.08}
-          color="#ffcc00"
+          color={brandColor}
           transmission={0.97}
           roughness={0.03}
           ior={1.25}
@@ -148,7 +149,7 @@ function GlassOrb() {
   );
 }
 
-function InnerGlow() {
+function InnerGlow({ brandColor }: { brandColor: string }) {
   const ref = useRef<THREE.Mesh>(null!);
 
   useFrame((state) => {
@@ -161,7 +162,7 @@ function InnerGlow() {
   return (
     <mesh ref={ref}>
       <sphereGeometry args={[1, 24, 24]} />
-      <meshBasicMaterial color="#ffcc00" transparent opacity={0.25} />
+      <meshBasicMaterial color={brandColor} transparent opacity={0.25} />
     </mesh>
   );
 }
@@ -215,8 +216,7 @@ function Scene() {
     [],
   );
 
-  const brandYellow = '#ffcc00';
-  const softAmber = '#ffa500';
+  const brandColor = useBrandColor();
   const charcoal = '#1a1a1a';
 
   return (
@@ -226,17 +226,17 @@ function Scene() {
 
       <ambientLight intensity={0.7} />
       <directionalLight position={[5, 8, 5]} intensity={0.6} color="#ffffff" />
-      <pointLight position={[0, 0, 2]} intensity={1.0} color={brandYellow} distance={10} />
-      <pointLight position={[-3, 1, -2]} intensity={0.4} color={softAmber} distance={8} />
+      <pointLight position={[0, 0, 2]} intensity={1.0} color={brandColor} distance={10} />
+      <pointLight position={[-3, 1, -2]} intensity={0.4} color={brandColor} distance={8} />
 
-      <InnerGlow />
-      <GlassOrb />
+      <InnerGlow brandColor={brandColor} />
+      <GlassOrb brandColor={brandColor} />
 
       {nodePositions.map((pos, i) => (
         <Node
           key={`node-${pos.join('-')}`}
           position={pos}
-          color={i % 3 === 0 ? brandYellow : i % 3 === 1 ? softAmber : charcoal}
+          color={i % 3 === 2 ? charcoal : brandColor}
           scale={i < 7 ? 1.2 : 0.6}
         />
       ))}

@@ -2,7 +2,7 @@
 
 import { Building2, CreditCard, LogOut, User } from 'lucide-react';
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,11 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { settingsTabHref } from '@/features/settings/lib/settings-tabs';
-import {
-  memberFullName,
-  memberInitials,
-  useMemberProfile,
-} from '@/hooks/queries/use-member-profile';
+import { memberFullName, useMemberProfile } from '@/hooks/queries/use-member-profile';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { useTenant } from '@/providers/tenant-provider';
@@ -31,7 +27,6 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
   const settingsBase = tenantHref('settings');
 
   const name = memberFullName(profile, user?.name);
-  const initials = memberInitials(profile, user?.name);
   const position = profile?.position?.title?.trim();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
@@ -43,12 +38,12 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
           type="button"
           className="flex cursor-pointer items-center gap-3 rounded-[12px] border border-[#d7e3f6] bg-white px-3 py-2 shadow-[0_12px_24px_-20px_rgba(11,28,48,0.28)] outline-none transition-[box-shadow,border-color,background-color] hover:border-[#c7d7f1] hover:bg-white hover:shadow-[0_16px_28px_-20px_rgba(11,28,48,0.34)] dark:border-slate-700 dark:bg-slate-950/80 dark:hover:border-slate-600 dark:hover:bg-slate-950"
         >
-          <Avatar className="size-10 shrink-0 border border-[#d7e3f6] shadow-sm dark:border-slate-700">
-            <AvatarImage src={profile?.avatarUrl ?? undefined} alt={name} />
-            <AvatarFallback className="bg-[#fff3d6] text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+          <PersonAvatar
+            src={profile?.avatarUrl}
+            name={name}
+            className="size-10 border border-[#d7e3f6] shadow-sm dark:border-slate-700"
+            fallbackClassName="bg-primary/10 text-sm font-semibold text-primary dark:bg-primary/15 dark:text-primary"
+          />
           <div className="hidden min-w-0 max-w-[140px] text-left lg:block">
             <p className="truncate text-sm font-semibold leading-tight text-slate-950 dark:text-slate-50">
               {name}
@@ -64,10 +59,7 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
       <DropdownMenuContent className="min-w-64 rounded-xl p-1" align="end" sideOffset={4}>
         <DropdownMenuLabel className="px-2 py-2 font-normal">
           <div className="flex items-center gap-3">
-            <Avatar className="size-10 shrink-0">
-              <AvatarImage src={profile?.avatarUrl ?? undefined} alt={name} />
-              <AvatarFallback className="text-sm font-medium">{initials}</AvatarFallback>
-            </Avatar>
+            <PersonAvatar src={profile?.avatarUrl} name={name} className="size-10" />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{name}</p>
               <p className="truncate text-xs text-muted-foreground">{user?.email}</p>

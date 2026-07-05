@@ -3,7 +3,7 @@
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -109,10 +109,8 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
     <div className="mt-8 space-y-6">
       <div className="flex items-center justify-between border-b pb-4">
         <div>
-          <h2 className="text-lg font-medium text-foreground">User Directory Synchronization</h2>
-          <p className="text-sm text-muted-foreground">
-            Match Slack accounts with HR employee profiles using emails or manual mapping.
-          </p>
+          <h2 className="text-lg font-medium text-foreground">User sync</h2>
+          <p className="text-sm text-muted-foreground">Match Slack users to employees</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={isWorking} onClick={handleSync}>
@@ -121,7 +119,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
             ) : (
               <RefreshCw className="mr-2 size-4" />
             )}
-            Sync Roster
+            Sync
           </Button>
           <Button
             size="sm"
@@ -133,7 +131,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
             ) : (
               <UserPlus className="mr-2 size-4" />
             )}
-            Invite Unmatched
+            Invite unmatched
           </Button>
         </div>
       </div>
@@ -142,13 +140,13 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Total Slack Users</CardDescription>
+              <CardDescription>Slack users</CardDescription>
               <CardTitle className="text-2xl">{syncStatus.total}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Matched Profiles</CardDescription>
+              <CardDescription>Matched</CardDescription>
               <CardTitle className="text-2xl text-emerald-600 flex items-center gap-1.5">
                 <CheckCircle2 className="size-5 text-emerald-600" />
                 {syncStatus.matched}
@@ -157,7 +155,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Unmatched Profiles</CardDescription>
+              <CardDescription>Unmatched</CardDescription>
               <CardTitle className="text-2xl text-amber-600 flex items-center gap-1.5">
                 <AlertCircle className="size-5 text-amber-600" />
                 {syncStatus.unmatched}
@@ -166,7 +164,7 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>Match Rate</CardDescription>
+              <CardDescription>Match rate</CardDescription>
               <div className="flex items-baseline justify-between">
                 <CardTitle className="text-2xl">{syncStatus.matchRate}%</CardTitle>
               </div>
@@ -178,20 +176,14 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
 
       <Card>
         <CardHeader>
-          <CardTitle>Unmatched Slack Users</CardTitle>
-          <CardDescription>
-            These Slack profiles are not connected to any HR employee profile. Map them manually
-            below.
-          </CardDescription>
+          <CardTitle>Unmatched</CardTitle>
+          <CardDescription>Map Slack users to employees</CardDescription>
         </CardHeader>
         <CardContent>
           {unmatchedUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle2 className="size-10 text-emerald-500 mb-2" />
-              <p className="font-medium text-foreground">All users synchronized!</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Every active Slack user is matched with a corresponding HR profile.
-              </p>
+              <p className="font-medium text-foreground">All users matched</p>
             </div>
           ) : (
             <div className="border rounded-md overflow-hidden">
@@ -208,15 +200,12 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
                   {unmatchedUsers.map((user) => (
                     <TableRow key={user.platformUserId}>
                       <TableCell className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarImage
-                            src={user.platformAvatarUrl}
-                            alt={user.platformDisplayName || 'Slack User'}
-                          />
-                          <AvatarFallback className="text-xs">
-                            {(user.platformDisplayName || 'U').substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <PersonAvatar
+                          src={user.platformAvatarUrl}
+                          name={user.platformDisplayName || user.platformUsername || 'Slack user'}
+                          className="size-8"
+                          fallbackClassName="text-xs"
+                        />
                         <div>
                           <p className="text-sm font-medium leading-none">
                             {user.platformDisplayName || user.platformUsername}

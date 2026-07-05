@@ -7,10 +7,12 @@ import {
   type CustomRewardInput,
   claimReward,
   createCustomReward,
+  createWalletTopupCheckout,
   deleteCustomReward,
   fetchAllClaims,
   fetchCustomRewards,
   fetchMyClaims,
+  fetchNombaDataPlans,
   fetchReloadlyCountries,
   fetchRewardsCatalog,
   fetchTenantWallet,
@@ -24,6 +26,16 @@ import {
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
+export function useNombaDataPlans(network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: ['rewards-nomba-data-plans', tenantId, network],
+    queryFn: () => fetchNombaDataPlans(network),
+    enabled: !tenantLoading && Boolean(tenantId) && enabled,
+  });
+}
 
 export function useTopupOperators(countryCode: string) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -182,10 +194,29 @@ export function useDeleteCustomReward() {
 
 export function useManualTopupWallet() {
   const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   return useMutation({
-    mutationFn: (amount: number) => manualTopupWallet(amount),
+    mutationFn: (amount: number) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return manualTopupWallet(tenantId, amount);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+    },
+  });
+}
+
+export function useWalletTopupCheckout() {
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: (amount: number) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return createWalletTopupCheckout(tenantId, amount);
+    },
+    onSuccess: (result) => {
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
     },
   });
 }

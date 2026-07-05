@@ -22,14 +22,42 @@ export async function connectSlackOAuth(tenantId: string): Promise<{ url: string
   return apiClient<{ url: string }>(tenantPath(tenantId, 'integrations/oauth/connect/slack'));
 }
 
-export async function fetchSlackChannels(integrationId: string): Promise<SlackChannel[]> {
+export async function disconnectSlackIntegration(
+  tenantId: string,
+  integrationId: string,
+): Promise<{ success: boolean; message: string }> {
+  return apiClient<{ success: boolean; message: string }>(
+    tenantPath(tenantId, `integrations/${integrationId}/disconnect`),
+    { method: 'POST' },
+  );
+}
+
+export async function fetchSlackChannels(
+  tenantId: string,
+  integrationId: string,
+): Promise<SlackChannel[]> {
   const data = await apiClient<SlackChannel[] | { channels: SlackChannel[] }>(
-    `/integrations/${integrationId}/channels`,
+    tenantPath(tenantId, `integrations/${integrationId}/channels`),
   );
   return Array.isArray(data) ? data : (data.channels ?? []);
 }
 
+export async function createSlackChannel(
+  tenantId: string,
+  integrationId: string,
+  name: string,
+): Promise<SlackChannel> {
+  return apiClient<SlackChannel>(
+    tenantPath(tenantId, `integrations/${integrationId}/channels/create`),
+    {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    },
+  );
+}
+
 export async function setupShoutoutChannel(
+  tenantId: string,
   integrationId: string,
   platformChannelId: string,
   platformChannelName: string,
@@ -39,7 +67,7 @@ export async function setupShoutoutChannel(
   testMessageSent?: boolean;
   testMessageError?: string;
 }> {
-  return apiClient(`/integrations/${integrationId}/setup-channel`, {
+  return apiClient(tenantPath(tenantId, `integrations/${integrationId}/setup-channel`), {
     method: 'POST',
     body: JSON.stringify({ platformChannelId, platformChannelName }),
   });

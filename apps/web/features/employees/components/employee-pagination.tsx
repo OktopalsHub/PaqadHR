@@ -26,7 +26,7 @@ export const EmployeePagination = ({
 
   return (
     <AppTableFooterBar>
-      <div className="flex items-center space-x-4">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
         <span className="text-sm text-slate-500">Show</span>
         <Select
           value={itemsPerPage.toString()}
@@ -46,7 +46,7 @@ export const EmployeePagination = ({
         <span className="text-sm text-slate-500">per page</span>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex flex-wrap items-center gap-2 self-end sm:self-auto">
         <Button
           type="button"
           variant="ghost"

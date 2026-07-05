@@ -1,5 +1,5 @@
 import { Building, ChevronDown, ChevronRight, Mail, Phone } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -54,10 +54,7 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
               <div className="mb-4 p-4 bg-muted/30 rounded-lg">
                 <h4 className="font-medium mb-2">Department Manager</h4>
                 <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarImage src={department.manager.avatar} />
-                    <AvatarFallback>{department.manager.initials}</AvatarFallback>
-                  </Avatar>
+                  <PersonAvatar src={department.manager.avatar} name={department.manager.name} />
                   <div className="flex-1">
                     <p className="font-medium">{department.manager.name}</p>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
@@ -91,10 +88,12 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
                     key={member.id}
                     className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={member.avatar} />
-                      <AvatarFallback className="text-sm">{member.initials}</AvatarFallback>
-                    </Avatar>
+                    <PersonAvatar
+                      src={member.avatar}
+                      name={member.name}
+                      className="h-10 w-10"
+                      fallbackClassName="text-sm"
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{member.name}</p>
                       <p className="text-sm text-muted-foreground truncate">

@@ -2,6 +2,7 @@
 
 import { Settings } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Sidebar,
   SidebarContent,
@@ -20,7 +21,9 @@ import { WorkspaceSwitcher } from './workspace-switcher';
 export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) => {
   const navItems = useTenantNavItems();
   const tenantHref = useTenantHref();
+  const pathname = usePathname();
   const settingsHref = tenantHref('settings');
+  const isSettingsActive = pathname.startsWith(settingsHref);
 
   return (
     <Sidebar
@@ -42,9 +45,14 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
       <SidebarFooter className="border-t border-border/60 p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Settings" className="h-11 rounded-[10px] px-3">
+            <SidebarMenuButton
+              asChild
+              isActive={isSettingsActive}
+              tooltip="Settings"
+              className="h-11 rounded-md px-3"
+            >
               <Link href={settingsHref}>
-                <Settings className="size-[18px]" />
+                <Settings className="size-4.5" />
                 <span>Settings</span>
               </Link>
             </SidebarMenuButton>

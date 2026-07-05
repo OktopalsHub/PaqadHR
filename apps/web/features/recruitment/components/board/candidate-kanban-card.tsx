@@ -1,5 +1,5 @@
 import { FileText, Percent } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { PersonAvatar } from '@/components/person-avatar';
 import { cn } from '@/lib/utils';
 
 export type CandidateCardData = {
@@ -11,10 +11,6 @@ export type CandidateCardData = {
   fileCount?: number;
   matchScore?: number;
 };
-
-function initials(firstName: string, lastName: string) {
-  return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-}
 
 type CandidateKanbanCardProps = {
   candidate: CandidateCardData;
@@ -39,11 +35,11 @@ export function CandidateKanbanCard({
       )}
     >
       <div className="flex items-start gap-3">
-        <Avatar className="size-10 shrink-0 border border-[#d7e3f6] bg-white dark:border-slate-700 dark:bg-slate-900">
-          <AvatarFallback className="bg-white text-[11px] font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-            {initials(candidate.firstName, candidate.lastName)}
-          </AvatarFallback>
-        </Avatar>
+        <PersonAvatar
+          name={fullName}
+          className="size-10 shrink-0 border border-[#d7e3f6] bg-white dark:border-slate-700 dark:bg-slate-900"
+          fallbackClassName="bg-white text-[11px] font-bold text-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
             {fullName}

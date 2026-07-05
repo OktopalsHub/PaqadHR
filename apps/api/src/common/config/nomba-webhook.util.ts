@@ -1,7 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { getNombaWebhookSecret } from './nomba.config';
 
-export function verifyNombaWebhookSignature(rawBody: string, signature: string): boolean {
+export function verifyNombaWebhookSignature(
+  rawBody: string,
+  signature: string,
+  timestamp?: string,
+): boolean {
   const secret = getNombaWebhookSecret();
   if (!secret || !signature) {
     return false;
@@ -35,26 +39,33 @@ export function verifyNombaWebhookSignature(rawBody: string, signature: string):
     let responseCode = transaction?.responseCode ?? '';
     if (responseCode === 'null') responseCode = '';
 
-    const hashingPayload = `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${responseCode}:${transactionTime}`;
+    // Last field must be nomba-timestamp header (not transaction.time again).
+    const timeStamp = timestamp || transactionTime;
+    const hashingPayload = `${eventType}:${requestId}:${userId}:${walletId}:${transactionId}:${transactionType}:${transactionTime}:${responseCode}:${timeStamp}`;
     const hash = createHmac('sha256', secret).update(hashingPayload).digest('base64');
 
-    if (
-      hash.length === signature.length &&
-      timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'))
-    ) {
+    if (signaturesMatch(hash, signature)) {
       return true;
     }
   } catch {}
 
+  // Fallback: some integrations sign the raw body (hex).
   try {
     const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
-    if (
-      hash.length === signature.length &&
-      timingSafeEqual(Buffer.from(hash, 'utf8'), Buffer.from(signature, 'utf8'))
-    ) {
+    if (signaturesMatch(hash, signature)) {
       return true;
     }
   } catch {}
 
   return false;
+}
+
+function signaturesMatch(expected: string, received: string): boolean {
+  try {
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(received, 'utf8');
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
 }

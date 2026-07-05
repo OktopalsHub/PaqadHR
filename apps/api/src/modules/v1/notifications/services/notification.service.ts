@@ -48,7 +48,7 @@ export class NotificationService {
     title: string,
     message: string,
     channel: NotificationChannel = NotificationChannel.IN_APP,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const _notification = await this.createNotification({
       type: NotificationType.SYSTEM,
@@ -66,7 +66,7 @@ export class NotificationService {
     title: string,
     message: string,
     channel: NotificationChannel = NotificationChannel.IN_APP,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     const _notification = await this.createNotification({
       type: NotificationType.TENANT,

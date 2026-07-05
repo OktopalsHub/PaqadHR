@@ -48,14 +48,14 @@ export function RecruitmentPage() {
 
   return (
     <AppPage className="mx-auto w-full max-w-7xl space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <RecruitmentSectionTabs active="roles" />
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center lg:justify-end">
           <ViewCareersPageLink />
           <Button
             variant="brandSolid"
             size="app"
-            className="w-max"
+            className="w-full sm:w-max"
             onClick={() => setCreateOpen(true)}
           >
             <Plus className="size-4" />

@@ -5,6 +5,7 @@ import { CurrentTenantMember, TenantId } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+import type { TenantSettingsData } from 'src/common/interfaces/tenant-settings-data.interface';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -39,8 +40,9 @@ export class TenantSettingsController {
   async updateTenantSettings(
     @TenantId() tenantId: string,
     @Body() updateDto: UpdateTenantSettingsDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.tenantSettingsService.updateTenantSettings(tenantId, updateDto);
+    return this.tenantSettingsService.updateTenantSettings(tenantId, updateDto, member.id);
   }
   @Post('assign-points')
   @UseGuards(TenantRoleGuard)
@@ -136,7 +138,7 @@ export class TenantSettingsController {
       initialPointsOverride,
       customSettings,
     } = initData;
-    let settings;
+    let settings: TenantSettingsData | Record<string, unknown>;
     if (companyName) {
       settings = {
         general: {
@@ -153,7 +155,7 @@ export class TenantSettingsController {
         },
       };
     } else {
-      settings = customSettings || {};
+      settings = (customSettings || {}) as TenantSettingsData;
     }
     const result = await this.tenantSettingsInitializationService.initializeTenantWorkspace(
       tenantId,

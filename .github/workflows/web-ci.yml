@@ -18,6 +18,7 @@ on:
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
       - 'biome.json'
+      - '.github/workflows/web-ci.yml'
 
 jobs:
   check-and-build:
@@ -37,8 +38,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm check
+      - name: Lint web
+        run: pnpm --filter web check
 
       - name: Build web
         run: pnpm --filter web build

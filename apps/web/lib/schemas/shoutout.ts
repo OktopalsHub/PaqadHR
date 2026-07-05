@@ -50,8 +50,9 @@ export const shoutoutCategorySchema = z.object({
 export type ShoutoutCategory = z.infer<typeof shoutoutCategorySchema>;
 
 export const createShoutoutInputSchema = z.object({
-  recipientIds: z.array(z.string()).min(1),
-  pointsPerRecipient: z.number().min(1),
+  recipients: z
+    .array(z.object({ recipientId: z.string(), points: z.number().int().min(1) }))
+    .min(1),
   message: z.string().min(1).max(2000),
   categoryIds: z.array(z.string()).optional(),
 });

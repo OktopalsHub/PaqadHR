@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from '../../../common/modules/file.module';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
-import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantCounter } from './entities/tenant-counter.entity';
 import { TenantMember } from './entities/tenant-member.entity';
@@ -17,7 +16,6 @@ import { TenantMembersService } from './tenant-members.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([TenantMember, TenantCounter, Tenant, TenantSettings]),
-    TenantConfigModule,
     FileModule,
   ],
   controllers: [TenantMembersController, PublicTenantMembersController],

@@ -27,5 +27,8 @@ export interface RewardsSettings {
     minDenomination?: number | null;
     maxDenomination?: number | null;
     fixedDenominations?: number[];
+    listReloadlyCost?: number | null;
+    listReloadlyCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
   }>;
 }

@@ -399,9 +399,10 @@ export class RewardsSettingsDto {
   @IsBoolean()
   enabled?: boolean;
 
-  @ApiProperty({ description: 'Points-to-currency exchange rate', example: 10, required: false })
+  @ApiProperty({ description: 'Points-to-currency exchange rate', example: 1, required: false })
   @IsOptional()
   @IsNumber()
+  @Min(1)
   pointsExchangeRate?: number;
 
   @ApiProperty({ description: 'The currency code for rewards', example: 'NGN', required: false })
@@ -483,6 +484,9 @@ export class RewardsSettingsDto {
     minDenomination?: number | null;
     maxDenomination?: number | null;
     fixedDenominations?: number[];
+    listReloadlyCost?: number | null;
+    listReloadlyCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
   }>;
 }
 export class UpdateTenantSettingsDto {

@@ -162,7 +162,10 @@ export class ReloadlyUtilitiesApiService {
 
     // In reloadly, sometimes the billers list is returned inside a paginated object or as a direct array.
     // Let's handle both.
-    const response = await this.request<any>('GET', path);
+    const response = await this.request<ReloadlyBiller[] | { content: ReloadlyBiller[] }>(
+      'GET',
+      path,
+    );
     if (response && Array.isArray(response)) {
       return response;
     }
@@ -178,7 +181,7 @@ export class ReloadlyUtilitiesApiService {
     billerId: number;
     useLocalAmount?: boolean;
     referenceId?: string;
-    additionalInfo?: Record<string, any>;
+    additionalInfo?: Record<string, unknown>;
   }): Promise<ReloadlyBillPayResponse> {
     return this.request<ReloadlyBillPayResponse>('POST', '/pay', {
       subscriberAccountNumber: params.subscriberAccountNumber,

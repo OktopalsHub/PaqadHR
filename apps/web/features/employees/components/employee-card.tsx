@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { PersonAvatar } from '@/components/person-avatar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { canManageMember } from '@/lib/auth/manager-access';
-import { getInitials } from '@/lib/utils';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 
@@ -28,77 +27,81 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
           const card = (
             <Card
               key={employee.id}
-              className="overflow-hidden rounded-[8px] border-slate-200 transition-colors hover:bg-slate-50/40 hover:shadow-sm"
+              className="overflow-hidden gap-0 rounded-[8px] border-slate-200 py-0 transition-[border-color,box-shadow,background-color] hover:border-primary/20 hover:bg-white/85 hover:shadow-sm dark:hover:bg-slate-950/80"
             >
-              <CardHeader className="pb-1">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8 border border-slate-200 bg-slate-100">
-                    <AvatarImage src={employee.avatar || '/placeholder.svg'} alt={employee.name} />
-                    <AvatarFallback className="bg-slate-100 text-[10px] font-bold text-slate-800">
-                      {getInitials(employee.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <CardTitle className="text-sm text-slate-800 dark:text-foreground">
-                      {employee.name}
-                    </CardTitle>
-                    <div className="mt-0.5 flex items-center gap-1.5">
-                      {employee.role ? (
-                        <span
-                          className="size-1.5 rounded-full shrink-0 border border-black/10"
-                          style={{ backgroundColor: employee.positionColor || '#9ca3af' }}
-                        />
-                      ) : null}
-                      <p className="text-xs text-slate-500 dark:text-muted-foreground">
-                        {employee.role || '—'}
-                      </p>
+              <CardHeader className="px-4 py-4 pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <PersonAvatar
+                      src={employee.avatar}
+                      name={employee.name}
+                      className="size-12 border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                      fallbackClassName="bg-slate-100 text-sm font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                    />
+                    <div className="min-w-0">
+                      <CardTitle className="truncate text-[17px] font-semibold text-slate-900 dark:text-foreground">
+                        {employee.name}
+                      </CardTitle>
+                      <div className="mt-1 flex min-w-0 items-center gap-2">
+                        {employee.role ? (
+                          <span
+                            className="size-2 shrink-0 rounded-full border border-black/10"
+                            style={{ backgroundColor: employee.positionColor || '#9ca3af' }}
+                          />
+                        ) : null}
+                        <p className="truncate text-sm text-slate-500 dark:text-muted-foreground">
+                          {employee.role || 'No role assigned'}
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(
+                      employee.status,
+                    )}`}
+                  >
+                    {employee.status}
+                  </span>
                 </div>
               </CardHeader>
-              <CardContent className="pb-3 pt-2">
-                <div className="grid gap-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-xs text-slate-500 dark:text-muted-foreground">
-                      Email:
-                    </span>
-                    <span className="max-w-[180px] truncate text-xs font-medium text-slate-700 dark:text-slate-200">
+
+              <CardContent className="px-4 pb-4 pt-0">
+                <div className="rounded-[8px] border border-border/60 bg-muted/20 p-3 dark:bg-slate-950/30">
+                  <dl className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-2.5">
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                      Email
+                    </dt>
+                    <dd className="min-w-0 truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                       {employee.email}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-500 dark:text-muted-foreground">
-                      Department:
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {employee.department && (
-                        <span
-                          className="size-1.5 rounded-full shrink-0 border border-black/10"
-                          style={{ backgroundColor: employee.departmentColor || '#9ca3af' }}
-                        />
-                      )}
-                      <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
-                        {employee.department || '—'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-xs text-slate-500 dark:text-muted-foreground">
-                      Join Date:
-                    </span>
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-200">
+                    </dd>
+
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                      Department
+                    </dt>
+                    <dd className="min-w-0">
+                      <div className="flex items-center justify-end gap-2">
+                        {employee.department ? (
+                          <span
+                            className="size-2 shrink-0 rounded-full border border-black/10"
+                            style={{ backgroundColor: employee.departmentColor || '#9ca3af' }}
+                          />
+                        ) : null}
+                        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {employee.department || '—'}
+                        </span>
+                      </div>
+                    </dd>
+
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                      Join Date
+                    </dt>
+                    <dd className="text-sm font-medium text-slate-800 dark:text-slate-200">
                       {employee.joinDate || '—'}
-                    </span>
-                  </div>
+                    </dd>
+                  </dl>
                 </div>
               </CardContent>
-              <CardFooter className="border-t border-slate-200 pt-3 dark:border-slate-700/80">
-                <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(employee.status)}`}
-                >
-                  {employee.status}
-                </span>
-              </CardFooter>
             </Card>
           );
 

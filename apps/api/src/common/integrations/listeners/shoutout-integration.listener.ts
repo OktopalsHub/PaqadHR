@@ -19,9 +19,9 @@ export class ShoutoutIntegrationListener {
         message: payload.message,
         total_points: payload.totalPoints,
         creator: { tenantMemberId: payload.senderMemberId },
-        recipients: payload.recipientIds.map((recipientId) => ({
-          tenantMemberId: recipientId,
-          points: payload.pointsPerRecipient,
+        recipients: payload.recipients.map((recipient) => ({
+          tenantMemberId: recipient.recipientId,
+          points: recipient.points,
         })),
         categories: payload.categoryNames,
       });

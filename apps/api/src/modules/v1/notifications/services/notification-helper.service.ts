@@ -168,7 +168,7 @@ export class NotificationHelperService {
     title: string,
     message: string,
     tenantId?: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, unknown>,
   ): Promise<void> {
     if (tenantId) {
       await this.notificationService.sendTenantNotification(

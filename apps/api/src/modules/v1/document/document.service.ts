@@ -1,13 +1,13 @@
 import { Injectable, Logger, NotFoundException, NotImplementedException } from '@nestjs/common';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
-import { AuditLogsService } from 'src/common/services/audit-logs.service';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
 import { FileService } from 'src/common/services/file.service';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { DocumentAccessLevel } from '../../../common/enums/document-access-level.enum';
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { DocumentType } from '../../../common/enums/document-type.enum';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { DocumentRepository } from './document.repository';
 import type { CreateDocumentDto } from './dto/create-document.dto';
 import type { UpdateDocumentDto } from './dto/update-document.dto';

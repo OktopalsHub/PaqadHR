@@ -9,6 +9,7 @@
     "build": "turbo build",
     "check": "biome check .",
     "check:fix": "biome check --write .",
+    "check:unsafe": "biome check --write --unsafe .",
     "dev": "turbo dev",
     "format": "biome check --write .",
     "lint": "biome check .",

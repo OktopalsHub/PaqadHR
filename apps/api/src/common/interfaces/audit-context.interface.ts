@@ -1,4 +1,5 @@
 export interface AuditContext {
+  tenantId: string;
   payrollRunId?: string;
   memberId?: string;
   performedById?: string;

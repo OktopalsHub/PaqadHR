@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource } from 'typeorm';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
+import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
@@ -12,6 +14,7 @@ export class TenantSettingsService {
   constructor(
     private readonly tenantSettingsRepository: TenantSettingRepository,
     readonly _dataSource: DataSource,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
   async getTenantSettings(tenantId: string): Promise<TenantSettings> {
     const settings = await this.tenantSettingsRepository.findOne({
@@ -27,8 +30,10 @@ export class TenantSettingsService {
   async updateTenantSettings(
     tenantId: string,
     updateDto: UpdateTenantSettingsDto,
+    actorMemberId?: string,
   ): Promise<TenantSettings> {
     const existingSettings = await this.getTenantSettings(tenantId);
+    const prevCatalogCountries = existingSettings.settings.rewards?.catalogCountries ?? [];
     const updatedSettings: TenantSettingsData = {
       ...existingSettings.settings,
       ...(updateDto.points && {
@@ -113,11 +118,13 @@ export class TenantSettingsService {
       }),
       ...(updateDto.rewards && {
         rewards: {
+          ...existingSettings.settings.rewards,
+          ...updateDto.rewards,
           enabled: updateDto.rewards.enabled ?? existingSettings.settings.rewards?.enabled ?? false,
           pointsExchangeRate:
             updateDto.rewards.pointsExchangeRate ??
             existingSettings.settings.rewards?.pointsExchangeRate ??
-            10,
+            1,
           rewardsCurrency:
             updateDto.rewards.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
@@ -132,6 +139,20 @@ export class TenantSettingsService {
             updateDto.rewards.customRewardsEnabled ??
             existingSettings.settings.rewards?.customRewardsEnabled ??
             true,
+          giftCardsEnabled:
+            updateDto.rewards.giftCardsEnabled ??
+            existingSettings.settings.rewards?.giftCardsEnabled ??
+            true,
+          giftCardCategories: updateDto.rewards.giftCardCategories ??
+            existingSettings.settings.rewards?.giftCardCategories ?? [
+              'Gift Cards',
+              'Gaming Cards',
+              'Money Cards',
+            ],
+          utilityPaymentsEnabled:
+            updateDto.rewards.utilityPaymentsEnabled ??
+            existingSettings.settings.rewards?.utilityPaymentsEnabled ??
+            true,
           reloadlyProducts:
             updateDto.rewards.reloadlyProducts ??
             existingSettings.settings.rewards?.reloadlyProducts ??
@@ -142,10 +163,31 @@ export class TenantSettingsService {
     if (updateDto.points) {
       this.validatePointsSettings(updatedSettings.points);
     }
+    if (updateDto.rewards) {
+      this.validateRewardsSettings(updatedSettings.rewards);
+    }
     existingSettings.settings = updatedSettings;
     const result = await this.tenantSettingsRepository.save(existingSettings);
     this.logger.log(`Updated settings for tenant: ${tenantId}`);
+
+    const newCatalogCountries = updatedSettings.rewards?.catalogCountries ?? [];
+    const catalogCountriesChanged =
+      updateDto.rewards?.catalogCountries !== undefined &&
+      !sameCountrySet(prevCatalogCountries, newCatalogCountries);
+    if (catalogCountriesChanged) {
+      this.eventEmitter.emit('rewards.catalogCountriesChanged', { tenantId });
+    }
+
     return result;
+  }
+  private validateRewardsSettings(rewardsSettings: RewardsSettings | undefined): void {
+    if (!rewardsSettings) {
+      return;
+    }
+    const rate = rewardsSettings.pointsExchangeRate;
+    if (rate !== undefined && rate < 1) {
+      throw new BadRequestException('Points exchange rate must be at least 1');
+    }
   }
   private validatePointsSettings(pointsSettings: PointsSettings): void {
     if (pointsSettings.minPointsPerShoutout > pointsSettings.maxPointsPerShoutout) {
@@ -159,4 +201,13 @@ export class TenantSettingsService {
       );
     }
   }
+}
+
+function sameCountrySet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((code, i) => code === sortedB[i]);
 }

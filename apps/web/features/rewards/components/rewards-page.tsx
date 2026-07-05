@@ -40,6 +40,7 @@ import {
   useCreateCustomReward,
   useDeleteCustomReward,
   useMyClaims,
+  useNombaDataPlans,
   useRewardsCatalog,
   useTopupOperators,
   useUtilityBillers,
@@ -133,6 +134,18 @@ function getReloadlyCategory(
   }
 
   return 'Gift Cards';
+}
+
+function formatReloadlyCost(amount: number, currency: string) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString()}`;
+  }
 }
 
 const DEFAULT_CUSTOM_PERKS: CatalogItem[] = [
@@ -275,6 +288,16 @@ function CatalogCard({
           <div>
             <p className="text-lg font-bold tabular-nums text-primary">
               {item.pointsCost.toLocaleString()}
+              {isAdmin && item.type === 'RELOADLY' && item.adminPricing ? (
+                <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                  (
+                  {formatReloadlyCost(
+                    item.adminPricing.reloadlyCost,
+                    item.adminPricing.reloadlyCostCurrency,
+                  )}
+                  )
+                </span>
+              ) : null}
             </p>
             <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
           </div>
@@ -387,43 +410,9 @@ function ClaimRow({ claim }: { claim: RewardRedemption }) {
   );
 }
 
-interface DataBundle {
-  id: string;
-  name: string;
-  price: number;
-  validity: string;
+function dataPlanId(plan: { amount: number; plan: string }) {
+  return `${plan.amount}:${plan.plan}`;
 }
-
-const DATA_BUNDLES: Record<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', DataBundle[]> = {
-  MTN: [
-    { id: 'mtn_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: 'mtn_3gb', name: '3GB', price: 1600, validity: '30 Days' },
-    { id: 'mtn_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: 'mtn_10gb', name: '10GB', price: 4000, validity: '30 Days' },
-    { id: 'mtn_20gb', name: '20GB', price: 7500, validity: '30 Days' },
-  ],
-  AIRTEL: [
-    { id: 'airtel_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: 'airtel_3gb', name: '3GB', price: 1600, validity: '30 Days' },
-    { id: 'airtel_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: 'airtel_10gb', name: '10GB', price: 4000, validity: '30 Days' },
-    { id: 'airtel_20gb', name: '20GB', price: 7500, validity: '30 Days' },
-  ],
-  GLO: [
-    { id: 'glo_1.8gb', name: '1.8GB', price: 1000, validity: '30 Days' },
-    { id: 'glo_3.9gb', name: '3.9GB', price: 1600, validity: '30 Days' },
-    { id: 'glo_5.8gb', name: '5.8GB', price: 2500, validity: '30 Days' },
-    { id: 'glo_12gb', name: '12GB', price: 4000, validity: '30 Days' },
-    { id: 'glo_24gb', name: '24GB', price: 7500, validity: '30 Days' },
-  ],
-  '9MOBILE': [
-    { id: '9mobile_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: '9mobile_3gb', name: '3GB', price: 1500, validity: '30 Days' },
-    { id: '9mobile_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: '9mobile_11gb', name: '11GB', price: 4000, validity: '30 Days' },
-    { id: '9mobile_22gb', name: '22GB', price: 7500, validity: '30 Days' },
-  ],
-};
 
 const NG_UTILITIES = [
   { id: 'EKEDC', name: 'Eko Electricity (EKEDC)' },
@@ -462,6 +451,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // Top-up (Airtime/Data) States
   const [selectedCountryCode, setSelectedCountryCode] = useState(catalogCountries[0] || 'NG');
+  const [digitalCardsCountryCode, setDigitalCardsCountryCode] = useState(
+    catalogCountries[0] || 'NG',
+  );
   const [airtimePhone, setAirtimePhone] = useState('');
   const [airtimeNetwork, setAirtimeNetwork] = useState<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE'>('MTN');
   const [airtimeAmount, setAirtimeAmount] = useState('1000');
@@ -474,6 +466,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
     selectedCountryCode !== 'NG' ? selectedCountryCode : '',
   );
+  const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
+    airtimeNetwork,
+    selectedCountryCode === 'NG' && topupMode === 'data',
+  );
+
+  const selectedDataPlan = nombaDataPlans.find((plan) => dataPlanId(plan) === selectedBundleId);
 
   const selectedReloadlyOperator = reloadlyOperators.find(
     (o) => String(o.operatorId) === selectedReloadlyOperatorId,
@@ -486,6 +484,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
   }, [catalogCountries, selectedCountryCode]);
 
+  useEffect(() => {
+    if (catalogCountries.length > 0 && !catalogCountries.includes(digitalCardsCountryCode)) {
+      setDigitalCardsCountryCode(catalogCountries[0]);
+    }
+  }, [catalogCountries, digitalCardsCountryCode]);
+
   // Sync operator default when operators load
   useEffect(() => {
     if (reloadlyOperators.length > 0) {
@@ -495,6 +499,21 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       }
     }
   }, [reloadlyOperators]);
+
+  useEffect(() => {
+    if (topupMode !== 'data' || selectedCountryCode !== 'NG' || nombaDataPlans.length === 0) {
+      return;
+    }
+    const first = nombaDataPlans[0];
+    const id = dataPlanId(first);
+    if (
+      !selectedBundleId ||
+      !nombaDataPlans.some((plan) => dataPlanId(plan) === selectedBundleId)
+    ) {
+      setSelectedBundleId(id);
+      setAirtimeAmount(String(first.amount));
+    }
+  }, [nombaDataPlans, topupMode, selectedCountryCode, selectedBundleId]);
 
   // JIT Points calculation states for top-ups
   const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
@@ -777,10 +796,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const giftCards = catalog.filter((i) => i.type === 'RELOADLY');
   const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
 
+  const matchesDigitalCardsCountry = (item: CatalogItem) =>
+    catalogCountries.length <= 1 || item.countryCode === digitalCardsCountryCode;
+
   const filteredReloadlyCards = giftCards.filter((item) => {
     const category = getReloadlyCategory(item);
     const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
     if (isNgAirtime) return false;
+    if (!matchesDigitalCardsCountry(item)) return false;
 
     if (selectedCategory === 'All') return true;
     return category === selectedCategory;
@@ -855,9 +878,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     setClaimingId('airtime');
     try {
       const selectedBundle =
-        selectedCountryCode === 'NG' && topupMode === 'data'
-          ? DATA_BUNDLES[airtimeNetwork].find((b) => b.id === selectedBundleId)
-          : null;
+        selectedCountryCode === 'NG' && topupMode === 'data' ? selectedDataPlan : null;
 
       const providerProductId =
         selectedCountryCode !== 'NG' ? selectedReloadlyOperator?.operatorId : undefined;
@@ -865,7 +886,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       const rewardName =
         selectedCountryCode === 'NG'
           ? selectedBundle
-            ? `${airtimeNetwork} ${selectedBundle.name} Data Bundle`
+            ? `${airtimeNetwork} ${selectedBundle.plan} Data Bundle`
             : `${airtimeNetwork} Airtime Top-up`
           : `${selectedReloadlyOperator?.name} Airtime`;
 
@@ -878,6 +899,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         currencyCode: calculatedCurrency,
         recipientPhone: airtimePhone.trim(),
         airtimeNetwork: selectedCountryCode === 'NG' ? airtimeNetwork : undefined,
+        topupKind: selectedCountryCode === 'NG' ? topupMode : undefined,
         providerProductId,
       });
 
@@ -957,14 +979,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
-  const defaultTab =
-    isGiftCardsEnabled && giftCards.length > 0
-      ? 'digital-cards'
-      : isAirtimeEnabled
-        ? 'airtime'
-        : isUtilitiesEnabled
-          ? 'utilities'
-          : 'perks';
+  const defaultTab = isAirtimeEnabled ? 'airtime' : isUtilitiesEnabled ? 'utilities' : 'perks';
 
   const content = (
     <>
@@ -984,15 +999,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          {isGiftCardsEnabled && giftCards.length > 0 && (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="digital-cards"
-            >
-              <ShoppingBag className="mr-1.5 size-3.5" />
-              Digital Cards
-            </TabsTrigger>
-          )}
           {isAirtimeEnabled && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
@@ -1018,6 +1024,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             <Sparkles className="mr-1.5 size-3.5" />
             Custom Perks
           </TabsTrigger>
+          {isGiftCardsEnabled && giftCards.length > 0 && (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="digital-cards"
+            >
+              <ShoppingBag className="mr-1.5 size-3.5" />
+              Digital Cards
+            </TabsTrigger>
+          )}
           <TabsTrigger
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
             value="history"
@@ -1038,6 +1053,29 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
         {isGiftCardsEnabled && giftCards.length > 0 && (
           <TabsContent value="digital-cards" className="space-y-4">
+            {isAdmin ? (
+              <p className="text-xs text-muted-foreground">
+                Points shown are for the lowest amount (plus plan fee × exchange rate). Higher
+                amounts cost more. Configure rate and fees in Settings → Rewards.
+              </p>
+            ) : null}
+            {catalogCountries.length > 1 ? (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-semibold text-muted-foreground">Country:</Label>
+                <Select value={digitalCardsCountryCode} onValueChange={setDigitalCardsCountryCode}>
+                  <SelectTrigger className="w-[140px] h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {catalogCountries.map((code) => (
+                      <SelectItem key={code} value={code} className="text-xs">
+                        {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {
@@ -1054,6 +1092,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     const isNgAirtime =
                       item.countryCode === 'NG' && getReloadlyCategory(item) === 'Airtime';
                     if (isNgAirtime) return false;
+                    if (!matchesDigitalCardsCountry(item)) return false;
                     if (cat === 'All') return true;
                     return getReloadlyCategory(item) === cat;
                   }).length;
@@ -1170,9 +1209,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         type="button"
                         onClick={() => {
                           setTopupMode('data');
-                          const defaultBundle = DATA_BUNDLES[airtimeNetwork][0];
-                          setSelectedBundleId(defaultBundle.id);
-                          setAirtimeAmount(String(defaultBundle.price));
                         }}
                         className={cn(
                           'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
@@ -1211,11 +1247,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                               type="button"
                               onClick={() => {
                                 setAirtimeNetwork(key);
-                                if (topupMode === 'data') {
-                                  const defaultBundle = DATA_BUNDLES[key][0];
-                                  setSelectedBundleId(defaultBundle.id);
-                                  setAirtimeAmount(String(defaultBundle.price));
-                                }
                               }}
                               className={cn(
                                 'relative p-4 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center gap-2 bg-card cursor-pointer',
@@ -1402,25 +1433,33 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Select Data Plan
                         </Label>
-                        <Select
-                          value={selectedBundleId}
-                          onValueChange={(val) => {
-                            setSelectedBundleId(val);
-                            const b = DATA_BUNDLES[airtimeNetwork].find((item) => item.id === val);
-                            if (b) setAirtimeAmount(String(b.price));
-                          }}
-                        >
-                          <SelectTrigger className="h-10 text-xs font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {DATA_BUNDLES[airtimeNetwork].map((bundle) => (
-                              <SelectItem key={bundle.id} value={bundle.id}>
-                                {bundle.name} ({bundle.validity}) — ₦{bundle.price.toLocaleString()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {dataPlansLoading ? (
+                          <p className="text-xs text-muted-foreground">Loading data plans…</p>
+                        ) : nombaDataPlans.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No data plans available for this network.
+                          </p>
+                        ) : (
+                          <Select
+                            value={selectedBundleId}
+                            onValueChange={(val) => {
+                              setSelectedBundleId(val);
+                              const plan = nombaDataPlans.find((item) => dataPlanId(item) === val);
+                              if (plan) setAirtimeAmount(String(plan.amount));
+                            }}
+                          >
+                            <SelectTrigger className="h-10 text-xs font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {nombaDataPlans.map((plan) => (
+                                <SelectItem key={dataPlanId(plan)} value={dataPlanId(plan)}>
+                                  {plan.plan} — ₦{plan.amount.toLocaleString()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     )}
 

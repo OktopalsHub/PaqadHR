@@ -88,14 +88,15 @@ export function useVerifyPaymentMethod() {
   });
 }
 
-export function useNigerianBanks() {
+export function useNigerianBanks(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: queryKeys.paymentMethods.banks(tenantId ?? ''),
     queryFn: fetchNigerianBanks,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? false) && !tenantLoading && Boolean(tenantId),
     staleTime: 24 * 60 * 60 * 1000,
+    retry: false,
   });
 }
 

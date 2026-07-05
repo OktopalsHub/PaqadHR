@@ -2,6 +2,8 @@
 
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { OrgAvatar } from '@/components/org-avatar';
+import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -20,19 +22,24 @@ import { useTenant } from '@/providers/tenant-provider';
 function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
   if (logoUrl) {
     return (
-      // biome-ignore lint/performance/noImgElement: external workspace logo URL
-      <img
+      <OrgAvatar
         src={logoUrl}
-        alt=""
-        className="size-9 shrink-0 rounded-[10px] border border-[#d7e3f6] bg-white object-cover shadow-sm dark:border-slate-700 dark:bg-slate-950"
+        name={name || 'Workspace'}
+        className="size-9 rounded-[10px] border border-[#d7e3f6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950"
       />
     );
   }
-  const letter = (name?.trim()?.[0] ?? 'P').toUpperCase();
+
+  if (!name?.trim()) {
+    return <PaqadLogo showWordmark={false} className="size-9" />;
+  }
+
   return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-sm font-bold text-primary-foreground shadow-[0_10px_18px_-14px_rgba(234,179,8,0.72)]">
-      {letter}
-    </span>
+    <OrgAvatar
+      name={name}
+      className="size-9 rounded-[10px] border border-transparent shadow-sm"
+      fallbackClassName="bg-primary text-sm font-bold text-primary-foreground"
+    />
   );
 }
 

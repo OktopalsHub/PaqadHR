@@ -25,7 +25,11 @@ import type {
 import { ReloadlyWebhookService } from '../../rewards/services/reloadly-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
-import { getNombaRawBody, resolveNombaSignature } from '../webhook-request.util';
+import {
+  getNombaRawBody,
+  resolveNombaSignature,
+  resolveNombaTimestamp,
+} from '../webhook-request.util';
 
 type RawBodyRequestType = Request & { rawBody?: Buffer };
 
@@ -49,7 +53,11 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.nombaWebhookService.dispatch(rawBody, resolveNombaSignature(headers));
+    return this.nombaWebhookService.dispatch(
+      rawBody,
+      resolveNombaSignature(headers),
+      resolveNombaTimestamp(headers),
+    );
   }
 
   @Post('reloadly')
@@ -91,7 +99,9 @@ export class WebhooksController {
       throw new BadRequestException('Invalid webhook JSON');
     }
 
-    await this.reloadlyWebhookService.processReloadlyWebhookEvent(payload);
+    await this.reloadlyWebhookService.processReloadlyWebhookEvent(
+      payload as Record<string, unknown>,
+    );
     return { received: true };
   }
 

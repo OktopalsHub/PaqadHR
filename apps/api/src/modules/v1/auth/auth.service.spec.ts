@@ -4,7 +4,7 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { PasswordService } from 'src/common/utils';
 import { UserRole } from '../../../common/enums';
-import { AuditLogsService } from '../../../common/services/audit-logs.service';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';

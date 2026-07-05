@@ -102,14 +102,14 @@ export const Teams = ({
               icon={Building2}
               title="No departments yet"
               description="Create your first department to organize teams and members."
-              className="min-h-[440px] bg-white"
+              className="min-h-[340px] bg-white sm:min-h-[440px]"
             />
           ) : filteredDepartments.length === 0 ? (
             <EmptyState
               icon={Building2}
               title="No matches"
               description="Try a different search term."
-              className="min-h-[440px] bg-white"
+              className="min-h-[340px] bg-white sm:min-h-[440px]"
             />
           ) : (
             <div className="grid gap-4">

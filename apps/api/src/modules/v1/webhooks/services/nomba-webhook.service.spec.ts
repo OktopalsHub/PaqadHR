@@ -1,8 +1,9 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { RewardsService } from '../../rewards/services/rewards.service';
+import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
-import { NombaWebhookService } from './nomba-webhook.service';
+import { extractWalletTopupCheckout, NombaWebhookService } from './nomba-webhook.service';
 
 jest.mock('src/common/config/nomba-webhook.util', () => ({
   verifyNombaWebhookSignature: jest.fn(),
@@ -10,11 +11,51 @@ jest.mock('src/common/config/nomba-webhook.util', () => ({
 
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
 
+describe('extractWalletTopupCheckout', () => {
+  it('extracts wallet_topup payment_success meta', () => {
+    expect(
+      extractWalletTopupCheckout({
+        event_type: 'payment_success',
+        data: {
+          order: {
+            orderReference: 'wallet-topup-t1-abc',
+            amount: 2500,
+            orderMetaData: {
+              tenantId: 't1',
+              billingType: 'wallet_topup',
+              expectedAmount: '2500',
+            },
+          },
+        },
+      }),
+    ).toEqual({
+      tenantId: 't1',
+      orderReference: 'wallet-topup-t1-abc',
+      amount: 2500,
+    });
+  });
+
+  it('returns null for subscription payments', () => {
+    expect(
+      extractWalletTopupCheckout({
+        event_type: 'payment_success',
+        data: {
+          order: {
+            orderReference: 'sub_t1_1',
+            orderMetaData: { tenantId: 't1', billingType: 'subscription' },
+          },
+        },
+      }),
+    ).toBeNull();
+  });
+});
+
 describe('NombaWebhookService', () => {
   let service: NombaWebhookService;
   let subscriptionBilling: jest.Mocked<Pick<SubscriptionBillingService, 'processNombaPayload'>>;
   let payrollPayout: jest.Mocked<Pick<PayrollPayoutService, 'processNombaPayload'>>;
   let rewards: jest.Mocked<Pick<RewardsService, 'processNombaFundingPayload'>>;
+  let walletService: jest.Mocked<Pick<TenantWalletService, 'completeCheckoutTopup'>>;
 
   beforeEach(() => {
     subscriptionBilling = { processNombaPayload: jest.fn().mockResolvedValue({ received: true }) };
@@ -22,11 +63,15 @@ describe('NombaWebhookService', () => {
     rewards = {
       processNombaFundingPayload: jest.fn().mockResolvedValue({ received: true }),
     };
+    walletService = {
+      completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
+    };
 
     service = new NombaWebhookService(
       subscriptionBilling as unknown as SubscriptionBillingService,
       payrollPayout as unknown as PayrollPayoutService,
       rewards as unknown as RewardsService,
+      walletService as unknown as TenantWalletService,
     );
 
     (verifyNombaWebhookSignature as jest.Mock).mockReturnValue(true);
@@ -51,8 +96,35 @@ describe('NombaWebhookService', () => {
     await service.dispatch(body, 'sig');
 
     expect(subscriptionBilling.processNombaPayload).toHaveBeenCalled();
+    expect(walletService.completeCheckoutTopup).not.toHaveBeenCalled();
     expect(payrollPayout.processNombaPayload).not.toHaveBeenCalled();
     expect(rewards.processNombaFundingPayload).not.toHaveBeenCalled();
+  });
+
+  it('routes wallet_topup payment_success to wallet credit', async () => {
+    const body = JSON.stringify({
+      event_type: 'payment_success',
+      data: {
+        order: {
+          orderReference: 'wallet-topup-t1-abc',
+          amount: 2500,
+          orderMetaData: {
+            tenantId: 't1',
+            billingType: 'wallet_topup',
+            expectedAmount: '2500',
+          },
+        },
+      },
+    });
+
+    await service.dispatch(body, 'sig');
+
+    expect(walletService.completeCheckoutTopup).toHaveBeenCalledWith({
+      tenantId: 't1',
+      orderReference: 'wallet-topup-t1-abc',
+      amount: 2500,
+    });
+    expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
   });
 
   it('routes payroll merchant ref before wallet funding', async () => {

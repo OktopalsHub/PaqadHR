@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { EmailTemplateService } from './email-template.service';
 
 interface EmailData {
   to: string | string[];
@@ -19,9 +20,10 @@ export class ZeptomailEmailService {
   private readonly zeptomailApiKey: string;
   private readonly defaultFromEmail: string;
   private readonly apiUrl = 'https://api.zeptomail.com/v1.1/email';
-  constructor() {
+
+  constructor(private readonly emailTemplateService: EmailTemplateService) {
     this.zeptomailApiKey = process.env.ZEPTOMAIL_API_KEY || '';
-    this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@teamlyf.com';
+    this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@paqadhr.com';
     if (!this.zeptomailApiKey) {
       this.logger.warn('ZEPTOMAIL_API_KEY is not configured. Email sending will fail.');
     }
@@ -37,7 +39,7 @@ export class ZeptomailEmailService {
       const payload = {
         from: {
           address: emailData.from || this.defaultFromEmail,
-          name: 'TeamLyf',
+          name: 'PaqadHR',
         },
         to: toArray.map((email) => ({
           email_address: {
@@ -89,7 +91,7 @@ export class ZeptomailEmailService {
   async sendTemplateEmail(
     to: string | string[],
     templateKey: string,
-    variables: Record<string, any>,
+    variables: Record<string, unknown>,
     options?: {
       from?: string;
       replyTo?: string;
@@ -97,6 +99,18 @@ export class ZeptomailEmailService {
     },
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
+      if (this.emailTemplateService.hasTemplate(templateKey)) {
+        const rendered = this.emailTemplateService.render(templateKey, variables);
+        return await this.sendEmail({
+          to,
+          subject: options?.subject || rendered.subject,
+          html: rendered.html,
+          text: rendered.text,
+          from: options?.from,
+          replyTo: options?.replyTo,
+        });
+      }
+
       const templates = this.getEmailTemplates();
       const template = templates[templateKey];
       if (!template) {
@@ -118,7 +132,7 @@ export class ZeptomailEmailService {
       return { success: false, error: error.message };
     }
   }
-  private renderTemplate(template: string, variables: Record<string, any>): string {
+  private renderTemplate(template: string, variables: Record<string, unknown>): string {
     let rendered = template;
     Object.entries(variables).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
@@ -136,15 +150,6 @@ export class ZeptomailEmailService {
           <p>You can now access your dashboard and start collaborating with your team.</p>
         `,
         text: `Welcome to {{ tenantName }}, {{ name }}! We're excited to have you on board. You can now access your dashboard and start collaborating with your team.`,
-      },
-      invitation: {
-        subject: "You're invited to join {{ tenantName }}",
-        html: `
-          <h1>You're invited to join {{ tenantName }}</h1>
-          <p>{{ inviterName }} has invited you to join {{ tenantName }}.</p>
-          <p><a href="{{ inviteLink }}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Accept Invitation</a></p>
-        `,
-        text: `You're invited to join {{ tenantName }}. {{ inviterName }} has invited you to join. Click here to accept: {{ inviteLink }}`,
       },
       'password-reset': {
         subject: 'Password Reset Request',

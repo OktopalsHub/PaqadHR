@@ -140,7 +140,7 @@ export function AttendanceMyTab() {
               icon={Clock}
               title="No entries in this range"
               description="Adjust the date filter or clock in from the header."
-              className="min-h-[460px]"
+              className="min-h-[360px] sm:min-h-[460px]"
             />
           </div>
         ) : (

@@ -86,6 +86,7 @@ export class PublicInvitesController {
             id: result.invitation.id,
             status: result.invitation.status,
             tenantId: result.invitation.tenantId,
+            tenantSlug: result.invitation.tenantSlug,
           },
         },
       };
@@ -96,8 +97,6 @@ export class PublicInvitesController {
       throw error;
     }
   }
-  @Post('decline')
-  @Public()
   @Post('decline')
   @Public()
   async declineInvitation(@Body() body: { token: string; email: string }) {

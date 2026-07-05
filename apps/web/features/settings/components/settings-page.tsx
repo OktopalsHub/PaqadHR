@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
+import { SettingsIntegrationsTab } from '@/features/settings/components/settings-integrations-tab';
 import { SettingsLeaveTab } from '@/features/settings/components/settings-leave-tab';
 import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import { SettingsProfileTab } from '@/features/settings/components/settings-profile-tab';
@@ -32,6 +33,7 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   notifications: 'Notifications',
   attendance: 'Attendance',
   billing: 'Billing',
+  integrations: 'Integrations',
 };
 
 function SettingsPageContent() {
@@ -68,6 +70,7 @@ function SettingsPageContent() {
         'notifications',
         'attendance',
         'billing',
+        'integrations',
       ]
     : ['profile'];
 
@@ -89,7 +92,7 @@ function SettingsPageContent() {
         className="space-y-5"
       >
         <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex h-auto min-w-max items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
+          <TabsList className="inline-flex h-auto min-w-max flex-nowrap items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
             {tabOrder.map((tab) => (
               <TabsTrigger
                 key={tab}
@@ -143,6 +146,11 @@ function SettingsPageContent() {
         {isAdmin ? (
           <TabsContent value="billing" className="mt-0">
             <SettingsBillingTab />
+          </TabsContent>
+        ) : null}
+        {isAdmin ? (
+          <TabsContent value="integrations" className="mt-0">
+            <SettingsIntegrationsTab />
           </TabsContent>
         ) : null}
       </Tabs>

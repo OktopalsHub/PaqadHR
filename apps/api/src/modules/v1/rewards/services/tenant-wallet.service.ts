@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { NombaVirtualAccountApiService } from 'src/common/services/nomba-virtual-account-api.service';
 import { DataSource, EntityManager, Repository } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
@@ -14,12 +15,14 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_NO_BILLING_CARD,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import {
   buildNombaAccountRef,
+  buildNombaWalletTopupOrderRef,
   buildVirtualAccountName,
 } from '../utils/wallet-virtual-account.util';
 
@@ -45,6 +48,7 @@ export class TenantWalletService {
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly emailService: ZeptomailEmailService,
+    private readonly activitiesService: ActivitiesService,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
@@ -100,9 +104,7 @@ export class TenantWalletService {
     }
 
     if (!this.nombaVirtualAccountApi.isConfigured()) {
-      wallet.virtualAccountStatus = 'FAILED';
-      wallet.virtualAccountError = 'Nomba is not configured';
-      return repo.save(wallet);
+      return wallet;
     }
 
     const name =
@@ -136,11 +138,18 @@ export class TenantWalletService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       wallet.virtualAccountStatus = 'FAILED';
-      wallet.virtualAccountError = message;
+      wallet.virtualAccountError = this.sanitizeProviderError(message);
       await repo.save(wallet);
       this.logger.error(`Failed to provision VA for tenant ${tenantId}: ${message}`);
       throw error;
     }
+  }
+
+  private sanitizeProviderError(message: string): string {
+    if (/not configured|nomba|reloadly/i.test(message)) {
+      return 'Deposit account setup is unavailable.';
+    }
+    return message;
   }
 
   async getWallet(tenantId: string, tenantName?: string): Promise<TenantWallet> {
@@ -247,6 +256,23 @@ export class TenantWalletService {
     });
     await txRepo.save(tx);
 
+    if (type === 'DEPOSIT') {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          action: 'wallet.deposit',
+          resourceType: 'rewards_wallet',
+          resourceId: reference,
+          description,
+          metadata: { amount, reference },
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to queue wallet deposit activity: ${err instanceof Error ? err.message : err}`,
+          );
+        });
+    }
+
     return updated;
   }
 
@@ -322,7 +348,7 @@ export class TenantWalletService {
     const tokenKey = subscription?.paymentMethodId?.trim();
     if (!tokenKey) {
       throw new BadRequestException(
-        audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
+        audience === 'admin' ? WALLET_NO_BILLING_CARD : WALLET_UNAVAILABLE_MEMBER,
       );
     }
 
@@ -452,5 +478,110 @@ export class TenantWalletService {
     const reference = `manual-topup-${randomUUID()}`;
     const description = 'Manual rewards wallet top-up via saved payment method';
     return this.chargeAndCredit(tenantId, amount, reference, description, undefined, 'admin');
+  }
+
+  async createTopupCheckout(
+    tenantId: string,
+    amount: number,
+  ): Promise<{ checkoutUrl: string; orderReference: string }> {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Top up amount must be greater than 0');
+    }
+    if (!this.nombaApi.isConfigured()) {
+      throw new BadRequestException('Nomba checkout is not configured');
+    }
+
+    const customerEmail = await this.resolveBillingEmail(tenantId);
+    if (!customerEmail) {
+      throw new BadRequestException(
+        'Billing contact email is not configured. Add it in Settings → Billing.',
+      );
+    }
+
+    const wallet = await this.ensureWallet(tenantId);
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const callbackUrl = tenant?.slug
+      ? `${frontendBase}/${tenant.slug}/settings?tab=rewards&wallet_topup=done`
+      : `${frontendBase}/settings?tab=rewards&wallet_topup=done`;
+
+    const orderReference = buildNombaWalletTopupOrderRef(tenantId);
+    const result = await this.nombaApi.createCheckoutOrder({
+      orderReference,
+      customerEmail,
+      amount,
+      currency: (wallet.currencyCode || 'NGN').toUpperCase(),
+      callbackUrl,
+      tokenizeCard: false,
+      meta: {
+        tenantId,
+        billingType: 'wallet_topup',
+        expectedAmount: amount,
+      },
+    });
+
+    return {
+      checkoutUrl: result.checkoutLink,
+      orderReference: result.orderReference,
+    };
+  }
+
+  /**
+   * Credits wallet after Nomba checkout payment_success for billingType=wallet_topup.
+   * Idempotent on orderReference.
+   */
+  async completeCheckoutTopup(input: {
+    tenantId: string;
+    orderReference: string;
+    amount?: number;
+  }): Promise<{ received: boolean; credited: boolean }> {
+    const txRepo = this.dataSource.getRepository(TenantWalletTransaction);
+    const existing = await txRepo.findOne({ where: { reference: input.orderReference } });
+    if (existing) {
+      return { received: true, credited: false };
+    }
+
+    const verified = await this.nombaApi.verifyTransaction(input.orderReference);
+    const status = verified?.status?.toLowerCase() ?? '';
+    if (status !== 'success' && status !== 'successful') {
+      this.logger.warn(
+        `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
+      );
+      return { received: true, credited: false };
+    }
+
+    const wallet = await this.ensureWallet(input.tenantId);
+    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
+    const expected = input.amount ?? Number(verified?.amount ?? 0);
+    const paid = normalizeWebhookAmount(Number(verified?.amount ?? 0), expected, currency);
+    if (!Number.isFinite(paid) || paid <= 0) {
+      this.logger.warn(`Wallet checkout top-up invalid amount for ${input.orderReference}`);
+      return { received: true, credited: false };
+    }
+
+    if (
+      input.amount &&
+      Number.isFinite(input.amount) &&
+      !isAmountWithinTolerance(paid, input.amount)
+    ) {
+      this.logger.warn(
+        `Wallet checkout top-up amount mismatch for ${input.orderReference}: expected ${input.amount}, got ${paid}`,
+      );
+      return { received: true, credited: false };
+    }
+
+    await this.credit(
+      input.tenantId,
+      paid,
+      'DEPOSIT',
+      input.orderReference,
+      'Rewards wallet top-up via Nomba checkout',
+      undefined,
+      { nombaEventId: input.orderReference },
+    );
+    this.logger.log(
+      `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
+    );
+    return { received: true, credited: true };
   }
 }

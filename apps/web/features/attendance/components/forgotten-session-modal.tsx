@@ -156,8 +156,9 @@ export function ForgottenSessionModal() {
           <DialogFooter className="pt-2">
             <Button
               type="submit"
+              variant="brandSolid"
               disabled={clockOutMutation.isPending}
-              className="w-full bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm transition-colors"
+              className="w-full font-medium"
             >
               {clockOutMutation.isPending ? (
                 <>

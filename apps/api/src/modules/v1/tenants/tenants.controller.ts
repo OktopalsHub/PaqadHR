@@ -13,10 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import {
-  isSupportedFiatCurrency,
-  SUPPORTED_FIAT_CURRENCIES,
-} from 'src/common/constants/supported-fiat-currencies.constant';
+import { defaultPayrollCurrency, getNombaPayoutCurrencies } from 'src/common/config/nomba.config';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import type { PaginationDto } from 'src/common/dto/pagination.dto';
 import { TenantMemberRole, UserRole } from 'src/common/enums';
@@ -152,8 +149,8 @@ export class TenantsController {
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: { currency: string },
   ) {
-    const supportedCurrencies = [...SUPPORTED_FIAT_CURRENCIES];
-    if (!isSupportedFiatCurrency(body.currency)) {
+    const supportedCurrencies = [...getNombaPayoutCurrencies()];
+    if (!supportedCurrencies.includes(body.currency.toUpperCase())) {
       throw new BadRequestException(`Currency must be one of: ${supportedCurrencies.join(', ')}`);
     }
     const updateDto: UpdateTenantDto = {
@@ -166,8 +163,8 @@ export class TenantsController {
   async getPaymentCurrency(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     const tenant = await this.tenantsService.getTenant(tenantId);
     return {
-      currency: tenant.preferredCurrency || 'USD',
-      supportedCurrencies: [...SUPPORTED_FIAT_CURRENCIES],
+      currency: tenant.preferredCurrency || defaultPayrollCurrency(),
+      supportedCurrencies: [...getNombaPayoutCurrencies()],
     };
   }
   @Get(':tenantId/profile')

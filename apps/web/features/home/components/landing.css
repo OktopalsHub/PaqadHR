@@ -9,9 +9,9 @@
   --ld-text: #f5f5f5;
   --ld-text-secondary: #888888;
   --ld-text-tertiary: #555555;
-  --ld-brand: #ffcc00;
-  --ld-brand-dim: rgba(255, 204, 0, 0.12);
-  --ld-brand-glow: rgba(255, 204, 0, 0.06);
+  --ld-brand: var(--brand);
+  --ld-brand-dim: var(--brand-dim);
+  --ld-brand-glow: var(--brand-glow);
   --ld-radius: 16px;
   --ld-radius-sm: 10px;
 
@@ -110,13 +110,13 @@
   height: 44px;
   padding: 0 28px;
   background: var(--ld-brand);
-  color: #000;
+  color: var(--brand-foreground);
 }
 
 .ld-btn-primary:hover {
-  background: #ffe066;
+  background: var(--primary-hover);
   transform: translateY(-1px);
-  box-shadow: 0 8px 32px rgba(255, 204, 0, 0.25);
+  box-shadow: 0 8px 32px var(--brand-shadow);
 }
 
 .ld-btn-secondary {
@@ -163,7 +163,7 @@
   padding: 6px 16px;
   border-radius: 999px;
   border: 1px solid var(--ld-brand-dim);
-  background: rgba(255, 204, 0, 0.06);
+  background: var(--brand-glow);
   font-size: 13px;
   font-weight: 500;
   color: var(--ld-brand);
@@ -460,7 +460,7 @@
   transform: translateX(-50%);
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, rgba(255, 204, 0, 0.08), transparent 70%);
+  background: radial-gradient(circle, var(--brand-glow), transparent 70%);
   pointer-events: none;
 }
 

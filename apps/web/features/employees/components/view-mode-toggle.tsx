@@ -12,14 +12,14 @@ interface ViewModeToggleProps {
 
 export const ViewModeToggle = ({ viewMode, onViewModeChange, className }: ViewModeToggleProps) => {
   return (
-    <div className={cn('flex', className)}>
+    <div className={cn('flex justify-end', className)}>
       <div className="flex h-10 items-center overflow-hidden rounded-[8px] border border-slate-200 bg-white">
         <button
           type="button"
           className={cn(
             'flex h-full w-10 items-center justify-center p-2 transition-colors',
             viewMode === 'list'
-              ? 'bg-[#fbbf24] text-white'
+              ? 'bg-primary text-primary-foreground'
               : 'bg-white text-slate-400 hover:bg-slate-50',
           )}
           onClick={() => onViewModeChange('list')}
@@ -32,7 +32,7 @@ export const ViewModeToggle = ({ viewMode, onViewModeChange, className }: ViewMo
           className={cn(
             'flex h-full w-10 items-center justify-center p-2 transition-colors',
             viewMode === 'card'
-              ? 'bg-[#fbbf24] text-white'
+              ? 'bg-primary text-primary-foreground'
               : 'bg-white text-slate-400 hover:bg-slate-50',
           )}
           onClick={() => onViewModeChange('card')}

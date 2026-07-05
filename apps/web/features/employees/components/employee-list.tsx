@@ -98,27 +98,34 @@ export const EmployeeList = () => {
     <AppPage className="mx-auto w-full max-w-7xl space-y-6">
       <AddEmployeeDialog isOpen={inviteOpen} onOpenChange={setInviteOpen} />
 
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div className="inline-flex w-max flex-wrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
-          {EMPLOYEE_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                'rounded-[8px] px-6 py-2 text-sm transition-colors',
-                activeTab === tab.id
-                  ? 'border border-slate-200 bg-slate-50 text-slate-800 shadow-sm font-semibold'
-                  : 'font-medium text-slate-500 hover:text-slate-800',
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-x-auto pb-1">
+          <div className="inline-flex min-w-max flex-nowrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+            {EMPLOYEE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors sm:px-6',
+                  activeTab === tab.id
+                    ? 'border border-slate-200 bg-slate-50 text-slate-800 shadow-sm font-semibold'
+                    : 'font-medium text-slate-500 hover:text-slate-800',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {actionConfig ? (
-          <Button variant="brandSolid" size="app" className="w-max" onClick={actionConfig.onClick}>
+          <Button
+            variant="brandSolid"
+            size="app"
+            className="w-full sm:w-max"
+            onClick={actionConfig.onClick}
+          >
             <Plus className="size-4" />
             {actionConfig.label}
           </Button>

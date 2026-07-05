@@ -85,21 +85,21 @@ export const Dashboard = () => {
       value: openRoles,
       hint: `${jobs.length} total postings`,
       icon: Briefcase,
-      iconClassName: 'bg-[#d8e2ff] text-[#004395]',
+      iconClassName: 'bg-[#dbeafe] text-[#1d4ed8]',
     },
     {
       label: 'Pending leave',
       value: pendingLeaves,
       hint: `${leaves.length} requests total`,
       icon: CalendarClock,
-      iconClassName: 'bg-[#ffe9cf] text-[#855300]',
+      iconClassName: 'bg-[#dcfce7] text-[#166534]',
     },
     {
       label: 'Departments',
       value: departmentCount || '—',
       hint: 'With assigned members',
       icon: Building2,
-      iconClassName: 'bg-[#e1ebff] text-[#35598e]',
+      iconClassName: 'bg-[#f3e8ff] text-[#7e22ce]',
     },
   ] as const;
 
@@ -130,10 +130,15 @@ export const Dashboard = () => {
 
   return (
     <AppPage className="space-y-6">
-      <div className="flex justify-end">
-        <Button asChild variant="brand" size="appCta">
+      <div className="flex justify-stretch sm:justify-end">
+        <Button
+          asChild
+          variant="brand"
+          size="appCta"
+          className="w-full normal-case tracking-normal text-sm sm:w-auto"
+        >
           <Link href={tenantHref('recruitment')}>
-            View recruitment
+            View Recruitment
             <ArrowUpRight className="ml-1.5 size-3.5" />
           </Link>
         </Button>
@@ -157,7 +162,7 @@ export const Dashboard = () => {
                 <div
                   className={`flex size-11 items-center justify-center rounded-2xl shadow-sm ${card.iconClassName}`}
                 >
-                  <Icon className="size-[18px]" />
+                  <Icon className="size-4.5" />
                 </div>
               </div>
             </article>
@@ -181,7 +186,7 @@ export const Dashboard = () => {
           bodyClassName="p-4"
         >
           {recentLeaves.length === 0 ? (
-            <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 text-center text-slate-500">
+            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-slate-500">
               <CalendarClock className="size-10 text-slate-400" />
               <p className="text-sm">No leave requests yet.</p>
             </div>
@@ -190,7 +195,7 @@ export const Dashboard = () => {
               {recentLeaves.map((leave) => (
                 <div
                   key={leave.id}
-                  className="dashboard-soft-tile rounded-[8px] flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-white/80"
+                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] px-4 py-3 transition-colors hover:bg-white/80 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">
@@ -202,7 +207,7 @@ export const Dashboard = () => {
                   </div>
                   <Badge
                     variant={leaveStatusVariant(leave.status ?? 'pending')}
-                    className="rounded-full px-2.5 py-1 text-[11px]"
+                    className="self-start rounded-full px-2.5 py-1 text-[11px] sm:self-auto"
                   >
                     {leave.status ?? 'Pending'}
                   </Badge>
@@ -243,7 +248,7 @@ export const Dashboard = () => {
                 return (
                   <div key={stage.label} className="flex flex-1 flex-col items-center gap-2">
                     <div
-                      className="w-full max-w-9 rounded-t-xl bg-gradient-to-t from-[#334e7e] to-[#7da7ef]"
+                      className="w-full max-w-9 rounded-t-xl bg-linear-to-t from-[#334e7e] to-[#7da7ef]"
                       style={{ height: `${height}%` }}
                     ></div>
                   </div>
@@ -269,10 +274,10 @@ export const Dashboard = () => {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-3">
-        <div className="h-full xl:col-span-2">
+        <div className="min-w-0 h-full xl:col-span-2">
           <RecruitmentApplicantsTable rows={overview.applicantRows} />
         </div>
-        <div className="h-full">
+        <div className="min-w-0 h-full">
           <RecruitmentActivityFeed items={[...overview.activity]} />
         </div>
       </div>

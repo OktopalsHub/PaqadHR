@@ -43,14 +43,19 @@ export function validateEnvAtBoot(): void {
     const nombaOk =
       process.env.NOMBA_CLIENT_ID?.trim() &&
       process.env.NOMBA_CLIENT_SECRET?.trim() &&
-      process.env.NOMBA_ACCOUNT_ID?.trim();
+      (process.env.NOMBA_PARENT_ACCOUNT_ID?.trim() || process.env.NOMBA_ACCOUNT_ID?.trim());
     if (!nombaOk) {
-      warnings.push('Nomba billing is not fully configured (NOMBA_CLIENT_ID/SECRET/ACCOUNT_ID)');
+      warnings.push(
+        'Nomba billing is not fully configured (NOMBA_CLIENT_ID/SECRET/PARENT_ACCOUNT_ID)',
+      );
     }
     if (!process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim()) {
       warnings.push(
         'NOMBA_WEBHOOK_SIGNATURE_KEY is not set — Nomba webhooks will reject signatures',
       );
+    }
+    if (process.env.NOMBA_LIVE === 'true') {
+      logger.log('Nomba live mode enabled (NOMBA_LIVE=true)');
     }
     if (process.env.RELOADLY_CLIENT_ID?.trim() && !process.env.RELOADLY_WEBHOOK_SECRET?.trim()) {
       warnings.push('RELOADLY_WEBHOOK_SECRET is not set — Reloadly webhooks will fail');

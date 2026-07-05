@@ -14,7 +14,7 @@ import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
 import { GeoLocationHelper, PasswordService, StringUtility } from 'src/common/utils';
 import { Repository } from 'typeorm';
-import { AuditLogsService } from '../../../common/services/audit-logs.service';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';

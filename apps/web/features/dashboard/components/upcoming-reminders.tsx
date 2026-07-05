@@ -75,7 +75,7 @@ export function UpcomingReminders() {
           {items.map((item) => (
             <div
               key={item.id}
-              className="dashboard-soft-tile rounded-[8px] flex items-center justify-between gap-3 p-3.5"
+              className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] p-3.5 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-2">
                 <div className="flex size-10 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
@@ -92,7 +92,7 @@ export function UpcomingReminders() {
               </div>
               <Badge
                 variant="outline"
-                className="rounded-full border-[#cad7ee] bg-white/70 px-2.5 py-1 text-[11px] capitalize text-slate-600"
+                className="self-start rounded-full border-[#cad7ee] bg-white/70 px-2.5 py-1 text-[11px] capitalize text-slate-600 sm:self-auto"
               >
                 {item.type}
               </Badge>

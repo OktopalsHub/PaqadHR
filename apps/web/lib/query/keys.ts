@@ -87,6 +87,9 @@ export const queryKeys = {
     list: ['notifications', 'list'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
   },
+  activities: {
+    list: (tenantId: string) => ['activities', 'list', tenantId] as const,
+  },
   rewards: {
     catalog: ['rewards', 'catalog'] as const,
     claims: ['rewards', 'claims'] as const,

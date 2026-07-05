@@ -9,12 +9,12 @@ export function normalizePaginationLimit(limit?: string | number): number {
   return Math.min(parsed, PAGINATION_MAX_LIMIT);
 }
 
-export async function getPaginationSummary(
-  records: unknown[],
+export async function getPaginationSummary<T>(
+  records: T[],
   totalItems: number,
   options: IPaginationOption,
   name?: string,
-): Promise<IPaginatedData> {
+): Promise<IPaginatedData<T>> {
   const limit = normalizePaginationLimit(options.limit);
   const page = Math.max(parseInt(String(options.page), 10) || 1, 1);
   const pageCount = Math.ceil(totalItems / limit) || 1;
@@ -61,19 +61,23 @@ export class PaginationUtil {
     return getPaginationSummary(result.data, result.total, options, name);
   }
 
-  static parsePaginationOptions(query: Record<string, any>): { page: number; limit: number } {
-    const page = parseInt(String(query.page ?? ''), 10) || 1;
-    const limit = normalizePaginationLimit(query.limit);
+  static parsePaginationOptions(query: object): { page: number; limit: number } {
+    const q = query as Record<string, unknown>;
+    const page = parseInt(String(q.page ?? ''), 10) || 1;
+    const limit = normalizePaginationLimit(q.limit as string | number | undefined);
     return { page, limit };
   }
 
   static parsePaginationOptionsWithTenantSettings(
-    query: Record<string, any>,
+    query: object,
     tenantSettings?: { general?: { paginationLimit?: number } },
   ): { page: number; limit: number } {
+    const q = query as Record<string, unknown>;
     const tenantDefault = tenantSettings?.general?.paginationLimit ?? PAGINATION_DEFAULT_LIMIT;
-    const page = parseInt(String(query.page ?? ''), 10) || 1;
-    const limit = normalizePaginationLimit(query.limit ?? tenantDefault);
+    const page = parseInt(String(q.page ?? ''), 10) || 1;
+    const limit = normalizePaginationLimit(
+      q.limit !== undefined && q.limit !== null ? (q.limit as string | number) : tenantDefault,
+    );
     return { page, limit };
   }
 }

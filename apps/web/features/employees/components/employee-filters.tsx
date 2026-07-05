@@ -30,7 +30,7 @@ export const EmployeeFiltersComponent = ({
   onViewModeChange,
 }: EmployeeFiltersProps) => {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-[8px] border border-slate-100 bg-white p-4 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] lg:flex-row">
+    <div className="flex flex-col items-stretch gap-3 rounded-[8px] border border-slate-100 bg-white p-3 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] sm:p-4 lg:flex-row lg:items-center">
       <div className="relative w-full flex-1">
         <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
         <Input
@@ -41,8 +41,8 @@ export const EmployeeFiltersComponent = ({
         />
       </div>
 
-      <div className="flex w-full flex-wrap items-center gap-3 lg:w-auto">
-        <div className="min-w-[160px] flex-1 lg:flex-none">
+      <div className="grid w-full gap-3 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center">
+        <div className="min-w-0 sm:min-w-[160px] sm:flex-1 lg:flex-none">
           <Select
             value={filters.department || 'all_departments'}
             onValueChange={(value) => onFilterChange('department', value)}
@@ -61,7 +61,7 @@ export const EmployeeFiltersComponent = ({
           </Select>
         </div>
 
-        <div className="min-w-[140px] flex-1 lg:flex-none">
+        <div className="min-w-0 sm:min-w-[140px] sm:flex-1 lg:flex-none">
           <Select
             value={filters.status || 'all_statuses'}
             onValueChange={(value) => onFilterChange('status', value)}
@@ -79,7 +79,11 @@ export const EmployeeFiltersComponent = ({
           </Select>
         </div>
 
-        <ViewModeToggle viewMode={viewMode} onViewModeChange={onViewModeChange} />
+        <ViewModeToggle
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange}
+          className="justify-end sm:justify-start lg:ml-1"
+        />
       </div>
     </div>
   );

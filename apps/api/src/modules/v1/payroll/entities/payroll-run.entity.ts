@@ -99,7 +99,7 @@ export class PayrollRun extends BaseEntity {
     nullable: true,
     comment: 'Additional payroll metadata',
   })
-  metadata: Record<string, any> | null;
+  metadata: Record<string, unknown> | null;
   @Column({
     type: 'varchar',
     length: 255,

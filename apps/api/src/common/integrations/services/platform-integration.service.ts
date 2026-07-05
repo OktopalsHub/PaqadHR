@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { IPlatformClient } from 'src/common/interfaces';
@@ -6,6 +6,7 @@ import { In } from 'typeorm';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
+import { PlatformUser } from '../entities/platform-user.entity';
 import type {
   IntegrationConfig,
   PlatformUserData,
@@ -60,6 +61,19 @@ export class PlatformIntegrationService {
       where: { tenantId, isActive: true },
       relations: ['platformUsers'],
     });
+  }
+
+  async requireTenantIntegration(
+    tenantId: string,
+    integrationId: string,
+  ): Promise<PlatformIntegration> {
+    const integration = await this.integrationRepo.findOne({
+      where: { id: integrationId, tenantId },
+    });
+    if (!integration) {
+      throw new NotFoundException('Integration not found');
+    }
+    return integration;
   }
 
   async getShoutoutSlackStatus(tenantId: string): Promise<{
@@ -318,7 +332,7 @@ export class PlatformIntegrationService {
     userIds?: string[],
     sendWelcomeEmail: boolean = true,
   ) {
-    let usersToInvite;
+    let usersToInvite: PlatformUser[];
     if (userIds && userIds.length > 0) {
       const unmatchedUsers = await this.userSyncService.getUnmatchedUsers(integrationId);
       usersToInvite = unmatchedUsers.filter((user) => userIds.includes(user.platformUserId));

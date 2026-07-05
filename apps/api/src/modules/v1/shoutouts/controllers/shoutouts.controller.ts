@@ -34,8 +34,7 @@ export class ShoutoutsController {
     @Body() dto: CreateShoutoutDto,
   ) {
     return this.shoutoutsService.createShoutout(tenantId, member.id, {
-      recipientIds: dto.recipientIds,
-      pointsPerRecipient: dto.pointsPerRecipient,
+      recipients: dto.recipients,
       message: dto.message,
       categoryIds: dto.categoryIds,
       source: 'api',

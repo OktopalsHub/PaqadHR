@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { PersonAvatar } from '@/components/person-avatar';
 import {
   AppTable,
   AppTableBodyRow,
@@ -11,7 +12,6 @@ import {
   AppTableHeaderRow,
   AppTableHeaderSection,
 } from '@/components/ui/app-table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   useApproveLeave,
@@ -20,7 +20,6 @@ import {
 } from '@/hooks/queries/use-leaves';
 import { canApproveLeaveRequest } from '@/lib/auth/manager-access';
 import type { LeaveRequest } from '@/lib/schemas/leave';
-import { getInitials } from '@/lib/utils';
 import { LeaveStatusBadge } from './leave-status-badge';
 
 interface LeaveRequestsTableProps {
@@ -91,10 +90,12 @@ export function LeaveRequestsTable({ requests }: LeaveRequestsTableProps) {
             <AppTableBodyRow key={request.id}>
               <AppTableCell className="font-medium">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
-                    <AvatarImage src={requester?.avatar || '/placeholder.svg'} />
-                    <AvatarFallback>{getInitials(request.employee)}</AvatarFallback>
-                  </Avatar>
+                  <PersonAvatar
+                    src={requester?.avatar}
+                    name={request.employee}
+                    className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                    fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                  />
                   <span>{request.employee}</span>
                 </div>
               </AppTableCell>

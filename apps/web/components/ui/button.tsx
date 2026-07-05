@@ -11,9 +11,9 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
         brand:
-          'bg-[#fea619] text-[#2a1700] shadow-[0_12px_24px_-18px_rgba(245,158,11,0.9)] hover:bg-[#f19d16]',
+          'bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_var(--brand-shadow)] hover:bg-primary-hover active:bg-primary-active',
         brandSolid:
-          'bg-[#fbbf24] text-white shadow-[0_12px_24px_-18px_rgba(245,158,11,0.9)] hover:bg-amber-500',
+          'bg-primary text-primary-foreground shadow-[0_12px_24px_-18px_var(--brand-shadow)] hover:bg-primary-hover active:bg-primary-active',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline:

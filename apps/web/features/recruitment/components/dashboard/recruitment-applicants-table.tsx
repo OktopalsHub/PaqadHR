@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { ContentCard } from '@/components/content-card';
+import { PersonAvatar } from '@/components/person-avatar';
 import {
   AppTable,
   AppTableBodyRow,
@@ -12,11 +13,9 @@ import {
   AppTableHeaderRow,
   AppTableHeaderSection,
 } from '@/components/ui/app-table';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { formatDate } from '@/lib/format-date';
-import { getInitials } from '@/lib/utils';
 import {
   type ApplicantRow,
   filterApplicantsByTab,
@@ -103,26 +102,28 @@ export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableP
   return (
     <ContentCard
       title="Applicants"
-      className="dashboard-panel h-full rounded-[8px]"
+      className="dashboard-panel min-w-0 h-full rounded-[8px]"
       headerClassName="border-b border-[#d7e3f6] px-5 py-4 dark:border-slate-800"
       titleClassName="text-[17px] font-semibold text-slate-950 dark:text-slate-100"
-      bodyClassName="space-y-4 p-5"
+      bodyClassName="min-w-0 space-y-4 p-4 sm:p-5"
     >
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-auto flex-wrap justify-start gap-1 rounded-[8px] bg-transparent p-0">
-          {TABS.map((item) => (
-            <TabsTrigger
-              key={item.id}
-              value={item.id}
-              className="dashboard-soft-tile h-9 rounded-[8px] border-transparent px-3 text-xs font-semibold text-slate-600 data-[state=active]:border-[#d2ddf3] data-[state=active]:bg-[#fea619] data-[state=active]:text-[#2a1700] dark:text-slate-300 dark:data-[state=active]:border-amber-500/40 dark:data-[state=active]:text-[#2a1700]"
-            >
-              {item.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="-mx-1 overflow-x-auto px-1 pb-1">
+          <TabsList className="h-auto min-w-max flex-nowrap justify-start gap-1 rounded-[8px] bg-transparent p-0">
+            {TABS.map((item) => (
+              <TabsTrigger
+                key={item.id}
+                value={item.id}
+                className="h-9 shrink-0 rounded-[8px] border border-[var(--app-soft-panel-border)] px-3 text-xs font-semibold text-slate-600 [background:var(--app-soft-panel-bg)] data-[state=active]:border-primary/35 data-[state=active]:[background:var(--primary)] data-[state=active]:text-primary-foreground data-[state=active]:shadow-token-sm dark:text-slate-300 dark:data-[state=active]:border-primary/45 dark:data-[state=active]:[background:var(--primary)] dark:data-[state=active]:text-primary-foreground"
+              >
+                {item.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
       </Tabs>
 
-      <AppTable className="min-w-[640px]">
+      <AppTable className={filtered.length === 0 ? 'min-w-full' : 'min-w-[600px] sm:min-w-[640px]'}>
         <AppTableHeaderSection>
           <AppTableHeaderRow>
             <AppTableHeadCell className="pb-3 tracking-[0.14em]">Name</AppTableHeadCell>
@@ -137,7 +138,7 @@ export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableP
             <AppTableBodyRow className="hover:bg-transparent">
               <AppTableCell
                 colSpan={5}
-                className="py-16 text-center text-slate-500 dark:text-slate-400"
+                className="py-16 text-center align-middle text-slate-500 dark:text-slate-400"
               >
                 No applicants in this stage.
               </AppTableCell>
@@ -151,16 +152,13 @@ export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableP
                 <AppTableCell className="py-3.5">
                   <Link
                     href={tenantHref(`recruitment/roles/${row.jobOpeningId}`)}
-                    className="flex items-center gap-3 text-slate-900 hover:text-[#2d63c8] dark:text-slate-100 dark:hover:text-blue-300"
+                    className="flex items-center gap-3 text-slate-900 hover:text-primary dark:text-slate-100 dark:hover:text-primary"
                   >
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarImage src="/placeholder.svg" />
-                      <AvatarFallback
-                        className={`bg-gradient-to-br ${getInitialsColor(row.name)} font-semibold text-xs`}
-                      >
-                        {getInitials(row.name)}
-                      </AvatarFallback>
-                    </Avatar>
+                    <PersonAvatar
+                      name={row.name}
+                      className="h-8 w-8 flex-shrink-0"
+                      fallbackClassName={`bg-gradient-to-br ${getInitialsColor(row.name)} font-semibold text-xs text-white`}
+                    />
                     <div>
                       <p className="font-medium">{row.name}</p>
                       <p className="text-xs text-muted-foreground">{row.email}</p>
@@ -178,7 +176,7 @@ export function RecruitmentApplicantsTable({ rows }: RecruitmentApplicantsTableP
                 </AppTableCell>
                 <AppTableCell className="py-3.5">
                   <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getCandidateStatusStyles(
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getCandidateStatusStyles(
                       row.status,
                     )}`}
                   >

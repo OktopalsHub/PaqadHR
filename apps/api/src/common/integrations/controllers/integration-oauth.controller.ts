@@ -129,13 +129,14 @@ export class OAuthIntegrationController {
     } else {
       baseTarget = `${frontendBase}/${tenantSlug}`;
     }
+    const integrationsSettings = `${baseTarget}/settings?tab=integrations`;
     if (error) {
       this.logger.error('OAuth error', { error });
-      return { url: `${baseTarget}/integrations?error=${error}` };
+      return { url: `${integrationsSettings}&error=${error}` };
     }
     if (!code) {
       this.logger.error('No code parameter in callback');
-      return { url: `${baseTarget}/integrations?error=no_code` };
+      return { url: `${integrationsSettings}&error=no_code` };
     }
     try {
       this.logger.log('Processing OAuth callback...');
@@ -144,21 +145,23 @@ export class OAuthIntegrationController {
         integrationId: result.integrationId,
       });
       return {
-        url: `${baseTarget}/integrations/setup-channel?integration_id=${result.integrationId}&platform=${stateData.platformType}`,
+        url: `${integrationsSettings}&slack_setup=1&integration_id=${result.integrationId}`,
       };
     } catch (err) {
       this.logger.error('OAuth callback processing failed', err);
       return {
-        url: `${baseTarget}/integrations?error=auth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`,
+        url: `${integrationsSettings}&error=auth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`,
       };
     }
   }
-  @Get('integrations/:integrationId/channels')
+  @Get('tenants/:tenantId/integrations/:integrationId/channels')
   @UseGuards(TenantMemberGuard)
   async getAvailableChannels(
+    @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
     const member = req.member;
     const userToken = await this.oauthService.getUserToken(integrationId, member.id);
     if (!userToken?.userAccessToken) {
@@ -166,9 +169,20 @@ export class OAuthIntegrationController {
     }
     return this.channelService.getAvailableChannels(integrationId, userToken.userAccessToken);
   }
-  @Post('integrations/:integrationId/setup-channel')
+  @Post('tenants/:tenantId/integrations/:integrationId/channels/create')
+  @UseGuards(TenantMemberGuard)
+  async createChannel(
+    @Param('tenantId') tenantId: string,
+    @Param('integrationId') integrationId: string,
+    @Body() body: { name: string },
+  ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
+    return this.channelService.createSlackChannel(integrationId, body.name);
+  }
+  @Post('tenants/:tenantId/integrations/:integrationId/setup-channel')
   @UseGuards(TenantMemberGuard)
   async setupChannel(
+    @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
     @Body()
     body: {
@@ -177,6 +191,7 @@ export class OAuthIntegrationController {
     },
     @Req() req: IAuthenticatedMemberRequest,
   ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
     const member = req.member;
     const userToken = await this.oauthService.getUserToken(integrationId, member.id);
     const result = await this.channelService.configureShoutoutChannel(

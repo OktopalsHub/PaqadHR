@@ -169,7 +169,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(helmet.permittedCrossDomainPolicies());
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),

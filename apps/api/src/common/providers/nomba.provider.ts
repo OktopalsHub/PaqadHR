@@ -1,5 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { formatNombaSenderName, isNombaConfigured } from '../config/nomba.config';
+import {
+  formatNombaSenderName,
+  getNombaPayoutCurrencies,
+  isNombaConfigured,
+  isNombaGlobalPayoutEnabled,
+} from '../config/nomba.config';
+import { isNombaOperationSuccessful } from '../config/nomba-api.util';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
@@ -93,8 +99,7 @@ export class NombaProvider extends BasePaymentProvider {
         });
 
         const status = response.data?.status?.toUpperCase();
-        const success =
-          status === 'SUCCESS' || status === 'PENDING_BILLING' || response.code === '00';
+        const success = isNombaOperationSuccessful({ code: response.code, status });
 
         return {
           success,
@@ -107,6 +112,15 @@ export class NombaProvider extends BasePaymentProvider {
       }
 
       if (GLOBAL_PAYOUT_CURRENCIES.has(currency)) {
+        if (!isNombaGlobalPayoutEnabled()) {
+          return {
+            success: false,
+            error:
+              'Only NGN payroll payouts are available. Set NOMBA_PAYOUT_AUTH_CODE to enable USD, EUR, and GBP.',
+            retryable: false,
+          };
+        }
+
         const rail = DEFAULT_PAYOUT_RAILS[currency];
         const destinationCountry = data.countryCode?.toUpperCase() || rail?.country;
         const paymentMethod = data.paymentRail || rail?.paymentMethod;
@@ -138,11 +152,7 @@ export class NombaProvider extends BasePaymentProvider {
         });
 
         const status = response.data?.status?.toUpperCase();
-        const success =
-          status === 'COMPLETED' ||
-          status === 'PROCESSING' ||
-          status === 'PENDING' ||
-          response.code === '00';
+        const success = isNombaOperationSuccessful({ code: response.code, status });
 
         return {
           success,
@@ -186,7 +196,7 @@ export class NombaProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USD', 'GBP', 'EUR'];
+    return [...getNombaPayoutCurrencies()];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

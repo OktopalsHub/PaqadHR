@@ -4,7 +4,7 @@ import type { SubscriptionBillingService } from './subscription-billing.service'
 describe('BillingCronService', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
-  const originalNombaAccountId = process.env.NOMBA_ACCOUNT_ID;
+  const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
 
   const createService = () => {
     const billingService = {
@@ -19,14 +19,14 @@ describe('BillingCronService', () => {
   afterEach(() => {
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
-    process.env.NOMBA_ACCOUNT_ID = originalNombaAccountId;
+    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
     jest.restoreAllMocks();
   });
 
   it('skips renewal processing when Nomba is not configured', async () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
-    delete process.env.NOMBA_ACCOUNT_ID;
+    delete process.env.NOMBA_PARENT_ACCOUNT_ID;
     const { cronService, billingService } = createService();
 
     await cronService.processSubscriptionRenewals();
@@ -37,7 +37,7 @@ describe('BillingCronService', () => {
   it('runs renewal processing when Nomba is configured', async () => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_ACCOUNT_ID = 'account-id';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
 
     const { cronService, billingService } = createService();
     (billingService.processDueRenewals as jest.Mock).mockResolvedValue({

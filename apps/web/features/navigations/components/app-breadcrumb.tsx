@@ -18,31 +18,43 @@ export function AppBreadcrumb() {
   const pathname = usePathname();
   const context = useBreadcrumbContext();
   const segments = getBreadcrumbs(pathname, context?.tailLabel);
+  const current = segments[segments.length - 1];
 
   if (segments.length === 0) return null;
 
   return (
-    <Breadcrumb className="min-w-0">
-      <BreadcrumbList>
-        {segments.map((segment, index) => {
-          const isLast = index === segments.length - 1;
+    <>
+      <Breadcrumb className="min-w-0 sm:hidden">
+        <BreadcrumbList className="flex-nowrap">
+          <BreadcrumbItem className="min-w-0">
+            <BreadcrumbPage className="truncate font-medium">{current?.label}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <Breadcrumb className="hidden min-w-0 sm:block">
+        <BreadcrumbList>
+          {segments.map((segment, index) => {
+            const isLast = index === segments.length - 1;
 
-          return (
-            <Fragment key={segment.href ?? segment.label}>
-              {index > 0 ? <BreadcrumbSeparator /> : null}
-              <BreadcrumbItem>
-                {isLast || !segment.href ? (
-                  <BreadcrumbPage className="truncate font-medium">{segment.label}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink asChild>
-                    <Link href={segment.href}>{segment.label}</Link>
-                  </BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
-            </Fragment>
-          );
-        })}
-      </BreadcrumbList>
-    </Breadcrumb>
+            return (
+              <Fragment key={segment.href ?? segment.label}>
+                {index > 0 ? <BreadcrumbSeparator /> : null}
+                <BreadcrumbItem>
+                  {isLast || !segment.href ? (
+                    <BreadcrumbPage className="truncate font-medium">
+                      {segment.label}
+                    </BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link href={segment.href}>{segment.label}</Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </Fragment>
+            );
+          })}
+        </BreadcrumbList>
+      </Breadcrumb>
+    </>
   );
 }

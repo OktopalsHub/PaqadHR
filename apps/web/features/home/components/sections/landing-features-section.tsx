@@ -50,7 +50,7 @@ export const LandingFeaturesSection = () => {
                 variants={fadeUp}
                 className="group relative bg-card p-7 transition-colors hover:bg-black/[0.01]"
               >
-                <div className="mb-4 flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary transition-all group-hover:border-primary/40 group-hover:bg-primary/15 group-hover:shadow-[0_0_16px_rgba(255,204,0,0.2)]">
+                <div className="mb-4 flex size-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary transition-all group-hover:border-primary/40 group-hover:bg-primary/15 group-hover:shadow-[0_0_16px_var(--brand-glow)]">
                   <Icon className="size-[18px]" />
                 </div>
                 <h3 className="mb-1 text-sm font-semibold text-foreground">{item.title}</h3>

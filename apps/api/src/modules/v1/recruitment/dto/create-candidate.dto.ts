@@ -200,5 +200,5 @@ export class CreateCandidateDto {
   })
   @IsOptional()
   @IsObject()
-  customAnswers?: Record<string, any>;
+  customAnswers?: Record<string, unknown>;
 }

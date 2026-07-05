@@ -293,7 +293,6 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 export function PaymentSettingsSection() {
   const { data: methods = [], isLoading, isError, error } = usePaymentMethods();
   const { data: currencies } = useSupportedPaymentCurrencies();
-  const { data: banks = [], isLoading: banksLoading } = useNigerianBanks();
   const createMethod = useCreatePaymentMethod();
   const [openForm, setOpenForm] = useState(false);
   const [currency, setCurrency] = useState('NGN');
@@ -308,6 +307,9 @@ export function PaymentSettingsSection() {
 
   const fiatOptions = currencies?.fiat ?? [];
   const isNgn = currency === 'NGN';
+  const { data: banks = [], isLoading: banksLoading } = useNigerianBanks({
+    enabled: openForm && isNgn,
+  });
   const isGlobalBank = isGlobalBankCurrency(currency);
   const payoutConfig = getPayoutFieldConfig(currency);
 

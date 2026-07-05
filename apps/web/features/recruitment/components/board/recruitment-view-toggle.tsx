@@ -21,7 +21,7 @@ export function RecruitmentViewToggle({ view, onViewChange }: RecruitmentViewTog
         className={cn(
           'h-full w-10 rounded-none border-0 shadow-none',
           view === 'kanban'
-            ? 'bg-[#fbbf24] text-white hover:bg-[#fbbf24] hover:text-white'
+            ? 'bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground'
             : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-900 dark:hover:text-slate-100',
         )}
         onClick={() => onViewChange('kanban')}
@@ -37,7 +37,7 @@ export function RecruitmentViewToggle({ view, onViewChange }: RecruitmentViewTog
         className={cn(
           'h-full w-10 rounded-none border-0 shadow-none',
           view === 'list'
-            ? 'bg-[#fbbf24] text-white hover:bg-[#fbbf24] hover:text-white'
+            ? 'bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground'
             : 'text-slate-400 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-900 dark:hover:text-slate-100',
         )}
         onClick={() => onViewChange('list')}

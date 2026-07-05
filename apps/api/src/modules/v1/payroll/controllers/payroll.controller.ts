@@ -124,6 +124,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -148,6 +149,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -178,6 +180,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -225,6 +228,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -270,6 +274,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -299,6 +304,7 @@ export class PayrollController {
       tenantId,
       confirmed: body.confirmed,
       auditContext: {
+        tenantId,
         payrollRunId: id,
         performedById: member.id,
         ipAddress: req.ip,
@@ -325,6 +331,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -402,6 +409,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -437,6 +445,7 @@ export class PayrollController {
         payrollRunId: id,
         tenantId,
         auditContext: {
+          tenantId,
           payrollRunId: id,
           performedById: member.id,
           ipAddress: req.ip,
@@ -467,7 +476,7 @@ export class PayrollController {
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getAuditReport(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.auditService.generateAuditReport(id);
+    return this.auditService.generateAuditReport(id, tenantId);
   }
 
   @Post('runs/:id/process-multi-payment')
@@ -482,6 +491,7 @@ export class PayrollController {
     this.logger.log(`Processing multi-payment payroll run: ${id} for tenant: ${tenantId}`);
     try {
       const auditContext = {
+        tenantId,
         payrollRunId: id,
         performedById: member.id,
         ipAddress: req.ip,
@@ -517,6 +527,7 @@ export class PayrollController {
     this.logger.log(`Retrying failed payments for payroll run: ${id}`);
     try {
       const auditContext = {
+        tenantId,
         payrollRunId: id,
         performedById: member.id,
         ipAddress: req.ip,

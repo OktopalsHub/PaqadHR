@@ -4,7 +4,7 @@ import {
   AuditSeverity,
   AuditStatus,
 } from '../../../../common/enums/audit-action.enum';
-import { AuditLogsService } from '../../../../common/services/audit-logs.service';
+import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import type { ShoutoutCreatedEventPayload } from '../events/shoutout.events';
 
 @Injectable()
@@ -27,8 +27,8 @@ export class ShoutoutAuditService {
       userId: payload.senderMemberId,
       metadata: {
         recipientIds: payload.recipientIds,
+        recipients: payload.recipients,
         totalPoints: payload.totalPoints,
-        pointsPerRecipient: payload.pointsPerRecipient,
         categoryNames: payload.categoryNames,
         source: payload.source,
         messagePreview: payload.message.slice(0, 200),

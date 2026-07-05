@@ -8,7 +8,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { isSupportedFiatCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
+import { getNombaPayoutCurrencies } from 'src/common/config/nomba.config';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { PaymentMethodType, TenantMemberRole } from '../../../../common/enums';
@@ -24,11 +24,11 @@ import {
   PayrollPaymentIssue,
   type PayrollPaymentReadiness,
 } from '../../../../common/interfaces/payroll-payment-readiness.interface';
-import { AuditLogsService } from '../../../../common/services/audit-logs.service';
 import { EncryptionService } from '../../../../common/services/encryption.service';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {
@@ -431,7 +431,7 @@ export class PaymentMethodService {
       issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
     }
 
-    if (!isSupportedFiatCurrency(normalizedCurrency)) {
+    if (!getNombaPayoutCurrencies().includes(normalizedCurrency)) {
       issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
     }
 

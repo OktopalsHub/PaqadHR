@@ -4,6 +4,7 @@ import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
 import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { CreateLeaveDto } from './dto/create-leave.dto';
@@ -19,6 +20,7 @@ export class LeaveService {
     private readonly leaveRepository: LeaveRepository,
     private readonly leaveBalanceService: LeaveBalanceService,
     private readonly tenantSettingsService: TenantSettingsService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async createLeave(tenantId: string, memberId: string, dto: CreateLeaveDto) {
     const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
@@ -290,6 +292,7 @@ export class LeaveService {
     if (!updated) {
       throw new NotFoundException('Updated leave not found');
     }
+    await this.logLeaveReviewActivity(tenantId, updated, approverId, 'leave.approved');
     return this.toLeaveResponseDto(updated);
   }
   async rejectLeave(tenantId: string, leaveId: string, approverId: string, comments: string) {
@@ -315,8 +318,33 @@ export class LeaveService {
     if (!updated) {
       throw new NotFoundException('Updated leave not found');
     }
+    await this.logLeaveReviewActivity(tenantId, updated, approverId, 'leave.rejected');
     return this.toLeaveResponseDto(updated);
   }
+
+  private async logLeaveReviewActivity(
+    tenantId: string,
+    leave: Leave,
+    approverId: string,
+    action: 'leave.approved' | 'leave.rejected',
+  ): Promise<void> {
+    const leaveTypeName = leave.leaveTypes?.name ?? 'Leave';
+    const verb = action === 'leave.approved' ? 'approved' : 'rejected';
+    await this.activitiesService.queueActivity({
+      tenantId,
+      actorMemberId: approverId,
+      action,
+      resourceType: 'leave',
+      resourceId: leave.id,
+      description: `Leave request ${verb}: ${leaveTypeName} (${leave.duration} days)`,
+      metadata: {
+        leaveType: leaveTypeName,
+        duration: leave.duration,
+        requesterId: leave.requestedBy,
+      },
+    });
+  }
+
   toLeaveResponseDto(leave: Leave): LeaveResponseDto {
     return {
       id: leave.id,

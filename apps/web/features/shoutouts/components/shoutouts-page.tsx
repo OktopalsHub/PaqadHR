@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Coins, Heart, Sparkles, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -29,15 +29,10 @@ import { apiClient, tenantPath } from '@/lib/api/client';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
-import { ShoutoutComposer } from './shoutout-composer';
+import { ShoutoutComposer, type ShoutoutSubmitPayload } from './shoutout-composer';
 import { ShoutoutTasksTab } from './shoutout-tasks-tab';
 
 function ShoutoutsPageContent() {
-  const [message, setMessage] = useState('');
-  const [points, setPoints] = useState('10');
-  const [recipientIds, setRecipientIds] = useState<string[]>([]);
-  const [categoryId, setCategoryId] = useState('');
-
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -78,38 +73,13 @@ function ShoutoutsPageContent() {
 
   const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
 
-  useEffect(() => {
-    if (categories[0] && !categoryId) {
-      setCategoryId(categories[0].id);
-    }
-  }, [categories, categoryId]);
-
-  const handleCreate = async () => {
-    if (recipientIds.length === 0 || !message.trim()) {
-      toast.error('Select at least one recipient and write a message');
-      return;
-    }
-    const pointsNum = Number(points) || 10;
-    const totalPointsNeeded = pointsNum * recipientIds.length;
-    if (pointsBalance && totalPointsNeeded > pointsBalance.remainingAllowance) {
-      toast.error(
-        `You don't have enough points left. Needed: ${totalPointsNeeded}, remaining: ${pointsBalance.remainingAllowance}`,
-      );
-      return;
-    }
-    try {
-      await createShoutout.mutateAsync({
-        recipientIds,
-        pointsPerRecipient: pointsNum,
-        message: message.trim(),
-        categoryIds: categoryId ? [categoryId] : undefined,
-      });
-      setMessage('');
-      setRecipientIds([]);
-      toast.success('Shoutout sent successfully!');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send');
-    }
+  const handleCreate = async (payload: ShoutoutSubmitPayload) => {
+    await createShoutout.mutateAsync({
+      recipients: payload.recipients,
+      message: payload.message,
+      categoryIds: payload.categoryIds.length ? payload.categoryIds : undefined,
+    });
+    toast.success('Shoutout sent successfully!');
   };
 
   const handleAddCategory = async () => {
@@ -230,14 +200,6 @@ function ShoutoutsPageContent() {
                   .map((e) => ({ id: e.id, name: e.name }))}
                 categories={categories}
                 points={pointsBalance}
-                recipientIds={recipientIds}
-                onRecipientChange={setRecipientIds}
-                categoryId={categoryId}
-                onCategoryChange={setCategoryId}
-                pointsValue={points}
-                onPointsChange={setPoints}
-                message={message}
-                onMessageChange={setMessage}
                 onSubmit={handleCreate}
                 isSubmitting={createShoutout.isPending}
               />
@@ -283,7 +245,7 @@ function ShoutoutsPageContent() {
                     </div>
                     <div className="h-2 w-full overflow-hidden rounded-full bg-white/70 dark:bg-slate-950/60">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-[#fea619] to-[#fcd34d] transition-all duration-500"
+                        className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 transition-all duration-500"
                         style={{ width: `${allowancePercent}%` }}
                       />
                     </div>
@@ -295,7 +257,7 @@ function ShoutoutsPageContent() {
                         Redeemable balance
                       </p>
                       <p className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
-                        <Coins className="size-4 text-amber-500" />
+                        <Coins className="size-4 text-primary" />
                         {pointsBalance.currentBalance.toLocaleString()}
                       </p>
                     </div>
@@ -338,15 +300,15 @@ function ShoutoutsPageContent() {
                     {categories.map((c) => (
                       <span
                         key={c.id}
-                        className="inline-flex items-center gap-1 rounded-full border border-indigo-500/10 bg-indigo-500/5 py-1 pl-2.5 pr-1.5 text-xs font-medium text-indigo-700 group dark:text-indigo-300"
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/10 bg-primary/5 py-1 pl-2.5 pr-1.5 text-xs font-medium text-primary group dark:text-primary/80"
                       >
-                        <Sparkles className="size-3 text-indigo-500" />
+                        <Sparkles className="size-3 text-primary" />
                         {c.name}
                         {isAdmin && (
                           <button
                             type="button"
                             onClick={() => handleDeleteCategory(c.id)}
-                            className="ml-1 rounded-full p-0.5 text-indigo-400 transition-colors hover:bg-indigo-500/10 hover:text-indigo-600"
+                            className="ml-1 rounded-full p-0.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary"
                             disabled={deleteCategory.isPending}
                           >
                             <X className="size-3" />

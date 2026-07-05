@@ -1,12 +1,9 @@
+export * from '../../../modules/v1/activities/entities/tenant-activity.entity';
 export * from '../../../modules/v1/address/entities/address.entity';
-export * from '../../../modules/v1/assets/assignment/entities/asset-assignment.entity';
-export * from '../../../modules/v1/assets/category/entities/asset-category.entity';
-export * from '../../../modules/v1/assets/document/entities/asset-document.entity';
-export * from '../../../modules/v1/assets/entities/asset.entity';
-export * from '../../../modules/v1/assets/maintenance/entities/asset-maintenance.entity';
 export * from '../../../modules/v1/attendance/entities/attendance.entity';
 export * from '../../../modules/v1/attendance/entities/attendance-exception.entity';
 export * from '../../../modules/v1/attendance/entities/attendance-policy.entity';
+export * from '../../../modules/v1/audit-logs/entities/audit-log.entity';
 export * from '../../../modules/v1/auth/entities/account.entity';
 export * from '../../../modules/v1/auth/entities/session.entity';
 export * from '../../../modules/v1/auth/entities/verification.entity';
@@ -27,7 +24,6 @@ export * from '../../../modules/v1/notifications/entities/notification-preferenc
 export * from '../../../modules/v1/payment-method/entities/payment-method.entity';
 export * from '../../../modules/v1/payment-method/entities/payment-method-passcode-history.entity';
 export * from '../../../modules/v1/payment-method/entities/payment-security.entity';
-export * from '../../../modules/v1/payroll/entities/payroll-audit.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-item.entity';
 export * from '../../../modules/v1/payroll/entities/payroll-run.entity';
 export * from '../../../modules/v1/plans/entities/plan.entity';
@@ -65,4 +61,3 @@ export * from '../../integrations/entities/integration-channel.entity';
 export * from '../../integrations/entities/platform-integration.entity';
 export * from '../../integrations/entities/platform-user.entity';
 export * from '../../integrations/entities/user-integration-token.entity';
-export * from './audit-log.entity';

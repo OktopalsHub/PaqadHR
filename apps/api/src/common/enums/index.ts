@@ -1,4 +1,3 @@
-export * from './asset.enum';
 export * from './attendance-exception-status.enum';
 export * from './attendance-exception-type.enum';
 export * from './attendance-status.enum';

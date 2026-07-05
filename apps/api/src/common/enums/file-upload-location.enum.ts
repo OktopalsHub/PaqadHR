@@ -5,7 +5,7 @@ export enum FileUploadLocation {
   ATTACHMENTS = 'attachments',
   AVATARS = 'avatars',
   RESUMES = 'resumes',
-  ASSETS = 'assets',
+  COVER_LETTERS = 'cover-letters',
 }
 export const FILE_UPLOAD_LOCATION_DESCRIPTIONS = {
   [FileUploadLocation.LOGO]: 'Workspace/Company logos',
@@ -14,5 +14,5 @@ export const FILE_UPLOAD_LOCATION_DESCRIPTIONS = {
   [FileUploadLocation.ATTACHMENTS]: 'File attachments',
   [FileUploadLocation.AVATARS]: 'User avatars',
   [FileUploadLocation.RESUMES]: 'Candidate resumes',
-  [FileUploadLocation.ASSETS]: 'Company asset documents',
+  [FileUploadLocation.COVER_LETTERS]: 'Candidate cover letters',
 } as const;
