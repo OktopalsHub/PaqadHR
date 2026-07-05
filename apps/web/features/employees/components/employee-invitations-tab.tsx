@@ -38,9 +38,8 @@ function getInvitationStatusStyles(status: string) {
   }
 }
 
-function invitationRecipientLabel(firstName?: string | null, lastName?: string | null) {
-  const fullName = `${firstName ?? ''} ${lastName ?? ''}`.trim();
-  return fullName || 'Pending teammate';
+function invitationDisplayName(firstName?: string | null, lastName?: string | null) {
+  return `${firstName ?? ''} ${lastName ?? ''}`.trim();
 }
 
 export function EmployeeInvitationsTab() {
@@ -97,12 +96,20 @@ export function EmployeeInvitationsTab() {
                           <Mail className="size-3.5" />
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-slate-900 dark:text-slate-100">
-                            {invitationRecipientLabel(invitation.firstName, invitation.lastName)}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {invitation.email}
-                          </p>
+                          {invitationDisplayName(invitation.firstName, invitation.lastName) ? (
+                            <>
+                              <p className="truncate font-medium text-slate-900 dark:text-slate-100">
+                                {invitationDisplayName(invitation.firstName, invitation.lastName)}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {invitation.email}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="truncate font-medium text-slate-900 dark:text-slate-100">
+                              {invitation.email}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </AppTableCell>

@@ -114,7 +114,9 @@ export class InvitationsService {
     };
     let invitation: Invitation;
     try {
-      invitation = await this.invitationsRepository.save(invitationData);
+      invitation = await this.invitationsRepository.save(
+        this.invitationsRepository.create(invitationData),
+      );
     } catch (error) {
       if (
         error instanceof QueryFailedError &&
@@ -559,8 +561,8 @@ export class InvitationsService {
     );
 
     if (!result.success) {
-      this.logger.warn(
-        `Invitation saved but email not sent to ${invitation.email}: ${result.error}`,
+      this.logger.error(
+        `Failed to send invitation email to ${invitation.email}: ${result.error ?? 'unknown error'}`,
       );
       return;
     }

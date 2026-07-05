@@ -33,6 +33,7 @@ describe('InvitationsService', () => {
       save: jest
         .fn()
         .mockImplementation(async (data) => ({ ...invitation, ...data, id: 'inv-new' })),
+      create: jest.fn().mockImplementation((data) => data),
       acceptInvitation: jest
         .fn()
         .mockResolvedValue({ ...invitation, status: InvitationStatus.ACCEPTED }),
@@ -99,7 +100,7 @@ describe('InvitationsService', () => {
         'member-1',
       );
 
-      expect(invitationsRepository.save).toHaveBeenCalledWith(
+      expect(invitationsRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'new@example.com',
           firstName: undefined,
@@ -108,6 +109,7 @@ describe('InvitationsService', () => {
           positionId: 'pos-1',
         }),
       );
+      expect(invitationsRepository.save).toHaveBeenCalled();
     });
   });
 
