@@ -84,14 +84,14 @@ export function mapApiDepartment(department: ApiDepartment, index: number): Depa
   return {
     id: department.id,
     name: department.name,
-    description: department.description,
+    description: department.description ?? undefined,
     color: department.color || DEPARTMENT_COLORS[index % DEPARTMENT_COLORS.length],
     manager: department.manager ? mapMember(department.manager) : undefined,
     members: department.members.map(mapMember),
     teams: department.teams?.map((team) => ({
       id: team.id,
       name: team.name,
-      description: team.description,
+      description: team.description ?? undefined,
       memberCount: team.memberCount,
       members: team.members.map(mapTeamMember),
     })),

@@ -114,7 +114,9 @@ export class InvitationsService {
     };
     let invitation: Invitation;
     try {
-      invitation = await this.invitationsRepository.save(invitationData);
+      invitation = await this.invitationsRepository.save(
+        this.invitationsRepository.create(invitationData),
+      );
     } catch (error) {
       if (
         error instanceof QueryFailedError &&
@@ -127,8 +129,8 @@ export class InvitationsService {
       }
       throw error;
     }
-    await this.sendInvitationEmail(invitation);
-    return this?.mapToResponseDto(invitation);
+    const emailDelivery = await this.sendInvitationEmail(invitation);
+    return this.mapToResponseDto(invitation, emailDelivery);
   }
   async updateInvitation(
     id: string,
@@ -364,14 +366,14 @@ export class InvitationsService {
     if (!updatedInvitation) {
       throw new NotFoundException(`Invitation with ID ${id} not found`);
     }
-    await this.sendInvitationEmail(updatedInvitation);
+    const emailDelivery = await this.sendInvitationEmail(updatedInvitation);
     this.logger.log('✅ INVITATION RESENT SUCCESSFULLY:');
     this.logger.log(`📧 Email: ${updatedInvitation.email}`);
     this.logger.log(`🏢 Tenant ID: ${updatedInvitation.tenantId}`);
     this.logger.log(`👤 Role: ${updatedInvitation.role}`);
     this.logger.log(`⏰ New expiration: ${updatedInvitation.expiresAt}`);
     this.logger.log(`🔗 Token: ${updatedInvitation.token}`);
-    return this?.mapToResponseDto(updatedInvitation);
+    return this.mapToResponseDto(updatedInvitation, emailDelivery);
   }
   async expireInvitations(): Promise<void> {
     await this.invitationsRepository.expireInvitations();
@@ -528,7 +530,9 @@ export class InvitationsService {
     });
     return this.mapToResponseDto(updatedInvitation);
   }
-  private async sendInvitationEmail(invitation: Invitation): Promise<void> {
+  private async sendInvitationEmail(
+    invitation: Invitation,
+  ): Promise<{ emailSent: boolean; emailError?: string }> {
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
     const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
     const inviteLink = `${baseUrl}/accept-invite?token=${invitation.token}&email=${encodeURIComponent(invitation.email)}`;
@@ -559,10 +563,9 @@ export class InvitationsService {
     );
 
     if (!result.success) {
-      this.logger.warn(
-        `Invitation saved but email not sent to ${invitation.email}: ${result.error}`,
-      );
-      return;
+      const emailError = result.error ?? 'unknown error';
+      this.logger.error(`Failed to send invitation email to ${invitation.email}: ${emailError}`);
+      return { emailSent: false, emailError };
     }
 
     void this.activitiesService
@@ -582,8 +585,12 @@ export class InvitationsService {
       });
 
     this.logger.log(`Invitation email sent to ${invitation.email}`);
+    return { emailSent: true };
   }
-  private async mapToResponseDto(invitation: Invitation): Promise<IInvitationResponseDto> {
+  private async mapToResponseDto(
+    invitation: Invitation,
+    emailDelivery?: { emailSent: boolean; emailError?: string },
+  ): Promise<IInvitationResponseDto> {
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
     return {
       id: invitation.id,
@@ -603,6 +610,9 @@ export class InvitationsService {
       invitedBy: invitation.invitedBy,
       expiresAt: invitation.expiresAt,
       token: invitation.token,
+      ...(emailDelivery
+        ? { emailSent: emailDelivery.emailSent, emailError: emailDelivery.emailError }
+        : {}),
     };
   }
 }

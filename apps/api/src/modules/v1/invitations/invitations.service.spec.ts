@@ -33,6 +33,7 @@ describe('InvitationsService', () => {
       save: jest
         .fn()
         .mockImplementation(async (data) => ({ ...invitation, ...data, id: 'inv-new' })),
+      create: jest.fn().mockImplementation((data) => data),
       acceptInvitation: jest
         .fn()
         .mockResolvedValue({ ...invitation, status: InvitationStatus.ACCEPTED }),
@@ -43,6 +44,11 @@ describe('InvitationsService', () => {
       createTenantMember: jest
         .fn()
         .mockResolvedValue(overrides?.createTenantMemberResult ?? { id: 'member-new' }),
+      getTenantMember: jest.fn().mockResolvedValue({
+        firstName: 'Admin',
+        lastName: 'User',
+        user: { email: 'admin@example.com' },
+      }),
     };
     const usersService = {
       getUserByEmail: jest.fn().mockResolvedValue(overrides?.existingUser ?? null),
@@ -86,6 +92,7 @@ describe('InvitationsService', () => {
       usersService,
       departmentsService,
       positionMemberService,
+      zeptomailEmailService,
     };
   }
 
@@ -99,7 +106,7 @@ describe('InvitationsService', () => {
         'member-1',
       );
 
-      expect(invitationsRepository.save).toHaveBeenCalledWith(
+      expect(invitationsRepository.create).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'new@example.com',
           firstName: undefined,
@@ -108,6 +115,24 @@ describe('InvitationsService', () => {
           positionId: 'pos-1',
         }),
       );
+      expect(invitationsRepository.save).toHaveBeenCalled();
+    });
+
+    it('returns emailSent false when Zeptomail fails', async () => {
+      const { service, zeptomailEmailService } = buildService();
+      zeptomailEmailService.sendTemplateEmail.mockResolvedValue({
+        success: false,
+        error: 'smtp down',
+      });
+
+      const result = await service.createInvitation(
+        { email: 'new@example.com', role: 'member' },
+        'tenant-1',
+        'member-1',
+      );
+
+      expect(result.emailSent).toBe(false);
+      expect(result.emailError).toBe('smtp down');
     });
   });
 

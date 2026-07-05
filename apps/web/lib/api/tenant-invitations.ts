@@ -15,6 +15,8 @@ export type TenantInvitation = {
   expiresAt: string;
   tenantName?: string;
   tenantSlug?: string;
+  emailSent?: boolean;
+  emailError?: string;
 };
 
 export async function fetchTenantInvitations(status?: string): Promise<TenantInvitation[]> {

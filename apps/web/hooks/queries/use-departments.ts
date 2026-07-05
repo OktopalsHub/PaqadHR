@@ -30,6 +30,10 @@ export function useCreateDepartment() {
   return useMutation({
     mutationFn: (input: CreateDepartmentInput) => createDepartment(input),
     onSuccess: async (created, input) => {
+      if (!tenantId) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+        return;
+      }
       const key = [...queryKeys.departments.all, tenantId] as const;
       queryClient.setQueryData<Department[]>(key, (current) => {
         const list = current ?? [];
@@ -39,7 +43,7 @@ export function useCreateDepartment() {
           {
             id: created.id,
             name: input.name,
-            description: input.description,
+            description: input.description ?? undefined,
             color: input.color ?? '#3b82f6',
             members: [],
           },

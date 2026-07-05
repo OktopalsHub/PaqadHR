@@ -68,20 +68,12 @@ export class ZeptomailEmailService {
         body: JSON.stringify(payload),
       });
       const bodyText = await response.text();
-      let result: Record<string, unknown> = {};
-      if (bodyText) {
-        try {
-          result = JSON.parse(bodyText) as Record<string, unknown>;
-        } catch {
-          throw new BadRequestException(
-            `Zeptomail returned non-JSON response (${response.status})`,
-          );
-        }
-      }
+      const result = this.parseZeptomailResponse(bodyText, response.status);
       if (!response.ok) {
         const error = result.error as { message?: string } | undefined;
+        const rawBody = result.rawBody as string | undefined;
         throw new BadRequestException(
-          `Zeptomail API error (${response.status}): ${error?.message || result.message || bodyText || 'Unknown error'}`,
+          `Zeptomail API error (${response.status}): ${error?.message || result.message || rawBody || 'Unknown error'}`,
         );
       }
       const data = result.data as Array<{ message_id?: string }> | undefined;
@@ -97,6 +89,23 @@ export class ZeptomailEmailService {
         this.logger.error(`Failed to send email to ${emailData.to}:`, error);
       }
       return { success: false, error: message };
+    }
+  }
+
+  /** Zeptomail often returns 2xx with an empty body; treat that as success. */
+  private parseZeptomailResponse(bodyText: string, status: number): Record<string, unknown> {
+    const trimmed = bodyText.trim();
+    if (!trimmed) {
+      return {};
+    }
+    try {
+      return JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      if (status >= 200 && status < 300) {
+        this.logger.warn(`Zeptomail returned non-JSON success body (${status}); continuing`);
+        return {};
+      }
+      return { rawBody: trimmed.slice(0, 500) };
     }
   }
   async sendBulkEmails(
