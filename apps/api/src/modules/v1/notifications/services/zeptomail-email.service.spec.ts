@@ -9,9 +9,10 @@ describe('zeptomail helpers', () => {
   it('normalizes bare api keys to Zeptomail auth tokens', () => {
     expect(normalizeZeptomailToken('abc123')).toBe('Zoho-enczapikey abc123');
     expect(normalizeZeptomailToken('Zoho-enczapikey abc123')).toBe('Zoho-enczapikey abc123');
+    expect(normalizeZeptomailToken('zoho-enczapikey abc123')).toBe('Zoho-enczapikey abc123');
   });
 
-  it('sends htmlbody only when html is present', () => {
+  it('sends htmlbody and textbody when both are present', () => {
     const payload = buildZeptomailPayload(
       {
         to: 'user@example.com',
@@ -23,7 +24,7 @@ describe('zeptomail helpers', () => {
     );
 
     expect(payload.htmlbody).toBe('<p>Hi</p>');
-    expect(payload.textbody).toBeUndefined();
+    expect(payload.textbody).toBe('Hi');
   });
 
   it('falls back to textbody when html is missing', () => {
@@ -62,5 +63,9 @@ describe('zeptomail helpers', () => {
 
     expect(message).toContain('TM_4001');
     expect(message).toContain('Sender address domain is not verified');
+  });
+
+  it('formats standard Error instances without Zeptomail body shape', () => {
+    expect(formatZeptomailSdkError(new Error('network timeout'))).toBe('network timeout');
   });
 });

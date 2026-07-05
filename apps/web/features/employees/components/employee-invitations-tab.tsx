@@ -81,7 +81,7 @@ export function EmployeeInvitationsTab() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={resend.isPending}
+                      disabled={resend.isPending || revoke.isPending}
                       aria-label={`Resend invite to ${invitation.email}`}
                       title="Resend"
                       onClick={async () => {
@@ -96,7 +96,7 @@ export function EmployeeInvitationsTab() {
                         }
                       }}
                     >
-                      {resend.isPending ? (
+                      {resend.isPending && resend.variables === invitation.id ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <RotateCw className="size-4" />
@@ -105,7 +105,7 @@ export function EmployeeInvitationsTab() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={revoke.isPending}
+                      disabled={resend.isPending || revoke.isPending}
                       aria-label={`Revoke invite to ${invitation.email}`}
                       title="Revoke"
                       onClick={async () => {
@@ -117,7 +117,7 @@ export function EmployeeInvitationsTab() {
                         }
                       }}
                     >
-                      {revoke.isPending ? (
+                      {revoke.isPending && revoke.variables === invitation.id ? (
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         <Trash2 className="size-4 text-destructive" />

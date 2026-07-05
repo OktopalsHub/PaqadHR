@@ -31,7 +31,11 @@ type ZeptomailErrorBody = {
 export function normalizeZeptomailToken(apiKey: string): string {
   const trimmed = apiKey.trim();
   if (!trimmed) return '';
-  if (trimmed.toLowerCase().startsWith('zoho-enczapikey')) return trimmed;
+  const prefix = 'zoho-enczapikey';
+  if (trimmed.toLowerCase().startsWith(prefix)) {
+    const keyPart = trimmed.slice(prefix.length).trim();
+    return `Zoho-enczapikey ${keyPart}`;
+  }
   return `Zoho-enczapikey ${trimmed}`;
 }
 
@@ -66,7 +70,8 @@ export function buildZeptomailPayload(
 
   if (emailData.html?.trim()) {
     payload.htmlbody = emailData.html;
-  } else if (emailData.text?.trim()) {
+  }
+  if (emailData.text?.trim()) {
     payload.textbody = emailData.text;
   }
 
@@ -112,7 +117,7 @@ export function formatZeptomailError(status: number, result: ZeptomailErrorBody)
 }
 
 export function formatZeptomailSdkError(error: unknown, status = 500): string {
-  if (error && typeof error === 'object') {
+  if (error && typeof error === 'object' && 'error' in error) {
     return formatZeptomailError(status, error as ZeptomailErrorBody);
   }
   if (error instanceof Error) {
@@ -131,9 +136,11 @@ export class ZeptomailEmailService {
   constructor(private readonly emailTemplateService: EmailTemplateService) {
     this.zeptomailApiKey = process.env.ZEPTOMAIL_API_KEY || '';
     this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@paqadhr.com';
+    const apiUrl =
+      process.env.ZEPTOMAIL_API_URL?.trim() || 'https://api.zeptomail.com/v1.1/email';
     this.mailClient = this.zeptomailApiKey
       ? new SendMailClient({
-          url: 'api.zeptomail.com/',
+          url: apiUrl,
           token: normalizeZeptomailToken(this.zeptomailApiKey),
         })
       : null;
