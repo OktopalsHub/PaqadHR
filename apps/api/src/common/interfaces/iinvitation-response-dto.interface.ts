@@ -19,4 +19,7 @@ export interface IInvitationResponseDto {
   token: string;
   tenantName: string;
   tenantSlug?: string;
+  /** Present on create/resend when the API attempted to send email. */
+  emailSent?: boolean;
+  emailError?: string;
 }

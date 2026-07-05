@@ -22,25 +22,7 @@ import {
   useTenantInvitations,
 } from '@/hooks/queries/use-tenant-invitations';
 import { formatDate } from '@/lib/format-date';
-
-function getInvitationStatusStyles(status: string) {
-  switch (status.toUpperCase()) {
-    case 'PENDING':
-      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-900';
-    case 'ACCEPTED':
-      return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-900';
-    case 'DECLINED':
-    case 'REVOKED':
-    case 'EXPIRED':
-      return 'bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800/20 dark:text-gray-400 dark:border-gray-800';
-    default:
-      return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900';
-  }
-}
-
-function invitationDisplayName(firstName?: string | null, lastName?: string | null) {
-  return `${firstName ?? ''} ${lastName ?? ''}`.trim();
-}
+import { toastInvitationDelivery } from '@/lib/invitation-delivery';
 
 export function EmployeeInvitationsTab() {
   const { data: invitations = [], isLoading, isError, error } = useTenantInvitations('pending');
@@ -77,45 +59,26 @@ export function EmployeeInvitationsTab() {
           </p>
         ) : (
           <AppTablePanel>
-            <AppTable className="min-w-[720px]">
+            <AppTable className="min-w-[640px]">
               <AppTableHeaderSection>
                 <AppTableHeaderRow>
-                  <AppTableHeadCell>Invitee</AppTableHeadCell>
+                  <AppTableHeadCell>Email</AppTableHeadCell>
                   <AppTableHeadCell>Role</AppTableHeadCell>
                   <AppTableHeadCell>Expires</AppTableHeadCell>
-                  <AppTableHeadCell>Status</AppTableHeadCell>
                   <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
                 </AppTableHeaderRow>
               </AppTableHeaderSection>
               <AppTableBodySection>
-                {invitations.map((invitation) => {
-                  const displayName = invitationDisplayName(
-                    invitation.firstName,
-                    invitation.lastName,
-                  );
-                  return (
+                {invitations.map((invitation) => (
                   <AppTableBodyRow key={invitation.id}>
                     <AppTableCell className="font-medium">
                       <div className="flex items-center gap-3">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
                           <Mail className="size-3.5" />
                         </div>
-                        <div className="min-w-0">
-                          {displayName ? (
-                            <>
-                              <p className="truncate font-medium text-slate-900 dark:text-slate-100">
-                                {displayName}
-                              </p>
-                              <p className="truncate text-xs text-muted-foreground">
-                                {invitation.email}
-                              </p>
-                            </>
-                          ) : (
-                            <p className="truncate font-medium text-slate-900 dark:text-slate-100">
-                              {invitation.email}
-                            </p>
-                          )}
-                        </div>
+                        <p className="truncate font-medium text-slate-900 dark:text-slate-100">
+                          {invitation.email}
+                        </p>
                       </div>
                     </AppTableCell>
                     <AppTableCell className="capitalize text-slate-600 dark:text-slate-400">
@@ -123,16 +86,6 @@ export function EmployeeInvitationsTab() {
                     </AppTableCell>
                     <AppTableCell className="text-slate-600 dark:text-slate-400">
                       {formatDate(String(invitation.expiresAt))}
-                    </AppTableCell>
-                    <AppTableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getInvitationStatusStyles(
-                          invitation.status,
-                        )}`}
-                      >
-                        <span className="size-1.5 rounded-full bg-current opacity-80" />
-                        {invitation.status}
-                      </span>
                     </AppTableCell>
                     <AppTableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -144,8 +97,11 @@ export function EmployeeInvitationsTab() {
                           title="Resend invitation"
                           onClick={async () => {
                             try {
-                              await resend.mutateAsync(invitation.id);
-                              toast.success('Invitation resent');
+                              const result = await resend.mutateAsync(invitation.id);
+                              toastInvitationDelivery(result, {
+                                successMessage: 'Invitation resent',
+                                failureMessage: 'Invitation updated but email not sent',
+                              });
                             } catch (err) {
                               toast.error(err instanceof Error ? err.message : 'Failed to resend');
                             }
@@ -181,8 +137,7 @@ export function EmployeeInvitationsTab() {
                       </div>
                     </AppTableCell>
                   </AppTableBodyRow>
-                  );
-                })}
+                ))}
               </AppTableBodySection>
             </AppTable>
           </AppTablePanel>

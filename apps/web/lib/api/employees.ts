@@ -27,6 +27,13 @@ export type CreateEmployeeInviteInput = {
   positionId?: string;
 };
 
+export type CreateEmployeeInviteResponse = {
+  id: string;
+  email: string;
+  emailSent?: boolean;
+  emailError?: string;
+};
+
 export async function fetchTenantMembers(): Promise<ApiTenantMember[]> {
   const tenantId = await resolveTenantId();
   const members = await apiClient<ApiTenantMember[]>(tenantPath(tenantId, 'members'));
@@ -59,9 +66,11 @@ export async function updateEmployee(id: string, input: UpdateEmployeeInput): Pr
   return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
 }
 
-export async function createEmployeeInvite(input: CreateEmployeeInviteInput): Promise<unknown> {
+export async function createEmployeeInvite(
+  input: CreateEmployeeInviteInput,
+): Promise<CreateEmployeeInviteResponse> {
   const tenantId = await resolveTenantId();
-  return apiClient<unknown>(tenantPath(tenantId, 'invites'), {
+  return apiClient<CreateEmployeeInviteResponse>(tenantPath(tenantId, 'invites'), {
     method: 'POST',
     body: JSON.stringify(input),
   });

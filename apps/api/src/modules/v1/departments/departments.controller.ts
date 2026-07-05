@@ -51,7 +51,7 @@ export class DepartmentsController {
       tenantId,
       { name, managerId },
       page ? Number(page) : 1,
-      limit ? Number(limit) : 10,
+      limit ? Number(limit) : 100,
     );
   }
   @Get(':id')

@@ -44,6 +44,11 @@ describe('InvitationsService', () => {
       createTenantMember: jest
         .fn()
         .mockResolvedValue(overrides?.createTenantMemberResult ?? { id: 'member-new' }),
+      getTenantMember: jest.fn().mockResolvedValue({
+        firstName: 'Admin',
+        lastName: 'User',
+        user: { email: 'admin@example.com' },
+      }),
     };
     const usersService = {
       getUserByEmail: jest.fn().mockResolvedValue(overrides?.existingUser ?? null),
@@ -87,6 +92,7 @@ describe('InvitationsService', () => {
       usersService,
       departmentsService,
       positionMemberService,
+      zeptomailEmailService,
     };
   }
 
@@ -110,6 +116,23 @@ describe('InvitationsService', () => {
         }),
       );
       expect(invitationsRepository.save).toHaveBeenCalled();
+    });
+
+    it('returns emailSent false when Zeptomail fails', async () => {
+      const { service, zeptomailEmailService } = buildService();
+      zeptomailEmailService.sendTemplateEmail.mockResolvedValue({
+        success: false,
+        error: 'smtp down',
+      });
+
+      const result = await service.createInvitation(
+        { email: 'new@example.com', role: 'member' },
+        'tenant-1',
+        'member-1',
+      );
+
+      expect(result.emailSent).toBe(false);
+      expect(result.emailError).toBe('smtp down');
     });
   });
 

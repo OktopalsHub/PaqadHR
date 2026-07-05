@@ -19,6 +19,7 @@ import { CreateDepartmentDialog } from '@/features/teams/components/create-depar
 import { useDepartments } from '@/hooks/queries/use-departments';
 import { usePositions } from '@/hooks/queries/use-positions';
 import { createEmployeeInvite } from '@/lib/api/employees';
+import { toastInvitationDelivery } from '@/lib/invitation-delivery';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import { CreatePositionDialog } from './create-position-dialog';
@@ -66,14 +67,17 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
 
     setIsSubmitting(true);
     try {
-      await createEmployeeInvite({
+      const result = await createEmployeeInvite({
         email: email.trim(),
         role: 'member',
         departmentId: departmentId || undefined,
         positionId: positionId || undefined,
       });
 
-      toast.success('Invitation sent successfully.');
+      toastInvitationDelivery(result, {
+        successMessage: 'Invitation sent successfully.',
+        failureMessage: 'Invitation saved but email not sent',
+      });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.all, tenantId],
       });
