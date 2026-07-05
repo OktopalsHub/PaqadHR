@@ -67,7 +67,7 @@ export class InvitationsService {
   ): Promise<IInvitationResponseDto> {
     const existingUser = await this.usersService.getUserByEmail(createInvitationDto.email);
     if (existingUser) {
-      const existingMember = await this.tenantMembersService.checkUserTenantMembership(
+      const existingMember = await this.tenantMembersService.findUserTenantMembership(
         existingUser.id,
         tenantId,
       );
@@ -220,7 +220,7 @@ export class InvitationsService {
       userExists = true;
       user = existingUser;
       this.logger.log(`✅ Existing user found with ID: ${existingUser.id}`);
-      const existingMember = await this.tenantMembersService.checkUserTenantMembership(
+      const existingMember = await this.tenantMembersService.findUserTenantMembership(
         existingUser.id,
         invitation.tenantId,
       );

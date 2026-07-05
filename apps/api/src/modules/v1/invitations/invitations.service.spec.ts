@@ -41,6 +41,7 @@ describe('InvitationsService', () => {
     };
     const tenantMembersService = {
       checkUserTenantMembership: jest.fn().mockResolvedValue(null),
+      findUserTenantMembership: jest.fn().mockResolvedValue(null),
       createTenantMember: jest
         .fn()
         .mockResolvedValue(overrides?.createTenantMemberResult ?? { id: 'member-new' }),
@@ -133,6 +134,41 @@ describe('InvitationsService', () => {
 
       expect(result.emailSent).toBe(false);
       expect(result.emailError).toBe('smtp down');
+    });
+
+    it('allows inviting a user who belongs to another workspace', async () => {
+      const { service, tenantMembersService } = buildService({
+        existingUser: { id: 'user-existing', email: 'existing@other.com', role: 'member' },
+      });
+      tenantMembersService.findUserTenantMembership.mockResolvedValue(null);
+
+      const result = await service.createInvitation(
+        { email: 'existing@other.com', role: 'member' },
+        'tenant-1',
+        'member-1',
+      );
+
+      expect(tenantMembersService.findUserTenantMembership).toHaveBeenCalledWith(
+        'user-existing',
+        'tenant-1',
+      );
+      expect(result.email).toBe('existing@other.com');
+      expect(result.emailSent).toBe(true);
+    });
+
+    it('blocks inviting someone who is already on this workspace', async () => {
+      const { service, tenantMembersService } = buildService({
+        existingUser: { id: 'user-existing', email: 'member@example.com', role: 'member' },
+      });
+      tenantMembersService.findUserTenantMembership.mockResolvedValue({ id: 'member-existing' });
+
+      await expect(
+        service.createInvitation(
+          { email: 'member@example.com', role: 'member' },
+          'tenant-1',
+          'member-1',
+        ),
+      ).rejects.toThrow('already a member of this tenant');
     });
   });
 
