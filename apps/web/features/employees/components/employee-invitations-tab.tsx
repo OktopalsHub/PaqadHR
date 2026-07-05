@@ -88,7 +88,12 @@ export function EmployeeInvitationsTab() {
                 </AppTableHeaderRow>
               </AppTableHeaderSection>
               <AppTableBodySection>
-                {invitations.map((invitation) => (
+                {invitations.map((invitation) => {
+                  const displayName = invitationDisplayName(
+                    invitation.firstName,
+                    invitation.lastName,
+                  );
+                  return (
                   <AppTableBodyRow key={invitation.id}>
                     <AppTableCell className="font-medium">
                       <div className="flex items-center gap-3">
@@ -96,10 +101,10 @@ export function EmployeeInvitationsTab() {
                           <Mail className="size-3.5" />
                         </div>
                         <div className="min-w-0">
-                          {invitationDisplayName(invitation.firstName, invitation.lastName) ? (
+                          {displayName ? (
                             <>
                               <p className="truncate font-medium text-slate-900 dark:text-slate-100">
-                                {invitationDisplayName(invitation.firstName, invitation.lastName)}
+                                {displayName}
                               </p>
                               <p className="truncate text-xs text-muted-foreground">
                                 {invitation.email}
@@ -176,7 +181,8 @@ export function EmployeeInvitationsTab() {
                       </div>
                     </AppTableCell>
                   </AppTableBodyRow>
-                ))}
+                  );
+                })}
               </AppTableBodySection>
             </AppTable>
           </AppTablePanel>

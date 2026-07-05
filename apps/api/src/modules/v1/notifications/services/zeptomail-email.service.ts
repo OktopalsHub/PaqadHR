@@ -67,11 +67,13 @@ export class ZeptomailEmailService {
         },
         body: JSON.stringify(payload),
       });
-      const result = this.parseZeptomailResponse(await response.text(), response.status);
+      const bodyText = await response.text();
+      const result = this.parseZeptomailResponse(bodyText, response.status);
       if (!response.ok) {
         const error = result.error as { message?: string } | undefined;
+        const rawBody = result.rawBody as string | undefined;
         throw new BadRequestException(
-          `Zeptomail API error (${response.status}): ${error?.message || result.message || 'Unknown error'}`,
+          `Zeptomail API error (${response.status}): ${error?.message || result.message || rawBody || 'Unknown error'}`,
         );
       }
       const data = result.data as Array<{ message_id?: string }> | undefined;
@@ -103,7 +105,7 @@ export class ZeptomailEmailService {
         this.logger.warn(`Zeptomail returned non-JSON success body (${status}); continuing`);
         return {};
       }
-      return { rawBody: bodyText };
+      return { rawBody: trimmed.slice(0, 500) };
     }
   }
   async sendBulkEmails(

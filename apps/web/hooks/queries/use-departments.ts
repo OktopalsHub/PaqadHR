@@ -43,7 +43,7 @@ export function useCreateDepartment() {
           {
             id: created.id,
             name: input.name,
-            description: input.description,
+            description: input.description ?? undefined,
             color: input.color ?? '#3b82f6',
             members: [],
           },
