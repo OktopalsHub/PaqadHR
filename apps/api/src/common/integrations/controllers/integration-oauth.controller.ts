@@ -13,6 +13,7 @@ import {
   VERSION_NEUTRAL,
   Version,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { Public } from 'src/common/decorators';
@@ -24,6 +25,7 @@ import type { OAuthStateData } from '../integration.types';
 import { ChannelManagementService } from '../services/channel-management.service';
 import { OAuthIntegrationService } from '../services/oauth-integration.service';
 import { PlatformIntegrationService } from '../services/platform-integration.service';
+import { UserSyncService } from '../services/user-sync.service';
 
 @Controller()
 export class OAuthIntegrationController {
@@ -33,6 +35,8 @@ export class OAuthIntegrationController {
     private readonly channelService: ChannelManagementService,
     private readonly tenantService: TenantsService,
     private readonly integrationService: PlatformIntegrationService,
+    private readonly userSyncService: UserSyncService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
   @Get('tenants/:tenantId/integrations/oauth/connect/:platform')
   @UseGuards(TenantMemberGuard)
@@ -141,6 +145,11 @@ export class OAuthIntegrationController {
     try {
       this.logger.log('Processing OAuth callback...');
       const result = await this.oauthService.handleOAuthCallback(code, state);
+      this.eventEmitter.emit('integration.connected', {
+        integrationId: result.integrationId,
+        tenantId: stateData.tenantId,
+        platform: stateData.platformType,
+      });
       this.logger.log('OAuth callback processed successfully', {
         integrationId: result.integrationId,
       });
@@ -195,7 +204,7 @@ export class OAuthIntegrationController {
       member.id,
       userToken?.userAccessToken,
     );
-    await this.integrationService.syncUsers(integrationId, body.platformChannelId);
+    await this.userSyncService.syncAllUsers(integrationId, tenantId);
     return {
       success: true,
       message: result.testMessageSent
@@ -226,12 +235,7 @@ export class OAuthIntegrationController {
       member.id,
     );
 
-    const syncChannelId =
-      result.channels.find((channel) => channel.testMessageSent)?.channelId ??
-      result.channels[0]?.channelId;
-    if (syncChannelId) {
-      await this.integrationService.syncUsers(integrationId, syncChannelId);
-    }
+    await this.userSyncService.syncAllUsers(integrationId, tenantId);
 
     return {
       success: true,

@@ -9,8 +9,8 @@ describe('OAuthIntegrationController channels', () => {
   let controller: OAuthIntegrationController;
   let integrationService: {
     requireTenantIntegration: jest.Mock;
-    syncUsers: jest.Mock;
   };
+  let userSyncService: { syncAllUsers: jest.Mock };
   let oauthService: { getUserToken: jest.Mock };
   let channelService: {
     getAvailableChannels: jest.Mock;
@@ -21,7 +21,11 @@ describe('OAuthIntegrationController channels', () => {
   beforeEach(() => {
     integrationService = {
       requireTenantIntegration: jest.fn().mockResolvedValue({ id: integrationId, tenantId }),
-      syncUsers: jest.fn().mockResolvedValue(undefined),
+    };
+    userSyncService = {
+      syncAllUsers: jest
+        .fn()
+        .mockResolvedValue({ matched: 1, unmatched: 0, created: 0, errors: 0 }),
     };
     oauthService = {
       getUserToken: jest.fn().mockResolvedValue({ userAccessToken: 'user-token' }),
@@ -37,6 +41,8 @@ describe('OAuthIntegrationController channels', () => {
       channelService as any,
       {} as any,
       integrationService as any,
+      userSyncService as any,
+      { emit: jest.fn() } as any,
     );
   });
 
@@ -83,7 +89,7 @@ describe('OAuthIntegrationController channels', () => {
       member.id,
       'user-token',
     );
-    expect(integrationService.syncUsers).toHaveBeenCalledWith(integrationId, 'C1');
+    expect(userSyncService.syncAllUsers).toHaveBeenCalledWith(integrationId, tenantId);
     expect(result.success).toBe(true);
   });
 });

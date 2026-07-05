@@ -18,7 +18,7 @@ export class IntegrationManagementController {
     @TenantId() tenantId: string,
     @Param('integrationId', ParseUUIDPipe) integrationId: string,
   ) {
-    return this.integrationSetupService.triggerUserSync(integrationId, tenantId);
+    return this.userSyncService.syncAllUsers(integrationId, tenantId);
   }
   @Get(':integrationId/sync-status')
   async getSyncStatus(@Param('integrationId', ParseUUIDPipe) integrationId: string) {

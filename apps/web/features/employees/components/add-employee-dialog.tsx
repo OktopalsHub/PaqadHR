@@ -74,6 +74,9 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.all, tenantId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.invitations.all,
+      });
       resetForm();
       onOpenChange(false);
     } catch (err) {
@@ -95,22 +98,13 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Invite employee</DialogTitle>
+            <DialogTitle>Add employee</DialogTitle>
             <DialogDescription>
-              Send an invitation by email. They will set up their profile when they accept.
+              Choose department and position, then send an invitation by email. They will set up
+              their profile when they accept.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
-              />
-            </div>
             <div className="grid gap-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="department">Department</Label>
@@ -164,6 +158,16 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john@example.com"
+              />
             </div>
           </div>
           <DialogFooter>
