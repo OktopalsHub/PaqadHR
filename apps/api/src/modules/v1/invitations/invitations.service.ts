@@ -11,7 +11,9 @@ import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
 import { ActivitiesService } from '../activities/services/activities.service';
+import { DepartmentsService } from '../departments/departments.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
+import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
@@ -32,6 +34,8 @@ export class InvitationsService {
     private readonly rateLimitService: RateLimitService,
     private readonly zeptomailEmailService: ZeptomailEmailService,
     private readonly activitiesService: ActivitiesService,
+    private readonly departmentsService: DepartmentsService,
+    private readonly positionMemberService: PositionMemberService,
   ) {}
   private generateInvitationToken(): string {
     const crypto = require('node:crypto');
@@ -98,8 +102,8 @@ export class InvitationsService {
       expiresAt,
       status: InvitationStatus.PENDING,
       token,
-      firstName: createInvitationDto.firstName,
-      lastName: createInvitationDto.lastName,
+      firstName: createInvitationDto.firstName?.trim() || undefined,
+      lastName: createInvitationDto.lastName?.trim() || undefined,
       middleName: createInvitationDto.middleName,
       jobTitle: createInvitationDto.jobTitle,
       departmentId: createInvitationDto.departmentId,
@@ -149,6 +153,7 @@ export class InvitationsService {
       password?: string;
       firstName?: string;
       lastName?: string;
+      preferredName?: string;
     } = {},
   ): Promise<{
     invitation: IInvitationResponseDto;
@@ -188,9 +193,11 @@ export class InvitationsService {
     const firstName = acceptInvitationDto?.firstName?.trim() || invitation.firstName?.trim() || '';
     const lastName = acceptInvitationDto?.lastName?.trim() || invitation.lastName?.trim() || '';
 
+    const preferredName = acceptInvitationDto?.preferredName?.trim() || undefined;
     const existingUser = await this.usersService.getUserByEmail(invitation.email);
     let userExists = false;
     let user: User | null = null;
+    let tenantMemberId: string;
     this.logger.log(`👤 Checking if user exists: ${!!existingUser}`);
     if (existingUser) {
       userExists = true;
@@ -211,11 +218,17 @@ export class InvitationsService {
         });
         this.logger.log(`🔑 Updated password for existing user`);
       }
-      await this.tenantMembersService.createTenantMember(existingUser.id, invitation.tenantId, {
-        firstName: firstName || invitation.firstName,
-        lastName: lastName || invitation.lastName,
-        role: invitation.role as never,
-      });
+      const member = await this.tenantMembersService.createTenantMember(
+        existingUser.id,
+        invitation.tenantId,
+        {
+          firstName: firstName || invitation.firstName || undefined,
+          lastName: lastName || invitation.lastName || undefined,
+          preferredName,
+          role: invitation.role as never,
+        },
+      );
+      tenantMemberId = member.id;
       this.logger.log(`✅ Existing user added to tenant successfully`);
     } else {
       this.logger.log(`🆕 Creating new user account`);
@@ -234,12 +247,33 @@ export class InvitationsService {
       });
       user = newUser;
       this.logger.log(`✅ New user created with ID: ${newUser.id}`);
-      await this.tenantMembersService.createTenantMember(newUser.id, invitation.tenantId, {
-        firstName,
-        lastName,
-        role: invitation.role as never,
-      });
+      const member = await this.tenantMembersService.createTenantMember(
+        newUser.id,
+        invitation.tenantId,
+        {
+          firstName,
+          lastName,
+          preferredName,
+          role: invitation.role as never,
+        },
+      );
+      tenantMemberId = member.id;
       this.logger.log(`✅ New user added to tenant successfully`);
+    }
+
+    if (invitation.departmentId) {
+      await this.departmentsService.addMemberToDepartment(
+        invitation.tenantId,
+        invitation.departmentId,
+        tenantMemberId,
+      );
+    }
+    if (invitation.positionId) {
+      await this.positionMemberService.assignPosition(
+        invitation.tenantId,
+        tenantMemberId,
+        invitation.positionId,
+      );
     }
     const updatedInvitation = await this.invitationsRepository.acceptInvitation(invitation.id);
     await this.invitationsRepository.softDelete(invitation.id);

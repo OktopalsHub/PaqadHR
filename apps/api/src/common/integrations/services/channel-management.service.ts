@@ -2,11 +2,35 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { type ConversationsListResponse, ErrorCode } from '@slack/web-api';
 import { ChannelType } from 'src/common/enums';
 import type { ChannelInfo } from 'src/common/interfaces';
+import { In, Not } from 'typeorm';
 import { SlackClient } from '../clients/slack.client';
 import { IntegrationChannel } from '../entities/integration-channel.entity';
 import type { ShoutoutBroadcast } from '../integration.types';
 import { IntegrationChannelRepository } from '../repositories/integration-channel.repository';
 import { PlatformIntegrationRepository } from '../repositories/platform-integration.repository';
+
+const SHOUTOUT_TEST_MESSAGE = "Shoutouts from PaqadHR will be posted here. You're all set!";
+const SLACK_BOT_NAME = 'PaqadHR';
+
+export type ShoutoutChannelSetupInput = {
+  platformChannelId: string;
+  platformChannelName: string;
+};
+
+export type ShoutoutChannelSetupResult = {
+  channel: IntegrationChannel;
+  channelId: string;
+  channelName: string;
+  testMessageSent: boolean;
+  testMessageError?: string;
+  needsInvite?: boolean;
+};
+
+export type ConfigureShoutoutChannelsResult = {
+  channels: ShoutoutChannelSetupResult[];
+  allTestsPassed: boolean;
+  inviteRequired: string[];
+};
 
 @Injectable()
 export class ChannelManagementService {
@@ -44,42 +68,62 @@ export class ChannelManagementService {
     platformChannelId: string,
     platformChannelName: string,
     createdBy: string,
-    userAccessToken?: string,
+    _userAccessToken?: string,
   ) {
-    const channel = await this.configureChannel(
+    const result = await this.configureShoutoutChannels(
       integrationId,
-      {
-        platformChannelId,
-        platformChannelName,
-        channelType: ChannelType.SHOUTOUTS,
-        isPrimary: true,
-      },
+      [{ platformChannelId, platformChannelName }],
       createdBy,
     );
+    return result.channels[0];
+  }
+
+  async configureShoutoutChannels(
+    integrationId: string,
+    channels: ShoutoutChannelSetupInput[],
+    createdBy: string,
+  ): Promise<ConfigureShoutoutChannelsResult> {
+    if (channels.length === 0) {
+      throw new BadRequestException('Select at least one Slack channel');
+    }
+
+    const selectedIds = channels.map((channel) => channel.platformChannelId);
+    await this.deactivateShoutoutChannelsNotInSelection(integrationId, selectedIds);
 
     const integration = await this.integrationRepo.findOne({ where: { id: integrationId } });
-    if (!integration?.botToken) {
-      return {
+    const results: ShoutoutChannelSetupResult[] = [];
+
+    for (let index = 0; index < channels.length; index++) {
+      const input = channels[index];
+      const channel = await this.upsertShoutoutChannel(
+        integrationId,
+        input.platformChannelId,
+        input.platformChannelName,
+        createdBy,
+        index === 0,
+      );
+      const testResult = await this.sendShoutoutTestMessage(
+        integration,
+        input.platformChannelId,
+        input.platformChannelName,
+      );
+      results.push({
         channel,
-        testMessageSent: false,
-        testMessageError: 'Slack bot token is missing for this integration',
-      };
+        channelId: input.platformChannelId,
+        channelName: this.formatChannelDisplayName(input.platformChannelName),
+        ...testResult,
+      });
     }
 
-    try {
-      const client = new SlackClient(integration.botToken);
-      await client.sendMessage(
-        platformChannelId,
-        "Shoutouts from PaqadHR will be posted here. You're all set!",
-      );
-      return { channel, testMessageSent: true };
-    } catch (error) {
-      return {
-        channel,
-        testMessageSent: false,
-        testMessageError: error instanceof Error ? error.message : 'Failed to post test message',
-      };
-    }
+    const inviteRequired = results
+      .filter((result) => result.needsInvite)
+      .map((result) => result.channelName);
+
+    return {
+      channels: results,
+      allTestsPassed: results.every((result) => result.testMessageSent),
+      inviteRequired,
+    };
   }
   async configureChannel(
     integrationId: string,
@@ -271,6 +315,135 @@ export class ChannelManagementService {
     }
     return undefined;
   }
+  private async upsertShoutoutChannel(
+    integrationId: string,
+    platformChannelId: string,
+    platformChannelName: string,
+    createdBy: string,
+    isPrimary: boolean,
+  ): Promise<IntegrationChannel> {
+    if (isPrimary) {
+      await this.channelRepo
+        .createQueryBuilder()
+        .update(IntegrationChannel)
+        .set({ isPrimary: false })
+        .where({ integrationId, isPrimary: true })
+        .execute();
+    }
+
+    const existing = await this.channelRepo.findOne({
+      where: {
+        integrationId,
+        platformChannelId,
+        channelType: ChannelType.SHOUTOUTS,
+      },
+    });
+
+    if (existing) {
+      await this.channelRepo.update(existing.id, {
+        platformChannelName,
+        isActive: true,
+        isPrimary,
+      });
+      return (await this.channelRepo.findOne({ where: { id: existing.id } })) ?? existing;
+    }
+
+    return this.configureChannel(
+      integrationId,
+      {
+        platformChannelId,
+        platformChannelName,
+        channelType: ChannelType.SHOUTOUTS,
+        isPrimary,
+      },
+      createdBy,
+    );
+  }
+
+  private async deactivateShoutoutChannelsNotInSelection(
+    integrationId: string,
+    selectedPlatformChannelIds: string[],
+  ): Promise<void> {
+    await this.channelRepo.update(
+      {
+        integrationId,
+        channelType: ChannelType.SHOUTOUTS,
+        platformChannelId: Not(In(selectedPlatformChannelIds)),
+        isActive: true,
+      },
+      { isActive: false, isPrimary: false },
+    );
+  }
+
+  private async sendShoutoutTestMessage(
+    integration: { botToken?: string | null } | null,
+    platformChannelId: string,
+    platformChannelName: string,
+  ): Promise<
+    Pick<ShoutoutChannelSetupResult, 'testMessageSent' | 'testMessageError' | 'needsInvite'>
+  > {
+    if (!integration?.botToken) {
+      return {
+        testMessageSent: false,
+        testMessageError: 'Slack bot token is missing for this integration',
+      };
+    }
+
+    const client = new SlackClient(integration.botToken);
+    await this.joinSlackChannel(client, platformChannelId);
+
+    try {
+      await client.sendMessage(platformChannelId, SHOUTOUT_TEST_MESSAGE);
+      return { testMessageSent: true };
+    } catch (error) {
+      const mapped = this.mapSlackPostError(error, platformChannelName);
+      return {
+        testMessageSent: false,
+        testMessageError: mapped.message,
+        needsInvite: mapped.needsInvite,
+      };
+    }
+  }
+
+  private async joinSlackChannel(client: SlackClient, channelId: string): Promise<void> {
+    try {
+      await client.client.conversations.join({ channel: channelId });
+    } catch (err) {
+      const code = this.getSlackErrorCode(err);
+      if (code === 'already_in_channel') {
+        return;
+      }
+    }
+  }
+
+  private mapSlackPostError(
+    err: unknown,
+    platformChannelName: string,
+  ): { message: string; needsInvite: boolean; code?: string } {
+    const slackError = this.getSlackErrorCode(err);
+    const channelName = this.formatChannelDisplayName(platformChannelName);
+
+    if (slackError === 'not_in_channel' || slackError === 'channel_not_found') {
+      return {
+        code: 'bot_not_in_channel',
+        needsInvite: true,
+        message: `Shoutouts can't post to ${channelName} until the ${SLACK_BOT_NAME} bot is invited. In Slack, open the channel and run \`/invite @${SLACK_BOT_NAME}\`, then refresh.`,
+      };
+    }
+
+    if (err instanceof Error) {
+      return { message: err.message, needsInvite: false };
+    }
+
+    return { message: 'Failed to post test message', needsInvite: false };
+  }
+
+  private formatChannelDisplayName(name: string): string {
+    const trimmed = name.trim();
+    if (!trimmed) return '#channel';
+    return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  }
+
   private isShoutoutForTeam(shoutout: ShoutoutBroadcast, teamId: string): boolean {
     return (
       shoutout.recipients.some((r) =>

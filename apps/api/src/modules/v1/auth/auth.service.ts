@@ -226,8 +226,8 @@ export class AuthService {
           invitation = invitationResult.invitation;
           if (!invitationResult.userExists && invitation) {
             await this.tenantMembersService.createTenantMember(user.id, invitation.tenantId, {
-              firstName: invitation.firstName,
-              lastName: invitation.lastName,
+              firstName: invitation.firstName ?? undefined,
+              lastName: invitation.lastName ?? undefined,
             });
           }
         } catch (error) {

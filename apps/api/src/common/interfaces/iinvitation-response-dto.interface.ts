@@ -4,8 +4,8 @@ export interface IInvitationResponseDto {
   id: string;
   email: string;
   tenantId: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string | null;
+  lastName?: string | null;
   middleName?: string;
   jobTitle?: string;
   departmentId?: string;

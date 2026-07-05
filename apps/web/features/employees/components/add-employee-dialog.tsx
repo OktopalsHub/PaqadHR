@@ -1,6 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,10 +22,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CreateDepartmentDialog } from '@/features/teams/components/create-department-dialog';
 import { useDepartments } from '@/hooks/queries/use-departments';
+import { usePositions } from '@/hooks/queries/use-positions';
 import { createEmployeeInvite } from '@/lib/api/employees';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+import { CreatePositionDialog } from './create-position-dialog';
 
 interface AddEmployeeDialogProps {
   isOpen: boolean;
@@ -35,36 +39,35 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   const { data: departments = [] } = useDepartments();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const { data: positions = [] } = usePositions();
   const [email, setEmail] = useState('');
-  const [jobTitle, setJobTitle] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  const [positionId, setPositionId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createDepartmentOpen, setCreateDepartmentOpen] = useState(false);
+  const [createPositionOpen, setCreatePositionOpen] = useState(false);
+
+  const activePositions = positions.filter((position) => position.isActive);
 
   const resetForm = () => {
-    setFirstName('');
-    setLastName('');
     setEmail('');
-    setJobTitle('');
     setDepartmentId('');
+    setPositionId('');
   };
 
   const handleSubmit = async () => {
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error('First name, last name, and email are required.');
+    if (!email.trim()) {
+      toast.error('Email is required.');
       return;
     }
 
     setIsSubmitting(true);
     try {
       await createEmployeeInvite({
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
         email: email.trim(),
         role: 'member',
-        jobTitle: jobTitle.trim() || undefined,
         departmentId: departmentId || undefined,
+        positionId: positionId || undefined,
       });
 
       toast.success('Invitation sent successfully.');
@@ -81,85 +84,107 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Invite employee</DialogTitle>
-          <DialogDescription>
-            Send an invitation to join your workspace. They will receive an email to complete
-            onboarding.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
+    <>
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Invite employee</DialogTitle>
+            <DialogDescription>
+              Send an invitation by email. They will set up their profile when they accept.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="first-name">First name</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="first-name"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="John"
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="john@example.com"
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="last-name">Last name</Label>
-              <Input
-                id="last-name"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Doe"
-              />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="department">Department</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs"
+                  onClick={() => setCreateDepartmentOpen(true)}
+                >
+                  <Plus className="size-3" />
+                  New department
+                </Button>
+              </div>
+              <Select value={departmentId} onValueChange={setDepartmentId}>
+                <SelectTrigger id="department">
+                  <SelectValue placeholder="Select department (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="position">Position</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs"
+                  onClick={() => setCreatePositionOpen(true)}
+                >
+                  <Plus className="size-3" />
+                  New position
+                </Button>
+              </div>
+              <Select value={positionId} onValueChange={setPositionId}>
+                <SelectTrigger id="position">
+                  <SelectValue placeholder="Select position (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activePositions.map((position) => (
+                    <SelectItem key={position.id} value={position.id}>
+                      {position.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="john@example.com"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="job-title">Job title (optional)</Label>
-            <Input
-              id="job-title"
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="Frontend Developer"
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="department">Department (optional)</Label>
-            <Select value={departmentId} onValueChange={setDepartmentId}>
-              <SelectTrigger id="department">
-                <SelectValue placeholder="Select department" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? 'Sending…' : 'Send invitation'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting ? 'Sending…' : 'Send invitation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CreateDepartmentDialog
+        open={createDepartmentOpen}
+        onOpenChange={setCreateDepartmentOpen}
+        onCreated={setDepartmentId}
+      />
+      <CreatePositionDialog
+        open={createPositionOpen}
+        onOpenChange={setCreatePositionOpen}
+        onCreated={setPositionId}
+      />
+    </>
   );
 };

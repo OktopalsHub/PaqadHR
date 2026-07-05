@@ -6,8 +6,8 @@ export type InvitationDetails = {
   tenantId: string;
   tenantName: string;
   tenantSlug?: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string | null;
+  lastName?: string | null;
   role: string;
   status: string;
   expiresAt: string;
@@ -54,6 +54,7 @@ export async function acceptInvitation(input: {
   password?: string;
   firstName?: string;
   lastName?: string;
+  preferredName?: string;
 }): Promise<AcceptInvitationResponse> {
   return apiClient<AcceptInvitationResponse>('/invitations/accept', {
     method: 'POST',

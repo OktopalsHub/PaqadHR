@@ -203,6 +203,50 @@ export class OAuthIntegrationController {
         : 'Channel configured and users synced.',
       testMessageSent: result.testMessageSent,
       testMessageError: result.testMessageError,
+      needsInvite: result.needsInvite ?? false,
+    };
+  }
+
+  @Post('tenants/:tenantId/integrations/:integrationId/setup-channels')
+  @UseGuards(TenantMemberGuard)
+  async setupChannels(
+    @Param('tenantId') tenantId: string,
+    @Param('integrationId') integrationId: string,
+    @Body()
+    body: {
+      channels: Array<{ platformChannelId: string; platformChannelName: string }>;
+    },
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    await this.integrationService.requireTenantIntegration(tenantId, integrationId);
+    const member = req.member;
+    const result = await this.channelService.configureShoutoutChannels(
+      integrationId,
+      body.channels ?? [],
+      member.id,
+    );
+
+    const syncChannelId =
+      result.channels.find((channel) => channel.testMessageSent)?.channelId ??
+      result.channels[0]?.channelId;
+    if (syncChannelId) {
+      await this.integrationService.syncUsers(integrationId, syncChannelId);
+    }
+
+    return {
+      success: true,
+      message: result.allTestsPassed
+        ? 'Channels configured, users synced, and test messages sent!'
+        : 'Channels configured and users synced.',
+      allTestsPassed: result.allTestsPassed,
+      inviteRequired: result.inviteRequired,
+      channels: result.channels.map((channel) => ({
+        platformChannelId: channel.channelId,
+        platformChannelName: channel.channelName,
+        testMessageSent: channel.testMessageSent,
+        testMessageError: channel.testMessageError,
+        needsInvite: channel.needsInvite ?? false,
+      })),
     };
   }
   private getRedirectUri(request: Request, platform: IntegrationType): string {

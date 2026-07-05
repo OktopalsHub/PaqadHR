@@ -12,6 +12,7 @@ import {
   fetchUnmatchedUsers,
   matchUser,
   setupShoutoutChannel,
+  setupShoutoutChannels,
   triggerUserSync,
 } from '@/lib/api/integrations';
 import { queryKeys } from '@/lib/query/keys';
@@ -90,6 +91,31 @@ export function useCreateSlackChannel() {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.integrations.slackChannels(variables.integrationId),
       });
+    },
+  });
+}
+
+export function useSetupShoutoutChannels() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({
+      integrationId,
+      channels,
+    }: {
+      integrationId: string;
+      channels: Array<{ platformChannelId: string; platformChannelName: string }>;
+    }) => {
+      if (!tenantId) throw new Error('No tenant selected');
+      return setupShoutoutChannels(tenantId, integrationId, channels);
+    },
+    onSuccess: () => {
+      if (tenantId) {
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.integrations.shoutoutSlackStatus(tenantId),
+        });
+      }
     },
   });
 }

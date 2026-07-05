@@ -20,6 +20,7 @@ class AcceptInvitationDto {
   password?: string;
   firstName?: string;
   lastName?: string;
+  preferredName?: string;
 }
 
 @ApiTags('Public Invitations')
@@ -62,7 +63,7 @@ export class PublicInvitesController {
   @Post('accept')
   @Public()
   async acceptInvitation(@Body() acceptInvitationDto: AcceptInvitationDto) {
-    const { token, email, password, firstName, lastName } = acceptInvitationDto;
+    const { token, email, password, firstName, lastName, preferredName } = acceptInvitationDto;
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
     if (!token || !normalizedEmail) {
       throw new BadRequestException('Token and email are required');
@@ -72,6 +73,7 @@ export class PublicInvitesController {
         password,
         firstName,
         lastName,
+        preferredName,
       });
       if (!result?.invitation) {
         throw new InternalServerErrorException('Failed to process invitation');

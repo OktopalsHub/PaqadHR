@@ -13,60 +13,57 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateDepartment } from '@/hooks/queries/use-departments';
+import { useCreatePosition } from '@/hooks/queries/use-positions';
 
-type CreateDepartmentDialogProps = {
+const COLORS = [
+  '#3b82f6',
+  '#10b981',
+  '#f59e0b',
+  '#ef4444',
+  '#8b5cf6',
+  '#ec4899',
+  '#06b6d4',
+  '#64748b',
+];
+
+type CreatePositionDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: (id: string) => void;
 };
 
-const COLORS = [
-  '#3b82f6', // Blue
-  '#10b981', // Green
-  '#f59e0b', // Amber
-  '#ef4444', // Red
-  '#8b5cf6', // Purple
-  '#ec4899', // Pink
-  '#06b6d4', // Cyan
-  '#64748b', // Slate
-];
-
-export function CreateDepartmentDialog({
-  open,
-  onOpenChange,
-  onCreated,
-}: CreateDepartmentDialogProps) {
-  const createDepartment = useCreateDepartment();
-  const [name, setName] = useState('');
+export function CreatePositionDialog({ open, onOpenChange, onCreated }: CreatePositionDialogProps) {
+  const createPosition = useCreatePosition();
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
 
   const reset = () => {
-    setName('');
+    setTitle('');
     setDescription('');
     setSelectedColor(COLORS[0]);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (name.trim().length < 2) {
-      toast.error('Department name must be at least 2 characters');
+    if (title.trim().length < 2) {
+      toast.error('Position title must be at least 2 characters');
       return;
     }
 
     try {
-      const created = await createDepartment.mutateAsync({
-        name: name.trim(),
+      const created = await createPosition.mutateAsync({
+        title: title.trim(),
         description: description.trim() || undefined,
         color: selectedColor,
+        isActive: true,
       });
-      toast.success('Department created');
+      toast.success('Position created');
       onCreated?.(created.id);
       reset();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to create department');
+      toast.error(error instanceof Error ? error.message : 'Unable to create position');
     }
   };
 
@@ -81,31 +78,32 @@ export function CreateDepartmentDialog({
       <DialogContent className="sm:max-w-md">
         <form onSubmit={(event) => void handleSubmit(event)}>
           <DialogHeader>
-            <DialogTitle>Add department</DialogTitle>
+            <DialogTitle>Add position</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="department-name">Name</Label>
+              <Label htmlFor="position-title">Title</Label>
               <Input
-                id="department-name"
-                placeholder="Engineering"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
+                id="position-title"
+                placeholder="Software Engineer"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="department-description">
+              <Label htmlFor="position-description">
                 Description <span className="font-normal text-muted-foreground">(optional)</span>
               </Label>
               <Textarea
-                id="department-description"
-                placeholder="What does this department do?"
+                id="position-description"
+                placeholder="Brief description of this role"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
+                rows={3}
               />
             </div>
             <div className="space-y-2 pt-2">
-              <Label>Department Color</Label>
+              <Label>Position color</Label>
               <div className="flex flex-wrap gap-2 items-center pt-1">
                 {COLORS.map((color) => (
                   <button
@@ -120,25 +118,6 @@ export function CreateDepartmentDialog({
                     onClick={() => setSelectedColor(color)}
                   />
                 ))}
-                <div
-                  className="relative size-6 rounded-full border border-black/10 overflow-hidden cursor-pointer flex items-center justify-center hover:scale-105"
-                  style={{
-                    backgroundColor: COLORS.includes(selectedColor) ? '#ffffff' : selectedColor,
-                  }}
-                >
-                  <input
-                    type="color"
-                    className="absolute inset-0 size-full cursor-pointer opacity-0"
-                    value={selectedColor}
-                    onChange={(e) => setSelectedColor(e.target.value)}
-                  />
-                  <span
-                    className="text-xs font-semibold select-none pointer-events-none"
-                    style={{ color: COLORS.includes(selectedColor) ? '#71717a' : '#ffffff' }}
-                  >
-                    +
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -146,8 +125,8 @@ export function CreateDepartmentDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createDepartment.isPending}>
-              {createDepartment.isPending ? 'Creating...' : 'Create'}
+            <Button type="submit" disabled={createPosition.isPending}>
+              {createPosition.isPending ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>
         </form>

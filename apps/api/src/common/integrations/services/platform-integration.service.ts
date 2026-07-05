@@ -79,6 +79,8 @@ export class PlatformIntegrationService {
   async getShoutoutSlackStatus(tenantId: string): Promise<{
     configured: boolean;
     channelName?: string;
+    channelNames?: string[];
+    configuredChannels?: Array<{ platformChannelId: string; platformChannelName: string }>;
     integrationId?: string;
   }> {
     const integration = await this.integrationRepo.findOne({
@@ -94,18 +96,23 @@ export class PlatformIntegrationService {
         isActive: true,
         channelType: ChannelType.SHOUTOUTS,
       },
-      order: { isPrimary: 'DESC', createdAt: 'DESC' },
-      take: 1,
+      order: { isPrimary: 'DESC', createdAt: 'ASC' },
     });
-    const channel = channels[0];
 
-    if (!channel) {
+    if (channels.length === 0) {
       return { configured: false, integrationId: integration.id };
     }
 
+    const channelNames = channels.map((channel) => channel.platformChannelName);
+
     return {
       configured: true,
-      channelName: channel.platformChannelName,
+      channelName: channelNames[0],
+      channelNames,
+      configuredChannels: channels.map((channel) => ({
+        platformChannelId: channel.platformChannelId,
+        platformChannelName: channel.platformChannelName,
+      })),
       integrationId: integration.id,
     };
   }

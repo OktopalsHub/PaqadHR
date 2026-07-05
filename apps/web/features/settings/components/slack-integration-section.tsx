@@ -44,6 +44,15 @@ export function SlackIntegrationSection() {
 
   const integrationId = searchParams.get('integration_id') ?? status?.integrationId ?? undefined;
   const shouldAutoOpen = searchParams.get('slack_setup') === '1';
+  const configuredChannelIds =
+    status?.configuredChannels?.map((channel) => channel.platformChannelId) ?? [];
+  const configuredChannelLabel = (() => {
+    const names = status?.channelNames ?? (status?.channelName ? [status.channelName] : []);
+    if (names.length === 0) return null;
+    return names
+      .map((name) => (name.startsWith('#') ? name : `#${name.replace(/^#/, '')}`))
+      .join(', ');
+  })();
   const activeIntegrationId = status?.integrationId ?? integrationId;
   const channelsQuery = useSlackChannels(
     activeIntegrationId,
@@ -103,12 +112,15 @@ export function SlackIntegrationSection() {
       {status?.configured ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Posting to <span className="font-medium text-foreground">{status.channelName}</span>
+            Posting to{' '}
+            <span className="font-medium text-foreground">
+              {configuredChannelLabel ?? status.channelName}
+            </span>
           </p>
           <div className="flex flex-wrap gap-2">
             {!pickerOpen ? (
               <Button size="sm" variant="outline" onClick={() => setPickerOpen(true)}>
-                Change channel
+                Change channels
               </Button>
             ) : null}
             <SlackConnectionActions
@@ -154,6 +166,7 @@ export function SlackIntegrationSection() {
       {pickerOpen && activeIntegrationId ? (
         <SlackChannelPickerInline
           integrationId={activeIntegrationId}
+          initialChannelIds={configuredChannelIds}
           onSaved={() => setPickerOpen(false)}
           onCancel={() => setPickerOpen(false)}
           onReconnect={needsReconnect ? handleConnect : undefined}

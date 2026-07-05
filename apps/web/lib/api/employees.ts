@@ -21,12 +21,10 @@ export type UpdateEmployeeInput = {
 };
 
 export type CreateEmployeeInviteInput = {
-  firstName: string;
-  lastName: string;
   email: string;
   role: string;
   departmentId?: string;
-  jobTitle?: string;
+  positionId?: string;
 };
 
 export async function fetchTenantMembers(): Promise<ApiTenantMember[]> {
