@@ -103,7 +103,7 @@ export class ZeptomailEmailService {
         this.logger.warn(`Zeptomail returned non-JSON success body (${status}); continuing`);
         return {};
       }
-      throw new BadRequestException(`Zeptomail returned non-JSON response (${status})`);
+      return { rawBody: bodyText };
     }
   }
   async sendBulkEmails(
