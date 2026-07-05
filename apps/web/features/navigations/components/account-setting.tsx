@@ -36,18 +36,22 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1 outline-none transition-colors hover:bg-muted/60"
+          className="flex cursor-pointer items-center gap-3 rounded-[12px] border border-[#d7e3f6] bg-white px-3 py-2 shadow-[0_12px_24px_-20px_rgba(11,28,48,0.28)] outline-none transition-[box-shadow,border-color,background-color] hover:border-[#c7d7f1] hover:bg-white hover:shadow-[0_16px_28px_-20px_rgba(11,28,48,0.34)] dark:border-slate-700 dark:bg-slate-950/80 dark:hover:border-slate-600 dark:hover:bg-slate-950"
         >
           <PersonAvatar
             src={profile?.avatarUrl}
             name={name}
-            className="size-8"
-            fallbackClassName="bg-muted text-xs font-medium text-foreground"
+            className="size-10 border border-[#d7e3f6] shadow-sm dark:border-slate-700"
+            fallbackClassName="bg-primary/10 text-sm font-semibold text-primary dark:bg-primary/15 dark:text-primary"
           />
           <div className="hidden min-w-0 max-w-[140px] text-left lg:block">
-            <p className="truncate text-sm font-semibold leading-tight">{name}</p>
+            <p className="truncate text-sm font-semibold leading-tight text-slate-950 dark:text-slate-50">
+              {name}
+            </p>
             {position ? (
-              <p className="truncate text-xs leading-tight text-muted-foreground">{position}</p>
+              <p className="truncate text-xs leading-tight text-slate-500 dark:text-slate-400">
+                {position}
+              </p>
             ) : null}
           </div>
         </button>

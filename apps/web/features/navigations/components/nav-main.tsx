@@ -30,7 +30,7 @@ export const NavMain = ({ items }: { items: NavItem[] }) => {
                 asChild
                 isActive={isActive}
                 tooltip={item.name}
-                className="h-10 rounded-xl px-3"
+                className="h-11 rounded-md px-3"
               >
                 <Link href={item.href}>
                   <item.icon className="size-[18px]" />

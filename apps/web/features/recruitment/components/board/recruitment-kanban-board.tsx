@@ -50,7 +50,14 @@ function DroppableColumn({
   const { setNodeRef, isOver } = useDroppable({ id: columnId });
 
   return (
-    <div ref={setNodeRef} className={isOver ? 'rounded-xl ring-2 ring-primary/30' : undefined}>
+    <div
+      ref={setNodeRef}
+      className={
+        isOver
+          ? 'rounded-[8px] ring-2 ring-[#fbbf24]/35 ring-offset-2 ring-offset-transparent'
+          : undefined
+      }
+    >
       <RecruitmentKanbanColumn
         title={title}
         count={count}
@@ -141,7 +148,7 @@ export function RecruitmentKanbanBoard({
   };
 
   const columns = (
-    <div className="flex gap-3 overflow-x-auto pb-1">
+    <div className="flex gap-4 overflow-x-auto pb-2">
       {BOARD_COLUMNS.map((column) => (
         <DroppableColumn
           key={column.id}

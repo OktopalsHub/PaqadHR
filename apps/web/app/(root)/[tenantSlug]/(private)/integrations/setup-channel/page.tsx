@@ -1,15 +1,16 @@
 import { redirect } from 'next/navigation';
 
-export default function SetupChannelPage({
-  params,
-  searchParams,
-}: {
-  params: { tenantSlug: string };
-  searchParams: { integration_id?: string; platform?: string };
-}) {
+type PageProps = {
+  params: Promise<{ tenantSlug: string }>;
+  searchParams: Promise<{ integration_id?: string; platform?: string }>;
+};
+
+export default async function SetupChannelPage({ params, searchParams }: PageProps) {
+  const { tenantSlug } = await params;
+  const resolvedSearchParams = await searchParams;
   const qs = new URLSearchParams({ tab: 'integrations', slack_setup: '1' });
-  if (searchParams.integration_id) {
-    qs.set('integration_id', searchParams.integration_id);
+  if (resolvedSearchParams.integration_id) {
+    qs.set('integration_id', resolvedSearchParams.integration_id);
   }
-  redirect(`/${params.tenantSlug}/settings?${qs.toString()}`);
+  redirect(`/${tenantSlug}/settings?${qs.toString()}`);
 }

@@ -24,29 +24,32 @@ export function RecruitmentScheduleWidget({ events }: RecruitmentScheduleWidgetP
   return (
     <ContentCard
       title="Schedule"
+      className="dashboard-panel rounded-[8px]"
+      headerClassName="border-b border-[#d7e3f6] px-5 py-4 dark:border-slate-800"
+      titleClassName="text-[17px] font-semibold text-slate-950 dark:text-slate-100"
       action={
-        <Link
-          href={tenantHref('schedule')}
-          className="text-xs font-medium text-primary hover:underline"
-        >
+        <Link href={tenantHref('schedule')} className="dashboard-link text-xs font-semibold">
           View all
         </Link>
       }
-      bodyClassName="space-y-3"
+      bodyClassName="space-y-3 p-5"
     >
       {events.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No events scheduled for today.</p>
+        <div className="flex min-h-[160px] items-center justify-center text-center">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No events scheduled for today.
+          </p>
+        </div>
       ) : (
         events.map((event) => (
           <div
             key={event.id}
-            className={cn(
-              'rounded-lg border border-border/60 border-l-4 px-3 py-2.5',
-              TYPE_COLORS[event.type],
-            )}
+            className={cn('rounded-[8px] border border-l-4 px-4 py-3', TYPE_COLORS[event.type])}
           >
-            <p className="text-[11px] text-muted-foreground">{event.time}</p>
-            <p className="mt-0.5 text-sm font-medium">{event.title}</p>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">{event.time}</p>
+            <p className="mt-1 text-sm font-medium text-slate-900 dark:text-slate-100">
+              {event.title}
+            </p>
           </div>
         ))
       )}

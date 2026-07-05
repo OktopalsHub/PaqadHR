@@ -1,9 +1,11 @@
 'use client';
 
+import { Search, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
+import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -27,6 +29,29 @@ type RecruitmentBoardPageProps = {
 };
 
 const PREVIEW_JOB_ID = 'preview';
+
+function formatLabel(value?: string | null) {
+  if (!value) return null;
+  return value
+    .split('_')
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function getJobStatusClass(status: string) {
+  switch (status) {
+    case 'ACTIVE':
+      return 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/20 dark:text-green-300';
+    case 'DRAFT':
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-300';
+    case 'CLOSED':
+      return 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300';
+    case 'ARCHIVED':
+      return 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-400';
+    default:
+      return 'border-[#d7e3f6] bg-[#eef4ff] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300';
+  }
+}
 
 export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
   const router = useRouter();
@@ -111,8 +136,18 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
     );
   }
 
+  const jobDescription =
+    [
+      job.departmentName,
+      job.position,
+      formatLabel(job.employmentType),
+      formatLabel(job.location?.type),
+    ]
+      .filter(Boolean)
+      .join(' • ') || 'Applications for this role appear here as candidates progress.';
+
   return (
-    <AppPage className="space-y-4">
+    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
       <PageActions>
         <ViewCareersPageLink />
       </PageActions>
@@ -127,7 +162,17 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
       ) : null}
 
       <RecruitmentBoardToolbar
-        description={job.description}
+        title={job.title}
+        titleAction={
+          <span
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${getJobStatusClass(
+              job.status,
+            )}`}
+          >
+            {formatLabel(job.status)}
+          </span>
+        }
+        description={jobDescription}
         qualifiedCount={qualifiedCount}
         disqualifiedCount={disqualifiedCount}
         search={search}
@@ -136,12 +181,19 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
       />
 
       {candidates.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-12 text-center">
-          <p className="text-sm font-medium">No candidates yet</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Applications for this role will appear here once candidates apply.
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          title="No candidates yet"
+          description="Applications for this role will appear here once candidates apply."
+          className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+        />
+      ) : boardCandidates.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="No matching candidates"
+          description="Try a different search term to find applicants for this role."
+          className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
+        />
       ) : view === 'kanban' ? (
         <RecruitmentKanbanBoard
           candidates={boardCandidates}

@@ -4,6 +4,7 @@ export interface ShoutoutLookupItem {
 }
 
 export interface ParsedRecipient {
+  occurrenceKey: string;
   recipientId: string;
   name: string;
   points: number;
@@ -105,6 +106,7 @@ export function parseShoutout(
         // caller can sum ("@Dan +10 @Dan +20") or flag a points-less mention
         // ("@Dan +10 @Dan"). The backend merges duplicate recipient ids.
         const recipient: ParsedRecipient = {
+          occurrenceKey: `${match.item.id}-${i}`,
           recipientId: match.item.id,
           name: match.item.name,
           points: 0,

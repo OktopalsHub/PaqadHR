@@ -34,30 +34,39 @@ export function CalendarToolbar({
   canAddEvent,
 }: CalendarToolbarProps) {
   return (
-    <div className="flex items-center justify-between gap-4 border-b p-4">
+    <div className="flex flex-col gap-4 border-b border-[#d7e3f6] px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
       <div className="min-w-0">
-        <h2 className="text-lg font-semibold">Schedule</h2>
+        <h2 className="text-[17px] font-semibold tracking-tight text-slate-950 dark:text-slate-100">
+          Schedule
+        </h2>
         {canAddEvent ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
             Click a date on the calendar to add an event
           </p>
         ) : null}
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
         {canAddEvent && onAddEvent ? (
-          <Button size="sm" onClick={onAddEvent}>
-            <Plus className="mr-1 size-4" />
+          <Button variant="brandSolid" size="app" className="w-full sm:w-auto" onClick={onAddEvent}>
+            <Plus className="size-4" />
             Add event
           </Button>
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="app"
+              className="w-full border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100 sm:w-auto"
+            >
               <Filter className="size-4" />
               <span>Filter</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent
+            align="end"
+            className="w-56 rounded-[8px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950"
+          >
             <div className="p-2">
               {FILTER_TYPES.map(({ key, label }) => (
                 <DropdownMenuCheckboxItem
@@ -72,7 +81,12 @@ export function CalendarToolbar({
             </div>
             <DropdownMenuSeparator />
             <div className="p-2">
-              <Button variant="outline" size="sm" className="w-full text-xs" onClick={onSelectAll}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-slate-200 bg-white text-xs text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                onClick={onSelectAll}
+              >
                 Reset filters
               </Button>
             </div>

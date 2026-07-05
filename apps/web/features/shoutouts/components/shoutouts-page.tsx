@@ -1,11 +1,12 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Award, Coins, Heart, Plus, Sparkles, Trophy, X } from 'lucide-react';
+import { Coins, Heart, Sparkles, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
+import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -13,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RewardsPage } from '@/features/rewards/components/rewards-page';
-import { settingsTabHref } from '@/features/settings/lib/settings-tabs';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import {
   useCreateShoutoutCategoryAdmin,
@@ -25,8 +25,8 @@ import {
   useShoutoutCategories,
   useShoutouts,
 } from '@/hooks/queries/use-shoutouts';
-import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { apiClient, tenantPath } from '@/lib/api/client';
+import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
@@ -56,11 +56,7 @@ function ShoutoutsPageContent() {
   };
 
   const { tenant } = useTenant();
-  const tenantHref = useTenantHref();
   const currentMemberId = tenant?.member?.id;
-  const settingsBase = tenantHref('settings');
-  const _shoutoutsSettingsLink = settingsTabHref(settingsBase, 'shoutouts');
-
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
 
@@ -78,13 +74,12 @@ function ShoutoutsPageContent() {
   });
 
   const availableCount = tasks.filter(
-    (t) => t.status === 'available' || t.status === 'rejected',
+    (task) => task.status === 'available' || task.status === 'rejected',
   ).length;
 
   const createCategory = useCreateShoutoutCategoryAdmin();
   const deleteCategory = useDeleteShoutoutCategoryAdmin();
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [addValueOpen, setAddValueOpen] = useState(false);
   const composerRef = useRef<ShoutoutComposerHandle>(null);
 
   const items = data?.records ?? data?.shoutouts ?? data?.data ?? data?.items ?? [];
@@ -103,7 +98,6 @@ function ShoutoutsPageContent() {
     try {
       await createCategory.mutateAsync({ name: newCategoryName.trim() });
       setNewCategoryName('');
-      setAddValueOpen(false);
       toast.success('Core value category added!');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add core value');
@@ -134,133 +128,163 @@ function ShoutoutsPageContent() {
     );
   }
 
-  const totalAllowance = pointsBalance?.monthlyAllowance;
-  const remainingAllowance = pointsBalance?.remainingAllowance;
+  const totalAllowance = pointsBalance?.monthlyAllowance ?? 0;
+  const remainingAllowance = pointsBalance?.remainingAllowance ?? 0;
   const allowancePercent =
-    totalAllowance != null && remainingAllowance != null && totalAllowance > 0
+    totalAllowance > 0
       ? Math.min(100, Math.max(0, (remainingAllowance / totalAllowance) * 100))
       : 0;
   const periodLabel = allowancePeriodLabel(pointsBalance?.allowancePeriod);
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">Shoutouts & Recognition</h1>
-        <p className="text-sm text-muted-foreground font-medium">
-          Appreciate your colleagues, earn points checklist rewards, and redeem vouchers
-        </p>
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="space-y-1.5">
+          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
+            Culture & rewards
+          </p>
+          <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
+            Shoutouts & Recognition
+          </h1>
+          <p className="max-w-2xl text-sm font-medium text-slate-600 dark:text-slate-400">
+            Appreciate your colleagues, earn points checklist rewards, and redeem vouchers
+          </p>
+        </div>
+
+        {pointsBalance ? (
+          <div className="dashboard-soft-tile flex min-w-0 flex-col gap-3 rounded-[8px] px-4 py-3 sm:min-w-[320px] sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
+                Available to give
+              </p>
+              <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+                {remainingAllowance.toLocaleString()}
+                <span className="ml-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {PAQ_POINTS_NAME}
+                </span>
+              </p>
+            </div>
+            <div className="min-w-0 text-left sm:text-right">
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                Redeemable balance
+              </p>
+              <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
+                {pointsBalance.currentBalance.toLocaleString()} pts
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setTab}>
-        <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto text-xs font-semibold"
-            value="feed"
-          >
-            Shoutouts Feed
-          </TabsTrigger>
-          <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto text-xs font-semibold flex items-center gap-1.5"
-            value="tasks"
-          >
-            Points Tasks
-            {availableCount > 0 && (
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold leading-none text-white bg-red-500 rounded-full">
-                {availableCount}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto text-xs font-semibold"
-            value="redeem"
-          >
-            Redeem Rewards
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setTab} className="space-y-5">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="inline-flex h-auto min-w-max items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
+            <TabsTrigger
+              className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
+              value="feed"
+            >
+              Shoutouts Feed
+            </TabsTrigger>
+            <TabsTrigger
+              className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
+              value="tasks"
+            >
+              Points Tasks
+              {availableCount > 0 ? (
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {availableCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger
+              className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
+              value="redeem"
+            >
+              Redeem Rewards
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <TabsContent value="feed" className="mt-5 space-y-12">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {}
-            <div className="lg:col-span-8 space-y-6">
+        <TabsContent value="feed" className="mt-0 space-y-5">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-12 xl:items-start">
+            <div className="space-y-5 xl:col-span-8">
               <ShoutoutComposer
                 ref={composerRef}
                 variant="feed"
                 employees={employees
-                  .filter((e) => e.id !== currentMemberId)
-                  .map((e) => ({ id: e.id, name: e.name }))}
+                  .filter((employee) => employee.id !== currentMemberId)
+                  .map((employee) => ({ id: employee.id, name: employee.name }))}
                 categories={categories}
                 points={pointsBalance}
                 onSubmit={handleCreate}
                 isSubmitting={createShoutout.isPending}
               />
 
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Activity Feed
-                  </h2>
-                  <span className="text-xs text-muted-foreground font-medium">
+              <ContentCard
+                title="Activity feed"
+                description="Recent recognition across your workspace"
+                action={
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                     {items.length} recognition(s)
                   </span>
-                </div>
-
-                <div className="space-y-3">
-                  {items.length === 0 ? (
-                    <EmptyState
-                      icon={Heart}
-                      title="No shoutouts yet"
-                      description="Be the first to recognize someone on your team."
-                    />
-                  ) : (
-                    items.map((shoutout) => <ShoutoutCard key={shoutout.id} shoutout={shoutout} />)
-                  )}
-                </div>
-              </div>
+                }
+                bodyClassName="space-y-3 p-4"
+              >
+                {items.length === 0 ? (
+                  <EmptyState
+                    icon={Heart}
+                    title="No shoutouts yet"
+                    description="Be the first to recognize someone on your team."
+                    className="min-h-[260px]"
+                  />
+                ) : (
+                  items.map((shoutout) => <ShoutoutCard key={shoutout.id} shoutout={shoutout} />)
+                )}
+              </ContentCard>
             </div>
 
-            {}
-            <div className="lg:col-span-4 space-y-6">
-              {}
-              {pointsBalance && totalAllowance != null && remainingAllowance != null ? (
-                <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
-                  <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                    <Trophy className="size-4 text-warning" />
-                    Your points
-                  </h3>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground font-medium">
-                        Give budget ({periodLabel})
+            <div className="space-y-5 xl:col-span-4">
+              {pointsBalance ? (
+                <ContentCard
+                  title="Allowance overview"
+                  description="Track how much recognition budget you still have this cycle"
+                  bodyClassName="space-y-4 p-5"
+                >
+                  <div className="dashboard-soft-tile space-y-3 rounded-[8px] px-4 py-4">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="font-medium text-slate-500 dark:text-slate-400">
+                        {periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1)} give allowance
                       </span>
-                      <span className="font-bold text-foreground">
+                      <span className="font-semibold text-slate-900 dark:text-slate-100">
                         {remainingAllowance} / {totalAllowance} pts left
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-white/70 dark:bg-slate-950/60">
                       <div
-                        className="h-full bg-primary rounded-full transition-all duration-500"
+                        className="h-full rounded-full bg-gradient-to-r from-primary to-emerald-400 transition-all duration-500"
                         style={{ width: `${allowancePercent}%` }}
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border/50 text-center">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="dashboard-soft-tile rounded-[8px] px-4 py-3 text-center">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                         Redeemable balance
                       </p>
-                      <p className="text-lg font-bold text-primary flex items-center justify-center gap-1">
-                        <Coins className="size-4 text-warning" />
+                      <p className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
+                        <Coins className="size-4 text-primary" />
                         {pointsBalance.currentBalance.toLocaleString()}
                       </p>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground font-medium">Lifetime earned</p>
-                      <p className="text-lg font-bold text-foreground">
+                    <div className="dashboard-soft-tile rounded-[8px] px-4 py-3 text-center">
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                        Lifetime earned
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
                         {pointsBalance.totalEarned.toLocaleString()}
                       </p>
-                      <p className="text-[10px] text-muted-foreground leading-tight">
+                      <p className="mt-1 text-[10px] leading-tight text-slate-500 dark:text-slate-400">
                         Points you&apos;ve received from others
                       </p>
                     </div>
@@ -270,52 +294,48 @@ function ShoutoutsPageContent() {
                     size="sm"
                     variant="outline"
                     className="w-full text-xs"
-                    onClick={() => {
-                      setTab('redeem');
-                    }}
+                    onClick={() => setTab('redeem')}
                   >
                     Go to Rewards Catalog
                   </Button>
-                </div>
+                </ContentCard>
               ) : null}
 
-              {}
-              <div className="rounded-xl border border-border/60 bg-card p-5 shadow-sm space-y-4">
-                <h3 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <Award className="size-4 text-primary" />
-                  Company Core Values
-                </h3>
-
-                {categories.length === 0 && !isAdmin ? (
-                  <div className="rounded-lg border border-dashed p-4 text-center space-y-2">
-                    <p className="text-xs font-semibold text-muted-foreground">
+              <ContentCard
+                title="Company core values"
+                description="Recognition tags available across the workspace"
+                bodyClassName="space-y-4 p-5"
+              >
+                {categories.length === 0 ? (
+                  <div className="dashboard-soft-tile rounded-[8px] border border-dashed border-[#d7e3f6] px-4 py-5 text-center dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                       No core values set up yet
                     </p>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    {categories.map((c) => (
+                    {categories.map((category) => (
                       <div
-                        key={c.id}
-                        className="inline-flex shrink-0 items-center rounded-full border border-primary/10 bg-primary/5 text-xs font-medium text-primary dark:text-primary/70"
+                        key={category.id}
+                        className="inline-flex shrink-0 items-center rounded-full border border-primary/10 bg-primary/5 text-xs font-medium text-primary dark:text-primary/80"
                       >
                         <button
                           type="button"
-                          onClick={() => composerRef.current?.insertAtCursor(`#${c.name} `)}
+                          onClick={() => composerRef.current?.insertAtCursor(`#${category.name} `)}
                           className={cn(
                             'inline-flex items-center gap-1 py-1 pl-2.5 transition-colors hover:bg-primary/10',
                             isAdmin ? 'pr-1' : 'pr-2.5',
                           )}
                         >
                           <Sparkles className="size-3 text-primary" />
-                          {c.name}
+                          {category.name}
                         </button>
                         {isAdmin ? (
                           <button
                             type="button"
-                            onClick={() => void handleDeleteCategory(c.id)}
+                            onClick={() => void handleDeleteCategory(category.id)}
                             disabled={deleteCategory.isPending}
-                            aria-label={`Remove ${c.name}`}
+                            aria-label={`Remove ${category.name}`}
                             className="rounded-full p-1 pr-1.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                           >
                             <X className="size-3" />
@@ -323,63 +343,48 @@ function ShoutoutsPageContent() {
                         ) : null}
                       </div>
                     ))}
-                    {isAdmin ? (
-                      addValueOpen ? (
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Input
-                            autoFocus
-                            placeholder="Name…"
-                            className="h-7 w-28 text-xs"
-                            value={newCategoryName}
-                            onChange={(e) => setNewCategoryName(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') void handleAddCategory();
-                              if (e.key === 'Escape') {
-                                setAddValueOpen(false);
-                                setNewCategoryName('');
-                              }
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => void handleAddCategory()}
-                            disabled={createCategory.isPending}
-                          >
-                            Add
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="size-7 shrink-0 rounded-full p-0"
-                          onClick={() => setAddValueOpen(true)}
-                          title="Add core value"
-                        >
-                          <Plus className="size-3.5" />
-                        </Button>
-                      )
-                    ) : null}
                   </div>
                 )}
-              </div>
+
+                {isAdmin ? (
+                  <div className="flex gap-2 border-t border-[#d7e3f6] pt-4 dark:border-slate-700">
+                    <Input
+                      placeholder="Add core value..."
+                      className="text-sm placeholder:text-muted-foreground/75"
+                      value={newCategoryName}
+                      onChange={(event) => setNewCategoryName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void handleAddCategory();
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      className="px-3 text-xs font-semibold"
+                      onClick={() => void handleAddCategory()}
+                      disabled={createCategory.isPending}
+                    >
+                      Add
+                    </Button>
+                  </div>
+                ) : null}
+              </ContentCard>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="redeem" className="mt-5 space-y-4">
+        <TabsContent value="redeem" className="mt-0 space-y-4">
           <div className="space-y-1">
-            <h2 className="text-xl font-bold tracking-tight">Redeem Rewards</h2>
-            <p className="text-sm text-muted-foreground font-medium">
+            <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+              Redeem Rewards
+            </h2>
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
               Redeem your points for digital vouchers, mobile top-ups, and custom perks
             </p>
           </div>
           <RewardsPage isTab={true} />
         </TabsContent>
 
-        <TabsContent value="tasks" className="mt-5">
+        <TabsContent value="tasks" className="mt-0">
           <ShoutoutTasksTab />
         </TabsContent>
       </Tabs>
@@ -389,7 +394,7 @@ function ShoutoutsPageContent() {
 
 export function ShoutoutsPage() {
   return (
-    <AppPage className="max-w-7xl mx-auto w-full py-4">
+    <AppPage className="mx-auto w-full max-w-7xl">
       <Suspense fallback={<LoadingBlock />}>
         <ShoutoutsPageContent />
       </Suspense>

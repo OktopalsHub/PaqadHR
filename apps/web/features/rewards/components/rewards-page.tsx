@@ -2125,5 +2125,5 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     return <div className="space-y-6">{content}</div>;
   }
 
-  return <AppPage className="w-full space-y-6 py-4 px-2 sm:px-6 lg:px-8">{content}</AppPage>;
+  return <AppPage className="w-full space-y-6">{content}</AppPage>;
 }

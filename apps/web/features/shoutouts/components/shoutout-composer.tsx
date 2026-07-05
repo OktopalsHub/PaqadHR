@@ -67,6 +67,7 @@ const EMOJIS = [
   '💼',
   '📈',
 ];
+
 const WORD_CHAR = /[\p{L}\p{N}_'-]/u;
 
 type ActiveToken = { type: '@' | '#'; query: string; start: number };
@@ -106,11 +107,11 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     const emojiRef = useRef<HTMLDivElement>(null);
 
     const employeeLookup = useMemo(
-      () => employees.map((e) => ({ id: e.id, name: e.name })),
+      () => employees.map((employee) => ({ id: employee.id, name: employee.name })),
       [employees],
     );
     const categoryLookup = useMemo(
-      () => categories.map((c) => ({ id: c.id, name: c.name })),
+      () => categories.map((category) => ({ id: category.id, name: category.name })),
       [categories],
     );
 
@@ -125,11 +126,11 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     const suggestions = useMemo(() => {
       if (!active) return [];
       const source = active.type === '@' ? employees : categories;
-      const q = active.query.toLowerCase();
-      return source.filter((item) => item.name.toLowerCase().includes(q)).slice(0, 6);
+      const query = active.query.toLowerCase();
+      return source.filter((item) => item.name.toLowerCase().includes(query)).slice(0, 6);
     }, [active, employees, categories]);
 
-    const zeroPointRecipients = parsed.recipients.filter((r) => r.points < 1);
+    const zeroPointRecipients = parsed.recipients.filter((recipient) => recipient.points < 1);
     const overAllowance = remainingAllowance != null && parsed.totalPoints > remainingAllowance;
     const canSubmit =
       !disabled &&
@@ -146,19 +147,19 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
 
     const insertAtCursor = useCallback(
       (text: string) => {
-        const el = textareaRef.current;
-        const caret = el?.selectionStart ?? message.length;
+        const element = textareaRef.current;
+        const caret = element?.selectionStart ?? message.length;
         const needsSpace = caret > 0 && message[caret - 1] && !/\s/.test(message[caret - 1]);
         const insert = `${needsSpace ? ' ' : ''}${text}`;
         const next = `${message.slice(0, caret)}${insert}${message.slice(caret)}`;
         setMessage(next);
+
         requestAnimationFrame(() => {
-          if (el) {
-            const pos = caret + insert.length;
-            el.focus();
-            el.setSelectionRange(pos, pos);
-            setActive(findActiveToken(next, pos));
-          }
+          if (!element) return;
+          const pos = caret + insert.length;
+          element.focus();
+          element.setSelectionRange(pos, pos);
+          setActive(findActiveToken(next, pos));
         });
       },
       [message],
@@ -191,13 +192,13 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
       const next = `${before}${insert}${after}`;
       setMessage(next);
       setActive(null);
+
       requestAnimationFrame(() => {
-        const el = textareaRef.current;
-        if (el) {
-          const pos = before.length + insert.length;
-          el.focus();
-          el.setSelectionRange(pos, pos);
-        }
+        const element = textareaRef.current;
+        if (!element) return;
+        const pos = before.length + insert.length;
+        element.focus();
+        element.setSelectionRange(pos, pos);
       });
     };
 
@@ -206,33 +207,35 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     };
 
     const insertEmoji = (emoji: string) => {
-      const el = textareaRef.current;
-      const caret = el?.selectionStart ?? message.length;
+      const element = textareaRef.current;
+      const caret = element?.selectionStart ?? message.length;
       const next = `${message.slice(0, caret)}${emoji}${message.slice(caret)}`;
       setMessage(next);
       setEmojiOpen(false);
+
       requestAnimationFrame(() => {
-        if (el) {
-          const pos = caret + emoji.length;
-          el.focus();
-          el.setSelectionRange(pos, pos);
-        }
+        if (!element) return;
+        const pos = caret + emoji.length;
+        element.focus();
+        element.setSelectionRange(pos, pos);
       });
     };
 
     const handleSubmit = async () => {
       if (!canSubmit) return;
+
       try {
         await onSubmit({
           message: message.trim(),
-          recipients: parsed.recipients.map((r) => ({
-            recipientId: r.recipientId,
-            points: r.points,
+          recipients: parsed.recipients.map((recipient) => ({
+            recipientId: recipient.recipientId,
+            points: recipient.points,
           })),
           categoryIds: parsed.categoryIds,
         });
         setMessage('');
         setActive(null);
+        setEmojiOpen(false);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : 'Failed to send shoutout');
       }
@@ -241,20 +244,23 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     return (
       <div
         className={cn(
-          'relative overflow-hidden rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-all duration-300 hover:border-primary/20 hover:shadow-md',
+          'app-card relative overflow-visible rounded-[8px] p-5 transition-all duration-300 hover:border-primary/20',
+          isFeed ? 'shadow-sm' : undefined,
           className,
         )}
       >
-        <div className="flex items-center gap-3 border-b border-border/50 pb-3">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/20 text-primary shadow-sm">
+        <div className="flex items-center gap-3 border-b border-[#dce9e3] pb-3 dark:border-slate-700">
+          <div className="flex size-10 items-center justify-center rounded-[8px] bg-gradient-to-br from-primary/10 to-primary/20 text-primary shadow-sm">
             <Sparkles className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold">Celebrate your team</h3>
-            <p className="text-xs text-muted-foreground">
-              Mention with <span className="font-mono">@</span>, tag values with{' '}
-              <span className="font-mono">#</span>, give points with{' '}
-              <span className="font-mono">+10</span>
+            <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
+              Celebrate your team
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Mention teammates with <span className="font-mono">@</span>, tag values with{' '}
+              <span className="font-mono">#</span>, and assign points with{' '}
+              <span className="font-mono">+10</span>.
             </p>
           </div>
           {projectedRemaining != null ? (
@@ -271,31 +277,31 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
         </div>
 
         <div className="mt-4 space-y-4">
-          <div className="relative rounded-xl border border-border/60 bg-muted/20 p-3 transition-all focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+          <div className="relative rounded-[8px] border border-[#dce9e3] bg-white/75 p-3 transition-all focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/15 dark:border-slate-800 dark:bg-slate-950/45">
             <textarea
               ref={textareaRef}
               className="min-h-[90px] w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/80"
               placeholder="e.g. @Dan +20 @Prisca +10 amazing work on the launch #Excellence"
               value={message}
               onChange={handleChange}
-              onKeyUp={(e) =>
-                syncActive(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)
+              onKeyUp={(event) =>
+                syncActive(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)
               }
-              onClick={(e) =>
-                syncActive(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)
+              onClick={(event) =>
+                syncActive(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)
               }
               onBlur={() => setTimeout(() => setActive(null), 150)}
             />
 
             {active && suggestions.length > 0 ? (
-              <div className="absolute left-3 right-3 top-full z-20 mt-1 overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+              <div className="absolute left-3 right-3 top-full z-20 mt-1 overflow-hidden rounded-[8px] border border-[#dce9e3] bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950">
                 {suggestions.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-900"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
                       applySuggestion(item.name);
                     }}
                   >
@@ -312,11 +318,11 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
           </div>
 
           {message.trim() ? (
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <div className="rounded-[8px] border border-[#dce9e3] bg-white/70 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/45">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Preview
               </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-slate-100">
                 {renderShoutoutMessage(message, {
                   employees: employeeLookup,
                   categories: categoryLookup,
@@ -327,18 +333,18 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
 
           {parsed.recipients.length > 0 || parsed.categoryNames.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">
-              {parsed.recipients.map((r) => (
+              {parsed.recipients.map((recipient) => (
                 <Badge
-                  key={`${r.recipientId}-${r.name}-${r.points}`}
+                  key={recipient.occurrenceKey}
                   variant="secondary"
                   className={cn(
                     'flex items-center gap-1 border-sky-100 bg-sky-500/10 text-sky-600',
-                    r.points < 1 && 'border-amber-200 bg-amber-500/10 text-amber-600',
+                    recipient.points < 1 && 'border-amber-200 bg-amber-500/10 text-amber-600',
                   )}
                 >
                   <User className="size-3" />
-                  {r.name}
-                  <span className="font-mono">+{r.points}</span>
+                  {recipient.name}
+                  <span className="font-mono">+{recipient.points}</span>
                 </Badge>
               ))}
               {parsed.categoryNames.map((name) => (
@@ -365,19 +371,29 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
 
           {parsed.unknownMentions.length > 0 ? (
             <p className="rounded-lg border border-dashed border-amber-300/60 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
-              No teammate found for: {parsed.unknownMentions.map((m) => `@${m}`).join(', ')}
+              No teammate found for: {parsed.unknownMentions.map((name) => `@${name}`).join(', ')}
             </p>
           ) : null}
+
+          {parsed.unknownCategories.length > 0 ? (
+            <p className="rounded-lg border border-dashed border-indigo-300/60 bg-indigo-500/5 px-3 py-2 text-xs text-indigo-600 dark:text-indigo-300">
+              No core value found for:{' '}
+              {parsed.unknownCategories.map((name) => `#${name}`).join(', ')}
+            </p>
+          ) : null}
+
           {zeroPointRecipients.length > 0 ? (
             <p className="rounded-lg border border-dashed border-amber-300/60 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
-              Add points for {zeroPointRecipients.map((r) => `@${r.name}`).join(', ')} — e.g.{' '}
-              <span className="font-mono">@{zeroPointRecipients[0].name} +10</span>
+              Add points for{' '}
+              {zeroPointRecipients.map((recipient) => `@${recipient.name}`).join(', ')}{' '}
+              <span className="font-mono">e.g. @{zeroPointRecipients[0].name} +10</span>
             </p>
           ) : null}
+
           {overAllowance ? (
             <p className="rounded-lg border border-dashed border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-              That&apos;s {parsed.totalPoints} points but you only have {remainingAllowance} left
-              this period.
+              That&apos;s {parsed.totalPoints} points but you only have {remainingAllowance ?? 0}{' '}
+              left this period.
             </p>
           ) : null}
 
@@ -392,6 +408,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
               >
                 <AtSign className="size-4 text-sky-500" />
               </Button>
+
               {categories.length > 0 ? (
                 <Button
                   variant="outline"
@@ -403,39 +420,39 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   <Hash className="size-4 text-indigo-500" />
                 </Button>
               ) : null}
+
               <div className="relative" ref={emojiRef}>
                 <Button
                   variant="outline"
                   size="icon"
                   className="size-9 hover:bg-muted/80"
-                  onClick={() => setEmojiOpen((v) => !v)}
+                  onClick={() => setEmojiOpen((open) => !open)}
                 >
                   <Smile className="size-4 text-pink-500" />
                 </Button>
                 {emojiOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-lg border border-border bg-popover p-2.5 shadow-lg">
-                    <div className="grid grid-cols-5 gap-1">
-                      {EMOJIS.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className="flex size-10 items-center justify-center rounded-md text-xl transition-colors hover:bg-muted"
-                          onClick={() => insertEmoji(emoji)}
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="absolute left-0 top-full z-20 mt-1 grid grid-cols-5 gap-1 rounded-[8px] border border-[#dce9e3] bg-white p-2 shadow-lg dark:border-slate-800 dark:bg-slate-950">
+                    {EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="flex size-8 items-center justify-center rounded text-lg transition-transform hover:scale-125 hover:bg-slate-100 dark:hover:bg-slate-900"
+                        onClick={() => insertEmoji(emoji)}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
                   </div>
                 ) : null}
               </div>
             </div>
 
             <Button
+              variant="brandSolid"
               size="sm"
               className="h-9 gap-1.5 px-4 font-medium shadow-sm transition-all active:scale-95"
               disabled={!canSubmit}
-              onClick={handleSubmit}
+              onClick={() => void handleSubmit()}
             >
               {isSubmitting ? (
                 <Loader2 className="size-4 animate-spin" />
@@ -448,7 +465,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
         </div>
 
         {disabled && disabledHint ? (
-          <p className="mt-3 flex items-center gap-1.5 rounded-lg border border-dashed border-border/80 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <p className="mt-3 flex items-center gap-1.5 rounded-[8px] border border-dashed border-border/80 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
             <X className="size-3" />
             {disabledHint}
           </p>

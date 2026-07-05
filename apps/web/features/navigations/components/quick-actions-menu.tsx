@@ -23,8 +23,12 @@ export function QuickActionsMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="size-8 rounded-lg">
-          <Plus className="size-4" />
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-9 rounded-full border-border/70 bg-background/90"
+        >
+          <Plus className="size-4 drop-shadow-[0_1px_2px_rgba(11,28,48,0.18)]" />
           <span className="sr-only">Quick actions</span>
         </Button>
       </DropdownMenuTrigger>

@@ -31,19 +31,33 @@ export function AttendancePage() {
   }
 
   return (
-    <AppPage>
-      <Tabs defaultValue="mine" className="w-full">
-        <TabsList>
-          <TabsTrigger value="mine">My timesheet</TabsTrigger>
-          {canViewTeam ? <TabsTrigger value="team">Team</TabsTrigger> : null}
-        </TabsList>
+    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+      <Tabs defaultValue="mine" className="w-full gap-5">
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="inline-flex h-auto min-w-max flex-nowrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
+            <TabsTrigger
+              value="mine"
+              className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+            >
+              My timesheet
+            </TabsTrigger>
+            {canViewTeam ? (
+              <TabsTrigger
+                value="team"
+                className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+              >
+                Team
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+        </div>
 
-        <TabsContent value="mine" className="mt-5">
+        <TabsContent value="mine" className="mt-0">
           <AttendanceMyTab />
         </TabsContent>
 
         {canViewTeam ? (
-          <TabsContent value="team" className="mt-5">
+          <TabsContent value="team" className="mt-0">
             <AttendanceTeamTab />
           </TabsContent>
         ) : null}
