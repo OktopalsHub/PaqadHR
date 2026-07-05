@@ -67,7 +67,6 @@ export function buildZeptomailPayload(
     })),
     subject: emailData.subject,
   };
-
   if (emailData.html?.trim()) {
     payload.htmlbody = emailData.html;
   }
