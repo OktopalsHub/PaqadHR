@@ -41,6 +41,7 @@ describe('InvitationsService', () => {
     };
     const tenantMembersService = {
       checkUserTenantMembership: jest.fn().mockResolvedValue(null),
+      findUserTenantMembership: jest.fn().mockResolvedValue(null),
       createTenantMember: jest
         .fn()
         .mockResolvedValue(overrides?.createTenantMemberResult ?? { id: 'member-new' }),
@@ -133,6 +134,25 @@ describe('InvitationsService', () => {
 
       expect(result.emailSent).toBe(false);
       expect(result.emailError).toBe('smtp down');
+    });
+
+    it('allows inviting an existing user who is not yet in the tenant', async () => {
+      const { service, tenantMembersService } = buildService({
+        existingUser: { id: 'user-existing', email: 'existing@other.com', role: 'member' },
+      });
+
+      const result = await service.createInvitation(
+        { email: 'existing@other.com', role: 'member' },
+        'tenant-1',
+        'member-1',
+      );
+
+      expect(tenantMembersService.findUserTenantMembership).toHaveBeenCalledWith(
+        'user-existing',
+        'tenant-1',
+      );
+      expect(result.email).toBe('existing@other.com');
+      expect(result.emailSent).toBe(true);
     });
   });
 

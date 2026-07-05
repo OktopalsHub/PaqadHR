@@ -224,6 +224,9 @@ export class TenantMembersService {
   async checkUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberRepository.findByUserAndTenantId(userId, tenantId);
   }
+  async findUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember | null> {
+    return this.tenantMemberRepository.findMembershipByUserAndTenant(userId, tenantId);
+  }
   async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
     return this.tenantMemberRepository.countUserInTenant(userId, tenantId);
   }
