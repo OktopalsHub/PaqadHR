@@ -15,7 +15,7 @@ async function seedPlans(): Promise<void> {
     await dataSource.initialize();
   }
 
-  logger.log('Database connected. Running plan seeder...');
+  logger.log('Database connected. Running plan seeder.......');
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn', 'log'],
