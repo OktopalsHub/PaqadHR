@@ -173,8 +173,7 @@ export class ZeptomailEmailService {
   constructor(private readonly emailTemplateService: EmailTemplateService) {
     this.zeptomailApiKey = process.env.ZEPTOMAIL_API_KEY || '';
     this.defaultFromEmail = process.env.DEFAULT_FROM_EMAIL || 'noreply@paqadhr.com';
-    const apiUrl =
-      process.env.ZEPTOMAIL_API_URL?.trim() || 'https://api.zeptomail.com/v1.1/email';
+    const apiUrl = process.env.ZEPTOMAIL_API_URL?.trim() || 'https://api.zeptomail.com/v1.1/email';
     this.mailClient = this.zeptomailApiKey
       ? new SendMailClient({
           url: apiUrl,

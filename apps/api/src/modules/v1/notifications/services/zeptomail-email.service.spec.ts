@@ -75,12 +75,16 @@ describe('zeptomail helpers', () => {
       toUserFacingEmailError(
         'Zeptomail API error (500) [TM_5001]: Unknown error (request_id: req-123)',
       ),
-    ).toBe('We could not send the invite email. Try resend from Invitations, or contact support if it keeps failing.');
+    ).toBe(
+      'We could not send the invite email. Try resend from Invitations, or contact support if it keeps failing.',
+    );
 
     expect(
       toUserFacingEmailError(
         'Zeptomail API error (400) [TM_4001]: Sender address domain is not verified in your Agent.',
       ),
-    ).toBe('The sender email is not verified for delivery. Your admin needs to verify it in Zeptomail.');
+    ).toBe(
+      'The sender email is not verified for delivery. Your admin needs to verify it in Zeptomail.',
+    );
   });
 });

@@ -12,8 +12,7 @@ export function toastInvitationDelivery(
   if (delivery.emailSent === false) {
     toast.warning(options.failureMessage, {
       description:
-        delivery.emailError ??
-        'The invite was saved. Try resend from the Invitations tab.',
+        delivery.emailError ?? 'The invite was saved. Try resend from the Invitations tab.',
       duration: 8000,
     });
     return;
