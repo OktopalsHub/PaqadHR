@@ -201,7 +201,7 @@ export function BillingSection() {
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
     try {
-      const result = await checkout.mutateAsync(planSlug);
+      const result = await checkout.mutateAsync({ planSlug });
       window.location.assign(result.checkoutUrl);
     } finally {
       setCheckoutPlan(null);

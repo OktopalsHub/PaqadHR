@@ -34,4 +34,4 @@ COPY apps/api/package.json ./
 
 RUN npm install -g pm2@latest
 USER node
-CMD ["pm2", "start", "-s", "dist/main.js", "--name", "paqad-api", "-i", "max", "--no-daemon"]
+CMD ["sh", "-c", "npx typeorm migration:run -d dist/common/database/config/data-source.js && pm2 start -s dist/main.js --name paqad-api -i max --no-daemon"]

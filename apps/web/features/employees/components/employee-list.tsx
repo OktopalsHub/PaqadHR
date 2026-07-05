@@ -17,6 +17,7 @@ import { useEmployeeFilters } from '../hooks/';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { EmployeeCards } from './employee-card';
 import { EmployeeFiltersComponent } from './employee-filters';
+import { EmployeeInvitationsTab } from './employee-invitations-tab';
 import { EmployeePagination } from './employee-pagination';
 import { EmployeeTable } from './employee-table';
 import { PositionsManager } from './positions-manager';
@@ -24,9 +25,9 @@ import { ViewModeToggle } from './view-mode-toggle';
 
 export const EmployeeList = () => {
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'employees' | 'departments' | 'positions'>(
-    'employees',
-  );
+  const [activeTab, setActiveTab] = useState<
+    'employees' | 'invitations' | 'departments' | 'positions'
+  >('employees');
   const [createDeptOpen, setCreateDeptOpen] = useState(false);
   const [createPositionOpen, setCreatePositionOpen] = useState(false);
 
@@ -76,7 +77,7 @@ export const EmployeeList = () => {
   return (
     <AppPage>
       <PageActions>
-        {activeTab === 'employees' && (
+        {activeTab === 'employees' && isAdmin && (
           <Button className="flex items-center gap-2" onClick={() => setInviteOpen(true)}>
             <Plus size={16} />
             <span>Add employee</span>
@@ -111,6 +112,20 @@ export const EmployeeList = () => {
         >
           Employees
         </button>
+        {isAdmin ? (
+          <button
+            type="button"
+            onClick={() => setActiveTab('invitations')}
+            className={cn(
+              'px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px',
+              activeTab === 'invitations'
+                ? 'border-primary text-foreground font-semibold'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted-foreground/30',
+            )}
+          >
+            Invitations
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setActiveTab('departments')}
@@ -136,6 +151,8 @@ export const EmployeeList = () => {
           Positions
         </button>
       </div>
+
+      {activeTab === 'invitations' && isAdmin ? <EmployeeInvitationsTab /> : null}
 
       {activeTab === 'employees' && (
         <>

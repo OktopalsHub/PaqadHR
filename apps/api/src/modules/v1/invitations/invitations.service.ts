@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PasswordService } from 'src/common/utils';
+import { QueryFailedError } from 'typeorm';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
@@ -111,7 +112,21 @@ export class InvitationsService {
       employeeNumber: createInvitationDto.employeeNumber,
       positionId: createInvitationDto.positionId,
     };
-    const invitation = await this.invitationsRepository.save(invitationData);
+    let invitation: Invitation;
+    try {
+      invitation = await this.invitationsRepository.save(invitationData);
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error as QueryFailedError & { driverError?: { code?: string; column?: string } })
+          .driverError?.code === '23502'
+      ) {
+        throw new BadRequestException(
+          'Unable to save invitation without a name. Run database migrations (invitation-names-nullable) on this environment.',
+        );
+      }
+      throw error;
+    }
     await this.sendInvitationEmail(invitation);
     return this?.mapToResponseDto(invitation);
   }

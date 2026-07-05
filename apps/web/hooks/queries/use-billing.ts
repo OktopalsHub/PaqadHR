@@ -50,17 +50,17 @@ export function useCreateSubscriptionCheckout() {
   const invalidate = useInvalidateBilling();
 
   return useMutation({
-    mutationFn: async (planSlug: string) => {
+    mutationFn: async ({ planSlug, successUrl }: { planSlug: string; successUrl?: string }) => {
       if (!tenantId || !tenant?.slug) {
         throw new Error('Workspace not selected');
       }
 
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const successUrl = origin
-        ? `${origin}/${tenant.slug}/settings?tab=billing&billing=success`
-        : undefined;
+      const resolvedSuccessUrl =
+        successUrl ??
+        (origin ? `${origin}/${tenant.slug}/settings?tab=billing&billing=success` : undefined);
 
-      return createSubscriptionCheckout(tenantId, planSlug, successUrl);
+      return createSubscriptionCheckout(tenantId, planSlug, resolvedSuccessUrl);
     },
     onSuccess: invalidate,
   });

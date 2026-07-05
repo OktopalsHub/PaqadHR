@@ -105,14 +105,7 @@ export class SubscriptionBillingService {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     const sub = billingStatus.subscription;
-    const needsPayment =
-      !sub ||
-      sub.status === SubscriptionStatus.EXPIRED ||
-      sub.status === SubscriptionStatus.PAST_DUE ||
-      sub.status === SubscriptionStatus.SUSPENDED ||
-      sub.status === SubscriptionStatus.INACTIVE ||
-      sub.status === SubscriptionStatus.CANCELLED ||
-      (sub.status === SubscriptionStatus.TRIAL && sub.daysRemaining === 0);
+    const needsPayment = this.subscriptionsService.computeNeedsPayment(sub);
 
     const billingHistory = (subscription?.billingHistory ?? []).map((entry) => ({
       date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),

@@ -77,7 +77,14 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to send invitation');
+      const message = err instanceof Error ? err.message : 'Failed to send invitation';
+      if (message.includes('already been sent')) {
+        toast.error(message, {
+          description: 'Open the Invitations tab to resend or revoke.',
+        });
+      } else {
+        toast.error(message);
+      }
     } finally {
       setIsSubmitting(false);
     }

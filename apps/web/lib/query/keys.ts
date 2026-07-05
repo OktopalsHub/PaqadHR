@@ -10,6 +10,9 @@ export const queryKeys = {
     all: ['employees'] as const,
     detail: (id: string) => ['employees', id] as const,
   },
+  invitations: {
+    all: ['invitations'] as const,
+  },
   positions: {
     all: ['positions'] as const,
   },
