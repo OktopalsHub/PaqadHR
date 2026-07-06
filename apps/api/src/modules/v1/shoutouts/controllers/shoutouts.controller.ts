@@ -14,7 +14,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import type { CreateShoutoutDto } from '../dto/create-shoutout.dto';
-import type { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
+import { ListShoutoutsQueryDto } from '../dto/list-shoutouts-query.dto';
 import { ShoutoutPaginatedResponseDto, ShoutoutResponseDto } from '../dto/shoutout-response.dto';
 import { ShoutoutsService } from '../services/shoutouts.service';
 

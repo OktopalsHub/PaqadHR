@@ -23,11 +23,16 @@ function buildContentSecurityPolicy(): string {
     imageSources.push(r2PublicOrigin);
   }
 
-  const connectSources = ["'self'", apiOrigin, 'https://challenges.cloudflare.com'];
+  const connectSources = [
+    "'self'",
+    apiOrigin,
+    'https://challenges.cloudflare.com',
+    'https://cloudflareinsights.com',
+  ];
 
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     `img-src ${imageSources.join(' ')}`,
