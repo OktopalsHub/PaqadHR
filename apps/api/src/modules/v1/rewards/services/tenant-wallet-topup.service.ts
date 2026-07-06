@@ -207,7 +207,7 @@ export class TenantWalletTopupService {
     manager?: EntityManager,
     audience: ChargeAudience = 'admin',
   ): Promise<TenantWallet> {
-    if (amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
     }
 
