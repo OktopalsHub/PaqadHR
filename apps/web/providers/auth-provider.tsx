@@ -12,7 +12,7 @@ import {
   logoutRequest,
   register as registerRequest,
 } from '@/lib/api/auth';
-import { bootstrapCsrf, clearCsrfToken, getAccessToken, getRefreshToken } from '@/lib/api/client';
+import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import {
@@ -50,10 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: getSession,
     staleTime: Infinity,
     enabled: sessionBootstrapEnabled,
-    placeholderData: () => {
-      if (!getAccessToken() && !getRefreshToken()) return undefined;
-      return readSession() ?? undefined;
-    },
+    placeholderData: () => readSession() ?? undefined,
   });
 
   const navigateAfterAuth = useCallback(async () => {

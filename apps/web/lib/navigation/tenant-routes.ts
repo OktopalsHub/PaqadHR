@@ -5,6 +5,7 @@ export const RESERVED_ROUTE_SEGMENTS = new Set([
   'signup',
   'accept-invite',
   'forgot-password',
+  'reset-password',
   'onboarding',
   'app',
   'api',

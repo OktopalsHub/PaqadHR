@@ -16,7 +16,11 @@ import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
 import { AuthService } from './auth.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ChangePasswordDto, SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterDto } from './dto/register.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 interface AuthResponse {
   accessToken: string;
@@ -36,7 +40,7 @@ export class AuthController {
   @Post('register')
   @Public()
   async register(
-    @Body() body: { email: string; password: string; name?: string },
+    @Body() body: RegisterDto,
     @Ip() ip: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
@@ -102,7 +106,7 @@ export class AuthController {
   @Post('refresh')
   @Public()
   async refresh(
-    @Body() body: { refreshToken?: string },
+    @Body() body: RefreshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -118,13 +122,13 @@ export class AuthController {
 
   @Post('forgot-password')
   @Public()
-  async forgotPassword(@Body() body: { email: string }) {
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
     return this.authService.forgotPassword(body.email);
   }
 
   @Post('reset-password')
   @Public()
-  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+  async resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.token, body.newPassword);
   }
 

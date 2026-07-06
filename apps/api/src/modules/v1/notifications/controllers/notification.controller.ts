@@ -7,7 +7,6 @@ import {
   type MessageEvent,
   Param,
   Patch,
-  Post,
   Query,
   Req,
   Sse,
@@ -19,10 +18,6 @@ import { CurrentTenant } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
 import type { IAuthenticatedUserRequest, TenantContext } from 'src/common/interfaces';
 import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
-import type {
-  CreateBulkNotificationDto,
-  CreateNotificationDto,
-} from '../dto/create-notification.dto';
 import type { Notification } from '../entities/notification.entity';
 import { NotificationService } from '../services/notification.service';
 import { SSENotificationService } from '../services/sse-notification.service';
@@ -36,28 +31,6 @@ export class NotificationController {
     private readonly notificationService: NotificationService,
     private readonly sseNotificationService: SSENotificationService,
   ) {}
-  @Post()
-  @ApiOperation({ summary: 'Create a notification' })
-  @ApiResponse({
-    status: 201,
-    description: 'Notification created successfully',
-  })
-  async createNotification(
-    @Body() createNotificationDto: CreateNotificationDto,
-  ): Promise<Notification> {
-    return this.notificationService.createNotification(createNotificationDto);
-  }
-  @Post('bulk')
-  @ApiOperation({ summary: 'Create bulk notifications' })
-  @ApiResponse({
-    status: 201,
-    description: 'Bulk notifications created successfully',
-  })
-  async createBulkNotifications(
-    @Body() createBulkDto: CreateBulkNotificationDto,
-  ): Promise<Notification[]> {
-    return this.notificationService.createBulkNotifications(createBulkDto);
-  }
   @Get()
   @ApiOperation({ summary: 'Get user notifications' })
   @ApiQuery({ name: 'limit', required: false, type: Number })

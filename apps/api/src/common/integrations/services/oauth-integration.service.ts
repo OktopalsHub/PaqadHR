@@ -3,6 +3,7 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
 import { EntityManager } from 'typeorm';
+import { signOAuthState, verifyOAuthState } from '../oauth-state.util';
 import { PlatformIntegration } from '../entities/platform-integration.entity';
 import { UserIntegrationToken } from '../entities/user-integration-token.entity';
 import type { OAuthTokenData } from '../integration.types';
@@ -19,14 +20,12 @@ export class OAuthIntegrationService {
     tenantMemberId: string,
     redirectUri: string,
   ): string {
-    const state = Buffer.from(
-      JSON.stringify({
-        tenantId,
-        tenantMemberId,
-        platformType,
-        timestamp: Date.now(),
-      }),
-    ).toString('base64');
+    const state = signOAuthState({
+      tenantId,
+      tenantMemberId,
+      platformType,
+      timestamp: Date.now(),
+    });
     switch (platformType) {
       case IntegrationType.SLACK:
         return (
@@ -34,7 +33,7 @@ export class OAuthIntegrationService {
           `client_id=${ENVIRONMENT.SLACK.CLIENT_ID}&` +
           `scope=chat:write,channels:read,groups:read,channels:join,channels:manage,users:read,users:read.email&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-          `state=${state}`
+          `state=${encodeURIComponent(state)}`
         );
       case IntegrationType.GOOGLE_CHAT:
         return (
@@ -43,7 +42,7 @@ export class OAuthIntegrationService {
           `response_type=code&` +
           `redirect_uri=${encodeURIComponent(redirectUri)}&` +
           `scope=https://www.googleapis.com/auth/chat.messages&` +
-          `state=${state}`
+          `state=${encodeURIComponent(state)}`
         );
       default:
         throw new BadRequestException(`Unsupported platform: ${platformType}`);
@@ -51,7 +50,7 @@ export class OAuthIntegrationService {
   }
   async handleOAuthCallback(code: string, state: string) {
     return this.entityManager.transaction(async (manager) => {
-      const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+      const stateData = verifyOAuthState(state);
       const { tenantId, tenantMemberId, platformType } = stateData;
       const redirectUri = `${ENVIRONMENT.APP.BASE_URL}/integrations/oauth/callback`;
       const tokenData = await this.exchangeCodeForTokens(platformType, code, redirectUri);

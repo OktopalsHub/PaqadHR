@@ -1,9 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Ip, Param, Patch, Post, Req } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
-import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
+import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { FileService } from 'src/common/services/file.service';
-import type { CreateCandidateDto } from '../dto/index';
+import { CreateCandidateDto } from '../dto/index';
+import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateService } from '../services/candidate.service';
@@ -17,24 +19,29 @@ export class ApplicationController {
     private readonly candidateService: CandidateService,
     private readonly fileService: FileService,
     private readonly jobOpeningService: JobOpeningService,
+    private readonly rateLimitService: RateLimitService,
   ) {}
 
   @Post(':jobId/apply/upload-url')
   @ApiOperation({ summary: 'Generate a presigned upload URL for candidate resumes/cover-letters' })
   async getUploadUrl(
     @Param('jobId') jobId: string,
-    @Body() body: { location: string; originalName: string; contentType?: string },
+    @Body() body: CandidateUploadUrlDto,
+    @Req() req: Request,
+    @Ip() ip: string,
   ) {
-    const job = await this.jobOpeningService.getActiveJob(jobId);
-    if (
-      body.location !== FileUploadLocation.RESUMES &&
-      body.location !== FileUploadLocation.COVER_LETTERS
-    ) {
-      throw new BadRequestException('Invalid location for candidate upload');
+    const clientIp = ip || req.ip || 'unknown';
+    const rate = await this.rateLimitService.checkRateLimit(`apply-upload:${clientIp}:${jobId}`, {
+      rules: [{ windowMs: 60 * 60 * 1000, maxRequests: 10 }],
+    });
+    if (!rate.allowed) {
+      throw new BadRequestException('Too many upload requests. Please try again later.');
     }
+
+    const job = await this.jobOpeningService.getActiveJob(jobId);
     return this.fileService.generateUploadUrl({
       tenantId: job.tenantId,
-      location: body.location as FileUploadLocation,
+      location: body.location,
       originalName: body.originalName,
       contentType: body.contentType,
     });

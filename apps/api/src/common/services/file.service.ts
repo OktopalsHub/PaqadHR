@@ -1,11 +1,44 @@
 import * as path from 'node:path';
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ENVIRONMENT } from '../config/env.config';
-import type { FileUploadLocation } from '../enums/file-upload-location.enum';
+import { FileUploadLocation } from '../enums/file-upload-location.enum';
 import type { FileUrlResponse } from '../interfaces/file-url-response.interface';
 import type { GenerateUploadUrlRequest } from '../interfaces/generate-upload-url-request.interface';
 import type { GenerateUploadUrlResponse } from '../interfaces/generate-upload-url-response.interface';
 import { CloudflareR2Service } from './cloudflare-r2.service';
+
+const PUBLIC_UPLOAD_LOCATIONS = new Set<FileUploadLocation>([
+  FileUploadLocation.LOGO,
+  FileUploadLocation.EMPLOYEES_AVATAR,
+  FileUploadLocation.AVATARS,
+]);
+
+const CANDIDATE_DOCUMENT_LOCATIONS = new Set<FileUploadLocation>([
+  FileUploadLocation.RESUMES,
+  FileUploadLocation.COVER_LETTERS,
+]);
+
+const CANDIDATE_DOCUMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
+export function isPublicUploadLocation(location: FileUploadLocation): boolean {
+  return PUBLIC_UPLOAD_LOCATIONS.has(location);
+}
+
+export function assertCandidateDocumentContentType(
+  location: FileUploadLocation,
+  contentType: string,
+): void {
+  if (!CANDIDATE_DOCUMENT_LOCATIONS.has(location)) return;
+  if (!CANDIDATE_DOCUMENT_MIME_TYPES.has(contentType.toLowerCase())) {
+    throw new BadRequestException(
+      'Invalid file type. Upload PDF or Word documents only for resumes and cover letters.',
+    );
+  }
+}
 
 @Injectable()
 export class FileService {
@@ -41,6 +74,7 @@ export class FileService {
     const baseName = path.basename(sanitizedOriginalName, fileExtension);
     const fileName = `${baseName}_${timestamp}${fileExtension}`;
     const finalContentType = contentType || this.getContentType(sanitizedOriginalName);
+    assertCandidateDocumentContentType(location, finalContentType);
     const expires = expiresIn || this.defaultExpiresIn;
     try {
       const { uploadUrl, fileKey } = await this.r2Service.generateUploadUrl({
@@ -49,6 +83,7 @@ export class FileService {
         fileName,
         contentType: finalContentType,
         expiresIn: expires,
+        public: isPublicUploadLocation(location),
       });
       const expiresAt = new Date(Date.now() + expires * 1000);
       return {

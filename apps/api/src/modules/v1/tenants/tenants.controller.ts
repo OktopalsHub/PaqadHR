@@ -61,13 +61,15 @@ export class TenantsController {
     return this.tenantsService.updateTenant(tenantId, updateTenantDto);
   }
   @Delete(':tenantId')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER)
   @HttpCode(204)
   async deleteTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     await this.tenantsService.deleteTenant(tenantId);
   }
   @Patch(':tenantId/restore')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER)
   async restoreTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     return this.tenantsService.restoreTenant(tenantId);
   }
@@ -144,7 +146,8 @@ export class TenantsController {
     return this.tenantsService.getTenantBySlug(slug);
   }
   @Patch(':tenantId/payment-currency')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updatePaymentCurrency(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: { currency: string },
