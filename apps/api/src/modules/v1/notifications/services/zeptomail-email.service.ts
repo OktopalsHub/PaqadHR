@@ -28,17 +28,6 @@ type ZeptomailErrorBody = {
   rawBody?: string;
 };
 
-export function normalizeZeptomailToken(apiKey: string): string {
-  const trimmed = apiKey.trim();
-  if (!trimmed) return '';
-  const prefix = 'zoho-enczapikey';
-  if (trimmed.toLowerCase().startsWith(prefix)) {
-    const keyPart = trimmed.slice(prefix.length).trim();
-    return `Zoho-enczapikey ${keyPart}`;
-  }
-  return `Zoho-enczapikey ${trimmed}`;
-}
-
 type ZeptomailSendPayload = {
   from: { address: string; name: string };
   to: Array<{ email_address: { address: string; name: string } }>;
@@ -177,7 +166,7 @@ export class ZeptomailEmailService {
     this.mailClient = this.zeptomailApiKey
       ? new SendMailClient({
           url: apiUrl,
-          token: normalizeZeptomailToken(this.zeptomailApiKey),
+          token: this.zeptomailApiKey,
         })
       : null;
 

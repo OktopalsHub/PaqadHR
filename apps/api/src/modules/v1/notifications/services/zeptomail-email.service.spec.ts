@@ -2,17 +2,10 @@ import {
   buildZeptomailPayload,
   formatZeptomailError,
   formatZeptomailSdkError,
-  normalizeZeptomailToken,
   toUserFacingEmailError,
 } from './zeptomail-email.service';
 
 describe('zeptomail helpers', () => {
-  it('normalizes bare api keys to Zeptomail auth tokens', () => {
-    expect(normalizeZeptomailToken('abc123')).toBe('Zoho-enczapikey abc123');
-    expect(normalizeZeptomailToken('Zoho-enczapikey abc123')).toBe('Zoho-enczapikey abc123');
-    expect(normalizeZeptomailToken('zoho-enczapikey abc123')).toBe('Zoho-enczapikey abc123');
-  });
-
   it('sends htmlbody and textbody when both are present', () => {
     const payload = buildZeptomailPayload(
       {
