@@ -13,7 +13,7 @@ import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
-import { GeoLocationHelper, PasswordService, sha256Hex, StringUtility } from 'src/common/utils';
+import { GeoLocationHelper, PasswordService, StringUtility, sha256Hex } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
@@ -388,10 +388,9 @@ export class AuthService {
         throw new BadRequestException('Too many requests from this IP. Please try again later.');
       }
     }
-    const rate = await this.rateLimitService.checkRateLimit(
-      `forgot-password:${normalizedEmail}`,
-      { rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }] },
-    );
+    const rate = await this.rateLimitService.checkRateLimit(`forgot-password:${normalizedEmail}`, {
+      rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }],
+    });
     if (!rate.allowed) {
       throw new BadRequestException(
         `Too many reset requests. Try again in ${rate.retryAfter ?? 60}s`,

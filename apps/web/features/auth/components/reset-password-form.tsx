@@ -1,9 +1,9 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
@@ -69,10 +69,15 @@ export function ResetPasswordForm() {
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold">Set a new password</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Choose a strong password with at least 8 characters.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Choose a strong password with at least 8 characters.
+        </p>
       </div>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))} className="space-y-4">
+        <form
+          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+          className="space-y-4"
+        >
           <FormField
             control={form.control}
             name="password"

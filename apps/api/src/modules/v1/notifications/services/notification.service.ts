@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, In, IsNull, type Repository } from 'typeorm';
-import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationStatus } from '../../../../common/enums/notification-status.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type {
   CreateBulkNotificationDto,
   CreateNotificationDto,

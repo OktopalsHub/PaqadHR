@@ -1,5 +1,6 @@
 'use client';
 
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import {
   AlertCircle,
   ArrowLeft,
@@ -16,7 +17,6 @@ import {
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import { toast } from 'sonner';
 import { OrgAvatar } from '@/components/org-avatar';
 import { Badge } from '@/components/ui/badge';

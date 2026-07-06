@@ -26,8 +26,8 @@ import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import { TenantResponseDto, type UserTenantWithMembershipDto } from './dto/tenant-response.dto';
-import type { UpdateTenantDto } from './dto/update-tenant.dto';
 import { UpdatePaymentCurrencyDto } from './dto/update-payment-currency.dto';
+import type { UpdateTenantDto } from './dto/update-tenant.dto';
 import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')

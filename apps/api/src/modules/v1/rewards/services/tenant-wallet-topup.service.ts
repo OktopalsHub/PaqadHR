@@ -121,10 +121,13 @@ export class TenantWalletTopupService {
     const status = verified?.status?.toLowerCase() ?? '';
     if (status !== 'success' && status !== 'successful') {
       this.logger.warn(
-        'Wallet checkout top-up not yet successful for ' + input.orderReference + ': ' + (status || 'unknown'),
+        'Wallet checkout top-up not yet successful for ' +
+          input.orderReference +
+          ': ' +
+          (status || 'unknown'),
       );
       throw new BadRequestException(
-        'Wallet checkout top-up not yet successful: ' + (status || 'unknown'),
+        `Wallet checkout top-up not yet successful: ${status || 'unknown'}`,
       );
     }
 
