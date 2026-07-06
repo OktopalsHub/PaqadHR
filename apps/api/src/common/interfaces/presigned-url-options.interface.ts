@@ -6,4 +6,5 @@ export interface PresignedUrlOptions {
   fileName: string;
   contentType?: string;
   expiresIn?: number;
+  public?: boolean;
 }

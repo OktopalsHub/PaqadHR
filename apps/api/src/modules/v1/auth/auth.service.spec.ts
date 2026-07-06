@@ -26,6 +26,12 @@ describe('AuthService', () => {
     create: jest.Mock;
   };
   let auditLogsService: jest.Mocked<Pick<AuditLogsService, 'queueAuditLog'>>;
+  let zeptomailEmailService: { sendTemplateEmail: jest.Mock };
+  let verificationRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    delete: jest.Mock;
+  };
 
   beforeEach(async () => {
     const mockUserRepository = {
@@ -76,6 +82,8 @@ describe('AuthService', () => {
     const mockZeptomailEmailService = {
       sendTemplateEmail: jest.fn().mockResolvedValue({ success: true }),
     };
+    zeptomailEmailService = mockZeptomailEmailService;
+    verificationRepository = mockVerificationRepository;
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -194,6 +202,50 @@ describe('AuthService', () => {
 
       expect(result).toBe(existingUser);
       expect(userRepository.findUserByEmail).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('never returns resetToken in the response', async () => {
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      const result = await authService.forgotPassword('nobody@example.com');
+
+      expect(result).toEqual({ message: 'If email exists, a reset link was sent' });
+      expect(result).not.toHaveProperty('resetToken');
+      expect(zeptomailEmailService.sendTemplateEmail).not.toHaveBeenCalled();
+    });
+
+    it('sends password-reset email when user exists', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com' } as User;
+      userRepository.findUserByEmail.mockResolvedValue(mockUser);
+      verificationRepository.create.mockImplementation((data) => data);
+      verificationRepository.save.mockResolvedValue(undefined);
+      verificationRepository.delete.mockResolvedValue(undefined);
+
+      const result = await authService.forgotPassword('test@example.com');
+
+      expect(result).not.toHaveProperty('resetToken');
+      expect(zeptomailEmailService.sendTemplateEmail).toHaveBeenCalledWith(
+        'test@example.com',
+        'password-reset',
+        expect.objectContaining({
+          resetLink: expect.stringContaining('/reset-password?token='),
+        }),
+      );
+    });
+
+    it('returns generic message when email send fails', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com' } as User;
+      userRepository.findUserByEmail.mockResolvedValue(mockUser);
+      verificationRepository.create.mockImplementation((data) => data);
+      verificationRepository.save.mockResolvedValue(undefined);
+      verificationRepository.delete.mockResolvedValue(undefined);
+      zeptomailEmailService.sendTemplateEmail.mockRejectedValue(new Error('provider down'));
+
+      const result = await authService.forgotPassword('test@example.com');
+
+      expect(result).toEqual({ message: 'If email exists, a reset link was sent' });
     });
   });
 });

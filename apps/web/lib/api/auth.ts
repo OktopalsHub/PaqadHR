@@ -1,28 +1,16 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
-import {
-  ApiError,
-  apiClient,
-  clearCsrfToken,
-  getAccessToken,
-  getRefreshToken,
-  setAccessToken,
-  setRefreshToken,
-} from '@/lib/api/client';
+import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
 import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
 
 type AuthResponse = {
+  /** Cookies are the session source of truth; body tokens are ignored by the web client. */
   accessToken?: string;
   refreshToken?: string;
   user: { id: string; email: string; role: string };
 };
-
-function storeAuthTokens(response: AuthResponse) {
-  if (response.accessToken) setAccessToken(response.accessToken);
-  if (response.refreshToken) setRefreshToken(response.refreshToken);
-}
 
 type ProfileResponse = {
   id: string;
@@ -65,7 +53,6 @@ export { invalidateSession };
 
 export async function getSession(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
-  if (!getAccessToken() && !getRefreshToken()) return null;
 
   try {
     const profile = await fetchProfile();
@@ -76,6 +63,7 @@ export async function getSession(): Promise<User | null> {
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       invalidateSession();
+      clearCsrfToken();
     }
     return null;
   }
@@ -91,7 +79,7 @@ export async function login(input: LoginInput): Promise<User> {
     skipCsrf: true,
   });
 
-  storeAuthTokens(response);
+  await bootstrapCsrf();
   const needsOnboarding = await syncTenantFromApi();
   const user = mapAuthUser(response.user, needsOnboarding);
   persistSession(user);
@@ -108,7 +96,7 @@ export async function register(input: SignupInput): Promise<User> {
     skipCsrf: true,
   });
 
-  storeAuthTokens(response);
+  await bootstrapCsrf();
   const user = mapAuthUser(response.user, true);
   persistSession(user);
   return user;
@@ -133,8 +121,19 @@ export async function requestPasswordReset(email: string): Promise<void> {
   });
 }
 
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  if (!token) throw new Error('Reset token is required');
+
+  await apiClient<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+    skipCsrf: true,
+  });
+}
+
 export function clearSession() {
   invalidateSession();
+  clearCsrfToken();
 }
 
 export type OtpPurpose = 'password_change' | 'payment_method';

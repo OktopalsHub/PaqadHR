@@ -27,6 +27,7 @@ import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guard
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import { TenantResponseDto, type UserTenantWithMembershipDto } from './dto/tenant-response.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdatePaymentCurrencyDto } from './dto/update-payment-currency.dto';
 import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')
@@ -61,13 +62,15 @@ export class TenantsController {
     return this.tenantsService.updateTenant(tenantId, updateTenantDto);
   }
   @Delete(':tenantId')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER)
   @HttpCode(204)
   async deleteTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     await this.tenantsService.deleteTenant(tenantId);
   }
   @Patch(':tenantId/restore')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER)
   async restoreTenant(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     return this.tenantsService.restoreTenant(tenantId);
   }
@@ -144,10 +147,11 @@ export class TenantsController {
     return this.tenantsService.getTenantBySlug(slug);
   }
   @Patch(':tenantId/payment-currency')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updatePaymentCurrency(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
-    @Body() body: { currency: string },
+    @Body() body: UpdatePaymentCurrencyDto,
   ) {
     const supportedCurrencies = [...getNombaPayoutCurrencies()];
     if (!supportedCurrencies.includes(body.currency.toUpperCase())) {

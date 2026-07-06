@@ -16,34 +16,34 @@ const CSRF_HEADER = 'x-csrf-token';
 let csrfToken: string | null = null;
 let csrfTokenPromise: Promise<string> | null = null;
 
-const ACCESS_TOKEN_KEY = 'paqad_access_token';
-const REFRESH_TOKEN_KEY = 'paqad_refresh_token';
+const LEGACY_ACCESS_TOKEN_KEY = 'paqad_access_token';
+const LEGACY_REFRESH_TOKEN_KEY = 'paqad_refresh_token';
 
-function writeToken(key: string, value: string | null) {
+/** Clears legacy localStorage JWT keys from before cookie-only auth. */
+export function clearLegacyAuthTokens(): void {
   if (typeof window === 'undefined') return;
-  if (value) window.localStorage.setItem(key, value);
-  else window.localStorage.removeItem(key);
+  window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(LEGACY_REFRESH_TOKEN_KEY);
 }
 
-function readToken(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(key);
+/** @deprecated Auth uses httpOnly cookies; kept for call-site compatibility. */
+export function setAccessToken(_token: string | null) {
+  clearLegacyAuthTokens();
 }
 
-export function setAccessToken(token: string | null) {
-  writeToken(ACCESS_TOKEN_KEY, token);
-}
-
+/** @deprecated Auth uses httpOnly cookies. */
 export function getAccessToken(): string | null {
-  return readToken(ACCESS_TOKEN_KEY);
+  return null;
 }
 
-export function setRefreshToken(token: string | null) {
-  writeToken(REFRESH_TOKEN_KEY, token);
+/** @deprecated Auth uses httpOnly cookies; kept for call-site compatibility. */
+export function setRefreshToken(_token: string | null) {
+  clearLegacyAuthTokens();
 }
 
+/** @deprecated Auth uses httpOnly cookies. */
 export function getRefreshToken(): string | null {
-  return readToken(REFRESH_TOKEN_KEY);
+  return null;
 }
 
 export class ApiError extends Error {
@@ -108,6 +108,7 @@ export async function ensureCsrfToken(force = false): Promise<string> {
 }
 
 export async function bootstrapCsrf(): Promise<void> {
+  clearLegacyAuthTokens();
   try {
     await ensureCsrfToken(true);
   } catch {}
@@ -127,6 +128,7 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/register',
   '/auth/refresh',
   '/auth/forgot-password',
+  '/auth/reset-password',
 ];
 
 function shouldAttemptAuthRefresh(path: string): boolean {
@@ -145,10 +147,6 @@ export async function fetchWithCsrf(
   const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   const headers = new Headers(init?.headers);
-  const token = getAccessToken();
-  if (token && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
   if (needsCsrf) {
     headers.set(CSRF_HEADER, await ensureCsrfToken());
   }
@@ -211,6 +209,7 @@ export async function apiClient<T>(
         return apiClient<T>(path, init, true);
       }
       invalidateSession();
+      clearCsrfToken();
     }
 
     throw new ApiError(message, response.status, payload?.code);

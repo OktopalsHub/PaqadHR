@@ -83,12 +83,20 @@ export class CloudflareR2Service {
     options: PresignedUrlOptions,
   ): Promise<{ uploadUrl: string; fileKey: string }> {
     const fileKey = this.generateFileKey(options.tenantId, options.location, options.fileName);
-    const command = new PutObjectCommand({
+    const commandInput: {
+      Bucket: string;
+      Key: string;
+      ContentType?: string;
+      ACL?: 'public-read';
+    } = {
       Bucket: this.bucketName,
       Key: fileKey,
       ContentType: options.contentType,
-      ACL: 'public-read',
-    });
+    };
+    if (options.public === true) {
+      commandInput.ACL = 'public-read';
+    }
+    const command = new PutObjectCommand(commandInput);
     try {
       const uploadUrl = await getSignedUrl(this.getClient(), command, {
         expiresIn: options.expiresIn || this.presignedUrlExpires,

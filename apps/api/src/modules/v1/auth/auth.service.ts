@@ -380,15 +380,35 @@ export class AuthService {
     });
   }
 
-  async forgotPassword(email: string) {
-    const user = await this.userRepository.findUserByEmail(email);
+  async forgotPassword(email: string, ip?: string) {
+    const normalizedEmail = StringUtility.trimAndLowerCase(email);
+    if (ip) {
+      const ipRate = await this.rateLimitService.checkRateLimit(`forgot-password-ip:${ip}`, {
+        rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 5 }],
+      });
+      if (!ipRate.allowed) {
+        throw new BadRequestException('Too many requests from this IP. Please try again later.');
+      }
+    }
+    const rate = await this.rateLimitService.checkRateLimit(
+      `forgot-password:${normalizedEmail}`,
+      { rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }] },
+    );
+    if (!rate.allowed) {
+      throw new BadRequestException(
+        `Too many reset requests. Try again in ${rate.retryAfter ?? 60}s`,
+      );
+    }
+
+    const user = await this.userRepository.findUserByEmail(normalizedEmail);
     if (!user) {
-      return { message: 'If email exists, a reset token was created' };
+      return { message: 'If email exists, a reset link was sent' };
     }
 
     const resetToken = randomUUID();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
+    await this.verificationRepository.delete({ identifier: `reset:${user.id}` });
     await this.verificationRepository.save(
       this.verificationRepository.create({
         identifier: `reset:${user.id}`,
@@ -397,10 +417,17 @@ export class AuthService {
       }),
     );
 
-    return {
-      message: 'If email exists, a reset token was created',
-      resetToken,
-    };
+    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const resetLink = `${frontendBase}/reset-password?token=${encodeURIComponent(resetToken)}`;
+    try {
+      await this.zeptomailEmailService.sendTemplateEmail(normalizedEmail, 'password-reset', {
+        resetLink,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${normalizedEmail}`, error);
+    }
+
+    return { message: 'If email exists, a reset link was sent' };
   }
 
   async resetPassword(token: string, newPassword: string) {

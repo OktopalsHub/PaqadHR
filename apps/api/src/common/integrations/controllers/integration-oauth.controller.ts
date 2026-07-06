@@ -22,6 +22,7 @@ import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import { TenantsService } from '../../../modules/v1/tenants/tenants.service';
 import type { OAuthStateData } from '../integration.types';
+import { verifyOAuthState } from '../oauth-state.util';
 import { ChannelManagementService } from '../services/channel-management.service';
 import { OAuthIntegrationService } from '../services/oauth-integration.service';
 import { PlatformIntegrationService } from '../services/platform-integration.service';
@@ -88,22 +89,11 @@ export class OAuthIntegrationController {
     }
     let stateData: OAuthStateData;
     try {
-      const decodedState = Buffer.from(state, 'base64').toString('utf-8');
-      if (decodedState.length > 1024) {
-        throw new BadRequestException('State data too large');
-      }
-      stateData = JSON.parse(decodedState) as OAuthStateData;
-      if (!stateData.tenantId || !stateData.platformType || !stateData.tenantMemberId) {
-        throw new BadRequestException('Missing required state fields');
-      }
-      const stateAge = Date.now() - (stateData.timestamp || 0);
-      if (stateAge > 600000) {
-        throw new BadRequestException('State expired');
-      }
+      stateData = verifyOAuthState(state);
       this.logger.debug('State validated successfully', {
         tenantId: stateData.tenantId,
         platform: stateData.platformType,
-        age: stateAge,
+        age: Date.now() - (stateData.timestamp || 0),
       });
     } catch (err) {
       this.logger.error('State validation failed', {
