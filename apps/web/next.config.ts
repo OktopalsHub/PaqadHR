@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.reloadly.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'paqadhr.com',
+        pathname: '/logo-*.png',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.r2.dev',
+        pathname: '/**',
+      },
     ],
   },
 };

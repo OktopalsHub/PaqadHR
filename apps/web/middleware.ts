@@ -1,15 +1,30 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { BRAND_ORIGIN } from '@/lib/brand';
 import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
 
 const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001').replace(/\/$/, '');
+const r2PublicOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
 
 function buildContentSecurityPolicy(nonce: string): string {
+  const imageSources = [
+    "'self'",
+    'data:',
+    'blob:',
+    BRAND_ORIGIN,
+    'https://images.unsplash.com',
+    'https://cdn.reloadly.com',
+    'https://*.r2.dev',
+  ];
+  if (r2PublicOrigin) {
+    imageSources.push(r2PublicOrigin);
+  }
+
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://images.unsplash.com https://cdn.reloadly.com",
+    `img-src ${imageSources.join(' ')}`,
     `connect-src 'self' ${apiOrigin} https://challenges.cloudflare.com`,
     'frame-src https://challenges.cloudflare.com',
     "frame-ancestors 'none'",
