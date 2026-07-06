@@ -88,7 +88,7 @@ export class ReloadlyWebhookService {
           type: ShoutoutPointTransactionType.REDEMPTION,
           points: pointsCost,
           runningBalance: updatedPoints.currentBalance,
-          description: `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId} — Reloadly transaction ${status.toLowerCase()}`,
+          description: `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
           createdBy: memberId,
         });
         await txRepo.save(refundTx);

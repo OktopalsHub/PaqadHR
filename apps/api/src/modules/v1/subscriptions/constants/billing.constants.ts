@@ -15,5 +15,7 @@ export const RENEWAL_GRACE_PERIOD_DAYS = 7;
 
 export const DUNNING_RETRY_INTERVALS_DAYS = [0, 2, 4, 6];
 
-/** Nomba requires non-zero checkout amount for card tokenization */
 export const CARD_UPDATE_VERIFY_AMOUNT = 100;
+
+/** Minimum Nomba charge for a non-zero prorated seat addition */
+export const MIN_SEAT_PRORATION_CHARGE = CARD_UPDATE_VERIFY_AMOUNT;

@@ -34,6 +34,7 @@ import {
 } from '../utils/nomba-billing-failure.util';
 import {
   calculatePerSeatTotal,
+  calculateProratedSeatCharge,
   isAmountWithinTolerance,
   normalizeWebhookAmount,
   resolveSeatCount,
@@ -397,8 +398,28 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const quantity = await this.getTenantSeatCount(tenantId);
-    if (subscription.currentUsers === quantity) return;
+    if (subscription.usageMetrics?.pendingSeatCount != null) {
+      return;
+    }
+
+    const liveSeats = await this.getTenantSeatCount(tenantId);
+    const billedSeats = subscription.currentUsers;
+
+    if (liveSeats === billedSeats) {
+      return;
+    }
+
+    if (liveSeats < billedSeats) {
+      subscription.currentUsers = liveSeats;
+      subscription.usageMetrics = {
+        ...(subscription.usageMetrics ?? {}),
+        pendingSeatCount: undefined,
+        pendingExtraSeats: undefined,
+        pendingChargeAmount: undefined,
+      };
+      await this.subscriptionRepository.save(subscription);
+      return;
+    }
 
     const planPrice =
       subscription.planPrice ??
@@ -417,24 +438,44 @@ export class SubscriptionBillingService {
       return;
     }
 
-    await this.nombaProvider.updateSubscription(
+    const extraSeats = liveSeats - billedSeats;
+    const { amount } = calculateProratedSeatCharge(
+      planPrice,
+      extraSeats,
+      subscription.currentPeriodStart,
+      subscription.currentPeriodEnd,
+    );
+
+    if (amount <= 0) {
+      subscription.currentUsers = liveSeats;
+      await this.subscriptionRepository.save(subscription);
+      return;
+    }
+
+    await this.nombaProvider.chargeSeatAddition(
       subscription.nombaSubscriptionId,
       planPrice,
-      quantity,
+      amount,
+      liveSeats,
+      extraSeats,
       subscription.paymentMethodId,
       billingEmail,
       {
         tenantId,
         planId: subscription.planId,
         planPriceId: subscription.planPriceId,
-        quantity,
+        quantity: liveSeats,
+        targetSeatCount: liveSeats,
+        extraSeats,
         billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
       },
     );
 
     subscription.usageMetrics = {
       ...(subscription.usageMetrics ?? {}),
-      pendingSeatCount: quantity,
+      pendingSeatCount: liveSeats,
+      pendingExtraSeats: extraSeats,
+      pendingChargeAmount: amount,
     };
     await this.subscriptionRepository.save(subscription);
   }
@@ -994,24 +1035,67 @@ export class SubscriptionBillingService {
 
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId: payment.tenantId },
+      relations: ['planPrice'],
     });
     if (!subscription) {
       return;
     }
 
-    const seatCount = resolveSeatCount(
-      payment.quantity ?? subscription.usageMetrics?.pendingSeatCount ?? subscription.currentUsers,
+    const planPrice =
+      subscription.planPrice ??
+      (await this.plansService.getPlanPriceById(subscription.planPriceId));
+    if (!planPrice) {
+      this.logger.warn(
+        `Quantity update webhook for tenant ${payment.tenantId}: plan price not found`,
+      );
+      return;
+    }
+
+    const targetSeatCount = resolveSeatCount(
+      payment.targetSeatCount ??
+        payment.quantity ??
+        subscription.usageMetrics?.pendingSeatCount ??
+        subscription.currentUsers,
     );
-    subscription.currentUsers = seatCount;
+    const extraSeats =
+      payment.extraSeats ??
+      subscription.usageMetrics?.pendingExtraSeats ??
+      Math.max(0, targetSeatCount - subscription.currentUsers);
+
+    const expectedAmount =
+      subscription.usageMetrics?.pendingChargeAmount ??
+      calculateProratedSeatCharge(
+        planPrice,
+        extraSeats,
+        subscription.currentPeriodStart,
+        subscription.currentPeriodEnd,
+      ).amount;
+
+    const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
+
+    if (
+      !Number.isFinite(normalizedPaid) ||
+      !isAmountWithinTolerance(normalizedPaid, expectedAmount)
+    ) {
+      this.logger.error(
+        `Quantity update amount mismatch for tenant ${payment.tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
+      );
+      throw new BadRequestException('Seat addition payment amount does not match server quote');
+    }
+
+    subscription.currentUsers = targetSeatCount;
     subscription.usageMetrics = {
       ...(subscription.usageMetrics ?? {}),
       pendingSeatCount: undefined,
+      pendingExtraSeats: undefined,
+      pendingChargeAmount: undefined,
     };
 
     await this.subscriptionRepository.save(subscription);
     await this.recordBillingEvent(payment.eventId, 'quantity_update_success', {
       ...payment,
-      quantity: seatCount,
+      quantity: targetSeatCount,
+      extraSeats,
     } as unknown as Record<string, unknown>);
   }
 
@@ -1032,6 +1116,8 @@ export class SubscriptionBillingService {
       subscription.usageMetrics = {
         ...(subscription.usageMetrics ?? {}),
         pendingSeatCount: undefined,
+        pendingExtraSeats: undefined,
+        pendingChargeAmount: undefined,
       };
       await this.subscriptionRepository.save(subscription);
       await this.recordBillingEvent(payment.eventId, 'quantity_update_failed', {

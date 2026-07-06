@@ -171,7 +171,7 @@ export class TenantWalletTopupService {
         paid,
         'DEPOSIT',
         input.orderReference,
-        'Rewards wallet top-up via Nomba checkout',
+        'Rewards wallet topped up',
         manager,
         { nombaEventId: input.orderReference },
       );

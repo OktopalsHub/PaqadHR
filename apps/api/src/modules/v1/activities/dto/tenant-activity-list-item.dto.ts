@@ -26,6 +26,19 @@ function formatMemberName(member: TenantActivity['actorMember']): string | null 
   return member.user?.email?.trim() ?? null;
 }
 
+const TENANT_HIDDEN_METADATA_KEYS = ['provider', 'paymentProvider'] as const;
+
+function sanitizeTenantActivityMetadata(
+  metadata: Record<string, unknown> | null,
+): Record<string, unknown> | null {
+  if (!metadata) return null;
+  const sanitized = { ...metadata };
+  for (const key of TENANT_HIDDEN_METADATA_KEYS) {
+    delete sanitized[key];
+  }
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
 export function toTenantActivityListItem(activity: TenantActivity): TenantActivityListItemDto {
   return {
     id: activity.id,
@@ -38,7 +51,7 @@ export function toTenantActivityListItem(activity: TenantActivity): TenantActivi
     description: activity.description,
     status: activity.status,
     severity: activity.severity,
-    metadata: activity.metadata,
+    metadata: sanitizeTenantActivityMetadata(activity.metadata),
     createdAt: activity.createdAt,
   };
 }

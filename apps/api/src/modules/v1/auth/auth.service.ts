@@ -157,11 +157,9 @@ export class AuthService {
     }
     if (!user.countryCode && !GeoLocationHelper.isLocalhost(ip)) {
       const countryCode = await GeoLocationHelper.getCountryCode(ip);
-      if (!countryCode) {
-        throw new BadRequestException('Unable to determine country code');
-      }
-      user.countryCode = countryCode;
-      await this.userRepository.update(user.id, { countryCode });
+      const stored = GeoLocationHelper.toStoredCountryCode(countryCode) ?? 'UNKNOWN';
+      user.countryCode = stored;
+      await this.userRepository.update(user.id, { countryCode: stored });
     }
 
     const session = await this.createSession(user.id);
@@ -186,6 +184,45 @@ export class AuthService {
     return tokens;
   }
 
+  private async resolveExistingUserOnRegister(user: User, password: string): Promise<User> {
+    if (!user.isActive) {
+      throw new UnauthorizedException('User account is inactive');
+    }
+
+    const credentialAccount = await this.accountRepository.findOne({
+      where: { userId: user.id, providerId: 'credential' },
+    });
+    const hashedPassword = credentialAccount?.password ?? user.password;
+
+    if (hashedPassword) {
+      if (!(await PasswordService.verifyPassword(hashedPassword, password))) {
+        throw new UnauthorizedException('Email or password not correct');
+      }
+      return user;
+    }
+
+    const googleAccount = await this.accountRepository.findOne({
+      where: { userId: user.id, providerId: 'google' },
+    });
+    if (!googleAccount) {
+      throw new UnprocessableEntityException(
+        'This email is already registered. Sign in with your existing method.',
+      );
+    }
+
+    const newHashedPassword = await PasswordService.hashPassword(password);
+    await this.accountRepository.save(
+      this.accountRepository.create({
+        userId: user.id,
+        providerId: 'credential',
+        password: newHashedPassword,
+      }),
+    );
+    await this.userRepository.update(user.id, { password: newHashedPassword });
+
+    return user;
+  }
+
   async register(
     email: string,
     password: string,
@@ -194,14 +231,42 @@ export class AuthService {
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
       const normalizedEmail = StringUtility.trimAndLowerCase(email);
-      const [hashedPassword, countryCode, emailExist] = await Promise.all([
+      const emailExist = await this.userRepository.findUserByEmail(normalizedEmail);
+      if (emailExist) {
+        const user = await this.resolveExistingUserOnRegister(emailExist, password);
+        let invitation: IInvitationResponseDto | { error: string } | null = null;
+        if (inviteToken) {
+          try {
+            const invitationResult = await this.invitationsService.acceptInvitation(
+              inviteToken,
+              user.email,
+              { password },
+            );
+            invitation = invitationResult.invitation;
+            if (!invitationResult.userExists && invitation) {
+              await this.tenantMembersService.createTenantMember(user.id, invitation.tenantId, {
+                firstName: invitation.firstName ?? undefined,
+                lastName: invitation.lastName ?? undefined,
+              });
+            }
+          } catch (error) {
+            if (error.name === 'NotFoundException') {
+              invitation = { error: 'Invalid or expired invitation token.' };
+            } else {
+              this.logger.error(
+                'Error processing invitation during registration',
+                error?.stack ? error.stack : error,
+              );
+            }
+          }
+        }
+        return { user, invitation };
+      }
+
+      const [hashedPassword, countryCode] = await Promise.all([
         PasswordService.hashPassword(password),
         GeoLocationHelper.getCountryCode(ip || ''),
-        this.userRepository.findUserByEmail(normalizedEmail),
       ]);
-      if (emailExist) {
-        throw new UnprocessableEntityException('Email already exists');
-      }
 
       const user = await this.userRepository.insertUser({
         email: normalizedEmail,
@@ -249,7 +314,7 @@ export class AuthService {
       return { user, invitation };
     } catch (error) {
       this.logger.error('Error during user registration:', error);
-      if (error instanceof UnprocessableEntityException) {
+      if (error instanceof UnprocessableEntityException || error instanceof UnauthorizedException) {
         throw error;
       }
       throw new UnprocessableEntityException('Registration failed. Please try again.');
@@ -271,6 +336,21 @@ export class AuthService {
     if (existingUser) {
       if (!existingUser.isActive) {
         throw new UnauthorizedException('User account is inactive');
+      }
+
+      const linkedGoogle = await this.accountRepository.findOne({
+        where: { userId: existingUser.id, providerId: 'google' },
+      });
+      if (linkedGoogle) {
+        if (linkedGoogle.accountId !== googleId) {
+          linkedGoogle.accountId = googleId;
+          await this.accountRepository.save(linkedGoogle);
+        }
+        if (!existingUser.emailVerified) {
+          await this.userRepository.update(existingUser.id, { emailVerified: true });
+          existingUser.emailVerified = true;
+        }
+        return existingUser;
       }
 
       await this.accountRepository.save(

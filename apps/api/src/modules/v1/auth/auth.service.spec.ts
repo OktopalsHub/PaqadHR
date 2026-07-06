@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -209,6 +209,25 @@ describe('AuthService', () => {
       expect(result).toBe(existingUser);
       expect(userRepository.findUserByEmail).not.toHaveBeenCalled();
     });
+
+    it('returns user when Google is already linked to an existing email account', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        emailVerified: true,
+      } as User;
+
+      accountRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'user-1', providerId: 'google', accountId: 'google-123' });
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+
+      const result = await authService.findOrCreateGoogleUser('google-123', 'test@example.com');
+
+      expect(result).toBe(existingUser);
+      expect(accountRepository.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('forgotPassword', () => {
@@ -356,6 +375,94 @@ describe('AuthService', () => {
       const result = await authService.forgotPassword('test@example.com');
 
       expect(result).toEqual({ message: 'If email exists, a reset link was sent' });
+    });
+  });
+
+  describe('register', () => {
+    it('returns the existing user when email and password match a credential account', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        password: 'hashedpassword',
+        isActive: true,
+        role: UserRole.BASIC,
+      } as User;
+
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+      accountRepository.findOne.mockResolvedValue({
+        userId: 'user-1',
+        providerId: 'credential',
+        password: 'hashedpassword',
+      });
+      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
+
+      const result = await authService.register('test@example.com', 'correctpassword', '127.0.0.1');
+
+      expect(result.user).toBe(existingUser);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects registration when the email exists but the password is wrong', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        password: 'hashedpassword',
+        isActive: true,
+      } as User;
+
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+      accountRepository.findOne.mockResolvedValue({
+        userId: 'user-1',
+        providerId: 'credential',
+        password: 'hashedpassword',
+      });
+      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
+
+      await expect(
+        authService.register('test@example.com', 'wrongpassword', '127.0.0.1'),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('links a password when the email belongs to a Google-only account', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        emailVerified: true,
+      } as User;
+
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+      accountRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ userId: 'user-1', providerId: 'google', accountId: 'google-123' });
+      jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('new-hash');
+
+      const result = await authService.register('test@example.com', 'newpassword123', '127.0.0.1');
+
+      expect(result.user).toBe(existingUser);
+      expect(accountRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          providerId: 'credential',
+          password: 'new-hash',
+        }),
+      );
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects registration when the email exists without a supported sign-in method', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+      } as User;
+
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+      accountRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+      await expect(
+        authService.register('test@example.com', 'password123', '127.0.0.1'),
+      ).rejects.toThrow(UnprocessableEntityException);
     });
   });
 });
