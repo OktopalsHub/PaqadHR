@@ -178,8 +178,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ? Number(res.processingFee)
                 : res.totalTenantDebit - res.currencyValue,
             );
-          } catch (e) {
-            console.error(e);
+          } catch (_e) {
             setCalculatedPoints(null);
             setAirtimeProcessingFee(null);
           } finally {
@@ -205,8 +204,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           setCalculatedPoints(res.pointsCost);
           setCalculatedValue(res.currencyValue);
           setCalculatedCurrency(res.currencyCode);
-        } catch (e) {
-          console.error(e);
+        } catch (_e) {
           setCalculatedPoints(null);
         } finally {
           setIsCalculatingPoints(false);
@@ -284,8 +282,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ? Number(res.processingFee)
                 : res.totalTenantDebit - res.currencyValue,
             );
-          } catch (e) {
-            console.error(e);
+          } catch (_e) {
             setUtilityPoints(null);
             setUtilityProcessingFee(null);
           } finally {
@@ -311,8 +308,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           setUtilityPoints(res.pointsCost);
           setUtilityCalculatedValue(res.currencyValue);
           setUtilityCalculatedCurrency(res.currencyCode);
-        } catch (e) {
-          console.error(e);
+        } catch (_e) {
           setUtilityPoints(null);
         } finally {
           setIsCalculatingUtilityPoints(false);
@@ -1761,5 +1757,5 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     return <div className="space-y-6">{content}</div>;
   }
 
-  return <AppPage className="w-full space-y-6 py-4 px-2 sm:px-6 lg:px-8">{content}</AppPage>;
+  return <AppPage className="w-full space-y-6">{content}</AppPage>;
 }

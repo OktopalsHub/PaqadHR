@@ -1,5 +1,10 @@
 import { redirect } from 'next/navigation';
 
-export default function SlackIntegrationPage({ params }: { params: { tenantSlug: string } }) {
-  redirect(`/${params.tenantSlug}/settings?tab=integrations`);
+export default async function SlackIntegrationPage({
+  params,
+}: {
+  params: Promise<{ tenantSlug: string }>;
+}) {
+  const { tenantSlug } = await params;
+  redirect(`/${tenantSlug}/settings?tab=integrations`);
 }

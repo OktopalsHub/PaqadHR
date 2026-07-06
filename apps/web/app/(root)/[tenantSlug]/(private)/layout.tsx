@@ -1,5 +1,6 @@
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ForgottenSessionModal } from '@/features/attendance/components/forgotten-session-modal';
+import { SubscriptionGate } from '@/features/billing/components/subscription-gate';
 import { AppGate } from '@/features/navigations/components/app-gate';
 import { AppSidebar } from '@/features/navigations/components/app-sidebar';
 import { AppTopBar } from '@/features/navigations/components/app-topbar';
@@ -14,16 +15,20 @@ export default function TenantLayout({
   return (
     <AppGate>
       <TenantSlugGate>
-        <SidebarProvider>
-          <BreadcrumbProvider>
-            <AppSidebar />
-            <SidebarInset className="min-h-svh bg-background">
-              <AppTopBar />
-              <main className="flex-1 overflow-y-auto px-4 py-4 md:px-5 md:py-5">{children}</main>
-            </SidebarInset>
-            <ForgottenSessionModal />
-          </BreadcrumbProvider>
-        </SidebarProvider>
+        <SubscriptionGate>
+          <SidebarProvider>
+            <BreadcrumbProvider>
+              <AppSidebar />
+              <SidebarInset className="min-h-svh bg-background">
+                <AppTopBar />
+                <main className="app-page-canvas flex-1 overflow-y-auto px-3 pb-3 pt-5 sm:px-4 sm:py-4 md:px-5 md:py-5 lg:px-6 lg:py-6">
+                  {children}
+                </main>
+              </SidebarInset>
+              <ForgottenSessionModal />
+            </BreadcrumbProvider>
+          </SidebarProvider>
+        </SubscriptionGate>
       </TenantSlugGate>
     </AppGate>
   );

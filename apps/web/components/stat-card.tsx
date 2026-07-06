@@ -23,35 +23,37 @@ export function StatCard({
   return (
     <article
       className={cn(
-        'app-card group rounded-xl p-4 transition-colors hover:border-primary/30',
+        'app-card group rounded-[8px] p-5 transition-colors hover:border-primary/20',
         className,
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#516079] dark:text-muted-foreground">
           {label}
         </p>
         <div
           className={cn(
-            'flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary',
+            'flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#e1ebff] text-[#35598e] shadow-sm dark:bg-slate-800 dark:text-blue-300',
             iconClassName,
           )}
         >
-          <Icon className="size-3.5" />
+          <Icon className="size-[18px]" />
         </div>
       </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight">{value}</p>
+      <p className="mt-3 text-[31px] font-semibold leading-none tracking-[-0.035em] text-slate-950 dark:text-foreground">
+        {value}
+      </p>
       {trend ? (
         <p
           className={cn(
-            'mt-1 text-xs font-medium',
+            'mt-2 text-sm font-medium',
             trend.positive ? 'text-primary' : 'text-muted-foreground',
           )}
         >
           {trend.value}
         </p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+        <p className="mt-2 text-sm text-slate-600 dark:text-muted-foreground">{hint}</p>
       ) : null}
     </article>
   );

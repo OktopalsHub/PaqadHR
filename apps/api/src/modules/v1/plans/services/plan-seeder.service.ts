@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, type OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DEFAULT_PLANS } from '../data/default-plans.data';
@@ -8,8 +8,6 @@ import { PlansService } from './plans.service';
 
 @Injectable()
 export class PlanSeederService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(PlanSeederService.name);
-
   constructor(
     @InjectRepository(Plan)
     private readonly planRepository: Repository<Plan>,
@@ -25,7 +23,6 @@ export class PlanSeederService implements OnApplicationBootstrap {
   }
 
   async seedPlans(): Promise<PlanPrice[]> {
-    this.logger.log('Seeding default HR plans...');
     const prices: PlanPrice[] = [];
 
     for (const planData of DEFAULT_PLANS) {
@@ -44,11 +41,9 @@ export class PlanSeederService implements OnApplicationBootstrap {
           regionalConfig: priceData.regionalConfig,
         });
         prices.push(price);
-        this.logger.log(`Seeded ${planData.name} (${priceData.countryCode}/${priceData.currency})`);
       }
     }
 
-    this.logger.log(`Successfully seeded ${prices.length} plan prices`);
     return prices;
   }
 }

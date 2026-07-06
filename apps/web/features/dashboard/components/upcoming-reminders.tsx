@@ -34,7 +34,12 @@ export function UpcomingReminders() {
 
   if (isLoading) {
     return (
-      <ContentCard title="Upcoming celebrations">
+      <ContentCard
+        title="Upcoming celebrations"
+        className="dashboard-panel rounded-[8px]"
+        headerClassName="border-b border-[#d7e3f6] px-5 py-4"
+        titleClassName="text-[17px] font-semibold text-slate-950"
+      >
         <LoadingBlock />
       </ContentCard>
     );
@@ -51,28 +56,46 @@ export function UpcomingReminders() {
   });
 
   return (
-    <ContentCard title="Upcoming celebrations" description="Birthdays and work anniversaries">
+    <ContentCard
+      title="Upcoming celebrations"
+      description="Birthdays and work anniversaries"
+      className="dashboard-panel rounded-[8px]"
+      headerClassName="border-b border-[#d7e3f6] px-5 py-4"
+      titleClassName="text-[17px] font-semibold text-slate-950"
+      descriptionClassName="text-sm text-slate-600"
+      bodyClassName="p-5"
+    >
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No upcoming celebrations.</p>
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center text-slate-500">
+          <Gift className="size-10 text-slate-400" />
+          <p className="text-sm">No upcoming celebrations.</p>
+        </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between gap-3 rounded-lg border border-border/60 p-3"
+              className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] p-3.5 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-2">
-                {item.type === 'birthday' ? (
-                  <Gift className="size-4 text-pink-500" />
-                ) : (
-                  <Calendar className="size-4 text-purple-500" />
-                )}
+                <div className="flex size-10 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
+                  {item.type === 'birthday' ? (
+                    <Gift className="size-4 text-[#dd6b20]" />
+                  ) : (
+                    <Calendar className="size-4 text-[#35598e]" />
+                  )}
+                </div>
                 <div>
-                  <p className="text-sm font-medium">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">{item.date}</p>
+                  <p className="text-sm font-medium text-slate-900">{item.title}</p>
+                  <p className="text-xs text-slate-600">{item.date}</p>
                 </div>
               </div>
-              <Badge variant="outline">{item.type}</Badge>
+              <Badge
+                variant="outline"
+                className="self-start rounded-full border-[#cad7ee] bg-white/70 px-2.5 py-1 text-[11px] capitalize text-slate-600 sm:self-auto"
+              >
+                {item.type}
+              </Badge>
             </div>
           ))}
         </div>

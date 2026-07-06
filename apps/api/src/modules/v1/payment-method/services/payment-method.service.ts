@@ -29,6 +29,7 @@ import { ManagerAccessService } from '../../../../common/services/manager-access
 import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
+import { AuthService } from '../../auth/auth.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {
@@ -62,6 +63,7 @@ export class PaymentMethodService {
     private readonly managerAccessService: ManagerAccessService,
     private readonly tenantConfigService: TenantConfigService,
     private readonly tenantsService: TenantsService,
+    private readonly authService: AuthService,
   ) {}
   async getAllowedCurrencies(tenantId: string): Promise<string[]> {
     try {
@@ -74,9 +76,11 @@ export class PaymentMethodService {
   async createPaymentMethod(
     tenantId: string,
     memberId: string,
+    userId: string,
     dto: CreatePaymentMethodDto,
   ): Promise<PaymentMethod> {
     try {
+      this.authService.assertOtpProof(dto.otpProof, userId, 'payment_method');
       await this.validatePaymentMethodData(dto);
       await this.assertCurrencyAllowed(tenantId, dto.currency);
       if (!dto.passcode) {
@@ -144,7 +148,6 @@ export class PaymentMethodService {
         PasscodeChangeReason.INITIAL_SETUP,
         'Initial passcode setup during payment method creation',
       );
-      this.logger.log(`Payment method created for member ${memberId}: ${savedMethod.id}`);
       return savedMethod;
     } catch (error) {
       this.logger.error('Error creating payment method:', error);
@@ -155,8 +158,10 @@ export class PaymentMethodService {
     paymentMethodId: string,
     tenantId: string,
     memberId: string,
+    userId: string,
     dto: UpdatePaymentMethodDto,
   ): Promise<PaymentMethod> {
+    this.authService.assertOtpProof(dto.otpProof, userId, 'payment_method');
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: paymentMethodId, tenantId, memberId },
     });
@@ -231,10 +236,8 @@ export class PaymentMethodService {
         PasscodeChangeReason.USER_REQUESTED,
         'Passcode changed during payment method update',
       );
-      this.logger.log(`Passcode changed for payment method ${paymentMethodId}`);
     }
     const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
-    this.logger.log(`Payment method updated: ${paymentMethodId}`);
     return updatedMethod;
   }
   async changePasscode(
@@ -264,7 +267,6 @@ export class PaymentMethodService {
       PasscodeChangeReason.USER_REQUESTED,
       'Passcode changed via dedicated passcode change endpoint',
     );
-    this.logger.log(`Passcode changed for payment method ${paymentMethodId}`);
   }
   async getPaymentMethods(
     tenantId: string,
@@ -335,7 +337,6 @@ export class PaymentMethodService {
     paymentMethod.passcodeHash = null;
     paymentMethod.isPrimary = false;
     await this.paymentMethodRepository.save(paymentMethod);
-    this.logger.log(`Payment method deleted: ${paymentMethodId}`);
   }
   async verifyPaymentMethod(
     paymentMethodId: string,
@@ -363,7 +364,6 @@ export class PaymentMethodService {
       resourceId: paymentMethodId,
       tenantId: paymentMethod.tenantId,
     });
-    this.logger.log(`Payment method ${status}: ${paymentMethodId}`);
     return updatedMethod;
   }
   async recordPaymentMethodUsage(paymentMethodId: string): Promise<void> {
@@ -739,7 +739,6 @@ export class PaymentMethodService {
           reason === PasscodeChangeReason.ADMIN_RESET,
       });
       await this.passcodeHistoryRepository.save(passcodeHistory);
-      this.logger.log(`Passcode change tracked for payment method ${paymentMethodId}: ${reason}`);
     } catch (error) {
       this.logger.error(
         `Error tracking passcode change for payment method ${paymentMethodId}:`,

@@ -41,6 +41,7 @@ export function AcceptInvitePage() {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [preferredName, setPreferredName] = useState('');
   const [password, setPassword] = useState('');
   const autoAcceptStarted = useRef(false);
 
@@ -98,6 +99,7 @@ export function AcceptInvitePage() {
         password: details?.userExists ? undefined : password,
         firstName: details?.userExists ? undefined : firstName.trim(),
         lastName: details?.userExists ? undefined : lastName.trim(),
+        preferredName: details?.userExists ? undefined : preferredName.trim() || undefined,
       });
 
       if (!details?.userExists) {
@@ -123,6 +125,7 @@ export function AcceptInvitePage() {
     password,
     firstName,
     lastName,
+    preferredName,
     isAuthenticated,
     user?.email,
     redirectToWorkspace,
@@ -144,8 +147,8 @@ export function AcceptInvitePage() {
       .then((data) => {
         if (cancelled) return;
         setDetails(data);
-        setFirstName(data.firstName ?? '');
-        setLastName(data.lastName ?? '');
+        if (data.firstName?.trim()) setFirstName(data.firstName.trim());
+        if (data.lastName?.trim()) setLastName(data.lastName.trim());
       })
       .catch((err) => {
         if (cancelled) return;
@@ -242,6 +245,9 @@ export function AcceptInvitePage() {
 
       {!details.userExists ? (
         <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Set up your profile to join {details.tenantName}.
+          </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="firstName">First name</Label>
@@ -261,6 +267,18 @@ export function AcceptInvitePage() {
                 autoComplete="family-name"
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="preferredName">
+              Preferred name <span className="font-normal text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="preferredName"
+              value={preferredName}
+              onChange={(event) => setPreferredName(event.target.value)}
+              placeholder="How you'd like to be called"
+              autoComplete="nickname"
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Create password</Label>

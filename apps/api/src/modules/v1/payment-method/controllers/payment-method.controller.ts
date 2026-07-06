@@ -5,7 +5,6 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  Logger,
   Param,
   Post,
   Put,
@@ -29,7 +28,6 @@ import { PaymentMethodService } from '../services/payment-method.service';
 @ApiTags('Payment Methods')
 @Controller('tenants/:tenantId/payment-methods')
 export class PaymentMethodController {
-  private readonly logger = new Logger(PaymentMethodController.name);
   constructor(private readonly paymentMethodService: PaymentMethodService) {}
   @Post()
   @UseGuards(TenantMemberGuard)
@@ -69,8 +67,7 @@ export class PaymentMethodController {
     @Body() dto: CreatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Creating payment method for member ${member.id} in tenant ${tenantId}`);
-    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, dto);
+    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, member.userId, dto);
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -150,8 +147,13 @@ export class PaymentMethodController {
     @Body() dto: UpdatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Updating payment method ${paymentMethodId} for member ${member.id}`);
-    return this.paymentMethodService.updatePaymentMethod(paymentMethodId, tenantId, member.id, dto);
+    return this.paymentMethodService.updatePaymentMethod(
+      paymentMethodId,
+      tenantId,
+      member.id,
+      member.userId,
+      dto,
+    );
   }
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)
@@ -177,7 +179,6 @@ export class PaymentMethodController {
     @Body() dto: PasscodeChangeDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Changing passcode for payment method ${paymentMethodId}`);
     await this.paymentMethodService.changePasscode(paymentMethodId, tenantId, member.id, dto);
   }
   @Delete(':paymentMethodId')
@@ -209,7 +210,6 @@ export class PaymentMethodController {
     @Body() body: { passcode?: string },
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Deleting payment method ${paymentMethodId} for member ${member.id}`);
     await this.paymentMethodService.deletePaymentMethod(
       paymentMethodId,
       tenantId,
@@ -241,7 +241,6 @@ export class PaymentMethodController {
     @Param('memberId') memberId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Accessing payment method for member ${memberId} in tenant ${tenantId}`);
     return this.paymentMethodService.findByMemberIdForRequester(
       tenantId,
       memberId,
@@ -261,7 +260,6 @@ export class PaymentMethodController {
     @Param('id') id: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.logger.log(`Accessing payment method ${id} in tenant ${tenantId}`);
     return this.paymentMethodService.findByIdForMember(tenantId, id, member.id, member.role);
   }
   @Get('admin/pending')
@@ -295,7 +293,6 @@ export class PaymentMethodController {
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: PaymentMethodStatus; notes?: string },
   ) {
-    this.logger.log(`Admin verifying payment method ${paymentMethodId} with status ${body.status}`);
     return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, body.status, body.notes);
   }
   @Get(':paymentMethodId/passcode-history')

@@ -118,12 +118,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
   async paginate(
     options: FindManyOptions<PayrollRun>,
   ): Promise<{ data: PayrollRun[]; total: number }> {
-    try {
-      const [data, total] = await this.payrollRunRepository.findAndCount(options);
-      return { data, total };
-    } catch (error) {
-      console.error('Payroll pagination error:', error);
-      throw error;
-    }
+    const [data, total] = await this.payrollRunRepository.findAndCount(options);
+    return { data, total };
   }
 }

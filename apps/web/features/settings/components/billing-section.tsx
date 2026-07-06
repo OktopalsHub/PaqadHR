@@ -201,7 +201,7 @@ export function BillingSection() {
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
     try {
-      const result = await checkout.mutateAsync(planSlug);
+      const result = await checkout.mutateAsync({ planSlug });
       window.location.assign(result.checkoutUrl);
     } finally {
       setCheckoutPlan(null);
@@ -492,7 +492,7 @@ export function BillingSection() {
               return (
                 <div
                   key={plan.planPriceId}
-                  className="app-card rounded-xl border p-4 transition-all hover:border-primary/50 hover:shadow-sm"
+                  className="app-card border p-4 transition-all hover:border-primary/50 hover:shadow-sm"
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div>

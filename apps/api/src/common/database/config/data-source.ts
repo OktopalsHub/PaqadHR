@@ -90,6 +90,7 @@ const AppDataSource = {
     Migrations.WalletTransactionReferenceScope1782921523406,
     Migrations.DropAssetManagement1783110763106,
     Migrations.DropPayrollAuditLogsCreateTenantActivities1783160913090,
+    Migrations.InvitationNamesNullable1783258356100,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
@@ -111,7 +112,6 @@ export async function waitForDatabase(maxRetries = 30, retryIntervalMs = 1000): 
       return;
     } catch (error: unknown) {
       if (i === maxRetries) throw error;
-      console.log(`[Nest] Waiting for database... (${i}/${maxRetries})`);
       await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
     }
   }

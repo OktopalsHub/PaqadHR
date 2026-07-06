@@ -224,6 +224,9 @@ export class TenantMembersService {
   async checkUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberRepository.findByUserAndTenantId(userId, tenantId);
   }
+  async findUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember | null> {
+    return this.tenantMemberRepository.findMembershipByUserAndTenant(userId, tenantId);
+  }
   async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
     return this.tenantMemberRepository.countUserInTenant(userId, tenantId);
   }
@@ -329,7 +332,6 @@ export class TenantMembersService {
         id: `inv_${Date.now()}_${randomBytes(8).toString('hex')}`,
         ...invitationData,
       };
-      this.logger.log(`Invitation created for ${inviteData.email} to tenant ${tenantId}`);
       if (inviteData.sendWelcomeEmail && this.emailQueueService) {
         try {
           const inviteLink = `${process.env.FRONTEND_URL || 'https://app.teamlyf.com'}/accept-invitation/${invitation.id}`;
@@ -339,9 +341,8 @@ export class TenantMembersService {
             tenantId,
             inviteLink,
           );
-          this.logger.log(`Invitation email sent to ${inviteData.email}`);
         } catch (emailError) {
-          this.logger.error(`Failed to send invitation email to ${inviteData.email}:`, emailError);
+          this.logger.error('Failed to send invitation email', emailError);
         }
       }
       return invitation;

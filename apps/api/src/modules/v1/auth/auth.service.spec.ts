@@ -2,10 +2,12 @@ import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService } from 'src/common/utils';
 import { UserRole } from '../../../common/enums';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
+import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
@@ -18,7 +20,11 @@ import { Verification } from './entities/verification.entity';
 describe('AuthService', () => {
   let authService: AuthService;
   let userRepository: jest.Mocked<UserRepository>;
-  let accountRepository: { findOne: jest.Mock };
+  let accountRepository: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    create: jest.Mock;
+  };
   let auditLogsService: jest.Mocked<Pick<AuditLogsService, 'queueAuditLog'>>;
 
   beforeEach(async () => {
@@ -35,6 +41,8 @@ describe('AuthService', () => {
     };
     accountRepository = {
       findOne: jest.fn(),
+      save: jest.fn().mockImplementation(async (account) => account),
+      create: jest.fn().mockImplementation((data) => data),
     };
     const mockSessionRepository = {
       create: jest.fn(),
@@ -61,6 +69,13 @@ describe('AuthService', () => {
     const mockAuditLogsService = {
       queueAuditLog: jest.fn(),
     };
+    const mockRateLimitService = {
+      checkRateLimit: jest.fn().mockResolvedValue({ allowed: true, remaining: 3, resetTime: 0 }),
+      clearRateLimit: jest.fn(),
+    };
+    const mockZeptomailEmailService = {
+      sendTemplateEmail: jest.fn().mockResolvedValue({ success: true }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -76,6 +91,8 @@ describe('AuthService', () => {
         { provide: TenantMembersService, useValue: mockTenantMembersService },
         { provide: TenantsService, useValue: mockTenantsService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
+        { provide: RateLimitService, useValue: mockRateLimitService },
+        { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
       ],
     }).compile();
     authService = module.get<AuthService>(AuthService);
@@ -140,6 +157,43 @@ describe('AuthService', () => {
           description: 'Invalid email or password',
         }),
       );
+    });
+  });
+
+  describe('findOrCreateGoogleUser', () => {
+    it('links Google to an existing credential user with the same email', async () => {
+      const existingUser = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        emailVerified: false,
+      } as User;
+
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(existingUser);
+      userRepository.update.mockResolvedValue({ affected: 1, raw: [], generatedMaps: [] });
+
+      const result = await authService.findOrCreateGoogleUser('google-123', 'test@example.com');
+
+      expect(result).toBe(existingUser);
+      expect(accountRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-1',
+          providerId: 'google',
+          accountId: 'google-123',
+        }),
+      );
+      expect(userRepository.update).toHaveBeenCalledWith('user-1', { emailVerified: true });
+    });
+
+    it('returns user when Google account is already linked', async () => {
+      const existingUser = { id: 'user-1', email: 'test@example.com', isActive: true } as User;
+      accountRepository.findOne.mockResolvedValue({ user: existingUser });
+
+      const result = await authService.findOrCreateGoogleUser('google-123', 'test@example.com');
+
+      expect(result).toBe(existingUser);
+      expect(userRepository.findUserByEmail).not.toHaveBeenCalled();
     });
   });
 });

@@ -69,6 +69,7 @@ export function useAssignPointsToAll() {
         queryKey: [...queryKeys.settings.membersPoints, tenantId],
       });
       void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.shoutouts.points(tenantId ?? '') });
     },
   });
 }

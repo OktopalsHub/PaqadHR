@@ -105,14 +105,7 @@ export class SubscriptionBillingService {
       .sort((a, b) => a.name.localeCompare(b.name));
 
     const sub = billingStatus.subscription;
-    const needsPayment =
-      !sub ||
-      sub.status === SubscriptionStatus.EXPIRED ||
-      sub.status === SubscriptionStatus.PAST_DUE ||
-      sub.status === SubscriptionStatus.SUSPENDED ||
-      sub.status === SubscriptionStatus.INACTIVE ||
-      sub.status === SubscriptionStatus.CANCELLED ||
-      (sub.status === SubscriptionStatus.TRIAL && sub.daysRemaining === 0);
+    const needsPayment = this.subscriptionsService.computeNeedsPayment(sub);
 
     const billingHistory = (subscription?.billingHistory ?? []).map((entry) => ({
       date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
@@ -817,7 +810,6 @@ export class SubscriptionBillingService {
     }
 
     if (await this.hasProcessedEvent(payment.eventId)) {
-      this.logger.log(`Skipping duplicate Nomba billing event ${payment.eventId}`);
       return;
     }
 
@@ -936,8 +928,6 @@ export class SubscriptionBillingService {
         }),
       );
     });
-
-    this.logger.log(`Activated subscription for tenant ${payment.tenantId} via Nomba`);
   }
 
   private async processCardUpdateSuccess(payment: SubscriptionWebhookPayment): Promise<void> {
@@ -971,8 +961,6 @@ export class SubscriptionBillingService {
       tenantId: payment.tenantId,
       reference: payment.reference,
     });
-
-    this.logger.log(`Updated payment method for tenant ${payment.tenantId}`);
   }
 
   private async processRenewalPaymentSuccess(payment: SubscriptionWebhookPayment): Promise<void> {
@@ -981,7 +969,6 @@ export class SubscriptionBillingService {
     }
 
     if (await this.hasProcessedEvent(payment.eventId)) {
-      this.logger.log(`Skipping duplicate Nomba renewal event ${payment.eventId}`);
       return;
     }
 
@@ -991,7 +978,6 @@ export class SubscriptionBillingService {
     }
 
     await this.applyRenewalSuccess(payment.tenantId, payment);
-    this.logger.log(`Renewed subscription for tenant ${payment.tenantId} via Nomba webhook`);
   }
 
   private async processQuantityUpdatePaymentSuccess(

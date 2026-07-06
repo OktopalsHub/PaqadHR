@@ -51,9 +51,6 @@ export class FileService {
         expiresIn: expires,
       });
       const expiresAt = new Date(Date.now() + expires * 1000);
-      this.logger.log(
-        `Generated upload URL for file: ${sanitizedOriginalName} at location: ${location}`,
-      );
       return {
         uploadUrl,
         fileKey,
@@ -130,7 +127,6 @@ export class FileService {
     const fileKey = this.generateFileKey(tenantId, location, fileName);
     try {
       await this.r2Service.deleteFile(fileKey);
-      this.logger.log(`Deleted file: ${fileName} from location: ${location}`);
     } catch (error) {
       this.logger.error(`Failed to delete file: ${fileName}`, error);
       throw new BadRequestException('Failed to delete file');

@@ -35,7 +35,6 @@ import {
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useWalletTopupCheckout,
-  useWalletTransactions,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { syncRewardsCatalog } from '@/lib/api/rewards';
@@ -74,7 +73,6 @@ export function SettingsRewardsTab() {
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
   const { data: billingOverview } = useBillingOverview();
-  const { data: walletTransactions = [] } = useWalletTransactions();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
   const createReward = useCreateCustomReward();
@@ -379,36 +377,6 @@ export function SettingsRewardsTab() {
               </Button>
             </div>
           </div>
-
-          {walletTransactions.length > 0 ? (
-            <div className="rounded-2xl border bg-background/50 p-5 space-y-3">
-              <h4 className="text-sm font-semibold text-foreground">Wallet activity</h4>
-              <div className="divide-y divide-border/60 rounded-xl border">
-                {walletTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-xs"
-                  >
-                    <div>
-                      <p className="font-medium capitalize">{tx.type.toLowerCase()}</p>
-                      <p className="text-muted-foreground">
-                        {tx.description || tx.reference || '—'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold tabular-nums">
-                        {Number(tx.amount) >= 0 ? '+' : ''}
-                        {wallet?.currencyCode ?? 'NGN'} {Number(tx.amount).toLocaleString()}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : ''}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       </ContentCard>
 

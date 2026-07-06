@@ -221,8 +221,6 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     };
     if (error) {
       this.logger.error(`Transaction ${action} failed:`, logData);
-    } else {
-      this.logger.log(`Transaction ${action}:`, logData);
     }
   }
 }

@@ -6,10 +6,10 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:clean": "rm -rf .next/dev/cache/turbopack .turbo && next dev --turbopack",
+    "dev": "next dev --webpack",
+    "dev:clean": "rm -rf .next .turbo && next dev --webpack",
     "clean": "rm -rf .next .turbo",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "biome check .",
     "check": "biome check .",

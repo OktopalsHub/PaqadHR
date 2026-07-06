@@ -7,7 +7,6 @@ import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { PageActions } from '@/components/page-actions';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -80,16 +79,18 @@ function PayrollRunRow({
 }) {
   return (
     <div
-      className={`flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ${
-        selected ? 'border-primary bg-primary/5' : 'border-border/60 bg-muted/20'
+      className={`dashboard-soft-tile flex flex-col gap-4 rounded-[8px] border p-4 transition-colors sm:flex-row sm:items-center sm:justify-between ${
+        selected
+          ? 'border-[#c7d7f1] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900/85'
+          : 'border-[#d7e3f6] bg-white/70 dark:border-slate-800 dark:bg-slate-950/45'
       }`}
     >
       <button type="button" className="space-y-1 text-left" onClick={() => onSelect(run.id)}>
         <div className="flex items-center gap-2">
-          <p className="font-medium">{run.title}</p>
+          <p className="font-medium text-slate-950 dark:text-slate-100">{run.title}</p>
           <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           {formatDate(run.periodStart)} – {formatDate(run.periodEnd)} · {run.baseCurrency}
           {run.totalNetAmount != null
             ? ` · Net ${Number(run.totalNetAmount).toLocaleString()}`
@@ -101,6 +102,7 @@ function PayrollRunRow({
           <Button
             size="sm"
             variant="outline"
+            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
             disabled={busy}
             onClick={() => onAction('calculate', run.id)}
           >
@@ -111,6 +113,7 @@ function PayrollRunRow({
           <Button
             size="sm"
             variant="outline"
+            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
             disabled={busy}
             onClick={() => onAction('approve', run.id)}
           >
@@ -119,13 +122,19 @@ function PayrollRunRow({
         ) : null}
         {isAdmin && run.status === 'approved' ? (
           <>
-            <Button size="sm" disabled={busy} onClick={() => onAction('disburse', run.id)}>
+            <Button
+              size="sm"
+              variant="brandSolid"
+              disabled={busy}
+              onClick={() => onAction('disburse', run.id)}
+            >
               Mark paid
             </Button>
             {payrollGatewayEnabled ? (
               <Button
                 size="sm"
                 variant="secondary"
+                className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                 disabled={busy}
                 onClick={() => onAction('process', run.id)}
               >
@@ -138,6 +147,7 @@ function PayrollRunRow({
           <Button
             size="sm"
             variant="outline"
+            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
             disabled={busy}
             onClick={() => onAction('export', run.id)}
           >
@@ -279,7 +289,7 @@ export function PayrollPage() {
 
   if (isLoading) {
     return (
-      <AppPage>
+      <AppPage className="mx-auto w-full max-w-7xl">
         <LoadingBlock />
       </AppPage>
     );
@@ -287,7 +297,7 @@ export function PayrollPage() {
 
   if (isError) {
     return (
-      <AppPage>
+      <AppPage className="mx-auto w-full max-w-7xl">
         <Alert variant="destructive">
           <AlertTitle>Unable to load payroll</AlertTitle>
           <AlertDescription>
@@ -311,84 +321,107 @@ export function PayrollPage() {
   const canManagePayroll = canViewTeamPayroll(viewerMemberId, employees, role);
 
   return (
-    <AppPage>
-      {isAdmin && activeTab === 'runs' ? (
-        <PageActions>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-8 rounded-lg text-xs">
-                <Plus className="mr-1.5 size-3.5" />
-                New run
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create payroll run</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label>Title</Label>
-                  <Input
-                    placeholder="March 2026 payroll"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div className="space-y-2">
-                    <Label>Period start</Label>
-                    <Input
-                      type="date"
-                      value={periodStart}
-                      onChange={(e) => setPeriodStart(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Period end</Label>
-                    <Input
-                      type="date"
-                      value={periodEnd}
-                      onChange={(e) => setPeriodEnd(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Payment date</Label>
-                    <Input
-                      type="date"
-                      value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Currency</Label>
-                  <Select value={baseCurrency} onValueChange={setBaseCurrency}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {fiatCurrencies.map((code) => (
-                        <SelectItem key={code} value={code}>
-                          {code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button className="w-full" disabled={createRun.isPending} onClick={handleCreate}>
-                  Create run
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </PageActions>
-      ) : null}
+    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="overflow-x-auto pb-1">
+            <TabsList className="inline-flex h-auto min-w-max flex-nowrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
+              <TabsTrigger
+                value="runs"
+                className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+              >
+                Runs
+              </TabsTrigger>
+              {isAdmin && (
+                <TabsTrigger
+                  value="salaries"
+                  className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+                >
+                  Salaries
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="runs">Runs</TabsTrigger>
-          {isAdmin && <TabsTrigger value="salaries">Salaries</TabsTrigger>}
-        </TabsList>
+          {isAdmin && activeTab === 'runs' ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button variant="brandSolid" size="app" className="w-full sm:w-max">
+                  <Plus className="size-4" />
+                  New run
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create payroll run</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      placeholder="March 2026 payroll"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label>Period start</Label>
+                      <Input
+                        type="date"
+                        value={periodStart}
+                        onChange={(e) => setPeriodStart(e.target.value)}
+                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Period end</Label>
+                      <Input
+                        type="date"
+                        value={periodEnd}
+                        onChange={(e) => setPeriodEnd(e.target.value)}
+                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Payment date</Label>
+                      <Input
+                        type="date"
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
+                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Currency</Label>
+                    <Select value={baseCurrency} onValueChange={setBaseCurrency}>
+                      <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fiatCurrencies.map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="brandSolid"
+                    className="w-full"
+                    disabled={createRun.isPending}
+                    onClick={handleCreate}
+                  >
+                    Create run
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          ) : null}
+        </div>
 
         <TabsContent value="runs" className="space-y-6 mt-0">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -436,6 +469,7 @@ export function PayrollPage() {
                 ? 'Calculate, review payment readiness, approve, and disburse salaries'
                 : 'Review and publish payslips for your direct reports'
             }
+            className="dashboard-panel rounded-[8px]"
             bodyClassName="space-y-3"
           >
             {runs.length === 0 ? (
@@ -447,6 +481,7 @@ export function PayrollPage() {
                     ? ''
                     : 'Only admins and managers with direct reports can access payroll runs.'
                 }
+                className="min-h-[260px] bg-white dark:bg-slate-950/60"
               />
             ) : (
               runs.map((run) => (
@@ -465,7 +500,11 @@ export function PayrollPage() {
           </ContentCard>
 
           {selectedRunId ? (
-            <ContentCard title="Run detail" description="Review lines, bonuses, and payslips">
+            <ContentCard
+              title="Run detail"
+              description="Review lines, bonuses, and payslips"
+              className="dashboard-panel rounded-[8px]"
+            >
               <PayrollRunDetail
                 runId={selectedRunId}
                 payrollGatewayEnabled={payrollGatewayEnabled}
@@ -478,22 +517,25 @@ export function PayrollPage() {
             <ContentCard
               title="Employee payment readiness"
               description={`${readiness.readyCount} ready · ${readiness.notReadyCount} need attention`}
+              className="dashboard-panel rounded-[8px]"
               bodyClassName="space-y-3"
             >
               {readiness.items.map((item) => (
                 <div
                   key={item.itemId}
-                  className="flex flex-col gap-3 rounded-lg border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{item.employeeName}</p>
+                      <p className="font-medium text-slate-950 dark:text-slate-100">
+                        {item.employeeName}
+                      </p>
                       <Badge variant={item.ready ? 'default' : 'destructive'}>
                         {item.ready ? 'Ready' : 'Will miss payment'}
                       </Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground">{item.message}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-slate-500 dark:text-slate-400">{item.message}</p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
                       Net {item.netAmount.toLocaleString()} {readiness.currency}
                     </p>
                   </div>
@@ -502,6 +544,7 @@ export function PayrollPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
                         disabled={busy}
                         onClick={() => handleNotify(selectedRunId, item.itemId)}
                       >
@@ -526,6 +569,7 @@ export function PayrollPage() {
             <ContentCard
               title="Verify payment details"
               description="Approve employee bank accounts before payroll can pay them"
+              className="dashboard-panel rounded-[8px]"
             >
               <PaymentAdminSection />
             </ContentCard>

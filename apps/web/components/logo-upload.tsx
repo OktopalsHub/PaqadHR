@@ -58,16 +58,24 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
   };
 
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
       <OrgAvatar
         src={displaySrc}
         name={name || 'Workspace'}
-        className={cn('size-20 rounded-xl')}
+        className={cn(
+          'size-24 rounded-[8px] border border-[#d7e3f6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950/70',
+        )}
+        fallbackClassName="bg-white text-slate-500 dark:bg-slate-950 dark:text-slate-300"
         iconFallback={!displaySrc}
       />
 
       <div className="space-y-2">
-        <p className="text-2xl font-semibold">{name || 'Workspace'}</p>
+        <p className="text-[28px] font-semibold tracking-tight text-slate-950 dark:text-slate-50">
+          {name || 'Workspace'}
+        </p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Upload a square logo to keep branding consistent across the workspace.
+        </p>
         {!disabled ? (
           <>
             <input
@@ -93,7 +101,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
             </Button>
           </>
         ) : (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Only admins can change the workspace logo.
           </p>
         )}

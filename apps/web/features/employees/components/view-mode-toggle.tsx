@@ -1,32 +1,46 @@
 'use client';
+
 import { LayoutGrid, LayoutList } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { ViewMode } from '../types/';
 
 interface ViewModeToggleProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  className?: string;
 }
 
-export const ViewModeToggle = ({ viewMode, onViewModeChange }: ViewModeToggleProps) => {
+export const ViewModeToggle = ({ viewMode, onViewModeChange, className }: ViewModeToggleProps) => {
   return (
-    <div className="flex justify-end space-x-2 mb-4">
-      <Button
-        variant={viewMode === 'list' ? 'default' : 'outline'}
-        size="icon"
-        onClick={() => onViewModeChange('list')}
-      >
-        <LayoutList size={16} />
-        <span className="sr-only">List view</span>
-      </Button>
-      <Button
-        variant={viewMode === 'card' ? 'default' : 'outline'}
-        size="icon"
-        onClick={() => onViewModeChange('card')}
-      >
-        <LayoutGrid size={16} />
-        <span className="sr-only">Card view</span>
-      </Button>
+    <div className={cn('flex justify-end', className)}>
+      <div className="flex h-10 items-center overflow-hidden rounded-[8px] border border-slate-200 bg-white">
+        <button
+          type="button"
+          className={cn(
+            'flex h-full w-10 items-center justify-center p-2 transition-colors',
+            viewMode === 'list'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-white text-slate-400 hover:bg-slate-50',
+          )}
+          onClick={() => onViewModeChange('list')}
+        >
+          <LayoutList size={20} />
+          <span className="sr-only">List view</span>
+        </button>
+        <button
+          type="button"
+          className={cn(
+            'flex h-full w-10 items-center justify-center p-2 transition-colors',
+            viewMode === 'card'
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-white text-slate-400 hover:bg-slate-50',
+          )}
+          onClick={() => onViewModeChange('card')}
+        >
+          <LayoutGrid size={20} />
+          <span className="sr-only">Card view</span>
+        </button>
+      </div>
     </div>
   );
 };

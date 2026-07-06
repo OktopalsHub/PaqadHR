@@ -62,7 +62,12 @@ export const Teams = ({
     <AppPage>
       {!hidePageActions && (
         <PageActions>
-          <Button className="gap-2 rounded-lg" size="sm" onClick={() => setCreateOpen(true)}>
+          <Button
+            variant="brandSolid"
+            size="app"
+            className="gap-2"
+            onClick={() => setCreateOpen(true)}
+          >
             <Plus size={16} />
             Add department
           </Button>
@@ -80,14 +85,16 @@ export const Teams = ({
         </Alert>
       ) : (
         <div className="space-y-4">
-          <div className="relative max-w-md">
-            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search departments or members..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="rounded-lg pl-9"
-            />
+          <div className="rounded-[8px] border border-slate-100 bg-white p-4 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)]">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Search departments or members..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-10 rounded-[8px] border border-slate-200/45 bg-white py-2 pl-10 pr-3 text-sm text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24]"
+              />
+            </div>
           </div>
 
           {departments.length === 0 ? (
@@ -95,12 +102,14 @@ export const Teams = ({
               icon={Building2}
               title="No departments yet"
               description="Create your first department to organize teams and members."
+              className="min-h-[340px] bg-white sm:min-h-[440px]"
             />
           ) : filteredDepartments.length === 0 ? (
             <EmptyState
               icon={Building2}
               title="No matches"
               description="Try a different search term."
+              className="min-h-[340px] bg-white sm:min-h-[440px]"
             />
           ) : (
             <div className="grid gap-4">

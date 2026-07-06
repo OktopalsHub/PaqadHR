@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
@@ -11,8 +11,6 @@ import { AuditService } from './audit.service';
 
 @Injectable()
 export class ManualDisbursementService {
-  private readonly logger = new Logger(ManualDisbursementService.name);
-
   constructor(
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
@@ -87,10 +85,6 @@ export class ManualDisbursementService {
       failedCount,
       processingDuration,
     });
-
-    this.logger.log(
-      `Manual disbursement for run ${payrollRun.id}: ${paidCount} paid, ${failedCount} failed`,
-    );
 
     return { paidCount, failedCount };
   }

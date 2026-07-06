@@ -21,6 +21,7 @@ import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.e
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
+import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
 import {
   type RedemptionStatus,
   RewardRedemption,
@@ -28,10 +29,11 @@ import {
 } from '../entities/reward-redemption.entity';
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
+import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
-import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 
 export interface CatalogItem {
   id: string;
@@ -79,7 +81,6 @@ export class RewardsService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
-    private readonly walletTopupService: TenantWalletTopupService,
     private readonly customRewardsService: CustomRewardsService,
     readonly _tenantConfigService: TenantConfigService,
     private readonly reloadlyApi: ReloadlyApiService,
@@ -377,7 +378,6 @@ export class RewardsService {
       },
     };
     await repo.save(row);
-    this.logger.log(`Synced ${products.length} Reloadly products for tenant ${tenantId}`);
     return products;
   }
 
@@ -435,12 +435,6 @@ export class RewardsService {
       seen.add(record.productId);
       return true;
     });
-
-    if (deduped.length < records.length) {
-      this.logger.log(
-        `Dropped ${records.length - deduped.length} duplicate Reloadly productId(s) during sync`,
-      );
-    }
 
     return deduped;
   }
@@ -652,14 +646,6 @@ export class RewardsService {
       });
       await redemptionRepo.save(redemption);
     });
-
-    if (input.rewardType !== 'CUSTOM') {
-      void this.walletTopupService.maybeAutoTopupAfterDebit(tenantId).catch((err) => {
-        this.logger.warn(
-          `Auto-topup after redemption failed for ${tenantId}: ${err instanceof Error ? err.message : err}`,
-        );
-      });
-    }
 
     try {
       if (input.rewardType === 'RELOADLY') {
@@ -1046,6 +1032,97 @@ export class RewardsService {
       order: { createdAt: 'DESC' },
       take: 100,
     });
+  }
+
+  async processNombaFundingPayload(payload: unknown): Promise<{ received: boolean }> {
+    const body = payload as {
+      event_type?: string;
+      eventType?: string;
+      event?: string;
+      data?: Record<string, unknown>;
+    };
+
+    const eventType = String(body.event_type || body.eventType || body.event || '').toLowerCase();
+
+    if (
+      !eventType.includes('deposit') &&
+      !eventType.includes('virtualaccount') &&
+      !eventType.includes('transfer.success')
+    ) {
+      return { received: true };
+    }
+
+    const data = body.data || {};
+    const accountNumber = String(
+      data.virtualAccount || data.accountNumber || data.virtualAccountNumber || '',
+    );
+    const amount = Number(data.amount || data.paymentAmount || 0);
+    const reference = String(
+      data.transactionReference || data.orderReference || data.reference || data.id || '',
+    );
+    const payloadMeta = body as { requestId?: string };
+    const nombaEventId = String(
+      data.transactionId || data.id || payloadMeta.requestId || reference || '',
+    );
+    const payerName = String(
+      data.senderName || data.payerName || data.originatorName || data.customerName || '',
+    );
+    const payerBank = String(data.senderBank || data.bankName || data.originatorBank || '');
+
+    if (!accountNumber || amount <= 0 || !reference) {
+      throw new BadRequestException('Invalid webhook payload structure');
+    }
+
+    const walletRepo = this.dataSource.getRepository(TenantWallet);
+    const wallet = await walletRepo.findOne({
+      where: { virtualAccountNumber: accountNumber },
+    });
+    if (!wallet) {
+      const misdirectedRepo = this.dataSource.getRepository(MisdirectedDeposit);
+      await misdirectedRepo.save(
+        misdirectedRepo.create({
+          accountNumber,
+          amount,
+          reference,
+          rawPayload: body as Record<string, unknown>,
+        }),
+      );
+      this.logger.warn(
+        `Received deposit webhook for unregistered virtual account: ${accountNumber}`,
+      );
+      return { received: true };
+    }
+
+    const metadata: Record<string, unknown> = {};
+    if (payerName) metadata.payerName = payerName;
+    if (payerBank) metadata.payerBank = payerBank;
+
+    await this.dataSource.transaction(async (manager) => {
+      const txRepo = manager.getRepository(TenantWalletTransaction);
+      const existingTx = await txRepo.findOne({
+        where: { tenantWalletId: wallet.id, reference },
+      });
+      if (existingTx) {
+        return;
+      }
+
+      await this.walletService.credit(
+        wallet.tenantId,
+        amount,
+        'DEPOSIT',
+        reference,
+        `Bank deposit to virtual account ${accountNumber}`,
+        manager,
+        {
+          rawAmount: amount,
+          nombaEventId: nombaEventId || undefined,
+          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+          status: 'COMPLETED',
+        },
+      );
+    });
+
+    return { received: true };
   }
 
   async listTasks(tenantId: string, memberId: string) {

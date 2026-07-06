@@ -61,7 +61,6 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.baseCurrency,
     );
-    this.logger.log(`Processing payment batch: ${paymentBatch.fiatPayments.length} bank payments`);
     const fiatPaymentResults = await this.processFiatPayments(
       paymentBatch.fiatPayments,
       auditContext,
@@ -103,9 +102,6 @@ export class MultiPaymentService {
     if (failedItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
     }
-    this.logger.log(
-      `Retrying ${failedItems.length} failed payments for payroll run ${payrollRunId}`,
-    );
     await this.resetItemsForRetry(failedItems);
     const paymentBatch = await this.categorizePayments(
       failedItems,
