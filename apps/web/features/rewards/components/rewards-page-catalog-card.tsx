@@ -125,7 +125,7 @@ export function CatalogCard({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="h-8 text-xs gap-1 border-amber-300 bg-amber-500/5 text-amber-700 hover:bg-amber-50 hover:text-white"
+                  className="h-8 text-xs gap-1 border-amber-300 bg-amber-500/5 text-amber-700 hover:bg-amber-500 hover:text-white"
                   disabled={isAddingDefault}
                   onClick={() => onAddDefault(item)}
                 >

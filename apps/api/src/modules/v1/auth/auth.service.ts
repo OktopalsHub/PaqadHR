@@ -378,8 +378,16 @@ export class AuthService {
     });
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, ip?: string) {
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
+    if (ip) {
+      const ipRate = await this.rateLimitService.checkRateLimit(`forgot-password-ip:${ip}`, {
+        rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 5 }],
+      });
+      if (!ipRate.allowed) {
+        throw new BadRequestException('Too many requests from this IP. Please try again later.');
+      }
+    }
     const rate = await this.rateLimitService.checkRateLimit(
       `forgot-password:${normalizedEmail}`,
       { rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }] },
@@ -409,9 +417,13 @@ export class AuthService {
 
     const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const resetLink = `${frontendBase}/reset-password?token=${encodeURIComponent(resetToken)}`;
-    await this.zeptomailEmailService.sendTemplateEmail(normalizedEmail, 'password-reset', {
-      resetLink,
-    });
+    try {
+      await this.zeptomailEmailService.sendTemplateEmail(normalizedEmail, 'password-reset', {
+        resetLink,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send password reset email to ${normalizedEmail}`, error);
+    }
 
     return { message: 'If email exists, a reset link was sent' };
   }

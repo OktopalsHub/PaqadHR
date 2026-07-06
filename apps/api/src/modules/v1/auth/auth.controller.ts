@@ -15,6 +15,7 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ChangePasswordDto, SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
@@ -119,8 +120,9 @@ export class AuthController {
 
   @Post('forgot-password')
   @Public()
-  async forgotPassword(@Body() body: ForgotPasswordDto) {
-    return this.authService.forgotPassword(body.email);
+  async forgotPassword(@Body() body: ForgotPasswordDto, @Ip() ip: string, @Req() req: Request) {
+    const clientIp = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ip);
+    return this.authService.forgotPassword(body.email, clientIp);
   }
 
   @Post('reset-password')

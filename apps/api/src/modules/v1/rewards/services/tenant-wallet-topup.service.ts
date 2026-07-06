@@ -121,9 +121,11 @@ export class TenantWalletTopupService {
     const status = verified?.status?.toLowerCase() ?? '';
     if (status !== 'success' && status !== 'successful') {
       this.logger.warn(
-        `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
+        'Wallet checkout top-up not yet successful for ' + input.orderReference + ': ' + (status || 'unknown'),
       );
-      return { received: true, credited: false };
+      throw new BadRequestException(
+        'Wallet checkout top-up not yet successful: ' + (status || 'unknown'),
+      );
     }
 
     const wallet = await this.walletService.ensureWallet(input.tenantId);
@@ -207,7 +209,7 @@ export class TenantWalletTopupService {
     manager?: EntityManager,
     audience: ChargeAudience = 'admin',
   ): Promise<TenantWallet> {
-    if (amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
     }
 
@@ -237,7 +239,6 @@ export class TenantWalletTopupService {
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
 
-    let chargeReference = reference;
     try {
       const charge = await this.nombaApi.chargeTokenizedCard({
         orderReference: reference,
@@ -249,7 +250,7 @@ export class TenantWalletTopupService {
         meta: { tenantId, billingType: 'wallet_topup' },
       });
 
-      chargeReference = charge.orderReference;
+      const chargeReference = charge.orderReference;
       const verified = await this.nombaApi.verifyTransaction(chargeReference);
       if (verified?.status?.toLowerCase() !== 'success') {
         throw new Error('Payment verification failed');

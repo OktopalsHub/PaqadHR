@@ -93,7 +93,7 @@ export class CloudflareR2Service {
       Key: fileKey,
       ContentType: options.contentType,
     };
-    if (options.public !== false) {
+    if (options.public === true) {
       commandInput.ACL = 'public-read';
     }
     const command = new PutObjectCommand(commandInput);

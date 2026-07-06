@@ -1,12 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 
 const CANDIDATE_UPLOAD_LOCATIONS = [FileUploadLocation.RESUMES, FileUploadLocation.COVER_LETTERS];
 
 export class CandidateUploadUrlDto {
   @ApiProperty({ enum: CANDIDATE_UPLOAD_LOCATIONS })
-  @IsEnum(CANDIDATE_UPLOAD_LOCATIONS)
+  @IsIn(CANDIDATE_UPLOAD_LOCATIONS)
   location: FileUploadLocation.RESUMES | FileUploadLocation.COVER_LETTERS;
 
   @ApiProperty({ example: 'resume.pdf' })

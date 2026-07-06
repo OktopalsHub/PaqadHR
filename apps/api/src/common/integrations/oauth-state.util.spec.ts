@@ -21,4 +21,8 @@ describe('oauth-state.util', () => {
       'Invalid OAuth state signature',
     );
   });
+
+  it('rejects oversized state', () => {
+    expect(() => verifyOAuthState('a'.repeat(2049))).toThrow('Invalid OAuth state length');
+  });
 });

@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { FileService } from 'src/common/services/file.service';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TurnstileService } from 'src/common/services/turnstile.service';
 import { CreateCandidateDto } from '../dto/index';
 import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
@@ -42,7 +43,7 @@ export class ApplicationController {
     @Req() req: Request,
     @Ip() ip: string,
   ) {
-    const clientIp = ip || req.ip || 'unknown';
+    const clientIp = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ip);
     const rate = await this.rateLimitService.checkRateLimit(`apply-upload:${clientIp}:${jobId}`, {
       rules: [{ windowMs: 60 * 60 * 1000, maxRequests: 10 }],
     });
