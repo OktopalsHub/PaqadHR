@@ -3,7 +3,6 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PasswordService } from 'src/common/utils';
@@ -26,7 +25,6 @@ import { InvitationsRepository } from './repositories/invitations.repository';
 
 @Injectable()
 export class InvitationsService {
-  private readonly logger = new Logger(InvitationsService.name);
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
     private readonly tenantMembersService: TenantMembersService,
@@ -80,14 +78,10 @@ export class InvitationsService {
     const existingInvitations = await this.invitationsRepository.findInvitationByEmail(
       createInvitationDto.email,
     );
-    this.logger.log(`Found ${existingInvitations.length} existing invitations for this email`);
     const existingInvitation = existingInvitations.find(
       (inv) => inv.tenantId === tenantId && inv.status === InvitationStatus.PENDING,
     );
     if (existingInvitation) {
-      this.logger.warn(
-        `Invitation already exists for email: ${createInvitationDto.email} in tenant: ${tenantId}`,
-      );
       throw new ConflictException(
         `An invitation has already been sent to ${createInvitationDto.email} for this tenant. Please wait for them to respond or resend the invitation.`,
       );
@@ -187,23 +181,15 @@ export class InvitationsService {
     await this.checkRateLimitWithContext(`accept_${email}`, 5, 15 * 60 * 1000, 'accept invitation');
     const invitation = await this.invitationsRepository.findInvitationByToken(token);
     if (!invitation) {
-      this.logger.warn(`❌ No invitation found for token: ${token}`);
       throw new NotFoundException(`Invitation with token ${token} not found`);
     }
     if (invitation.email.toLowerCase() !== email.toLowerCase()) {
-      this.logger.warn(
-        `❌ Email mismatch: invitation email ${invitation.email} does not match requested email ${email}`,
-      );
       throw new BadRequestException('The email address does not match the invited user email');
     }
     if (invitation.status !== InvitationStatus.PENDING) {
-      this.logger.warn(
-        `❌ Invitation ${invitation.id} is not pending (status: ${invitation.status})`,
-      );
       throw new BadRequestException('Invitation has already been processed');
     }
     if (invitation.expiresAt < new Date()) {
-      this.logger.warn(`❌ Invitation ${invitation.id} has expired`);
       throw new BadRequestException('Invitation has expired');
     }
 
@@ -215,17 +201,14 @@ export class InvitationsService {
     let userExists = false;
     let user: User | null = null;
     let tenantMemberId: string;
-    this.logger.log(`👤 Checking if user exists: ${!!existingUser}`);
     if (existingUser) {
       userExists = true;
       user = existingUser;
-      this.logger.log(`✅ Existing user found with ID: ${existingUser.id}`);
       const existingMember = await this.tenantMembersService.findUserTenantMembership(
         existingUser.id,
         invitation.tenantId,
       );
       if (existingMember) {
-        this.logger.warn(`❌ User ${email} is already a member of tenant ${invitation.tenantId}`);
         throw new ConflictException('User is already a member of this tenant');
       }
       if (acceptInvitationDto.password) {
@@ -233,7 +216,6 @@ export class InvitationsService {
         await this.usersService.updateUser(user.id, {
           password: hashedPassword,
         });
-        this.logger.log(`🔑 Updated password for existing user`);
       }
       const member = await this.tenantMembersService.createTenantMember(
         existingUser.id,
@@ -246,11 +228,8 @@ export class InvitationsService {
         },
       );
       tenantMemberId = member.id;
-      this.logger.log(`✅ Existing user added to tenant successfully`);
     } else {
-      this.logger.log(`🆕 Creating new user account`);
       if (!acceptInvitationDto.password) {
-        this.logger.warn(`❌ Password required for new user`);
         throw new BadRequestException('Password required for new users');
       }
       this.validateName(firstName, lastName);
@@ -263,7 +242,6 @@ export class InvitationsService {
         isActive: true,
       });
       user = newUser;
-      this.logger.log(`✅ New user created with ID: ${newUser.id}`);
       const member = await this.tenantMembersService.createTenantMember(
         newUser.id,
         invitation.tenantId,
@@ -275,7 +253,6 @@ export class InvitationsService {
         },
       );
       tenantMemberId = member.id;
-      this.logger.log(`✅ New user added to tenant successfully`);
     }
 
     if (invitation.departmentId) {
@@ -307,18 +284,8 @@ export class InvitationsService {
         description: `${invitation.email} joined ${tenant?.name ?? 'the workspace'}`,
         metadata: { email: invitation.email, role: invitation.role },
       })
-      .catch((err) => {
-        this.logger.warn(
-          `Failed to queue invite accepted activity: ${err instanceof Error ? err.message : err}`,
-        );
-      });
+      .catch(() => {});
 
-    this.logger.log(`🎉 INVITATION ACCEPTED SUCCESSFULLY:`);
-    this.logger.log(`📧 Email: ${email}`);
-    this.logger.log(`👤 User exists: ${userExists}`);
-    this.logger.log(`🔐 Needs password: ${!userExists}`);
-    this.logger.log(`🏢 Tenant ID: ${invitation.tenantId}`);
-    this.logger.log(`👨‍💼 Role: ${invitation.role}`);
     return {
       invitation: await this?.mapToResponseDto(updatedInvitation),
       userExists,
@@ -344,19 +311,15 @@ export class InvitationsService {
     return this?.mapToResponseDto(invitation);
   }
   async resendInvitation(id: string, tenantId: string): Promise<IInvitationResponseDto> {
-    this.logger.log(`🔄 Resending invitation with ID: ${id}`);
     const invitation = await this.invitationsRepository.findInvitationByTenant(id, tenantId);
     if (!invitation) {
-      this.logger.warn(`❌ Invitation with ID ${id} not found`);
       throw new NotFoundException(`Invitation with ID ${id} not found`);
     }
     if (invitation.status !== InvitationStatus.PENDING) {
-      this.logger.warn(`❌ Cannot resend invitation with status: ${invitation.status}`);
       throw new BadRequestException('Can only resend pending invitations');
     }
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    this.logger.log(`📅 Updating expiration date to: ${expiresAt}`);
     await this.invitationsRepository.update(id, {
       expiresAt,
     });
@@ -367,12 +330,6 @@ export class InvitationsService {
       throw new NotFoundException(`Invitation with ID ${id} not found`);
     }
     const emailDelivery = await this.sendInvitationEmail(updatedInvitation);
-    this.logger.log('✅ INVITATION RESENT SUCCESSFULLY:');
-    this.logger.log(`📧 Email: ${updatedInvitation.email}`);
-    this.logger.log(`🏢 Tenant ID: ${updatedInvitation.tenantId}`);
-    this.logger.log(`👤 Role: ${updatedInvitation.role}`);
-    this.logger.log(`⏰ New expiration: ${updatedInvitation.expiresAt}`);
-    this.logger.log(`🔗 Token: ${updatedInvitation.token}`);
     return this.mapToResponseDto(updatedInvitation, emailDelivery);
   }
   async expireInvitations(): Promise<void> {
@@ -405,7 +362,6 @@ export class InvitationsService {
       rules: [{ maxRequests: max, windowMs }],
     });
     if (!result.allowed) {
-      this.logger.warn(`Rate limit exceeded for ${context}`, { key });
       throw new InternalServerErrorException('Too many attempts. Please try again later.');
     }
   }
@@ -414,18 +370,9 @@ export class InvitationsService {
       throw new NotFoundException('Invitation not found');
     }
     if (invitation.email.toLowerCase() !== email.toLowerCase()) {
-      this.logger.warn('Email does not match invitation', {
-        providedEmail: email,
-        invitationEmail: invitation.email,
-        invitationId: invitation.id,
-      });
       throw new BadRequestException('The email address does not match the invited user email');
     }
     if (invitation.status !== InvitationStatus.PENDING) {
-      this.logger.warn('Invitation is not pending', {
-        status: invitation.status,
-        invitationId: invitation.id,
-      });
       throw new BadRequestException('This invitation has already been processed');
     }
   }
@@ -435,10 +382,6 @@ export class InvitationsService {
   ): Promise<IInvitationResponseDto & { userExists: boolean; user: unknown }> {
     this.validateInvitationToken(token);
     this.validateEmailFormat(email);
-    this.logger.log('Getting invitation details', {
-      email,
-      token: `${token.substring(0, 8)}...`,
-    });
     await this.checkRateLimitWithContext(
       `get_invitation_${email}`,
       10,
@@ -451,23 +394,11 @@ export class InvitationsService {
     }
     this.validateInvitation(invitation, email);
     if (invitation.expiresAt < new Date()) {
-      this.logger.warn('Invitation has expired', {
-        invitationId: invitation.id,
-        expiredAt: invitation.expiresAt,
-      });
       throw new BadRequestException('Invitation has expired');
     }
     const existingUser = await this.usersService.getUserByEmail(email);
     const userExists = !!existingUser;
-    this.logger.log(`User exists: ${userExists}`);
-    if (userExists) {
-      this.logger.log(`Existing user ID: ${existingUser.id}`);
-    }
     await this.rateLimitService.clearRateLimit(`get_invitation_${email}`);
-    this.logger.log('Invitation details retrieved successfully', {
-      invitationId: invitation.id,
-      email,
-    });
     const response = await this.mapToResponseDto(invitation);
     return {
       ...response,
@@ -488,10 +419,6 @@ export class InvitationsService {
   ): Promise<IInvitationResponseDto> {
     this.validateInvitationToken(token);
     this.validateEmailFormat(email);
-    this.logger.log('Processing invitation decline', {
-      email,
-      token: `${token.substring(0, 8)}...`,
-    });
     await this.checkRateLimitWithContext(
       `decline_${email}`,
       5,
@@ -504,10 +431,6 @@ export class InvitationsService {
     }
     this.validateInvitation(invitation, email);
     if (invitation.expiresAt < new Date()) {
-      this.logger.warn('Cannot decline expired invitation', {
-        invitationId: invitation.id,
-        expiredAt: invitation.expiresAt,
-      });
       throw new BadRequestException('Invitation has expired');
     }
     await this.invitationsRepository.update(invitation.id, {
@@ -517,17 +440,9 @@ export class InvitationsService {
       where: { id: invitation.id },
     });
     if (!updatedInvitation) {
-      this.logger.error('Failed to update invitation status', {
-        invitationId: invitation.id,
-        email,
-      });
       throw new InternalServerErrorException('Failed to process invitation decline');
     }
     await this.rateLimitService.clearRateLimit(`decline_${email}`);
-    this.logger.log('Invitation declined successfully', {
-      invitationId: invitation.id,
-      email,
-    });
     return this.mapToResponseDto(updatedInvitation);
   }
   private async sendInvitationEmail(
@@ -545,9 +460,7 @@ export class InvitationsService {
       );
       const name = [inviter.firstName, inviter.lastName].filter(Boolean).join(' ').trim();
       inviterName = name || inviter.user?.email || inviterName;
-    } catch {
-      this.logger.warn(`Could not resolve inviter for invitation ${invitation.id}`);
-    }
+    } catch {}
 
     const firstName = invitation.firstName?.trim() || invitation.email.split('@')[0] || 'there';
 
@@ -564,7 +477,6 @@ export class InvitationsService {
 
     if (!result.success) {
       const emailError = result.error ?? 'unknown error';
-      this.logger.error(`Failed to send invitation email to ${invitation.email}: ${emailError}`);
       return { emailSent: false, emailError };
     }
 
@@ -578,13 +490,8 @@ export class InvitationsService {
         description: `Invitation sent to ${invitation.email}`,
         metadata: { email: invitation.email, role: invitation.role },
       })
-      .catch((err) => {
-        this.logger.warn(
-          `Failed to queue invite sent activity: ${err instanceof Error ? err.message : err}`,
-        );
-      });
+      .catch(() => {});
 
-    this.logger.log(`Invitation email sent to ${invitation.email}`);
     return { emailSent: true };
   }
   private async mapToResponseDto(

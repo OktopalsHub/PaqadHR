@@ -40,7 +40,5 @@ export class QuerySecurityService {
       topSuspiciousQueries: [],
     };
   }
-  clearAuditData(): void {
-    this.logger.log('Query audit data cleared');
-  }
+  clearAuditData(): void {}
 }

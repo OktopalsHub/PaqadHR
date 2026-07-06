@@ -69,7 +69,6 @@ export class JobOpeningController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<JobOpening> {
     try {
-      this.logger.log(`Creating job opening for tenant ${tenantId} by member ${member.id}`);
       return await this.jobOpeningService.createJob(tenantId, member.id, createJobOpeningDto);
     } catch (error) {
       this.logger.error(`Failed to create job opening for tenant ${tenantId}:`, error);
@@ -182,7 +181,6 @@ export class JobOpeningController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<JobOpening> {
     try {
-      this.logger.log(`Updating job opening ${jobId} for tenant ${tenantId}`);
       return await this.jobOpeningService.updateJob(
         jobId,
         tenantId,

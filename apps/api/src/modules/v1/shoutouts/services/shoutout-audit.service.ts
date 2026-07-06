@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   AuditAction,
   AuditSeverity,
@@ -9,8 +9,6 @@ import type { ShoutoutCreatedEventPayload } from '../events/shoutout.events';
 
 @Injectable()
 export class ShoutoutAuditService {
-  private readonly logger = new Logger(ShoutoutAuditService.name);
-
   constructor(private readonly auditLogsService: AuditLogsService) {}
 
   async logShoutoutCreated(payload: ShoutoutCreatedEventPayload): Promise<void> {
@@ -34,7 +32,5 @@ export class ShoutoutAuditService {
         messagePreview: payload.message.slice(0, 200),
       },
     });
-
-    this.logger.log(`Audit queued: shoutout ${payload.shoutoutId} by ${payload.senderMemberId}`);
   }
 }

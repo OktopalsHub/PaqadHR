@@ -4,7 +4,6 @@ import {
   Controller,
   Get,
   InternalServerErrorException,
-  Logger,
   NotFoundException,
   Post,
   Query,
@@ -26,7 +25,6 @@ class AcceptInvitationDto {
 @ApiTags('Public Invitations')
 @Controller('invitations')
 export class PublicInvitesController {
-  private readonly logger = new Logger(PublicInvitesController.name);
   constructor(private readonly invitationsService: InvitationsService) {}
   private validateEmail(email: string): string | null {
     if (!email) return 'Email is required';
@@ -37,10 +35,6 @@ export class PublicInvitesController {
   @Public()
   async getInvitationDetails(@Query('token') token: string, @Query('email') email: string) {
     if (!token || !email) {
-      this.logger.warn('Missing required parameters', {
-        token: !!token,
-        email: !!email,
-      });
       throw new BadRequestException('Token and email are required');
     }
     const validationError = this.validateEmail(email);
@@ -104,31 +98,17 @@ export class PublicInvitesController {
   async declineInvitation(@Body() body: { token: string; email: string }) {
     const { token, email } = body || {};
     if (!token || !email) {
-      this.logger.warn('Missing required parameters', {
-        hasToken: !!token,
-        hasEmail: !!email,
-      });
       throw new BadRequestException('Token and email are required');
     }
-    this.logger.log('Processing invitation decline', {
-      email,
-      token: `${token.substring(0, 8)}...`,
-    });
     const validationError = this.validateEmail(email);
     if (validationError) {
-      this.logger.warn('Invalid email format', { email });
       throw new BadRequestException(validationError);
     }
     try {
       const result = await this.invitationsService.declineInvitationByTokenAndEmail(token, email);
       if (!result) {
-        this.logger.error('Failed to decline invitation', { email });
         throw new InternalServerErrorException('Failed to process invitation decline');
       }
-      this.logger.log('Invitation declined successfully', {
-        email,
-        invitationId: result.id,
-      });
       return {
         success: true,
         message: 'Invitation declined successfully',

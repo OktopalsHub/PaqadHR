@@ -57,9 +57,6 @@ export class NotificationService {
       message,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`System notification sent: ${title}`);
-    }
   }
   async sendTenantNotification(
     tenantId: string,
@@ -76,9 +73,6 @@ export class NotificationService {
       tenantId,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`Tenant notification sent to ${tenantId}: ${title}`);
-    }
   }
   async getUserNotifications(
     userId: string,
@@ -287,7 +281,7 @@ export class NotificationService {
     try {
       return `user-${recipientId}@example.com`;
     } catch (error) {
-      this.logger.error(`Failed to get recipient email for ${recipientId}:`, error);
+      this.logger.error(`Failed to get recipient for ${recipientId}:`, error);
       return null;
     }
   }

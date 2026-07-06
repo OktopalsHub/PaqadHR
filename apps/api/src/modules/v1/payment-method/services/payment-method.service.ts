@@ -148,7 +148,6 @@ export class PaymentMethodService {
         PasscodeChangeReason.INITIAL_SETUP,
         'Initial passcode setup during payment method creation',
       );
-      this.logger.log(`Payment method created for member ${memberId}: ${savedMethod.id}`);
       return savedMethod;
     } catch (error) {
       this.logger.error('Error creating payment method:', error);
@@ -237,10 +236,8 @@ export class PaymentMethodService {
         PasscodeChangeReason.USER_REQUESTED,
         'Passcode changed during payment method update',
       );
-      this.logger.log(`Passcode changed for payment method ${paymentMethodId}`);
     }
     const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
-    this.logger.log(`Payment method updated: ${paymentMethodId}`);
     return updatedMethod;
   }
   async changePasscode(
@@ -270,7 +267,6 @@ export class PaymentMethodService {
       PasscodeChangeReason.USER_REQUESTED,
       'Passcode changed via dedicated passcode change endpoint',
     );
-    this.logger.log(`Passcode changed for payment method ${paymentMethodId}`);
   }
   async getPaymentMethods(
     tenantId: string,
@@ -341,7 +337,6 @@ export class PaymentMethodService {
     paymentMethod.passcodeHash = null;
     paymentMethod.isPrimary = false;
     await this.paymentMethodRepository.save(paymentMethod);
-    this.logger.log(`Payment method deleted: ${paymentMethodId}`);
   }
   async verifyPaymentMethod(
     paymentMethodId: string,
@@ -369,7 +364,6 @@ export class PaymentMethodService {
       resourceId: paymentMethodId,
       tenantId: paymentMethod.tenantId,
     });
-    this.logger.log(`Payment method ${status}: ${paymentMethodId}`);
     return updatedMethod;
   }
   async recordPaymentMethodUsage(paymentMethodId: string): Promise<void> {
@@ -745,7 +739,6 @@ export class PaymentMethodService {
           reason === PasscodeChangeReason.ADMIN_RESET,
       });
       await this.passcodeHistoryRepository.save(passcodeHistory);
-      this.logger.log(`Passcode change tracked for payment method ${paymentMethodId}: ${reason}`);
     } catch (error) {
       this.logger.error(
         `Error tracking passcode change for payment method ${paymentMethodId}:`,

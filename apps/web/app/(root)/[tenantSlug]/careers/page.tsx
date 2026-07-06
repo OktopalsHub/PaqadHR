@@ -112,7 +112,6 @@ export default function PublicCareersPage() {
         const jobsData = await fetchPublicJobs(tenantData.id);
         setJobs(jobsData.jobs);
       } catch (err: unknown) {
-        console.error('Failed to load careers page:', err);
         const errMsg = err instanceof Error ? err.message : 'Failed to load workspace data';
         setError(errMsg);
       } finally {
@@ -222,7 +221,6 @@ export default function PublicCareersPage() {
       setIsSuccess(true);
       toast.success('Application submitted successfully!');
     } catch (err: unknown) {
-      console.error('Failed to submit application:', err);
       const errMsg =
         err instanceof Error ? err.message : 'Failed to submit application. Please try again.';
       toast.error(errMsg);

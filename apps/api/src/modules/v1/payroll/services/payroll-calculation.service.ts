@@ -1,15 +1,10 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type { SimplePayrollInput } from '../../../../common/interfaces/simple-payroll-input.interface';
 import type { SimplePayrollResult } from '../../../../common/interfaces/simple-payroll-result.interface';
 
 @Injectable()
 export class PayrollCalculationService {
-  private readonly logger = new Logger(PayrollCalculationService.name);
-  constructor() {
-    this.logger.log('Simple payroll calculation service initialized');
-  }
   async calculateSimplePayroll(input: SimplePayrollInput): Promise<SimplePayrollResult> {
-    this.logger.log(`Calculating simple payroll for employee ${input.memberId}`);
     const grossAmount = input.baseSalary;
     const adjustments = input.adjustments || 0;
     const deductions = input.deductions || 0;
@@ -17,9 +12,6 @@ export class PayrollCalculationService {
     if (netAmount < 0) {
       throw new BadRequestException('Net payment amount cannot be negative');
     }
-    this.logger.log(
-      `Simple payroll: ${grossAmount} + ${adjustments} - ${deductions} = ${netAmount} ${input.currency}`,
-    );
     return {
       grossAmount,
       adjustments,

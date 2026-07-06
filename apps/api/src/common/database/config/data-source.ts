@@ -112,7 +112,6 @@ export async function waitForDatabase(maxRetries = 30, retryIntervalMs = 1000): 
       return;
     } catch (error: unknown) {
       if (i === maxRetries) throw error;
-      console.log(`[Nest] Waiting for database... (${i}/${maxRetries})`);
       await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
     }
   }

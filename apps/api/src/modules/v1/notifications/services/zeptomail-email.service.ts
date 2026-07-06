@@ -171,7 +171,7 @@ export class ZeptomailEmailService {
       : null;
 
     if (!this.zeptomailApiKey) {
-      this.logger.warn('ZEPTOMAIL_API_KEY is not configured. Email sending will fail.');
+      this.logger.warn('ZEPTOMAIL_API_KEY not configured');
     }
   }
 
@@ -179,7 +179,7 @@ export class ZeptomailEmailService {
     emailData: EmailData,
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.mailClient) {
-      this.logger.warn(`Email to ${emailData.to} skipped: ZEPTOMAIL_API_KEY not configured`);
+      this.logger.warn('ZEPTOMAIL_API_KEY not configured');
       return {
         success: false,
         error: toUserFacingEmailError('Zeptomail API key not configured'),
@@ -206,7 +206,6 @@ export class ZeptomailEmailService {
         data?: Array<{ message_id?: string }>;
         request_id?: string;
       };
-      this.logger.log(`Email sent successfully to ${emailData.to}`);
       return {
         success: true,
         messageId: result.data?.[0]?.message_id || result.request_id || 'unknown',
@@ -217,7 +216,7 @@ export class ZeptomailEmailService {
           ? Number((error as { status?: number }).status) || 500
           : 500;
       const errorMessage = formatZeptomailSdkError(error, status);
-      this.logger.warn(`Failed to send email to ${emailData.to}: ${errorMessage}`);
+      this.logger.warn(`Email send failed: ${errorMessage}`);
       return { success: false, error: toUserFacingEmailError(errorMessage) };
     }
   }
@@ -274,7 +273,7 @@ export class ZeptomailEmailService {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to send template email '${templateKey}' to ${to}: ${message}`);
+      this.logger.warn(`Failed to send template email '${templateKey}': ${message}`);
       return {
         success: false,
         error: message,

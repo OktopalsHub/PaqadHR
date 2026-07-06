@@ -25,7 +25,6 @@ export class UserSyncService {
     platform: IntegrationType;
   }) {
     try {
-      this.logger.log(`Auto-syncing users for integration: ${payload.integrationId}`);
       await this.syncAllUsers(payload.integrationId, payload.tenantId);
     } catch (error) {
       this.logger.error(
@@ -68,7 +67,6 @@ export class UserSyncService {
         syncResults.errors++;
       }
     }
-    this.logger.log(`User sync completed for integration ${integrationId}:`, syncResults);
     return syncResults;
   }
   async manualUserMatch(integrationId: string, platformUserId: string, tenantMemberId: string) {
@@ -136,14 +134,13 @@ export class UserSyncService {
             invitedBy,
           );
           inviteResults.sent++;
-          this.logger.log(`Invitation sent to ${platformUser.platformEmail}`);
         }
       } catch (error) {
         inviteResults.failed++;
         inviteResults.errors.push(
           `${platformUser.platformEmail}: ${error instanceof Error ? error.message : String(error)}`,
         );
-        this.logger.error(`Failed to invite ${platformUser.platformEmail}:`, error);
+        this.logger.error(`Failed to invite platform user ${platformUser.id}:`, error);
       }
     }
     return inviteResults;

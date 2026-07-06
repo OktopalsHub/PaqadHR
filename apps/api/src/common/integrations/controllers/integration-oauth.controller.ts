@@ -143,15 +143,11 @@ export class OAuthIntegrationController {
       return { url: `${integrationsSettings}&error=no_code` };
     }
     try {
-      this.logger.log('Processing OAuth callback...');
       const result = await this.oauthService.handleOAuthCallback(code, state);
       this.eventEmitter.emit('integration.connected', {
         integrationId: result.integrationId,
         tenantId: stateData.tenantId,
         platform: stateData.platformType,
-      });
-      this.logger.log('OAuth callback processed successfully', {
-        integrationId: result.integrationId,
       });
       return {
         url: `${integrationsSettings}&slack_setup=1&integration_id=${result.integrationId}`,

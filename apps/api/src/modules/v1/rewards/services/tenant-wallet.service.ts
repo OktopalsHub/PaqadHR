@@ -151,7 +151,6 @@ export class TenantWalletService {
       wallet.virtualAccountProvisionedAt = new Date();
       wallet.virtualAccountError = null;
 
-      this.logger.log(`Provisioned rewards VA ${result.accountNumber} for tenant ${tenantId}`);
       return repo.save(wallet);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -588,9 +587,6 @@ export class TenantWalletService {
       'Rewards wallet top-up via Nomba checkout',
       undefined,
       { nombaEventId: input.orderReference },
-    );
-    this.logger.log(
-      `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
     );
     return { received: true, credited: true };
   }
