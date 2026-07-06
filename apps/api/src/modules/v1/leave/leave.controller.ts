@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import type { PaginationDto } from 'src/common/dto/pagination.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { LeaveStatus } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';

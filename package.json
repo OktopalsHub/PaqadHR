@@ -34,5 +34,8 @@
       "picomatch": ">=4.0.4",
       "js-yaml": ">=4.2.0"
     }
+  },
+  "dependencies": {
+    "zeptomail": "^8.0.1"
   }
 }

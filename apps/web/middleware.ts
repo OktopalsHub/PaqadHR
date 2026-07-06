@@ -3,10 +3,13 @@ import { NextResponse } from 'next/server';
 import { BRAND_ORIGIN } from '@/lib/brand';
 import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
 
-const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001').replace(/\/$/, '');
+const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001')
+  .replace(/\/$/, '')
+  .replace(/\/api\/v1$/, '')
+  .replace(/\/api$/, '');
 const r2PublicOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
 
-function buildContentSecurityPolicy(nonce: string): string {
+function buildContentSecurityPolicy(): string {
   const imageSources = [
     "'self'",
     'data:',
@@ -20,12 +23,15 @@ function buildContentSecurityPolicy(nonce: string): string {
     imageSources.push(r2PublicOrigin);
   }
 
+  const connectSources = ["'self'", apiOrigin, 'https://challenges.cloudflare.com'];
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`,
-    "style-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
     `img-src ${imageSources.join(' ')}`,
-    `connect-src 'self' ${apiOrigin} https://challenges.cloudflare.com`,
+    `connect-src ${connectSources.join(' ')}`,
     'frame-src https://challenges.cloudflare.com',
     "frame-ancestors 'none'",
     "object-src 'none'",
@@ -34,34 +40,26 @@ function buildContentSecurityPolicy(nonce: string): string {
   ].join('; ');
 }
 
-function applySecurityHeaders(response: NextResponse, nonce: string): void {
-  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(nonce));
+function applySecurityHeaders(response: NextResponse): void {
+  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy());
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('x-nonce', nonce);
 }
 
 export function middleware(request: NextRequest) {
-  const nonce = btoa(crypto.randomUUID());
-
   const slug = request.cookies.get('tenant_slug')?.value;
   if (slug && request.nextUrl.pathname.startsWith('/app')) {
     const destination = rewriteLegacyAppPath(request.nextUrl.pathname, slug);
     if (destination !== request.nextUrl.pathname) {
       const redirect = NextResponse.redirect(new URL(destination, request.url));
-      applySecurityHeaders(redirect, nonce);
+      applySecurityHeaders(redirect);
       return redirect;
     }
   }
 
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set('x-nonce', nonce);
-
-  const response = NextResponse.next({
-    request: { headers: requestHeaders },
-  });
-  applySecurityHeaders(response, nonce);
+  const response = NextResponse.next();
+  applySecurityHeaders(response);
   return response;
 }
 
