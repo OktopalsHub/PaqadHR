@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { brandIconUrls } from '@/lib/brand';
@@ -25,13 +26,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning nonce={nonce}>
       <body className="antialiased font-sans">
         <QueryProvider>
           <ThemeProvider

@@ -16,8 +16,7 @@ export class RewardsListener {
   @OnEvent('tenant.created')
   async handleTenantCreated(event: TenantCreatedEvent) {
     try {
-      const tenantName = (event.tenantData as { name?: string })?.name;
-      await this.walletService.ensureWalletWithVirtualAccount(event.tenantId, tenantName);
+      await this.walletService.ensureWallet(event.tenantId);
     } catch (error) {
       this.logger.error(
         `Failed to initialize tenant wallet for tenant ${event.tenantId}: ${error instanceof Error ? error.message : error}`,
