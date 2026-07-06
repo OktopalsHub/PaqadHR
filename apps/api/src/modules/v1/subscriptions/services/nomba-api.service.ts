@@ -147,10 +147,17 @@ export class NombaApiService {
     return payload;
   }
 
+  private assertOrderReference(reference: string): void {
+    if (reference.length > 50) {
+      throw new BadRequestException('Order reference length cannot exceed 50');
+    }
+  }
+
   async createCheckoutOrder(input: NombaCheckoutOrderInput): Promise<{
     checkoutLink: string;
     orderReference: string;
   }> {
+    this.assertOrderReference(input.orderReference);
     const payload = await this.request<NombaCheckoutResponse>('/v1/checkout/order', {
       order: {
         orderReference: input.orderReference,
@@ -176,6 +183,7 @@ export class NombaApiService {
   }
 
   async chargeTokenizedCard(input: NombaTokenizedChargeInput): Promise<{ orderReference: string }> {
+    this.assertOrderReference(input.orderReference);
     const payload = await this.request<{ data?: { orderReference?: string } }>(
       '/v1/checkout/tokenized-card-payment',
       {

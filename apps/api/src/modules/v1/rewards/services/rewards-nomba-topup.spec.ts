@@ -38,6 +38,7 @@ describe('RewardsService Nomba topup', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
       {
         isConfigured: jest.fn().mockReturnValue(true),
         purchaseAirtime,

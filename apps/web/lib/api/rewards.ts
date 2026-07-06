@@ -64,11 +64,6 @@ export interface TenantWallet {
   tenantId: string;
   currencyCode: string;
   balanceAmount: number;
-  virtualAccountNumber: string | null;
-  virtualAccountBank: string | null;
-  virtualAccountStatus?: 'PROVISIONING' | 'ACTIVE' | 'FAILED' | null;
-  virtualAccountError?: string | null;
-  nombaAccountRef?: string | null;
   pointsExchangeRate: number;
   feePercentage?: number;
   flatFee?: number;
@@ -153,13 +148,6 @@ export async function fetchTenantWallet(): Promise<TenantWallet> {
 export async function fetchWalletTransactions(): Promise<TenantWalletTransaction[]> {
   const tenantId = await resolveTenantId();
   return apiClient<TenantWalletTransaction[]>(tenantPath(tenantId, 'rewards/wallet/transactions'));
-}
-
-export async function provisionVirtualAccount(): Promise<TenantWallet> {
-  const tenantId = await resolveTenantId();
-  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/provision-virtual-account'), {
-    method: 'POST',
-  });
 }
 
 export async function fetchCustomRewards(): Promise<

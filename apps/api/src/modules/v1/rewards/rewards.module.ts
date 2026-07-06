@@ -15,9 +15,7 @@ import { TenantSettings } from '../tenant-settings/entities/tenant-settings.enti
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { RewardsController } from './controllers/rewards.controller';
-import { RewardsAdminController } from './controllers/rewards-admin.controller';
 import { CustomReward } from './entities/custom-reward.entity';
-import { MisdirectedDeposit } from './entities/misdirected-deposit.entity';
 import { RewardRedemption } from './entities/reward-redemption.entity';
 import { Task } from './entities/task.entity';
 import { TaskSubmission } from './entities/task-submission.entity';
@@ -28,15 +26,14 @@ import { CustomRewardsService } from './services/custom-rewards.service';
 import { ReloadlyWebhookService } from './services/reloadly-webhook.service';
 import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
-import { RewardsWalletVaCronService } from './services/rewards-wallet-va-cron.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
+import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([
       TenantWallet,
       TenantWalletTransaction,
-      MisdirectedDeposit,
       CustomReward,
       RewardRedemption,
       Task,
@@ -52,10 +49,11 @@ import { TenantWalletService } from './services/tenant-wallet.service';
     TenantMembersModule,
     ActivitiesModule,
   ],
-  controllers: [RewardsController, RewardsAdminController],
+  controllers: [RewardsController],
   providers: [
     RewardsService,
     TenantWalletService,
+    TenantWalletTopupService,
     CustomRewardsService,
     ReloadlyWebhookService,
     ReloadlyApiService,
@@ -64,9 +62,8 @@ import { TenantWalletService } from './services/tenant-wallet.service';
     ReloadlyUtilitiesApiService,
     NombaBillApiService,
     RewardsListener,
-    RewardsWalletVaCronService,
     RewardsCatalogSyncCronService,
   ],
-  exports: [RewardsService, TenantWalletService, ReloadlyWebhookService],
+  exports: [RewardsService, TenantWalletService, TenantWalletTopupService, ReloadlyWebhookService],
 })
 export class RewardsModule {}
