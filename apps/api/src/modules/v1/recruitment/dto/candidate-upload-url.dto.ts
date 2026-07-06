@@ -18,4 +18,9 @@ export class CandidateUploadUrlDto {
   @IsOptional()
   @IsString()
   contentType?: string;
+
+  @ApiPropertyOptional({ description: 'Cloudflare Turnstile response token' })
+  @IsOptional()
+  @IsString()
+  turnstileToken?: string;
 }

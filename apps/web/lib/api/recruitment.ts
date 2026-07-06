@@ -154,7 +154,7 @@ export type PublicApplicationPayload = {
 
 export async function submitPublicApplication(
   jobId: string,
-  body: PublicApplicationPayload,
+  body: PublicApplicationPayload & { turnstileToken?: string },
 ): Promise<{ message?: string }> {
   return apiClient<{ message?: string }>(`/jobs/${jobId}/apply`, {
     method: 'POST',
@@ -168,6 +168,7 @@ export async function requestPublicUploadUrl(
   location: 'resumes' | 'cover-letters',
   originalName: string,
   contentType?: string,
+  turnstileToken?: string,
 ): Promise<{ uploadUrl: string; fileKey: string; fileName: string }> {
   return apiClient<{ uploadUrl: string; fileKey: string; fileName: string }>(
     `/jobs/${jobId}/apply/upload-url`,
@@ -177,6 +178,7 @@ export async function requestPublicUploadUrl(
         location,
         originalName,
         contentType,
+        ...(turnstileToken ? { turnstileToken } : {}),
       }),
       skipCsrf: true,
     },
@@ -187,12 +189,14 @@ export async function uploadPublicCandidateFile(
   jobId: string,
   file: File,
   location: 'resumes' | 'cover-letters',
+  turnstileToken?: string,
 ): Promise<{ fileName: string; fileKey: string }> {
   const { uploadUrl, fileName, fileKey } = await requestPublicUploadUrl(
     jobId,
     location,
     file.name,
     file.type || undefined,
+    turnstileToken,
   );
   const response = await fetch(uploadUrl, {
     method: 'PUT',

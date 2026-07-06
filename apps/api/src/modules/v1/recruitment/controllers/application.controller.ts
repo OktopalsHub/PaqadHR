@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { FileService } from 'src/common/services/file.service';
+import { TurnstileService } from 'src/common/services/turnstile.service';
 import { CreateCandidateDto } from '../dto/index';
 import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
@@ -20,7 +21,18 @@ export class ApplicationController {
     private readonly fileService: FileService,
     private readonly jobOpeningService: JobOpeningService,
     private readonly rateLimitService: RateLimitService,
+    private readonly turnstileService: TurnstileService,
   ) {}
+
+  private async assertTurnstile(token: string | undefined, ip: string): Promise<void> {
+    if (!this.turnstileService.isEnabled()) {
+      return;
+    }
+    const valid = await this.turnstileService.verify(token ?? '', ip);
+    if (!valid) {
+      throw new BadRequestException('Captcha verification failed');
+    }
+  }
 
   @Post(':jobId/apply/upload-url')
   @ApiOperation({ summary: 'Generate a presigned upload URL for candidate resumes/cover-letters' })
@@ -31,6 +43,8 @@ export class ApplicationController {
     @Ip() ip: string,
   ) {
     const clientIp = ip || req.ip || 'unknown';
+    await this.assertTurnstile(body.turnstileToken, clientIp);
+
     const rate = await this.rateLimitService.checkRateLimit(`apply-upload:${clientIp}:${jobId}`, {
       rules: [{ windowMs: 60 * 60 * 1000, maxRequests: 10 }],
     });
@@ -72,8 +86,13 @@ File Upload Flow:
   async applyForJob(
     @Param('jobId') jobId: string,
     @Body() createCandidateDto: CreateCandidateDto,
+    @Req() req: Request,
+    @Ip() ip: string,
   ): Promise<Candidate> {
-    return this.candidateService.applyForJob(jobId, createCandidateDto);
+    const clientIp = ip || req.ip || 'unknown';
+    await this.assertTurnstile(createCandidateDto.turnstileToken, clientIp);
+    const { turnstileToken: _turnstileToken, ...candidateData } = createCandidateDto;
+    return this.candidateService.applyForJob(jobId, candidateData);
   }
   @Get(':jobId/applications/:applicationId/status')
   @ApiOperation({ summary: 'Get application status' })
