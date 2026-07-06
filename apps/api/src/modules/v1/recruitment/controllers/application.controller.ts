@@ -43,8 +43,6 @@ export class ApplicationController {
     @Ip() ip: string,
   ) {
     const clientIp = ip || req.ip || 'unknown';
-    await this.assertTurnstile(body.turnstileToken, clientIp);
-
     const rate = await this.rateLimitService.checkRateLimit(`apply-upload:${clientIp}:${jobId}`, {
       rules: [{ windowMs: 60 * 60 * 1000, maxRequests: 10 }],
     });

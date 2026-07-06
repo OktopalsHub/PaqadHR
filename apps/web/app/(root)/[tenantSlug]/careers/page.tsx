@@ -100,38 +100,10 @@ export default function PublicCareersPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
-  const turnstileWaiterRef = useRef<((token: string) => void) | null>(null);
 
   const handleTurnstileSuccess = useCallback((token: string) => {
     setTurnstileToken(token);
-    turnstileWaiterRef.current?.(token);
-    turnstileWaiterRef.current = null;
   }, []);
-
-  const consumeTurnstileToken = useCallback(async (): Promise<string | undefined> => {
-    if (!turnstileSiteKey) {
-      return undefined;
-    }
-    if (turnstileToken) {
-      const token = turnstileToken;
-      setTurnstileToken(null);
-      turnstileRef.current?.reset();
-      return token;
-    }
-    return new Promise((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
-        turnstileWaiterRef.current = null;
-        reject(new Error('Please complete the security check'));
-      }, 30_000);
-      turnstileWaiterRef.current = (token) => {
-        window.clearTimeout(timeout);
-        setTurnstileToken(null);
-        turnstileRef.current?.reset();
-        resolve(token);
-      };
-      turnstileRef.current?.reset();
-    });
-  }, [turnstileToken]);
 
   useEffect(() => {
     if (!params.tenantSlug) return;
@@ -223,24 +195,20 @@ export default function PublicCareersPage() {
       setIsSubmitting(true);
 
       setResumeUploadProgress(true);
-      const resumeTurnstileToken = await consumeTurnstileToken();
       const resumeUploadResult = await uploadPublicCandidateFile(
         selectedJob.id,
         resumeFile,
         'resumes',
-        resumeTurnstileToken,
       );
       setResumeUploadProgress(false);
 
       let coverLetterFilename: string | undefined;
       if (coverLetterFile) {
         setCoverLetterUploadProgress(true);
-        const coverLetterTurnstileToken = await consumeTurnstileToken();
         const coverLetterUploadResult = await uploadPublicCandidateFile(
           selectedJob.id,
           coverLetterFile,
           'cover-letters',
-          coverLetterTurnstileToken,
         );
         coverLetterFilename = coverLetterUploadResult.fileName;
         setCoverLetterUploadProgress(false);
@@ -261,7 +229,7 @@ export default function PublicCareersPage() {
         experience: {
           years: 0,
         },
-        turnstileToken: await consumeTurnstileToken(),
+        turnstileToken: turnstileToken ?? undefined,
       };
 
       await submitPublicApplication(selectedJob.id, payload);

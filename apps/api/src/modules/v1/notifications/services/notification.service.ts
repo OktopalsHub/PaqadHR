@@ -40,6 +40,20 @@ export class NotificationService {
     }
   }
 
+  private async assertRecipientsAreTenantMembers(
+    recipientIds: string[],
+    tenantId: string,
+  ): Promise<void> {
+    const memberIds = await this.tenantMembersService.findTenantMemberUserIds(
+      tenantId,
+      recipientIds,
+    );
+    const invalid = recipientIds.find((recipientId) => !memberIds.has(recipientId));
+    if (invalid) {
+      throw new BadRequestException('Recipient is not a member of this tenant');
+    }
+  }
+
   async createNotification(createNotificationDto: CreateNotificationDto): Promise<Notification> {
     if (createNotificationDto.recipientId && createNotificationDto.tenantId) {
       await this.assertRecipientIsTenantMember(
@@ -54,9 +68,10 @@ export class NotificationService {
   }
   async createBulkNotifications(createBulkDto: CreateBulkNotificationDto): Promise<Notification[]> {
     if (createBulkDto.tenantId) {
-      for (const recipientId of createBulkDto.recipientIds) {
-        await this.assertRecipientIsTenantMember(recipientId, createBulkDto.tenantId);
-      }
+      await this.assertRecipientsAreTenantMembers(
+        createBulkDto.recipientIds,
+        createBulkDto.tenantId,
+      );
     }
     const notifications = createBulkDto.recipientIds.map((recipientId) =>
       this.notificationRepository.create({

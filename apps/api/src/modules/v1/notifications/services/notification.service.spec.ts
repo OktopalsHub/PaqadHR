@@ -12,7 +12,10 @@ import { ZeptomailEmailService } from './zeptomail-email.service';
 
 describe('NotificationService', () => {
   let service: NotificationService;
-  let tenantMembersService: { findUserTenantMembership: jest.Mock };
+  let tenantMembersService: {
+    findUserTenantMembership: jest.Mock;
+    findTenantMemberUserIds: jest.Mock;
+  };
   let notificationRepository: {
     create: jest.Mock;
     save: jest.Mock;
@@ -21,6 +24,7 @@ describe('NotificationService', () => {
   beforeEach(async () => {
     tenantMembersService = {
       findUserTenantMembership: jest.fn(),
+      findTenantMemberUserIds: jest.fn(),
     };
     notificationRepository = {
       create: jest.fn((data) => data),
@@ -74,5 +78,24 @@ describe('NotificationService', () => {
         recipientId: 'user-1',
       }),
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it('validates bulk recipients with one membership query', async () => {
+    tenantMembersService.findTenantMemberUserIds.mockResolvedValue(new Set(['user-1']));
+
+    await expect(
+      service.createBulkNotifications({
+        tenantId: 'tenant-1',
+        recipientIds: ['user-1', 'user-2'],
+        channel: NotificationChannel.IN_APP,
+        title: 'Hello',
+        message: 'World',
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(tenantMembersService.findTenantMemberUserIds).toHaveBeenCalledWith('tenant-1', [
+      'user-1',
+      'user-2',
+    ]);
   });
 });
