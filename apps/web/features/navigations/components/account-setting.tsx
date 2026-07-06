@@ -26,7 +26,7 @@ export const AccountSetting = ({ logout }: { logout: () => void }) => {
   const tenantHref = useTenantHref();
   const settingsBase = tenantHref('settings');
 
-  const name = memberFullName(profile, user?.name);
+  const name = memberFullName(profile);
   const position = profile?.position?.title?.trim();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';

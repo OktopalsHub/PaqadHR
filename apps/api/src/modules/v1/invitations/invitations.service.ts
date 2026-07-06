@@ -10,7 +10,10 @@ import { QueryFailedError } from 'typeorm';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
-import { formatInviteeDisplayName } from '../../../common/utils/member-display.util';
+import {
+  formatInviteeDisplayName,
+  formatMemberDisplayName,
+} from '../../../common/utils/member-display.util';
 import { ActivitiesService } from '../activities/services/activities.service';
 import { DepartmentsService } from '../departments/departments.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
@@ -275,7 +278,8 @@ export class InvitationsService {
     await this.rateLimitService.clearRateLimit(`accept_${email}`);
 
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
-    const inviteeName = formatInviteeDisplayName(invitation);
+    const inviteeName =
+      formatMemberDisplayName({ firstName, lastName, preferredName }) ?? 'A team member';
     void this.activitiesService
       .queueActivity({
         tenantId: invitation.tenantId,

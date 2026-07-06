@@ -5,17 +5,23 @@ describe('member-display.util', () => {
     expect(formatMemberDisplayName({ preferredName: 'Dan', firstName: 'Daniel' })).toBe('Dan');
   });
 
-  it('formats invitee name without email', () => {
-    expect(
-      formatInviteeDisplayName({
-        firstName: 'Joy',
-        lastName: 'Ibinichina',
-        email: 'ibinichinasajoy@gmail.com',
-      }),
-    ).toBe('Joy Ibinichina');
+  it('formats member display name from first and last name only', () => {
+    expect(formatMemberDisplayName({ firstName: 'Joy', lastName: 'Ibinichina' })).toBe(
+      'Joy Ibinichina',
+    );
   });
 
-  it('falls back when invitee has no name', () => {
-    expect(formatInviteeDisplayName({ email: 'ibinichinasajoy@gmail.com' })).toBe('A team member');
+  it('does not fall back to user identity fields', () => {
+    expect(formatMemberDisplayName({ firstName: '', lastName: '' })).toBeNull();
+  });
+
+  it('formats invitee name from invitation member fields', () => {
+    expect(formatInviteeDisplayName({ firstName: 'Joy', lastName: 'Ibinichina' })).toBe(
+      'Joy Ibinichina',
+    );
+  });
+
+  it('falls back when invitee has no tenant member name', () => {
+    expect(formatInviteeDisplayName({})).toBe('A team member');
   });
 });

@@ -52,7 +52,7 @@ export function SettingsProfileTab() {
     setAvatarUrl(profile.avatarUrl ?? null);
   }, [profile]);
 
-  const name = memberFullName(profile, user?.name);
+  const name = memberFullName(profile);
   const initials = memberInitials(profile, user?.name);
 
   const saveProfile = async () => {

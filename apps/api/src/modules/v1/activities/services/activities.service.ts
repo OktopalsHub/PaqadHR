@@ -74,7 +74,6 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
     const qb = this.activityRepository
       .createQueryBuilder('activity')
       .leftJoinAndSelect('activity.actorMember', 'actorMember')
-      .leftJoinAndSelect('actorMember.user', 'actorUser')
       .where('activity.tenantId = :tenantId', { tenantId })
       .orderBy('activity.createdAt', 'DESC')
       .skip((page - 1) * limit)

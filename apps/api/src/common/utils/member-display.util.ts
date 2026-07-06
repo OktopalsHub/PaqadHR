@@ -1,8 +1,8 @@
+/** Tenant-scoped display fields — never fall back to User (auth) identity. */
 type MemberNameFields = {
   preferredName?: string | null;
   firstName?: string | null;
   lastName?: string | null;
-  user?: { email?: string | null } | null;
 };
 
 export function formatMemberDisplayName(
@@ -14,20 +14,15 @@ export function formatMemberDisplayName(
   const first = member.firstName?.trim() ?? '';
   const last = member.lastName?.trim() ?? '';
   const full = `${first} ${last}`.trim();
-  if (full) return full;
-  return member.user?.email?.trim() ?? null;
+  return full || null;
 }
 
 type InviteeNameFields = {
   firstName?: string | null;
   lastName?: string | null;
-  email?: string | null;
 };
 
+/** Invitation invitee label from tenant invitation record (not User). */
 export function formatInviteeDisplayName(invitation: InviteeNameFields): string {
-  const first = invitation.firstName?.trim() ?? '';
-  const last = invitation.lastName?.trim() ?? '';
-  const full = `${first} ${last}`.trim();
-  if (full) return full;
-  return 'A team member';
+  return formatMemberDisplayName(invitation) ?? 'A team member';
 }
