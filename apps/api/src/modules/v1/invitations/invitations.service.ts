@@ -193,8 +193,9 @@ export class InvitationsService {
       throw new BadRequestException('Invitation has expired');
     }
 
-    const firstName = acceptInvitationDto?.firstName?.trim() || invitation.firstName?.trim() || '';
-    const lastName = acceptInvitationDto?.lastName?.trim() || invitation.lastName?.trim() || '';
+    const firstName = acceptInvitationDto.firstName?.trim() ?? '';
+    const lastName = acceptInvitationDto.lastName?.trim() ?? '';
+    this.validateName(firstName, lastName);
 
     const preferredName = acceptInvitationDto?.preferredName?.trim() || undefined;
     const existingUser = await this.usersService.getUserByEmail(invitation.email);
@@ -221,8 +222,8 @@ export class InvitationsService {
         existingUser.id,
         invitation.tenantId,
         {
-          firstName: firstName || invitation.firstName || undefined,
-          lastName: lastName || invitation.lastName || undefined,
+          firstName,
+          lastName,
           preferredName,
           role: invitation.role as never,
         },
@@ -232,7 +233,6 @@ export class InvitationsService {
       if (!acceptInvitationDto.password) {
         throw new BadRequestException('Password required for new users');
       }
-      this.validateName(firstName, lastName);
       const password = await PasswordService.hashPassword(acceptInvitationDto.password);
       const newUser = await this.usersService.createUser({
         email: invitation.email,

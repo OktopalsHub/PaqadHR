@@ -173,12 +173,19 @@ describe('InvitationsService', () => {
   });
 
   describe('acceptInvitation', () => {
-    it('accepts for an existing user without firstName/lastName in the body', async () => {
+    it('requires first and last name for an existing user', async () => {
       const { service, tenantMembersService } = buildService({
         existingUser: { id: 'user-1', email: 'existing@example.com', role: 'member' },
       });
 
-      const result = await service.acceptInvitation('token-abc', 'existing@example.com', {});
+      await expect(
+        service.acceptInvitation('token-abc', 'existing@example.com', {}),
+      ).rejects.toThrow('First name and last name are required');
+
+      const result = await service.acceptInvitation('token-abc', 'existing@example.com', {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+      });
 
       expect(result.userExists).toBe(true);
       expect(tenantMembersService.createTenantMember).toHaveBeenCalledWith(
@@ -190,6 +197,16 @@ describe('InvitationsService', () => {
           role: 'member',
         }),
       );
+    });
+
+    it('requires names for a new user even when invitation names are present', async () => {
+      const { service } = buildService();
+
+      await expect(
+        service.acceptInvitation('token-abc', 'existing@example.com', {
+          password: 'password123',
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
     });
 
     it('requires names for a new user when invitation names are missing', async () => {

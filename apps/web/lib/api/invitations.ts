@@ -51,9 +51,9 @@ export async function fetchInvitationDetails(
 export async function acceptInvitation(input: {
   token: string;
   email: string;
+  firstName: string;
+  lastName: string;
   password?: string;
-  firstName?: string;
-  lastName?: string;
   preferredName?: string;
 }): Promise<AcceptInvitationResponse> {
   return apiClient<AcceptInvitationResponse>('/invitations/accept', {

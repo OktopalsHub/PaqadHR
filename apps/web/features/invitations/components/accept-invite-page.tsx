@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,6 @@ export function AcceptInvitePage() {
   const [lastName, setLastName] = useState('');
   const [preferredName, setPreferredName] = useState('');
   const [password, setPassword] = useState('');
-  const autoAcceptStarted = useRef(false);
 
   const invitePath = useMemo(
     () => (token && email ? buildAcceptInvitePath(token, email) : '/accept-invite'),
@@ -76,13 +75,13 @@ export function AcceptInvitePage() {
   const handleAccept = useCallback(async () => {
     if (!token || !email) return;
 
-    if (!details?.userExists && password.trim().length < 8) {
-      toast.error('Choose a password with at least 8 characters.');
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error('First and last name are required.');
       return;
     }
 
-    if (!details?.userExists && (!firstName.trim() || !lastName.trim())) {
-      toast.error('First and last name are required.');
+    if (!details?.userExists && password.trim().length < 8) {
+      toast.error('Choose a password with at least 8 characters.');
       return;
     }
 
@@ -97,9 +96,9 @@ export function AcceptInvitePage() {
         token,
         email,
         password: details?.userExists ? undefined : password,
-        firstName: details?.userExists ? undefined : firstName.trim(),
-        lastName: details?.userExists ? undefined : lastName.trim(),
-        preferredName: details?.userExists ? undefined : preferredName.trim() || undefined,
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        preferredName: preferredName.trim() || undefined,
       });
 
       if (!details?.userExists) {
@@ -163,32 +162,6 @@ export function AcceptInvitePage() {
     };
   }, [token, email]);
 
-  useEffect(() => {
-    if (
-      authLoading ||
-      isLoading ||
-      !details?.userExists ||
-      !isAuthenticated ||
-      isSubmitting ||
-      autoAcceptStarted.current
-    ) {
-      return;
-    }
-    if (user?.email.toLowerCase() !== email.toLowerCase()) return;
-
-    autoAcceptStarted.current = true;
-    void handleAccept();
-  }, [
-    authLoading,
-    isLoading,
-    details?.userExists,
-    isAuthenticated,
-    isSubmitting,
-    user?.email,
-    email,
-    handleAccept,
-  ]);
-
   if (isLoading || authLoading) {
     return (
       <div className="py-12">
@@ -210,6 +183,8 @@ export function AcceptInvitePage() {
   }
 
   const signedInWrongAccount = isAuthenticated && user?.email.toLowerCase() !== email.toLowerCase();
+  const showProfileFields =
+    !details.userExists || (details.userExists && isAuthenticated && !signedInWrongAccount);
 
   return (
     <div className="space-y-6">
@@ -243,10 +218,12 @@ export function AcceptInvitePage() {
         </div>
       ) : null}
 
-      {!details.userExists ? (
+      {showProfileFields ? (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Set up your profile to join {details.tenantName}.
+            {details.userExists
+              ? `Confirm your name to join ${details.tenantName}.`
+              : `Set up your profile to join ${details.tenantName}.`}
           </p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -256,6 +233,7 @@ export function AcceptInvitePage() {
                 value={firstName}
                 onChange={(event) => setFirstName(event.target.value)}
                 autoComplete="given-name"
+                required
               />
             </div>
             <div className="space-y-2">
@@ -265,6 +243,7 @@ export function AcceptInvitePage() {
                 value={lastName}
                 onChange={(event) => setLastName(event.target.value)}
                 autoComplete="family-name"
+                required
               />
             </div>
           </div>
@@ -280,19 +259,21 @@ export function AcceptInvitePage() {
               autoComplete="nickname"
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Create password</Label>
-            <PasswordInput
-              id="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 8 characters"
-              className="h-11"
-              autoComplete="new-password"
-            />
-          </div>
+          {!details.userExists ? (
+            <div className="space-y-2">
+              <Label htmlFor="password">Create password</Label>
+              <PasswordInput
+                id="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="At least 8 characters"
+                className="h-11"
+                autoComplete="new-password"
+              />
+            </div>
+          ) : null}
         </div>
-      ) : !isAuthenticated ? (
+      ) : !details.userExists ? null : !isAuthenticated ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
             You already have a Paqad account. Sign in to accept this invitation.
@@ -303,18 +284,14 @@ export function AcceptInvitePage() {
             </Link>
           </Button>
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground">Accepting your invitation…</p>
-      )}
+      ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        {!details.userExists || isAuthenticated ? (
+        {showProfileFields ? (
           <Button
             className="h-11 flex-1"
             onClick={() => void handleAccept()}
-            disabled={
-              isSubmitting || signedInWrongAccount || (details.userExists && !isAuthenticated)
-            }
+            disabled={isSubmitting || signedInWrongAccount}
           >
             {isSubmitting ? 'Joining…' : 'Accept invitation'}
           </Button>
