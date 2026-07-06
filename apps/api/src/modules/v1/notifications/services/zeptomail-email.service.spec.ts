@@ -1,7 +1,12 @@
-import { buildZeptomailPayload, formatZeptomailError } from './zeptomail-email.service';
+import {
+  buildZeptomailPayload,
+  formatZeptomailError,
+  formatZeptomailSdkError,
+  toUserFacingEmailError,
+} from './zeptomail-email.service';
 
 describe('zeptomail helpers', () => {
-  it('sends both htmlbody and textbody when both are present', () => {
+  it('sends htmlbody and textbody when both are present', () => {
     const payload = buildZeptomailPayload(
       {
         to: 'user@example.com',
@@ -43,5 +48,36 @@ describe('zeptomail helpers', () => {
     expect(message).toContain('TM_5001');
     expect(message).toContain('Credit exhausted');
     expect(message).toContain('request_id: req-123');
+  });
+
+  it('formats SDK rejection payloads', () => {
+    const message = formatZeptomailSdkError({
+      error: { code: 'TM_4001', message: 'Sender address domain is not verified in your Agent.' },
+    });
+
+    expect(message).toContain('TM_4001');
+    expect(message).toContain('Sender address domain is not verified');
+  });
+
+  it('formats standard Error instances without Zeptomail body shape', () => {
+    expect(formatZeptomailSdkError(new Error('network timeout'))).toBe('network timeout');
+  });
+
+  it('maps technical Zeptomail errors to user-facing messages', () => {
+    expect(
+      toUserFacingEmailError(
+        'Zeptomail API error (500) [TM_5001]: Unknown error (request_id: req-123)',
+      ),
+    ).toBe(
+      'We could not send the invite email. Try resend from Invitations, or contact support if it keeps failing.',
+    );
+
+    expect(
+      toUserFacingEmailError(
+        'Zeptomail API error (400) [TM_4001]: Sender address domain is not verified in your Agent.',
+      ),
+    ).toBe(
+      'The sender email is not verified for delivery. Your admin needs to verify it in Zeptomail.',
+    );
   });
 });
