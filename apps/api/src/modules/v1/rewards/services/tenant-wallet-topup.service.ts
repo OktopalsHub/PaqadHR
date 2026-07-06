@@ -237,7 +237,6 @@ export class TenantWalletTopupService {
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
 
-    let chargeReference = reference;
     try {
       const charge = await this.nombaApi.chargeTokenizedCard({
         orderReference: reference,
@@ -249,7 +248,7 @@ export class TenantWalletTopupService {
         meta: { tenantId, billingType: 'wallet_topup' },
       });
 
-      chargeReference = charge.orderReference;
+      const chargeReference = charge.orderReference;
       const verified = await this.nombaApi.verifyTransaction(chargeReference);
       if (verified?.status?.toLowerCase() !== 'success') {
         throw new Error('Payment verification failed');
