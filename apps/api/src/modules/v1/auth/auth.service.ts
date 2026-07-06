@@ -331,8 +331,13 @@ export class AuthService {
       where: { token: payload.sid, userId: user.id },
     });
 
-    if (!session || session.expiresAt < new Date()) {
+    if (!session) {
       await this.sessionRepository.delete({ userId: user.id });
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    if (session.expiresAt < new Date()) {
+      await this.sessionRepository.delete({ token: payload.sid });
       throw new UnauthorizedException('Invalid or expired session');
     }
 
