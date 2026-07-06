@@ -23,14 +23,14 @@ import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-
 import type { IAuthenticatedMemberRequest, MemberContext } from '../../../../common/interfaces';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
-import type { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
+import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
+import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import type {
   PayrollCalculationPreviewDto,
   UpdatePayrollRunDto,
 } from '../dto/payroll-adjustment.dto';
-import type { PublishPayslipsDto } from '../dto/publish-payslips.dto';
-import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
+import { PublishPayslipsDto } from '../dto/publish-payslips.dto';
+import { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { AuditService } from '../services/audit.service';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';

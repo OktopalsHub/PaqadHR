@@ -18,9 +18,9 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateCompensationDto } from './dto/create-compensation.dto';
-import type { CreateEmploymentDto } from './dto/create-employment.dto';
-import type { UpdateEmploymentDto } from './dto/update-employment.dto';
+import { CreateCompensationDto } from './dto/create-compensation.dto';
+import { CreateEmploymentDto } from './dto/create-employment.dto';
+import { UpdateEmploymentDto } from './dto/update-employment.dto';
 import { EmploymentService } from './employment.service';
 import type { Employment } from './entities/employment.entity';
 

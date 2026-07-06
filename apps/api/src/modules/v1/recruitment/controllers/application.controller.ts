@@ -18,7 +18,7 @@ import { TurnstileService } from 'src/common/services/turnstile.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
 import { CreateCandidateDto } from '../dto/index';
-import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
+import { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateService } from '../services/candidate.service';
 import { JobOpeningService } from '../services/job-opening.service';

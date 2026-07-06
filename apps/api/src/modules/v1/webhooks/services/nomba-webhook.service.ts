@@ -14,6 +14,7 @@ export function extractWalletTopupCheckout(payload: unknown): {
   tenantId: string;
   orderReference: string;
   amount?: number;
+  initiatedByMemberId?: string;
 } | null {
   const body = payload as {
     event_type?: string;
@@ -48,11 +49,17 @@ export function extractWalletTopupCheckout(payload: unknown): {
       ? Number(expectedRaw)
       : undefined;
   const amountFromOrder = Number(order?.amount ?? data?.amount ?? 0);
+  const initiatedByRaw = orderMeta.initiatedByMemberId ?? data?.meta?.initiatedByMemberId;
+  const initiatedByMemberId =
+    initiatedByRaw !== undefined && initiatedByRaw !== null && String(initiatedByRaw).trim() !== ''
+      ? String(initiatedByRaw)
+      : undefined;
 
   return {
     tenantId: String(tenantId),
     orderReference: String(orderReference),
     amount: Number.isFinite(expectedAmount) ? expectedAmount : amountFromOrder || undefined,
+    initiatedByMemberId,
   };
 }
 

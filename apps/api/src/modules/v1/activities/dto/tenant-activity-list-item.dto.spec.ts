@@ -22,5 +22,6 @@ describe('toTenantActivityListItem', () => {
     } as any);
 
     expect(item.metadata).toEqual({ amount: 5000 });
+    expect(item.actorAvatarUrl).toBeNull();
   });
 });

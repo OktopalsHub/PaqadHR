@@ -3,6 +3,7 @@
 import { format } from 'date-fns';
 import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { PersonAvatar } from '@/components/person-avatar';
 import type { TenantActivity } from '@/lib/api/activities';
 import { cn } from '@/lib/utils';
 import { formatActivityActor, getActivityPresentation } from '../lib/activity-format';
@@ -51,7 +52,15 @@ export function ActivityLogItem({ activity, tenantSlug }: ActivityLogItemProps) 
               {title}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
-              <span className="font-medium text-slate-600 dark:text-slate-300">{actor}</span>
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                <PersonAvatar
+                  src={activity.actorAvatarUrl}
+                  name={actor}
+                  className="size-5 border border-border/60"
+                  fallbackClassName="text-[10px] font-semibold"
+                />
+                {actor}
+              </span>
               <span aria-hidden className="hidden sm:inline">
                 •
               </span>

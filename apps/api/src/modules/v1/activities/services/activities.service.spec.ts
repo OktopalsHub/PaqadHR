@@ -7,7 +7,8 @@ describe('ActivitiesService', () => {
 
   it('queues activities in test mode without hitting the repository', async () => {
     const repo = { create: jest.fn(), save: jest.fn(), find: jest.fn() };
-    const service = new ActivitiesService(repo as any);
+    const fileUrlService = { getMemberAvatarUrl: jest.fn().mockReturnValue(null) };
+    const service = new ActivitiesService(repo as any, fileUrlService as any);
 
     await service.queueActivity({
       tenantId: 'tenant-1',
@@ -51,7 +52,8 @@ describe('ActivitiesService', () => {
     const repo = {
       createQueryBuilder: jest.fn().mockReturnValue(qb),
     };
-    const service = new ActivitiesService(repo as any);
+    const fileUrlService = { getMemberAvatarUrl: jest.fn().mockReturnValue(null) };
+    const service = new ActivitiesService(repo as any, fileUrlService as any);
 
     const result = await service.listForTenant('tenant-1', { page: 1, limit: 20 });
 

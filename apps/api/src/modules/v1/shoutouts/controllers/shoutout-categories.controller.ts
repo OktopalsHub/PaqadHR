@@ -14,9 +14,9 @@ import {
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { TenantId } from 'src/common/decorators';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
+import { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
 import { ShoutoutCategoryResponseDto } from '../dto/shoutout-category-response.dto';
-import type { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
+import { UpdateShoutoutCategoryDto } from '../dto/update-shoutout-category.dto';
 import { ShoutoutCategoriesService } from '../services/shoutout-categories.service';
 
 @ApiTags('Shoutouts')

@@ -135,16 +135,24 @@ export class RewardsController {
   @Post('wallet/topup')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
-  async manualTopup(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
-    return this.walletTopupService.manualTopup(tenantId, body.amount);
+  async manualTopup(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { amount: number },
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.walletTopupService.manualTopup(tenantId, body.amount, member.id);
   }
 
   @Post('wallet/topup/checkout')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   @ApiOperation({ summary: 'Create Nomba checkout link to fund rewards wallet' })
-  async topupCheckout(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
-    return this.walletTopupService.createTopupCheckout(tenantId, Number(body.amount));
+  async topupCheckout(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { amount: number },
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.walletTopupService.createTopupCheckout(tenantId, Number(body.amount), member.id);
   }
 
   @Post('wallet/auto-topup')

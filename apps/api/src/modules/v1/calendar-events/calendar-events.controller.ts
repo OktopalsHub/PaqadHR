@@ -17,7 +17,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CalendarEventsService } from './calendar-events.service';
-import type { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';
+import { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';
 
 @ApiTags('Calendar Events')
 @Controller('tenants/:tenantId/calendar-events')

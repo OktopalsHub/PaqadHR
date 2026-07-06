@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreatePositionDto } from '../dto/create-position.dto';
-import type { UpdatePositionDto } from '../dto/update-position.dto';
+import { CreatePositionDto } from '../dto/create-position.dto';
+import { UpdatePositionDto } from '../dto/update-position.dto';
 import type { Position } from '../entities/position.entity';
 import { PositionService } from '../services/position.service';
 

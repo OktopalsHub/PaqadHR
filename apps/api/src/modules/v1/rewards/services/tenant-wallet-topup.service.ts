@@ -39,21 +39,27 @@ export class TenantWalletTopupService {
     private readonly tenantRepository: Repository<Tenant>,
   ) {}
 
-  async manualTopup(tenantId: string, amount: number): Promise<TenantWallet> {
+  async manualTopup(
+    tenantId: string,
+    amount: number,
+    actorMemberId?: string,
+  ): Promise<TenantWallet> {
     const reference = `manual-topup-${randomUUID()}`;
     return this.chargeAndCredit(
       tenantId,
       amount,
       reference,
-      'Manual rewards wallet top-up via saved payment method',
+      'Rewards wallet topped up',
       undefined,
       'admin',
+      actorMemberId,
     );
   }
 
   async createTopupCheckout(
     tenantId: string,
     amount: number,
+    initiatedByMemberId?: string,
   ): Promise<{ checkoutUrl: string; orderReference: string }> {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
@@ -88,6 +94,7 @@ export class TenantWalletTopupService {
         tenantId,
         billingType: 'wallet_topup',
         expectedAmount: amount,
+        ...(initiatedByMemberId ? { initiatedByMemberId } : {}),
       },
     });
 
@@ -101,6 +108,7 @@ export class TenantWalletTopupService {
     tenantId: string;
     orderReference: string;
     amount?: number;
+    initiatedByMemberId?: string;
   }): Promise<{ received: boolean; credited: boolean }> {
     const tenantKey = input.tenantId.replace(/-/g, '');
     if (!input.orderReference.startsWith(`wt_${tenantKey}_`)) {
@@ -173,7 +181,10 @@ export class TenantWalletTopupService {
         input.orderReference,
         'Rewards wallet topped up',
         manager,
-        { nombaEventId: input.orderReference },
+        {
+          nombaEventId: input.orderReference,
+          actorMemberId: input.initiatedByMemberId ?? null,
+        },
       );
       this.logger.log(
         `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
@@ -211,6 +222,7 @@ export class TenantWalletTopupService {
     description: string,
     manager?: EntityManager,
     audience: ChargeAudience = 'admin',
+    actorMemberId?: string,
   ): Promise<TenantWallet> {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
@@ -284,6 +296,7 @@ export class TenantWalletTopupService {
         manager,
         {
           nombaEventId: chargeReference,
+          actorMemberId: actorMemberId ?? null,
         },
       );
     } catch (error) {

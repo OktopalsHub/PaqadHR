@@ -1,3 +1,5 @@
+import type { FileUrlService } from 'src/common/services/file-url.service';
+import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
 import type { TenantActivity } from '../entities/tenant-activity.entity';
 
 export interface TenantActivityListItemDto {
@@ -5,6 +7,7 @@ export interface TenantActivityListItemDto {
   tenantId: string;
   actorMemberId: string | null;
   actorName: string | null;
+  actorAvatarUrl: string | null;
   action: string;
   resourceType: string | null;
   resourceId: string | null;
@@ -13,17 +16,6 @@ export interface TenantActivityListItemDto {
   severity: string;
   metadata: Record<string, unknown> | null;
   createdAt: Date;
-}
-
-function formatMemberName(member: TenantActivity['actorMember']): string | null {
-  if (!member) return null;
-  const preferred = member.preferredName?.trim();
-  if (preferred) return preferred;
-  const first = member.firstName?.trim() ?? '';
-  const last = member.lastName?.trim() ?? '';
-  const full = `${first} ${last}`.trim();
-  if (full) return full;
-  return member.user?.email?.trim() ?? null;
 }
 
 const TENANT_HIDDEN_METADATA_KEYS = ['provider', 'paymentProvider'] as const;
@@ -39,12 +31,25 @@ function sanitizeTenantActivityMetadata(
   return Object.keys(sanitized).length > 0 ? sanitized : null;
 }
 
-export function toTenantActivityListItem(activity: TenantActivity): TenantActivityListItemDto {
+function formatActorAvatarUrl(
+  activity: TenantActivity,
+  fileUrlService?: FileUrlService,
+): string | null {
+  const avatarKey = activity.actorMember?.avatarKey?.trim();
+  if (!avatarKey || !fileUrlService) return null;
+  return fileUrlService.getMemberAvatarUrl(activity.tenantId, avatarKey);
+}
+
+export function toTenantActivityListItem(
+  activity: TenantActivity,
+  fileUrlService?: FileUrlService,
+): TenantActivityListItemDto {
   return {
     id: activity.id,
     tenantId: activity.tenantId,
     actorMemberId: activity.actorMemberId,
-    actorName: formatMemberName(activity.actorMember),
+    actorName: formatMemberDisplayName(activity.actorMember),
+    actorAvatarUrl: formatActorAvatarUrl(activity, fileUrlService),
     action: activity.action,
     resourceType: activity.resourceType,
     resourceId: activity.resourceId,

@@ -15,10 +15,10 @@ import { CurrentTenantMember } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { AddTeamMemberDto } from './dto/add-team-member.dto';
-import type { CreateTeamDto } from './dto/create-team.dto';
-import type { UpdateTeamDto } from './dto/update-team.dto';
-import type { UpdateTeamMemberDto } from './dto/update-team-member.dto';
+import { AddTeamMemberDto } from './dto/add-team-member.dto';
+import { CreateTeamDto } from './dto/create-team.dto';
+import { UpdateTeamDto } from './dto/update-team.dto';
+import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
 import { TeamsService } from './teams.service';
 
 @ApiTags('Teams')

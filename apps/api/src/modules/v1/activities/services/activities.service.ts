@@ -1,5 +1,6 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { Repository } from 'typeorm';
 import {
   type TenantActivityListItemDto,
@@ -38,6 +39,7 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
   constructor(
     @InjectRepository(TenantActivity)
     private readonly activityRepository: Repository<TenantActivity>,
+    private readonly fileUrlService: FileUrlService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -98,7 +100,7 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
 
     const [rows, total] = await qb.getManyAndCount();
     return {
-      items: rows.map(toTenantActivityListItem),
+      items: rows.map((row) => toTenantActivityListItem(row, this.fileUrlService)),
       total,
       page,
       limit,

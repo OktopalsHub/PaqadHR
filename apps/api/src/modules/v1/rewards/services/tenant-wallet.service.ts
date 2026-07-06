@@ -10,6 +10,7 @@ export interface WalletCreditOptions {
   nombaEventId?: string;
   metadata?: Record<string, unknown>;
   status?: TenantWalletTransaction['status'];
+  actorMemberId?: string | null;
 }
 
 @Injectable()
@@ -124,6 +125,7 @@ export class TenantWalletService {
       void this.activitiesService
         .queueActivity({
           tenantId,
+          actorMemberId: options?.actorMemberId ?? null,
           action: 'wallet.deposit',
           resourceType: 'rewards_wallet',
           resourceId: reference,

@@ -16,8 +16,8 @@ import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from '../../../common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateInvitationDto } from './dto/index';
-import type { UpdateInvitationDto } from './dto/update-invitation.dto';
+import { CreateInvitationDto } from './dto/index';
+import { UpdateInvitationDto } from './dto/update-invitation.dto';
 import { InvitationsService } from './invitations.service';
 
 @ApiTags('Invitations')

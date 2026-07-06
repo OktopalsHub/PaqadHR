@@ -10,6 +10,7 @@ import { QueryFailedError } from 'typeorm';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
+import { formatInviteeDisplayName } from '../../../common/utils/member-display.util';
 import { ActivitiesService } from '../activities/services/activities.service';
 import { DepartmentsService } from '../departments/departments.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
@@ -274,15 +275,16 @@ export class InvitationsService {
     await this.rateLimitService.clearRateLimit(`accept_${email}`);
 
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
+    const inviteeName = formatInviteeDisplayName(invitation);
     void this.activitiesService
       .queueActivity({
         tenantId: invitation.tenantId,
-        actorMemberId: invitation.invitedBy,
+        actorMemberId: tenantMemberId,
         action: 'invite.accepted',
         resourceType: 'invitation',
         resourceId: invitation.id,
-        description: `${invitation.email} joined ${tenant?.name ?? 'the workspace'}`,
-        metadata: { email: invitation.email, role: invitation.role },
+        description: `${inviteeName} joined ${tenant?.name ?? 'the workspace'}`,
+        metadata: { role: invitation.role },
       })
       .catch(() => {});
 
@@ -480,6 +482,7 @@ export class InvitationsService {
       return { emailSent: false, emailError };
     }
 
+    const inviteeName = formatInviteeDisplayName(invitation);
     void this.activitiesService
       .queueActivity({
         tenantId: invitation.tenantId,
@@ -487,8 +490,8 @@ export class InvitationsService {
         action: 'invite.sent',
         resourceType: 'invitation',
         resourceId: invitation.id,
-        description: `Invitation sent to ${invitation.email}`,
-        metadata: { email: invitation.email, role: invitation.role },
+        description: `Invitation sent to ${inviteeName}`,
+        metadata: { role: invitation.role },
       })
       .catch(() => {});
 

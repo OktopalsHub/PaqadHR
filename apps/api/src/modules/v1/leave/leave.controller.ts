@@ -18,7 +18,7 @@ import { ManagerAccessService } from 'src/common/services/manager-access.service
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateLeaveDto } from './dto/create-leave.dto';
-import type { LeaveResponseDto } from './dto/leave-response.dto';
+import { LeaveResponseDto } from './dto/leave-response.dto';
 import { ListLeavesQueryDto } from './dto/list-leaves-query.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { LeaveService } from './leave.service';

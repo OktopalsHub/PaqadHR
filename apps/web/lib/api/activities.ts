@@ -6,6 +6,7 @@ export interface TenantActivity {
   tenantId: string;
   actorMemberId: string | null;
   actorName: string | null;
+  actorAvatarUrl: string | null;
   action: string;
   resourceType: string | null;
   resourceId: string | null;

@@ -3,8 +3,8 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreateLeaveTypeDto } from '../dto/create-leave-type.dto';
-import type { UpdateLeaveTypeDto } from '../dto/update-leave-type.dto';
+import { CreateLeaveTypeDto } from '../dto/create-leave-type.dto';
+import { UpdateLeaveTypeDto } from '../dto/update-leave-type.dto';
 import { LeaveTypeService } from '../leave-type.service';
 
 @ApiTags('Leave Types')

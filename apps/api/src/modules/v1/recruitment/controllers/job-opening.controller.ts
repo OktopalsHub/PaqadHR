@@ -20,8 +20,8 @@ import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreateJobOpeningDto } from '../dto/index';
-import type { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
+import { CreateJobOpeningDto } from '../dto/index';
+import { UpdateJobOpeningDto } from '../dto/update-job-opening.dto';
 import { JobOpening } from '../entities/job-opening.entity';
 import { JobOpeningService } from '../services/job-opening.service';
 
