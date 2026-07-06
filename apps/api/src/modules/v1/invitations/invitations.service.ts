@@ -277,7 +277,6 @@ export class InvitationsService {
     await this.invitationsRepository.softDelete(invitation.id);
     await this.rateLimitService.clearRateLimit(`accept_${email}`);
 
-    const tenant = await this.tenantsService.getTenant(invitation.tenantId);
     const inviteeName =
       formatMemberDisplayName({ firstName, lastName, preferredName }) ?? 'A team member';
     void this.activitiesService
@@ -287,8 +286,8 @@ export class InvitationsService {
         action: 'invite.accepted',
         resourceType: 'invitation',
         resourceId: invitation.id,
-        description: `${inviteeName} joined ${tenant?.name ?? 'the workspace'}`,
-        metadata: { role: invitation.role },
+        description: inviteeName === 'A team member' ? 'Member joined' : `${inviteeName} joined`,
+        metadata: { role: invitation.role, inviteeName },
       })
       .catch(() => {});
 
@@ -494,8 +493,8 @@ export class InvitationsService {
         action: 'invite.sent',
         resourceType: 'invitation',
         resourceId: invitation.id,
-        description: `Invitation sent to ${inviteeName}`,
-        metadata: { role: invitation.role },
+        description: inviteeName === 'A team member' ? 'Invitation sent' : `Invited ${inviteeName}`,
+        metadata: { role: invitation.role, inviteeName },
       })
       .catch(() => {});
 

@@ -41,6 +41,7 @@ export type UpdateEmploymentInput = {
   paySchedule?: string;
   status?: string;
   comments?: string;
+  reportsToId?: string | null;
 };
 
 export async function fetchEmployments(memberId: string): Promise<ApiEmployment[]> {

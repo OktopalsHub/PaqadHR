@@ -7,8 +7,11 @@ export function brandAssetUrl(variant: BrandVariant, mode: BrandMode) {
   return `${BRAND_ORIGIN}/logo-${variant}-${mode}.png`;
 }
 
-/** Static icon URLs for metadata (favicon, apple-touch, etc.). */
-export const brandIconUrls = {
+/** Browser tab / shortcut icons — icon mark only, never the wordmark lockup. */
+export const brandFaviconUrls = {
   light: brandAssetUrl('icon', 'light'),
   dark: brandAssetUrl('icon', 'dark'),
 } as const;
+
+/** @deprecated Use brandFaviconUrls for metadata icons */
+export const brandIconUrls = brandFaviconUrls;

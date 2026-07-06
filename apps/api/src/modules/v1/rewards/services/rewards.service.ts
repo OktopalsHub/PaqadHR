@@ -737,7 +737,7 @@ export class RewardsService {
         action: 'reward.redeemed',
         resourceType: 'reward',
         resourceId: redemptionId,
-        description: `${input.rewardName ?? input.rewardId} redeemed for ${pointsCost} points`,
+        description: `${input.rewardName ?? input.rewardId} redeemed`,
         metadata: {
           rewardName: input.rewardName ?? input.rewardId,
           pointsCost,

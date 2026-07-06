@@ -16,7 +16,7 @@ type ActivityLogItemProps = {
 
 export function ActivityLogItem({ activity, tenantSlug }: ActivityLogItemProps) {
   const { icon: Icon, iconClassName, title } = getActivityPresentation(activity);
-  const actor = formatActivityActor(activity.actorName);
+  const actor = formatActivityActor(activity.actorName, activity.actorMemberId);
   const createdAt = new Date(activity.createdAt);
   const timeLabel = format(createdAt, 'h:mm a');
   const href = getActivityHref(tenantSlug, activity);

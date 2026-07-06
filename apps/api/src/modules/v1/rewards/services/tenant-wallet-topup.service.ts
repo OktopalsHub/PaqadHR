@@ -49,7 +49,7 @@ export class TenantWalletTopupService {
       tenantId,
       amount,
       reference,
-      'Rewards wallet topped up',
+      'Wallet topped up',
       undefined,
       'admin',
       actorMemberId,
@@ -179,7 +179,7 @@ export class TenantWalletTopupService {
         paid,
         'DEPOSIT',
         input.orderReference,
-        'Rewards wallet topped up',
+        'Wallet topped up',
         manager,
         {
           nombaEventId: input.orderReference,

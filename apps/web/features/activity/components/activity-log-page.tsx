@@ -48,13 +48,9 @@ export function ActivityLogPage() {
     return (
       <AppPage className="space-y-6">
         <div>
-          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Workspace</p>
           <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
             Activity
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-            Important workspace events across leave, payroll, rewards, and administration.
-          </p>
         </div>
 
         <ContentCard
@@ -84,13 +80,9 @@ export function ActivityLogPage() {
     <AppPage className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Workspace</p>
           <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
             Activity
           </h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-400">
-            Important workspace events across leave, payroll, rewards, and administration.
-          </p>
         </div>
         <div className="dashboard-soft-tile flex w-full items-center gap-3 rounded-[8px] px-4 py-3 dark:border-slate-800 sm:max-w-xs lg:w-auto">
           <div className="flex size-10 items-center justify-center rounded-[8px] bg-primary/10 text-primary">

@@ -11,12 +11,14 @@ import { type Employee, employeeListSchema, employeeSchema } from '@/lib/schemas
 export type UpdateEmployeeInput = {
   firstName?: string;
   lastName?: string;
+  middleName?: string;
   preferredName?: string;
   phone?: string;
   dateOfBirth?: string;
   gender?: string;
-  departmentId?: string;
-  reportsToId?: string;
+  role?: string;
+  departmentId?: string | null;
+  reportsToId?: string | null;
   avatarKey?: string;
 };
 
@@ -62,6 +64,15 @@ export async function updateEmployee(id: string, input: UpdateEmployeeInput): Pr
   const member = await apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}`), {
     method: 'PATCH',
     body: JSON.stringify(input),
+  });
+  return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
+}
+
+export async function updateEmployeeMemberStatus(id: string, isActive: boolean): Promise<Employee> {
+  const tenantId = await resolveTenantId();
+  const member = await apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}/status`), {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
   });
   return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
 }

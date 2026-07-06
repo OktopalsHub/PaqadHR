@@ -30,6 +30,42 @@ const PAYROLL_ACTIONS = new Set([
   'payslips_published',
 ]);
 
+const EMAIL_RE = /@/;
+
+function inviteeNameFromMetadata(metadata: Record<string, unknown> | null): string | null {
+  const name = metadata?.inviteeName;
+  return typeof name === 'string' && name.trim() ? name.trim() : null;
+}
+
+/** Short, tenant-member-first titles for the activity feed (hides legacy email-heavy descriptions). */
+export function formatActivityTitle(activity: TenantActivity): string {
+  const { action, description, metadata } = activity;
+  const inviteeName = inviteeNameFromMetadata(metadata);
+
+  switch (action) {
+    case 'invite.sent':
+      if (inviteeName && inviteeName !== 'A team member') return `Invited ${inviteeName}`;
+      if (EMAIL_RE.test(description)) return 'Invitation sent';
+      return description.replace(/^Invitation sent to /i, 'Invited ') || 'Invitation sent';
+    case 'invite.accepted':
+      if (inviteeName && inviteeName !== 'A team member') return `${inviteeName} joined`;
+      if (EMAIL_RE.test(description)) return 'Member joined';
+      return description.replace(/\s+joined\s+.+$/i, ' joined').trim() || 'Member joined';
+    case 'wallet.deposit':
+      return 'Wallet topped up';
+    case 'reward.redeemed': {
+      const rewardName = metadata?.rewardName;
+      if (typeof rewardName === 'string' && rewardName.trim())
+        return `${rewardName.trim()} redeemed`;
+      return (
+        description.replace(/\s+for\s+[\d,]+\s+points$/i, ' redeemed').trim() || 'Reward redeemed'
+      );
+    }
+    default:
+      return description;
+  }
+}
+
 function resolveCategory(activity: TenantActivity): ActivityCategory {
   const { resourceType, action } = activity;
   if (resourceType === 'leave' || action.startsWith('leave.')) return 'leave';
@@ -52,52 +88,58 @@ export function getActivityCategory(activity: TenantActivity): ActivityCategory 
 
 export function getActivityPresentation(activity: TenantActivity): ActivityPresentation {
   const category = resolveCategory(activity);
+  const title = formatActivityTitle(activity);
 
   switch (category) {
     case 'leave':
       return {
         icon: CalendarClock,
         iconClassName: 'bg-sky-500/10 text-sky-700',
-        title: activity.description,
+        title,
       };
     case 'payroll':
       return {
         icon: FileText,
         iconClassName: 'bg-violet-500/10 text-violet-700',
-        title: activity.description,
+        title,
       };
     case 'rewards':
       return {
         icon: activity.action.startsWith('wallet.') ? Wallet : Gift,
         iconClassName: 'bg-emerald-500/10 text-emerald-700',
-        title: activity.description,
+        title,
       };
     default:
       if (activity.resourceType === 'settings') {
         return {
           icon: Settings,
           iconClassName: 'bg-muted text-muted-foreground',
-          title: activity.description,
+          title,
         };
       }
       if (activity.resourceType === 'invitation' || activity.action.startsWith('invite.')) {
         return {
           icon: UserPlus,
           iconClassName: 'bg-primary/10 text-primary',
-          title: activity.description,
+          title,
         };
       }
       return {
         icon: ScrollText,
         iconClassName: 'bg-muted text-muted-foreground',
-        title: activity.description,
+        title,
       };
   }
 }
 
-export function formatActivityActor(actorName: string | null): string {
+export function formatActivityActor(
+  actorName: string | null,
+  actorMemberId?: string | null,
+): string {
   const trimmed = actorName?.trim();
-  return trimmed && trimmed.length > 1 ? trimmed : 'System';
+  if (trimmed) return trimmed;
+  if (actorMemberId) return 'Member';
+  return 'System';
 }
 
 export function groupActivitiesByDay(

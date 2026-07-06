@@ -41,6 +41,16 @@ export function PersonalInfoTab({ form, canEdit = false }: PersonalInfoTabProps)
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="middle-name">Middle name</Label>
+              <Input
+                id="middle-name"
+                value={employee.middleName}
+                onChange={(e) => handleInputChange('middleName', e.target.value)}
+                placeholder="Optional"
+                {...readOnlyProps}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="last-name">Last name</Label>
               <Input
                 id="last-name"

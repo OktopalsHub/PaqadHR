@@ -1,8 +1,10 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,10 +29,14 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { memberFullName } from '@/features/employees/lib/employee-detail-state';
+import { useDepartments } from '@/hooks/queries/use-departments';
 import { useAddCompensation, useEmployments } from '@/hooks/queries/use-employment';
 import { useAssignPosition, usePositionHistory, usePositions } from '@/hooks/queries/use-positions';
+import { fetchTenantMembers } from '@/lib/api/employees';
 import { formatDate } from '@/lib/format-date';
 import { numberToWords } from '@/lib/number-to-words';
+import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 
@@ -66,9 +72,36 @@ export function EmploymentTab({
   isAdmin = false,
   canViewCompensation = false,
 }: EmploymentTabProps) {
-  const { employee } = form;
-  const { tenant } = useTenant();
+  const { employee, handleInputChange } = form;
+  const { tenant, tenantId } = useTenant();
   const currency = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
+
+  const { data: departments = [], isLoading: departmentsLoading } = useDepartments();
+  const { data: tenantMembers = [] } = useQuery({
+    queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+    queryFn: fetchTenantMembers,
+    enabled: Boolean(tenantId) && isAdmin,
+  });
+
+  const managerOptions = useMemo(
+    () =>
+      tenantMembers
+        .filter((member) => member.id !== memberId && member.isActive)
+        .map((member) => ({
+          value: member.id,
+          label: memberFullName(member) || member.preferredName || 'Member',
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [memberId, tenantMembers],
+  );
+
+  const departmentOptions = useMemo(
+    () => departments.map((dept) => ({ value: dept.id, label: dept.name })),
+    [departments],
+  );
+
+  const noneManagerOption = { value: '', label: 'No manager' };
+  const noneDepartmentOption = { value: '', label: 'No department' };
 
   const {
     data: positionHistory = [],
@@ -200,12 +233,52 @@ export function EmploymentTab({
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Current department</Label>
-              <Input
-                id="department"
-                value={displayValue(employee.department)}
-                readOnly
-                className="bg-muted/50"
-              />
+              {isAdmin ? (
+                <SearchSelect
+                  options={[noneDepartmentOption, ...departmentOptions]}
+                  value={employee.departmentId}
+                  onValueChange={(value) => {
+                    const department = departmentOptions.find((dept) => dept.value === value);
+                    handleInputChange('departmentId', value);
+                    handleInputChange('department', department?.label ?? '');
+                  }}
+                  placeholder="Select department"
+                  searchPlaceholder="Search departments…"
+                  emptyMessage="No departments found."
+                  disabled={departmentsLoading}
+                />
+              ) : (
+                <Input
+                  id="department"
+                  value={displayValue(employee.department)}
+                  readOnly
+                  className="bg-muted/50"
+                />
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager">Reports to</Label>
+              {isAdmin ? (
+                <SearchSelect
+                  options={[noneManagerOption, ...managerOptions]}
+                  value={employee.reportsToId}
+                  onValueChange={(value) => {
+                    const manager = managerOptions.find((member) => member.value === value);
+                    handleInputChange('reportsToId', value);
+                    handleInputChange('manager', manager?.label ?? '');
+                  }}
+                  placeholder="Select manager"
+                  searchPlaceholder="Search people…"
+                  emptyMessage="No people found."
+                />
+              ) : (
+                <Input
+                  id="manager"
+                  value={displayValue(employee.manager)}
+                  readOnly
+                  className="bg-muted/50"
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="join-date">Join Date</Label>
