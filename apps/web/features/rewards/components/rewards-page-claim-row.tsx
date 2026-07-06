@@ -28,9 +28,7 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
         <p className="text-sm font-medium truncate">{claim.rewardName ?? claim.rewardId}</p>
         <p className="text-[11px] text-muted-foreground">
           {claim.pointsSpent} {PAQ_POINTS_NAME} ·{' '}
-          <span suppressHydrationWarning>
-            {new Date(claim.createdAt).toLocaleDateString()}
-          </span>
+          <span suppressHydrationWarning>{new Date(claim.createdAt).toLocaleDateString()}</span>
         </p>
         {claim.voucherCode ? (
           <p className="mt-1 font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded inline-block">

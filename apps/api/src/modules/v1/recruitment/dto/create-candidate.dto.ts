@@ -201,4 +201,9 @@ export class CreateCandidateDto {
   @IsOptional()
   @IsObject()
   customAnswers?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ description: 'Cloudflare Turnstile response token' })
+  @IsOptional()
+  @IsString()
+  turnstileToken?: string;
 }

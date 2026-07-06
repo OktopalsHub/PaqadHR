@@ -6,7 +6,6 @@ import { ENVIRONMENT } from 'src/common/config/env.config';
 import { InvitationsModule } from '../invitations/invitations.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
-import { TenantsModule } from '../tenants/tenants.module';
 import { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import { UsersModule } from '../users/users.module';
@@ -33,7 +32,6 @@ import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
     NotificationsModule,
     UsersModule,
     TenantMembersModule,
-    TenantsModule,
   ],
   providers: [AuthService, UserRepository, JwtStrategy, LocalStrategy, GoogleStrategy],
   exports: [AuthService],

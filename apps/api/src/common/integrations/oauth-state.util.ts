@@ -20,9 +20,7 @@ function oauthStateSigningKey(): string {
 }
 
 function signPayload(encodedPayload: string): string {
-  return createHmac('sha256', oauthStateSigningKey())
-    .update(encodedPayload)
-    .digest('base64url');
+  return createHmac('sha256', oauthStateSigningKey()).update(encodedPayload).digest('base64url');
 }
 
 function toBase64Url(value: string): string {

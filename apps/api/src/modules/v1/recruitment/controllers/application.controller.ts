@@ -1,12 +1,23 @@
-import { BadRequestException, Body, Controller, Get, Ip, Param, Patch, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Ip,
+  Param,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
-import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { FileService } from 'src/common/services/file.service';
+import { RateLimitService } from 'src/common/services/rate-limit.service';
+import { TurnstileService } from 'src/common/services/turnstile.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
-import { CreateCandidateDto } from '../dto/index';
 import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
+import { CreateCandidateDto } from '../dto/index';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateService } from '../services/candidate.service';
@@ -21,7 +32,18 @@ export class ApplicationController {
     private readonly fileService: FileService,
     private readonly jobOpeningService: JobOpeningService,
     private readonly rateLimitService: RateLimitService,
+    private readonly turnstileService: TurnstileService,
   ) {}
+
+  private async assertTurnstile(token: string | undefined, ip: string): Promise<void> {
+    if (!this.turnstileService.isEnabled()) {
+      return;
+    }
+    const valid = await this.turnstileService.verify(token ?? '', ip);
+    if (!valid) {
+      throw new BadRequestException('Captcha verification failed');
+    }
+  }
 
   @Post(':jobId/apply/upload-url')
   @ApiOperation({ summary: 'Generate a presigned upload URL for candidate resumes/cover-letters' })
@@ -73,8 +95,13 @@ File Upload Flow:
   async applyForJob(
     @Param('jobId') jobId: string,
     @Body() createCandidateDto: CreateCandidateDto,
+    @Req() req: Request,
+    @Ip() ip: string,
   ): Promise<Candidate> {
-    return this.candidateService.applyForJob(jobId, createCandidateDto);
+    const clientIp = ip || req.ip || 'unknown';
+    await this.assertTurnstile(createCandidateDto.turnstileToken, clientIp);
+    const { turnstileToken: _turnstileToken, ...candidateData } = createCandidateDto;
+    return this.candidateService.applyForJob(jobId, candidateData);
   }
   @Get(':jobId/applications/:applicationId/status')
   @ApiOperation({ summary: 'Get application status' })

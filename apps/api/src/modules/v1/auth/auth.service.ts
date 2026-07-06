@@ -13,13 +13,12 @@ import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
-import { GeoLocationHelper, PasswordService, StringUtility } from 'src/common/utils';
+import { GeoLocationHelper, PasswordService, StringUtility, sha256Hex } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../users/repositories/users.repository';
@@ -52,7 +51,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly invitationsService: InvitationsService,
     private readonly tenantMembersService: TenantMembersService,
-    private readonly tenantsService: TenantsService,
     private readonly auditLogsService: AuditLogsService,
     private readonly rateLimitService: RateLimitService,
     private readonly zeptomailEmailService: ZeptomailEmailService,
@@ -193,7 +191,6 @@ export class AuthService {
     password: string,
     ip: string,
     inviteToken?: string,
-    subdomain?: string,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
       const normalizedEmail = StringUtility.trimAndLowerCase(email);
@@ -247,19 +244,6 @@ export class AuthService {
               error?.stack ? error.stack : error,
             );
           }
-        }
-      }
-      if (!inviteToken && subdomain) {
-        try {
-          const tenant = await this.tenantsService.getTenantBySlug(subdomain);
-          if (tenant) {
-            await this.tenantMembersService.createTenantMember(user.id, tenant.id, {
-              firstName: '',
-              lastName: '',
-            });
-          }
-        } catch (error) {
-          this.logger.error('Error adding user to tenant by subdomain:', error);
         }
       }
       return { user, invitation };
@@ -325,30 +309,44 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string) {
+    let payload: { sub: string; sid?: string };
     try {
-      const payload = this.jwtService.verify(refreshToken, {
+      payload = this.jwtService.verify(refreshToken, {
         secret: ENVIRONMENT.JWT.REFRESH_SECRET,
       }) as { sub: string; sid?: string };
-
-      const user = await this.userRepository.findUser(payload.sub);
-      if (!user) {
-        throw new UnauthorizedException('User not found');
-      }
-
-      if (payload.sid) {
-        const session = await this.sessionRepository.findOne({
-          where: { token: payload.sid, userId: user.id },
-        });
-        if (!session || session.expiresAt < new Date()) {
-          throw new UnauthorizedException('Invalid or expired session');
-        }
-      }
-
-      return this.generateTokens(user, payload.sid);
-    } catch (error) {
-      if (error instanceof UnauthorizedException) throw error;
+    } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+
+    const user = await this.userRepository.findUser(payload.sub);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (!payload.sid) {
+      return this.generateTokens(user, payload.sid);
+    }
+
+    const session = await this.sessionRepository.findOne({
+      where: { token: payload.sid, userId: user.id },
+    });
+
+    if (!session) {
+      await this.sessionRepository.delete({ userId: user.id });
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    if (session.expiresAt < new Date()) {
+      await this.sessionRepository.delete({ token: payload.sid });
+      throw new UnauthorizedException('Invalid or expired session');
+    }
+
+    const newSessionToken = randomUUID();
+    session.token = newSessionToken;
+    session.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    await this.sessionRepository.save(session);
+
+    return this.generateTokens(user, newSessionToken);
   }
 
   async logout(userId: string) {
@@ -390,10 +388,9 @@ export class AuthService {
         throw new BadRequestException('Too many requests from this IP. Please try again later.');
       }
     }
-    const rate = await this.rateLimitService.checkRateLimit(
-      `forgot-password:${normalizedEmail}`,
-      { rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }] },
-    );
+    const rate = await this.rateLimitService.checkRateLimit(`forgot-password:${normalizedEmail}`, {
+      rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }],
+    });
     if (!rate.allowed) {
       throw new BadRequestException(
         `Too many reset requests. Try again in ${rate.retryAfter ?? 60}s`,
@@ -412,7 +409,7 @@ export class AuthService {
     await this.verificationRepository.save(
       this.verificationRepository.create({
         identifier: `reset:${user.id}`,
-        token: resetToken,
+        token: sha256Hex(resetToken),
         expiresAt,
       }),
     );
@@ -432,7 +429,7 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const verification = await this.verificationRepository.findOne({
-      where: { token },
+      where: { token: sha256Hex(token) },
     });
 
     if (!verification || verification.expiresAt < new Date()) {
@@ -494,11 +491,12 @@ export class AuthService {
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const identifier = this.otpIdentifier(userId, purpose);
+    const hashedCode = await PasswordService.hashPassword(code);
     await this.verificationRepository.delete({ identifier });
     await this.verificationRepository.save(
       this.verificationRepository.create({
         identifier,
-        token: code,
+        token: hashedCode,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       }),
     );
@@ -520,9 +518,13 @@ export class AuthService {
 
     const identifier = this.otpIdentifier(userId, purpose);
     const verification = await this.verificationRepository.findOne({
-      where: { identifier, token: code },
+      where: { identifier },
     });
-    if (!verification || verification.expiresAt < new Date()) {
+    const codeValid =
+      verification &&
+      verification.expiresAt >= new Date() &&
+      (await PasswordService.verifyPassword(verification.token, code));
+    if (!codeValid) {
       const entry = this.otpFailedAttempts.get(lockKey) ?? { count: 0 };
       entry.count += 1;
       if (entry.count >= this.maxOtpFailedAttempts) {

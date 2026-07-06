@@ -6,9 +6,6 @@ import { userSchema } from '@/lib/schemas/auth';
 import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
 
 type AuthResponse = {
-  /** Cookies are the session source of truth; body tokens are ignored by the web client. */
-  accessToken?: string;
-  refreshToken?: string;
   user: { id: string; email: string; role: string };
 };
 

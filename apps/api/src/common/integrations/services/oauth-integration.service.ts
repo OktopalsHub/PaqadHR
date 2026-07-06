@@ -3,10 +3,10 @@ import { InjectEntityManager } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { IntegrationType } from 'src/common/enums';
 import { EntityManager } from 'typeorm';
-import { signOAuthState, verifyOAuthState } from '../oauth-state.util';
 import { PlatformIntegration } from '../entities/platform-integration.entity';
 import { UserIntegrationToken } from '../entities/user-integration-token.entity';
 import type { OAuthTokenData } from '../integration.types';
+import { signOAuthState, verifyOAuthState } from '../oauth-state.util';
 
 @Injectable()
 export class OAuthIntegrationService {

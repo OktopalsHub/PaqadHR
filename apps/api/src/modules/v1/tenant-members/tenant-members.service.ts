@@ -11,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import type { QueryDeepPartialEntity } from 'typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
 import { TenantMemberChangedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
@@ -226,6 +226,16 @@ export class TenantMembersService {
   }
   async findUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember | null> {
     return this.tenantMemberRepository.findMembershipByUserAndTenant(userId, tenantId);
+  }
+  async findTenantMemberUserIds(tenantId: string, userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) {
+      return new Set();
+    }
+    const members = await this.tenantMemberRepository.find({
+      where: { tenantId, userId: In([...new Set(userIds)]) },
+      select: ['userId'],
+    });
+    return new Set(members.map((member) => member.userId));
   }
   async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
     return this.tenantMemberRepository.countUserInTenant(userId, tenantId);

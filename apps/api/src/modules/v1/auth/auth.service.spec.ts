@@ -3,13 +3,12 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
-import { PasswordService } from 'src/common/utils';
+import { PasswordService, sha256Hex } from 'src/common/utils';
 import { UserRole } from '../../../common/enums';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
-import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import { AuthService } from './auth.service';
@@ -31,7 +30,16 @@ describe('AuthService', () => {
     create: jest.Mock;
     save: jest.Mock;
     delete: jest.Mock;
+    findOne: jest.Mock;
   };
+  let sessionRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+    delete: jest.Mock;
+    find: jest.Mock;
+  };
+  let jwtService: { sign: jest.Mock; verify: jest.Mock };
 
   beforeEach(async () => {
     const mockUserRepository = {
@@ -45,6 +53,7 @@ describe('AuthService', () => {
       sign: jest.fn().mockReturnValue('mocked-jwt-token'),
       verify: jest.fn(),
     };
+    jwtService = mockJwtService;
     accountRepository = {
       findOne: jest.fn(),
       save: jest.fn().mockImplementation(async (account) => account),
@@ -57,6 +66,7 @@ describe('AuthService', () => {
       delete: jest.fn(),
       find: jest.fn(),
     };
+    sessionRepository = mockSessionRepository;
     const mockVerificationRepository = {
       create: jest.fn(),
       save: jest.fn(),
@@ -68,9 +78,6 @@ describe('AuthService', () => {
     };
     const mockTenantMembersService = {
       createTenantMember: jest.fn(),
-    };
-    const mockTenantsService = {
-      getTenantBySlug: jest.fn(),
     };
     const mockAuditLogsService = {
       queueAuditLog: jest.fn(),
@@ -97,7 +104,6 @@ describe('AuthService', () => {
         },
         { provide: InvitationsService, useValue: mockInvitationsService },
         { provide: TenantMembersService, useValue: mockTenantMembersService },
-        { provide: TenantsService, useValue: mockTenantsService },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: RateLimitService, useValue: mockRateLimitService },
         { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
@@ -233,6 +239,110 @@ describe('AuthService', () => {
           resetLink: expect.stringContaining('/reset-password?token='),
         }),
       );
+      const savedToken = verificationRepository.create.mock.calls[0][0].token;
+      expect(savedToken).not.toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+      expect(savedToken).toHaveLength(64);
+    });
+  });
+
+  describe('verifyOtp', () => {
+    it('returns otpProof when code is valid', async () => {
+      verificationRepository.findOne.mockResolvedValue({
+        id: 'v1',
+        identifier: 'otp:password_change:user-1',
+        token: 'hashed-code',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
+
+      const result = await authService.verifyOtp('user-1', 'password_change', '123456');
+
+      expect(result).toEqual({ otpProof: 'mocked-jwt-token' });
+      expect(verificationRepository.delete).toHaveBeenCalledWith('v1');
+    });
+
+    it('rejects invalid verification code', async () => {
+      verificationRepository.findOne.mockResolvedValue({
+        id: 'v1',
+        identifier: 'otp:password_change:user-1',
+        token: 'hashed-code',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
+
+      await expect(authService.verifyOtp('user-1', 'password_change', '000000')).rejects.toThrow(
+        'Invalid or expired verification code',
+      );
+    });
+  });
+
+  describe('refreshToken', () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      role: UserRole.BASIC,
+    } as User;
+
+    it('rotates session token on refresh', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'old-session' });
+      userRepository.findUser.mockResolvedValue(mockUser);
+      sessionRepository.findOne.mockResolvedValue({
+        token: 'old-session',
+        userId: 'user-1',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      sessionRepository.save.mockImplementation(async (session) => session);
+
+      await authService.refreshToken('valid-refresh');
+
+      expect(sessionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: expect.not.stringMatching(/^old-session$/),
+          userId: 'user-1',
+        }),
+      );
+      expect(jwtService.sign).toHaveBeenCalled();
+    });
+
+    it('revokes all sessions when refresh token is reused', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'stale-session' });
+      userRepository.findUser.mockResolvedValue(mockUser);
+      sessionRepository.findOne.mockResolvedValue(null);
+
+      await expect(authService.refreshToken('stale-refresh')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('looks up reset token by sha256 hash', async () => {
+      const rawToken = '550e8400-e29b-41d4-a716-446655440000';
+      verificationRepository.findOne.mockResolvedValue({
+        id: 'v1',
+        identifier: 'reset:user-1',
+        token: sha256Hex(rawToken),
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      userRepository.findUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+      } as User);
+      userRepository.save.mockResolvedValue({
+        id: 'user-1',
+        email: 'test@example.com',
+      } as User);
+      accountRepository.findOne.mockResolvedValue(null);
+      jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('new-hash');
+
+      await authService.resetPassword(rawToken, 'new-password-1');
+
+      expect(verificationRepository.findOne).toHaveBeenCalledWith({
+        where: { token: sha256Hex(rawToken) },
+      });
     });
 
     it('returns generic message when email send fails', async () => {

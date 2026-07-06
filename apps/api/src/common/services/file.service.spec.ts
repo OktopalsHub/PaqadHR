@@ -1,9 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
-import {
-  assertCandidateDocumentContentType,
-  isPublicUploadLocation,
-} from './file.service';
+import { assertCandidateDocumentContentType, isPublicUploadLocation } from './file.service';
 
 describe('file upload security helpers', () => {
   it('treats resume locations as private', () => {
@@ -13,10 +10,7 @@ describe('file upload security helpers', () => {
 
   it('allows pdf and docx for candidate uploads', () => {
     expect(() =>
-      assertCandidateDocumentContentType(
-        FileUploadLocation.RESUMES,
-        'application/pdf',
-      ),
+      assertCandidateDocumentContentType(FileUploadLocation.RESUMES, 'application/pdf'),
     ).not.toThrow();
   });
 

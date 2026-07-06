@@ -23,14 +23,16 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
-interface AuthResponse {
-  accessToken: string;
-  refreshToken: string;
+interface AuthUserResponse {
   user: {
     id: string;
     email: string;
     role: string;
   };
+}
+
+interface RegisterResponse extends AuthUserResponse {
+  invitation?: unknown;
 }
 
 @ApiTags('Authentication')
@@ -45,20 +47,17 @@ export class AuthController {
     @Ip() ip: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse & { invitation?: unknown }> {
+  ): Promise<RegisterResponse> {
     const ipAddress = req.headers['x-forwarded-for'] ?? ip;
     const { user, invitation } = await this.authService.register(
       body.email,
       body.password,
       typeof ipAddress === 'string' ? ipAddress : '',
       undefined,
-      undefined,
     );
     const { accessToken, refreshToken } = await this.authService.login(user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
-      accessToken,
-      refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -75,12 +74,10 @@ export class AuthController {
     @Req() req,
     @Ip() ip: string,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<AuthResponse> {
+  ): Promise<AuthUserResponse> {
     const { accessToken, refreshToken } = await this.authService.login(req.user, ip);
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
-      accessToken,
-      refreshToken,
       user: {
         id: req.user.id,
         email: req.user.email,
@@ -110,7 +107,7 @@ export class AuthController {
     @Body() body: RefreshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): Promise<{ message: string }> {
     const refreshToken = body.refreshToken || req.cookies.refresh_token;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
@@ -118,7 +115,7 @@ export class AuthController {
     const { accessToken, refreshToken: newRefreshToken } =
       await this.authService.refreshToken(refreshToken);
     this.setAuthCookies(res, accessToken, newRefreshToken);
-    return { accessToken, refreshToken: newRefreshToken };
+    return { message: 'Token refreshed' };
   }
 
   @Post('forgot-password')

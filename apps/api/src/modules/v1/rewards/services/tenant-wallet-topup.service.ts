@@ -121,10 +121,13 @@ export class TenantWalletTopupService {
     const status = verified?.status?.toLowerCase() ?? '';
     if (status !== 'success' && status !== 'successful') {
       this.logger.warn(
-        'Wallet checkout top-up not yet successful for ' + input.orderReference + ': ' + (status || 'unknown'),
+        'Wallet checkout top-up not yet successful for ' +
+          input.orderReference +
+          ': ' +
+          (status || 'unknown'),
       );
       throw new BadRequestException(
-        'Wallet checkout top-up not yet successful: ' + (status || 'unknown'),
+        `Wallet checkout top-up not yet successful: ${status || 'unknown'}`,
       );
     }
 
@@ -239,6 +242,7 @@ export class TenantWalletTopupService {
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
 
+    let chargeReference = reference;
     try {
       const charge = await this.nombaApi.chargeTokenizedCard({
         orderReference: reference,
@@ -250,7 +254,7 @@ export class TenantWalletTopupService {
         meta: { tenantId, billingType: 'wallet_topup' },
       });
 
-      const chargeReference = charge.orderReference;
+      chargeReference = charge.orderReference || reference;
       const verified = await this.nombaApi.verifyTransaction(chargeReference);
       if (verified?.status?.toLowerCase() !== 'success') {
         throw new Error('Payment verification failed');
