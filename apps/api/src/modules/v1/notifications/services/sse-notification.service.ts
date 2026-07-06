@@ -29,8 +29,6 @@ export class SSENotificationService {
       this.userConnections.set(userId, new Set());
     }
     this.userConnections.get(userId)!.add(connectionId);
-    if (process.env.LOG_LEVEL !== 'error') {
-    }
   }
   unregisterConnection(connectionId: string): void {
     const connection = this.connections.get(connectionId);
@@ -43,8 +41,6 @@ export class SSENotificationService {
         }
       }
       this.connections.delete(connectionId);
-      if (process.env.LOG_LEVEL !== 'error') {
-      }
     }
   }
   pingConnection(connectionId: string): void {
@@ -73,8 +69,6 @@ export class SSENotificationService {
       timestamp: new Date(),
     };
     this.notificationSubject.next(notificationData);
-    if (process.env.LOG_LEVEL !== 'error') {
-    }
   }
   sendToTenant(
     tenantId: string,
@@ -86,8 +80,6 @@ export class SSENotificationService {
       timestamp: new Date(),
     };
     this.notificationSubject.next(notificationData);
-    if (process.env.LOG_LEVEL !== 'error') {
-    }
   }
   sendSystemNotification(notification: Omit<SSENotificationData, 'timestamp'>): void {
     const notificationData: SSENotificationData = {
@@ -95,8 +87,6 @@ export class SSENotificationService {
       timestamp: new Date(),
     };
     this.notificationSubject.next(notificationData);
-    if (process.env.LOG_LEVEL !== 'error') {
-    }
   }
   getActiveConnectionsCount(): number {
     return this.connections.size;
@@ -159,9 +149,5 @@ export class SSENotificationService {
     staleConnections.forEach((connectionId) => {
       this.unregisterConnection(connectionId);
     });
-    if (staleConnections.length > 0) {
-      if (process.env.LOG_LEVEL !== 'error') {
-      }
-    }
   }
 }

@@ -436,9 +436,6 @@ export class RewardsService {
       return true;
     });
 
-    if (deduped.length < records.length) {
-    }
-
     return deduped;
   }
 

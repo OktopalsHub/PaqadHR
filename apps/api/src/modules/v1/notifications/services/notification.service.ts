@@ -57,8 +57,6 @@ export class NotificationService {
       message,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-    }
   }
   async sendTenantNotification(
     tenantId: string,
@@ -75,8 +73,6 @@ export class NotificationService {
       tenantId,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-    }
   }
   async getUserNotifications(
     userId: string,

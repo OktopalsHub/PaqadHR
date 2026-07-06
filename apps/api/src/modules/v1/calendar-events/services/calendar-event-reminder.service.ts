@@ -158,9 +158,6 @@ export class CalendarEventReminderService {
       delivered += 1;
     }
 
-    if (delivered > 0) {
-    }
-
     return delivered;
   }
 

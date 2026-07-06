@@ -273,7 +273,7 @@ export class ZeptomailEmailService {
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to send template email '${templateKey}'`);
+      this.logger.warn(`Failed to send template email '${templateKey}': ${message}`);
       return {
         success: false,
         error: message,
