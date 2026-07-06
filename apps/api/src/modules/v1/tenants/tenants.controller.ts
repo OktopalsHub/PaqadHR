@@ -27,6 +27,7 @@ import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guard
 import type { CreateTenantDto } from './dto/create-tenant.dto';
 import { TenantResponseDto, type UserTenantWithMembershipDto } from './dto/tenant-response.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
+import { UpdatePaymentCurrencyDto } from './dto/update-payment-currency.dto';
 import { TenantsService } from './tenants.service';
 
 @ApiTags('Tenants')
@@ -150,7 +151,7 @@ export class TenantsController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updatePaymentCurrency(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
-    @Body() body: { currency: string },
+    @Body() body: UpdatePaymentCurrencyDto,
   ) {
     const supportedCurrencies = [...getNombaPayoutCurrencies()];
     if (!supportedCurrencies.includes(body.currency.toUpperCase())) {

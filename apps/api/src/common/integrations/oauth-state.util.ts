@@ -10,6 +10,20 @@ export type OAuthStatePayload = {
 };
 
 const STATE_MAX_AGE_MS = 10 * 60 * 1000;
+const STATE_MAX_LENGTH = 2048;
+const OAUTH_STATE_KEY_CONTEXT = 'paqad-oauth-state-v1';
+
+function oauthStateSigningKey(): string {
+  return createHmac('sha256', ENVIRONMENT.JWT.ACCESS_SECRET)
+    .update(OAUTH_STATE_KEY_CONTEXT)
+    .digest('base64url');
+}
+
+function signPayload(encodedPayload: string): string {
+  return createHmac('sha256', oauthStateSigningKey())
+    .update(encodedPayload)
+    .digest('base64url');
+}
 
 function toBase64Url(value: string): string {
   return Buffer.from(value, 'utf8').toString('base64url');
@@ -19,12 +33,6 @@ function fromBase64Url(value: string): string {
   return Buffer.from(value, 'base64url').toString('utf8');
 }
 
-function signPayload(encodedPayload: string): string {
-  return createHmac('sha256', ENVIRONMENT.JWT.ACCESS_SECRET)
-    .update(encodedPayload)
-    .digest('base64url');
-}
-
 export function signOAuthState(payload: OAuthStatePayload): string {
   const encodedPayload = toBase64Url(JSON.stringify(payload));
   const signature = signPayload(encodedPayload);
@@ -32,6 +40,10 @@ export function signOAuthState(payload: OAuthStatePayload): string {
 }
 
 export function verifyOAuthState(state: string): OAuthStatePayload {
+  if (!state || state.length > STATE_MAX_LENGTH) {
+    throw new Error('Invalid OAuth state length');
+  }
+
   const [encodedPayload, signature] = state.split('.');
   if (!encodedPayload || !signature) {
     throw new Error('Invalid OAuth state format');

@@ -234,5 +234,18 @@ describe('AuthService', () => {
         }),
       );
     });
+
+    it('returns generic message when email send fails', async () => {
+      const mockUser = { id: 'user-1', email: 'test@example.com' } as User;
+      userRepository.findUserByEmail.mockResolvedValue(mockUser);
+      verificationRepository.create.mockImplementation((data) => data);
+      verificationRepository.save.mockResolvedValue(undefined);
+      verificationRepository.delete.mockResolvedValue(undefined);
+      zeptomailEmailService.sendTemplateEmail.mockRejectedValue(new Error('provider down'));
+
+      const result = await authService.forgotPassword('test@example.com');
+
+      expect(result).toEqual({ message: 'If email exists, a reset link was sent' });
+    });
   });
 });
