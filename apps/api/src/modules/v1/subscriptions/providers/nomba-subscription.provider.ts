@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
@@ -44,8 +44,6 @@ interface NombaWebhookPayload {
 
 @Injectable()
 export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
-  private readonly logger = new Logger(NombaSubscriptionProvider.name);
-
   constructor(private readonly nombaApi: NombaApiService) {}
 
   async createCheckout(
@@ -133,10 +131,6 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     // Keep under Nomba's 50-char reference limit (see createCheckout).
     const orderReference = `sub_ren_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
-    this.logger.log(
-      `Renewing Nomba subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
-    );
-
     return this.nombaApi.chargeTokenizedCard({
       orderReference,
       customerEmail,
@@ -169,10 +163,6 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     // tenant part so we stay under Nomba's 50-char reference limit.
     const tenantPart = (metadata?.tenantId ?? subscriptionReference).replace(/-/g, '').slice(0, 32);
     const orderReference = `sub_qty_${tenantPart}_${Date.now().toString(36)}`;
-
-    this.logger.log(
-      `Charging Nomba tokenized subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
-    );
 
     return this.nombaApi.chargeTokenizedCard({
       orderReference,

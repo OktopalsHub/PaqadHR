@@ -16,10 +16,8 @@ export class RewardsListener {
   @OnEvent('tenant.created')
   async handleTenantCreated(event: TenantCreatedEvent) {
     try {
-      this.logger.log(`Initializing tenant wallet for tenant: ${event.tenantId}`);
       const tenantName = (event.tenantData as { name?: string })?.name;
       await this.walletService.ensureWalletWithVirtualAccount(event.tenantId, tenantName);
-      this.logger.log(`Successfully initialized tenant wallet for tenant: ${event.tenantId}`);
     } catch (error) {
       this.logger.error(
         `Failed to initialize tenant wallet for tenant ${event.tenantId}: ${error instanceof Error ? error.message : error}`,
@@ -32,7 +30,6 @@ export class RewardsListener {
   async handleCatalogCountriesChanged(payload: { tenantId: string }) {
     try {
       await this.rewardsService.syncReloadlyProducts(payload.tenantId, { force: true });
-      this.logger.log(`Synced Reloadly catalog for tenant ${payload.tenantId}`);
     } catch (error) {
       this.logger.warn(
         `Reloadly catalog sync failed for tenant ${payload.tenantId}: ${error instanceof Error ? error.message : error}`,

@@ -378,7 +378,6 @@ export class RewardsService {
       },
     };
     await repo.save(row);
-    this.logger.log(`Synced ${products.length} Reloadly products for tenant ${tenantId}`);
     return products;
   }
 
@@ -438,9 +437,6 @@ export class RewardsService {
     });
 
     if (deduped.length < records.length) {
-      this.logger.log(
-        `Dropped ${records.length - deduped.length} duplicate Reloadly productId(s) during sync`,
-      );
     }
 
     return deduped;
@@ -1110,7 +1106,6 @@ export class RewardsService {
         where: { tenantWalletId: wallet.id, reference },
       });
       if (existingTx) {
-        this.logger.log(`Skipping duplicate wallet deposit transaction: ${reference}`);
         return;
       }
 

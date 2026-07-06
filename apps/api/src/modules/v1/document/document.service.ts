@@ -127,9 +127,7 @@ export class DocumentService {
       try {
         const updatedDoc = await this.verifyDocument(documentId, tenantId, isVerified);
         updatedDocuments.push(updatedDoc);
-      } catch (error) {
-        console.error(`Failed to verify document ${documentId}:`, error);
-      }
+      } catch {}
     }
     return updatedDocuments;
   }
@@ -137,9 +135,7 @@ export class DocumentService {
     for (const documentId of documentIds) {
       try {
         await this.deleteDocument(documentId, tenantId);
-      } catch (error) {
-        console.error(`Failed to delete document ${documentId}:`, error);
-      }
+      } catch {}
     }
   }
   async getDocumentAccessLogs(tenantId: string, documentId: string): Promise<unknown[]> {

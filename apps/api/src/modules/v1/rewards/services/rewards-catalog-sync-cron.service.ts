@@ -39,11 +39,10 @@ export class RewardsCatalogSyncCronService {
 
       for (const row of eligible) {
         try {
-          const products = await this.rewardsService.syncReloadlyProducts(row.tenantId, {
+          const _products = await this.rewardsService.syncReloadlyProducts(row.tenantId, {
             force: true,
           });
           synced += 1;
-          this.logger.log(`Synced ${products.length} Reloadly products for tenant ${row.tenantId}`);
         } catch (error) {
           failed += 1;
           this.logger.warn(

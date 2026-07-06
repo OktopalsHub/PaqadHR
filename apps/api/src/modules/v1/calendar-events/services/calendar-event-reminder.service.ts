@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { NotificationChannel } from 'src/common/enums/notification-channel.enum';
@@ -22,8 +22,6 @@ import {
 
 @Injectable()
 export class CalendarEventReminderService {
-  private readonly logger = new Logger(CalendarEventReminderService.name);
-
   constructor(
     @InjectRepository(TenantCalendarEvent)
     private readonly eventRepository: Repository<TenantCalendarEvent>,
@@ -161,9 +159,6 @@ export class CalendarEventReminderService {
     }
 
     if (delivered > 0) {
-      this.logger.log(
-        `Sent calendar reminder for event ${event.id} (${event.title}) to ${delivered} recipients`,
-      );
     }
 
     return delivered;

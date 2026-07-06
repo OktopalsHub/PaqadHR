@@ -172,9 +172,7 @@ export class EmploymentService {
       try {
         const salaryInfo = await this.getEmploymentSalaryInfo(memberId, tenantId);
         salaryMap.set(memberId, salaryInfo);
-      } catch (error) {
-        console.warn(`Could not get salary info for employee ${memberId}:`, error.message);
-      }
+      } catch {}
     }
     return salaryMap;
   }

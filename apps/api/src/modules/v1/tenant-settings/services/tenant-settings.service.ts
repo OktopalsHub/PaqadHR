@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DataSource } from 'typeorm';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
@@ -10,7 +10,6 @@ import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantSettingsService {
-  private readonly logger = new Logger(TenantSettingsService.name);
   constructor(
     private readonly tenantSettingsRepository: TenantSettingRepository,
     readonly _dataSource: DataSource,
@@ -168,7 +167,6 @@ export class TenantSettingsService {
     }
     existingSettings.settings = updatedSettings;
     const result = await this.tenantSettingsRepository.save(existingSettings);
-    this.logger.log(`Updated settings for tenant: ${tenantId}`);
 
     const newCatalogCountries = updatedSettings.rewards?.catalogCountries ?? [];
     const catalogCountriesChanged =

@@ -16,7 +16,6 @@ export class TenantSettingsListener {
     defaultSettings: PartialTenantSettingsData;
   }) {
     try {
-      this.logger.log(`Initializing tenant settings for tenant: ${payload.tenantId}`);
       let settings: PartialTenantSettingsData = { ...payload.defaultSettings };
       if (payload.employeeCode) {
         settings = {
@@ -31,7 +30,6 @@ export class TenantSettingsListener {
         payload.tenantId,
         settings,
       );
-      this.logger.log(`Successfully initialized tenant settings for tenant: ${payload.tenantId}`);
     } catch (error) {
       this.logger.error(
         `Failed to initialize tenant settings for tenant ${payload.tenantId}: ${error.message}`,

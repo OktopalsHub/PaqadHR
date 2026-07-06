@@ -94,8 +94,7 @@ export function EmergencyContactForm({
 
       onOpenChange(false);
       form.reset(initialValues);
-    } catch (error) {
-      console.error('Error saving emergency contact:', error);
+    } catch (_error) {
       toast.error(
         <ToastMessage
           title="Error"
