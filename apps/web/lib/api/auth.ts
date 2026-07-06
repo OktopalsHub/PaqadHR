@@ -53,7 +53,12 @@ export async function getSession(): Promise<User | null> {
 
   try {
     const profile = await fetchProfile();
-    const needsOnboarding = await syncTenantFromApi();
+    let needsOnboarding = true;
+    try {
+      needsOnboarding = await syncTenantFromApi();
+    } catch {
+      // Profile is authoritative for session; tenant list can load later.
+    }
     const user = mapAuthUser(profile, needsOnboarding);
     persistSession(user);
     return user;

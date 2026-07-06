@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
-import { getSession, refreshSession } from '@/lib/api/auth';
+import { getSession } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import {
@@ -26,8 +26,13 @@ export default function GoogleCompletePage() {
     void (async () => {
       try {
         await bootstrapCsrf();
-        await refreshSession();
-        const user = await getSession();
+        // OAuth callback just set fresh cookies — do not refresh here; concurrent
+        // refresh with AuthProvider can rotate the session twice and log the user out.
+        let user = await getSession();
+        if (!user) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          user = await getSession();
+        }
         if (!user) {
           router.replace('/signin?error=google');
           return;
