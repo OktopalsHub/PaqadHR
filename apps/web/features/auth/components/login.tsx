@@ -2,10 +2,11 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LoadingBlock } from '@/components/loading-block';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -31,6 +32,8 @@ import { PasswordInput } from './form-fields/password-input';
 
 export const Login = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const googleSignInFailed = searchParams.get('error') === 'google';
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { login, isLoading, isAuthenticated, isLoading: authLoading } = useAuth();
   const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
@@ -94,6 +97,15 @@ export const Login = () => {
           Welcome back. Enter your details to continue.
         </p>
       </div>
+
+      {googleSignInFailed && !isAuthenticated && !authLoading ? (
+        <Alert variant="destructive">
+          <AlertTitle>Google sign-in incomplete</AlertTitle>
+          <AlertDescription>
+            Try &quot;Continue with Google&quot; again, or sign in with your email and password.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <SocialAuthButtons />
 

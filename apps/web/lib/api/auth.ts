@@ -3,17 +3,22 @@ import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/cl
 import { fetchUserTenants } from '@/lib/api/tenants';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
+import type { Tenant } from '@/lib/schemas/tenant';
 import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
 
 type AuthResponse = {
   user: { id: string; email: string; role: string };
 };
 
-type ProfileResponse = {
+export type ProfileResponse = {
   id: string;
   email: string;
   role: string;
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function mapAuthUser(
   user: AuthResponse['user'] | ProfileResponse,
@@ -40,6 +45,61 @@ async function syncTenantFromApi(): Promise<boolean> {
 
 async function fetchProfile(): Promise<ProfileResponse> {
   return apiClient<ProfileResponse>('/users/profile');
+}
+
+/**
+ * After OAuth redirect, auth cookies can take a moment to attach on cross-origin fetches.
+ * Retry profile before treating the login as failed.
+ */
+export async function waitForAuthenticatedProfile(options?: {
+  attempts?: number;
+  baseDelayMs?: number;
+}): Promise<ProfileResponse | null> {
+  const attempts = options?.attempts ?? 6;
+  const baseDelayMs = options?.baseDelayMs ?? 150;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fetchProfile();
+    } catch (error) {
+      const isLast = attempt === attempts - 1;
+      if (error instanceof ApiError && error.status === 401) {
+        if (!isLast) {
+          await sleep(baseDelayMs * (attempt + 1));
+          continue;
+        }
+        invalidateSession();
+        clearCsrfToken();
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+export async function loadUserTenantsWithRetry(options?: {
+  attempts?: number;
+  baseDelayMs?: number;
+}): Promise<Tenant[]> {
+  const attempts = options?.attempts ?? 3;
+  const baseDelayMs = options?.baseDelayMs ?? 150;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fetchUserTenants();
+    } catch {
+      if (attempt < attempts - 1) {
+        await sleep(baseDelayMs * (attempt + 1));
+      }
+    }
+  }
+  return [];
+}
+
+export function persistUserSession(profile: ProfileResponse, needsOnboarding?: boolean): User {
+  const user = mapAuthUser(profile, needsOnboarding);
+  persistSession(user);
+  return user;
 }
 
 export async function refreshSession(): Promise<boolean> {

@@ -4,14 +4,18 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
-import { getSession } from '@/lib/api/auth';
+import {
+  loadUserTenantsWithRetry,
+  persistUserSession,
+  waitForAuthenticatedProfile,
+} from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
-import { fetchUserTenants } from '@/lib/api/tenants';
 import {
   authDestinationToPath,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { queryKeys } from '@/lib/query/keys';
+import { persistTenantId, persistTenantSlug } from '@/lib/session';
 import { ForceLightTheme } from '@/providers/force-light-theme';
 
 export default function GoogleCompletePage() {
@@ -24,32 +28,32 @@ export default function GoogleCompletePage() {
     started.current = true;
 
     void (async () => {
-      try {
-        await bootstrapCsrf();
-        // OAuth callback just set fresh cookies — do not refresh here; concurrent
-        // refresh with AuthProvider can rotate the session twice and log the user out.
-        let user = await getSession();
-        if (!user) {
-          await new Promise((resolve) => setTimeout(resolve, 150));
-          user = await getSession();
-        }
-        if (!user) {
-          router.replace('/signin?error=google');
-          return;
-        }
+      await bootstrapCsrf();
 
-        queryClient.setQueryData(queryKeys.auth.session, user);
-        const tenants = await fetchUserTenants();
-        queryClient.setQueryData(queryKeys.tenants.all, tenants);
-
-        const destination = resolveAuthDestination({
-          isAuthenticated: true,
-          tenants,
-        });
-        router.replace(authDestinationToPath(destination));
-      } catch {
+      const profile = await waitForAuthenticatedProfile();
+      if (!profile) {
         router.replace('/signin?error=google');
+        return;
       }
+
+      const tenants = await loadUserTenantsWithRetry();
+      const needsOnboarding = tenants.length === 0;
+      const user = persistUserSession(profile, needsOnboarding);
+
+      queryClient.setQueryData(queryKeys.auth.session, user);
+      queryClient.setQueryData(queryKeys.tenants.all, tenants);
+
+      if (tenants.length > 0) {
+        const active = tenants.find((item) => item.isActive) ?? tenants[0];
+        persistTenantId(active.id);
+        if (active.slug) persistTenantSlug(active.slug);
+      }
+
+      const destination = resolveAuthDestination({
+        isAuthenticated: true,
+        tenants,
+      });
+      router.replace(authDestinationToPath(destination));
     })();
   }, [queryClient, router]);
 
