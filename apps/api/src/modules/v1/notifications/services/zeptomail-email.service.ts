@@ -216,7 +216,7 @@ export class ZeptomailEmailService {
           ? Number((error as { status?: number }).status) || 500
           : 500;
       const errorMessage = formatZeptomailSdkError(error, status);
-      this.logger.warn('Email send failed');
+      this.logger.warn(`Email send failed: ${errorMessage}`);
       return { success: false, error: toUserFacingEmailError(errorMessage) };
     }
   }
