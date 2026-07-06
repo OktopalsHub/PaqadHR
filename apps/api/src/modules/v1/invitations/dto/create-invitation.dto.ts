@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { NormalizeEmail } from 'src/common/decorators';
 export class CreateInvitationDto {
   @ApiProperty({ description: 'First name of the invitee', example: 'John', required: false })
   @IsString()
@@ -61,6 +62,7 @@ export class CreateInvitationDto {
     description: 'Email address of the invitee',
     example: 'john.doe@example.com',
   })
+  @NormalizeEmail()
   @IsString()
   @ApiProperty({
     description: 'email',

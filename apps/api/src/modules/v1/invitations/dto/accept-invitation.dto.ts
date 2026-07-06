@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
+import { NormalizeEmail } from 'src/common/decorators';
 export class AcceptInvitationDto {
   @ApiProperty({
     description: 'Invitation token',
@@ -15,6 +16,7 @@ export class AcceptInvitationDto {
     format: 'email',
     required: true,
   })
+  @NormalizeEmail()
   @IsEmail()
   @IsNotEmpty()
   email: string;

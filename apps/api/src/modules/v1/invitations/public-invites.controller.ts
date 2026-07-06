@@ -26,8 +26,12 @@ export class PublicInvitesController {
     if (!token || !email) {
       throw new BadRequestException('Token and email are required');
     }
+    const normalizedEmail = StringUtility.trimAndLowerCase(email);
     try {
-      const invitation = await this.invitationsService.getInvitationByTokenAndEmail(token, email);
+      const invitation = await this.invitationsService.getInvitationByTokenAndEmail(
+        token,
+        normalizedEmail,
+      );
       if (!invitation) {
         throw new NotFoundException('Invitation not found');
       }

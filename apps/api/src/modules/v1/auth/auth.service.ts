@@ -61,9 +61,10 @@ export class AuthService {
     password: string,
     auditContext?: AuthAuditContext,
   ): Promise<User | null> {
-    const user = await this.userRepository.findUserByEmail(email);
+    const normalizedEmail = StringUtility.trimAndLowerCase(email);
+    const user = await this.userRepository.findUserByEmail(normalizedEmail);
     if (!user) {
-      await this.enqueueLoginFailed(auditContext, email, 'invalid_credentials');
+      await this.enqueueLoginFailed(auditContext, normalizedEmail, 'invalid_credentials');
       throw new UnauthorizedException('Email or password not correct');
     }
 
@@ -73,7 +74,7 @@ export class AuthService {
     const hashedPassword = account?.password ?? user.password;
 
     if (!hashedPassword || !(await PasswordService.verifyPassword(hashedPassword, password))) {
-      await this.enqueueLoginFailed(auditContext, email, 'invalid_credentials');
+      await this.enqueueLoginFailed(auditContext, normalizedEmail, 'invalid_credentials');
       throw new UnauthorizedException('Email or password not correct');
     }
 

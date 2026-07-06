@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { PasswordService } from 'src/common/utils';
+import { PasswordService, StringUtility } from 'src/common/utils';
 import { QueryFailedError } from 'typeorm';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
@@ -90,7 +90,7 @@ export class InvitationsService {
     expiresAt.setDate(expiresAt.getDate() + 7);
     const token = this.generateInvitationToken();
     const invitationData: Partial<Invitation> = {
-      email: createInvitationDto.email,
+      email: StringUtility.trimAndLowerCase(createInvitationDto.email),
       tenantId,
       role: createInvitationDto.role,
       invitedBy,

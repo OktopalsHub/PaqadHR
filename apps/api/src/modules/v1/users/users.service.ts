@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
+import { StringUtility } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
@@ -133,6 +134,9 @@ export class UsersService {
   }
 
   async updateUser(id: string, data: Partial<User>): Promise<User> {
+    if (data.email) {
+      data.email = StringUtility.trimAndLowerCase(data.email);
+    }
     await this.getUser(id);
     await this.userRepository.update(id, data as Parameters<UserRepository['update']>[1]);
     return this.getUser(id);
