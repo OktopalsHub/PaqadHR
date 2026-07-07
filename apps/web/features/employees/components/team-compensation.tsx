@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useEmployees } from '@/hooks/queries/use-employees';
-import { useAddCompensation } from '@/hooks/queries/use-employment';
+import { useAddCompensation, useCurrentSalaries } from '@/hooks/queries/use-employment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { numberToWords } from '@/lib/number-to-words';
 import { useTenant } from '@/providers/tenant-provider';
@@ -51,6 +51,18 @@ function formatPaySchedule(schedule: string) {
   return schedule.replaceAll('_', ' ');
 }
 
+function formatMoney(amount: number, currency: string) {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
 interface TeamCompensationProps {
   hideAppPage?: boolean;
 }
@@ -60,8 +72,10 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   const tenantHref = useTenantHref();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+  const currency = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
 
   const { data: employees = [], isLoading, isError, error } = useEmployees();
+  const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
 
   const [search, setSearch] = useState('');
 
@@ -90,6 +104,11 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
         emp.department.toLowerCase().includes(term),
     );
   }, [employees, search]);
+
+  const currentSalaryByMemberId = useMemo(
+    () => new Map(currentSalaries.map((salary) => [salary.memberId, salary])),
+    [currentSalaries],
+  );
 
   const wrap = (children: React.ReactNode) => {
     if (hideAppPage) return <div className="space-y-6">{children}</div>;
@@ -153,60 +172,91 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                   <TableRow>
                     <TableHead>Employee</TableHead>
                     <TableHead>Department</TableHead>
+                    <TableHead>Current salary</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEmployees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell>
-                        <Link
-                          href={tenantHref(`employees/${employee.id}`)}
-                          className="flex items-center gap-2 hover:underline"
-                        >
-                          <PersonAvatar
-                            src={employee.avatar}
-                            name={employee.name}
-                            className="h-8 w-8"
-                          />
-                          <div>
-                            <p className="font-medium text-sm">{employee.name}</p>
-                            <p className="text-xs text-muted-foreground">{employee.email}</p>
-                          </div>
-                        </Link>
-                      </TableCell>
-                      <TableCell>{employee.department || '—'}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusStyles(employee.status)}`}
-                        >
-                          <span
-                            className={`size-1.5 rounded-full ${
-                              employee.status === 'Active'
-                                ? 'bg-green-500 animate-pulse'
-                                : employee.status === 'On Leave'
-                                  ? 'bg-amber-500'
-                                  : 'bg-gray-450 dark:bg-gray-500'
-                            }`}
-                          />
-                          {employee.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSalaryMember(employee)}
+                  {filteredEmployees.map((employee) => {
+                    const currentSalary = currentSalaryByMemberId.get(employee.id);
+                    return (
+                      <TableRow key={employee.id}>
+                        <TableCell>
+                          <Link
+                            href={tenantHref(`employees/${employee.id}`)}
+                            className="flex items-center gap-2 hover:underline"
                           >
-                            <Plus className="mr-1.5 size-3.5" />
-                            Salary
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            <PersonAvatar
+                              src={employee.avatar}
+                              name={employee.name}
+                              className="h-8 w-8"
+                            />
+                            <div>
+                              <p className="font-medium text-sm">{employee.name}</p>
+                              <p className="text-xs text-muted-foreground">{employee.email}</p>
+                            </div>
+                          </Link>
+                        </TableCell>
+                        <TableCell>{employee.department || '—'}</TableCell>
+                        <TableCell>
+                          {currentSalary ? (
+                            <div className="space-y-0.5">
+                              <p className="font-medium text-sm">
+                                {formatMoney(Number(currentSalary.payRate), currency)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {currentSalary.payType} ·{' '}
+                                {formatPaySchedule(currentSalary.paySchedule)}
+                              </p>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">No salary added</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusStyles(employee.status)}`}
+                          >
+                            <span
+                              className={`size-1.5 rounded-full ${
+                                employee.status === 'Active'
+                                  ? 'bg-green-500 animate-pulse'
+                                  : employee.status === 'On Leave'
+                                    ? 'bg-amber-500'
+                                    : 'bg-gray-450 dark:bg-gray-500'
+                              }`}
+                            />
+                            {employee.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            {currentSalary ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                title={`Add new salary for ${employee.name}`}
+                                aria-label={`Add new salary for ${employee.name}`}
+                                onClick={() => setSalaryMember(employee)}
+                              >
+                                <Plus className="size-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSalaryMember(employee)}
+                              >
+                                <Plus className="mr-1.5 size-3.5" />
+                                Salary
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

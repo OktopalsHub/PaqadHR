@@ -40,6 +40,10 @@ export class TenantSubscription extends BaseEntity {
   nextBillingDate: Date;
   @Column({ name: 'nomba_subscription_id', type: 'varchar', length: 100, nullable: true })
   nombaSubscriptionId: string | null;
+  @Column({ name: 'billing_provider', type: 'varchar', length: 16, default: 'nomba' })
+  billingProvider: string;
+  @Column({ name: 'noah_customer_id', type: 'varchar', length: 100, nullable: true })
+  noahCustomerId: string | null;
   @Column({ name: 'payment_method_id', type: 'varchar', length: 100, nullable: true })
   paymentMethodId: string | null;
   @Column({ name: 'cancel_at_period_end', type: 'boolean', default: false })

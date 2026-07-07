@@ -1,8 +1,11 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
+import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
+import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { LessThan, Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
@@ -10,9 +13,22 @@ import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
 
-const SUCCESS_STATUSES = new Set(['SUCCESS', 'COMPLETED', 'PAYMENT_SUCCESSFUL']);
+const SUCCESS_STATUSES = new Set([
+  'SUCCESS',
+  'COMPLETED',
+  'PAYMENT_SUCCESSFUL',
+  'SUCCEEDED',
+  'PAID',
+]);
 const PENDING_STATUSES = new Set(['PENDING', 'PENDING_BILLING', 'PROCESSING']);
-const FAILED_STATUSES = new Set(['FAILED', 'REFUND', 'REVERSED', 'CANCELLED']);
+const FAILED_STATUSES = new Set([
+  'FAILED',
+  'REFUND',
+  'REVERSED',
+  'CANCELLED',
+  'CANCELED',
+  'REJECTED',
+]);
 
 @Injectable()
 export class PayrollPayoutService {
@@ -20,6 +36,7 @@ export class PayrollPayoutService {
 
   constructor(
     private readonly nombaTransferApi: NombaTransferApiService,
+    private readonly noahApi: NoahApiService,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem)
@@ -42,6 +59,22 @@ export class PayrollPayoutService {
     return this.processNombaPayload(payload);
   }
 
+  async handleNoahWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
+    if (!signature?.trim() || !this.noahApi.verifyWebhookSignature(rawBody, signature)) {
+      this.logger.warn('Rejected Noah payroll webhook: invalid signature');
+      throw new UnauthorizedException('Invalid webhook signature');
+    }
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(rawBody);
+    } catch {
+      throw new BadRequestException('Invalid webhook JSON');
+    }
+
+    return this.processNoahPayload(payload);
+  }
+
   async processNombaPayload(payload: unknown): Promise<{ received: boolean }> {
     const event = this.nombaTransferApi.parseTransferWebhook(payload);
     if (!event) {
@@ -49,7 +82,34 @@ export class PayrollPayoutService {
     }
 
     const merchantRef = event.merchantTxRef ?? event.reference;
-    const changed = await this.applyTransferStatus(merchantRef, event.status, event.reference);
+    const changed = await this.applyTransferStatus(
+      merchantRef,
+      event.status,
+      event.reference,
+      PaymentProvider.NOMBA,
+    );
+    if (changed) {
+      const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
+      if (parsed) {
+        await this.reconcilePayrollRunStatus(parsed[1]);
+      }
+    }
+    return { received: true };
+  }
+
+  async processNoahPayload(payload: unknown): Promise<{ received: boolean }> {
+    const event = this.noahApi.parseTransferWebhook(payload);
+    if (!event) {
+      return { received: true };
+    }
+
+    const merchantRef = event.merchantTxRef ?? event.reference;
+    const changed = await this.applyTransferStatus(
+      merchantRef,
+      event.status,
+      event.reference,
+      PaymentProvider.NOAH,
+    );
     if (changed) {
       const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
       if (parsed) {
@@ -74,13 +134,24 @@ export class PayrollPayoutService {
       const reference = item.transactionId;
       if (!reference) continue;
 
-      const status = await this.nombaTransferApi.getTransactionStatus(reference);
+      const merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
+      const provider = item.paymentProvider?.toLowerCase();
+      let status: string | null = null;
+
+      if (provider === PaymentProvider.NOAH) {
+        const verified = await this.noahApi.verifyTransaction(reference);
+        status = verified?.status?.toUpperCase() ?? null;
+      } else {
+        status = await this.nombaTransferApi.getTransactionStatus(reference);
+      }
+
       if (!status) continue;
 
       const changed = await this.applyTransferStatus(
-        `payroll_${item.payrollRunId}_${item.id}`,
-        status.toUpperCase(),
+        merchantRef,
+        status,
         reference,
+        provider === PaymentProvider.NOAH ? PaymentProvider.NOAH : PaymentProvider.NOMBA,
       );
       if (changed) {
         updated += 1;
@@ -95,6 +166,7 @@ export class PayrollPayoutService {
     merchantRef: string,
     rawStatus: string,
     transactionId: string,
+    provider: PaymentProvider = PaymentProvider.NOMBA,
   ): Promise<boolean> {
     const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
     if (!parsed) {
@@ -110,12 +182,13 @@ export class PayrollPayoutService {
     }
 
     const status = rawStatus.toUpperCase();
+    const providerName = paymentProviderLabel(provider);
 
     if (SUCCESS_STATUSES.has(status)) {
       if (item.status === PayrollItemStatus.PAID) return false;
       item.status = PayrollItemStatus.PAID;
       item.transactionId = transactionId;
-      item.paymentProvider = 'Nomba';
+      item.paymentProvider = providerName;
       item.paidAt = new Date();
       item.failureReason = null;
       await this.payrollItemRepository.save(item);
@@ -126,7 +199,7 @@ export class PayrollPayoutService {
       if (item.status === PayrollItemStatus.FAILED) return false;
       item.status = PayrollItemStatus.FAILED;
       item.transactionId = transactionId;
-      item.failureReason = `Nomba transfer ${status.toLowerCase()}`;
+      item.failureReason = `${providerName} transfer ${status.toLowerCase()}`;
       await this.payrollItemRepository.save(item);
       this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
       return true;
@@ -135,6 +208,7 @@ export class PayrollPayoutService {
     if (PENDING_STATUSES.has(status) && item.status === PayrollItemStatus.PENDING) {
       item.status = PayrollItemStatus.PROCESSING;
       item.transactionId = transactionId;
+      item.paymentProvider = providerName;
       await this.payrollItemRepository.save(item);
       return true;
     }

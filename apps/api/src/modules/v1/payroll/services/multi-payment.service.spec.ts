@@ -1,7 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
-import type { NombaProvider } from 'src/common/providers/nomba.provider';
+import type { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import type { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
@@ -14,6 +14,7 @@ describe('MultiPaymentService', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
   const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
+  const originalNoahApiKey = process.env.NOAH_API_KEY;
 
   const createService = () => {
     const payrollRunRepository = {
@@ -34,9 +35,13 @@ describe('MultiPaymentService', () => {
       recordPaymentMethodUsage: jest.fn(),
     } as unknown as PaymentMethodService;
 
-    const nombaProvider = {
+    const paymentProvider = {
       createPayment: jest.fn(),
-    } as unknown as NombaProvider;
+    };
+
+    const paymentProviderFactory = {
+      resolveProvider: jest.fn().mockReturnValue(paymentProvider),
+    } as unknown as PaymentProviderFactoryService;
 
     const payrollPayoutService = {
       classifyPaymentResultStatus: jest.fn(),
@@ -48,7 +53,7 @@ describe('MultiPaymentService', () => {
       payrollItemRepository,
       paymentMethodService,
       {} as never,
-      nombaProvider,
+      paymentProviderFactory,
       payrollPayoutService,
     );
 
@@ -57,7 +62,8 @@ describe('MultiPaymentService', () => {
       payrollRunRepository,
       payrollItemRepository,
       paymentMethodService,
-      nombaProvider,
+      paymentProvider,
+      paymentProviderFactory,
       payrollPayoutService,
     };
   };
@@ -66,13 +72,15 @@ describe('MultiPaymentService', () => {
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
     process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
+    process.env.NOAH_API_KEY = originalNoahApiKey;
     jest.restoreAllMocks();
   });
 
-  it('throws when Nomba gateway is not configured', async () => {
+  it('throws when no payroll gateway is configured', async () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
+    delete process.env.NOAH_API_KEY;
     const { service } = createService();
 
     await expect(
@@ -90,7 +98,7 @@ describe('MultiPaymentService', () => {
       payrollRunRepository,
       payrollItemRepository,
       paymentMethodService,
-      nombaProvider,
+      paymentProvider,
       payrollPayoutService,
     } = createService();
 
@@ -126,7 +134,7 @@ describe('MultiPaymentService', () => {
       currency: 'NGN',
       country: 'NG',
     });
-    (nombaProvider.createPayment as jest.Mock).mockResolvedValue({
+    (paymentProvider.createPayment as jest.Mock).mockResolvedValue({
       success: true,
       transactionId: 'txn-1',
       providerStatus: 'PROCESSING',

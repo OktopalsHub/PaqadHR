@@ -4,3 +4,17 @@ import { randomBytes } from 'node:crypto';
 export function buildNombaWalletTopupOrderRef(tenantId: string): string {
   return `wt_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}${randomBytes(2).toString('hex').slice(0, 3)}`;
 }
+
+export function buildNoahWalletTopupOrderRef(tenantId: string): string {
+  return `nw_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}${randomBytes(2).toString('hex').slice(0, 3)}`;
+}
+
+export function isNoahWalletTopupOrderRef(orderReference: string, tenantId: string): boolean {
+  const tenantKey = tenantId.replace(/-/g, '');
+  return orderReference.startsWith(`nw_${tenantKey}_`);
+}
+
+export function isNombaWalletTopupOrderRef(orderReference: string, tenantId: string): boolean {
+  const tenantKey = tenantId.replace(/-/g, '');
+  return orderReference.startsWith(`wt_${tenantKey}_`);
+}

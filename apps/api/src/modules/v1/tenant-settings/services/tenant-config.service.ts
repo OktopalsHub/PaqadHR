@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { defaultPayrollCurrency, getNombaPayoutCurrencies } from 'src/common/config/nomba.config';
+import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
 import { normalizeFiatCurrencies } from 'src/common/constants/supported-fiat-currencies.constant';
+import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
@@ -95,7 +96,7 @@ export class TenantConfigService {
     tenantId: string,
     preferredCurrency?: string | null,
   ): Promise<string[]> {
-    const allowed = new Set(getNombaPayoutCurrencies());
+    const allowed = new Set(getSupportedPaymentCurrencies());
     const settings = await this.getSettingsRecord(tenantId);
     const configured = settings?.settings.general?.payrollCurrencies;
     if (Array.isArray(configured) && configured.length > 0) {
@@ -115,7 +116,7 @@ export class TenantConfigService {
   }
 
   getGloballySupportedFiatCurrencies(): readonly string[] {
-    return getNombaPayoutCurrencies();
+    return getSupportedPaymentCurrencies();
   }
 
   async getTenantConfig(tenantId: string): Promise<{

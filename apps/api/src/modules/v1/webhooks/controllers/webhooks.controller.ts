@@ -24,6 +24,7 @@ import type {
 } from 'src/common/integrations/integration.types';
 import { ReloadlyWebhookService } from '../../rewards/services/reloadly-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
+import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
 import {
   getNombaRawBody,
@@ -40,6 +41,7 @@ export class WebhooksController {
 
   constructor(
     private readonly nombaWebhookService: NombaWebhookService,
+    private readonly noahWebhookService: NoahWebhookService,
     private readonly reloadlyWebhookService: ReloadlyWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
   ) {}
@@ -57,6 +59,22 @@ export class WebhooksController {
       rawBody,
       resolveNombaSignature(headers),
       resolveNombaTimestamp(headers),
+    );
+  }
+
+  @Post('noah')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Noah payment webhook (subscriptions, payroll, wallet funding)' })
+  handleNoahWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
+    const rawBody = getNombaRawBody(req);
+    if (!rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    return this.noahWebhookService.dispatch(
+      rawBody,
+      headers['x-noah-signature'] || headers['x-signature'] || '',
+      headers['x-noah-timestamp'] || headers['x-timestamp'],
     );
   }
 

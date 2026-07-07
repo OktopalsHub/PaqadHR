@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { TenantsService } from '../../tenants/tenants.service';
 import { WALLET_UNAVAILABLE_MEMBER } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
@@ -20,6 +21,7 @@ export class TenantWalletService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly activitiesService: ActivitiesService,
+    private readonly tenantsService: TenantsService,
   ) {}
 
   async ensureWallet(tenantId: string, manager?: EntityManager): Promise<TenantWallet> {
@@ -30,7 +32,15 @@ export class TenantWalletService {
     let wallet = await repo.findOne({ where: { tenantId } });
     if (wallet) return wallet;
 
-    wallet = repo.create({ tenantId, currencyCode: 'NGN', balanceAmount: 0 });
+    let currencyCode = 'NGN';
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      currencyCode = (tenant.preferredCurrency || 'NGN').toUpperCase();
+    } catch {
+      // default NGN
+    }
+
+    wallet = repo.create({ tenantId, currencyCode, balanceAmount: 0 });
     try {
       return await repo.save(wallet);
     } catch (error) {

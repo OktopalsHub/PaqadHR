@@ -17,6 +17,13 @@ export type ApiEmployment = {
   positionId?: string;
 };
 
+export type CurrentSalary = {
+  memberId: string;
+  payRate: number;
+  payType: string;
+  paySchedule: string;
+};
+
 export type CreateEmploymentInput = {
   startDate: string;
   positionId?: string;
@@ -49,6 +56,12 @@ export async function fetchEmployments(memberId: string): Promise<ApiEmployment[
   const data = await apiClient<ApiEmployment[]>(
     tenantPath(tenantId, `members/${memberId}/employments`),
   );
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchCurrentSalaries(): Promise<CurrentSalary[]> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<CurrentSalary[]>(tenantPath(tenantId, 'compensation/current'));
   return Array.isArray(data) ? data : [];
 }
 

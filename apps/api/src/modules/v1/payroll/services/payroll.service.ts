@@ -9,11 +9,16 @@ import { DataSource, In } from 'typeorm';
 import { ENVIRONMENT } from '../../../../common/config/env.config';
 import { TenantMemberRole } from '../../../../common/enums';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
+import type { PaymentProviderInterface } from '../../../../common/interfaces/payment-provider-interface.interface';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
-import { NombaProvider } from '../../../../common/providers/nomba.provider';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
+import {
+  paymentProviderLabel,
+  resolvePaymentProvider,
+} from '../../../../common/utils/resolve-payment-provider.util';
 import { EmploymentService } from '../../employment/employment.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
@@ -79,7 +84,7 @@ export class PayrollService {
     private readonly manualDisbursementService: ManualDisbursementService,
     private readonly payrollExportService: PayrollExportService,
     private readonly managerAccessService: ManagerAccessService,
-    @Optional() private readonly nombaProvider?: NombaProvider,
+    @Optional() private readonly paymentProviderFactory?: PaymentProviderFactoryService,
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
   async createPayrollRun(
@@ -534,8 +539,8 @@ export class PayrollService {
         'Nomba payroll gateway is not configured. Use manual disburse or configure Nomba credentials.',
       );
     }
-    if (!this.nombaProvider) {
-      throw new BadRequestException('Nomba payroll gateway is not configured.');
+    if (!this.paymentProviderFactory) {
+      throw new BadRequestException('Payroll payment gateway is not configured.');
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: dto.payrollRunId, tenantId: dto.tenantId },
@@ -666,7 +671,9 @@ export class PayrollService {
     if (result.success) {
       payrollItem.status = PayrollItemStatus.PAID;
       payrollItem.transactionId = result.transactionId ?? null;
-      payrollItem.paymentProvider = 'Nomba';
+      payrollItem.paymentProvider = paymentProviderLabel(
+        resolvePaymentProvider(payrollItem.paymentCurrency, paymentMethod.type),
+      );
       payrollItem.paymentMethodId = paymentMethod.id;
       payrollItem.paidAt = new Date();
       await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
@@ -696,11 +703,14 @@ export class PayrollService {
     }
     await this.payrollItemRepository.save(payrollItem);
   }
-  private getPaymentProvider(_paymentMethod: PaymentMethod): NombaProvider {
-    if (!this.nombaProvider) {
+  private getPaymentProvider(paymentMethod: PaymentMethod): PaymentProviderInterface {
+    if (!this.paymentProviderFactory) {
       throw new BadRequestException('Payment gateway is not configured');
     }
-    return this.nombaProvider;
+    return this.paymentProviderFactory.getFiatProvider(
+      paymentMethod.currency ?? 'NGN',
+      paymentMethod.type,
+    );
   }
   private async acquireProcessingLock(
     payrollRunId: string,

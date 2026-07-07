@@ -14,4 +14,5 @@ export enum TransactionType {
 }
 export enum PaymentProvider {
   NOMBA = 'nomba',
+  NOAH = 'noah',
 }

@@ -6,6 +6,7 @@ import type {
   PaymentMethodSummary,
   supportedCurrenciesSchema,
 } from '@/lib/schemas/payment-method';
+import { isCryptoCurrency } from '@/lib/schemas/payment-method';
 
 export async function fetchPaymentMethods(): Promise<PaymentMethodSummary[]> {
   const tenantId = await resolveTenantId();
@@ -23,9 +24,16 @@ export async function createPaymentMethod(
   input: CreatePaymentMethodInput,
 ): Promise<PaymentMethodSummary> {
   const tenantId = await resolveTenantId();
+  const isCrypto = input.type === 'crypto' || isCryptoCurrency(input.currency);
+  const body = {
+    ...input,
+    type: input.type ?? (isCrypto ? 'crypto' : 'bank'),
+    isPrimary: input.isPrimary ?? true,
+    accountNumber: input.accountNumber ?? input.walletAddress,
+  };
   return apiClient<PaymentMethodSummary>(tenantPath(tenantId, 'payment-methods'), {
     method: 'POST',
-    body: JSON.stringify({ ...input, type: 'BANK', isPrimary: input.isPrimary ?? true }),
+    body: JSON.stringify(body),
   });
 }
 

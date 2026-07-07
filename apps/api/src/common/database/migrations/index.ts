@@ -70,3 +70,4 @@ export * from './1782921523406-wallet-transaction-reference-scope';
 export * from './1783110763106-DropAssetManagement';
 export * from './1783160913090-DropPayrollAuditLogsCreateTenantActivities';
 export * from './1783258356100-invitation-names-nullable';
+export * from './1783369099246-TenantSubscriptionBillingProvider';

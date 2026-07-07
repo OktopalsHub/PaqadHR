@@ -1,4 +1,5 @@
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
+import type { NoahApiService } from 'src/common/services/noah-api.service';
 import type { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import type { Repository } from 'typeorm';
 import type { PayrollItem } from '../entities/payroll-item.entity';
@@ -17,6 +18,12 @@ describe('PayrollPayoutService', () => {
       getTransactionStatus: jest.fn(),
     } as unknown as NombaTransferApiService;
 
+    const noahApi = {
+      verifyWebhookSignature: jest.fn(),
+      parseTransferWebhook: jest.fn(),
+      verifyTransaction: jest.fn(),
+    } as unknown as NoahApiService;
+
     const payrollItemRepository = {
       findOne: jest.fn(),
       find: jest.fn().mockResolvedValue([]),
@@ -34,6 +41,7 @@ describe('PayrollPayoutService', () => {
 
     const service = new PayrollPayoutService(
       nombaTransferApi,
+      noahApi,
       payrollItemRepository,
       payrollRunRepository as never,
       payrollItemRepo,
@@ -173,7 +181,7 @@ describe('PayrollPayoutService', () => {
       const result = await service.handleNombaWebhook(rawBody, 'valid-sig');
 
       expect(result).toEqual({ received: true });
-      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-123');
+      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-123', 'nomba');
     });
 
     it('rejects malformed JSON', async () => {
@@ -202,7 +210,7 @@ describe('PayrollPayoutService', () => {
       const result = await service.requeryStuckPayouts();
 
       expect(result).toEqual({ checked: 1, updated: 1 });
-      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-stuck');
+      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-stuck', 'nomba');
     });
 
     it('skips items without a transaction id', async () => {

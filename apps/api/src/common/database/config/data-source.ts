@@ -91,6 +91,7 @@ const AppDataSource = {
     Migrations.DropAssetManagement1783110763106,
     Migrations.DropPayrollAuditLogsCreateTenantActivities1783160913090,
     Migrations.InvitationNamesNullable1783258356100,
+    Migrations.TenantSubscriptionBillingProvider1783369099246,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
