@@ -129,6 +129,25 @@ export class NotificationSettingsDto {
   @IsUrl()
   webhookUrl?: string;
 }
+export class ShoutoutCelebrationTemplateDto {
+  @ApiProperty({ description: 'Whether this celebration shoutout is enabled', required: false })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+  @ApiProperty({ description: 'Points to award the celebrant', required: false, minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  points?: number;
+  @ApiProperty({
+    description: 'Message template. Placeholders: {name}, {years}, {company}',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  messageTemplate?: string;
+}
 export class ShoutoutSettingsDto {
   @ApiProperty({
     description: 'Maximum recipients per shoutout',
@@ -166,25 +185,6 @@ export class ShoutoutSettingsDto {
   @ValidateNested()
   @Type(() => ShoutoutCelebrationTemplateDto)
   workAnniversary?: ShoutoutCelebrationTemplateDto;
-}
-export class ShoutoutCelebrationTemplateDto {
-  @ApiProperty({ description: 'Whether this celebration shoutout is enabled', required: false })
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-  @ApiProperty({ description: 'Points to award the celebrant', required: false, minimum: 0 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  points?: number;
-  @ApiProperty({
-    description: 'Message template. Placeholders: {name}, {years}, {company}',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  messageTemplate?: string;
 }
 export class AttendanceSettingsDto {
   @ApiProperty({
