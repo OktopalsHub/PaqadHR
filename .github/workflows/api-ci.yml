@@ -5,6 +5,7 @@ on:
     branches: [main, dev]
     paths:
       - 'apps/api/**'
+      - '.github/scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -14,6 +15,7 @@ on:
     branches: [main, dev]
     paths:
       - 'apps/api/**'
+      - '.github/scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -55,6 +57,9 @@ jobs:
 
       - name: Lint API
         run: pnpm --filter api check
+
+      - name: Check @Body() DTO imports
+        run: pnpm --filter api check:body-dtos
 
       - name: Build API
         run: pnpm --filter api build

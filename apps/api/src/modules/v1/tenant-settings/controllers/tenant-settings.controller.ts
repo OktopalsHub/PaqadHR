@@ -12,6 +12,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import { TenantsService } from '../../tenants/tenants.service';
 import {
   AssignPointsDto,
+  CreateCustomHolidayDto,
   HolidayDto,
   HolidaySettingsDto,
   UpdateTenantSettingsDto,
@@ -37,6 +38,7 @@ export class TenantSettingsController {
   @Patch()
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  // @Body() DTOs must be value-imported (not `import type`) for ValidationPipe metadata.
   async updateTenantSettings(
     @TenantId() tenantId: string,
     @Body() updateDto: UpdateTenantSettingsDto,
@@ -228,7 +230,7 @@ export class TenantSettingsController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async addCustomHoliday(
     @TenantId() tenantId: string,
-    @Body() holidayData: Omit<HolidayDto, 'id'>,
+    @Body() holidayData: CreateCustomHolidayDto,
   ) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];

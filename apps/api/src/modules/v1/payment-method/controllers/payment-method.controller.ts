@@ -18,7 +18,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type {
+import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
   UpdatePaymentMethodDto,
