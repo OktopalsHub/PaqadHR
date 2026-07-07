@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
@@ -44,8 +44,6 @@ interface NombaWebhookPayload {
 
 @Injectable()
 export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
-  private readonly logger = new Logger(NombaSubscriptionProvider.name);
-
   constructor(private readonly nombaApi: NombaApiService) {}
 
   async createCheckout(
@@ -58,7 +56,9 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_${metadata.tenantId}_${Date.now()}`;
+    // Keep under Nomba's 50-char reference limit: raw UUID (36) + "sub_" +
+    // timestamp overflows, so strip UUID hyphens and use a base36 timestamp.
+    const orderReference = `sub_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     const result = await this.nombaApi.createCheckoutOrder({
       orderReference,
@@ -71,7 +71,6 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         ...metadata,
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION,
-        nombaPlanId: planPrice.nombaPlanId ?? undefined,
       },
     });
 
@@ -89,7 +88,8 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     successUrl: string,
     currency: string,
   ): Promise<SubscriptionCheckoutResponse> {
-    const orderReference = `card_update_${metadata.tenantId}_${Date.now()}`;
+    // Keep under Nomba's 50-char reference limit (see createCheckout).
+    const orderReference = `cu_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     const result = await this.nombaApi.createCheckoutOrder({
       orderReference,
@@ -127,11 +127,8 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_renew_${metadata.tenantId}_${Date.now()}`;
-
-    this.logger.log(
-      `Renewing Nomba subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
-    );
+    // Keep under Nomba's 50-char reference limit (see createCheckout).
+    const orderReference = `sub_ren_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     return this.nombaApi.chargeTokenizedCard({
       orderReference,
@@ -145,27 +142,23 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
         previousReference: subscriptionReference,
-        nombaPlanId: planPrice.nombaPlanId ?? undefined,
       },
     });
   }
 
-  async updateSubscription(
+  async chargeSeatAddition(
     subscriptionReference: string,
     planPrice: PlanPrice,
-    quantity: number,
+    amount: number,
+    targetSeatCount: number,
+    extraSeats: number,
     tokenKey: string,
     customerEmail: string,
     metadata?: SubscriptionBillingMetadata,
-  ): Promise<unknown> {
-    const seats = resolveSeatCount(quantity);
-    const amount = calculatePerSeatTotal(planPrice, seats);
+  ): Promise<{ orderReference: string }> {
     const currency = planPrice.currency.toUpperCase();
-    const orderReference = `sub_qty_${subscriptionReference}_${Date.now()}`;
-
-    this.logger.log(
-      `Charging Nomba tokenized subscription ${subscriptionReference} for ${seats} seats (${amount} ${currency})`,
-    );
+    const tenantPart = (metadata?.tenantId ?? subscriptionReference).replace(/-/g, '').slice(0, 32);
+    const orderReference = `sub_qty_${tenantPart}_${Date.now().toString(36)}`;
 
     return this.nombaApi.chargeTokenizedCard({
       orderReference,
@@ -178,10 +171,11 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         ...metadata,
         billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
         previousReference: subscriptionReference,
-        quantity: seats,
+        quantity: targetSeatCount,
+        targetSeatCount,
+        extraSeats,
         planId: metadata?.planId ?? planPrice.planId,
         planPriceId: metadata?.planPriceId ?? planPrice.id,
-        nombaPlanId: planPrice.nombaPlanId ?? undefined,
       },
     });
   }
@@ -209,6 +203,10 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         userId: orderMeta.userId ?? data?.meta?.userId,
         tenantMemberId: orderMeta.tenantMemberId ?? data?.meta?.tenantMemberId,
         quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
+        extraSeats: orderMeta.extraSeats ? Number(orderMeta.extraSeats) : data?.meta?.extraSeats,
+        targetSeatCount: orderMeta.targetSeatCount
+          ? Number(orderMeta.targetSeatCount)
+          : data?.meta?.targetSeatCount,
         billingType: orderMeta.billingType ?? data?.meta?.billingType,
       };
       const reference = order?.orderReference ?? data?.orderReference;
@@ -217,6 +215,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
       }
 
       const card = this.parseTokenizedCard(data?.tokenizedCardData);
+      const targetSeatCount = meta.targetSeatCount ?? meta.quantity;
 
       return {
         kind: 'payment.success',
@@ -226,7 +225,9 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
           tenantId: String(meta.tenantId),
           planId: meta.planId ? String(meta.planId) : undefined,
           planPriceId: meta.planPriceId ? String(meta.planPriceId) : undefined,
-          quantity: meta.quantity ? Number(meta.quantity) : undefined,
+          quantity: targetSeatCount ? Number(targetSeatCount) : undefined,
+          extraSeats: meta.extraSeats ? Number(meta.extraSeats) : undefined,
+          targetSeatCount: targetSeatCount ? Number(targetSeatCount) : undefined,
           amount: Number(
             order?.amount ?? data?.amount ?? data?.transaction?.transactionAmount ?? 0,
           ),

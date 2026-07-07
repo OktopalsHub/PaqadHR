@@ -10,6 +10,9 @@ export const queryKeys = {
     all: ['employees'] as const,
     detail: (id: string) => ['employees', id] as const,
   },
+  invitations: {
+    all: ['invitations'] as const,
+  },
   positions: {
     all: ['positions'] as const,
   },
@@ -86,6 +89,9 @@ export const queryKeys = {
   notifications: {
     list: ['notifications', 'list'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
+  },
+  activities: {
+    list: (tenantId: string) => ['activities', 'list', tenantId] as const,
   },
   rewards: {
     catalog: ['rewards', 'catalog'] as const,

@@ -14,11 +14,15 @@ export function LeaveBalancesPanel({ balances }: LeaveBalancesPanelProps) {
         {balances.map((balance) => (
           <li
             key={balance.leaveTypeId}
-            className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5 text-sm"
+            className="dashboard-soft-tile flex items-center justify-between rounded-[8px] border border-[#d7e3f6] px-4 py-3 text-sm dark:border-slate-800"
           >
-            <span className="font-medium">{balance.leaveTypeName}</span>
-            <span className="tabular-nums text-muted-foreground">
-              <span className="font-semibold text-foreground">{balance.remaining}</span>
+            <span className="font-medium text-slate-900 dark:text-slate-100">
+              {balance.leaveTypeName}
+            </span>
+            <span className="tabular-nums text-slate-500 dark:text-slate-400">
+              <span className="font-semibold text-slate-950 dark:text-slate-100">
+                {balance.remaining}
+              </span>
               {' / '}
               {balance.allocated} days
             </span>

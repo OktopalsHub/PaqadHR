@@ -8,12 +8,15 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { TenantMemberRole } from 'src/common/enums';
+import { EmploymentStatus, TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import type { QueryDeepPartialEntity } from 'typeorm';
-import { Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
+import { Department } from '../departments/entities/department.entity';
+import { DepartmentMember } from '../departments/entities/department-member.entity';
+import { Employment } from '../employment/entities/employment.entity';
 import { TenantMemberChangedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
@@ -40,6 +43,12 @@ export class TenantMembersService {
     private readonly eventEmitter: EventEmitter2,
     @InjectRepository(TenantSettings)
     private readonly tenantSettingsRepository: Repository<TenantSettings>,
+    @InjectRepository(Employment)
+    private readonly employmentRepository: Repository<Employment>,
+    @InjectRepository(DepartmentMember)
+    private readonly departmentMemberRepository: Repository<DepartmentMember>,
+    @InjectRepository(Department)
+    private readonly departmentRepository: Repository<Department>,
     private readonly fileUrlService: FileUrlService,
     @Optional() private readonly emailQueueService?: EmailQueueService,
   ) {}
@@ -147,7 +156,23 @@ export class TenantMembersService {
   ): Promise<TenantMember> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
     if (!member) throw new NotFoundException('Tenant member not found');
-
+    await this.applyMemberUpdates(member, tenantId, updateDto);
+    return this.getTenantMember(member.id, tenantId);
+  }
+  async updateTenantMemberById(
+    memberId: string,
+    tenantId: string,
+    updateDto: UpdateTenantMemberDto,
+  ): Promise<TenantMember> {
+    const member = await this.getTenantMember(memberId, tenantId);
+    await this.applyMemberUpdates(member, tenantId, updateDto);
+    return this.getTenantMember(memberId, tenantId);
+  }
+  private async applyMemberUpdates(
+    member: TenantMember,
+    tenantId: string,
+    updateDto: UpdateTenantMemberDto,
+  ): Promise<void> {
     const updateData: Partial<TenantMember> = {};
     if (updateDto.firstName !== undefined) updateData.firstName = updateDto.firstName;
     if (updateDto.lastName !== undefined) updateData.lastName = updateDto.lastName;
@@ -160,7 +185,15 @@ export class TenantMembersService {
       updateData.dateOfBirth = updateDto.dateOfBirth;
     }
     if (updateDto.gender !== undefined) updateData.gender = updateDto.gender;
-    if (updateDto.role !== undefined) updateData.role = updateDto.role;
+    if (updateDto.role !== undefined) {
+      if (member.role === TenantMemberRole.OWNER) {
+        throw new BadRequestException('Cannot change workspace role of the owner');
+      }
+      if (updateDto.role === TenantMemberRole.OWNER) {
+        throw new BadRequestException('Cannot assign owner role via member update');
+      }
+      updateData.role = updateDto.role;
+    }
     if (updateDto.avatarKey !== undefined) updateData.avatarKey = updateDto.avatarKey;
 
     if (Object.keys(updateData).length > 0) {
@@ -170,7 +203,122 @@ export class TenantMembersService {
       );
     }
 
-    return this.getTenantMember(member.id, tenantId);
+    if (updateDto.departmentId !== undefined) {
+      await this.updateMemberDepartment(tenantId, member.id, updateDto.departmentId || null);
+    }
+
+    if (updateDto.reportsToId !== undefined) {
+      await this.updateMemberReportsTo(tenantId, member.id, updateDto.reportsToId || null);
+    }
+
+    if (
+      updateDto.departmentId !== undefined ||
+      updateDto.reportsToId !== undefined ||
+      updateDto.role !== undefined
+    ) {
+      this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
+    }
+  }
+  private async updateMemberDepartment(
+    tenantId: string,
+    memberId: string,
+    departmentId: string | null,
+  ): Promise<void> {
+    const activeMemberships = await this.departmentMemberRepository.find({
+      where: { memberId, isActive: true },
+      relations: ['department'],
+    });
+    const tenantMemberships = activeMemberships.filter(
+      (membership) => membership.department?.tenantId === tenantId,
+    );
+
+    if (!departmentId) {
+      for (const membership of tenantMemberships) {
+        await this.departmentMemberRepository.delete(membership.id);
+      }
+      return;
+    }
+
+    const department = await this.departmentRepository.findOne({
+      where: { id: departmentId, tenantId },
+    });
+    if (!department) {
+      throw new NotFoundException('Department not found');
+    }
+
+    if (tenantMemberships.some((membership) => membership.departmentId === departmentId)) {
+      return;
+    }
+
+    for (const membership of tenantMemberships) {
+      await this.departmentMemberRepository.delete(membership.id);
+    }
+
+    const existingMembership = await this.departmentMemberRepository.findOne({
+      where: { departmentId, memberId },
+    });
+    if (existingMembership) {
+      await this.departmentMemberRepository.update(existingMembership.id, {
+        isActive: true,
+        joinedAt: new Date(),
+      });
+      return;
+    }
+
+    await this.departmentMemberRepository.save(
+      this.departmentMemberRepository.create({
+        departmentId,
+        memberId,
+        role: 'MEMBER',
+        joinedAt: new Date(),
+        isActive: true,
+      }),
+    );
+  }
+  private async updateMemberReportsTo(
+    tenantId: string,
+    memberId: string,
+    reportsToId: string | null,
+  ): Promise<void> {
+    if (reportsToId === memberId) {
+      throw new BadRequestException('A member cannot report to themselves');
+    }
+
+    if (reportsToId) {
+      const manager = await this.tenantMemberRepository.findOne({
+        where: { id: reportsToId, tenantId, isActive: true },
+      });
+      if (!manager) {
+        throw new NotFoundException('Manager not found in this workspace');
+      }
+    }
+
+    const employment = await this.employmentRepository.findOne({
+      where: { tenantMemberId: memberId, tenantId, endDate: IsNull() },
+    });
+
+    if (employment) {
+      await this.employmentRepository.update(employment.id, {
+        reportsToId: reportsToId ?? undefined,
+      });
+      return;
+    }
+
+    if (!reportsToId) {
+      return;
+    }
+
+    const member = await this.getTenantMember(memberId, tenantId);
+    await this.employmentRepository.save(
+      this.employmentRepository.create({
+        tenantMemberId: memberId,
+        tenantId,
+        startDate: member.joinDate ?? new Date(),
+        payRate: 0,
+        reportsToId,
+        status: EmploymentStatus.ACTIVE,
+      }),
+    );
   }
   async removeTenantMember(userId: string, tenantId: string): Promise<void> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
@@ -207,14 +355,6 @@ export class TenantMembersService {
     const member = await this.getTenantMember(memberId, tenantId);
     return this.setTenantMemberStatus(member.userId, tenantId, isActive);
   }
-  async updateTenantMemberById(
-    memberId: string,
-    tenantId: string,
-    updateDto: UpdateTenantMemberDto,
-  ): Promise<TenantMember> {
-    const member = await this.getTenantMember(memberId, tenantId);
-    return this.updateTenantMember(tenantId, member.userId, updateDto);
-  }
   async restoreTenantMember(memberId: string): Promise<void> {
     const result = await this.tenantMemberRepository.restore(memberId);
     if (result.affected === 0) {
@@ -223,6 +363,19 @@ export class TenantMembersService {
   }
   async checkUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberRepository.findByUserAndTenantId(userId, tenantId);
+  }
+  async findUserTenantMembership(userId: string, tenantId: string): Promise<TenantMember | null> {
+    return this.tenantMemberRepository.findMembershipByUserAndTenant(userId, tenantId);
+  }
+  async findTenantMemberUserIds(tenantId: string, userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) {
+      return new Set();
+    }
+    const members = await this.tenantMemberRepository.find({
+      where: { tenantId, userId: In([...new Set(userIds)]) },
+      select: ['userId'],
+    });
+    return new Set(members.map((member) => member.userId));
   }
   async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
     return this.tenantMemberRepository.countUserInTenant(userId, tenantId);
@@ -329,7 +482,6 @@ export class TenantMembersService {
         id: `inv_${Date.now()}_${randomBytes(8).toString('hex')}`,
         ...invitationData,
       };
-      this.logger.log(`Invitation created for ${inviteData.email} to tenant ${tenantId}`);
       if (inviteData.sendWelcomeEmail && this.emailQueueService) {
         try {
           const inviteLink = `${process.env.FRONTEND_URL || 'https://app.teamlyf.com'}/accept-invitation/${invitation.id}`;
@@ -339,9 +491,8 @@ export class TenantMembersService {
             tenantId,
             inviteLink,
           );
-          this.logger.log(`Invitation email sent to ${inviteData.email}`);
         } catch (emailError) {
-          this.logger.error(`Failed to send invitation email to ${inviteData.email}:`, emailError);
+          this.logger.error('Failed to send invitation email', emailError);
         }
       }
       return invitation;

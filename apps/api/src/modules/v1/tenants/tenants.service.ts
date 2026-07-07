@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
@@ -27,9 +32,7 @@ export class TenantsService {
         throw new UnprocessableEntityException('User not found');
       }
       const slug = await this.resolveSlug(data.slug, data.name);
-      const excluded =
-        process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
-      if (excluded.includes(slug.toLowerCase())) {
+      if (this.isReservedSlug(slug)) {
         throw new UnprocessableEntityException(
           `The subdomain "${slug}" is reserved and cannot be used.`,
         );
@@ -48,11 +51,13 @@ export class TenantsService {
         location: data.location || null,
       };
       const savedTenant = await this.tenantRepository.create(tenantData);
+      const ownerProfile = await this.resolveOwnerMemberProfile(creatorId, user.name);
       const tenantMember = await this.tenantMemberService.createTenantMember(
         creatorId,
         savedTenant.id,
         {
           role: TenantMemberRole.OWNER,
+          ...ownerProfile,
         },
       );
       try {
@@ -80,11 +85,44 @@ export class TenantsService {
       } catch (_eventError) {}
       return savedTenant;
     } catch (error) {
-      if (error instanceof UnprocessableEntityException) {
+      if (error instanceof UnprocessableEntityException || error instanceof BadRequestException) {
         throw error;
       }
       throw new UnprocessableEntityException('Failed to create tenant. Please try again.');
     }
+  }
+  private isReservedSlug(slug: string): boolean {
+    const excluded =
+      process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
+    const reserved = excluded
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+    return reserved.includes(slug.toLowerCase());
+  }
+  private async resolveOwnerMemberProfile(
+    userId: string,
+    userName?: string | null,
+  ): Promise<{ firstName?: string; lastName?: string; preferredName?: string }> {
+    const memberships = await this.tenantMemberService.getUserMemberships(userId);
+    const named = memberships.find(
+      (member) =>
+        member.firstName?.trim() || member.lastName?.trim() || member.preferredName?.trim(),
+    );
+    if (named) {
+      return {
+        firstName: named.firstName ?? undefined,
+        lastName: named.lastName ?? undefined,
+        preferredName: named.preferredName ?? named.firstName ?? undefined,
+      };
+    }
+    const parts = userName?.trim().split(/\s+/).filter(Boolean) ?? [];
+    if (parts.length === 0) return {};
+    return {
+      firstName: parts[0],
+      lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
+      preferredName: parts[0],
+    };
   }
   async listTenants(includeDeleted: boolean = false): Promise<Tenant[]> {
     return this.tenantRepository.find({ withDeleted: includeDeleted });

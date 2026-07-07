@@ -1,9 +1,10 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, In, IsNull, type Repository } from 'typeorm';
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationStatus } from '../../../../common/enums/notification-status.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type {
   CreateBulkNotificationDto,
   CreateNotificationDto,
@@ -23,14 +24,55 @@ export class NotificationService {
     _preferenceRepository: Repository<NotificationPreference>,
     private emailService: ZeptomailEmailService,
     private sseNotificationService: SSENotificationService,
+    private tenantMembersService: TenantMembersService,
   ) {}
+
+  private async assertRecipientIsTenantMember(
+    recipientId: string,
+    tenantId: string,
+  ): Promise<void> {
+    const membership = await this.tenantMembersService.findUserTenantMembership(
+      recipientId,
+      tenantId,
+    );
+    if (!membership) {
+      throw new BadRequestException('Recipient is not a member of this tenant');
+    }
+  }
+
+  private async assertRecipientsAreTenantMembers(
+    recipientIds: string[],
+    tenantId: string,
+  ): Promise<void> {
+    const memberIds = await this.tenantMembersService.findTenantMemberUserIds(
+      tenantId,
+      recipientIds,
+    );
+    const invalid = recipientIds.find((recipientId) => !memberIds.has(recipientId));
+    if (invalid) {
+      throw new BadRequestException('Recipient is not a member of this tenant');
+    }
+  }
+
   async createNotification(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    if (createNotificationDto.recipientId && createNotificationDto.tenantId) {
+      await this.assertRecipientIsTenantMember(
+        createNotificationDto.recipientId,
+        createNotificationDto.tenantId,
+      );
+    }
     const notification = this.notificationRepository.create(createNotificationDto);
     const savedNotification = await this.notificationRepository.save(notification);
     await this.sendNotification(savedNotification);
     return savedNotification;
   }
   async createBulkNotifications(createBulkDto: CreateBulkNotificationDto): Promise<Notification[]> {
+    if (createBulkDto.tenantId) {
+      await this.assertRecipientsAreTenantMembers(
+        createBulkDto.recipientIds,
+        createBulkDto.tenantId,
+      );
+    }
     const notifications = createBulkDto.recipientIds.map((recipientId) =>
       this.notificationRepository.create({
         ...createBulkDto,
@@ -57,9 +99,6 @@ export class NotificationService {
       message,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`System notification sent: ${title}`);
-    }
   }
   async sendTenantNotification(
     tenantId: string,
@@ -76,9 +115,6 @@ export class NotificationService {
       tenantId,
       metadata,
     });
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`Tenant notification sent to ${tenantId}: ${title}`);
-    }
   }
   async getUserNotifications(
     userId: string,
@@ -287,7 +323,7 @@ export class NotificationService {
     try {
       return `user-${recipientId}@example.com`;
     } catch (error) {
-      this.logger.error(`Failed to get recipient email for ${recipientId}:`, error);
+      this.logger.error(`Failed to get recipient for ${recipientId}:`, error);
       return null;
     }
   }

@@ -17,7 +17,7 @@
 
   background: var(--ld-bg);
   color: var(--ld-text);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Montserrat", system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -110,11 +110,11 @@
   height: 44px;
   padding: 0 28px;
   background: var(--ld-brand);
-  color: #000;
+  color: var(--brand-foreground);
 }
 
 .ld-btn-primary:hover {
-  background: #ffe066;
+  background: var(--primary-hover);
   transform: translateY(-1px);
   box-shadow: 0 8px 32px var(--brand-shadow);
 }

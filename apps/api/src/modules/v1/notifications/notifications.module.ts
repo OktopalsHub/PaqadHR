@@ -5,6 +5,7 @@ import { NotificationController } from './controllers/notification.controller';
 import { NotificationPreferenceController } from './controllers/notification-preference.controller';
 import { Notification } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
+import { EmailTemplateService } from './services/email-template.service';
 import { NotificationService } from './services/notification.service';
 import { NotificationHelperService } from './services/notification-helper.service';
 import { NotificationPreferenceService } from './services/notification-preference.service';
@@ -15,6 +16,7 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
   imports: [TypeOrmModule.forFeature([Notification, NotificationPreference]), TenantMembersModule],
   controllers: [NotificationController, NotificationPreferenceController],
   providers: [
+    EmailTemplateService,
     NotificationService,
     NotificationPreferenceService,
     ZeptomailEmailService,
@@ -22,6 +24,7 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
     NotificationHelperService,
   ],
   exports: [
+    EmailTemplateService,
     NotificationService,
     NotificationPreferenceService,
     ZeptomailEmailService,

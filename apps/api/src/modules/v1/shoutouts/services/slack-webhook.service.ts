@@ -61,7 +61,6 @@ export class SlackWebhookService {
     try {
       const { event, team_id } = eventPayload;
       if (!event) return;
-      this.logger.log(`Handling Slack event: ${event.type} for team: ${team_id}`);
       switch (event.type) {
         case 'user_change':
           await this.handleUserChange(event, team_id ?? '');
@@ -76,7 +75,6 @@ export class SlackWebhookService {
           await this.handleAppHomeOpened(event, team_id ?? '');
           break;
         default:
-          this.logger.log(`Unhandled Slack event type: ${event.type}`);
       }
     } catch (error) {
       this.logger.error('Error handling Slack event:', error);
@@ -84,8 +82,7 @@ export class SlackWebhookService {
   }
   async handleInteractiveComponent(payload: SlackInteractivePayload): Promise<void> {
     try {
-      const { type, user } = payload;
-      this.logger.log(`Handling interactive component: ${type} from user: ${user.id}`);
+      const { type } = payload;
       switch (type) {
         case 'block_actions':
           await this.handleBlockActions(payload);
@@ -97,7 +94,6 @@ export class SlackWebhookService {
           await this.handleShortcut(payload);
           break;
         default:
-          this.logger.log(`Unhandled interactive component type: ${type}`);
       }
     } catch (error) {
       this.logger.error('Error handling interactive component:', error);
@@ -106,7 +102,6 @@ export class SlackWebhookService {
   async handleSlashCommand(commandPayload: SlackSlashCommandPayload): Promise<unknown> {
     try {
       const { command, text, user_id, team_id, channel_id } = commandPayload;
-      this.logger.log(`Handling slash command: ${command} from user: ${user_id}`);
       switch (command) {
         case '/shoutout':
           return await this.handleShoutoutCommand(text, user_id, team_id, channel_id);
@@ -142,21 +137,17 @@ export class SlackWebhookService {
         platformEmail: event.user.profile?.email,
         platformAvatarUrl: event.user.profile?.image_192,
       });
-      this.logger.log(`Updated platform user: ${event.user.id}`);
     }
   }
   private async handleTeamJoin(event: SlackEvent, teamId: string): Promise<void> {
     const integration = await this.findIntegrationByTeamId(teamId);
     if (!integration) return;
     await this.userSyncService.syncAllUsers(integration.id, integration.tenantId);
-    this.logger.log(`Auto-synced new team member: ${event.user?.id}`);
   }
   private async handleUserProfileChanged(event: SlackEvent, teamId: string): Promise<void> {
     await this.handleUserChange(event, teamId);
   }
-  private async handleAppHomeOpened(event: SlackEvent, teamId: string): Promise<void> {
-    this.logger.log(`App home opened by user: ${event.user?.id}`);
-  }
+  private async handleAppHomeOpened(event: SlackEvent, teamId: string): Promise<void> {}
   private async handleBlockActions(payload: SlackInteractivePayload): Promise<void> {
     const action = payload.actions[0];
     switch (action.action_id) {
@@ -167,7 +158,6 @@ export class SlackWebhookService {
         await this.handleMatchUserAction(payload);
         break;
       default:
-        this.logger.log(`Unhandled block action: ${action.action_id}`);
     }
   }
   private async handleViewSubmission(payload: SlackInteractivePayload): Promise<void> {
@@ -177,7 +167,6 @@ export class SlackWebhookService {
         await this.handleShoutoutModalSubmission(payload);
         break;
       default:
-        this.logger.log(`Unhandled view submission: ${callbackId}`);
     }
   }
   private async handleShortcut(payload: SlackInteractivePayload): Promise<void> {
@@ -187,7 +176,6 @@ export class SlackWebhookService {
         await this.handleCreateShoutoutShortcut(payload);
         break;
       default:
-        this.logger.log(`Unhandled shortcut: ${callbackId}`);
     }
   }
   private async handleShoutoutCommand(
@@ -248,8 +236,7 @@ export class SlackWebhookService {
         };
       }
       const shoutout = await this.shoutoutsService.createShoutout(integration.tenantId, sender.id, {
-        recipientIds: uniqueRecipientIds,
-        pointsPerRecipient: points,
+        recipients: uniqueRecipientIds.map((recipientId) => ({ recipientId, points })),
         message,
         categoryIds: [],
         source: 'slack',
@@ -279,15 +266,9 @@ export class SlackWebhookService {
       await this.userSyncService.syncAllUsers(integration.id, integration.tenantId);
     }
   }
-  private async handleMatchUserAction(_payload: SlackInteractivePayload): Promise<void> {
-    this.logger.log('Manual user matching requested');
-  }
-  private async handleShoutoutModalSubmission(_payload: SlackInteractivePayload): Promise<void> {
-    this.logger.log('Shoutout modal submitted');
-  }
-  private async handleCreateShoutoutShortcut(_payload: SlackInteractivePayload): Promise<void> {
-    this.logger.log('Create shoutout shortcut triggered');
-  }
+  private async handleMatchUserAction(_payload: SlackInteractivePayload): Promise<void> {}
+  private async handleShoutoutModalSubmission(_payload: SlackInteractivePayload): Promise<void> {}
+  private async handleCreateShoutoutShortcut(_payload: SlackInteractivePayload): Promise<void> {}
   private async findIntegrationByTeamId(teamId: string): Promise<PlatformIntegration | null> {
     return this.integrationRepo.findOne({
       where: {

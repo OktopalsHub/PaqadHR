@@ -1,5 +1,6 @@
 'use client';
 
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
 import {
   AlertCircle,
   ArrowLeft,
@@ -15,7 +16,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { OrgAvatar } from '@/components/org-avatar';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +60,8 @@ interface CustomQuestion {
   maxRating?: number;
 }
 
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export default function PublicCareersPage() {
   const params = useParams<{ tenantSlug: string }>();
   const router = useRouter();
@@ -95,6 +98,12 @@ export default function PublicCareersPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
+
+  const handleTurnstileSuccess = useCallback((token: string) => {
+    setTurnstileToken(token);
+  }, []);
 
   useEffect(() => {
     if (!params.tenantSlug) return;
@@ -112,7 +121,6 @@ export default function PublicCareersPage() {
         const jobsData = await fetchPublicJobs(tenantData.id);
         setJobs(jobsData.jobs);
       } catch (err: unknown) {
-        console.error('Failed to load careers page:', err);
         const errMsg = err instanceof Error ? err.message : 'Failed to load workspace data';
         setError(errMsg);
       } finally {
@@ -178,6 +186,11 @@ export default function PublicCareersPage() {
       return;
     }
 
+    if (turnstileSiteKey && !turnstileToken) {
+      toast.error('Please complete the security check before submitting.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
 
@@ -216,16 +229,18 @@ export default function PublicCareersPage() {
         experience: {
           years: 0,
         },
+        turnstileToken: turnstileToken ?? undefined,
       };
 
       await submitPublicApplication(selectedJob.id, payload);
       setIsSuccess(true);
       toast.success('Application submitted successfully!');
     } catch (err: unknown) {
-      console.error('Failed to submit application:', err);
       const errMsg =
         err instanceof Error ? err.message : 'Failed to submit application. Please try again.';
       toast.error(errMsg);
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setIsSubmitting(false);
       setResumeUploadProgress(false);
@@ -974,7 +989,17 @@ export default function PublicCareersPage() {
                         </div>
                       )}
 
-                      {}
+                      {turnstileSiteKey ? (
+                        <div className="border-t pt-4 flex justify-center">
+                          <Turnstile
+                            ref={turnstileRef}
+                            siteKey={turnstileSiteKey}
+                            onSuccess={handleTurnstileSuccess}
+                            options={{ theme: 'auto' }}
+                          />
+                        </div>
+                      ) : null}
+
                       <div className="pt-6 border-t flex flex-col gap-2">
                         <Button
                           type="submit"

@@ -3,14 +3,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useUpdateEmployeeMemberStatus } from '@/hooks/queries/use-employees';
 import { fetchMemberAddress } from '@/lib/api/address';
 import { fetchEducationRecords } from '@/lib/api/education';
 import { fetchEmergencyContacts } from '@/lib/api/emergency-contacts';
 import { fetchTenantMemberById, fetchTenantMembers } from '@/lib/api/employees';
 import { canManageMember } from '@/lib/auth/manager-access';
-import { formatDisplayName, formatPersonName } from '@/lib/format-name';
+import { formatDisplayName } from '@/lib/format-name';
 import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { queryKeys } from '@/lib/query/keys';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
@@ -24,10 +26,11 @@ function resolveManagerName(member: ApiTenantMember, members: ApiTenantMember[])
   if (!member.reportsToId) return '';
   const manager = members.find((m) => m.id === member.reportsToId);
   if (!manager) return '';
-  return (
-    formatPersonName(manager.firstName, manager.lastName, '') ||
-    formatDisplayName(manager.preferredName, '')
-  );
+  const full = [manager.firstName, manager.middleName, manager.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return full || formatDisplayName(manager.preferredName, '');
 }
 
 function EmployeeDetailFormView({
@@ -68,7 +71,7 @@ function EmployeeDetailFormView({
 
   return (
     <EmployeeDetailFormReady
-      key={member.id}
+      key={`${member.id}:${member.isActive}`}
       member={member}
       memberId={memberId}
       emergencyContacts={records.emergencyContacts}
@@ -99,11 +102,14 @@ function EmployeeDetailFormReady({
   const isAdmin = role === 'owner' || role === 'admin';
   const isSelf = tenant?.member?.id === memberId;
   const canEdit = isAdmin || isSelf;
+  const memberTenantRole = member.role?.toLowerCase();
+  const canManageStatus = isAdmin && !isSelf && memberTenantRole !== 'owner';
+  const statusMutation = useUpdateEmployeeMemberStatus(memberId);
 
   const form = useEmployeeDetailForm(
     member,
     { emergencyContacts, education, address },
-    { managerName, canEdit, isSelf },
+    { managerName, canEdit, isSelf, isAdmin },
   );
 
   return (
@@ -121,6 +127,20 @@ function EmployeeDetailFormReady({
           memberId={memberId}
           isSelf={isSelf}
           canEdit={canEdit}
+          isAdmin={isAdmin}
+          canManageStatus={canManageStatus}
+          canManageRole={isAdmin && !isSelf && memberTenantRole !== 'owner'}
+          statusUpdatePending={statusMutation.isPending}
+          onMemberStatusChange={(isActive) => {
+            statusMutation.mutate(isActive, {
+              onSuccess: () => {
+                toast.success(isActive ? 'Member reactivated' : 'Member deactivated');
+              },
+              onError: (err) => {
+                toast.error(err instanceof Error ? err.message : 'Failed to update member status');
+              },
+            });
+          }}
           onInputChange={form.handleInputChange}
           onAvatarUpdated={form.handleAvatarUpdated}
         />
@@ -182,7 +202,7 @@ function EmployeeDetailContent() {
   });
 
   const displayName = member
-    ? formatPersonName(member.firstName, member.lastName, '') ||
+    ? [member.firstName, member.middleName, member.lastName].filter(Boolean).join(' ').trim() ||
       formatDisplayName(member.preferredName, 'Employee')
     : null;
 

@@ -23,8 +23,7 @@
     "migration:run": "pnpm build && typeorm migration:run -d dist/common/database/config/data-source.js",
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",
     "migration:generate": "typeorm migration:generate -d dist/common/database/config/data-source.js",
-    "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts",
-    "provision-reward-vas": "ts-node -r tsconfig-paths/register src/scripts/provision-reward-virtual-accounts.ts"
+    "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",
@@ -65,7 +64,8 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "typeorm": "^0.3.30",
-    "typeorm-naming-strategies": "^4.1.0"
+    "typeorm-naming-strategies": "^4.1.0",
+    "zeptomail": "^8.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",

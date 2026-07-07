@@ -1,10 +1,24 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Ip,
+  Param,
+  Patch,
+  Post,
+  Req,
+} from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
-import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 import { FileService } from 'src/common/services/file.service';
-import type { CreateCandidateDto } from '../dto/index';
-import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
+import { RateLimitService } from 'src/common/services/rate-limit.service';
+import { TurnstileService } from 'src/common/services/turnstile.service';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import { CandidateUploadUrlDto } from '../dto/candidate-upload-url.dto';
+import { CreateCandidateDto } from '../dto/index';
+import { UpdateCandidateDto } from '../dto/update-candidate.dto';
 import { Candidate } from '../entities/candidate.entity';
 import { CandidateService } from '../services/candidate.service';
 import { JobOpeningService } from '../services/job-opening.service';
@@ -17,24 +31,40 @@ export class ApplicationController {
     private readonly candidateService: CandidateService,
     private readonly fileService: FileService,
     private readonly jobOpeningService: JobOpeningService,
+    private readonly rateLimitService: RateLimitService,
+    private readonly turnstileService: TurnstileService,
   ) {}
+
+  private async assertTurnstile(token: string | undefined, ip: string): Promise<void> {
+    if (!this.turnstileService.isEnabled()) {
+      return;
+    }
+    const valid = await this.turnstileService.verify(token ?? '', ip);
+    if (!valid) {
+      throw new BadRequestException('Captcha verification failed');
+    }
+  }
 
   @Post(':jobId/apply/upload-url')
   @ApiOperation({ summary: 'Generate a presigned upload URL for candidate resumes/cover-letters' })
   async getUploadUrl(
     @Param('jobId') jobId: string,
-    @Body() body: { location: string; originalName: string; contentType?: string },
+    @Body() body: CandidateUploadUrlDto,
+    @Req() req: Request,
+    @Ip() ip: string,
   ) {
-    const job = await this.jobOpeningService.getActiveJob(jobId);
-    if (
-      body.location !== FileUploadLocation.RESUMES &&
-      body.location !== FileUploadLocation.COVER_LETTERS
-    ) {
-      throw new BadRequestException('Invalid location for candidate upload');
+    const clientIp = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ip);
+    const rate = await this.rateLimitService.checkRateLimit(`apply-upload:${clientIp}:${jobId}`, {
+      rules: [{ windowMs: 60 * 60 * 1000, maxRequests: 10 }],
+    });
+    if (!rate.allowed) {
+      throw new BadRequestException('Too many upload requests. Please try again later.');
     }
+
+    const job = await this.jobOpeningService.getActiveJob(jobId);
     return this.fileService.generateUploadUrl({
       tenantId: job.tenantId,
-      location: body.location as FileUploadLocation,
+      location: body.location,
       originalName: body.originalName,
       contentType: body.contentType,
     });
@@ -65,8 +95,13 @@ File Upload Flow:
   async applyForJob(
     @Param('jobId') jobId: string,
     @Body() createCandidateDto: CreateCandidateDto,
+    @Req() req: Request,
+    @Ip() ip: string,
   ): Promise<Candidate> {
-    return this.candidateService.applyForJob(jobId, createCandidateDto);
+    const clientIp = ip || req.ip || 'unknown';
+    await this.assertTurnstile(createCandidateDto.turnstileToken, clientIp);
+    const { turnstileToken: _turnstileToken, ...candidateData } = createCandidateDto;
+    return this.candidateService.applyForJob(jobId, candidateData);
   }
   @Get(':jobId/applications/:applicationId/status')
   @ApiOperation({ summary: 'Get application status' })

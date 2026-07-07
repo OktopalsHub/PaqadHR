@@ -11,9 +11,9 @@ import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebr
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
 import type { ITenantMemberResponseDto } from '../../../common/interfaces/itenant-member-response-dto.interface';
 import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member-response.dto';
-import type { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
-import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
-import type { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
+import { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
+import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
+import { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { TenantMembersService } from './tenant-members.service';
 

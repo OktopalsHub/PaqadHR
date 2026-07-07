@@ -2,6 +2,7 @@ export const RESERVED_TENANT_SLUGS = new Set([
   'signin',
   'signup',
   'forgot-password',
+  'reset-password',
   'onboarding',
   'app',
   'api',

@@ -9,12 +9,10 @@ import {
   Search,
   ShoppingBag,
   Sparkles,
-  Trash2,
   Trophy,
   Wallet,
   Zap,
 } from 'lucide-react';
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
@@ -40,6 +38,7 @@ import {
   useCreateCustomReward,
   useDeleteCustomReward,
   useMyClaims,
+  useNombaDataPlans,
   useRewardsCatalog,
   useTopupOperators,
   useUtilityBillers,
@@ -55,389 +54,15 @@ import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
 import { mapMemberWalletError } from '@/lib/wallet-error-message';
 import { useTenant } from '@/providers/tenant-provider';
-
-function PointsSummaryCard({ balance, totalEarned }: { balance: number; totalEarned: number }) {
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-background to-primary/10 p-6 shadow-lg">
-      <div className="absolute -right-6 -top-6 size-24 rounded-full bg-primary/5 blur-2xl" />
-      <div className="relative flex items-center gap-4">
-        <div className="flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-sm">
-          <Trophy className="size-7" />
-        </div>
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{PAQ_POINTS_NAME} Balance</p>
-          <p className="text-3xl font-bold tabular-nums text-foreground">
-            {balance.toLocaleString()}
-          </p>
-        </div>
-        <div className="ml-auto text-right">
-          <p className="text-xs text-muted-foreground">Lifetime earned</p>
-          <p className="text-lg font-semibold tabular-nums text-primary">
-            {totalEarned.toLocaleString()}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function getReloadlyCategory(
-  item: CatalogItem,
-): 'Airtime' | 'Money Cards' | 'Gift Cards' | 'Gaming Cards' {
-  const name = item.name.toLowerCase();
-
-  if (
-    name.includes('airtime') ||
-    name.includes('mobile topup') ||
-    name.includes('refill') ||
-    name.includes('top-up') ||
-    name.includes('telecom') ||
-    name.includes('mtn') ||
-    name.includes('airtel') ||
-    name.includes('orange') ||
-    name.includes('vodafone') ||
-    name.includes('safaricom') ||
-    name.includes('tigo')
-  ) {
-    return 'Airtime';
-  }
-
-  if (
-    name.includes('visa') ||
-    name.includes('mastercard') ||
-    name.includes('american express') ||
-    name.includes('amex') ||
-    name.includes('prepaid card') ||
-    name.includes('cash') ||
-    name.includes('money')
-  ) {
-    return 'Money Cards';
-  }
-
-  if (
-    name.includes('playstation') ||
-    name.includes('xbox') ||
-    name.includes('steam') ||
-    name.includes('nintendo') ||
-    name.includes('roblox') ||
-    name.includes('pubg') ||
-    name.includes('razer') ||
-    name.includes('gaming') ||
-    name.includes('riot') ||
-    name.includes('league of legends') ||
-    name.includes('minecraft') ||
-    name.includes('nexon') ||
-    name.includes('twitch')
-  ) {
-    return 'Gaming Cards';
-  }
-
-  return 'Gift Cards';
-}
-
-const DEFAULT_CUSTOM_PERKS: CatalogItem[] = [
-  {
-    id: 'default_swag',
-    name: 'Hoodie & Swag Kit',
-    description:
-      'Get a premium company branded hoodie, water bottle, and sticker pack shipped to you.',
-    pointsCost: 3000,
-    type: 'CUSTOM',
-    currencyValue: 3000,
-    currencyCode: 'NGN',
-    imageUrl:
-      'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500&auto=format&fit=crop&q=60',
-    deliveryInstructions: 'Your HR team will reach out to request your size and shipping address.',
-  },
-  {
-    id: 'default_day_off',
-    name: 'Extra Day of Paid Time Off (PTO)',
-    description: 'Enjoy an additional day of paid leave. Must be scheduled with your manager.',
-    pointsCost: 5000,
-    type: 'CUSTOM',
-    currencyValue: 5000,
-    currencyCode: 'NGN',
-    imageUrl:
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&auto=format&fit=crop&q=60',
-    deliveryInstructions: 'Leave credit will be applied directly to your profile upon approval.',
-  },
-  {
-    id: 'default_coffee',
-    name: 'Starbucks Coffee & Muffin Voucher',
-    description: 'Start your morning right with a warm beverage and snack on us.',
-    pointsCost: 500,
-    type: 'CUSTOM',
-    currencyValue: 500,
-    currencyCode: 'NGN',
-    imageUrl:
-      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=500&auto=format&fit=crop&q=60',
-    deliveryInstructions: 'A digital voucher code will be sent to your registered work email.',
-  },
-  {
-    id: 'default_gym',
-    name: '1-Month Gym Membership Subsidy',
-    description: 'Stay healthy and active! Get your local gym membership funded for a month.',
-    pointsCost: 4000,
-    type: 'CUSTOM',
-    currencyValue: 4000,
-    currencyCode: 'NGN',
-    imageUrl:
-      'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=500&auto=format&fit=crop&q=60',
-    deliveryInstructions:
-      'Submit your gym receipt to HR to receive a full cash-back reimbursement.',
-  },
-];
-
-function CatalogCard({
-  item,
-  onClaim,
-  isClaiming,
-  isAdmin = false,
-  onDelete,
-  isDeleting = false,
-  onAddDefault,
-  isAddingDefault = false,
-}: {
-  item: CatalogItem;
-  onClaim: (item: CatalogItem) => void;
-  isClaiming: boolean;
-  isAdmin?: boolean;
-  onDelete?: (id: string) => void;
-  isDeleting?: boolean;
-  onAddDefault?: (item: CatalogItem) => void;
-  isAddingDefault?: boolean;
-}) {
-  const isTemplate = item.id.startsWith('default_');
-  const typeColors: Record<string, string> = {
-    RELOADLY: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
-    NOMBA_AIRTIME: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
-    RELOADLY_AIRTIME:
-      'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
-    NOMBA_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
-    RELOADLY_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
-    CUSTOM: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
-  };
-
-  const typeLabels: Record<string, string> = {
-    RELOADLY: 'Digital Voucher',
-    NOMBA_AIRTIME: 'Airtime',
-    RELOADLY_AIRTIME: 'Airtime',
-    NOMBA_UTILITY: 'Utility',
-    RELOADLY_UTILITY: 'Utility',
-    CUSTOM: isTemplate ? 'Template Perk' : 'Custom Perk',
-  };
-
-  return (
-    <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-      {item.imageUrl ? (
-        <div className="aspect-[16/10] w-full overflow-hidden bg-muted/30 relative">
-          <Image
-            src={item.imageUrl}
-            alt={item.name}
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className="object-contain p-4 transition-transform group-hover:scale-105"
-          />
-          {isTemplate && (
-            <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 text-white border-none text-[9px] uppercase tracking-wider font-bold">
-              Template
-            </Badge>
-          )}
-        </div>
-      ) : (
-        <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-primary/5 to-primary/15 relative">
-          <Gift className="size-10 text-primary/40" />
-          {isTemplate && (
-            <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 text-white border-none text-[9px] uppercase tracking-wider font-bold">
-              Template
-            </Badge>
-          )}
-        </div>
-      )}
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold leading-tight text-foreground line-clamp-2">
-            {item.name}
-          </h3>
-          <Badge variant="outline" className={cn('shrink-0 text-[10px]', typeColors[item.type])}>
-            {typeLabels[item.type]}
-          </Badge>
-        </div>
-        {item.description ? (
-          <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-        ) : null}
-        {item.countryCode ? (
-          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
-            <span>🌐</span> {item.countryCode}
-          </p>
-        ) : null}
-        <div className="mt-auto flex items-center justify-between pt-2">
-          <div>
-            <p className="text-lg font-bold tabular-nums text-primary">
-              {item.pointsCost.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-muted-foreground">{PAQ_POINTS_NAME}</p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {isAdmin && item.type === 'CUSTOM' && onDelete && !isTemplate && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-8 px-2 text-destructive hover:bg-destructive/10"
-                disabled={isDeleting}
-                onClick={() => onDelete(item.id)}
-              >
-                <Trash2 className="size-4" />
-              </Button>
-            )}
-
-            {isTemplate ? (
-              isAdmin && onAddDefault ? (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 text-xs gap-1 border-amber-300 bg-amber-500/5 text-amber-700 hover:bg-amber-50 hover:text-white"
-                  disabled={isAddingDefault}
-                  onClick={() => onAddDefault(item)}
-                >
-                  {isAddingDefault ? (
-                    <Loader2 className="size-3 animate-spin" />
-                  ) : (
-                    <Plus className="size-3" />
-                  )}
-                  Add to Catalog
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" className="h-8 text-xs" disabled>
-                  HR Template
-                </Button>
-              )
-            ) : (
-              <Button
-                size="sm"
-                className="h-8 text-xs font-bold"
-                disabled={isClaiming}
-                onClick={() => onClaim(item)}
-              >
-                {isClaiming ? <Loader2 className="mr-1 size-3 animate-spin" /> : null}
-                Redeem
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ClaimRow({ claim }: { claim: RewardRedemption }) {
-  const statusColors: Record<string, string> = {
-    SUCCESS: 'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
-    PENDING: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
-    FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
-  };
-
-  return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3 bg-card shadow-sm">
-      <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {claim.rewardType === 'NOMBA_AIRTIME' || claim.rewardType === 'RELOADLY_AIRTIME' ? (
-          <Phone className="size-4" />
-        ) : claim.rewardType === 'NOMBA_UTILITY' || claim.rewardType === 'RELOADLY_UTILITY' ? (
-          <Zap className="size-4 text-indigo-600" />
-        ) : claim.rewardType === 'CUSTOM' ? (
-          <Sparkles className="size-4" />
-        ) : (
-          <ShoppingBag className="size-4" />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium truncate">{claim.rewardName ?? claim.rewardId}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {claim.pointsSpent} {PAQ_POINTS_NAME} · {new Date(claim.createdAt).toLocaleDateString()}
-        </p>
-        {claim.voucherCode ? (
-          <p className="mt-1 font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded inline-block">
-            Code: {claim.voucherCode}
-            {claim.voucherPin ? ` · PIN: ${claim.voucherPin}` : ''}
-          </p>
-        ) : null}
-        {claim.voucherInstructions ? (
-          <p className="mt-0.5 text-[10px] text-muted-foreground italic">
-            {claim.voucherInstructions}
-          </p>
-        ) : null}
-        {claim.status === 'FAILED' && claim.errorMessage && (
-          <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
-            Error: {claim.errorMessage}
-          </p>
-        )}
-      </div>
-      <Badge
-        variant="outline"
-        className={cn(
-          'shrink-0 text-[10px] font-bold flex items-center gap-1.5',
-          statusColors[claim.status],
-        )}
-      >
-        {claim.status === 'SUCCESS' ? <Check className="size-2.5" /> : null}
-        {claim.status === 'PENDING' ? <Loader2 className="size-2.5 animate-spin" /> : null}
-        {claim.status}
-      </Badge>
-    </div>
-  );
-}
-
-interface DataBundle {
-  id: string;
-  name: string;
-  price: number;
-  validity: string;
-}
-
-const DATA_BUNDLES: Record<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', DataBundle[]> = {
-  MTN: [
-    { id: 'mtn_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: 'mtn_3gb', name: '3GB', price: 1600, validity: '30 Days' },
-    { id: 'mtn_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: 'mtn_10gb', name: '10GB', price: 4000, validity: '30 Days' },
-    { id: 'mtn_20gb', name: '20GB', price: 7500, validity: '30 Days' },
-  ],
-  AIRTEL: [
-    { id: 'airtel_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: 'airtel_3gb', name: '3GB', price: 1600, validity: '30 Days' },
-    { id: 'airtel_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: 'airtel_10gb', name: '10GB', price: 4000, validity: '30 Days' },
-    { id: 'airtel_20gb', name: '20GB', price: 7500, validity: '30 Days' },
-  ],
-  GLO: [
-    { id: 'glo_1.8gb', name: '1.8GB', price: 1000, validity: '30 Days' },
-    { id: 'glo_3.9gb', name: '3.9GB', price: 1600, validity: '30 Days' },
-    { id: 'glo_5.8gb', name: '5.8GB', price: 2500, validity: '30 Days' },
-    { id: 'glo_12gb', name: '12GB', price: 4000, validity: '30 Days' },
-    { id: 'glo_24gb', name: '24GB', price: 7500, validity: '30 Days' },
-  ],
-  '9MOBILE': [
-    { id: '9mobile_1.5gb', name: '1.5GB', price: 1000, validity: '30 Days' },
-    { id: '9mobile_3gb', name: '3GB', price: 1500, validity: '30 Days' },
-    { id: '9mobile_5gb', name: '5GB', price: 2500, validity: '30 Days' },
-    { id: '9mobile_11gb', name: '11GB', price: 4000, validity: '30 Days' },
-    { id: '9mobile_22gb', name: '22GB', price: 7500, validity: '30 Days' },
-  ],
-};
-
-const NG_UTILITIES = [
-  { id: 'EKEDC', name: 'Eko Electricity (EKEDC)' },
-  { id: 'IKEDC', name: 'Ikeja Electricity (IKEDC)' },
-  { id: 'AEDC', name: 'Abuja Electricity (AEDC)' },
-  { id: 'IBEDC', name: 'Ibadan Electricity (IBEDC)' },
-  { id: 'PHEDC', name: 'Port Harcourt Electricity (PHEDC)' },
-  { id: 'KEDCO', name: 'Kano Electricity (KEDCO)' },
-  { id: 'JED', name: 'Jos Electricity (JED)' },
-  { id: 'EEDC', name: 'Enugu Electricity (EEDC)' },
-  { id: 'KAEDCO', name: 'Kaduna Electricity (KAEDCO)' },
-  { id: 'BEDC', name: 'Benin Electricity (BEDC)' },
-  { id: 'YEDC', name: 'Yola Electricity (YEDC)' },
-];
+import { CatalogCard } from './rewards-page-catalog-card';
+import {
+  DEFAULT_CUSTOM_PERKS,
+  dataPlanId,
+  getReloadlyCategory,
+  NG_UTILITIES,
+} from './rewards-page-catalog-utils';
+import { ClaimRow } from './rewards-page-claim-row';
+import { PointsSummaryCard } from './rewards-page-points-summary';
 
 export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { tenant } = useTenant();
@@ -462,6 +87,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // Top-up (Airtime/Data) States
   const [selectedCountryCode, setSelectedCountryCode] = useState(catalogCountries[0] || 'NG');
+  const [digitalCardsCountryCode, setDigitalCardsCountryCode] = useState(
+    catalogCountries[0] || 'NG',
+  );
   const [airtimePhone, setAirtimePhone] = useState('');
   const [airtimeNetwork, setAirtimeNetwork] = useState<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE'>('MTN');
   const [airtimeAmount, setAirtimeAmount] = useState('1000');
@@ -474,6 +102,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
     selectedCountryCode !== 'NG' ? selectedCountryCode : '',
   );
+  const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
+    airtimeNetwork,
+    selectedCountryCode === 'NG' && topupMode === 'data',
+  );
+
+  const selectedDataPlan = nombaDataPlans.find((plan) => dataPlanId(plan) === selectedBundleId);
 
   const selectedReloadlyOperator = reloadlyOperators.find(
     (o) => String(o.operatorId) === selectedReloadlyOperatorId,
@@ -486,6 +120,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
   }, [catalogCountries, selectedCountryCode]);
 
+  useEffect(() => {
+    if (catalogCountries.length > 0 && !catalogCountries.includes(digitalCardsCountryCode)) {
+      setDigitalCardsCountryCode(catalogCountries[0]);
+    }
+  }, [catalogCountries, digitalCardsCountryCode]);
+
   // Sync operator default when operators load
   useEffect(() => {
     if (reloadlyOperators.length > 0) {
@@ -495,6 +135,21 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       }
     }
   }, [reloadlyOperators]);
+
+  useEffect(() => {
+    if (topupMode !== 'data' || selectedCountryCode !== 'NG' || nombaDataPlans.length === 0) {
+      return;
+    }
+    const first = nombaDataPlans[0];
+    const id = dataPlanId(first);
+    if (
+      !selectedBundleId ||
+      !nombaDataPlans.some((plan) => dataPlanId(plan) === selectedBundleId)
+    ) {
+      setSelectedBundleId(id);
+      setAirtimeAmount(String(first.amount));
+    }
+  }, [nombaDataPlans, topupMode, selectedCountryCode, selectedBundleId]);
 
   // JIT Points calculation states for top-ups
   const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
@@ -523,8 +178,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ? Number(res.processingFee)
                 : res.totalTenantDebit - res.currencyValue,
             );
-          } catch (e) {
-            console.error(e);
+          } catch (_e) {
             setCalculatedPoints(null);
             setAirtimeProcessingFee(null);
           } finally {
@@ -550,8 +204,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           setCalculatedPoints(res.pointsCost);
           setCalculatedValue(res.currencyValue);
           setCalculatedCurrency(res.currencyCode);
-        } catch (e) {
-          console.error(e);
+        } catch (_e) {
           setCalculatedPoints(null);
         } finally {
           setIsCalculatingPoints(false);
@@ -629,8 +282,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ? Number(res.processingFee)
                 : res.totalTenantDebit - res.currencyValue,
             );
-          } catch (e) {
-            console.error(e);
+          } catch (_e) {
             setUtilityPoints(null);
             setUtilityProcessingFee(null);
           } finally {
@@ -656,8 +308,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           setUtilityPoints(res.pointsCost);
           setUtilityCalculatedValue(res.currencyValue);
           setUtilityCalculatedCurrency(res.currencyCode);
-        } catch (e) {
-          console.error(e);
+        } catch (_e) {
           setUtilityPoints(null);
         } finally {
           setIsCalculatingUtilityPoints(false);
@@ -777,10 +428,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const giftCards = catalog.filter((i) => i.type === 'RELOADLY');
   const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
 
+  const matchesDigitalCardsCountry = (item: CatalogItem) =>
+    catalogCountries.length <= 1 || item.countryCode === digitalCardsCountryCode;
+
   const filteredReloadlyCards = giftCards.filter((item) => {
     const category = getReloadlyCategory(item);
     const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
     if (isNgAirtime) return false;
+    if (!matchesDigitalCardsCountry(item)) return false;
 
     if (selectedCategory === 'All') return true;
     return category === selectedCategory;
@@ -855,9 +510,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     setClaimingId('airtime');
     try {
       const selectedBundle =
-        selectedCountryCode === 'NG' && topupMode === 'data'
-          ? DATA_BUNDLES[airtimeNetwork].find((b) => b.id === selectedBundleId)
-          : null;
+        selectedCountryCode === 'NG' && topupMode === 'data' ? selectedDataPlan : null;
 
       const providerProductId =
         selectedCountryCode !== 'NG' ? selectedReloadlyOperator?.operatorId : undefined;
@@ -865,7 +518,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       const rewardName =
         selectedCountryCode === 'NG'
           ? selectedBundle
-            ? `${airtimeNetwork} ${selectedBundle.name} Data Bundle`
+            ? `${airtimeNetwork} ${selectedBundle.plan} Data Bundle`
             : `${airtimeNetwork} Airtime Top-up`
           : `${selectedReloadlyOperator?.name} Airtime`;
 
@@ -878,6 +531,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         currencyCode: calculatedCurrency,
         recipientPhone: airtimePhone.trim(),
         airtimeNetwork: selectedCountryCode === 'NG' ? airtimeNetwork : undefined,
+        topupKind: selectedCountryCode === 'NG' ? topupMode : undefined,
         providerProductId,
       });
 
@@ -957,14 +611,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
-  const defaultTab =
-    isGiftCardsEnabled && giftCards.length > 0
-      ? 'digital-cards'
-      : isAirtimeEnabled
-        ? 'airtime'
-        : isUtilitiesEnabled
-          ? 'utilities'
-          : 'perks';
+  const defaultTab = isAirtimeEnabled ? 'airtime' : isUtilitiesEnabled ? 'utilities' : 'perks';
 
   const content = (
     <>
@@ -984,15 +631,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          {isGiftCardsEnabled && giftCards.length > 0 && (
-            <TabsTrigger
-              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
-              value="digital-cards"
-            >
-              <ShoppingBag className="mr-1.5 size-3.5" />
-              Digital Cards
-            </TabsTrigger>
-          )}
           {isAirtimeEnabled && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
@@ -1018,6 +656,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             <Sparkles className="mr-1.5 size-3.5" />
             Custom Perks
           </TabsTrigger>
+          {isGiftCardsEnabled && giftCards.length > 0 && (
+            <TabsTrigger
+              className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
+              value="digital-cards"
+            >
+              <ShoppingBag className="mr-1.5 size-3.5" />
+              Digital Cards
+            </TabsTrigger>
+          )}
           <TabsTrigger
             className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
             value="history"
@@ -1038,6 +685,29 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
         {isGiftCardsEnabled && giftCards.length > 0 && (
           <TabsContent value="digital-cards" className="space-y-4">
+            {isAdmin ? (
+              <p className="text-xs text-muted-foreground">
+                Points shown are for the lowest amount (plus plan fee × exchange rate). Higher
+                amounts cost more. Configure rate and fees in Settings → Rewards.
+              </p>
+            ) : null}
+            {catalogCountries.length > 1 ? (
+              <div className="flex items-center gap-2">
+                <Label className="text-xs font-semibold text-muted-foreground">Country:</Label>
+                <Select value={digitalCardsCountryCode} onValueChange={setDigitalCardsCountryCode}>
+                  <SelectTrigger className="w-[140px] h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {catalogCountries.map((code) => (
+                      <SelectItem key={code} value={code} className="text-xs">
+                        {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {
@@ -1054,6 +724,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     const isNgAirtime =
                       item.countryCode === 'NG' && getReloadlyCategory(item) === 'Airtime';
                     if (isNgAirtime) return false;
+                    if (!matchesDigitalCardsCountry(item)) return false;
                     if (cat === 'All') return true;
                     return getReloadlyCategory(item) === cat;
                   }).length;
@@ -1170,9 +841,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         type="button"
                         onClick={() => {
                           setTopupMode('data');
-                          const defaultBundle = DATA_BUNDLES[airtimeNetwork][0];
-                          setSelectedBundleId(defaultBundle.id);
-                          setAirtimeAmount(String(defaultBundle.price));
                         }}
                         className={cn(
                           'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
@@ -1211,11 +879,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                               type="button"
                               onClick={() => {
                                 setAirtimeNetwork(key);
-                                if (topupMode === 'data') {
-                                  const defaultBundle = DATA_BUNDLES[key][0];
-                                  setSelectedBundleId(defaultBundle.id);
-                                  setAirtimeAmount(String(defaultBundle.price));
-                                }
                               }}
                               className={cn(
                                 'relative p-4 rounded-xl border-2 transition-all text-center flex flex-col items-center justify-center gap-2 bg-card cursor-pointer',
@@ -1402,25 +1065,33 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Select Data Plan
                         </Label>
-                        <Select
-                          value={selectedBundleId}
-                          onValueChange={(val) => {
-                            setSelectedBundleId(val);
-                            const b = DATA_BUNDLES[airtimeNetwork].find((item) => item.id === val);
-                            if (b) setAirtimeAmount(String(b.price));
-                          }}
-                        >
-                          <SelectTrigger className="h-10 text-xs font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {DATA_BUNDLES[airtimeNetwork].map((bundle) => (
-                              <SelectItem key={bundle.id} value={bundle.id}>
-                                {bundle.name} ({bundle.validity}) — ₦{bundle.price.toLocaleString()}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {dataPlansLoading ? (
+                          <p className="text-xs text-muted-foreground">Loading data plans…</p>
+                        ) : nombaDataPlans.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No data plans available for this network.
+                          </p>
+                        ) : (
+                          <Select
+                            value={selectedBundleId}
+                            onValueChange={(val) => {
+                              setSelectedBundleId(val);
+                              const plan = nombaDataPlans.find((item) => dataPlanId(item) === val);
+                              if (plan) setAirtimeAmount(String(plan.amount));
+                            }}
+                          >
+                            <SelectTrigger className="h-10 text-xs font-medium">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {nombaDataPlans.map((plan) => (
+                                <SelectItem key={dataPlanId(plan)} value={dataPlanId(plan)}>
+                                  {plan.plan} — ₦{plan.amount.toLocaleString()}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     )}
 
@@ -2086,5 +1757,5 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     return <div className="space-y-6">{content}</div>;
   }
 
-  return <AppPage className="w-full space-y-6 py-4 px-2 sm:px-6 lg:px-8">{content}</AppPage>;
+  return <AppPage className="w-full space-y-6">{content}</AppPage>;
 }

@@ -20,8 +20,8 @@ import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
-import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
+import { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
+import { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
 import { EmergencyContactService } from './emergency-contact.service';
 import type { EmergencyContact } from './entities/emergency-contact.entity';
 

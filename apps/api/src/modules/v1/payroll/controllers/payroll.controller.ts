@@ -23,14 +23,14 @@ import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-
 import type { IAuthenticatedMemberRequest, MemberContext } from '../../../../common/interfaces';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
-import type { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
+import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
+import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import type {
   PayrollCalculationPreviewDto,
   UpdatePayrollRunDto,
 } from '../dto/payroll-adjustment.dto';
-import type { PublishPayslipsDto } from '../dto/publish-payslips.dto';
-import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
+import { PublishPayslipsDto } from '../dto/publish-payslips.dto';
+import { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { AuditService } from '../services/audit.service';
 import { MultiPaymentService } from '../services/multi-payment.service';
 import { PayrollService } from '../services/payroll.service';
@@ -55,7 +55,6 @@ export class PayrollController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    this.logger.log(`Creating payroll run for tenant: ${tenantId}, member: ${member.id}`);
     try {
       const idempotencyKey = req.headers['idempotency-key'] as string;
       const result = await this.payrollService.createPayrollRun(
@@ -64,7 +63,6 @@ export class PayrollController {
         member.id,
         idempotencyKey,
       );
-      this.logger.log(`Successfully created payroll run: ${result.id} for tenant: ${tenantId}`);
       return result;
     } catch (error) {
       this.logger.error(`Failed to create payroll run for tenant: ${tenantId}`, error);
@@ -81,9 +79,6 @@ export class PayrollController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    this.logger.log(
-      `Getting payroll runs for tenant: ${tenantId}, limit: ${limit}, offset: ${offset}`,
-    );
     try {
       const result = await this.payrollService.getPayrollRunsForRequester(
         tenantId,
@@ -91,9 +86,6 @@ export class PayrollController {
         Number(offset),
         member.id,
         member.role,
-      );
-      this.logger.log(
-        `Successfully retrieved ${result.runs.length} payroll runs for tenant: ${tenantId}`,
       );
       return result;
     } catch (error) {
@@ -124,6 +116,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -148,6 +141,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -178,6 +172,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -225,6 +220,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -270,6 +266,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -299,6 +296,7 @@ export class PayrollController {
       tenantId,
       confirmed: body.confirmed,
       auditContext: {
+        tenantId,
         payrollRunId: id,
         performedById: member.id,
         ipAddress: req.ip,
@@ -325,6 +323,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -402,6 +401,7 @@ export class PayrollController {
   ) {
     const member = req.member;
     const auditContext = {
+      tenantId,
       payrollRunId: id,
       performedById: member.id,
       ipAddress: req.ip,
@@ -431,12 +431,12 @@ export class PayrollController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    this.logger.log(`Processing payroll run: ${id} for tenant: ${tenantId}, member: ${member.id}`);
     try {
       const dto: ProcessPayrollWithAudit = {
         payrollRunId: id,
         tenantId,
         auditContext: {
+          tenantId,
           payrollRunId: id,
           performedById: member.id,
           ipAddress: req.ip,
@@ -444,7 +444,6 @@ export class PayrollController {
         },
       };
       await this.payrollService.processPayroll(dto);
-      this.logger.log(`Successfully processed payroll run: ${id} for tenant: ${tenantId}`);
       return {
         message: 'Payroll processing completed',
         payrollRunId: id,
@@ -467,7 +466,7 @@ export class PayrollController {
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getAuditReport(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.auditService.generateAuditReport(id);
+    return this.auditService.generateAuditReport(id, tenantId);
   }
 
   @Post('runs/:id/process-multi-payment')
@@ -479,9 +478,9 @@ export class PayrollController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    this.logger.log(`Processing multi-payment payroll run: ${id} for tenant: ${tenantId}`);
     try {
       const auditContext = {
+        tenantId,
         payrollRunId: id,
         performedById: member.id,
         ipAddress: req.ip,
@@ -492,7 +491,6 @@ export class PayrollController {
         tenantId,
         auditContext,
       );
-      this.logger.log(`Multi-payment processing completed for payroll run: ${id}`);
       return {
         message: 'Multi-payment processing completed',
         result,
@@ -514,9 +512,9 @@ export class PayrollController {
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const member = req.member;
-    this.logger.log(`Retrying failed payments for payroll run: ${id}`);
     try {
       const auditContext = {
+        tenantId,
         payrollRunId: id,
         performedById: member.id,
         ipAddress: req.ip,
@@ -528,7 +526,6 @@ export class PayrollController {
         auditContext,
         retryDto.itemIds,
       );
-      this.logger.log(`Payment retry completed for payroll run: ${id}`);
       return {
         message: 'Payment retry completed',
         result,

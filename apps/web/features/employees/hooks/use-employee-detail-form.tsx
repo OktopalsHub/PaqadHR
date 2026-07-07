@@ -1,5 +1,6 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
@@ -19,9 +20,15 @@ import {
   normalizePhoneNumber,
   normalizeRelationship,
 } from '@/lib/mappers/employee-records';
+import { queryKeys } from '@/lib/query/keys';
+import { useTenant } from '@/providers/tenant-provider';
 import type { EducationFormValues } from '../components/education-form';
 import type { EmergencyContactFormValues } from '../components/emergency-contact-form';
-import { createEmployeeDetailState, type EmployeeDetailState } from '../lib/employee-detail-state';
+import {
+  createEmployeeDetailState,
+  type EmployeeDetailState,
+  memberFullName,
+} from '../lib/employee-detail-state';
 
 type EmployeeRecords = {
   emergencyContacts: ApiEmergencyContact[];
@@ -29,11 +36,20 @@ type EmployeeRecords = {
   address?: ApiAddress | null;
 };
 
+type EmployeeDetailFormOptions = {
+  managerName?: string;
+  canEdit?: boolean;
+  isSelf?: boolean;
+  isAdmin?: boolean;
+};
+
 export function useEmployeeDetailForm(
   baseMember: ApiTenantMember,
   initialRecords: EmployeeRecords,
-  options?: { managerName?: string; canEdit?: boolean; isSelf?: boolean },
+  options?: EmployeeDetailFormOptions,
 ) {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [emergencyContactDialogOpen, setEmergencyContactDialogOpen] = useState(false);
@@ -62,8 +78,8 @@ export function useEmployeeDetailForm(
   const handleInputChange = (field: string, value: string) => {
     setEmployee((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === 'firstName' || field === 'lastName') {
-        next.name = [next.firstName, next.lastName].filter(Boolean).join(' ').trim();
+      if (field === 'firstName' || field === 'middleName' || field === 'lastName') {
+        next.name = memberFullName(next);
       }
       return next;
     });
@@ -85,6 +101,18 @@ export function useEmployeeDetailForm(
     setIsDirty(true);
   };
 
+  const invalidateMemberQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.employees.detail(employee.id), tenantId, 'member'],
+      }),
+      queryClient.invalidateQueries({
+        queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+      }),
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.employees.all, tenantId] }),
+    ]);
+  };
+
   const handleSaveChanges = async () => {
     if (options?.canEdit === false) return;
 
@@ -93,6 +121,7 @@ export function useEmployeeDetailForm(
       const profilePayload = {
         firstName: employee.firstName.trim(),
         lastName: employee.lastName.trim(),
+        middleName: employee.middleName.trim() || undefined,
         preferredName: employee.preferredName || undefined,
         phone: employee.phone || undefined,
         dateOfBirth: employee.dateOfBirth || undefined,
@@ -102,7 +131,17 @@ export function useEmployeeDetailForm(
       if (options?.isSelf) {
         await updateMemberProfile(profilePayload);
       } else {
-        await updateEmployee(employee.id, profilePayload);
+        const adminPayload = {
+          ...profilePayload,
+          ...(options?.isAdmin
+            ? {
+                role: employee.workspaceRole,
+                departmentId: employee.departmentId || null,
+                reportsToId: employee.reportsToId || null,
+              }
+            : {}),
+        };
+        await updateEmployee(employee.id, adminPayload);
       }
 
       const { street, city, state, zipCode, country } = employee.address;
@@ -132,6 +171,8 @@ export function useEmployeeDetailForm(
           },
         }));
       }
+
+      await invalidateMemberQueries();
 
       toast.success(
         <ToastMessage

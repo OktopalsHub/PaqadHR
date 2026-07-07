@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { type Observable, Subject } from 'rxjs';
 import { filter, map } from 'rxjs/operators';
 import type { SSENotificationData } from '../../../../common/interfaces/ssenotification-data.interface';
@@ -11,7 +11,6 @@ interface SSEConnection {
 }
 @Injectable()
 export class SSENotificationService {
-  private readonly logger = new Logger(SSENotificationService.name);
   private readonly notificationSubject = new Subject<SSENotificationData>();
   private readonly connections = new Map<string, SSEConnection>();
   private readonly userConnections = new Map<string, Set<string>>();
@@ -30,9 +29,6 @@ export class SSENotificationService {
       this.userConnections.set(userId, new Set());
     }
     this.userConnections.get(userId)!.add(connectionId);
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`SSE connection registered: ${connectionId} for user ${userId}`);
-    }
   }
   unregisterConnection(connectionId: string): void {
     const connection = this.connections.get(connectionId);
@@ -45,9 +41,6 @@ export class SSENotificationService {
         }
       }
       this.connections.delete(connectionId);
-      if (process.env.LOG_LEVEL !== 'error') {
-        this.logger.log(`SSE connection unregistered: ${connectionId}`);
-      }
     }
   }
   pingConnection(connectionId: string): void {
@@ -76,9 +69,6 @@ export class SSENotificationService {
       timestamp: new Date(),
     };
     this.notificationSubject.next(notificationData);
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`Notification sent to user ${userId}: ${notification.title}`);
-    }
   }
   sendToTenant(
     tenantId: string,
@@ -90,9 +80,6 @@ export class SSENotificationService {
       timestamp: new Date(),
     };
     this.notificationSubject.next(notificationData);
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`Notification sent to tenant ${tenantId}: ${notification.title}`);
-    }
   }
   sendSystemNotification(notification: Omit<SSENotificationData, 'timestamp'>): void {
     const notificationData: SSENotificationData = {
@@ -100,9 +87,6 @@ export class SSENotificationService {
       timestamp: new Date(),
     };
     this.notificationSubject.next(notificationData);
-    if (process.env.LOG_LEVEL !== 'error') {
-      this.logger.log(`System notification sent: ${notification.title}`);
-    }
   }
   getActiveConnectionsCount(): number {
     return this.connections.size;
@@ -165,10 +149,5 @@ export class SSENotificationService {
     staleConnections.forEach((connectionId) => {
       this.unregisterConnection(connectionId);
     });
-    if (staleConnections.length > 0) {
-      if (process.env.LOG_LEVEL !== 'error') {
-        this.logger.log(`Cleaned up ${staleConnections.length} stale SSE connections`);
-      }
-    }
   }
 }

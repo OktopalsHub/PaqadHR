@@ -24,6 +24,11 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
   const parts = pathname.split('/').filter(Boolean);
   if (parts.length <= 1) return [];
 
+  // Integrations live under Settings; do not show Dashboard / Integrations / …
+  if (parts[1] === 'integrations') {
+    return [];
+  }
+
   const segments: BreadcrumbSegment[] = [
     {
       label: 'Dashboard',
@@ -35,7 +40,7 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
     const isLast = i === parts.length - 1;
-    const isDynamic = UUID_RE.test(part) || (isLast && i > 1);
+    const isDynamic = UUID_RE.test(part);
 
     if (isDynamic) {
       if (isLast) {

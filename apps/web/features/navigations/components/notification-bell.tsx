@@ -110,8 +110,12 @@ export function NotificationBell() {
       }}
     >
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative size-8 rounded-lg">
-          <Bell className="size-4" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative size-9 rounded-full border border-border/70 bg-background/90"
+        >
+          <Bell className="size-4 drop-shadow-[0_1px_2px_rgba(11,28,48,0.18)]" />
           {badge ? (
             <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
               {badge}

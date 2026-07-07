@@ -20,14 +20,14 @@ import { ManagerAccessService } from 'src/common/services/manager-access.service
 import { assertAdmin, isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AttendanceService } from './attendance.service';
-import type { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
-import type { ClockInDto } from './dto/clock-in.dto';
-import type { ClockOutDto } from './dto/clock-out.dto';
-import type { CreateAttendanceExceptionDto } from './dto/create-attendance-exception.dto';
-import type { CreateAttendancePolicyDto } from './dto/create-attendance-policy.dto';
-import type { RejectAttendanceExceptionDto } from './dto/reject-attendance-exception.dto';
-import type { UpdateAttendanceDto } from './dto/update-attendance.dto';
-import type { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
+import { ApproveAttendanceExceptionDto } from './dto/approve-attendance-exception.dto';
+import { ClockInDto } from './dto/clock-in.dto';
+import { ClockOutDto } from './dto/clock-out.dto';
+import { CreateAttendanceExceptionDto } from './dto/create-attendance-exception.dto';
+import { CreateAttendancePolicyDto } from './dto/create-attendance-policy.dto';
+import { RejectAttendanceExceptionDto } from './dto/reject-attendance-exception.dto';
+import { UpdateAttendanceDto } from './dto/update-attendance.dto';
+import { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
 import { DateValidationUtil } from './utils/date-validation.util';
 
 @ApiTags('Attendance')

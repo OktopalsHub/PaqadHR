@@ -28,9 +28,9 @@ import type { DocumentAccessLevel } from '../../../common/enums/document-access-
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DocumentService } from './document.service';
-import type { CreateDocumentDto } from './dto/create-document.dto';
+import { CreateDocumentDto } from './dto/create-document.dto';
 import { DocumentMapper } from './dto/document-response.dto';
-import type { UpdateDocumentDto } from './dto/update-document.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 import { Document } from './entities/document.entity';
 
 @ApiTags('Documents')

@@ -3,13 +3,21 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { PasswordService } from 'src/common/utils';
+import { PasswordService, StringUtility } from 'src/common/utils';
+import { QueryFailedError } from 'typeorm';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
+import {
+  formatInviteeDisplayName,
+  formatMemberDisplayName,
+} from '../../../common/utils/member-display.util';
+import { ActivitiesService } from '../activities/services/activities.service';
+import { DepartmentsService } from '../departments/departments.service';
+import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
+import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
@@ -21,13 +29,16 @@ import { InvitationsRepository } from './repositories/invitations.repository';
 
 @Injectable()
 export class InvitationsService {
-  private readonly logger = new Logger(InvitationsService.name);
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
     private readonly tenantMembersService: TenantMembersService,
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
     private readonly rateLimitService: RateLimitService,
+    private readonly zeptomailEmailService: ZeptomailEmailService,
+    private readonly activitiesService: ActivitiesService,
+    private readonly departmentsService: DepartmentsService,
+    private readonly positionMemberService: PositionMemberService,
   ) {}
   private generateInvitationToken(): string {
     const crypto = require('node:crypto');
@@ -58,7 +69,7 @@ export class InvitationsService {
   ): Promise<IInvitationResponseDto> {
     const existingUser = await this.usersService.getUserByEmail(createInvitationDto.email);
     if (existingUser) {
-      const existingMember = await this.tenantMembersService.checkUserTenantMembership(
+      const existingMember = await this.tenantMembersService.findUserTenantMembership(
         existingUser.id,
         tenantId,
       );
@@ -71,14 +82,10 @@ export class InvitationsService {
     const existingInvitations = await this.invitationsRepository.findInvitationByEmail(
       createInvitationDto.email,
     );
-    this.logger.log(`Found ${existingInvitations.length} existing invitations for this email`);
     const existingInvitation = existingInvitations.find(
       (inv) => inv.tenantId === tenantId && inv.status === InvitationStatus.PENDING,
     );
     if (existingInvitation) {
-      this.logger.warn(
-        `Invitation already exists for email: ${createInvitationDto.email} in tenant: ${tenantId}`,
-      );
       throw new ConflictException(
         `An invitation has already been sent to ${createInvitationDto.email} for this tenant. Please wait for them to respond or resend the invitation.`,
       );
@@ -87,15 +94,15 @@ export class InvitationsService {
     expiresAt.setDate(expiresAt.getDate() + 7);
     const token = this.generateInvitationToken();
     const invitationData: Partial<Invitation> = {
-      email: createInvitationDto.email,
+      email: StringUtility.trimAndLowerCase(createInvitationDto.email),
       tenantId,
       role: createInvitationDto.role,
       invitedBy,
       expiresAt,
       status: InvitationStatus.PENDING,
       token,
-      firstName: createInvitationDto.firstName,
-      lastName: createInvitationDto.lastName,
+      firstName: createInvitationDto.firstName?.trim() || undefined,
+      lastName: createInvitationDto.lastName?.trim() || undefined,
       middleName: createInvitationDto.middleName,
       jobTitle: createInvitationDto.jobTitle,
       departmentId: createInvitationDto.departmentId,
@@ -103,9 +110,25 @@ export class InvitationsService {
       employeeNumber: createInvitationDto.employeeNumber,
       positionId: createInvitationDto.positionId,
     };
-    const invitation = await this.invitationsRepository.save(invitationData);
-    await this.sendInvitationEmail(invitation);
-    return this?.mapToResponseDto(invitation);
+    let invitation: Invitation;
+    try {
+      invitation = await this.invitationsRepository.save(
+        this.invitationsRepository.create(invitationData),
+      );
+    } catch (error) {
+      if (
+        error instanceof QueryFailedError &&
+        (error as QueryFailedError & { driverError?: { code?: string; column?: string } })
+          .driverError?.code === '23502'
+      ) {
+        throw new BadRequestException(
+          'Unable to save invitation without a name. Run database migrations (invitation-names-nullable) on this environment.',
+        );
+      }
+      throw error;
+    }
+    const emailDelivery = await this.sendInvitationEmail(invitation);
+    return this.mapToResponseDto(invitation, emailDelivery);
   }
   async updateInvitation(
     id: string,
@@ -145,6 +168,7 @@ export class InvitationsService {
       password?: string;
       firstName?: string;
       lastName?: string;
+      preferredName?: string;
     } = {},
   ): Promise<{
     invitation: IInvitationResponseDto;
@@ -158,49 +182,38 @@ export class InvitationsService {
   }> {
     this.validateInvitationToken(token);
     this.validateEmailFormat(email);
-    this.validateName(acceptInvitationDto?.firstName || '', acceptInvitationDto?.lastName || '');
-    this.logger.log('Processing invitation acceptance', {
-      email,
-      token: `${token.substring(0, 8)}...`,
-      hasPassword: !!acceptInvitationDto?.password,
-      hasName: !!(acceptInvitationDto?.firstName && acceptInvitationDto?.lastName),
-    });
     await this.checkRateLimitWithContext(`accept_${email}`, 5, 15 * 60 * 1000, 'accept invitation');
     const invitation = await this.invitationsRepository.findInvitationByToken(token);
     if (!invitation) {
-      this.logger.warn(`❌ No invitation found for token: ${token}`);
       throw new NotFoundException(`Invitation with token ${token} not found`);
     }
     if (invitation.email.toLowerCase() !== email.toLowerCase()) {
-      this.logger.warn(
-        `❌ Email mismatch: invitation email ${invitation.email} does not match requested email ${email}`,
-      );
       throw new BadRequestException('The email address does not match the invited user email');
     }
     if (invitation.status !== InvitationStatus.PENDING) {
-      this.logger.warn(
-        `❌ Invitation ${invitation.id} is not pending (status: ${invitation.status})`,
-      );
       throw new BadRequestException('Invitation has already been processed');
     }
     if (invitation.expiresAt < new Date()) {
-      this.logger.warn(`❌ Invitation ${invitation.id} has expired`);
       throw new BadRequestException('Invitation has expired');
     }
+
+    const firstName = acceptInvitationDto.firstName?.trim() ?? '';
+    const lastName = acceptInvitationDto.lastName?.trim() ?? '';
+    this.validateName(firstName, lastName);
+
+    const preferredName = acceptInvitationDto?.preferredName?.trim() || undefined;
     const existingUser = await this.usersService.getUserByEmail(invitation.email);
     let userExists = false;
     let user: User | null = null;
-    this.logger.log(`👤 Checking if user exists: ${!!existingUser}`);
+    let tenantMemberId: string;
     if (existingUser) {
       userExists = true;
       user = existingUser;
-      this.logger.log(`✅ Existing user found with ID: ${existingUser.id}`);
-      const existingMember = await this.tenantMembersService.checkUserTenantMembership(
+      const existingMember = await this.tenantMembersService.findUserTenantMembership(
         existingUser.id,
         invitation.tenantId,
       );
       if (existingMember) {
-        this.logger.warn(`❌ User ${email} is already a member of tenant ${invitation.tenantId}`);
         throw new ConflictException('User is already a member of this tenant');
       }
       if (acceptInvitationDto.password) {
@@ -208,22 +221,23 @@ export class InvitationsService {
         await this.usersService.updateUser(user.id, {
           password: hashedPassword,
         });
-        this.logger.log(`🔑 Updated password for existing user`);
       }
-      await this.tenantMembersService.createTenantMember(existingUser.id, invitation.tenantId, {
-        firstName: invitation.firstName,
-        lastName: invitation.lastName,
-      });
-      this.logger.log(`✅ Existing user added to tenant successfully`);
+      const member = await this.tenantMembersService.createTenantMember(
+        existingUser.id,
+        invitation.tenantId,
+        {
+          firstName,
+          lastName,
+          preferredName,
+          role: invitation.role as never,
+        },
+      );
+      tenantMemberId = member.id;
     } else {
-      this.logger.log(`🆕 Creating new user account`);
       if (!acceptInvitationDto.password) {
-        this.logger.warn(`❌ Password required for new user`);
         throw new BadRequestException('Password required for new users');
       }
       const password = await PasswordService.hashPassword(acceptInvitationDto.password);
-      const firstName = acceptInvitationDto.firstName || invitation.firstName;
-      const lastName = acceptInvitationDto.lastName || invitation.lastName;
       const newUser = await this.usersService.createUser({
         email: invitation.email,
         password,
@@ -232,22 +246,51 @@ export class InvitationsService {
         isActive: true,
       });
       user = newUser;
-      this.logger.log(`✅ New user created with ID: ${newUser.id}`);
-      await this.tenantMembersService.createTenantMember(newUser.id, invitation.tenantId, {
-        firstName,
-        lastName,
-      });
-      this.logger.log(`✅ New user added to tenant successfully`);
+      const member = await this.tenantMembersService.createTenantMember(
+        newUser.id,
+        invitation.tenantId,
+        {
+          firstName,
+          lastName,
+          preferredName,
+          role: invitation.role as never,
+        },
+      );
+      tenantMemberId = member.id;
+    }
+
+    if (invitation.departmentId) {
+      await this.departmentsService.addMemberToDepartment(
+        invitation.tenantId,
+        invitation.departmentId,
+        tenantMemberId,
+      );
+    }
+    if (invitation.positionId) {
+      await this.positionMemberService.assignPosition(
+        invitation.tenantId,
+        tenantMemberId,
+        invitation.positionId,
+      );
     }
     const updatedInvitation = await this.invitationsRepository.acceptInvitation(invitation.id);
     await this.invitationsRepository.softDelete(invitation.id);
     await this.rateLimitService.clearRateLimit(`accept_${email}`);
-    this.logger.log(`🎉 INVITATION ACCEPTED SUCCESSFULLY:`);
-    this.logger.log(`📧 Email: ${email}`);
-    this.logger.log(`👤 User exists: ${userExists}`);
-    this.logger.log(`🔐 Needs password: ${!userExists}`);
-    this.logger.log(`🏢 Tenant ID: ${invitation.tenantId}`);
-    this.logger.log(`👨‍💼 Role: ${invitation.role}`);
+
+    const inviteeName =
+      formatMemberDisplayName({ firstName, lastName, preferredName }) ?? 'A team member';
+    void this.activitiesService
+      .queueActivity({
+        tenantId: invitation.tenantId,
+        actorMemberId: tenantMemberId,
+        action: 'invite.accepted',
+        resourceType: 'invitation',
+        resourceId: invitation.id,
+        description: inviteeName === 'A team member' ? 'Member joined' : `${inviteeName} joined`,
+        metadata: { role: invitation.role, inviteeName },
+      })
+      .catch(() => {});
+
     return {
       invitation: await this?.mapToResponseDto(updatedInvitation),
       userExists,
@@ -273,19 +316,15 @@ export class InvitationsService {
     return this?.mapToResponseDto(invitation);
   }
   async resendInvitation(id: string, tenantId: string): Promise<IInvitationResponseDto> {
-    this.logger.log(`🔄 Resending invitation with ID: ${id}`);
     const invitation = await this.invitationsRepository.findInvitationByTenant(id, tenantId);
     if (!invitation) {
-      this.logger.warn(`❌ Invitation with ID ${id} not found`);
       throw new NotFoundException(`Invitation with ID ${id} not found`);
     }
     if (invitation.status !== InvitationStatus.PENDING) {
-      this.logger.warn(`❌ Cannot resend invitation with status: ${invitation.status}`);
       throw new BadRequestException('Can only resend pending invitations');
     }
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    this.logger.log(`📅 Updating expiration date to: ${expiresAt}`);
     await this.invitationsRepository.update(id, {
       expiresAt,
     });
@@ -295,14 +334,8 @@ export class InvitationsService {
     if (!updatedInvitation) {
       throw new NotFoundException(`Invitation with ID ${id} not found`);
     }
-    await this.sendInvitationEmail(updatedInvitation);
-    this.logger.log('✅ INVITATION RESENT SUCCESSFULLY:');
-    this.logger.log(`📧 Email: ${updatedInvitation.email}`);
-    this.logger.log(`🏢 Tenant ID: ${updatedInvitation.tenantId}`);
-    this.logger.log(`👤 Role: ${updatedInvitation.role}`);
-    this.logger.log(`⏰ New expiration: ${updatedInvitation.expiresAt}`);
-    this.logger.log(`🔗 Token: ${updatedInvitation.token}`);
-    return this?.mapToResponseDto(updatedInvitation);
+    const emailDelivery = await this.sendInvitationEmail(updatedInvitation);
+    return this.mapToResponseDto(updatedInvitation, emailDelivery);
   }
   async expireInvitations(): Promise<void> {
     await this.invitationsRepository.expireInvitations();
@@ -334,7 +367,6 @@ export class InvitationsService {
       rules: [{ maxRequests: max, windowMs }],
     });
     if (!result.allowed) {
-      this.logger.warn(`Rate limit exceeded for ${context}`, { key });
       throw new InternalServerErrorException('Too many attempts. Please try again later.');
     }
   }
@@ -343,18 +375,9 @@ export class InvitationsService {
       throw new NotFoundException('Invitation not found');
     }
     if (invitation.email.toLowerCase() !== email.toLowerCase()) {
-      this.logger.warn('Email does not match invitation', {
-        providedEmail: email,
-        invitationEmail: invitation.email,
-        invitationId: invitation.id,
-      });
       throw new BadRequestException('The email address does not match the invited user email');
     }
     if (invitation.status !== InvitationStatus.PENDING) {
-      this.logger.warn('Invitation is not pending', {
-        status: invitation.status,
-        invitationId: invitation.id,
-      });
       throw new BadRequestException('This invitation has already been processed');
     }
   }
@@ -364,10 +387,6 @@ export class InvitationsService {
   ): Promise<IInvitationResponseDto & { userExists: boolean; user: unknown }> {
     this.validateInvitationToken(token);
     this.validateEmailFormat(email);
-    this.logger.log('Getting invitation details', {
-      email,
-      token: `${token.substring(0, 8)}...`,
-    });
     await this.checkRateLimitWithContext(
       `get_invitation_${email}`,
       10,
@@ -380,23 +399,11 @@ export class InvitationsService {
     }
     this.validateInvitation(invitation, email);
     if (invitation.expiresAt < new Date()) {
-      this.logger.warn('Invitation has expired', {
-        invitationId: invitation.id,
-        expiredAt: invitation.expiresAt,
-      });
       throw new BadRequestException('Invitation has expired');
     }
     const existingUser = await this.usersService.getUserByEmail(email);
     const userExists = !!existingUser;
-    this.logger.log(`User exists: ${userExists}`);
-    if (userExists) {
-      this.logger.log(`Existing user ID: ${existingUser.id}`);
-    }
     await this.rateLimitService.clearRateLimit(`get_invitation_${email}`);
-    this.logger.log('Invitation details retrieved successfully', {
-      invitationId: invitation.id,
-      email,
-    });
     const response = await this.mapToResponseDto(invitation);
     return {
       ...response,
@@ -417,10 +424,6 @@ export class InvitationsService {
   ): Promise<IInvitationResponseDto> {
     this.validateInvitationToken(token);
     this.validateEmailFormat(email);
-    this.logger.log('Processing invitation decline', {
-      email,
-      token: `${token.substring(0, 8)}...`,
-    });
     await this.checkRateLimitWithContext(
       `decline_${email}`,
       5,
@@ -433,10 +436,6 @@ export class InvitationsService {
     }
     this.validateInvitation(invitation, email);
     if (invitation.expiresAt < new Date()) {
-      this.logger.warn('Cannot decline expired invitation', {
-        invitationId: invitation.id,
-        expiredAt: invitation.expiresAt,
-      });
       throw new BadRequestException('Invitation has expired');
     }
     await this.invitationsRepository.update(invitation.id, {
@@ -446,36 +445,72 @@ export class InvitationsService {
       where: { id: invitation.id },
     });
     if (!updatedInvitation) {
-      this.logger.error('Failed to update invitation status', {
-        invitationId: invitation.id,
-        email,
-      });
       throw new InternalServerErrorException('Failed to process invitation decline');
     }
     await this.rateLimitService.clearRateLimit(`decline_${email}`);
-    this.logger.log('Invitation declined successfully', {
-      invitationId: invitation.id,
-      email,
-    });
     return this.mapToResponseDto(updatedInvitation);
   }
-  private async sendInvitationEmail(invitation: Invitation): Promise<void> {
-    const _tenant = await this.tenantsService.getTenant(invitation.tenantId);
-    const baseUrl = process.env.FRONTEND_URL || '';
-    const inviteUrl = `${baseUrl}/invite.html?token=${invitation.token}&email=${invitation.email}`;
-    this.logger.log(`Sending invitation email to: ${invitation.email}`);
-    this.logger.log(`Invitation URL: ${inviteUrl}`);
-    this.logger.log(`Tenant ID: ${invitation.tenantId}`);
-    this.logger.log(`Role: ${invitation.role}`);
-    this.logger.log(`Token: ${invitation.token}`);
+  private async sendInvitationEmail(
+    invitation: Invitation,
+  ): Promise<{ emailSent: boolean; emailError?: string }> {
+    const tenant = await this.tenantsService.getTenant(invitation.tenantId);
+    const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    const inviteLink = `${baseUrl}/accept-invite?token=${invitation.token}&email=${encodeURIComponent(invitation.email)}`;
+
+    let inviterName = 'A team member';
+    try {
+      const inviter = await this.tenantMembersService.getTenantMember(
+        invitation.invitedBy,
+        invitation.tenantId,
+      );
+      const name = [inviter.firstName, inviter.lastName].filter(Boolean).join(' ').trim();
+      inviterName = name || inviter.user?.email || inviterName;
+    } catch {}
+
+    const firstName = invitation.firstName?.trim() || invitation.email.split('@')[0] || 'there';
+
+    const result = await this.zeptomailEmailService.sendTemplateEmail(
+      invitation.email,
+      'invitation',
+      {
+        tenantName: tenant?.name ?? 'your workspace',
+        inviterName,
+        inviteLink,
+        firstName,
+      },
+    );
+
+    if (!result.success) {
+      const emailError = result.error ?? 'unknown error';
+      return { emailSent: false, emailError };
+    }
+
+    const inviteeName = formatInviteeDisplayName(invitation);
+    void this.activitiesService
+      .queueActivity({
+        tenantId: invitation.tenantId,
+        actorMemberId: invitation.invitedBy,
+        action: 'invite.sent',
+        resourceType: 'invitation',
+        resourceId: invitation.id,
+        description: inviteeName === 'A team member' ? 'Invitation sent' : `Invited ${inviteeName}`,
+        metadata: { role: invitation.role, inviteeName },
+      })
+      .catch(() => {});
+
+    return { emailSent: true };
   }
-  private async mapToResponseDto(invitation: Invitation): Promise<IInvitationResponseDto> {
+  private async mapToResponseDto(
+    invitation: Invitation,
+    emailDelivery?: { emailSent: boolean; emailError?: string },
+  ): Promise<IInvitationResponseDto> {
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
     return {
       id: invitation.id,
       email: invitation.email,
       tenantId: invitation.tenantId,
       tenantName: tenant?.name,
+      tenantSlug: tenant?.slug,
       firstName: invitation.firstName,
       lastName: invitation.lastName,
       middleName: invitation.middleName,
@@ -488,6 +523,9 @@ export class InvitationsService {
       invitedBy: invitation.invitedBy,
       expiresAt: invitation.expiresAt,
       token: invitation.token,
+      ...(emailDelivery
+        ? { emailSent: emailDelivery.emailSent, emailError: emailDelivery.emailError }
+        : {}),
     };
   }
 }

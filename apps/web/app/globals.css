@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-montserrat);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-dim: var(--brand-dim);
@@ -66,6 +66,7 @@
 /* ─── Paqadhr Design System v1.0 — light ─── */
 :root {
   --font-inter: "Inter", sans-serif;
+  --font-montserrat: "Montserrat", sans-serif;
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -82,7 +83,7 @@
   --brand-shadow: color-mix(in oklch, var(--brand) 25%, transparent);
 
   --primary: var(--brand);
-  --primary-foreground: #ffffff;
+  --primary-foreground: var(--brand-foreground);
   --primary-soft: #e6fbf4;
   --primary-soft-active: #d0f7ea;
   --primary-hover: #008f65;
@@ -108,7 +109,7 @@
   --secondary-border: #d9dee3;
 
   --muted: #f5f7f8;
-  --muted-foreground: #5b6470;
+  --muted-foreground: #4f5967;
 
   --accent: #eef2f4;
   --accent-foreground: #121212;
@@ -133,7 +134,7 @@
   --sidebar: #ffffff;
   --sidebar-foreground: #121212;
   --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: var(--brand-foreground);
   --sidebar-accent: #f5f7f8;
   --sidebar-accent-foreground: #121212;
   --sidebar-border: #e6e8eb;
@@ -143,13 +144,26 @@
   --shadow-md: 0 6px 16px rgba(18, 18, 18, 0.08);
   --shadow-lg: 0 12px 32px rgba(18, 18, 18, 0.12);
   --shadow-modal: 0 24px 64px rgba(18, 18, 18, 0.18);
+
+  --app-page-background:
+    radial-gradient(
+      circle at top right,
+      color-mix(in oklch, var(--brand) 8%, white) 0%,
+      transparent 38%
+    ),
+    linear-gradient(140deg, #fbfdfc 0%, #f6faf8 48%, #f1f7f3 100%);
+  --app-panel-bg: rgba(255, 255, 255, 0.96);
+  --app-panel-border: #dce9e3;
+  --app-panel-shadow: var(--shadow-md);
+  --app-soft-panel-bg: linear-gradient(180deg, #f8fcfa 0%, #eef8f2 100%);
+  --app-soft-panel-border: #dce9e3;
 }
 
 /* ─── Paqadhr Design System v1.0 — dark ─── */
 .dark {
-  --brand-foreground: #121212;
+  --brand-foreground: #ffffff;
   --brand-soft: #08382c;
-  --primary-foreground: #121212;
+  --primary-foreground: #ffffff;
   --primary-soft: #08382c;
   --primary-soft-active: #0d4636;
   --primary-hover: #00b880;
@@ -191,10 +205,29 @@
 
   --sidebar: #121212;
   --sidebar-foreground: #fbfbfb;
-  --sidebar-primary-foreground: #121212;
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #232323;
   --sidebar-accent-foreground: #fbfbfb;
   --sidebar-border: #313131;
+  --sidebar-ring: var(--brand);
+
+  --app-page-background:
+    radial-gradient(
+      circle at top right,
+      color-mix(in oklch, var(--brand) 12%, transparent) 0%,
+      transparent 34%
+    ),
+    linear-gradient(140deg, #101412 0%, #121714 45%, #0f1311 100%);
+  --app-panel-bg: rgba(27, 27, 27, 0.92);
+  --app-panel-border: rgba(69, 89, 81, 0.66);
+  --app-panel-shadow: 0 18px 38px -26px rgba(0, 0, 0, 0.7);
+  --app-soft-panel-bg: linear-gradient(
+    180deg,
+    rgba(17, 25, 22, 0.92) 0%,
+    rgba(22, 33, 28, 0.96) 100%
+  );
+  --app-soft-panel-border: rgba(69, 89, 81, 0.66);
 }
 
 /* Marketing — always light */
@@ -253,6 +286,10 @@
 }
 
 @layer utilities {
+  .app-page-canvas,
+  .dashboard-canvas {
+    background: var(--app-page-background);
+  }
   .marketing-glow {
     background:
       radial-gradient(ellipse 80% 50% at 50% -20%, var(--brand-glow), transparent),
@@ -265,7 +302,10 @@
     @apply bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent;
   }
   .app-card {
-    @apply border border-border/60 bg-card shadow-sm;
+    border-radius: 8px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-panel-border);
+    box-shadow: var(--app-panel-shadow);
   }
   .app-surface {
     @apply bg-muted/30;
@@ -284,6 +324,39 @@
   }
   .culture-points-pill {
     @apply inline-flex items-center rounded-full border border-primary/30 bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-foreground dark:text-primary;
+  }
+  .dashboard-panel {
+    border-radius: 8px;
+    background: var(--app-panel-bg);
+    border: 1px solid var(--app-panel-border);
+    box-shadow: var(--app-panel-shadow);
+  }
+  .dashboard-soft-tile {
+    border-radius: 8px;
+    background: var(--app-soft-panel-bg);
+    border: 1px solid var(--app-soft-panel-border);
+  }
+  .dashboard-font {
+    font-family: var(--font-montserrat);
+  }
+  .dashboard-outline-label {
+    color: #5b6470;
+    letter-spacing: 0.08em;
+  }
+  .dark .dashboard-outline-label {
+    color: #a5b1bd;
+  }
+  .dashboard-link {
+    color: var(--brand);
+  }
+  .dark .dashboard-link {
+    color: #4ad9ac;
+  }
+  .dashboard-link:hover {
+    color: var(--primary-hover);
+  }
+  .dark .dashboard-link:hover {
+    color: #78e5c1;
   }
   .shadow-token-sm {
     box-shadow: var(--shadow-sm);

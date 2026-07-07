@@ -11,22 +11,29 @@ import { type Employee, employeeListSchema, employeeSchema } from '@/lib/schemas
 export type UpdateEmployeeInput = {
   firstName?: string;
   lastName?: string;
+  middleName?: string;
   preferredName?: string;
   phone?: string;
   dateOfBirth?: string;
   gender?: string;
-  departmentId?: string;
-  reportsToId?: string;
+  role?: string;
+  departmentId?: string | null;
+  reportsToId?: string | null;
   avatarKey?: string;
 };
 
 export type CreateEmployeeInviteInput = {
-  firstName: string;
-  lastName: string;
   email: string;
   role: string;
   departmentId?: string;
-  jobTitle?: string;
+  positionId?: string;
+};
+
+export type CreateEmployeeInviteResponse = {
+  id: string;
+  email: string;
+  emailSent?: boolean;
+  emailError?: string;
 };
 
 export async function fetchTenantMembers(): Promise<ApiTenantMember[]> {
@@ -61,9 +68,20 @@ export async function updateEmployee(id: string, input: UpdateEmployeeInput): Pr
   return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
 }
 
-export async function createEmployeeInvite(input: CreateEmployeeInviteInput): Promise<unknown> {
+export async function updateEmployeeMemberStatus(id: string, isActive: boolean): Promise<Employee> {
   const tenantId = await resolveTenantId();
-  return apiClient<unknown>(tenantPath(tenantId, 'invites'), {
+  const member = await apiClient<ApiTenantMember>(tenantPath(tenantId, `members/${id}/status`), {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
+  return employeeSchema.parse(mapTenantMemberToEmployee(formatApiTenantMember(member)));
+}
+
+export async function createEmployeeInvite(
+  input: CreateEmployeeInviteInput,
+): Promise<CreateEmployeeInviteResponse> {
+  const tenantId = await resolveTenantId();
+  return apiClient<CreateEmployeeInviteResponse>(tenantPath(tenantId, 'invites'), {
     method: 'POST',
     body: JSON.stringify(input),
   });

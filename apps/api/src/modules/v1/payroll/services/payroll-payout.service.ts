@@ -119,7 +119,6 @@ export class PayrollPayoutService {
       item.paidAt = new Date();
       item.failureReason = null;
       await this.payrollItemRepository.save(item);
-      this.logger.log(`Payroll item ${itemId} marked paid via transfer status ${status}`);
       return true;
     }
 
@@ -206,6 +205,5 @@ export class PayrollPayoutService {
     }
 
     await this.payrollRunRepository.save(run);
-    this.logger.log(`Payroll run ${payrollRunId} reconciled to ${run.status}`);
   }
 }

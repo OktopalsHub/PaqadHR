@@ -54,6 +54,9 @@ export function validateEnvAtBoot(): void {
         'NOMBA_WEBHOOK_SIGNATURE_KEY is not set — Nomba webhooks will reject signatures',
       );
     }
+    if (process.env.NOMBA_LIVE === 'true') {
+      logger.log('Nomba live mode enabled (NOMBA_LIVE=true)');
+    }
     if (process.env.RELOADLY_CLIENT_ID?.trim() && !process.env.RELOADLY_WEBHOOK_SECRET?.trim()) {
       warnings.push('RELOADLY_WEBHOOK_SECRET is not set — Reloadly webhooks will fail');
     }

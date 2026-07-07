@@ -87,8 +87,7 @@ export function EducationForm({
 
       onOpenChange(false);
       form.reset(initialValues);
-    } catch (error) {
-      console.error('Error saving education:', error);
+    } catch (_error) {
       toast.error(
         <ToastMessage title="Error" description="Failed to save education. Please try again." />,
       );

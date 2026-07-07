@@ -360,12 +360,11 @@ export class MemberPointsService {
     manager: EntityManager,
     tenantId: string,
     senderMemberId: string,
-    recipientIds: string[],
-    pointsEach: number,
+    recipients: { recipientId: string; points: number }[],
     shoutoutId: string,
   ): Promise<void> {
     const allowancePeriod = await this.getAllowancePeriod(tenantId);
-    const totalCost = pointsEach * recipientIds.length;
+    const totalCost = recipients.reduce((sum, r) => sum + r.points, 0);
     const sender = await this.validateSenderAllowance(tenantId, senderMemberId, totalCost, manager);
 
     sender.monthlyGiven += totalCost;
@@ -379,11 +378,11 @@ export class MemberPointsService {
       points: -totalCost,
       runningBalance: sender.currentBalance,
       shoutoutId,
-      description: `Gave shoutout to ${recipientIds.length} recipient(s)`,
+      description: `Gave shoutout to ${recipients.length} recipient(s)`,
       createdBy: senderMemberId,
     });
 
-    for (const recipientId of recipientIds) {
+    for (const { recipientId, points: pointsEach } of recipients) {
       let recipient = await this.ensureMemberRow(tenantId, recipientId, manager);
       recipient = await this.ensureMonthlyReset(recipient, manager, allowancePeriod);
       recipient.monthlyReceived += pointsEach;

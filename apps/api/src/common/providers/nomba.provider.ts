@@ -5,6 +5,7 @@ import {
   isNombaConfigured,
   isNombaGlobalPayoutEnabled,
 } from '../config/nomba.config';
+import { isNombaOperationSuccessful } from '../config/nomba-api.util';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
@@ -98,8 +99,7 @@ export class NombaProvider extends BasePaymentProvider {
         });
 
         const status = response.data?.status?.toUpperCase();
-        const success =
-          status === 'SUCCESS' || status === 'PENDING_BILLING' || response.code === '00';
+        const success = isNombaOperationSuccessful({ code: response.code, status });
 
         return {
           success,
@@ -152,11 +152,7 @@ export class NombaProvider extends BasePaymentProvider {
         });
 
         const status = response.data?.status?.toUpperCase();
-        const success =
-          status === 'COMPLETED' ||
-          status === 'PROCESSING' ||
-          status === 'PENDING' ||
-          response.code === '00';
+        const success = isNombaOperationSuccessful({ code: response.code, status });
 
         return {
           success,

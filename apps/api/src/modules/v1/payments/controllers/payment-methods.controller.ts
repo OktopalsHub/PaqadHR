@@ -68,7 +68,7 @@ export class PaymentMethodsController {
     @Body() dto: CreatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, dto);
+    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, member.userId, dto);
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -131,7 +131,13 @@ export class PaymentMethodsController {
     @Body() dto: UpdatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.updatePaymentMethod(paymentMethodId, tenantId, member.id, dto);
+    return this.paymentMethodService.updatePaymentMethod(
+      paymentMethodId,
+      tenantId,
+      member.id,
+      member.userId,
+      dto,
+    );
   }
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)

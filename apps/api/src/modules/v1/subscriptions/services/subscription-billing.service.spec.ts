@@ -299,3 +299,173 @@ describe('SubscriptionBillingService lifecycle', () => {
     expect(spy).toHaveBeenCalled();
   });
 });
+
+describe('SubscriptionBillingService seat sync', () => {
+  const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
+  const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
+  const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
+
+  const planPrice = {
+    id: 'price-1',
+    planId: 'plan-1',
+    currency: 'NGN',
+    monthlyPrice: 3500,
+    regionalConfig: { pricePerUser: 3500, minimumUsers: 1, includedUsers: 50 },
+    config: { pricePerUser: 3500, minimumUsers: 1, includedUsers: 50 },
+    calculateMonthlyPrice(userCount: number) {
+      return {
+        basePrice: userCount * 3500,
+        overagePrice: 0,
+        totalPrice: userCount * 3500,
+        overageUsers: 0,
+      };
+    },
+  };
+
+  const baseSubscription = {
+    tenantId: 'tenant-1',
+    planId: 'plan-1',
+    planPriceId: 'price-1',
+    status: SubscriptionStatus.ACTIVE,
+    nombaSubscriptionId: 'nomba_ref_1',
+    paymentMethodId: 'tok_123',
+    currentUsers: 10,
+    currentPeriodStart: new Date('2026-01-01T00:00:00.000Z'),
+    currentPeriodEnd: new Date('2026-01-31T00:00:00.000Z'),
+    usageMetrics: {},
+    planPrice,
+    tenant: { createdBy: { email: 'billing@example.com' } },
+  };
+
+  const createService = () => {
+    const nombaProvider = {
+      ensureConfigured: jest.fn(),
+      chargeSeatAddition: jest.fn().mockResolvedValue({ orderReference: 'sub_qty_1' }),
+    };
+    const nombaApi = { verifyTransaction: jest.fn() };
+    const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
+    const tenantSettingsService = { getTenantSettings: jest.fn() };
+    const plansService = { getPlanPriceById: jest.fn().mockResolvedValue(planPrice) };
+    const subscriptionRepo = {
+      findOne: jest.fn(),
+      save: jest.fn(async (s) => s),
+      createQueryBuilder: jest.fn(),
+    };
+    const tenantRepo = { findOne: jest.fn() };
+    const userRepo = { findOne: jest.fn() };
+    const tenantMemberRepo = { count: jest.fn() };
+    const billingEventRepo = {
+      exists: jest.fn(),
+      findOne: jest.fn(),
+      save: jest.fn(),
+      create: jest.fn((x) => x),
+    };
+    const dataSource = { transaction: jest.fn() };
+
+    const service = new SubscriptionBillingService(
+      nombaProvider as never,
+      nombaApi as never,
+      subscriptionsService as never,
+      tenantSettingsService as never,
+      plansService as never,
+      subscriptionRepo as never,
+      tenantRepo as never,
+      userRepo as never,
+      tenantMemberRepo as never,
+      billingEventRepo as never,
+      dataSource as never,
+    );
+
+    return {
+      service,
+      nombaProvider,
+      subscriptionRepo,
+      tenantMemberRepo,
+      tenantSettingsService,
+    };
+  };
+
+  beforeEach(() => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+  });
+
+  afterEach(() => {
+    process.env.NOMBA_CLIENT_ID = originalNombaClientId;
+    process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
+    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
+    jest.restoreAllMocks();
+  });
+
+  it('does nothing when live seats equal billed seats', async () => {
+    const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
+    subscriptionRepo.findOne.mockResolvedValue({ ...baseSubscription });
+    tenantMemberRepo.count.mockResolvedValue(10);
+
+    await service.syncSubscriptionQuantity('tenant-1');
+
+    expect(nombaProvider.chargeSeatAddition).not.toHaveBeenCalled();
+    expect(subscriptionRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('lowers currentUsers without charging when seats decrease', async () => {
+    const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
+    const subscription = { ...baseSubscription, currentUsers: 11 };
+    subscriptionRepo.findOne.mockResolvedValue(subscription);
+    tenantMemberRepo.count.mockResolvedValue(10);
+
+    await service.syncSubscriptionQuantity('tenant-1');
+
+    expect(nombaProvider.chargeSeatAddition).not.toHaveBeenCalled();
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ currentUsers: 10 }),
+    );
+  });
+
+  it('charges prorated amount and sets pendingSeatCount when seats increase', async () => {
+    const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
+    subscriptionRepo.findOne.mockResolvedValue({ ...baseSubscription });
+    tenantMemberRepo.count.mockResolvedValue(11);
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-16T00:00:00.000Z'));
+
+    await service.syncSubscriptionQuantity('tenant-1');
+
+    expect(nombaProvider.chargeSeatAddition).toHaveBeenCalledWith(
+      'nomba_ref_1',
+      planPrice,
+      1750,
+      11,
+      1,
+      'tok_123',
+      'billing@example.com',
+      expect.objectContaining({ extraSeats: 1, targetSeatCount: 11 }),
+    );
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        usageMetrics: expect.objectContaining({
+          pendingSeatCount: 11,
+          pendingExtraSeats: 1,
+          pendingChargeAmount: 1750,
+        }),
+      }),
+    );
+
+    jest.useRealTimers();
+  });
+
+  it('skips a new charge while a seat addition payment is pending', async () => {
+    const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
+    subscriptionRepo.findOne.mockResolvedValue({
+      ...baseSubscription,
+      usageMetrics: { pendingSeatCount: 12 },
+    });
+    tenantMemberRepo.count.mockResolvedValue(13);
+
+    await service.syncSubscriptionQuantity('tenant-1');
+
+    expect(nombaProvider.chargeSeatAddition).not.toHaveBeenCalled();
+    expect(subscriptionRepo.save).not.toHaveBeenCalled();
+  });
+});

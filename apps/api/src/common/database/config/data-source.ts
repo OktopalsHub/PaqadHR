@@ -9,9 +9,7 @@ dotenv.config();
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error(
-    'DATABASE_URL is not defined in environment variables. Please check your .env file.',
-  );
+  throw new Error('DATABASE_URL is not defined, please check your environment variables.');
 }
 
 const AppDataSource = {
@@ -50,11 +48,6 @@ const AppDataSource = {
     Migrations.Education1781241268760,
     Migrations.EmergencyContact1781241272764,
     Migrations.Document1781241275774,
-    Migrations.AssetCategories1781241278872,
-    Migrations.Assets1781241281751,
-    Migrations.AssetAssignments1781241284189,
-    Migrations.AssetDocuments1781241286697,
-    Migrations.AssetMaintenance1781241289473,
     Migrations.Invitations1781241292545,
     Migrations.PaymentMethods1781241295211,
     Migrations.PaymentSecurity1781241297732,
@@ -96,6 +89,8 @@ const AppDataSource = {
     Migrations.SubscriptionDunningAndLifecycle1782914289290,
     Migrations.WalletTransactionReferenceScope1782921523406,
     Migrations.DropAssetManagement1783110763106,
+    Migrations.DropPayrollAuditLogsCreateTenantActivities1783160913090,
+    Migrations.InvitationNamesNullable1783258356100,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
@@ -117,7 +112,6 @@ export async function waitForDatabase(maxRetries = 30, retryIntervalMs = 1000): 
       return;
     } catch (error: unknown) {
       if (i === maxRetries) throw error;
-      console.log(`[Nest] Waiting for database... (${i}/${maxRetries})`);
       await new Promise((resolve) => setTimeout(resolve, retryIntervalMs));
     }
   }

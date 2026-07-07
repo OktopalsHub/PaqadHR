@@ -6,3 +6,6 @@ export const WALLET_NO_BILLING_CARD =
 
 export const WALLET_CHARGE_FAILED_ADMIN =
   'Card charge failed. Update your payment method in Settings → Billing.';
+
+export const WALLET_CREDIT_FAILED =
+  'Payment succeeded but wallet credit failed. Please contact support.';

@@ -1,41 +1,113 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { SlackIcon } from '@/components/icons/slack-icon';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { useConnectSlack, useShoutoutSlackStatus } from '@/hooks/queries/use-integrations';
-import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import {
+  useConnectSlack,
+  useDisconnectSlack,
+  useShoutoutSlackStatus,
+  useSlackChannels,
+} from '@/hooks/queries/use-integrations';
 import { useTenant } from '@/providers/tenant-provider';
+import { SlackChannelPickerInline } from './slack-channel-picker-inline';
 import { SlackUserSyncSection } from './slack-user-sync-section';
+
+const slackBrandButtonClass =
+  'bg-[#4A154B] text-white hover:bg-[#611f69] hover:text-white border-transparent shadow-sm';
+
+const slackDisconnectButtonClass =
+  'border-[#4A154B] text-foreground hover:bg-[#4A154B]/15 hover:text-foreground';
 
 export function SlackIntegrationSection() {
   const { tenant } = useTenant();
-  const tenantHref = useTenantHref();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const { data: status, isLoading } = useShoutoutSlackStatus();
   const connectSlack = useConnectSlack();
+  const disconnectSlack = useDisconnectSlack();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  const integrationId = searchParams.get('integration_id') ?? status?.integrationId ?? undefined;
+  const shouldAutoOpen = searchParams.get('slack_setup') === '1';
+  const configuredChannelIds =
+    status?.configuredChannels?.map((channel) => channel.platformChannelId) ?? [];
+  const configuredChannelLabel = (() => {
+    const names = status?.channelNames ?? (status?.channelName ? [status.channelName] : []);
+    if (names.length === 0) return null;
+    return names
+      .map((name) => (name.startsWith('#') ? name : `#${name.replace(/^#/, '')}`))
+      .join(', ');
+  })();
+  const activeIntegrationId = status?.integrationId ?? integrationId;
+  const channelsQuery = useSlackChannels(
+    activeIntegrationId,
+    Boolean(isAdmin && activeIntegrationId && !isLoading),
+  );
+  const needsReconnect = Boolean(
+    activeIntegrationId && !channelsQuery.isLoading && channelsQuery.isError,
+  );
+  const isConnected = Boolean(activeIntegrationId);
+
+  useEffect(() => {
+    if (shouldAutoOpen && integrationId) {
+      setPickerOpen(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('slack_setup');
+      params.delete('integration_id');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+  }, [shouldAutoOpen, integrationId, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (status?.integrationId && !status.configured) {
+      setPickerOpen(true);
+    }
+  }, [status?.integrationId, status?.configured]);
 
   if (!isAdmin) {
     return null;
   }
 
-  const setupHref = status?.integrationId
-    ? tenantHref(`integrations/setup-channel?integration_id=${status.integrationId}&platform=slack`)
-    : tenantHref('integrations/setup-channel');
-
   const handleConnect = async () => {
     try {
       await connectSlack.mutateAsync();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start Slack connection');
+      toast.error(err instanceof Error ? err.message : 'Failed to connect Slack');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!status?.integrationId) return;
+    try {
+      const result = await disconnectSlack.mutateAsync(status.integrationId);
+      setPickerOpen(false);
+      toast.success(result.message || 'Slack disconnected');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to disconnect Slack');
     }
   };
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Loading Slack integration…</p>;
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
 
   return (
@@ -43,36 +115,161 @@ export function SlackIntegrationSection() {
       {status?.configured ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Shoutouts are posted to{' '}
-            <span className="font-medium text-foreground">{status.channelName}</span> on Slack.
+            Posting to{' '}
+            <span className="font-medium text-foreground">
+              {configuredChannelLabel ?? status.channelName}
+            </span>
           </p>
-          <Button size="sm" variant="outline" asChild>
-            <Link href={setupHref}>Change channel</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {!pickerOpen ? (
+              <Button size="sm" variant="outline" onClick={() => setPickerOpen(true)}>
+                Change channels
+              </Button>
+            ) : null}
+            <SlackConnectionActions
+              isConnected={isConnected}
+              needsReconnect={needsReconnect}
+              connectPending={connectSlack.isPending}
+              disconnectPending={disconnectSlack.isPending}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+            />
+          </div>
         </div>
-      ) : status?.integrationId ? (
+      ) : isConnected ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Slack is connected. Choose a channel where shoutouts should be posted.
+            {needsReconnect
+              ? 'Slack connection failed. Reconnect to load channels.'
+              : 'Connected. Choose a channel for shoutouts.'}
           </p>
-          <Button size="sm" asChild>
-            <Link href={setupHref}>Select shoutout channel</Link>
-          </Button>
+          <SlackConnectionActions
+            isConnected={isConnected}
+            needsReconnect={needsReconnect}
+            connectPending={connectSlack.isPending}
+            disconnectPending={disconnectSlack.isPending}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
         </div>
       ) : (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">
-            Connect Slack so team shoutouts appear in your workspace channel.
-          </p>
-          <Button size="sm" disabled={connectSlack.isPending} onClick={handleConnect}>
-            {connectSlack.isPending ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
-            <SlackIcon className="mr-1 size-4" />
-            Connect Slack
-          </Button>
+          <p className="text-sm text-muted-foreground">Connect Slack to post shoutouts.</p>
+          <SlackConnectionActions
+            isConnected={isConnected}
+            needsReconnect={needsReconnect}
+            connectPending={connectSlack.isPending}
+            disconnectPending={disconnectSlack.isPending}
+            onConnect={handleConnect}
+            onDisconnect={handleDisconnect}
+          />
         </div>
       )}
 
+      {pickerOpen && activeIntegrationId ? (
+        <SlackChannelPickerInline
+          integrationId={activeIntegrationId}
+          initialChannelIds={configuredChannelIds}
+          onSaved={() => setPickerOpen(false)}
+          onCancel={() => setPickerOpen(false)}
+          onReconnect={needsReconnect ? handleConnect : undefined}
+        />
+      ) : null}
+
       {status?.integrationId && <SlackUserSyncSection integrationId={status.integrationId} />}
     </div>
+  );
+}
+
+function SlackConnectionActions({
+  isConnected,
+  needsReconnect,
+  connectPending,
+  disconnectPending,
+  onConnect,
+  onDisconnect,
+}: {
+  isConnected: boolean;
+  needsReconnect: boolean;
+  connectPending: boolean;
+  disconnectPending: boolean;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  if (!isConnected) {
+    return (
+      <Button
+        size="sm"
+        className={slackBrandButtonClass}
+        disabled={connectPending}
+        onClick={onConnect}
+      >
+        {connectPending ? (
+          <Loader2 className="mr-1.5 size-4 animate-spin" />
+        ) : (
+          <SlackIcon className="mr-1.5 size-4" />
+        )}
+        Connect
+      </Button>
+    );
+  }
+
+  if (needsReconnect) {
+    return (
+      <>
+        <Button size="sm" variant="outline" disabled={connectPending} onClick={onConnect}>
+          {connectPending ? <Loader2 className="mr-1.5 size-4 animate-spin" /> : null}
+          Reconnect
+        </Button>
+        <DisconnectSlackButton pending={disconnectPending} onDisconnect={onDisconnect} />
+      </>
+    );
+  }
+
+  return <DisconnectSlackButton pending={disconnectPending} onDisconnect={onDisconnect} />;
+}
+
+function DisconnectSlackButton({
+  pending,
+  onDisconnect,
+}: {
+  pending: boolean;
+  onDisconnect: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className={slackDisconnectButtonClass}
+          disabled={pending}
+        >
+          {pending ? (
+            <Loader2 className="mr-1.5 size-4 animate-spin" />
+          ) : (
+            <SlackIcon className="mr-1.5 size-4" />
+          )}
+          Disconnect
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Disconnect Slack?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Shoutouts will stop posting to Slack until you connect again.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            onClick={onDisconnect}
+          >
+            Disconnect
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

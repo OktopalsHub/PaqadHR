@@ -25,12 +25,13 @@ export async function fetchDepartments(): Promise<Department[]> {
     .parse((data.records ?? []).map((dept, index) => mapApiDepartment(dept as never, index)));
 }
 
-export async function createDepartment(input: CreateDepartmentInput): Promise<void> {
+export async function createDepartment(input: CreateDepartmentInput): Promise<{ id: string }> {
   const tenantId = await resolveTenantId();
-  await apiClient(tenantPath(tenantId, 'departments'), {
+  const data = await apiClient<{ id: string }>(tenantPath(tenantId, 'departments'), {
     method: 'POST',
     body: JSON.stringify(input),
   });
+  return data;
 }
 
 export type UpdateDepartmentInput = {

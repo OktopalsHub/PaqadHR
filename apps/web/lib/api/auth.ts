@@ -1,34 +1,24 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
-import {
-  ApiError,
-  apiClient,
-  clearCsrfToken,
-  getAccessToken,
-  getRefreshToken,
-  setAccessToken,
-  setRefreshToken,
-} from '@/lib/api/client';
+import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
+import type { Tenant } from '@/lib/schemas/tenant';
 import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
 
 type AuthResponse = {
-  accessToken?: string;
-  refreshToken?: string;
   user: { id: string; email: string; role: string };
 };
 
-function storeAuthTokens(response: AuthResponse) {
-  if (response.accessToken) setAccessToken(response.accessToken);
-  if (response.refreshToken) setRefreshToken(response.refreshToken);
-}
-
-type ProfileResponse = {
+export type ProfileResponse = {
   id: string;
   email: string;
   role: string;
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function mapAuthUser(
   user: AuthResponse['user'] | ProfileResponse,
@@ -57,6 +47,61 @@ async function fetchProfile(): Promise<ProfileResponse> {
   return apiClient<ProfileResponse>('/users/profile');
 }
 
+/**
+ * After OAuth redirect, auth cookies can take a moment to attach on cross-origin fetches.
+ * Retry profile before treating the login as failed.
+ */
+export async function waitForAuthenticatedProfile(options?: {
+  attempts?: number;
+  baseDelayMs?: number;
+}): Promise<ProfileResponse | null> {
+  const attempts = options?.attempts ?? 6;
+  const baseDelayMs = options?.baseDelayMs ?? 150;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fetchProfile();
+    } catch (error) {
+      const isLast = attempt === attempts - 1;
+      if (error instanceof ApiError && error.status === 401) {
+        if (!isLast) {
+          await sleep(baseDelayMs * (attempt + 1));
+          continue;
+        }
+        invalidateSession();
+        clearCsrfToken();
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
+export async function loadUserTenantsWithRetry(options?: {
+  attempts?: number;
+  baseDelayMs?: number;
+}): Promise<Tenant[]> {
+  const attempts = options?.attempts ?? 3;
+  const baseDelayMs = options?.baseDelayMs ?? 150;
+
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      return await fetchUserTenants();
+    } catch {
+      if (attempt < attempts - 1) {
+        await sleep(baseDelayMs * (attempt + 1));
+      }
+    }
+  }
+  return [];
+}
+
+export function persistUserSession(profile: ProfileResponse, needsOnboarding?: boolean): User {
+  const user = mapAuthUser(profile, needsOnboarding);
+  persistSession(user);
+  return user;
+}
+
 export async function refreshSession(): Promise<boolean> {
   return refreshAccessToken();
 }
@@ -65,17 +110,22 @@ export { invalidateSession };
 
 export async function getSession(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
-  if (!getAccessToken() && !getRefreshToken()) return null;
 
   try {
     const profile = await fetchProfile();
-    const needsOnboarding = await syncTenantFromApi();
+    let needsOnboarding = true;
+    try {
+      needsOnboarding = await syncTenantFromApi();
+    } catch {
+      // Profile is authoritative for session; tenant list can load later.
+    }
     const user = mapAuthUser(profile, needsOnboarding);
     persistSession(user);
     return user;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       invalidateSession();
+      clearCsrfToken();
     }
     return null;
   }
@@ -91,7 +141,7 @@ export async function login(input: LoginInput): Promise<User> {
     skipCsrf: true,
   });
 
-  storeAuthTokens(response);
+  await bootstrapCsrf();
   const needsOnboarding = await syncTenantFromApi();
   const user = mapAuthUser(response.user, needsOnboarding);
   persistSession(user);
@@ -108,7 +158,7 @@ export async function register(input: SignupInput): Promise<User> {
     skipCsrf: true,
   });
 
-  storeAuthTokens(response);
+  await bootstrapCsrf();
   const user = mapAuthUser(response.user, true);
   persistSession(user);
   return user;
@@ -133,6 +183,47 @@ export async function requestPasswordReset(email: string): Promise<void> {
   });
 }
 
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  if (!token) throw new Error('Reset token is required');
+
+  await apiClient<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, newPassword }),
+    skipCsrf: true,
+  });
+}
+
 export function clearSession() {
   invalidateSession();
+  clearCsrfToken();
+}
+
+export type OtpPurpose = 'password_change' | 'payment_method';
+
+export async function fetchAuthSecurity(): Promise<{ canChangePassword: boolean }> {
+  return apiClient('/auth/security');
+}
+
+export async function sendOtp(purpose: OtpPurpose): Promise<{ message: string }> {
+  return apiClient('/auth/otp/send', {
+    method: 'POST',
+    body: JSON.stringify({ purpose }),
+  });
+}
+
+export async function verifyOtp(purpose: OtpPurpose, code: string): Promise<{ otpProof: string }> {
+  return apiClient('/auth/otp/verify', {
+    method: 'POST',
+    body: JSON.stringify({ purpose, code }),
+  });
+}
+
+export async function changePassword(
+  otpProof: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  return apiClient('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ otpProof, newPassword }),
+  });
 }

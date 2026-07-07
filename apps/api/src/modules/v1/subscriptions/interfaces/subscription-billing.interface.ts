@@ -8,6 +8,8 @@ export interface SubscriptionBillingMetadata
   userId?: string;
   tenantMemberId?: string;
   quantity?: number;
+  extraSeats?: number;
+  targetSeatCount?: number;
   billingType?: string;
 }
 
@@ -25,6 +27,8 @@ export interface SubscriptionWebhookPayment {
   planId?: string;
   planPriceId?: string;
   quantity?: number;
+  extraSeats?: number;
+  targetSeatCount?: number;
   amount: number;
   currency: string;
   tokenKey?: string;

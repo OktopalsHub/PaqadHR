@@ -19,8 +19,8 @@ import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
-import type { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
+import { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
+import { UpdateLeaveBalanceDto } from './dto/update-leave-balance.dto';
 import { LeaveBalanceService } from './leave-balance.service';
 
 @ApiTags('Leave Balances')

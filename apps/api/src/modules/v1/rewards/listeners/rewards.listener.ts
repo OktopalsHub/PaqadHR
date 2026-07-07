@@ -1,25 +1,37 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { TenantCreatedEvent } from '../../leave/events/leave.events';
+import { RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 
 @Injectable()
 export class RewardsListener {
   private readonly logger = new Logger(RewardsListener.name);
 
-  constructor(private readonly walletService: TenantWalletService) {}
+  constructor(
+    private readonly walletService: TenantWalletService,
+    private readonly rewardsService: RewardsService,
+  ) {}
 
   @OnEvent('tenant.created')
   async handleTenantCreated(event: TenantCreatedEvent) {
     try {
-      this.logger.log(`Initializing tenant wallet for tenant: ${event.tenantId}`);
-      const tenantName = (event.tenantData as { name?: string })?.name;
-      await this.walletService.ensureWalletWithVirtualAccount(event.tenantId, tenantName);
-      this.logger.log(`Successfully initialized tenant wallet for tenant: ${event.tenantId}`);
+      await this.walletService.ensureWallet(event.tenantId);
     } catch (error) {
       this.logger.error(
-        `Failed to initialize tenant wallet for tenant ${event.tenantId}: ${error.message}`,
-        error.stack,
+        `Failed to initialize tenant wallet for tenant ${event.tenantId}: ${error instanceof Error ? error.message : error}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  @OnEvent('rewards.catalogCountriesChanged')
+  async handleCatalogCountriesChanged(payload: { tenantId: string }) {
+    try {
+      await this.rewardsService.syncReloadlyProducts(payload.tenantId, { force: true });
+    } catch (error) {
+      this.logger.warn(
+        `Reloadly catalog sync failed for tenant ${payload.tenantId}: ${error instanceof Error ? error.message : error}`,
       );
     }
   }

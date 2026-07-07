@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { formatNombaSenderName } from 'src/common/config/nomba.config';
-import { billingPivotCurrency } from 'src/common/constants/supported-fiat-currencies.constant';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
+import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { DataSource } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';
 import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
@@ -20,7 +21,6 @@ import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.e
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
-import { MisdirectedDeposit } from '../entities/misdirected-deposit.entity';
 import {
   type RedemptionStatus,
   RewardRedemption,
@@ -28,11 +28,10 @@ import {
 } from '../entities/reward-redemption.entity';
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
-import { TenantWallet } from '../entities/tenant-wallet.entity';
-import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
+import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 
 export interface CatalogItem {
   id: string;
@@ -49,6 +48,10 @@ export interface CatalogItem {
   fixedDenominations?: number[];
   deliveryInstructions?: string | null;
   stockLimit?: number | null;
+  adminPricing?: {
+    reloadlyCost: number;
+    reloadlyCostCurrency: string;
+  };
 }
 
 export interface ClaimInput {
@@ -63,6 +66,7 @@ export interface ClaimInput {
 
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
+  topupKind?: 'airtime' | 'data';
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -75,14 +79,17 @@ export class RewardsService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
+    private readonly walletTopupService: TenantWalletTopupService,
     private readonly customRewardsService: CustomRewardsService,
     readonly _tenantConfigService: TenantConfigService,
     private readonly reloadlyApi: ReloadlyApiService,
     private readonly reloadlyTopupsApi: ReloadlyTopupsApiService,
+    private readonly fiatExchange: FiatExchangeService,
     private readonly reloadlyUtilitiesApi: ReloadlyUtilitiesApiService,
     private readonly nombaBillApi: NombaBillApiService,
     readonly _nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   private async toWalletCurrency(
@@ -92,44 +99,10 @@ export class RewardsService {
     operatorId?: number,
     countryCode?: string,
   ): Promise<number> {
-    const local = localCurrency.toUpperCase();
-    const wallet = walletCurrency.toUpperCase();
-    if (local === wallet) {
-      return localAmount;
-    }
-
-    let opId = operatorId;
-    if (!opId && countryCode) {
-      const operators = await this.reloadlyTopupsApi.listOperators(countryCode);
-      opId = operators[0]?.operatorId;
-    }
-
-    const pivot = billingPivotCurrency(local);
-    if (pivot === 'USD' && local !== 'USD') {
-      if (!opId) {
-        return localAmount;
-      }
-      const fx = await this.reloadlyTopupsApi.getOperatorFxRate(opId, localAmount);
-      const usdAmount = localAmount / (fx.fxRate || 1);
-      return this.toWalletCurrency(usdAmount, 'USD', wallet, opId, countryCode);
-    }
-
-    if (!opId) {
-      return localAmount;
-    }
-    const fx = await this.reloadlyTopupsApi.getOperatorFxRate(opId, localAmount);
-    if (fx.currencyCode.toUpperCase() === wallet) {
-      return localAmount;
-    }
-    const senderAmount = localAmount / (fx.fxRate || 1);
-    if (wallet === 'NGN') {
-      const ngOperators = await this.reloadlyTopupsApi.listOperators('NG');
-      const refOp = ngOperators.find((o) => o.fx?.rate);
-      if (refOp?.fx?.rate) {
-        return Number((senderAmount * refOp.fx.rate).toFixed(2));
-      }
-    }
-    return Number(senderAmount.toFixed(2));
+    return this.fiatExchange.convert(localAmount, localCurrency, walletCurrency, {
+      operatorId,
+      countryCode,
+    });
   }
 
   private async resolveSenderName(tenantId: string): Promise<string> {
@@ -140,17 +113,55 @@ export class RewardsService {
     return formatNombaSenderName(tenant?.name);
   }
 
+  private resolveReloadlyProduct(
+    settings: RewardsSettings,
+    rewardId: string,
+  ): NonNullable<RewardsSettings['reloadlyProducts']>[number] | undefined {
+    if (!rewardId.startsWith('reloadly_')) return undefined;
+    const productId = Number(rewardId.replace('reloadly_', ''));
+    if (!Number.isFinite(productId)) return undefined;
+    return settings.reloadlyProducts?.find((p) => p.productId === productId);
+  }
+
+  private assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
+    const isNgCurrency =
+      (input.currencyCode ?? settings.rewardsCurrency).toUpperCase() === 'NGN' &&
+      settings.rewardsCurrency.toUpperCase() === 'NGN';
+
+    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
+      if (!this.nombaBillApi.isConfigured()) {
+        throw new BadRequestException('Nomba billing is not configured for Nigeria redemptions');
+      }
+      return;
+    }
+
+    if (
+      isNgCurrency &&
+      (input.rewardType === 'RELOADLY_AIRTIME' || input.rewardType === 'RELOADLY_UTILITY')
+    ) {
+      throw new BadRequestException(
+        'Nigeria airtime and utilities must use Nomba. Select Nigeria as the country.',
+      );
+    }
+  }
+
+  async listNombaDataPlans(network: string) {
+    if (!this.nombaBillApi.isConfigured()) {
+      throw new BadRequestException('Nomba billing is not configured');
+    }
+    return this.nombaBillApi.listDataPlans(network);
+  }
+
   async getSubscriptionFees(
     tenantId: string,
-    walletCurrency: string,
+    _walletCurrency: string,
   ): Promise<{ feePercentage: number; flatFee: number }> {
     try {
       const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
       const feePercentage = subscription?.planPrice?.regionalConfig?.rewardsFeePercentage ?? 2;
-      const rawFlatFee = subscription?.planPrice?.regionalConfig?.rewardsFlatFee ?? 50;
-      return { feePercentage, flatFee: rawFlatFee };
+      return { feePercentage, flatFee: 0 };
     } catch {
-      return { feePercentage: 2, flatFee: 50 };
+      return { feePercentage: 2, flatFee: 0 };
     }
   }
 
@@ -256,7 +267,10 @@ export class RewardsService {
     }));
   }
 
-  async getCatalog(tenantId: string): Promise<CatalogItem[]> {
+  async getCatalog(
+    tenantId: string,
+    options?: { includeAdminPricing?: boolean },
+  ): Promise<CatalogItem[]> {
     let settings = await this.getRewardsSettings(tenantId);
     if (!settings.enabled) {
       return [];
@@ -296,13 +310,21 @@ export class RewardsService {
         name: p.name,
         type: 'RELOADLY',
         pointsCost: p.pointsCost,
-        currencyValue: p.pointsCost / exchangeRate,
+        currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
         currencyCode: p.currencyCode,
         countryCode: p.countryCode,
         imageUrl: p.imageUrl,
         minDenomination: p.minDenomination ?? null,
         maxDenomination: p.maxDenomination ?? null,
         fixedDenominations: p.fixedDenominations ?? [],
+        ...(options?.includeAdminPricing && p.listReloadlyCost != null && p.listReloadlyCostCurrency
+          ? {
+              adminPricing: {
+                reloadlyCost: p.listReloadlyCost,
+                reloadlyCostCurrency: p.listReloadlyCostCurrency,
+              },
+            }
+          : {}),
       });
     }
 
@@ -355,7 +377,6 @@ export class RewardsService {
       },
     };
     await repo.save(row);
-    this.logger.log(`Synced ${products.length} Reloadly products for tenant ${tenantId}`);
     return products;
   }
 
@@ -364,26 +385,27 @@ export class RewardsService {
     settings: RewardsSettings,
   ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
     const products = await this.reloadlyApi.listProductsByCountries(settings.catalogCountries);
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
     const exchangeRate = settings.pointsExchangeRate;
 
-    const records = await Promise.all(
-      products.map(async (p) => {
-        const currencyValue = p.fixedRecipientDenominations?.[0] ?? p.minRecipientDenomination ?? 0;
-        const convertedValue = await this.toWalletCurrency(
-          currencyValue,
-          p.recipientCurrencyCode,
+    const records: NonNullable<RewardsSettings['reloadlyProducts']> = [];
+
+    for (const p of products) {
+      try {
+        const senderCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? 0;
+        const wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          senderCost,
+          p.senderCurrencyCode,
           settings.rewardsCurrency,
           undefined,
           p.countryCode,
         );
-        const chargedValue = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+        const chargedValue = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
         const pointsCost = Math.ceil(chargedValue * exchangeRate);
+        const rawCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
+        const rawCurrency = p.senderCurrencyCode;
 
-        return {
+        records.push({
           productId: p.productId,
           name: p.productName,
           countryCode: p.countryCode,
@@ -393,11 +415,27 @@ export class RewardsService {
           maxDenomination: p.maxRecipientDenomination ?? null,
           fixedDenominations: p.fixedRecipientDenominations ?? [],
           pointsCost,
-        };
-      }),
-    );
+          listReloadlyCost: rawCost,
+          listReloadlyCostCurrency: rawCurrency,
+          wholesaleInRewardsCurrency,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Skipping Reloadly product ${p.productId} (${p.productName}): FX conversion failed — ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
 
-    return records;
+    const seen = new Set<number>();
+    const deduped = records.filter((record) => {
+      if (seen.has(record.productId)) {
+        return false;
+      }
+      seen.add(record.productId);
+      return true;
+    });
+
+    return deduped;
   }
 
   async getAvailableReloadlyProducts(
@@ -430,23 +468,51 @@ export class RewardsService {
       throw new BadRequestException('Rewards are not enabled for this workspace');
     }
 
-    const exchangeRate = settings.pointsExchangeRate;
+    this.assertNgNombaRouting(input, settings);
+
     const currencyCode = input.currencyCode ?? settings.rewardsCurrency;
     const currencyValue = input.currencyValue;
     const pointsCost = input.pointsCost;
 
     const redemptionId = randomUUID();
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
 
     let totalTenantDebit: number;
     let expectedPointsCost: number;
     let faceValueInRewardsCurrency: number;
 
-    if (input.rewardType === 'RELOADLY_AIRTIME') {
+    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
+      const calc = await this.calculateLocalRewardCost(tenantId, currencyValue);
+      totalTenantDebit = calc.totalTenantDebit;
+      expectedPointsCost = calc.pointsCost;
+      faceValueInRewardsCurrency = calc.currencyValue;
+    } else if (input.rewardType === 'RELOADLY') {
+      const product = this.resolveReloadlyProduct(settings, input.rewardId);
+      if (!product) {
+        throw new BadRequestException('Reloadly product not found in catalog');
+      }
+
+      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
+      if (wholesaleInRewardsCurrency == null) {
+        if (product.listReloadlyCost == null || !product.listReloadlyCostCurrency) {
+          throw new BadRequestException(
+            'Gift card pricing is not available. Please refresh the rewards catalog.',
+          );
+        }
+        wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          product.listReloadlyCost,
+          product.listReloadlyCostCurrency,
+          settings.rewardsCurrency,
+          undefined,
+          product.countryCode,
+        );
+      }
+
+      faceValueInRewardsCurrency = wholesaleInRewardsCurrency;
+      totalTenantDebit = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
+      expectedPointsCost = product.pointsCost;
+    } else if (input.rewardType === 'RELOADLY_AIRTIME') {
       const calc = await this.calculateReloadlyAirtimeCost(
         Number(input.billerId),
         currencyValue,
@@ -476,33 +542,17 @@ export class RewardsService {
         settings.rewardsCurrency,
         Number(input.billerId),
       );
+    } else if (input.rewardType === 'CUSTOM') {
+      totalTenantDebit = currencyValue;
+      faceValueInRewardsCurrency = currencyValue;
+      expectedPointsCost = pointsCost;
     } else {
-      let countryCode: string | undefined;
-      if (input.rewardType === 'RELOADLY' && input.rewardId.startsWith('reloadly_')) {
-        const productId = Number(input.rewardId.replace('reloadly_', ''));
-        countryCode = settings.reloadlyProducts?.find(
-          (p) => p.productId === productId,
-        )?.countryCode;
-      }
-      const expectedConvertedValue = await this.toWalletCurrency(
-        currencyValue,
-        currencyCode,
-        settings.rewardsCurrency,
-        undefined,
-        countryCode,
-      );
-      faceValueInRewardsCurrency = expectedConvertedValue;
-      totalTenantDebit = expectedConvertedValue;
-      if (input.rewardType !== 'CUSTOM') {
-        totalTenantDebit = computeRedemptionDebit(expectedConvertedValue, feePercentage, flatFee);
-      }
-      expectedPointsCost =
-        input.rewardType === 'CUSTOM' ? pointsCost : Math.ceil(totalTenantDebit * exchangeRate);
+      throw new BadRequestException(`Unsupported reward type: ${input.rewardType}`);
     }
 
-    if (input.rewardType !== 'CUSTOM' && pointsCost < expectedPointsCost) {
+    if (input.rewardType !== 'CUSTOM' && pointsCost !== expectedPointsCost) {
       throw new BadRequestException(
-        `Invalid points cost. Expected at least ${expectedPointsCost} points for this reward.`,
+        `Invalid points cost. Expected ${expectedPointsCost} points for this reward.`,
       );
     }
 
@@ -596,11 +646,21 @@ export class RewardsService {
       await redemptionRepo.save(redemption);
     });
 
+    if (input.rewardType !== 'CUSTOM') {
+      try {
+        await this.walletTopupService.maybeAutoTopupAfterDebit(tenantId);
+      } catch (error) {
+        this.logger.warn(
+          `Auto top-up after redemption failed for tenant ${tenantId}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
     try {
       if (input.rewardType === 'RELOADLY') {
         await this.fulfillReloadly(redemption!, input);
       } else if (input.rewardType === 'NOMBA_AIRTIME') {
-        await this.fulfillNombaAirtime(redemption!, input);
+        await this.fulfillNombaTopup(redemption!, input);
       } else if (input.rewardType === 'RELOADLY_AIRTIME') {
         await this.fulfillReloadlyAirtime(redemption!, input);
       } else if (input.rewardType === 'NOMBA_UTILITY') {
@@ -667,14 +727,39 @@ export class RewardsService {
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
         where: { id: redemptionId },
       });
+      return redemption!;
     }
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'reward.redeemed',
+        resourceType: 'reward',
+        resourceId: redemptionId,
+        description: `${input.rewardName ?? input.rewardId} redeemed`,
+        metadata: {
+          rewardName: input.rewardName ?? input.rewardId,
+          pointsCost,
+          rewardType: input.rewardType,
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to queue reward redemption activity: ${err instanceof Error ? err.message : err}`,
+        );
+      });
 
     return redemption!;
   }
 
   private async fulfillReloadly(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
-    const productId = input.providerProductId;
-    if (!productId) {
+    const productId =
+      input.providerProductId ??
+      (input.rewardId.startsWith('reloadly_')
+        ? Number(input.rewardId.replace('reloadly_', ''))
+        : undefined);
+    if (!productId || !Number.isFinite(productId)) {
       throw new Error('Missing Reloadly productId for gift card order');
     }
 
@@ -715,32 +800,37 @@ export class RewardsService {
     });
   }
 
-  private async fulfillNombaAirtime(
-    redemption: RewardRedemption,
-    input: ClaimInput,
-  ): Promise<void> {
+  private async fulfillNombaTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
-      throw new Error('Phone number and network are required for airtime top-up');
+      throw new Error('Phone number and network are required for mobile top-up');
     }
 
     const senderName = await this.resolveSenderName(redemption.tenantId);
-
-    const result = await this.nombaBillApi.purchaseAirtime({
+    const purchaseInput = {
       amount: redemption.currencyValue,
       phoneNumber: input.recipientPhone,
       network: input.airtimeNetwork,
       merchantTxRef: redemption.id,
       senderName,
-    });
+    };
+
+    const isData = input.topupKind === 'data';
+    const result = isData
+      ? await this.nombaBillApi.purchaseDataBundle(purchaseInput)
+      : await this.nombaBillApi.purchaseAirtime(purchaseInput);
 
     if (!result.success) {
-      throw new Error(`Airtime purchase failed: status ${result.status}`);
+      throw new Error(
+        `${isData ? 'Data bundle' : 'Airtime'} purchase failed: status ${result.status}`,
+      );
     }
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
       providerTxRef: result.transactionId,
-      voucherInstructions: `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      voucherInstructions: isData
+        ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
+        : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
     });
   }
 
@@ -862,11 +952,8 @@ export class RewardsService {
       operatorId,
     );
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
-    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage);
 
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
@@ -911,11 +998,8 @@ export class RewardsService {
       bridgeOperatorId,
     );
 
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
-    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage, flatFee);
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage);
 
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
@@ -957,98 +1041,6 @@ export class RewardsService {
       order: { createdAt: 'DESC' },
       take: 100,
     });
-  }
-
-  async processNombaFundingPayload(payload: unknown): Promise<{ received: boolean }> {
-    const body = payload as {
-      event_type?: string;
-      eventType?: string;
-      event?: string;
-      data?: Record<string, unknown>;
-    };
-
-    const eventType = String(body.event_type || body.eventType || body.event || '').toLowerCase();
-
-    if (
-      !eventType.includes('deposit') &&
-      !eventType.includes('virtualaccount') &&
-      !eventType.includes('transfer.success')
-    ) {
-      return { received: true };
-    }
-
-    const data = body.data || {};
-    const accountNumber = String(
-      data.virtualAccount || data.accountNumber || data.virtualAccountNumber || '',
-    );
-    const amount = Number(data.amount || data.paymentAmount || 0);
-    const reference = String(
-      data.transactionReference || data.orderReference || data.reference || data.id || '',
-    );
-    const payloadMeta = body as { requestId?: string };
-    const nombaEventId = String(
-      data.transactionId || data.id || payloadMeta.requestId || reference || '',
-    );
-    const payerName = String(
-      data.senderName || data.payerName || data.originatorName || data.customerName || '',
-    );
-    const payerBank = String(data.senderBank || data.bankName || data.originatorBank || '');
-
-    if (!accountNumber || amount <= 0 || !reference) {
-      throw new BadRequestException('Invalid webhook payload structure');
-    }
-
-    const walletRepo = this.dataSource.getRepository(TenantWallet);
-    const wallet = await walletRepo.findOne({
-      where: { virtualAccountNumber: accountNumber },
-    });
-    if (!wallet) {
-      const misdirectedRepo = this.dataSource.getRepository(MisdirectedDeposit);
-      await misdirectedRepo.save(
-        misdirectedRepo.create({
-          accountNumber,
-          amount,
-          reference,
-          rawPayload: body as Record<string, unknown>,
-        }),
-      );
-      this.logger.warn(
-        `Received deposit webhook for unregistered virtual account: ${accountNumber}`,
-      );
-      return { received: true };
-    }
-
-    const metadata: Record<string, unknown> = {};
-    if (payerName) metadata.payerName = payerName;
-    if (payerBank) metadata.payerBank = payerBank;
-
-    await this.dataSource.transaction(async (manager) => {
-      const txRepo = manager.getRepository(TenantWalletTransaction);
-      const existingTx = await txRepo.findOne({
-        where: { tenantWalletId: wallet.id, reference },
-      });
-      if (existingTx) {
-        this.logger.log(`Skipping duplicate wallet deposit transaction: ${reference}`);
-        return;
-      }
-
-      await this.walletService.credit(
-        wallet.tenantId,
-        amount,
-        'DEPOSIT',
-        reference,
-        `Bank deposit to virtual account ${accountNumber}`,
-        manager,
-        {
-          rawAmount: amount,
-          nombaEventId: nombaEventId || undefined,
-          metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
-          status: 'COMPLETED',
-        },
-      );
-    });
-
-    return { received: true };
   }
 
   async listTasks(tenantId: string, memberId: string) {
@@ -1530,11 +1522,8 @@ export class RewardsService {
     processingFee: number;
   }> {
     const settings = await this.getRewardsSettings(tenantId);
-    const { feePercentage, flatFee } = await this.getSubscriptionFees(
-      tenantId,
-      settings.rewardsCurrency,
-    );
-    const totalTenantDebit = computeRedemptionDebit(amount, feePercentage, flatFee);
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const totalTenantDebit = computeRedemptionDebit(amount, feePercentage);
     const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
 
     return {

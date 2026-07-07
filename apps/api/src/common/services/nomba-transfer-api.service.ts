@@ -8,10 +8,12 @@ import {
   getNombaSubAccountId,
   isNombaConfigured,
 } from '../config/nomba.config';
+import { isNombaAcceptedCode, resolveNombaTokenExpiresAtMs } from '../config/nomba-api.util';
 import { verifyNombaWebhookSignature } from '../config/nomba-webhook.util';
 
 interface NombaTokenResponse {
-  data?: { access_token?: string; expires_in?: number };
+  code?: string;
+  data?: { access_token?: string; expires_in?: number; expiresAt?: string; expires_at?: string };
 }
 
 interface NombaTransferResponse {
@@ -27,9 +29,11 @@ interface NombaTransferResponse {
 
 interface NombaBanksResponse {
   code?: string;
-  data?: {
-    results?: Array<{ code: string; name: string }>;
-  };
+  data?:
+    | {
+        results?: Array<{ code: string; name: string }>;
+      }
+    | Array<{ code: string; name: string }>;
 }
 
 interface NombaBankLookupResponse {
@@ -106,10 +110,6 @@ export class NombaTransferApiService {
       }),
     });
 
-    if (!response.ok) {
-      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
-    }
-
     let payload: NombaTokenResponse;
     try {
       payload = (await response.json()) as NombaTokenResponse;
@@ -118,24 +118,31 @@ export class NombaTransferApiService {
     }
 
     const token = payload.data?.access_token;
-    if (!token) {
-      throw new BadRequestException('Failed to authenticate with Nomba: missing access token');
+    if (!response.ok || (payload.code && !isNombaAcceptedCode(payload.code)) || !token) {
+      throw new BadRequestException(`Failed to authenticate with Nomba (${response.status})`);
     }
 
-    const ttl = (payload.data?.expires_in ?? 3600) * 1000;
-    this.cachedToken = { token, expiresAt: Date.now() + ttl - 60_000 };
+    this.cachedToken = { token, expiresAt: resolveNombaTokenExpiresAtMs(payload.data) };
     return token;
   }
 
-  private async request<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  private async request<T>(
+    path: string,
+    body: Record<string, unknown>,
+    options?: { idempotentKey?: string },
+  ): Promise<T> {
     const token = await this.getAccessToken();
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      accountId: getNombaAccountId(),
+    };
+    if (options?.idempotentKey) {
+      headers['X-Idempotent-key'] = options.idempotentKey;
+    }
     const response = await fetch(`${getNombaBaseUrl()}${path}`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        accountId: getNombaAccountId(),
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -156,11 +163,17 @@ export class NombaTransferApiService {
       throw new BadRequestException(`Nomba payout error: ${message}`);
     }
 
-    let payload: T;
+    let payload: T & { code?: string; description?: string };
     try {
-      payload = JSON.parse(responseText) as T;
+      payload = JSON.parse(responseText) as T & { code?: string; description?: string };
     } catch {
       throw new BadRequestException('Nomba payout error: invalid JSON response');
+    }
+
+    if (payload.code !== undefined && !isNombaAcceptedCode(payload.code)) {
+      throw new BadRequestException(
+        payload.description || `Nomba payout error: code ${payload.code}`,
+      );
     }
 
     return payload;
@@ -184,13 +197,12 @@ export class NombaTransferApiService {
     });
 
     const payload = (await response.json()) as NombaBanksResponse;
-    if (!response.ok || payload.code !== '00') {
+    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
       throw new BadRequestException('Failed to fetch bank list from Nomba');
     }
 
-    const banks = (payload.data?.results ?? [])
-      .slice()
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const rows = Array.isArray(payload.data) ? payload.data : (payload.data?.results ?? []);
+    const banks = rows.slice().sort((a, b) => a.name.localeCompare(b.name));
     this.cachedBanks = { fetchedAt: Date.now(), banks };
     return banks;
   }
@@ -204,7 +216,7 @@ export class NombaTransferApiService {
       bankCode,
     });
 
-    if (payload.code !== '00' || !payload.data?.accountName) {
+    if (!isNombaAcceptedCode(payload.code) || !payload.data?.accountName) {
       throw new BadRequestException('Could not verify this bank account');
     }
 
@@ -216,7 +228,15 @@ export class NombaTransferApiService {
 
   private singleTransactionPath(reference: string): string {
     const subAccountId = getNombaSubAccountId();
-    const query = `transactionRef=${encodeURIComponent(reference)}`;
+    // Checkout orders use orderReference; Nomba txn IDs use transactionRef.
+    const looksLikeTxnId =
+      reference.startsWith('WEB-') ||
+      reference.startsWith('API-') ||
+      reference.includes('TRANSFER') ||
+      reference.includes('ONLINE_C');
+    const query = looksLikeTxnId
+      ? `transactionRef=${encodeURIComponent(reference)}`
+      : `orderReference=${encodeURIComponent(reference)}`;
     return subAccountId
       ? `/v1/transactions/accounts/${encodeURIComponent(subAccountId)}/single?${query}`
       : `/v1/transactions/accounts/single?${query}`;
@@ -227,15 +247,19 @@ export class NombaTransferApiService {
     const path = subAccountId
       ? `/v2/transfers/bank/${encodeURIComponent(subAccountId)}`
       : '/v2/transfers/bank';
-    return this.request<NombaTransferResponse>(path, {
-      amount: input.amount,
-      accountNumber: input.accountNumber,
-      accountName: input.accountName,
-      bankCode: input.bankCode,
-      merchantTxRef: input.merchantTxRef,
-      senderName: input.senderName,
-      narration: input.narration ?? 'Payroll disbursement',
-    });
+    return this.request<NombaTransferResponse>(
+      path,
+      {
+        amount: input.amount,
+        accountNumber: input.accountNumber,
+        accountName: input.accountName,
+        bankCode: input.bankCode,
+        merchantTxRef: input.merchantTxRef,
+        senderName: input.senderName,
+        narration: input.narration ?? 'Payroll disbursement',
+      },
+      { idempotentKey: input.merchantTxRef },
+    );
   }
 
   async globalPayout(input: NombaGlobalPayoutInput): Promise<NombaTransferResponse> {
@@ -244,24 +268,28 @@ export class NombaTransferApiService {
       throw new BadRequestException('NOMBA_PAYOUT_AUTH_CODE is required for non-NGN fiat payouts');
     }
 
-    return this.request<NombaTransferResponse>('/v1/global-payout/transfer/authorize', {
-      amount: input.amount,
-      sourceCurrency: input.sourceCurrency,
-      destinationCurrency: input.destinationCurrency,
-      receiverName: input.receiverName,
-      sourceCountryIsoCode: input.sourceCountryIsoCode,
-      destinationCountryIsoCode: input.destinationCountryIsoCode,
-      authCode,
-      paymentMethod: input.paymentMethod,
-      accountNumber: input.accountNumber,
-      institutionCode: input.institutionCode,
-      institutionName: input.institutionName,
-      accountType: input.accountType ?? 'INDIVIDUAL',
-      bankAccountType: input.bankAccountType,
-      purposeOfPayment: input.purposeOfPayment ?? 'PAYROLL',
-      narration: input.narration ?? 'Payroll disbursement',
-      meta: { merchantTxRef: input.merchantTxRef },
-    });
+    return this.request<NombaTransferResponse>(
+      '/v1/global-payout/transfer/authorize',
+      {
+        amount: input.amount,
+        sourceCurrency: input.sourceCurrency,
+        destinationCurrency: input.destinationCurrency,
+        receiverName: input.receiverName,
+        sourceCountryIsoCode: input.sourceCountryIsoCode,
+        destinationCountryIsoCode: input.destinationCountryIsoCode,
+        authCode,
+        paymentMethod: input.paymentMethod,
+        accountNumber: input.accountNumber,
+        institutionCode: input.institutionCode,
+        institutionName: input.institutionName,
+        accountType: input.accountType ?? 'INDIVIDUAL',
+        bankAccountType: input.bankAccountType,
+        purposeOfPayment: input.purposeOfPayment ?? 'PAYROLL',
+        narration: input.narration ?? 'Payroll disbursement',
+        meta: { merchantTxRef: input.merchantTxRef },
+      },
+      { idempotentKey: input.merchantTxRef },
+    );
   }
 
   async getTransactionStatus(reference: string): Promise<string | null> {

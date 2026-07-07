@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
-import { brandIconUrls } from '@/lib/brand';
+import { brandFaviconUrls } from '@/lib/brand';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CsrfBootstrap } from '@/providers/csrf-bootstrap';
 import { QueryProvider } from '@/providers/query-provider';
@@ -17,11 +17,11 @@ export const metadata: Metadata = {
     'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.',
   icons: {
     icon: [
-      { url: brandIconUrls.light, media: '(prefers-color-scheme: light)' },
-      { url: brandIconUrls.dark, media: '(prefers-color-scheme: dark)' },
+      { url: brandFaviconUrls.light, type: 'image/png', media: '(prefers-color-scheme: light)' },
+      { url: brandFaviconUrls.dark, type: 'image/png', media: '(prefers-color-scheme: dark)' },
     ],
-    apple: brandIconUrls.light,
-    shortcut: brandIconUrls.light,
+    apple: [{ url: brandFaviconUrls.light, type: 'image/png' }],
+    shortcut: [{ url: brandFaviconUrls.light, type: 'image/png' }],
   },
 };
 

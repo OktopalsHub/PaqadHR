@@ -7,8 +7,8 @@ import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CandidateMapper } from '../dto/candidate-response.dto';
-import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
-import type { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
+import { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
+import { UpdateCandidateStatusDto } from '../dto/update-candidate-status.dto';
 import { CandidateService } from '../services/candidate.service';
 
 @ApiTags('Tenant Candidates')

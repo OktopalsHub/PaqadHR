@@ -17,8 +17,8 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import type { InterviewFilters, MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { CreateInterviewDto } from '../dto/interview.dto';
-import type { UpdateInterviewDto } from '../dto/update-interview.dto';
+import { CreateInterviewDto } from '../dto/interview.dto';
+import { UpdateInterviewDto } from '../dto/update-interview.dto';
 import { InterviewService } from '../services/interview.service';
 
 @ApiTags('Interviews')

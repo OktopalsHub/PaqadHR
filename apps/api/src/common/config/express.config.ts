@@ -104,7 +104,6 @@ export const ExpressSetup = (app: NestExpressApplication) => {
           }
         }
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        console.warn(`CORS rejected origin: ${origin}. Allowed origins:`, allowedOrigins);
         callback(new Error(`Not allowed by CORS: ${origin}`), false);
       },
       credentials: true,
@@ -169,7 +168,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(helmet.permittedCrossDomainPolicies());
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),

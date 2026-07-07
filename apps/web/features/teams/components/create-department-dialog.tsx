@@ -18,6 +18,7 @@ import { useCreateDepartment } from '@/hooks/queries/use-departments';
 type CreateDepartmentDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (id: string) => void;
 };
 
 const COLORS = [
@@ -31,7 +32,11 @@ const COLORS = [
   '#64748b', // Slate
 ];
 
-export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentDialogProps) {
+export function CreateDepartmentDialog({
+  open,
+  onOpenChange,
+  onCreated,
+}: CreateDepartmentDialogProps) {
   const createDepartment = useCreateDepartment();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -51,12 +56,13 @@ export function CreateDepartmentDialog({ open, onOpenChange }: CreateDepartmentD
     }
 
     try {
-      await createDepartment.mutateAsync({
+      const created = await createDepartment.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
         color: selectedColor,
       });
       toast.success('Department created');
+      onCreated?.(created.id);
       reset();
       onOpenChange(false);
     } catch (error) {

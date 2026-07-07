@@ -25,7 +25,6 @@ export class ReloadlyWebhookService {
     const providerTxRef = transaction?.transactionId || payload.transactionId;
 
     if (!customIdentifier) {
-      this.logger.log('Reloadly webhook payload is missing customIdentifier — ignoring');
       return;
     }
 
@@ -49,14 +48,12 @@ export class ReloadlyWebhookService {
           status: 'SUCCESS',
           providerTxRef: providerTxRef ? String(providerTxRef) : redemption.providerTxRef,
         });
-        this.logger.log(`Reloadly redemption ${redemption.id} status updated to SUCCESS`);
       }
       return;
     }
 
     if (status === 'FAILED' || status === 'REFUNDED' || status === 'FAILED_REFUNDED') {
       if (redemption.status === 'FAILED') {
-        this.logger.log(`Reloadly redemption ${redemption.id} is already in FAILED state`);
         return;
       }
 
@@ -91,7 +88,7 @@ export class ReloadlyWebhookService {
           type: ShoutoutPointTransactionType.REDEMPTION,
           points: pointsCost,
           runningBalance: updatedPoints.currentBalance,
-          description: `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId} — Reloadly transaction ${status.toLowerCase()}`,
+          description: `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
           createdBy: memberId,
         });
         await txRepo.save(refundTx);
@@ -125,7 +122,6 @@ export class ReloadlyWebhookService {
           status: 'FAILED',
           errorMessage: `Reloadly transaction ${status.toLowerCase()}`,
         });
-        this.logger.log(`Reloadly redemption ${currentRedemption.id} refunded and marked FAILED`);
       });
     }
   }

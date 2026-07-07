@@ -484,6 +484,9 @@ export class RewardsSettingsDto {
     minDenomination?: number | null;
     maxDenomination?: number | null;
     fixedDenominations?: number[];
+    listReloadlyCost?: number | null;
+    listReloadlyCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
   }>;
 }
 export class UpdateTenantSettingsDto {

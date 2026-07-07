@@ -62,6 +62,10 @@ export function formatNombaSenderName(tenantName?: string | null): string {
   return name ? `${name} via ${PLATFORM_NAME}` : PLATFORM_NAME;
 }
 
+export function isNombaLive(): boolean {
+  return process.env.NOMBA_LIVE === 'true';
+}
+
 export function isNombaConfigured(): boolean {
   return !!(getNombaClientId() && getNombaClientSecret() && getNombaParentAccountId());
 }

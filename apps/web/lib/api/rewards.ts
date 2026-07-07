@@ -26,6 +26,10 @@ export interface CatalogItem {
   deliveryInstructions?: string | null;
   stockLimit?: number | null;
   description?: string | null;
+  adminPricing?: {
+    reloadlyCost: number;
+    reloadlyCostCurrency: string;
+  };
 }
 
 export interface RewardRedemption {
@@ -60,17 +64,14 @@ export interface TenantWallet {
   tenantId: string;
   currencyCode: string;
   balanceAmount: number;
-  virtualAccountNumber: string | null;
-  virtualAccountBank: string | null;
-  virtualAccountStatus?: 'PROVISIONING' | 'ACTIVE' | 'FAILED' | null;
-  virtualAccountError?: string | null;
-  nombaAccountRef?: string | null;
   pointsExchangeRate: number;
   feePercentage?: number;
   flatFee?: number;
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
+  /** True when API runs with NOMBA_LIVE=true (real payments, not sandbox UI). */
+  nombaLive?: boolean;
 }
 
 export interface TenantWalletTransaction {
@@ -103,6 +104,7 @@ export interface ClaimInput {
   recipientPhone?: string;
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
+  topupKind?: 'airtime' | 'data';
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -146,13 +148,6 @@ export async function fetchTenantWallet(): Promise<TenantWallet> {
 export async function fetchWalletTransactions(): Promise<TenantWalletTransaction[]> {
   const tenantId = await resolveTenantId();
   return apiClient<TenantWalletTransaction[]>(tenantPath(tenantId, 'rewards/wallet/transactions'));
-}
-
-export async function provisionVirtualAccount(): Promise<TenantWallet> {
-  const tenantId = await resolveTenantId();
-  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/provision-virtual-account'), {
-    method: 'POST',
-  });
 }
 
 export async function fetchCustomRewards(): Promise<
@@ -215,6 +210,18 @@ export interface ReloadlyBiller {
   maxLocalTransactionAmount: number | null;
 }
 
+export interface NombaDataPlan {
+  amount: number;
+  plan: string;
+}
+
+export async function fetchNombaDataPlans(
+  network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE',
+): Promise<NombaDataPlan[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<NombaDataPlan[]>(tenantPath(tenantId, `rewards/data-plans/${network}`));
+}
+
 export async function fetchTopupOperators(countryCode: string): Promise<ReloadlyOperator[]> {
   const tenantId = await resolveTenantId();
   return apiClient<ReloadlyOperator[]>(tenantPath(tenantId, `rewards/operators/${countryCode}`));
@@ -272,6 +279,19 @@ export async function manualTopupWallet(tenantId: string, amount: number): Promi
     method: 'POST',
     body: JSON.stringify({ amount }),
   });
+}
+
+export async function createWalletTopupCheckout(
+  tenantId: string,
+  amount: number,
+): Promise<{ checkoutUrl: string; orderReference: string }> {
+  return apiClient<{ checkoutUrl: string; orderReference: string }>(
+    tenantPath(tenantId, 'rewards/wallet/topup/checkout'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    },
+  );
 }
 
 export async function updateAutoTopupConfig(params: {

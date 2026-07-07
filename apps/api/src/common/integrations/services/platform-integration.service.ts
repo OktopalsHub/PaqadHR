@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { IPlatformClient } from 'src/common/interfaces';
@@ -63,9 +63,24 @@ export class PlatformIntegrationService {
     });
   }
 
+  async requireTenantIntegration(
+    tenantId: string,
+    integrationId: string,
+  ): Promise<PlatformIntegration> {
+    const integration = await this.integrationRepo.findOne({
+      where: { id: integrationId, tenantId },
+    });
+    if (!integration) {
+      throw new NotFoundException('Integration not found');
+    }
+    return integration;
+  }
+
   async getShoutoutSlackStatus(tenantId: string): Promise<{
     configured: boolean;
     channelName?: string;
+    channelNames?: string[];
+    configuredChannels?: Array<{ platformChannelId: string; platformChannelName: string }>;
     integrationId?: string;
   }> {
     const integration = await this.integrationRepo.findOne({
@@ -81,18 +96,23 @@ export class PlatformIntegrationService {
         isActive: true,
         channelType: ChannelType.SHOUTOUTS,
       },
-      order: { isPrimary: 'DESC', createdAt: 'DESC' },
-      take: 1,
+      order: { isPrimary: 'DESC', createdAt: 'ASC' },
     });
-    const channel = channels[0];
 
-    if (!channel) {
+    if (channels.length === 0) {
       return { configured: false, integrationId: integration.id };
     }
 
+    const channelNames = channels.map((channel) => channel.platformChannelName);
+
     return {
       configured: true,
-      channelName: channel.platformChannelName,
+      channelName: channelNames[0],
+      channelNames,
+      configuredChannels: channels.map((channel) => ({
+        platformChannelId: channel.platformChannelId,
+        platformChannelName: channel.platformChannelName,
+      })),
       integrationId: integration.id,
     };
   }
@@ -186,7 +206,7 @@ export class PlatformIntegrationService {
       await this.platformUserRepo.update(existingUser.id, platformUserDataToSave);
       return this.platformUserRepo.findOne({ where: { id: existingUser.id } });
     }
-    return this.platformUserRepo.create(platformUserDataToSave);
+    return this.platformUserRepo.save(platformUserDataToSave);
   }
   private async formatShoutoutMessage(
     client: IPlatformClient,

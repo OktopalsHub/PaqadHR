@@ -26,14 +26,16 @@ export interface ISubscriptionBillingProvider {
     metadata: SubscriptionBillingMetadata,
   ): Promise<{ orderReference: string }>;
 
-  updateSubscription(
+  chargeSeatAddition(
     subscriptionReference: string,
     planPrice: PlanPrice,
-    quantity: number,
+    amount: number,
+    targetSeatCount: number,
+    extraSeats: number,
     tokenKey: string,
     customerEmail: string,
     metadata?: SubscriptionBillingMetadata,
-  ): Promise<unknown>;
+  ): Promise<{ orderReference: string }>;
 
   getSubscription(subscriptionReference: string): Promise<unknown>;
 

@@ -10,14 +10,15 @@ import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
-import { AuditModule } from './common/modules/audit.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { ManagerAccessModule } from './common/modules/manager-access.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
-import { AuditLogsService } from './common/services/audit-logs.service';
+import { ActivitiesModule } from './modules/v1/activities/activities.module';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
 import { AttendanceModule } from './modules/v1/attendance/attendance.module';
+import { AuditLogsModule } from './modules/v1/audit-logs/audit-logs.module';
+import { AuditLogsService } from './modules/v1/audit-logs/services/audit-logs.service';
 import { AuthModule } from './modules/v1/auth/auth.module';
 import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
 import { DepartmentsModule } from './modules/v1/departments/departments.module';
@@ -54,7 +55,8 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     ScheduleModule.forRoot(),
     EncryptionModule,
     RateLimitModule,
-    AuditModule,
+    AuditLogsModule,
+    ActivitiesModule,
     ManagerAccessModule,
     AuthModule,
     UsersModule,

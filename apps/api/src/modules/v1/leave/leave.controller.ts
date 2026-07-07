@@ -12,15 +12,15 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import type { PaginationDto } from 'src/common/dto/pagination.dto';
 import { LeaveStatus } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateLeaveDto } from './dto/create-leave.dto';
-import type { LeaveResponseDto } from './dto/leave-response.dto';
-import type { UpdateLeaveDto } from './dto/update-leave.dto';
+import { CreateLeaveDto } from './dto/create-leave.dto';
+import { LeaveResponseDto } from './dto/leave-response.dto';
+import { ListLeavesQueryDto } from './dto/list-leaves-query.dto';
+import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { LeaveService } from './leave.service';
 
 @ApiTags('Leaves')
@@ -74,12 +74,10 @@ export class LeaveController {
   @Get()
   async listLeavesByTenant(
     @Param('tenantId') tenantId: string,
-    @Query() pagination: PaginationDto,
+    @Query() query: ListLeavesQueryDto,
     @CurrentTenantMember() member: MemberContext,
-    @Query('status') status?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
   ) {
+    const { status, from, to, ...pagination } = query;
     const filters = { status, from, to };
     if (isTenantAdmin(member)) {
       return this.leaveService.listLeavesByTenant(tenantId, pagination, filters);
@@ -97,12 +95,10 @@ export class LeaveController {
   @Get('me')
   async getMyLeaves(
     @Param('tenantId') tenantId: string,
-    @Query() pagination: PaginationDto,
+    @Query() query: ListLeavesQueryDto,
     @CurrentTenantMember() member: MemberContext,
-    @Query('status') status?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
   ) {
+    const { status, from, to, ...pagination } = query;
     return this.leaveService.getLeavesByMember(tenantId, member.id, pagination, {
       status,
       from,

@@ -21,14 +21,26 @@ import { useTenant } from '@/providers/tenant-provider';
 
 function WorkspaceMark({ name, logoUrl }: { name?: string; logoUrl?: string | null }) {
   if (logoUrl) {
-    return <OrgAvatar src={logoUrl} name={name || 'Workspace'} />;
+    return (
+      <OrgAvatar
+        src={logoUrl}
+        name={name || 'Workspace'}
+        className="size-9 rounded-[10px] border border-[#d7e3f6] bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950"
+      />
+    );
   }
 
   if (!name?.trim()) {
-    return <PaqadLogo showWordmark={false} className="size-8" />;
+    return <PaqadLogo showWordmark={false} className="size-9" />;
   }
 
-  return <OrgAvatar name={name} />;
+  return (
+    <OrgAvatar
+      name={name}
+      className="size-9 rounded-[10px] border border-transparent shadow-sm"
+      fallbackClassName="bg-primary text-sm font-bold text-primary-foreground"
+    />
+  );
 }
 
 export const WorkspaceSwitcher = () => {
@@ -47,7 +59,7 @@ export const WorkspaceSwitcher = () => {
   if (!tenants.length) {
     return (
       <>
-        <div className="flex items-center gap-2.5 px-1">
+        <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
           <WorkspaceMark />
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold tracking-tight">Paqad</p>
@@ -71,7 +83,7 @@ export const WorkspaceSwitcher = () => {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            className="h-auto w-full justify-start gap-2.5 px-1 py-1.5 font-normal hover:bg-sidebar-accent"
+            className="h-auto w-full justify-start gap-2.5 rounded-[10px] px-1.5 py-1.5 font-normal hover:bg-sidebar-accent group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
             <WorkspaceMark
               name={tenant?.name}

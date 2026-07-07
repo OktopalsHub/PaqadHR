@@ -36,13 +36,13 @@ function mapLeaveRecords(data: PaginatedLeaves): LeaveRequest[] {
 
 export async function fetchLeaves(): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
-  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves')}?limit=200`);
+  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves')}?limit=100`);
   return mapLeaveRecords(data);
 }
 
 export async function fetchMyLeaves(): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
-  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves/me')}?limit=200`);
+  const data = await apiClient<PaginatedLeaves>(`${tenantPath(tenantId, 'leaves/me')}?limit=100`);
   return mapLeaveRecords(data);
 }
 
@@ -54,7 +54,7 @@ export async function fetchLeavesForCalendar(options: {
 }): Promise<LeaveRequest[]> {
   const tenantId = await resolveTenantId();
   const params = new URLSearchParams();
-  params.set('limit', String(options.limit ?? 500));
+  params.set('limit', String(options.limit ?? 200));
   if (options.status) params.set('status', options.status);
   if (options.from) params.set('from', options.from);
   if (options.to) params.set('to', options.to);

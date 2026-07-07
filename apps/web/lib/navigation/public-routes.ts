@@ -4,6 +4,7 @@ export function skipsSessionBootstrap(pathname: string): boolean {
     pathname === '/' ||
     pathname === '/terms' ||
     pathname === '/privacy' ||
+    pathname === '/google/complete' ||
     /^\/[^/]+\/careers\/?$/.test(pathname)
   );
 }

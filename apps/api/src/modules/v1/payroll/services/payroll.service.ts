@@ -102,9 +102,6 @@ export class PayrollService {
         });
         if (existingByKey) {
           await queryRunner.rollbackTransaction();
-          this.logger.log(
-            `Returning existing payroll run for idempotency key: ${finalIdempotencyKey}`,
-          );
           return existingByKey;
         }
       }
@@ -150,16 +147,13 @@ export class PayrollService {
       }
       await queryRunner.commitTransaction();
       await this.auditService.logPayrollCreated(
-        { payrollRunId: savedPayrollRun.id, performedById: createdById },
+        { tenantId, payrollRunId: savedPayrollRun.id, performedById: createdById },
         {
           title: dto.title,
           frequency: dto.frequency,
           employeeCount: dto.employeeIds.length,
           baseCurrency: dto.baseCurrency,
         },
-      );
-      this.logger.log(
-        `Created payroll run ${savedPayrollRun.id} with ${dto.employeeIds.length} employees`,
       );
       return savedPayrollRun;
     } catch (error) {
@@ -296,13 +290,7 @@ export class PayrollService {
           totalDeductions += calculation.deductions;
           totalNetAmount += calculation.netAmount;
         }
-        this.logger.log(
-          `Simple payment calculated for member ${item.memberId}: ${calculation.netAmount} ${calculation.currency}`,
-        );
       }
-      this.logger.log(
-        `Simple payroll calculation completed for ${payrollRun.items.length} employees`,
-      );
       payrollRun.totalGrossAmount = totalGrossAmount;
       payrollRun.totalDeductions = totalDeductions;
       payrollRun.totalNetAmount = totalNetAmount;
@@ -318,7 +306,6 @@ export class PayrollService {
       await queryRunner.manager.save(payrollRun);
       await queryRunner.commitTransaction();
       await this.releaseProcessingLock(payrollRunId);
-      this.logger.log(`Simple payroll calculation completed for run ${payrollRunId}`);
       return { warnings, readiness: readinessResults };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -377,7 +364,6 @@ export class PayrollService {
       totalNetAmount: payrollRun.totalNetAmount,
       employeeCount: payrollRun.employeeCount,
     });
-    this.logger.log(`Payroll run ${payrollRunId} approved`);
     return payrollRun;
   }
 
@@ -575,7 +561,6 @@ export class PayrollService {
         `Payroll run must be approved before payout. Current status: ${payrollRun.status}`,
       );
     }
-    this.logger.log('Payroll calculation completed - ready for payment processing');
     const startTime = Date.now();
     for (const item of payrollRun.items) {
       try {
@@ -610,7 +595,6 @@ export class PayrollService {
       },
       { processingDuration },
     );
-    this.logger.log(`Processed payroll run ${dto.payrollRunId} in ${processingDuration}ms`);
   }
   private async processEmployeePayment(
     payrollItem: PayrollItem,

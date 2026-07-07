@@ -9,7 +9,11 @@ export function getNombaRawBody(req: RawBodyRequest): string {
 }
 
 export function resolveNombaSignature(headers: Record<string, string | undefined>): string {
-  return headers['nomba-signature'] || '';
+  return headers['nomba-signature'] ?? '';
+}
+
+export function resolveNombaTimestamp(headers: Record<string, string | undefined>): string {
+  return headers['nomba-timestamp'] || '';
 }
 
 export function extractNombaEventType(payload: unknown): string {
@@ -38,13 +42,5 @@ export function isSubscriptionPaymentEvent(eventType: string): boolean {
     eventType === 'payment_success' ||
     eventType === 'payment_failed' ||
     eventType === 'payment.failure'
-  );
-}
-
-export function isWalletFundingEvent(eventType: string): boolean {
-  return (
-    eventType.includes('deposit') ||
-    eventType.includes('virtualaccount') ||
-    eventType.includes('transfer.success')
   );
 }

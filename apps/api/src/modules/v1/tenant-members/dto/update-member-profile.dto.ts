@@ -16,6 +16,12 @@ export class UpdateMemberProfileDto {
   @MaxLength(100)
   lastName?: string;
 
+  @ApiProperty({ required: false, example: 'Marie' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  middleName?: string;
+
   @ApiProperty({ required: false, example: 'Janey' })
   @IsOptional()
   @IsString()

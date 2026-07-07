@@ -8,6 +8,7 @@ import {
   Heart,
   LayoutDashboard,
   type LucideIcon,
+  ScrollText,
   Settings,
   Users,
 } from 'lucide-react';
@@ -30,6 +31,7 @@ export const navItemDefs: Omit<NavItem, 'href'>[] = [
   { name: 'Payroll', segment: 'payroll', icon: FileText },
   { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
   { name: 'Analytics', segment: 'analytics', icon: BarChart2 },
+  { name: 'Logs', segment: 'activity', icon: ScrollText },
   { name: 'Settings', segment: 'settings', icon: Settings },
 ];
 

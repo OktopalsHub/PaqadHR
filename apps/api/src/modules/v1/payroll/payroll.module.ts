@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from '../../../common/providers/payments.module';
+import { ActivitiesModule } from '../activities/activities.module';
 import { EmploymentModule } from '../employment/employment.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentMethodModule } from '../payment-method/payment-method.module';
@@ -11,10 +12,8 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { PayrollController } from './controllers/payroll.controller';
 import { PayrollFeeController } from './controllers/payroll-fee.controller';
 import { PayrollWebhooksController } from './controllers/payroll-webhooks.controller';
-import { PayrollAuditLog } from './entities/payroll-audit.entity';
 import { PayrollItem } from './entities/payroll-item.entity';
 import { PayrollRun } from './entities/payroll-run.entity';
-import { PayrollAuditLogRepository } from './repositories/payroll-audit-log.repository';
 import { PayrollItemRepository } from './repositories/payroll-item.repository';
 import { PayrollRunRepository } from './repositories/payroll-run.repository';
 import { AuditService } from './services/audit.service';
@@ -29,7 +28,8 @@ import { PayrollPayoutCronService } from './services/payroll-payout-cron.service
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayrollRun, PayrollItem, PayrollAuditLog]),
+    TypeOrmModule.forFeature([PayrollRun, PayrollItem]),
+    ActivitiesModule,
     PaymentsModule,
     SubscriptionsModule,
     NotificationsModule,
@@ -43,7 +43,6 @@ import { PayrollPayoutCronService } from './services/payroll-payout-cron.service
   providers: [
     PayrollRunRepository,
     PayrollItemRepository,
-    PayrollAuditLogRepository,
     PayrollService,
     PayrollCalculationService,
     PayrollFeeService,

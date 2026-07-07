@@ -16,6 +16,7 @@ describe('PaymentMethodService encryption and masking', () => {
       {} as never,
       { getPayrollCurrencies: jest.fn() } as never,
       { getTenant: jest.fn() } as never,
+      {} as never,
     );
     return service;
   };

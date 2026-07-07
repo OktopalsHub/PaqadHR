@@ -10,6 +10,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { isNombaLive } from 'src/common/config/nomba.config';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
@@ -19,6 +20,7 @@ import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.gu
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
+import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
 
 const ALL_ROLES = [
   TenantMemberRole.OWNER,
@@ -27,6 +29,25 @@ const ALL_ROLES = [
 ] as const;
 const ADMIN_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN] as const;
 
+function withWalletResponse(
+  wallet: Awaited<ReturnType<TenantWalletService['getWallet']>>,
+  fees: { feePercentage: number; flatFee: number },
+) {
+  return {
+    id: wallet.id,
+    tenantId: wallet.tenantId,
+    currencyCode: wallet.currencyCode,
+    balanceAmount: wallet.balanceAmount,
+    pointsExchangeRate: wallet.pointsExchangeRate,
+    autoTopupEnabled: wallet.autoTopupEnabled,
+    autoTopupThreshold: wallet.autoTopupThreshold,
+    autoTopupAmount: wallet.autoTopupAmount,
+    feePercentage: fees.feePercentage,
+    flatFee: fees.flatFee,
+    nombaLive: isNombaLive(),
+  };
+}
+
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')
 @UseGuards(TenantMemberGuard)
@@ -34,6 +55,7 @@ export class RewardsController {
   constructor(
     private readonly rewardsService: RewardsService,
     private readonly walletService: TenantWalletService,
+    private readonly walletTopupService: TenantWalletTopupService,
     private readonly customRewardsService: CustomRewardsService,
     private readonly memberPointsService: MemberPointsService,
   ) {}
@@ -41,8 +63,13 @@ export class RewardsController {
   @Get('catalog')
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
-  async getCatalog(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.getCatalog(tenantId);
+  async getCatalog(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    const role = member.role?.toLowerCase();
+    const includeAdminPricing = role === 'owner' || role === 'admin';
+    return this.rewardsService.getCatalog(tenantId, { includeAdminPricing });
   }
 
   @Post('catalog/sync')
@@ -95,11 +122,7 @@ export class RewardsController {
   async getWallet(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.getWallet(tenantId);
     const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return {
-      ...wallet,
-      feePercentage: fees.feePercentage,
-      flatFee: fees.flatFee,
-    };
+    return withWalletResponse(wallet, fees);
   }
 
   @Get('wallet/transactions')
@@ -109,25 +132,27 @@ export class RewardsController {
     return this.walletService.listTransactions(tenantId);
   }
 
-  @Post('wallet/provision-virtual-account')
-  @UseGuards(TenantRoleGuard)
-  @Roles(...ADMIN_ROLES)
-  @ApiOperation({ summary: 'Provision or retry Nomba virtual account for rewards wallet' })
-  async provisionVirtualAccount(@Param('tenantId') tenantId: string) {
-    const wallet = await this.walletService.provisionVirtualAccount(tenantId);
-    const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return {
-      ...wallet,
-      feePercentage: fees.feePercentage,
-      flatFee: fees.flatFee,
-    };
-  }
-
   @Post('wallet/topup')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
-  async manualTopup(@Param('tenantId') tenantId: string, @Body() body: { amount: number }) {
-    return this.walletService.manualTopup(tenantId, body.amount);
+  async manualTopup(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { amount: number },
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.walletTopupService.manualTopup(tenantId, body.amount, member.id);
+  }
+
+  @Post('wallet/topup/checkout')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Create Nomba checkout link to fund rewards wallet' })
+  async topupCheckout(
+    @Param('tenantId') tenantId: string,
+    @Body() body: { amount: number },
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.walletTopupService.createTopupCheckout(tenantId, Number(body.amount), member.id);
   }
 
   @Post('wallet/auto-topup')
@@ -312,6 +337,13 @@ export class RewardsController {
   @Roles(...ALL_ROLES)
   async listTopupOperators(@Param('countryCode') countryCode: string) {
     return this.rewardsService.listTopupOperators(countryCode);
+  }
+
+  @Get('data-plans/:network')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async listNombaDataPlans(@Param('network') network: string) {
+    return this.rewardsService.listNombaDataPlans(network);
   }
 
   @Get('utilities/billers/:countryCode')

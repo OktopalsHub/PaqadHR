@@ -70,6 +70,8 @@ export class TenantSubscription extends BaseEntity {
     storageUsed?: number;
     integrationsUsed?: number;
     pendingSeatCount?: number;
+    pendingExtraSeats?: number;
+    pendingChargeAmount?: number;
   } | null;
   @Column({ name: 'billing_history', type: 'jsonb', nullable: true })
   billingHistory: Array<{

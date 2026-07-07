@@ -112,6 +112,12 @@ export class CreatePaymentMethodDto {
   @MaxLength(6, { message: 'Passcode must be exactly 6 characters' })
   passcode: string;
   @ApiProperty({
+    description: 'Email OTP proof from POST /auth/otp/verify',
+  })
+  @IsNotEmpty({ message: 'Email verification is required' })
+  @IsString()
+  otpProof: string;
+  @ApiProperty({
     description: 'Additional metadata',
     required: false,
   })
@@ -188,6 +194,12 @@ export class UpdatePaymentMethodDto {
   @IsNotEmpty({ message: 'Current passcode is required' })
   @IsString()
   currentPasscode: string;
+  @ApiProperty({
+    description: 'Email OTP proof from POST /auth/otp/verify',
+  })
+  @IsNotEmpty({ message: 'Email verification is required' })
+  @IsString()
+  otpProof: string;
   @ApiProperty({
     description: 'New passcode (optional, exactly 6 digits)',
     required: false,

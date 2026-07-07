@@ -11,18 +11,19 @@ type ForceLightThemeProps = {
 
 /** Marketing, auth, and onboarding — always light; restores prior theme on unmount (e.g. dashboard system/dark). */
 export function ForceLightTheme({ children, className }: ForceLightThemeProps) {
-  const { theme, setTheme } = useTheme();
-  const previousTheme = useRef<string | undefined>(undefined);
+  const { setTheme } = useTheme();
+  const previousTheme = useRef<string | null>(null);
 
   useEffect(() => {
-    previousTheme.current = theme ?? 'system';
+    previousTheme.current =
+      typeof window !== 'undefined' ? (localStorage.getItem('theme') ?? 'system') : 'system';
     setTheme('light');
+
     return () => {
       setTheme(previousTheme.current ?? 'system');
     };
-    // Only force on mount; restore on unmount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setTheme, theme]);
+    // Mount/unmount only — re-running when theme changes would overwrite the saved preference with "light".
+  }, [setTheme]);
 
   return (
     <div className={cn('theme-marketing min-h-screen bg-background text-foreground', className)}>

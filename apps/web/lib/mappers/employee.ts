@@ -5,6 +5,7 @@ export type ApiTenantMember = {
   id: string;
   firstName: string;
   lastName: string;
+  middleName?: string;
   preferredName?: string;
   phone?: string;
   dateOfBirth?: string;
@@ -17,7 +18,7 @@ export type ApiTenantMember = {
   reportsToId?: string;
   user: { email: string };
   position?: { id: string; title: string; color?: string };
-  department?: { name: string; role?: string; color?: string };
+  department?: { id: string; name: string; role?: string; color?: string };
 };
 
 export function formatApiTenantMember(member: ApiTenantMember): ApiTenantMember {
@@ -25,6 +26,7 @@ export function formatApiTenantMember(member: ApiTenantMember): ApiTenantMember 
     ...member,
     firstName: formatDisplayName(member.firstName, member.firstName),
     lastName: formatDisplayName(member.lastName, member.lastName),
+    middleName: member.middleName ? formatDisplayName(member.middleName) : member.middleName,
     preferredName: member.preferredName
       ? formatDisplayName(member.preferredName)
       : member.preferredName,

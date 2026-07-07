@@ -59,7 +59,7 @@ export function SettingsNotificationsTab() {
           <SettingsSwitchRow
             id="slack-notifications"
             label="Slack notifications"
-            hint="Post notifications to Slack when your workspace is connected. Manage the connection from Workspace settings."
+            hint="Requires Slack under Settings → Integrations."
             checked={slackNotifications}
             onCheckedChange={setSlackNotifications}
           />

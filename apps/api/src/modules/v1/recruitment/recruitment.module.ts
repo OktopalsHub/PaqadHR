@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from 'src/common/modules/file.module';
+import { TurnstileService } from 'src/common/services/turnstile.service';
 import { DepartmentExistsConstraint } from 'src/common/validators/department-exists.validator';
 import { Department } from '../departments/entities/department.entity';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -45,6 +46,7 @@ import { JobOpeningService } from './services/job-opening.service';
     InterviewRepository,
     InterviewService,
     DepartmentExistsConstraint,
+    TurnstileService,
   ],
   exports: [JobOpeningService, CandidateService, InterviewService],
 })

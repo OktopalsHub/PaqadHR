@@ -19,7 +19,7 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
   const isHexOrRgb = color.startsWith('#') || color.startsWith('rgb') || color.startsWith('hsl');
 
   return (
-    <Card className="app-card rounded-2xl">
+    <Card className="app-card">
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">

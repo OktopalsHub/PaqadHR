@@ -20,7 +20,6 @@ import {
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { SlackIntegrationSection } from '@/features/settings/components/slack-integration-section';
 import {
   useCreateShoutoutCategoryAdmin,
   useDeleteShoutoutCategoryAdmin,
@@ -317,13 +316,6 @@ export function SettingsShoutoutsTab() {
             </Button>
           </div>
         </div>
-      </ContentCard>
-
-      <ContentCard
-        title="Slack integration"
-        description={`Connect Slack to publish shoutout notifications and congratulations in your Slack workspace`}
-      >
-        <SlackIntegrationSection />
       </ContentCard>
 
       <ContentCard

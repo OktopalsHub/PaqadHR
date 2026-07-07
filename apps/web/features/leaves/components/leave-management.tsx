@@ -47,7 +47,7 @@ const LeaveManagement = () => {
   }
 
   return (
-    <AppPage>
+    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
       <PageActions>
         <LeaveRequestDialog open={isRequestLeaveOpen} onOpenChange={setIsRequestLeaveOpen} />
       </PageActions>
@@ -87,6 +87,7 @@ const LeaveManagement = () => {
             <ContentCard
               title="Leave requests"
               description="Review and action pending time-off"
+              className="dashboard-panel rounded-[8px]"
               bodyClassName="p-0"
             >
               {leaveRequests.length === 0 ? (
@@ -95,19 +96,20 @@ const LeaveManagement = () => {
                     icon={CalendarClock}
                     title="No leave requests"
                     description="Submit a request to get started."
+                    className="min-h-[320px] bg-white dark:bg-slate-950/60"
                   />
                 </div>
               ) : (
-                <LeaveRequestsTable requests={currentItems} />
+                <>
+                  <LeaveRequestsTable requests={currentItems} />
+                  <LeavePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </>
               )}
             </ContentCard>
-            {leaveRequests.length > 0 ? (
-              <LeavePagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
-            ) : null}
           </div>
 
           {balances.length > 0 ? (

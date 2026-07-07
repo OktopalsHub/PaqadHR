@@ -16,7 +16,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddressService } from './address.service';
-import type { CreateAddressDto } from './dto/create-address.dto';
+import { CreateAddressDto } from './dto/create-address.dto';
 
 @ApiTags('Addresses')
 @UseGuards(TenantMemberGuard)

@@ -15,7 +15,7 @@ export function PaqadLogo({ className, showWordmark = true }: PaqadLogoProps) {
   const src = brandAssetUrl(variant, mode);
 
   return (
-    // biome-ignore lint/performance/noImgElement: hosted brand asset on paqadhr.com
+    // biome-ignore lint/performance/noImgElement: brand CDN on paqadhr.com
     <img
       src={src}
       alt="Paqadhr"

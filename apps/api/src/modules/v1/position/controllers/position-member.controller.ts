@@ -15,7 +15,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import type { AssignPositionDto } from '../dto/assign-position.dto';
+import { AssignPositionDto } from '../dto/assign-position.dto';
 import { PositionMemberService } from '../services/position-member.service';
 
 @Controller('tenants/:tenantId/positions')

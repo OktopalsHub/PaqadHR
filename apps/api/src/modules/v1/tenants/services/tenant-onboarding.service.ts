@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
@@ -32,8 +32,6 @@ export type SlugAvailabilityResult = {
 
 @Injectable()
 export class TenantOnboardingService {
-  private readonly logger = new Logger(TenantOnboardingService.name);
-
   constructor(
     @InjectRepository(Tenant)
     private tenantRepository: Repository<Tenant>,
@@ -50,8 +48,6 @@ export class TenantOnboardingService {
     data: OnboardingData,
     userIpAddress: string,
   ): Promise<OnboardingResult> {
-    this.logger.log(`Starting onboarding for tenant: ${data.name}`);
-
     const tenant = await this.createTenant(data);
     const user = await this.usersService.getUser(data.createdBy!);
     const { firstName, lastName } = this.resolveMemberNames(data, user);
@@ -76,10 +72,6 @@ export class TenantOnboardingService {
     const subscription = await this.subscriptionsService.createTrialSubscription(
       pricingResult.tenant.id,
       { planSlug: data.planSlug ?? 'starter' },
-    );
-
-    this.logger.log(
-      `Onboarding completed for ${data.name} — locked to ${pricingResult.lockedRegion} (${pricingResult.detectionMethod})`,
     );
 
     const defaults = GeoLocationHelper.getCountryDefaults(pricingResult.lockedRegion);

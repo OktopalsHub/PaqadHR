@@ -19,8 +19,8 @@ import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import type { CreateEducationDto } from './dto/create-education.dto';
-import type { UpdateEducationDto } from './dto/update-education.dto';
+import { CreateEducationDto } from './dto/create-education.dto';
+import { UpdateEducationDto } from './dto/update-education.dto';
 import { EducationService } from './education.service';
 import type { Education } from './entities/education.entity';
 

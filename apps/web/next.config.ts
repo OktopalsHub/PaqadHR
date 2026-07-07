@@ -1,11 +1,31 @@
+import path from 'node:path';
+
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    root: path.resolve(__dirname, '../..'),
+  },
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.reloadly.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'paqadhr.com',
+        pathname: '/logo-*.png',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.r2.dev',
+        pathname: '/**',
       },
     ],
   },

@@ -7,10 +7,12 @@ import {
   type CustomRewardInput,
   claimReward,
   createCustomReward,
+  createWalletTopupCheckout,
   deleteCustomReward,
   fetchAllClaims,
   fetchCustomRewards,
   fetchMyClaims,
+  fetchNombaDataPlans,
   fetchReloadlyCountries,
   fetchRewardsCatalog,
   fetchTenantWallet,
@@ -18,12 +20,21 @@ import {
   fetchUtilityBillers,
   fetchWalletTransactions,
   manualTopupWallet,
-  provisionVirtualAccount,
   type RewardRedemption,
   updateAutoTopupConfig,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+
+export function useNombaDataPlans(network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: ['rewards-nomba-data-plans', tenantId, network],
+    queryFn: () => fetchNombaDataPlans(network),
+    enabled: !tenantLoading && Boolean(tenantId) && enabled,
+  });
+}
 
 export function useTopupOperators(countryCode: string) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -92,10 +103,6 @@ export function useTenantWallet() {
     queryKey: [...queryKeys.rewards.wallet, tenantId],
     queryFn: fetchTenantWallet,
     enabled: !tenantLoading && Boolean(tenantId),
-    refetchInterval: (query) => {
-      const w = query.state.data as { virtualAccountStatus?: string } | undefined;
-      return w?.virtualAccountStatus === 'PROVISIONING' ? 3000 : false;
-    },
   });
 }
 
@@ -106,17 +113,6 @@ export function useWalletTransactions() {
     queryKey: [...queryKeys.rewards.walletTransactions, tenantId],
     queryFn: fetchWalletTransactions,
     enabled: !tenantLoading && Boolean(tenantId),
-  });
-}
-
-export function useProvisionVirtualAccount() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => provisionVirtualAccount(),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
-    },
   });
 }
 
@@ -190,6 +186,21 @@ export function useManualTopupWallet() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+    },
+  });
+}
+
+export function useWalletTopupCheckout() {
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: (amount: number) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return createWalletTopupCheckout(tenantId, amount);
+    },
+    onSuccess: (result) => {
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
     },
   });
 }

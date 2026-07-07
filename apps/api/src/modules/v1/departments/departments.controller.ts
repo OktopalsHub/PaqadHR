@@ -13,13 +13,13 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
-import type { CreateTeamDto } from '../teams/dto/create-team.dto';
+import { CreateTeamDto } from '../teams/dto/create-team.dto';
 import { TeamsService } from '../teams/teams.service';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DepartmentsService } from './departments.service';
-import type { CreateDepartmentDto } from './dto/create-department.dto';
+import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department-response.dto';
-import type { UpdateDepartmentDto } from './dto/update-department.dto';
+import { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @ApiTags('Departments')
 @UseGuards(TenantMemberGuard)
@@ -51,7 +51,7 @@ export class DepartmentsController {
       tenantId,
       { name, managerId },
       page ? Number(page) : 1,
-      limit ? Number(limit) : 10,
+      limit ? Number(limit) : 100,
     );
   }
   @Get(':id')
