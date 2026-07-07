@@ -77,6 +77,7 @@ export function SettingsShoutoutsTab() {
   );
   const [categoryName, setCategoryName] = useState('');
   const [bulkPoints, setBulkPoints] = useState('10');
+  const [bulkReason, setBulkReason] = useState('');
 
   useEffect(() => {
     const points = settings?.settings?.points;
@@ -163,8 +164,12 @@ export function SettingsShoutoutsTab() {
 
   const bulkAssign = async () => {
     try {
-      await assignAll.mutateAsync({ points: Number(bulkPoints) || 0, reason: 'Admin bulk assign' });
+      await assignAll.mutateAsync({
+        points: Number(bulkPoints) || 0,
+        reason: bulkReason.trim() || undefined,
+      });
       toast.success(`${PAQ_POINTS_NAME} assigned to all members`);
+      setBulkReason('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Bulk assign failed');
     }
@@ -320,7 +325,7 @@ export function SettingsShoutoutsTab() {
 
       <ContentCard
         title={`Member ${PAQ_POINTS_NAME.toLowerCase()}`}
-        description={`Assign bonus ${PAQ_POINTS_NAME.toLowerCase()} to everyone`}
+        description={`Assign bonus ${PAQ_POINTS_NAME.toLowerCase()} to everyone in the workspace`}
       >
         <div className="flex flex-wrap items-end gap-2">
           <SettingsFieldHint label={`${PAQ_POINTS_NAME} to assign`}>
@@ -330,12 +335,25 @@ export function SettingsShoutoutsTab() {
               className="w-32"
             />
           </SettingsFieldHint>
+          <SettingsFieldHint
+            label="Reason"
+            hint="Shown to members and in the activity log."
+            className="min-w-[220px] flex-1"
+          >
+            <Input
+              placeholder="e.g. New year celebration"
+              value={bulkReason}
+              onChange={(e) => setBulkReason(e.target.value)}
+            />
+          </SettingsFieldHint>
           <Button disabled={assignAll.isPending} onClick={bulkAssign}>
             Assign to all
           </Button>
         </div>
         {members.length > 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">{members.length} members tracked</p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Applies to all {members.length} members in the workspace
+          </p>
         ) : null}
       </ContentCard>
     </div>

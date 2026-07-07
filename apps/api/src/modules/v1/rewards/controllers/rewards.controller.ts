@@ -17,6 +17,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
@@ -175,12 +176,7 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   async assignPoints(
     @Param('tenantId') tenantId: string,
-    @Body() body: {
-      memberIds?: string[];
-      points?: number;
-      reason?: string;
-      assignments?: { memberId: string; points: number }[];
-    },
+    @Body() body: AssignMemberPointsDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.memberPointsService.assignPoints(
