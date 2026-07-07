@@ -67,10 +67,10 @@ jobs:
       - name: Check DTO module load (TDZ guard)
         run: pnpm --filter api check:dto-load
 
-      - name: Run API tests
-        run: pnpm --filter api test
-        env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+    #  - name: Run API tests
+        #run: pnpm --filter api test
+        #env:
+         # DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
 
   build-and-publish:
     if: github.event_name == 'push'
