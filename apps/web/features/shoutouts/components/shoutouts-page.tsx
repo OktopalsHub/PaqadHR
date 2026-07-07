@@ -206,8 +206,8 @@ function ShoutoutsPageContent() {
         </div>
 
         <TabsContent value="feed" className="mt-0 space-y-5">
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-12 xl:items-start">
-            <div className="space-y-5 xl:col-span-8">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
+            <div className="space-y-5 lg:col-span-8">
               <ShoutoutComposer
                 ref={composerRef}
                 variant="feed"
@@ -243,7 +243,7 @@ function ShoutoutsPageContent() {
               </ContentCard>
             </div>
 
-            <div className="space-y-5 xl:col-span-4">
+            <div className="space-y-5 lg:col-span-4">
               {pointsBalance ? (
                 <ContentCard
                   title="Allowance overview"

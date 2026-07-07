@@ -13,7 +13,6 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import type { ShoutoutCategory } from '@/lib/schemas/shoutout';
 import { parseShoutout } from '@/lib/shoutouts/parse-shoutout';
@@ -268,7 +267,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
               variant="outline"
               className="border-primary/20 bg-primary/5 px-2.5 py-0.5 font-medium text-primary"
             >
-              {projectedRemaining.toLocaleString()} {PAQ_POINTS_NAME} left
+              {projectedRemaining.toLocaleString()} to give
               {parsed.totalPoints > 0 ? (
                 <span className="text-primary/70"> · sending {parsed.totalPoints}</span>
               ) : null}
