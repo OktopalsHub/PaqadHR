@@ -9,8 +9,8 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DashboardActivityFeed } from '@/features/dashboard/components/dashboard-activity-feed';
 import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
-import { RecruitmentActivityFeed } from '@/features/recruitment/components/dashboard/recruitment-activity-feed';
 import { RecruitmentApplicantsTable } from '@/features/recruitment/components/dashboard/recruitment-applicants-table';
 import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
@@ -278,7 +278,7 @@ export const Dashboard = () => {
           <RecruitmentApplicantsTable rows={overview.applicantRows} />
         </div>
         <div className="min-w-0 h-full">
-          <RecruitmentActivityFeed items={[...overview.activity]} />
+          <DashboardActivityFeed />
         </div>
       </div>
 

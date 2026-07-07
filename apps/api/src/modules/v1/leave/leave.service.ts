@@ -38,7 +38,7 @@ export class LeaveService {
       daysToCheck,
       new Date(startDate),
     );
-    return this.leaveRepository.save({
+    const saved = await this.leaveRepository.save({
       ...dto,
       tenantId,
       requestedBy: memberId,
@@ -46,6 +46,23 @@ export class LeaveService {
       startDate,
       endDate,
     });
+
+    await this.activitiesService.queueActivity({
+      tenantId,
+      actorMemberId: memberId,
+      action: 'leave.requested',
+      resourceType: 'leave',
+      resourceId: saved.id,
+      description: `Leave request submitted (${saved.duration} days)`,
+      metadata: {
+        leaveTypeId: dto.leaveTypeId,
+        duration: saved.duration,
+        startDate: saved.startDate,
+        endDate: saved.endDate,
+      },
+    });
+
+    return saved;
   }
   async checkLeaveBalance(
     tenantId: string,

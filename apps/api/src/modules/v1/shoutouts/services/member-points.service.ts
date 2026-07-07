@@ -3,6 +3,7 @@ import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-tr
 import { type AllowancePeriod, DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource, EntityManager } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
@@ -16,7 +17,38 @@ export class MemberPointsService {
     private readonly tenantConfigService: TenantConfigService,
     private readonly tenantMembersService: TenantMembersService,
     private readonly dataSource: DataSource,
+    private readonly activitiesService: ActivitiesService,
   ) {}
+
+  private logPointsAssignment(payload: {
+    tenantId: string;
+    actorId: string;
+    membersUpdated: number;
+    pointsAssigned: number;
+    reason?: string;
+    scope: 'all' | 'selected';
+  }): void {
+    void this.activitiesService
+      .queueActivity({
+        tenantId: payload.tenantId,
+        actorMemberId: payload.actorId,
+        action: 'points.assigned',
+        resourceType: 'points',
+        description:
+          payload.scope === 'all'
+            ? `Everyone got ${payload.pointsAssigned} points`
+            : `Assigned ${payload.pointsAssigned} points to ${payload.membersUpdated} member(s)`,
+        metadata: {
+          membersUpdated: payload.membersUpdated,
+          pointsAssigned: payload.pointsAssigned,
+          reason: payload.reason ?? null,
+          scope: payload.scope,
+        },
+      })
+      .catch(() => {
+        // activity logging is best-effort; never block the assignment
+      });
+  }
 
   async ensureMemberRow(
     tenantId: string,
@@ -158,6 +190,15 @@ export class MemberPointsService {
       }
     });
 
+    this.logPointsAssignment({
+      tenantId,
+      actorId,
+      membersUpdated,
+      pointsAssigned: points,
+      reason,
+      scope: 'all',
+    });
+
     return {
       success: true,
       message: `Assigned ${points} Paq points to ${membersUpdated} members`,
@@ -207,6 +248,15 @@ export class MemberPointsService {
         membersUpdated++;
         totalPointsAssigned += pts;
       }
+    });
+
+    this.logPointsAssignment({
+      tenantId,
+      actorId,
+      membersUpdated,
+      pointsAssigned: totalPointsAssigned,
+      reason,
+      scope: 'selected',
     });
 
     return {
