@@ -28,7 +28,12 @@ function buildContentSecurityPolicy(): string {
     apiOrigin,
     'https://challenges.cloudflare.com',
     'https://cloudflareinsights.com',
+    'https://*.r2.cloudflarestorage.com',
+    'https://*.r2.dev',
   ];
+  if (r2PublicOrigin) {
+    connectSources.push(r2PublicOrigin);
+  }
 
   return [
     "default-src 'self'",

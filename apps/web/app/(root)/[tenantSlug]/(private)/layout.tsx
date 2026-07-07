@@ -19,7 +19,7 @@ export default function TenantLayout({
           <SidebarProvider>
             <BreadcrumbProvider>
               <AppSidebar />
-              <SidebarInset className="min-h-svh bg-background">
+              <SidebarInset className="min-h-svh min-w-0 bg-background">
                 <AppTopBar />
                 <main className="app-page-canvas flex-1 overflow-y-auto px-3 pb-3 pt-5 sm:px-4 sm:py-4 md:px-5 md:py-5 lg:px-6 lg:py-6">
                   {children}

@@ -147,60 +147,20 @@ export function SettingsWorkspaceTab() {
         description="Organization settings"
         bodyClassName="space-y-6 p-5"
       >
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-          <div className="dashboard-soft-tile rounded-[8px] px-5 py-5">
-            <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Branding</p>
-            <div className="mt-4">
-              <LogoUpload
-                name={name || tenant?.name || 'Workspace'}
-                src={logoUrl}
-                disabled={!isAdmin || logoUpload.isPending}
-                onUpload={async (file) => {
-                  const url = await logoUpload.mutateAsync(file);
-                  if (url) setLogoUrl(url);
-                  return url;
-                }}
-                onError={(message) => toast.error(message)}
-              />
-            </div>
-          </div>
-
-          <div className="dashboard-soft-tile rounded-[8px] px-5 py-5">
-            <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
-              Workspace overview
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[8px] border border-[#d7e3f6] bg-white/75 px-4 py-3 dark:border-slate-700 dark:bg-slate-950/55">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Workspace URL
-                </p>
-                <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
-                  {tenant?.slug ?? '—'}
-                </p>
-              </div>
-              <div className="rounded-[8px] border border-[#d7e3f6] bg-white/75 px-4 py-3 dark:border-slate-700 dark:bg-slate-950/55">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Tenant code
-                </p>
-                <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
-                  {employeeCode || 'Not set'}
-                </p>
-              </div>
-              <div className="rounded-[8px] border border-[#d7e3f6] bg-white/75 px-4 py-3 dark:border-slate-700 dark:bg-slate-950/55">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Default currency
-                </p>
-                <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
-                  {payrollCurrencies[0] ?? 'USD'}
-                </p>
-              </div>
-              <div className="rounded-[8px] border border-[#d7e3f6] bg-white/75 px-4 py-3 dark:border-slate-700 dark:bg-slate-950/55">
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Timezone</p>
-                <p className="mt-1 truncate text-sm font-semibold text-slate-950 dark:text-slate-50">
-                  {timezone || 'UTC'}
-                </p>
-              </div>
-            </div>
+        <div className="dashboard-soft-tile rounded-[8px] px-5 py-5">
+          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Branding</p>
+          <div className="mt-4">
+            <LogoUpload
+              name={name || tenant?.name || 'Workspace'}
+              src={logoUrl}
+              disabled={!isAdmin || logoUpload.isPending}
+              onUpload={async (file) => {
+                const url = await logoUpload.mutateAsync(file);
+                if (url) setLogoUrl(url);
+                return url;
+              }}
+              onError={(message) => toast.error(message)}
+            />
           </div>
         </div>
 

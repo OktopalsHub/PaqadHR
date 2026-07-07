@@ -10,7 +10,7 @@ import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { TenantsService } from '../../tenants/tenants.service';
-import type {
+import {
   AssignPointsDto,
   HolidayDto,
   HolidaySettingsDto,
