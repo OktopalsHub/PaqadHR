@@ -14,6 +14,7 @@ import type { QueryDeepPartialEntity } from 'typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
 import type { INewHiresResponseDto } from '../../../common/interfaces/inew-hires-response-dto.interface';
+import { ActivitiesService } from '../activities/services/activities.service';
 import { Department } from '../departments/entities/department.entity';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Employment } from '../employment/entities/employment.entity';
@@ -50,8 +51,17 @@ export class TenantMembersService {
     @InjectRepository(Department)
     private readonly departmentRepository: Repository<Department>,
     private readonly fileUrlService: FileUrlService,
+    private readonly activitiesService: ActivitiesService,
     @Optional() private readonly emailQueueService?: EmailQueueService,
   ) {}
+
+  private memberDisplayName(
+    member: Pick<TenantMember, 'firstName' | 'lastName' | 'preferredName'>,
+  ): string {
+    const preferred = member.preferredName?.trim();
+    if (preferred) return preferred;
+    return [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || 'Member';
+  }
   async createTenantMember(
     userId: string,
     tenantId: string,
@@ -163,9 +173,22 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     updateDto: UpdateTenantMemberDto,
+    actorMemberId?: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
     await this.applyMemberUpdates(member, tenantId, updateDto);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'member.updated',
+          resourceType: 'member',
+          resourceId: memberId,
+          description: `Updated ${this.memberDisplayName(member)}'s profile`,
+        })
+        .catch(() => {});
+    }
     return this.getTenantMember(memberId, tenantId);
   }
   private async applyMemberUpdates(
@@ -320,12 +343,28 @@ export class TenantMembersService {
       }),
     );
   }
-  async removeTenantMember(userId: string, tenantId: string): Promise<void> {
+  async removeTenantMember(
+    userId: string,
+    tenantId: string,
+    actorMemberId?: string,
+  ): Promise<void> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
     await this.tenantMemberRepository.update(member.id, {
       isActive: false,
       leaveDate: new Date(),
     });
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'member.removed',
+          resourceType: 'member',
+          resourceId: member.id,
+          description: `Removed ${this.memberDisplayName(member)} from the workspace`,
+        })
+        .catch(() => {});
+    }
     this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
   }
   async setTenantMemberStatus(
@@ -351,9 +390,25 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     isActive: boolean,
+    actorMemberId?: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
-    return this.setTenantMemberStatus(member.userId, tenantId, isActive);
+    const updated = await this.setTenantMemberStatus(member.userId, tenantId, isActive);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: isActive ? 'member.reactivated' : 'member.deactivated',
+          resourceType: 'member',
+          resourceId: memberId,
+          description: isActive
+            ? `Reactivated ${this.memberDisplayName(member)}`
+            : `Deactivated ${this.memberDisplayName(member)}`,
+        })
+        .catch(() => {});
+    }
+    return updated;
   }
   async restoreTenantMember(memberId: string): Promise<void> {
     const result = await this.tenantMemberRepository.restore(memberId);
@@ -376,6 +431,23 @@ export class TenantMembersService {
       select: ['userId'],
     });
     return new Set(members.map((member) => member.userId));
+  }
+  async memberExistsInTenant(tenantId: string, memberId: string): Promise<boolean> {
+    const member = await this.tenantMemberRepository.findOne({
+      where: { id: memberId, tenantId },
+      select: ['id'],
+    });
+    return !!member;
+  }
+  async filterTenantMemberIds(tenantId: string, memberIds: string[]): Promise<Set<string>> {
+    if (memberIds.length === 0) {
+      return new Set();
+    }
+    const members = await this.tenantMemberRepository.find({
+      where: { tenantId, id: In([...new Set(memberIds)]) },
+      select: ['id'],
+    });
+    return new Set(members.map((member) => member.id));
   }
   async isUserInTenant(userId: string, tenantId: string): Promise<boolean> {
     return this.tenantMemberRepository.countUserInTenant(userId, tenantId);

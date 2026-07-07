@@ -13,8 +13,8 @@ import { ZeptomailEmailService } from './zeptomail-email.service';
 describe('NotificationService', () => {
   let service: NotificationService;
   let tenantMembersService: {
-    findUserTenantMembership: jest.Mock;
-    findTenantMemberUserIds: jest.Mock;
+    memberExistsInTenant: jest.Mock;
+    filterTenantMemberIds: jest.Mock;
   };
   let notificationRepository: {
     create: jest.Mock;
@@ -23,8 +23,8 @@ describe('NotificationService', () => {
 
   beforeEach(async () => {
     tenantMembersService = {
-      findUserTenantMembership: jest.fn(),
-      findTenantMemberUserIds: jest.fn(),
+      memberExistsInTenant: jest.fn(),
+      filterTenantMemberIds: jest.fn(),
     };
     notificationRepository = {
       create: jest.fn((data) => data),
@@ -47,7 +47,7 @@ describe('NotificationService', () => {
   });
 
   it('creates notification when recipient is a tenant member', async () => {
-    tenantMembersService.findUserTenantMembership.mockResolvedValue({ id: 'member-1' });
+    tenantMembersService.memberExistsInTenant.mockResolvedValue(true);
 
     const result = await service.createNotification({
       type: NotificationType.USER,
@@ -55,18 +55,15 @@ describe('NotificationService', () => {
       title: 'Hello',
       message: 'World',
       tenantId: 'tenant-1',
-      recipientId: 'user-1',
+      recipientId: 'member-1',
     });
 
-    expect(result.recipientId).toBe('user-1');
-    expect(tenantMembersService.findUserTenantMembership).toHaveBeenCalledWith(
-      'user-1',
-      'tenant-1',
-    );
+    expect(result.recipientId).toBe('member-1');
+    expect(tenantMembersService.memberExistsInTenant).toHaveBeenCalledWith('tenant-1', 'member-1');
   });
 
   it('rejects notification when recipient is not a tenant member', async () => {
-    tenantMembersService.findUserTenantMembership.mockResolvedValue(null);
+    tenantMembersService.memberExistsInTenant.mockResolvedValue(false);
 
     await expect(
       service.createNotification({
@@ -75,27 +72,27 @@ describe('NotificationService', () => {
         title: 'Hello',
         message: 'World',
         tenantId: 'tenant-1',
-        recipientId: 'user-1',
+        recipientId: 'member-1',
       }),
     ).rejects.toThrow(BadRequestException);
   });
 
   it('validates bulk recipients with one membership query', async () => {
-    tenantMembersService.findTenantMemberUserIds.mockResolvedValue(new Set(['user-1']));
+    tenantMembersService.filterTenantMemberIds.mockResolvedValue(new Set(['member-1']));
 
     await expect(
       service.createBulkNotifications({
         tenantId: 'tenant-1',
-        recipientIds: ['user-1', 'user-2'],
+        recipientIds: ['member-1', 'member-2'],
         channel: NotificationChannel.IN_APP,
         title: 'Hello',
         message: 'World',
       }),
     ).rejects.toThrow(BadRequestException);
 
-    expect(tenantMembersService.findTenantMemberUserIds).toHaveBeenCalledWith('tenant-1', [
-      'user-1',
-      'user-2',
+    expect(tenantMembersService.filterTenantMemberIds).toHaveBeenCalledWith('tenant-1', [
+      'member-1',
+      'member-2',
     ]);
   });
 });

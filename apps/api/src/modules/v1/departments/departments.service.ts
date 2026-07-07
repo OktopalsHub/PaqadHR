@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import type { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import type { CreateDepartmentDto } from './dto/create-department.dto';
 import type { DepartmentMemberDto, DepartmentResponseDto } from './dto/department-response.dto';
@@ -15,6 +16,7 @@ export class DepartmentsService {
   constructor(
     private readonly departmentsRepository: DepartmentsRepository,
     private readonly departmentMembersRepository: DepartmentMembersRepository,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async getDepartments(
     tenantId: string,
@@ -200,23 +202,74 @@ export class DepartmentsService {
       tenantId,
       createdBy: memberId,
     };
-    return this.departmentsRepository.save(this.departmentsRepository.create(departmentData));
+    const department = await this.departmentsRepository.save(
+      this.departmentsRepository.create(departmentData),
+    );
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'department.created',
+        resourceType: 'department',
+        resourceId: department.id,
+        description: `Created department ${department.name}`,
+      })
+      .catch(() => {});
+    return department;
   }
-  async updateDepartment(tenantId: string, id: string, dto: UpdateDepartmentDto) {
+  async updateDepartment(
+    tenantId: string,
+    id: string,
+    dto: UpdateDepartmentDto,
+    actorMemberId?: string,
+  ) {
+    const existing = await this.departmentsRepository.findOne({ where: { id, tenantId } });
+    if (!existing) throw new NotFoundException('Department not found');
     await this.departmentsRepository.update(id, {
       ...dto,
       tenantId,
     });
-    return this.departmentsRepository.findOne({ where: { id, tenantId } });
+    const department = await this.departmentsRepository.findOne({ where: { id, tenantId } });
+    if (actorMemberId && department) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'department.updated',
+          resourceType: 'department',
+          resourceId: id,
+          description: `Updated department ${department.name}`,
+        })
+        .catch(() => {});
+    }
+    return department;
   }
-  async deleteDepartment(tenantId: string, id: string) {
+  async deleteDepartment(tenantId: string, id: string, actorMemberId?: string) {
     const department = await this.departmentsRepository.findOne({
       where: { id, tenantId },
     });
     if (!department) throw new NotFoundException('Department not found');
-    return this.departmentsRepository.delete(id);
+    const result = await this.departmentsRepository.delete(id);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'department.deleted',
+          resourceType: 'department',
+          resourceId: id,
+          description: `Deleted department ${department.name}`,
+        })
+        .catch(() => {});
+    }
+    return result;
   }
-  async addMemberToDepartment(tenantId: string, departmentId: string, memberId: string) {
+  async addMemberToDepartment(
+    tenantId: string,
+    departmentId: string,
+    memberId: string,
+    actorMemberId?: string,
+  ) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
     });
@@ -236,9 +289,27 @@ export class DepartmentsService {
         isActive: true,
       }),
     );
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'department.member_added',
+          resourceType: 'department',
+          resourceId: departmentId,
+          description: `Added a member to ${department.name}`,
+          metadata: { memberId },
+        })
+        .catch(() => {});
+    }
     return { success: true };
   }
-  async removeMemberFromDepartment(tenantId: string, departmentId: string, memberId: string) {
+  async removeMemberFromDepartment(
+    tenantId: string,
+    departmentId: string,
+    memberId: string,
+    actorMemberId?: string,
+  ) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
     });
@@ -250,6 +321,19 @@ export class DepartmentsService {
       throw new NotFoundException('Member not found in department');
     }
     await this.departmentMembersRepository.delete(membership.id);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'department.member_removed',
+          resourceType: 'department',
+          resourceId: departmentId,
+          description: `Removed a member from ${department.name}`,
+          metadata: { memberId },
+        })
+        .catch(() => {});
+    }
     return { success: true };
   }
   async getDepartmentMembers(tenantId: string, departmentId: string) {

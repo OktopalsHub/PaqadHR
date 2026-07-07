@@ -168,7 +168,7 @@ export function SettingsShoutoutsTab() {
         points: Number(bulkPoints) || 0,
         reason: bulkReason.trim() || undefined,
       });
-      toast.success(`${PAQ_POINTS_NAME} assigned to all members`);
+      toast.success(`Everyone got ${Number(bulkPoints) || 0} ${PAQ_POINTS_NAME}`);
       setBulkReason('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Bulk assign failed');

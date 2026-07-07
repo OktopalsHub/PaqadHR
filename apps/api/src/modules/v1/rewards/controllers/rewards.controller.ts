@@ -161,12 +161,17 @@ export class RewardsController {
   @Post('wallet/auto-topup')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
-  async updateAutoTopup(@Param('tenantId') tenantId: string, @Body() body: WalletAutoTopupDto) {
+  async updateAutoTopup(
+    @Param('tenantId') tenantId: string,
+    @Body() body: WalletAutoTopupDto,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     return this.walletService.updateAutoTopupConfig(
       tenantId,
       body.enabled,
       body.threshold,
       body.amount,
+      member.id,
     );
   }
 

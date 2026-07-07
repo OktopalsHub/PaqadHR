@@ -71,12 +71,17 @@ export class DepartmentsController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: UpdateDepartmentDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.updateDepartment(tenantId, id, dto);
+    return this.departmentsService.updateDepartment(tenantId, id, dto, member.id);
   }
   @Delete(':id')
-  async deleteDepartment(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.departmentsService.deleteDepartment(tenantId, id);
+  async deleteDepartment(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.departmentsService.deleteDepartment(tenantId, id, member.id);
   }
   @Get(':id/teams')
   async getDepartmentTeams(@Param('tenantId') tenantId: string, @Param('id') id: string) {
@@ -99,26 +104,32 @@ export class DepartmentsController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: { managerId: string },
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.updateDepartment(tenantId, id, {
-      managerId: dto.managerId,
-    });
+    return this.departmentsService.updateDepartment(
+      tenantId,
+      id,
+      { managerId: dto.managerId },
+      member.id,
+    );
   }
   @Post(':id/members')
   async addMemberToDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: { memberId: string },
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId);
+    return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId, member.id);
   }
   @Delete(':id/members/:memberId')
   async removeMemberFromDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId);
+    return this.departmentsService.removeMemberFromDepartment(tenantId, id, memberId, member.id);
   }
   @Get(':id/members')
   async getDepartmentMembers(@Param('tenantId') tenantId: string, @Param('id') id: string) {

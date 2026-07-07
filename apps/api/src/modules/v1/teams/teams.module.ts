@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { Team } from './entities/team.entity';
@@ -10,7 +11,12 @@ import { TeamsController } from './teams.controller';
 import { TeamsService } from './teams.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Team, TeamMember]), TenantsModule, TenantMembersModule],
+  imports: [
+    TypeOrmModule.forFeature([Team, TeamMember]),
+    TenantsModule,
+    TenantMembersModule,
+    ActivitiesModule,
+  ],
   controllers: [TeamsController],
   providers: [TeamsService, TeamsRepository, TeamMembersRepository],
   exports: [TeamsService],

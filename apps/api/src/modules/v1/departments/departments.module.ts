@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { Team } from '../teams/entities/team.entity';
 import { TeamsModule } from '../teams/teams.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -17,6 +18,7 @@ import { DepartmentsRepository } from './repositories/departments.repository';
     TenantsModule,
     TenantMembersModule,
     TeamsModule,
+    ActivitiesModule,
   ],
   controllers: [DepartmentsController],
   providers: [DepartmentsService, DepartmentsRepository, DepartmentMembersRepository],

@@ -27,15 +27,13 @@ export class NotificationService {
     private tenantMembersService: TenantMembersService,
   ) {}
 
+  // Notifications are tenant-scoped, so recipientId is a tenant-member id (not a user id).
   private async assertRecipientIsTenantMember(
     recipientId: string,
     tenantId: string,
   ): Promise<void> {
-    const membership = await this.tenantMembersService.findUserTenantMembership(
-      recipientId,
-      tenantId,
-    );
-    if (!membership) {
+    const exists = await this.tenantMembersService.memberExistsInTenant(tenantId, recipientId);
+    if (!exists) {
       throw new BadRequestException('Recipient is not a member of this tenant');
     }
   }
@@ -44,10 +42,7 @@ export class NotificationService {
     recipientIds: string[],
     tenantId: string,
   ): Promise<void> {
-    const memberIds = await this.tenantMembersService.findTenantMemberUserIds(
-      tenantId,
-      recipientIds,
-    );
+    const memberIds = await this.tenantMembersService.filterTenantMemberIds(tenantId, recipientIds);
     const invalid = recipientIds.find((recipientId) => !memberIds.has(recipientId));
     if (invalid) {
       throw new BadRequestException('Recipient is not a member of this tenant');
@@ -117,7 +112,7 @@ export class NotificationService {
     });
   }
   async getUserNotifications(
-    userId: string,
+    memberId: string,
     tenantId?: string,
     options?: {
       limit?: number;
@@ -125,7 +120,7 @@ export class NotificationService {
       unreadOnly?: boolean;
     },
   ): Promise<{ notifications: Notification[]; total: number }> {
-    const where: FindOptionsWhere<Notification>[] = [{ recipientId: userId }];
+    const where: FindOptionsWhere<Notification>[] = [{ recipientId: memberId }];
     if (tenantId) {
       where.push(
         { tenantId, recipientId: IsNull() },
@@ -158,11 +153,11 @@ export class NotificationService {
     const [notifications, total] = await queryBuilder.getManyAndCount();
     return { notifications, total };
   }
-  async markAsRead(notificationId: string, userId: string): Promise<void> {
+  async markAsRead(notificationId: string, memberId: string): Promise<void> {
     await this.notificationRepository.update(
       {
         id: notificationId,
-        recipientId: userId,
+        recipientId: memberId,
       },
       {
         readAt: new Date(),
@@ -170,11 +165,11 @@ export class NotificationService {
       },
     );
   }
-  async markMultipleAsRead(notificationIds: string[], userId: string): Promise<void> {
+  async markMultipleAsRead(notificationIds: string[], memberId: string): Promise<void> {
     await this.notificationRepository.update(
       {
         id: In(notificationIds),
-        recipientId: userId,
+        recipientId: memberId,
       },
       {
         readAt: new Date(),
@@ -182,8 +177,8 @@ export class NotificationService {
       },
     );
   }
-  async markAllAsRead(userId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { recipientId: userId };
+  async markAllAsRead(memberId: string, tenantId?: string): Promise<void> {
+    const where: FindOptionsWhere<Notification> = { recipientId: memberId };
     if (tenantId) {
       where.tenantId = tenantId;
     }
@@ -192,8 +187,8 @@ export class NotificationService {
       status: NotificationStatus.READ,
     });
   }
-  async getUnreadCount(userId: string, tenantId?: string): Promise<number> {
-    const where: FindOptionsWhere<Notification>[] = [{ recipientId: userId, readAt: IsNull() }];
+  async getUnreadCount(memberId: string, tenantId?: string): Promise<number> {
+    const where: FindOptionsWhere<Notification>[] = [{ recipientId: memberId, readAt: IsNull() }];
     if (tenantId) {
       where.push(
         { tenantId, recipientId: IsNull(), readAt: IsNull() },
@@ -214,10 +209,10 @@ export class NotificationService {
     }
     return await this.notificationRepository.count({ where });
   }
-  async deleteNotification(notificationId: string, userId: string): Promise<void> {
+  async deleteNotification(notificationId: string, memberId: string): Promise<void> {
     const result = await this.notificationRepository.delete({
       id: notificationId,
-      recipientId: userId,
+      recipientId: memberId,
     });
     if (result.affected === 0) {
       throw new NotFoundException('Notification not found');

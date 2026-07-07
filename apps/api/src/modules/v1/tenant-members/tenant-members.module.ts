@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from '../../../common/modules/file.module';
+import { ActivitiesModule } from '../activities/activities.module';
 import { Department } from '../departments/entities/department.entity';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Employment } from '../employment/entities/employment.entity';
@@ -28,6 +29,7 @@ import { TenantMembersService } from './tenant-members.service';
       Department,
     ]),
     FileModule,
+    forwardRef(() => ActivitiesModule),
   ],
   controllers: [TenantMembersController, PublicTenantMembersController],
   providers: [

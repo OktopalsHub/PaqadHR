@@ -91,8 +91,9 @@ export class TenantMembersController {
   async removeTenantMember(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() actor: MemberContext,
   ): Promise<void> {
-    await this.tenantMembersService.removeTenantMember(memberId, tenantId);
+    await this.tenantMembersService.removeTenantMember(memberId, tenantId, actor.id);
   }
   @Patch('/members/:memberId/status')
   @UseGuards(TenantRoleGuard)
@@ -101,11 +102,13 @@ export class TenantMembersController {
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
     @Body() updateDto: UpdateTenantMemberStatusDto,
+    @CurrentTenantMember() actor: MemberContext,
   ) {
     const updatedMember = await this.tenantMembersService.updateTenantMemberStatus(
       memberId,
       tenantId,
       updateDto.isActive,
+      actor.id,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }
@@ -125,11 +128,13 @@ export class TenantMembersController {
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
     @Body() updateDto: UpdateTenantMemberDto,
+    @CurrentTenantMember() actor: MemberContext,
   ): Promise<ITenantMemberResponseDto> {
     const updatedMember = await this.tenantMembersService.updateTenantMemberById(
       memberId,
       tenantId,
       updateDto,
+      actor.id,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }
