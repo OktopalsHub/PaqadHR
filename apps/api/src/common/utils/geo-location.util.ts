@@ -2,6 +2,11 @@ import geoip from 'fast-geoip';
 
 const DEFAULT_COUNTRY = 'GLOBAL';
 
+export type GeoRequestContext = {
+  ip?: string;
+  headers?: Record<string, string | string[] | undefined>;
+};
+
 const COUNTRY_DEFAULTS: Record<string, { currency: string; timezone: string }> = {
   NG: { currency: 'NGN', timezone: 'Africa/Lagos' },
   GLOBAL: { currency: 'USD', timezone: 'UTC' },
@@ -143,6 +148,28 @@ export class GeoLocationHelper {
     if (!code) return null;
     const upper = code.toUpperCase();
     return /^[A-Z]{2}$/.test(upper) ? upper : null;
+  }
+
+  /** ISO-3166 alpha-2 from geoip on client IP, with edge-header fallback — never GLOBAL. */
+  static async resolveUserCountryCode(context: GeoRequestContext = {}): Promise<string | null> {
+    const ip = GeoLocationHelper.resolveClientIp(context.headers ?? {}, undefined, context.ip);
+    if (ip && !GeoLocationHelper.isPrivateIp(ip)) {
+      try {
+        const geo = await geoip.lookup(GeoLocationHelper.normalizeIp(ip));
+        const fromGeoIp = GeoLocationHelper.toStoredCountryCode(geo?.country ?? null);
+        if (fromGeoIp) {
+          return fromGeoIp;
+        }
+      } catch {
+        // fall through to edge headers
+      }
+    }
+
+    if (context.headers) {
+      return GeoLocationHelper.resolveCountryFromHeaders(context.headers);
+    }
+
+    return null;
   }
 
   static toPricingRegion(code: string | null | undefined): string {

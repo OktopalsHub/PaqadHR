@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ChangePasswordDto, SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
@@ -35,6 +36,8 @@ interface RegisterResponse extends AuthUserResponse {
   invitation?: unknown;
 }
 
+type AuthenticatedRequest = Request & { user: User };
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
@@ -44,18 +47,21 @@ export class AuthController {
   @Public()
   async register(
     @Body() body: RegisterDto,
-    @Ip() ip: string,
+    @Ip() ipParam: string,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<RegisterResponse> {
-    const ipAddress = req.headers['x-forwarded-for'] ?? ip;
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
     const { user, invitation } = await this.authService.register(
       body.email,
       body.password,
-      typeof ipAddress === 'string' ? ipAddress : '',
+      { ip, headers: req.headers },
       undefined,
     );
-    const { accessToken, refreshToken } = await this.authService.login(user, ip);
+    const { accessToken, refreshToken } = await this.authService.login(user, {
+      ip,
+      headers: req.headers,
+    });
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
       user: {
@@ -71,11 +77,15 @@ export class AuthController {
   @Public()
   @UseGuards(AuthGuard('local'))
   async login(
-    @Req() req,
-    @Ip() ip: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ipParam: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthUserResponse> {
-    const { accessToken, refreshToken } = await this.authService.login(req.user, ip);
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
+    const { accessToken, refreshToken } = await this.authService.login(req.user, {
+      ip,
+      headers: req.headers,
+    });
     this.setAuthCookies(res, accessToken, refreshToken);
     return {
       user: {
@@ -94,8 +104,16 @@ export class AuthController {
   @Get('google/callback')
   @Public()
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Req() req, @Ip() ip: string, @Res() res: Response): Promise<void> {
-    const { accessToken, refreshToken } = await this.authService.login(req.user, ip);
+  async googleCallback(
+    @Req() req: AuthenticatedRequest,
+    @Ip() ipParam: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
+    const { accessToken, refreshToken } = await this.authService.login(req.user, {
+      ip,
+      headers: req.headers,
+    });
     this.setAuthCookies(res, accessToken, refreshToken);
     const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     res.redirect(`${frontend}/google/complete`);

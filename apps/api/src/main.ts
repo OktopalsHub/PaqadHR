@@ -52,7 +52,7 @@ async function bootstrap() {
     logger.log(`Environment: ${process.env.NODE_ENV}`);
     logger.log(`API Documentation: http://localhost:${port}/docs`);
   } else {
-    logger.log(`Application is running on port ${port}`);
+    logger.log(`Application is running on port: ${port}`);
   }
 }
 bootstrap();
