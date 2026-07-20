@@ -28,9 +28,9 @@ import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
 import {
   getNombaRawBody,
+  resolveNoahSignature,
   resolveNombaSignature,
   resolveNombaTimestamp,
-  resolveNoahSignature,
 } from '../webhook-request.util';
 
 type RawBodyRequestType = Request & { rawBody?: Buffer };

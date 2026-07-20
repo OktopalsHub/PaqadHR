@@ -79,7 +79,10 @@ describe('NoahWebhookService', () => {
         status: 'Settled',
       },
     };
-    payrollPayoutService.processNoahPayload.mockResolvedValueOnce({ received: true, matched: true });
+    payrollPayoutService.processNoahPayload.mockResolvedValueOnce({
+      received: true,
+      matched: true,
+    });
 
     await service.dispatch(JSON.stringify(payload), 'sig');
 
@@ -98,7 +101,10 @@ describe('NoahWebhookService', () => {
         Reference: `payroll_${runId}_${itemId}`,
       },
     };
-    payrollPayoutService.processNoahPayload.mockResolvedValueOnce({ received: true, matched: true });
+    payrollPayoutService.processNoahPayload.mockResolvedValueOnce({
+      received: true,
+      matched: true,
+    });
 
     await service.dispatch(JSON.stringify(payload), 'sig');
 

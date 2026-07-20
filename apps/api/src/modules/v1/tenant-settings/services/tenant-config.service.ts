@@ -3,8 +3,8 @@ import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
 import { normalizeFiatCurrencies } from 'src/common/constants/supported-fiat-currencies.constant';
 import {
   getSupportedPaymentCurrencies,
-  NOMBA_FIAT_CURRENCIES,
   NOAH_FIAT_CURRENCIES,
+  NOMBA_FIAT_CURRENCIES,
 } from 'src/common/constants/supported-payment-currencies.constant';
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';

@@ -293,6 +293,11 @@ export class MultiPaymentService {
   }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
     for (const item of items) {
+      item.status = PayrollItemStatus.PENDING;
+      item.failureReason = null;
+      item.transactionId = null;
+      item.paymentProvider = null;
+      item.paidAt = null;
       await this.payrollItemRepository.update(item.id, {
         status: PayrollItemStatus.PENDING,
         failureReason: null,

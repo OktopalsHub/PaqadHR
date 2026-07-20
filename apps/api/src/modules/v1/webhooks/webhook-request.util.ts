@@ -18,10 +18,7 @@ export function resolveNombaTimestamp(headers: Record<string, string | undefined
 
 export function resolveNoahSignature(headers: Record<string, string | undefined>): string {
   return (
-    headers['webhook-signature'] ??
-    headers['x-noah-signature'] ??
-    headers['x-signature'] ??
-    ''
+    headers['webhook-signature'] ?? headers['x-noah-signature'] ?? headers['x-signature'] ?? ''
   );
 }
 

@@ -34,6 +34,7 @@ export function isNoahPaymentVerified(status?: string | null): boolean {
   const s = status.toLowerCase();
   return (
     s === 'success' ||
+    s === 'successful' ||
     s === 'settled' ||
     s === 'completed' ||
     s === 'paid' ||
@@ -94,9 +95,12 @@ export function normalizeNoahWebhookPayload(payload: unknown): Record<string, un
   }
 
   return {
+    ...body,
+    EventType: eventType,
     eventType,
     event_type: eventType,
     type: eventType,
+    Data: data,
     data,
     EventVersion: body.EventVersion ?? body.eventVersion,
     eventVersion: body.EventVersion ?? body.eventVersion,

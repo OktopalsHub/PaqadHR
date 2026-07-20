@@ -105,7 +105,10 @@ export class PayrollPayoutService {
     }
 
     let merchantRef = event.merchantTxRef ?? event.reference;
-    if (!PAYROLL_REF_PATTERN.test(merchantRef)) {
+    if (!merchantRef || !PAYROLL_REF_PATTERN.test(merchantRef)) {
+      if (!event.reference) {
+        return { received: true, matched: false };
+      }
       const item = await this.payrollItemRepository.findOne({
         where: { transactionId: event.reference },
       });

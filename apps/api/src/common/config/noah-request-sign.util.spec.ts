@@ -11,7 +11,9 @@ describe('noah-request-sign.util', () => {
   });
 
   it('noahJwtPath prefixes /v1 when base URL includes it', () => {
-    expect(noahJwtPath('/transactions', 'https://api.sandbox.noah.com/v1')).toBe('/v1/transactions');
+    expect(noahJwtPath('/transactions', 'https://api.sandbox.noah.com/v1')).toBe(
+      '/v1/transactions',
+    );
   });
 
   it('createNoahApiSignature includes stable bodyHash for identical body bytes', () => {
