@@ -78,18 +78,6 @@ export class SubscriptionBillingService {
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
 
-  verifyBachsWebhookSignature(rawBody: string, signature: string, timestamp: string): boolean {
-    return this.billingProviderFactory
-      .getBachsProvider()
-      .verifyWebhookSignature(rawBody, signature, timestamp);
-  }
-
-  verifyPolarWebhookSignature(rawBody: string, signature: string): boolean {
-    return this.billingProviderFactory
-      .getPolarProvider()
-      .verifyWebhookSignature(rawBody, signature);
-  }
-
   private providerForCountry(countryCode: string | null | undefined): BillingProvider {
     return this.billingProviderFactory.resolveBillingProvider(countryCode);
   }
@@ -1158,7 +1146,14 @@ export class SubscriptionBillingService {
       existingSubscription.billingProvider !== provider &&
       existingSubscription.externalSubscriptionId
     ) {
-      await this.cancelManagedExternalSubscription(existingSubscription, false);
+      try {
+        await this.cancelManagedExternalSubscription(existingSubscription, false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to cancel old subscription during provider switch for tenant ${existingSubscription.tenantId}: ${message}`,
+        );
+      }
       existingSubscription.externalSubscriptionId = null;
       await this.subscriptionRepository.save(existingSubscription);
     }

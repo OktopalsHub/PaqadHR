@@ -12,18 +12,13 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     ...nombaProviderOverrides,
   };
   const bachsProvider = {
-    verifyWebhookSignature: jest.fn(),
     parseWebhook: jest.fn(),
   };
   const polarProvider = {
-    verifyWebhookSignature: jest.fn(),
     parseWebhook: jest.fn(),
   };
   const billingProviderFactory = {
     getNombaProvider: () => nombaProvider,
-    getBachsProvider: () => bachsProvider,
-    getPolarProvider: () => polarProvider,
-    getProvider: jest.fn(() => nombaProvider),
     getProviderByEnum: jest.fn((provider: BillingProvider) => {
       if (provider === BillingProvider.BACHS) return bachsProvider;
       if (provider === BillingProvider.POLAR) return polarProvider;

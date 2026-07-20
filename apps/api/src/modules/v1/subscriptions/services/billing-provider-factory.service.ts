@@ -21,18 +21,8 @@ export class BillingProviderFactoryService {
     return resolveBillingProviderForCountry(countryCode);
   }
 
-  /** @deprecated Use resolveBillingProvider(countryCode) — currency-only routing is removed */
-  resolveBillingProviderByCurrency(currency: string): BillingProvider {
-    return resolveBillingProviderForCountry(currency.toUpperCase() === 'NGN' ? 'NG' : 'GLOBAL');
-  }
-
   getProviderForCountry(countryCode: string | null | undefined): ISubscriptionBillingProvider {
     return this.getProviderByEnum(this.resolveBillingProvider(countryCode));
-  }
-
-  /** @deprecated Use getProviderForCountry */
-  getProvider(currency: string): ISubscriptionBillingProvider {
-    return this.getProviderForCountry(currency.toUpperCase() === 'NGN' ? 'NG' : 'GLOBAL');
   }
 
   getProviderByEnum(provider: BillingProvider): ISubscriptionBillingProvider {
@@ -59,14 +49,6 @@ export class BillingProviderFactoryService {
 
   getNombaProvider(): NombaSubscriptionProvider {
     return this.nombaProvider;
-  }
-
-  getBachsProvider(): BachsSubscriptionProvider {
-    return this.bachsProvider;
-  }
-
-  getPolarProvider(): PolarSubscriptionProvider {
-    return this.polarProvider;
   }
 
   async cancelExternalSubscription(

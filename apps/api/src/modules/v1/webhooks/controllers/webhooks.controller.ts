@@ -104,10 +104,7 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.polarWebhookService.dispatch(
-      rawBody,
-      headers['polar-signature'] ?? headers['Polar-Signature'] ?? '',
-    );
+    return this.polarWebhookService.dispatch(rawBody, headers);
   }
 
   @Post('reloadly')

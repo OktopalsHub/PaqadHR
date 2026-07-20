@@ -1,6 +1,5 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getPolarAccessToken, getPolarWebhookSecret } from 'src/common/config/polar.config';
+import { getPolarAccessToken } from 'src/common/config/polar.config';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { resolvePolarProductId } from '../../plans/config/plan-external-products.config';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
@@ -10,7 +9,7 @@ import type {
   SubscriptionCheckoutResponse,
   SubscriptionWebhookEvent,
 } from '../interfaces/subscription-billing.interface';
-import { calculatePerSeatTotal, resolveSeatCount } from '../utils/per-seat-pricing.util';
+import { resolveSeatCount } from '../utils/per-seat-pricing.util';
 import type { ISubscriptionBillingProvider } from './subscription-billing-provider.interface';
 
 type PolarWebhookPayload = {
@@ -52,7 +51,6 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
     }
 
     const seats = resolveSeatCount(quantity);
-    const amountMinor = Math.round(calculatePerSeatTotal(planPrice, seats) * 100);
 
     const response = await fetch('https://api.polar.sh/v1/checkouts/', {
       method: 'POST',
@@ -64,20 +62,12 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         products: [polarProductId],
         customer_email: email,
         success_url: successUrl,
+        seats,
         metadata: {
           ...metadata,
           quantity: seats,
           billingType: BillingChargeType.SUBSCRIPTION,
           planSlug,
-        },
-        prices: {
-          [polarProductId]: [
-            {
-              amount_type: 'fixed',
-              price_amount: amountMinor,
-              price_currency: planPrice.currency.toLowerCase(),
-            },
-          ],
         },
       }),
     });
@@ -112,21 +102,10 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
     if (!token) throw new BadRequestException('Polar is not configured');
 
     const response = await fetch(
-      `https://api.polar.sh/v1/checkouts/${encodeURIComponent(subscriptionReference)}`,
+      `https://api.polar.sh/v1/subscriptions/${encodeURIComponent(subscriptionReference)}`,
       { headers: { Authorization: `Bearer ${token}` } },
     );
     return response.json();
-  }
-
-  verifyWebhookSignature(rawBody: string, signature: string): boolean {
-    const secret = getPolarWebhookSecret();
-    if (!secret || !signature?.trim()) return false;
-
-    const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
-    const sigBuf = Buffer.from(signature);
-    const expBuf = Buffer.from(expected);
-    if (sigBuf.length !== expBuf.length) return false;
-    return timingSafeEqual(sigBuf, expBuf);
   }
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null {
@@ -161,12 +140,12 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
       };
     }
 
-    if (eventType.includes('checkout.updated') || eventType.includes('order.created')) {
+    if (eventType.includes('checkout.updated') || eventType.includes('order.paid')) {
       const tenantId = metadata.tenantId;
       const reference = String(data.id ?? '').trim();
       if (!tenantId || !reference) return null;
 
-      const status = String(data.status ?? '').toLowerCase();
+      const status = String(data.status ?? 'paid').toLowerCase();
       const payment = {
         eventId: reference,
         reference,
@@ -181,7 +160,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         externalSubscriptionId: data.subscription_id ? String(data.subscription_id) : undefined,
       };
 
-      if (status.includes('succeed') || status === 'paid') {
+      if (status.includes('succeed') || status === 'paid' || status === 'success') {
         return { kind: 'payment.success', payment };
       }
       if (status.includes('fail')) {

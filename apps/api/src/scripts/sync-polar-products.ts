@@ -1,5 +1,6 @@
 /**
- * Creates or reuses Polar recurring products and stores IDs on plan_prices.polar_product_id.
+ * Creates or reuses Polar recurring products with seat-based pricing.
+ * Stores product IDs on plan_prices.polar_product_id.
  * Usage: POLAR_ACCESS_TOKEN=pat_... pnpm --filter api sync:polar-products
  */
 import { Logger } from '@nestjs/common';
@@ -87,9 +88,16 @@ async function syncProducts(): Promise<void> {
           },
           prices: [
             {
-              amount_type: 'fixed',
-              price_amount: amountMinor,
+              amount_type: 'seat_based',
               price_currency: 'usd',
+              seat_tiers: {
+                tiers: [
+                  {
+                    min_seats: 1,
+                    price_per_seat: amountMinor,
+                  },
+                ],
+              },
             },
           ],
         }),

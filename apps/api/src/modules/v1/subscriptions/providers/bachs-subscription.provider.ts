@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { verifyBachsWebhookSignature } from 'src/common/config/bachs-webhook.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { resolveBachsProductId } from '../../plans/config/plan-external-products.config';
@@ -98,11 +97,6 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
 
   async getSubscription(subscriptionReference: string): Promise<unknown> {
     return this.bachsApi.getSubscription(subscriptionReference);
-  }
-
-  verifyWebhookSignature(rawBody: string, signature: string, timestamp?: string): boolean {
-    if (!timestamp) return false;
-    return verifyBachsWebhookSignature(rawBody, signature, timestamp);
   }
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null {

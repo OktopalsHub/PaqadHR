@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { verifyBachsWebhookSignature } from 'src/common/config/bachs-webhook.util';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 
 @Injectable()
@@ -14,9 +15,7 @@ export class BachsWebhookService {
       throw new UnauthorizedException('Missing Bachs webhook signature headers');
     }
 
-    if (
-      !this.subscriptionBillingService.verifyBachsWebhookSignature(rawBody, signature, timestamp)
-    ) {
+    if (!verifyBachsWebhookSignature(rawBody, signature, timestamp)) {
       throw new UnauthorizedException('Invalid Bachs webhook signature');
     }
 
