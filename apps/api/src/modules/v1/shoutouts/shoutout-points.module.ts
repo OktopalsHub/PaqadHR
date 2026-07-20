@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { ShoutoutMemberPoints } from './entities/shoutout-member-points.entity';
@@ -12,6 +13,7 @@ import { MemberPointsService } from './services/member-points.service';
     TypeOrmModule.forFeature([ShoutoutMemberPoints, ShoutoutPointTransaction]),
     TenantConfigModule,
     TenantMembersModule,
+    ActivitiesModule,
   ],
   providers: [MemberPointsRepository, MemberPointsService],
   exports: [MemberPointsService],

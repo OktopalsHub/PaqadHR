@@ -686,9 +686,9 @@ export class PayrollService {
           transactionId: payrollItem.transactionId,
         },
       );
-      if (payrollItem.employee?.userId && this.notificationHelper) {
+      if (payrollItem.employee?.id && this.notificationHelper) {
         await this.notificationHelper.sendPayrollNotification(
-          payrollItem.employee.userId,
+          payrollItem.employee.id,
           payrollRun.tenantId,
           {
             employeeName,
@@ -1222,20 +1222,16 @@ export class PayrollService {
       await this.payrollItemRepository.save(item);
       publishedItemIds.push(item.id);
 
-      if (shouldSendEmail && item.employee?.userId && this.notificationHelper) {
+      if (shouldSendEmail && item.employee?.id && this.notificationHelper) {
         const employeeName =
           `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim() || 'there';
         const profileUrl = `${frontendBase}/${tenant.slug}/employees/${item.memberId}?tab=documents`;
-        await this.notificationHelper.sendPayslipPublishedNotification(
-          item.employee.userId,
-          tenantId,
-          {
-            employeeName,
-            payrollPeriod,
-            profileUrl,
-            payrollRunId,
-          },
-        );
+        await this.notificationHelper.sendPayslipPublishedNotification(item.memberId, tenantId, {
+          employeeName,
+          payrollPeriod,
+          profileUrl,
+          payrollRunId,
+        });
       }
     }
 

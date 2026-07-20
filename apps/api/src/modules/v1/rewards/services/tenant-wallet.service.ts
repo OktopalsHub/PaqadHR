@@ -168,12 +168,33 @@ export class TenantWalletService {
     enabled: boolean,
     threshold: number,
     amount: number,
+    actorMemberId?: string,
   ): Promise<TenantWallet> {
     const repo = this.dataSource.getRepository(TenantWallet);
     const wallet = await this.ensureWallet(tenantId);
     wallet.autoTopupEnabled = enabled;
     wallet.autoTopupThreshold = threshold;
     wallet.autoTopupAmount = amount;
-    return repo.save(wallet);
+    const saved = await repo.save(wallet);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'wallet.auto_topup_updated',
+          resourceType: 'rewards_wallet',
+          resourceId: wallet.id,
+          description: enabled
+            ? `Auto top-up enabled (${amount} when balance falls below ${threshold})`
+            : 'Auto top-up disabled',
+          metadata: { enabled, threshold, amount },
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Failed to queue auto-topup activity: ${err instanceof Error ? err.message : err}`,
+          );
+        });
+    }
+    return saved;
   }
 }

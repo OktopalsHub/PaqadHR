@@ -1,13 +1,9 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
+import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
-const RAW_API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001';
-
-function normalizeApiV1Base(url: string): string {
-  const trimmed = url.replace(/\/$/, '');
-  if (trimmed.endsWith('/api/v1')) return trimmed;
-  if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
-  return `${trimmed}/api/v1`;
-}
+const RAW_API_BASE = resolveApiBaseUrl(
+  typeof window !== 'undefined' ? { requestHost: window.location.hostname } : undefined,
+);
 
 const API_V1_BASE = normalizeApiV1Base(RAW_API_BASE);
 

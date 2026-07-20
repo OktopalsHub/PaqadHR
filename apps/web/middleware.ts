@@ -1,15 +1,13 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { apiOriginFromBase, resolveApiBaseUrl } from '@/lib/api-origin';
 import { BRAND_ORIGIN } from '@/lib/brand';
 import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
 
-const apiOrigin = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001')
-  .replace(/\/$/, '')
-  .replace(/\/api\/v1$/, '')
-  .replace(/\/api$/, '');
 const r2PublicOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
 
-function buildContentSecurityPolicy(): string {
+function buildContentSecurityPolicy(requestHost?: string): string {
+  const apiOrigin = apiOriginFromBase(resolveApiBaseUrl({ requestHost }));
   const imageSources = [
     "'self'",
     'data:',
@@ -28,7 +26,12 @@ function buildContentSecurityPolicy(): string {
     apiOrigin,
     'https://challenges.cloudflare.com',
     'https://cloudflareinsights.com',
+    'https://*.r2.cloudflarestorage.com',
+    'https://*.r2.dev',
   ];
+  if (r2PublicOrigin) {
+    connectSources.push(r2PublicOrigin);
+  }
 
   return [
     "default-src 'self'",
@@ -45,26 +48,27 @@ function buildContentSecurityPolicy(): string {
   ].join('; ');
 }
 
-function applySecurityHeaders(response: NextResponse): void {
-  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy());
+function applySecurityHeaders(response: NextResponse, requestHost?: string): void {
+  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost));
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 }
 
 export function middleware(request: NextRequest) {
+  const requestHost = request.nextUrl.hostname;
   const slug = request.cookies.get('tenant_slug')?.value;
   if (slug && request.nextUrl.pathname.startsWith('/app')) {
     const destination = rewriteLegacyAppPath(request.nextUrl.pathname, slug);
     if (destination !== request.nextUrl.pathname) {
       const redirect = NextResponse.redirect(new URL(destination, request.url));
-      applySecurityHeaders(redirect);
+      applySecurityHeaders(redirect, requestHost);
       return redirect;
     }
   }
 
   const response = NextResponse.next();
-  applySecurityHeaders(response);
+  applySecurityHeaders(response, requestHost);
   return response;
 }
 

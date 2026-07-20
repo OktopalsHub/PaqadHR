@@ -140,7 +140,7 @@ export class CalendarEventReminderService {
         priority: NotificationPriority.HIGH,
         title,
         message,
-        recipientId: member.userId,
+        recipientId: member.id,
         tenantId: event.tenantId,
         actionData: {
           url: scheduleUrl,

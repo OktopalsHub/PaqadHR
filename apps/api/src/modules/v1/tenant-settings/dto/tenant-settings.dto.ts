@@ -129,6 +129,25 @@ export class NotificationSettingsDto {
   @IsUrl()
   webhookUrl?: string;
 }
+export class ShoutoutCelebrationTemplateDto {
+  @ApiProperty({ description: 'Whether this celebration shoutout is enabled', required: false })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+  @ApiProperty({ description: 'Points to award the celebrant', required: false, minimum: 0 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  points?: number;
+  @ApiProperty({
+    description: 'Message template. Placeholders: {name}, {years}, {company}',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  messageTemplate?: string;
+}
 export class ShoutoutSettingsDto {
   @ApiProperty({
     description: 'Maximum recipients per shoutout',
@@ -166,25 +185,6 @@ export class ShoutoutSettingsDto {
   @ValidateNested()
   @Type(() => ShoutoutCelebrationTemplateDto)
   workAnniversary?: ShoutoutCelebrationTemplateDto;
-}
-export class ShoutoutCelebrationTemplateDto {
-  @ApiProperty({ description: 'Whether this celebration shoutout is enabled', required: false })
-  @IsOptional()
-  @IsBoolean()
-  enabled?: boolean;
-  @ApiProperty({ description: 'Points to award the celebrant', required: false, minimum: 0 })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  points?: number;
-  @ApiProperty({
-    description: 'Message template. Placeholders: {name}, {years}, {company}',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  messageTemplate?: string;
 }
 export class AttendanceSettingsDto {
   @ApiProperty({
@@ -362,6 +362,38 @@ export class HolidayDto {
   @IsBoolean()
   recurring: boolean;
 }
+
+export class CreateCustomHolidayDto {
+  @ApiProperty({
+    description: 'Holiday name',
+    example: 'Company Founders Day',
+  })
+  @IsString()
+  name: string;
+
+  @ApiProperty({
+    description: 'Holiday date (MM-DD for recurring custom holidays)',
+    example: '03-15',
+  })
+  @IsString()
+  date: string;
+
+  @ApiProperty({
+    description: 'Holiday type (must be custom for this endpoint)',
+    example: 'custom',
+    enum: ['custom'],
+  })
+  @IsIn(['custom'])
+  type: 'custom';
+
+  @ApiProperty({
+    description: 'Whether this holiday recurs yearly',
+    example: true,
+  })
+  @IsBoolean()
+  recurring: boolean;
+}
+
 export class HolidaySettingsDto {
   @ApiProperty({
     description: 'ISO country code for public holidays on the schedule calendar',
@@ -389,6 +421,65 @@ export class HolidaySettingsDto {
   @IsBoolean()
   excludeWeekends?: boolean;
 }
+
+export class ReloadlyProductDto {
+  @ApiProperty({ example: 12345 })
+  @IsNumber()
+  productId: number;
+
+  @ApiProperty({ example: 'Amazon Gift Card' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ example: 500 })
+  @IsNumber()
+  @Min(0)
+  pointsCost: number;
+
+  @ApiProperty({ example: 'https://cdn.reloadly.com/card.png', nullable: true })
+  @IsString()
+  imageUrl: string | null;
+
+  @ApiProperty({ example: 'NG' })
+  @IsString()
+  countryCode: string;
+
+  @ApiProperty({ example: 'NGN' })
+  @IsString()
+  currencyCode: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  minDenomination?: number | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  maxDenomination?: number | null;
+
+  @ApiProperty({ required: false, type: [Number] })
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  fixedDenominations?: number[];
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  listReloadlyCost?: number | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  listReloadlyCostCurrency?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  wholesaleInRewardsCurrency?: number;
+}
+
 export class RewardsSettingsDto {
   @ApiProperty({
     description: 'Whether the rewards redemption system is enabled',
@@ -469,26 +560,16 @@ export class RewardsSettingsDto {
 
   @ApiProperty({
     description: 'Active configured Reloadly gift card products',
-    type: [Object],
+    type: [ReloadlyProductDto],
     required: false,
   })
   @IsOptional()
   @IsArray()
-  reloadlyProducts?: Array<{
-    productId: number;
-    name: string;
-    pointsCost: number;
-    imageUrl: string | null;
-    countryCode: string;
-    currencyCode: string;
-    minDenomination?: number | null;
-    maxDenomination?: number | null;
-    fixedDenominations?: number[];
-    listReloadlyCost?: number | null;
-    listReloadlyCostCurrency?: string;
-    wholesaleInRewardsCurrency?: number;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => ReloadlyProductDto)
+  reloadlyProducts?: ReloadlyProductDto[];
 }
+
 export class UpdateTenantSettingsDto {
   @ApiProperty({
     description: 'Points-related settings',

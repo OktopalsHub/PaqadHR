@@ -41,6 +41,7 @@ export class CreateNotificationDto {
   @IsOptional()
   @IsUUID()
   tenantId?: string;
+  /** Tenant-member id of the recipient (tenant-scoped resources key on member id, not user id). */
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()

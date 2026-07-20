@@ -206,8 +206,8 @@ function ShoutoutsPageContent() {
         </div>
 
         <TabsContent value="feed" className="mt-0 space-y-5">
-          <div className="grid grid-cols-1 gap-5 xl:grid-cols-12 xl:items-start">
-            <div className="space-y-5 xl:col-span-8">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
+            <div className="space-y-5 lg:col-span-8">
               <ShoutoutComposer
                 ref={composerRef}
                 variant="feed"
@@ -243,7 +243,7 @@ function ShoutoutsPageContent() {
               </ContentCard>
             </div>
 
-            <div className="space-y-5 xl:col-span-4">
+            <div className="space-y-5 lg:col-span-4">
               {pointsBalance ? (
                 <ContentCard
                   title="Allowance overview"
@@ -267,27 +267,19 @@ function ShoutoutsPageContent() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="dashboard-soft-tile rounded-[8px] px-4 py-3 text-center">
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                        Redeemable balance
-                      </p>
-                      <p className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
-                        <Coins className="size-4 text-primary" />
-                        {pointsBalance.currentBalance.toLocaleString()}
-                      </p>
-                    </div>
-                    <div className="dashboard-soft-tile rounded-[8px] px-4 py-3 text-center">
+                  <div className="dashboard-soft-tile flex items-center justify-between gap-3 rounded-[8px] px-4 py-3">
+                    <div>
                       <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                         Lifetime earned
                       </p>
-                      <p className="mt-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
-                        {pointsBalance.totalEarned.toLocaleString()}
-                      </p>
-                      <p className="mt-1 text-[10px] leading-tight text-slate-500 dark:text-slate-400">
+                      <p className="mt-0.5 text-[10px] leading-tight text-slate-500 dark:text-slate-400">
                         Points you&apos;ve received from others
                       </p>
                     </div>
+                    <p className="flex items-center gap-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
+                      <Coins className="size-4 text-primary" />
+                      {pointsBalance.totalEarned.toLocaleString()}
+                    </p>
                   </div>
 
                   <Button
@@ -306,48 +298,8 @@ function ShoutoutsPageContent() {
                 description="Recognition tags available across the workspace"
                 bodyClassName="space-y-4 p-5"
               >
-                {categories.length === 0 ? (
-                  <div className="dashboard-soft-tile rounded-[8px] border border-dashed border-[#d7e3f6] px-4 py-5 text-center dark:border-slate-700">
-                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
-                      No core values set up yet
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                    {categories.map((category) => (
-                      <div
-                        key={category.id}
-                        className="inline-flex shrink-0 items-center rounded-full border border-primary/10 bg-primary/5 text-xs font-medium text-primary dark:text-primary/80"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => composerRef.current?.insertAtCursor(`#${category.name} `)}
-                          className={cn(
-                            'inline-flex items-center gap-1 py-1 pl-2.5 transition-colors hover:bg-primary/10',
-                            isAdmin ? 'pr-1' : 'pr-2.5',
-                          )}
-                        >
-                          <Sparkles className="size-3 text-primary" />
-                          {category.name}
-                        </button>
-                        {isAdmin ? (
-                          <button
-                            type="button"
-                            onClick={() => void handleDeleteCategory(category.id)}
-                            disabled={deleteCategory.isPending}
-                            aria-label={`Remove ${category.name}`}
-                            className="rounded-full p-1 pr-1.5 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
-                          >
-                            <X className="size-3" />
-                          </button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 {isAdmin ? (
-                  <div className="flex gap-2 border-t border-[#d7e3f6] pt-4 dark:border-slate-700">
+                  <div className="flex gap-2">
                     <Input
                       placeholder="Add core value..."
                       className="text-sm placeholder:text-muted-foreground/75"
@@ -367,6 +319,46 @@ function ShoutoutsPageContent() {
                     </Button>
                   </div>
                 ) : null}
+
+                {categories.length === 0 ? (
+                  <div className="dashboard-soft-tile rounded-[8px] border border-dashed border-[#d7e3f6] px-4 py-5 text-center dark:border-slate-700">
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                      No core values set up yet
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {categories.map((category) => (
+                      <div
+                        key={category.id}
+                        className="flex items-center justify-between rounded-[8px] border border-primary/10 bg-primary/5 text-sm font-medium text-primary dark:text-primary/80"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => composerRef.current?.insertAtCursor(`#${category.name} `)}
+                          className={cn(
+                            'flex flex-1 items-center gap-1.5 py-2 pl-3 text-left transition-colors hover:bg-primary/10',
+                            isAdmin ? 'pr-1' : 'pr-3',
+                          )}
+                        >
+                          <Sparkles className="size-3.5 text-primary" />
+                          {category.name}
+                        </button>
+                        {isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteCategory(category.id)}
+                            disabled={deleteCategory.isPending}
+                            aria-label={`Remove ${category.name}`}
+                            className="rounded-r-[8px] p-2 text-primary/70 transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                          >
+                            <X className="size-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </ContentCard>
             </div>
           </div>

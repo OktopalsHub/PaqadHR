@@ -13,7 +13,6 @@ import {
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import type { ShoutoutCategory } from '@/lib/schemas/shoutout';
 import { parseShoutout } from '@/lib/shoutouts/parse-shoutout';
@@ -105,6 +104,17 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     const [active, setActive] = useState<ActiveToken | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const emojiRef = useRef<HTMLDivElement>(null);
+    const lastCaretRef = useRef<number | null>(null);
+
+    const rememberCaret = (element: HTMLTextAreaElement) => {
+      lastCaretRef.current = element.selectionStart;
+    };
+
+    const resolveCaret = useCallback(() => {
+      const element = textareaRef.current;
+      if (element && document.activeElement === element) return element.selectionStart;
+      return lastCaretRef.current ?? message.length;
+    }, [message]);
 
     const employeeLookup = useMemo(
       () => employees.map((employee) => ({ id: employee.id, name: employee.name })),
@@ -148,21 +158,22 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     const insertAtCursor = useCallback(
       (text: string) => {
         const element = textareaRef.current;
-        const caret = element?.selectionStart ?? message.length;
+        const caret = resolveCaret();
         const needsSpace = caret > 0 && message[caret - 1] && !/\s/.test(message[caret - 1]);
         const insert = `${needsSpace ? ' ' : ''}${text}`;
         const next = `${message.slice(0, caret)}${insert}${message.slice(caret)}`;
         setMessage(next);
 
+        const pos = caret + insert.length;
+        lastCaretRef.current = pos;
         requestAnimationFrame(() => {
           if (!element) return;
-          const pos = caret + insert.length;
           element.focus();
           element.setSelectionRange(pos, pos);
           setActive(findActiveToken(next, pos));
         });
       },
-      [message],
+      [message, resolveCaret],
     );
 
     useImperativeHandle(ref, () => ({ insertAtCursor }), [insertAtCursor]);
@@ -181,6 +192,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
     const handleChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = event.target.value;
       setMessage(value);
+      rememberCaret(event.target);
       syncActive(value, event.target.selectionStart ?? value.length);
     };
 
@@ -208,14 +220,14 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
 
     const insertEmoji = (emoji: string) => {
       const element = textareaRef.current;
-      const caret = element?.selectionStart ?? message.length;
+      const caret = resolveCaret();
       const next = `${message.slice(0, caret)}${emoji}${message.slice(caret)}`;
       setMessage(next);
-      setEmojiOpen(false);
 
+      const pos = caret + emoji.length;
+      lastCaretRef.current = pos;
       requestAnimationFrame(() => {
         if (!element) return;
-        const pos = caret + emoji.length;
         element.focus();
         element.setSelectionRange(pos, pos);
       });
@@ -268,7 +280,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
               variant="outline"
               className="border-primary/20 bg-primary/5 px-2.5 py-0.5 font-medium text-primary"
             >
-              {projectedRemaining.toLocaleString()} {PAQ_POINTS_NAME} left
+              {projectedRemaining.toLocaleString()} to give
               {parsed.totalPoints > 0 ? (
                 <span className="text-primary/70"> · sending {parsed.totalPoints}</span>
               ) : null}
@@ -284,12 +296,15 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
               placeholder="e.g. @Dan +20 @Prisca +10 amazing work on the launch #Excellence"
               value={message}
               onChange={handleChange}
-              onKeyUp={(event) =>
-                syncActive(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)
-              }
-              onClick={(event) =>
-                syncActive(event.currentTarget.value, event.currentTarget.selectionStart ?? 0)
-              }
+              onKeyUp={(event) => {
+                rememberCaret(event.currentTarget);
+                syncActive(event.currentTarget.value, event.currentTarget.selectionStart ?? 0);
+              }}
+              onClick={(event) => {
+                rememberCaret(event.currentTarget);
+                syncActive(event.currentTarget.value, event.currentTarget.selectionStart ?? 0);
+              }}
+              onSelect={(event) => rememberCaret(event.currentTarget)}
               onBlur={() => setTimeout(() => setActive(null), 150)}
             />
 
@@ -437,7 +452,10 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                         key={emoji}
                         type="button"
                         className="flex size-8 items-center justify-center rounded text-lg transition-transform hover:scale-125 hover:bg-slate-100 dark:hover:bg-slate-900"
-                        onClick={() => insertEmoji(emoji)}
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          insertEmoji(emoji);
+                        }}
                       >
                         {emoji}
                       </button>

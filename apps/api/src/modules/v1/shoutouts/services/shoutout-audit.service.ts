@@ -22,7 +22,7 @@ export class ShoutoutAuditService {
       severity: AuditSeverity.LOW,
       status: AuditStatus.SUCCESS,
       tenantId: payload.tenantId,
-      userId: payload.senderMemberId,
+      userId: payload.senderUserId,
       metadata: {
         recipientIds: payload.recipientIds,
         recipients: payload.recipients,

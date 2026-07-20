@@ -16,7 +16,7 @@ import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
-import type {
+import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
   UpdatePaymentMethodDto,

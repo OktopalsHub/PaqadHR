@@ -73,6 +73,7 @@ export function SettingsHolidaysTab() {
       await addHoliday.mutateAsync({
         name: holidayName.trim(),
         date: holidayDate.slice(5),
+        type: 'custom',
         recurring: true,
       });
       setHolidayName('');

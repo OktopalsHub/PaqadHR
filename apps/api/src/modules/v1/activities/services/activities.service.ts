@@ -18,7 +18,7 @@ export interface ListActivitiesQuery {
 }
 
 /** Actions omitted from the default workspace activity feed. */
-export const DEFAULT_EXCLUDED_ACTIVITY_ACTIONS = ['settings.updated'] as const;
+export const DEFAULT_EXCLUDED_ACTIVITY_ACTIONS = [] as const;
 
 export interface TenantActivitiesListResult {
   items: TenantActivityListItemDto[];

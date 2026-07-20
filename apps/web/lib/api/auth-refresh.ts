@@ -1,12 +1,11 @@
+import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { clearSessionStorage } from '@/lib/session';
 
-const API_V1_BASE = (() => {
-  const raw = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9001';
-  const trimmed = raw.replace(/\/$/, '');
-  if (trimmed.endsWith('/api/v1')) return trimmed;
-  if (trimmed.endsWith('/api')) return `${trimmed}/v1`;
-  return `${trimmed}/api/v1`;
-})();
+const API_V1_BASE = normalizeApiV1Base(
+  resolveApiBaseUrl(
+    typeof window !== 'undefined' ? { requestHost: window.location.hostname } : undefined,
+  ),
+);
 
 let refreshPromise: Promise<boolean> | null = null;
 

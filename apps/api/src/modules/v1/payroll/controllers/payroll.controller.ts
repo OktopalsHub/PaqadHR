@@ -25,10 +25,7 @@ import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/proc
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
-import type {
-  PayrollCalculationPreviewDto,
-  UpdatePayrollRunDto,
-} from '../dto/payroll-adjustment.dto';
+import { PayrollCalculationPreviewDto, UpdatePayrollRunDto } from '../dto/payroll-adjustment.dto';
 import { PublishPayslipsDto } from '../dto/publish-payslips.dto';
 import { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { AuditService } from '../services/audit.service';

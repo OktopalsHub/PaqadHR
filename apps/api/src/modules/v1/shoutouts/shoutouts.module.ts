@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IntegrationModule } from 'src/common/integrations/integrations.module';
+import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
@@ -38,6 +39,7 @@ import { ShoutoutPointsModule } from './shoutout-points.module';
     NotificationsModule,
     ShoutoutPointsModule,
     IntegrationModule,
+    ActivitiesModule,
   ],
   controllers: [ShoutoutsController, ShoutoutCategoriesController, MemberPointsController],
   providers: [

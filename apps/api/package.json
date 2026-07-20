@@ -18,6 +18,8 @@
     "start:prod": "node dist/main",
     "lint": "biome check ./src ./test",
     "check": "biome check ./src ./test",
+    "check:body-dtos": "node ../../.github/scripts/check-body-dto-imports.mjs",
+    "check:dto-load": "node ../../.github/scripts/check-dto-load.mjs",
     "test": "jest",
     "migration:create": "typeorm migration:create",
     "migration:run": "pnpm build && typeorm migration:run -d dist/common/database/config/data-source.js",

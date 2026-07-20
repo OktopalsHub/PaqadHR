@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { FindOptionsWhere } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import type { CreateTeamDto } from './dto/create-team.dto';
 import type { UpdateTeamDto } from './dto/update-team.dto';
@@ -14,6 +15,7 @@ export class TeamsService {
     private readonly teamsRepository: TeamsRepository,
     private readonly teamMembersRepository: TeamMembersRepository,
     private readonly tenantMembersService: TenantMembersService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async getTeams(
     tenantId: string,
@@ -40,23 +42,59 @@ export class TeamsService {
       createdBy: memberId,
     });
     if (members && members.length > 0) {
-      for (const memberId of members) {
+      for (const teamMemberId of members) {
         await this.teamMembersRepository.create({
           teamId: team.id,
-          memberId,
+          memberId: teamMemberId,
         });
       }
     }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'team.created',
+        resourceType: 'team',
+        resourceId: team.id,
+        description: `Created team ${team.name}`,
+      })
+      .catch(() => {});
     return team;
   }
-  async updateTeam(tenantId: string, id: string, dto: UpdateTeamDto) {
-    const _team = await this.getTeam(tenantId, id);
+  async updateTeam(tenantId: string, id: string, dto: UpdateTeamDto, actorMemberId?: string) {
+    const team = await this.getTeam(tenantId, id);
     await this.teamsRepository.update(id, dto);
-    return this.teamsRepository.findOne({ where: { id, tenantId } });
+    const updated = await this.teamsRepository.findOne({ where: { id, tenantId } });
+    if (actorMemberId && updated) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'team.updated',
+          resourceType: 'team',
+          resourceId: id,
+          description: `Updated team ${updated.name ?? team.name}`,
+        })
+        .catch(() => {});
+    }
+    return updated;
   }
-  async deleteTeam(tenantId: string, id: string) {
-    const _team = await this.getTeam(tenantId, id);
-    return this.teamsRepository.delete(id);
+  async deleteTeam(tenantId: string, id: string, actorMemberId?: string) {
+    const team = await this.getTeam(tenantId, id);
+    const result = await this.teamsRepository.delete(id);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'team.deleted',
+          resourceType: 'team',
+          resourceId: id,
+          description: `Deleted team ${team.name}`,
+        })
+        .catch(() => {});
+    }
+    return result;
   }
   async getTeamMembers(tenantId: string, teamId: string, role?: string) {
     await this.getTeam(tenantId, teamId);
@@ -64,17 +102,36 @@ export class TeamsService {
     if (role) where.role = role;
     return this.teamMembersRepository.find({ where });
   }
-  async addTeamMember(tenantId: string, teamId: string, dto: { memberId: string; role?: string }) {
-    await this.getTeam(tenantId, teamId);
+  async addTeamMember(
+    tenantId: string,
+    teamId: string,
+    dto: { memberId: string; role?: string },
+    actorMemberId?: string,
+  ) {
+    const team = await this.getTeam(tenantId, teamId);
     const member = await this.tenantMembersService.getTenantMember(dto.memberId, tenantId);
     if (!member || member.tenantId !== tenantId) {
       throw new NotFoundException('Member not found');
     }
-    return this.teamMembersRepository.create({
+    const created = await this.teamMembersRepository.create({
       teamId,
       memberId: dto.memberId,
       role: dto.role,
     });
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'team.member_added',
+          resourceType: 'team',
+          resourceId: teamId,
+          description: `Added a member to ${team.name}`,
+          metadata: { memberId: dto.memberId },
+        })
+        .catch(() => {});
+    }
+    return created;
   }
   async updateTeamMember(
     tenantId: string,
@@ -89,21 +146,58 @@ export class TeamsService {
     if (!member) throw new NotFoundException('Team member not found');
     return this.teamMembersRepository.update(member.id, { role: dto.role });
   }
-  async removeTeamMember(tenantId: string, teamId: string, memberId: string) {
-    await this.getTeam(tenantId, teamId);
+  async removeTeamMember(
+    tenantId: string,
+    teamId: string,
+    memberId: string,
+    actorMemberId?: string,
+  ) {
+    const team = await this.getTeam(tenantId, teamId);
     const member = await this.teamMembersRepository.findOne({
       where: { teamId, memberId },
     });
     if (!member) throw new NotFoundException('Team member not found');
-    return this.teamMembersRepository.delete(member.id);
+    const result = await this.teamMembersRepository.delete(member.id);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'team.member_removed',
+          resourceType: 'team',
+          resourceId: teamId,
+          description: `Removed a member from ${team.name}`,
+          metadata: { memberId },
+        })
+        .catch(() => {});
+    }
+    return result;
   }
-  async assignTeamLeader(tenantId: string, teamId: string, memberId: string) {
-    await this.getTeam(tenantId, teamId);
+  async assignTeamLeader(
+    tenantId: string,
+    teamId: string,
+    memberId: string,
+    actorMemberId?: string,
+  ) {
+    const team = await this.getTeam(tenantId, teamId);
     const member = await this.tenantMembersService.getTenantMember(memberId, tenantId);
     if (!member || member.tenantId !== tenantId) {
       throw new NotFoundException('Member not found');
     }
-    await this.teamsRepository.update(teamId, { leadId: memberId });
-    return this.teamsRepository.findOne({ where: { id: teamId, tenantId } });
+    const result = await this.teamsRepository.update(teamId, { leadId: memberId });
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'team.leader_assigned',
+          resourceType: 'team',
+          resourceId: teamId,
+          description: `Assigned a leader to ${team.name}`,
+          metadata: { memberId },
+        })
+        .catch(() => {});
+    }
+    return result;
   }
 }

@@ -743,8 +743,18 @@ export class SubscriptionBillingService {
       return;
     }
 
+    // Notifications are tenant-scoped (keyed by member id), so map the owner's
+    // user id to their tenant-member id before notifying.
+    const ownerMember = await this.tenantMemberRepository.findOne({
+      where: { userId: ownerId, tenantId: subscription.tenantId },
+      select: ['id'],
+    });
+    if (!ownerMember) {
+      return;
+    }
+
     await this.notificationHelper.sendBillingRenewalFailedNotification(
-      ownerId,
+      ownerMember.id,
       subscription.tenantId,
       {
         tenantName: subscription.tenant?.name ?? 'your workspace',

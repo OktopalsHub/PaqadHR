@@ -23,6 +23,9 @@ import {
 } from 'src/common/utils/resolve-payment-provider.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
+import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
+import { WalletTopupDto } from '../dto/wallet-topup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
@@ -153,7 +156,7 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   async manualTopup(
     @Param('tenantId') tenantId: string,
-    @Body() body: { amount: number },
+    @Body() body: WalletTopupDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.walletTopupService.manualTopup(tenantId, body.amount, member.id);
@@ -165,7 +168,7 @@ export class RewardsController {
   @ApiOperation({ summary: 'Create checkout link to fund rewards wallet' })
   async topupCheckout(
     @Param('tenantId') tenantId: string,
-    @Body() body: { amount: number },
+    @Body() body: WalletTopupDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.walletTopupService.createTopupCheckout(tenantId, Number(body.amount), member.id);
@@ -176,13 +179,15 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   async updateAutoTopup(
     @Param('tenantId') tenantId: string,
-    @Body() body: { enabled: boolean; threshold: number; amount: number },
+    @Body() body: WalletAutoTopupDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.walletService.updateAutoTopupConfig(
       tenantId,
       body.enabled,
       body.threshold,
       body.amount,
+      member.id,
     );
   }
 
@@ -191,12 +196,7 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   async assignPoints(
     @Param('tenantId') tenantId: string,
-    @Body() body: {
-      memberIds?: string[];
-      points?: number;
-      reason?: string;
-      assignments?: { memberId: string; points: number }[];
-    },
+    @Body() body: AssignMemberPointsDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.memberPointsService.assignPoints(

@@ -43,19 +43,24 @@ export class TeamsController {
     @Body() dto: CreateTeamDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.teamsService.createTeam(tenantId, member.userId, dto);
+    return this.teamsService.createTeam(tenantId, member.id, dto);
   }
   @Put(':id')
   async updateTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: UpdateTeamDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.teamsService.updateTeam(tenantId, id, dto);
+    return this.teamsService.updateTeam(tenantId, id, dto, member.id);
   }
   @Delete(':id')
-  async deleteTeam(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.teamsService.deleteTeam(tenantId, id);
+  async deleteTeam(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.teamsService.deleteTeam(tenantId, id, member.id);
   }
   @Get(':id/members')
   async getTeamMembers(
@@ -70,8 +75,9 @@ export class TeamsController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: AddTeamMemberDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.teamsService.addTeamMember(tenantId, id, dto);
+    return this.teamsService.addTeamMember(tenantId, id, dto, member.id);
   }
   @Put(':id/members/:memberId')
   async updateTeamMember(
@@ -87,15 +93,17 @@ export class TeamsController {
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.teamsService.removeTeamMember(tenantId, id, memberId);
+    return this.teamsService.removeTeamMember(tenantId, id, memberId, member.id);
   }
   @Patch(':id/leader')
   async assignTeamLeader(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
     @Body() dto: { memberId: string },
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.teamsService.assignTeamLeader(tenantId, id, dto.memberId);
+    return this.teamsService.assignTeamLeader(tenantId, id, dto.memberId, member.id);
   }
 }

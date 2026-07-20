@@ -14,9 +14,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { interval, map, Observable } from 'rxjs';
-import { CurrentTenant } from 'src/common/decorators';
+import { CurrentTenant, CurrentTenantMember } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
-import type { IAuthenticatedUserRequest, TenantContext } from 'src/common/interfaces';
+import type {
+  IAuthenticatedUserRequest,
+  MemberContext,
+  TenantContext,
+} from 'src/common/interfaces';
 import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
 import type { Notification } from '../entities/notification.entity';
 import { NotificationService } from '../services/notification.service';
@@ -41,13 +45,13 @@ export class NotificationController {
     description: 'Notifications retrieved successfully',
   })
   async getUserNotifications(
-    @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
     @CurrentTenant() tenant: TenantContext | undefined,
     @Query('limit') limit?: number,
     @Query('offset') offset?: number,
     @Query('unreadOnly') unreadOnly?: boolean,
   ): Promise<{ notifications: Notification[]; total: number }> {
-    return this.notificationService.getUserNotifications(req.auth.principalId, tenant?.id, {
+    return this.notificationService.getUserNotifications(member.id, tenant?.id, {
       limit,
       offset,
       unreadOnly,
@@ -60,10 +64,10 @@ export class NotificationController {
     description: 'Unread count retrieved successfully',
   })
   async getUnreadCount(
-    @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ count: number }> {
-    const count = await this.notificationService.getUnreadCount(req.auth.principalId, tenant?.id);
+    const count = await this.notificationService.getUnreadCount(member.id, tenant?.id);
     return { count };
   }
   @Patch('read-multiple')
@@ -71,19 +75,19 @@ export class NotificationController {
   @ApiResponse({ status: 200, description: 'Notifications marked as read' })
   async markMultipleAsRead(
     @Body() body: { notificationIds: string[] },
-    @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markMultipleAsRead(body.notificationIds, req.auth.principalId);
+    await this.notificationService.markMultipleAsRead(body.notificationIds, member.id);
     return { success: true };
   }
   @Patch('read-all')
   @ApiOperation({ summary: 'Mark all notifications as read' })
   @ApiResponse({ status: 200, description: 'All notifications marked as read' })
   async markAllAsRead(
-    @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markAllAsRead(req.auth.principalId, tenant?.id);
+    await this.notificationService.markAllAsRead(member.id, tenant?.id);
     return { success: true };
   }
   @Patch(':id/read')
@@ -91,9 +95,9 @@ export class NotificationController {
   @ApiResponse({ status: 200, description: 'Notification marked as read' })
   async markAsRead(
     @Param('id') id: string,
-    @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markAsRead(id, req.auth.principalId);
+    await this.notificationService.markAsRead(id, member.id);
     return { success: true };
   }
   @Delete(':id')
@@ -104,9 +108,9 @@ export class NotificationController {
   })
   async deleteNotification(
     @Param('id') id: string,
-    @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.deleteNotification(id, req.auth.principalId);
+    await this.notificationService.deleteNotification(id, member.id);
     return { success: true };
   }
   @Sse('stream')
@@ -114,11 +118,12 @@ export class NotificationController {
   @ApiResponse({ status: 200, description: 'SSE stream established' })
   sseStream(
     @Req() req: IAuthenticatedUserRequest,
+    @CurrentTenantMember() member: MemberContext,
     @CurrentTenant() tenant: TenantContext | undefined,
   ): Observable<MessageEvent> {
-    const userId = req.auth.principalId;
-    const connectionId = `${userId}-${Date.now()}-${randomBytes(8).toString('hex')}`;
-    this.sseNotificationService.registerConnection(connectionId, userId, tenant?.id);
+    const memberId = member.id;
+    const connectionId = `${memberId}-${Date.now()}-${randomBytes(8).toString('hex')}`;
+    this.sseNotificationService.registerConnection(connectionId, memberId, tenant?.id);
     req.on('close', () => {
       this.sseNotificationService.unregisterConnection(connectionId);
     });

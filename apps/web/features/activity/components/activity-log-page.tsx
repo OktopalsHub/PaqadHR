@@ -23,6 +23,9 @@ const FILTERS: Array<{ value: ActivityCategory; label: string }> = [
   { value: 'leave', label: 'Leave' },
   { value: 'payroll', label: 'Payroll' },
   { value: 'rewards', label: 'Rewards' },
+  { value: 'shoutouts', label: 'Shoutouts' },
+  { value: 'settings', label: 'Settings' },
+  { value: 'org', label: 'People & org' },
 ];
 
 function filterActivities(items: TenantActivity[], category: ActivityCategory): TenantActivity[] {
