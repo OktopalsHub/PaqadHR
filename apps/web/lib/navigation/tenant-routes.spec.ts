@@ -1,7 +1,9 @@
 import {
   buildTenantHost,
   getTenantSlugFromHost,
+  getTenantSlugFromPath,
   isSubdomainTenantsEnabled,
+  subscribePagePath,
   tenantUrl,
 } from './tenant-routes';
 
@@ -35,6 +37,16 @@ describe('tenant-routes subdomain helpers', () => {
     expect(getTenantSlugFromHost('www.paqadhr.com')).toBeNull();
     expect(getTenantSlugFromHost('dev.paqadhr.com')).toBeNull();
     expect(getTenantSlugFromHost('api.paqadhr.com')).toBeNull();
+  });
+
+  it('returns null for subscribe on apex path parsing', () => {
+    expect(getTenantSlugFromPath('/subscribe')).toBeNull();
+  });
+
+  it('builds marketing subscribe URLs on apex', () => {
+    expect(subscribePagePath({ welcome: true, workspace: 'acme' })).toBe(
+      '/subscribe?welcome=1&workspace=acme',
+    );
   });
 
   it('builds tenant URLs for subdomain mode', () => {

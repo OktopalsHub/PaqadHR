@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
-import { isSubdomainTenantsEnabled, tenantPath, tenantUrl } from '@/lib/navigation/tenant-routes';
+import { subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
+import { persistTenantSlug } from '@/lib/session';
 import { cn } from '@/lib/utils';
 import {
   formatWorkspaceUrl,
@@ -157,12 +158,8 @@ export function OnboardingWizard() {
       }
       toast.success(`Workspace "${result.tenant.name}" is ready`);
       if (result.tenant.slug) {
-        const subscribePath = tenantPath(result.tenant.slug, 'subscribe?welcome=1');
-        if (isSubdomainTenantsEnabled()) {
-          window.location.assign(tenantUrl(result.tenant.slug, '/subscribe?welcome=1'));
-        } else {
-          router.push(subscribePath);
-        }
+        persistTenantSlug(result.tenant.slug);
+        router.push(subscribePagePath({ welcome: true, workspace: result.tenant.slug }));
       }
     },
     onError: (error: Error) => {

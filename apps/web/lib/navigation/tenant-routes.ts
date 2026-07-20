@@ -231,3 +231,50 @@ export function getWorkspaceUrlSuffix(): string {
   if (!isSubdomainTenantsEnabled()) return '';
   return inferTenantHostSuffix();
 }
+
+export function marketingOrigin(): string {
+  const protocol =
+    typeof window !== 'undefined' ? window.location.protocol.replace(/:$/, '') : 'https';
+
+  if (typeof window !== 'undefined' && isApexHost(window.location.host)) {
+    return window.location.origin;
+  }
+
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      // fall through
+    }
+  }
+
+  const appDomain = getAppDomain();
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname === `dev.${appDomain}` || hostname.endsWith(`.dev.${appDomain}`)) {
+      return `${protocol}://dev.${appDomain}`;
+    }
+  }
+
+  return `${protocol}://${appDomain}`;
+}
+
+export type SubscribePageParams = {
+  welcome?: boolean;
+  billing?: boolean;
+  workspace?: string;
+};
+
+export function subscribePagePath(params?: SubscribePageParams): string {
+  const search = new URLSearchParams();
+  if (params?.welcome) search.set('welcome', '1');
+  if (params?.billing) search.set('billing', 'success');
+  if (params?.workspace) search.set('workspace', params.workspace);
+  const query = search.toString();
+  return `/subscribe${query ? `?${query}` : ''}`;
+}
+
+export function subscribePageUrl(params?: SubscribePageParams): string {
+  return `${marketingOrigin()}${subscribePagePath(params)}`;
+}

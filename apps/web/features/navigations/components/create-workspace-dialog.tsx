@@ -2,7 +2,6 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { WorkspaceSlugField } from '@/features/navigations/components/workspace-slug-field';
 import { useCreateTenant } from '@/hooks/queries/use-tenants';
-import { isSubdomainTenantsEnabled, tenantPath, tenantUrl } from '@/lib/navigation/tenant-routes';
+import { subscribePageUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 import { isSlugFormatValid } from '@/lib/utils/slug';
@@ -28,7 +27,6 @@ type CreateWorkspaceDialogProps = {
 };
 
 export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDialogProps) {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const createTenant = useCreateTenant();
   const [name, setName] = useState('');
@@ -58,11 +56,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
       persistTenantId(tenant.id);
       if (tenant.slug) {
         persistTenantSlug(tenant.slug);
-        if (isSubdomainTenantsEnabled()) {
-          window.location.assign(tenantUrl(tenant.slug, '/subscribe?welcome=1'));
-        } else {
-          router.push(tenantPath(tenant.slug, 'subscribe?welcome=1'));
-        }
+        window.location.assign(subscribePageUrl({ welcome: true, workspace: tenant.slug }));
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create workspace');

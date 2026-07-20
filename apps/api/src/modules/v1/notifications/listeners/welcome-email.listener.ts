@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { tenantFrontendUrl } from '../../../../common/utils/tenant-frontend-url.util';
+import {
+  marketingSubscribeUrl,
+  tenantFrontendUrl,
+} from '../../../../common/utils/tenant-frontend-url.util';
 import { TenantCreatedEvent } from '../../leave/events/leave.events';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type { Tenant } from '../../tenants/entities/tenant.entity';
@@ -38,7 +41,7 @@ export class WelcomeEmailListener {
         tenantName: tenant.name,
         setupUrl: workspaceUrl,
         workspaceUrl,
-        trialUrl: tenantFrontendUrl(tenant.slug, '/subscribe?welcome=1'),
+        trialUrl: marketingSubscribeUrl(tenant.slug),
         docsUrl: workspaceUrl,
       });
     } catch (error) {

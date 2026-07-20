@@ -2,6 +2,15 @@ function stripTrailingSlash(value: string): string {
   return value.replace(/\/$/, '');
 }
 
+export function marketingSubscribeUrl(workspace?: string, welcome = true): string {
+  const base = stripTrailingSlash(process.env.FRONTEND_URL || 'http://localhost:3000');
+  const search = new URLSearchParams();
+  if (welcome) search.set('welcome', '1');
+  if (workspace) search.set('workspace', workspace);
+  const query = search.toString();
+  return `${base}/subscribe${query ? `?${query}` : ''}`;
+}
+
 export function isSubdomainTenantsEnabled(): boolean {
   return process.env.APP_USE_SUBDOMAIN === 'true';
 }
