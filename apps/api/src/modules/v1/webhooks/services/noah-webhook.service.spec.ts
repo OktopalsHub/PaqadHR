@@ -8,7 +8,7 @@ describe('NoahWebhookService', () => {
     processNoahPayload: jest.fn().mockResolvedValue({ received: true }),
   };
   const payrollPayoutService = {
-    processNoahPayload: jest.fn().mockResolvedValue({ received: true }),
+    processNoahPayload: jest.fn().mockResolvedValue({ received: true, matched: false }),
   };
   const walletTopupService = {
     completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
@@ -79,10 +79,45 @@ describe('NoahWebhookService', () => {
         status: 'Settled',
       },
     };
+    payrollPayoutService.processNoahPayload.mockResolvedValueOnce({
+      received: true,
+      matched: true,
+    });
 
     await service.dispatch(JSON.stringify(payload), 'sig');
 
-    expect(payrollPayoutService.processNoahPayload).toHaveBeenCalledWith(payload);
+    expect(payrollPayoutService.processNoahPayload).toHaveBeenCalled();
+    expect(subscriptionBillingService.processNoahPayload).not.toHaveBeenCalled();
+  });
+
+  it('routes PascalCase Transaction/Settled webhooks to payroll', async () => {
+    const runId = '11111111-1111-4111-8111-111111111111';
+    const itemId = '22222222-2222-4222-8222-222222222222';
+    const payload = {
+      EventType: 'Transaction',
+      Data: {
+        ID: '0ee0ed7a-57eb-5818-bd11-67cccd940e3e',
+        Status: 'Settled',
+        Reference: `payroll_${runId}_${itemId}`,
+      },
+    };
+    payrollPayoutService.processNoahPayload.mockResolvedValueOnce({
+      received: true,
+      matched: true,
+    });
+
+    await service.dispatch(JSON.stringify(payload), 'sig');
+
+    expect(payrollPayoutService.processNoahPayload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'Transaction',
+        data: expect.objectContaining({
+          status: 'Settled',
+          externalID: `payroll_${runId}_${itemId}`,
+          transactionID: '0ee0ed7a-57eb-5818-bd11-67cccd940e3e',
+        }),
+      }),
+    );
     expect(subscriptionBillingService.processNoahPayload).not.toHaveBeenCalled();
   });
 });

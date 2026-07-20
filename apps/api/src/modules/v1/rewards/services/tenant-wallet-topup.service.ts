@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isNoahConfigured } from 'src/common/config/noah.config';
+import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { NoahApiService } from 'src/common/services/noah-api.service';
@@ -336,7 +337,7 @@ export class TenantWalletTopupService {
           ? await this.nombaApi.verifyTransaction(chargeReference)
           : await this.noahApi.verifyTransaction(chargeReference);
 
-      if (verified?.status?.toLowerCase() !== 'success') {
+      if (!verified || !isNoahPaymentVerified(verified.status)) {
         throw new Error('Payment verification failed');
       }
 

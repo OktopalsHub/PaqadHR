@@ -19,6 +19,7 @@ const SUCCESS_STATUSES = new Set([
   'PAYMENT_SUCCESSFUL',
   'SUCCEEDED',
   'PAID',
+  'SETTLED',
 ]);
 const PENDING_STATUSES = new Set(['PENDING', 'PENDING_BILLING', 'PROCESSING']);
 const FAILED_STATUSES = new Set([
@@ -97,13 +98,26 @@ export class PayrollPayoutService {
     return { received: true };
   }
 
-  async processNoahPayload(payload: unknown): Promise<{ received: boolean }> {
+  async processNoahPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
     const event = this.noahApi.parseTransferWebhook(payload);
     if (!event) {
-      return { received: true };
+      return { received: true, matched: false };
     }
 
-    const merchantRef = event.merchantTxRef ?? event.reference;
+    let merchantRef = event.merchantTxRef ?? event.reference;
+    if (!merchantRef || !PAYROLL_REF_PATTERN.test(merchantRef)) {
+      if (!event.reference) {
+        return { received: true, matched: false };
+      }
+      const item = await this.payrollItemRepository.findOne({
+        where: { transactionId: event.reference },
+      });
+      if (!item) {
+        return { received: true, matched: false };
+      }
+      merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
+    }
+
     const changed = await this.applyTransferStatus(
       merchantRef,
       event.status,
@@ -116,7 +130,7 @@ export class PayrollPayoutService {
         await this.reconcilePayrollRunStatus(parsed[1]);
       }
     }
-    return { received: true };
+    return { received: true, matched: true };
   }
 
   async requeryStuckPayouts(): Promise<{ checked: number; updated: number }> {
@@ -197,6 +211,7 @@ export class PayrollPayoutService {
 
     if (FAILED_STATUSES.has(status)) {
       if (item.status === PayrollItemStatus.FAILED) return false;
+      if (item.status === PayrollItemStatus.PAID) return false;
       item.status = PayrollItemStatus.FAILED;
       item.transactionId = transactionId;
       item.failureReason = `${providerName} transfer ${status.toLowerCase()}`;

@@ -1,5 +1,5 @@
-import { SUPPORTED_FIAT_CURRENCIES } from 'src/common/constants/supported-fiat-currencies.constant';
 import { SUPPORTED_CRYPTO_CURRENCIES } from 'src/common/constants/crypto-currencies.constant';
+import { SUPPORTED_FIAT_CURRENCIES } from 'src/common/constants/supported-fiat-currencies.constant';
 
 export const PAYROLL_SECURITY_CONFIG = {
   MAX_SALARY_LIMIT: 1000000,

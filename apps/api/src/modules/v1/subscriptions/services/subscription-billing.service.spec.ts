@@ -207,6 +207,44 @@ describe('SubscriptionBillingService webhooks', () => {
 
     expect(spy).toHaveBeenCalled();
   });
+
+  it('records Noah failure events under the Noah provider for idempotency', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, noahProvider, billingEventRepo, subscriptionRepo } = createService();
+    (noahProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.failed',
+      payment: {
+        eventId: 'evt-noah-fail',
+        reference: 'ref-noah-fail',
+        tenantId,
+        billingType: 'subscription_renewal',
+      },
+    });
+    billingEventRepo.exists.mockResolvedValue(false);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      status: SubscriptionStatus.PAST_DUE,
+      dunningAttemptCount: 0,
+    });
+    const markFailedSpy = jest
+      .spyOn(service as any, 'markRenewalFailed')
+      .mockResolvedValue(undefined);
+
+    await service.processNoahPayload({ event_type: 'payment_failed', data: {} });
+
+    expect(markFailedSpy).toHaveBeenCalledTimes(1);
+    expect(billingEventRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ eventId: 'evt-noah-fail', provider: 'noah' }),
+    );
+
+    billingEventRepo.exists.mockResolvedValue(true);
+    markFailedSpy.mockClear();
+
+    await service.processNoahPayload({ event_type: 'payment_failed', data: {} });
+
+    expect(markFailedSpy).not.toHaveBeenCalled();
+  });
 });
 
 describe('SubscriptionBillingService lifecycle', () => {

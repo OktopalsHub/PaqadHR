@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { Brackets, DataSource, LessThan, Repository } from 'typeorm';
@@ -630,7 +631,7 @@ export class SubscriptionBillingService {
       );
 
       const verified = await this.verifyPaymentReference(charge.orderReference, planPrice.currency);
-      if (verified?.status?.toLowerCase() !== 'success') {
+      if (!verified || !isNoahPaymentVerified(verified.status)) {
         await this.markRenewalFailed(subscription, charge.orderReference, 'verification_failed');
         await this.recordBillingEvent(attemptEventId, 'renewal_attempt', {
           tenantId: subscription.tenantId,
@@ -916,7 +917,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (verified?.status?.toLowerCase() !== 'success') {
+    if (!verified || !isNoahPaymentVerified(verified.status)) {
       throw new BadRequestException('Payment could not be verified with billing provider');
     }
 
@@ -1046,7 +1047,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (verified?.status?.toLowerCase() !== 'success') {
+    if (!verified || !isNoahPaymentVerified(verified.status)) {
       throw new BadRequestException('Card update payment could not be verified');
     }
 
@@ -1091,7 +1092,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (verified?.status?.toLowerCase() !== 'success') {
+    if (!verified || !isNoahPaymentVerified(verified.status)) {
       throw new BadRequestException('Renewal payment could not be verified');
     }
 
@@ -1107,7 +1108,7 @@ export class SubscriptionBillingService {
     }
 
     const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (verified?.status?.toLowerCase() !== 'success') {
+    if (!verified || !isNoahPaymentVerified(verified.status)) {
       return;
     }
 
@@ -1209,23 +1210,38 @@ export class SubscriptionBillingService {
         pendingChargeAmount: undefined,
       };
       await this.subscriptionRepository.save(subscription);
-      await this.recordBillingEvent(payment.eventId, 'quantity_update_failed', {
-        ...payment,
-      } as unknown as Record<string, unknown>);
+      await this.recordBillingEvent(
+        payment.eventId,
+        'quantity_update_failed',
+        {
+          ...payment,
+        } as unknown as Record<string, unknown>,
+        provider,
+      );
       return;
     }
 
     if (payment.billingType === BillingChargeType.SUBSCRIPTION_RENEWAL) {
       await this.markRenewalFailed(subscription, payment.reference, 'renewal_payment_failed');
-      await this.recordBillingEvent(payment.eventId, 'renewal_failed_webhook', {
-        ...payment,
-      } as unknown as Record<string, unknown>);
+      await this.recordBillingEvent(
+        payment.eventId,
+        'renewal_failed_webhook',
+        {
+          ...payment,
+        } as unknown as Record<string, unknown>,
+        provider,
+      );
       return;
     }
 
-    await this.recordBillingEvent(payment.eventId, 'payment_failed', {
-      ...payment,
-    } as unknown as Record<string, unknown>);
+    await this.recordBillingEvent(
+      payment.eventId,
+      'payment_failed',
+      {
+        ...payment,
+      } as unknown as Record<string, unknown>,
+      provider,
+    );
     await this.notifyRenewalIssue(
       subscription,
       'PAYMENT_FAILED',
@@ -1310,7 +1326,13 @@ export class SubscriptionBillingService {
       }
 
       if (attemptExists) {
-        return;
+        const attemptFailed =
+          attemptExists.payload &&
+          typeof attemptExists.payload === 'object' &&
+          (attemptExists.payload as Record<string, unknown>).failed === true;
+        if (!attemptFailed) {
+          return;
+        }
       }
 
       const periodStart = new Date(billingPeriodAnchor ?? locked.nextBillingDate);
