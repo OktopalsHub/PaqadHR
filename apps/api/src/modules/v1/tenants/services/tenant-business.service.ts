@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
 import { StringUtility } from 'src/common/utils';
+import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -56,9 +57,7 @@ export class TenantBusinessService {
     return `${baseSlug}-${nextNumber}`;
   }
   private validateSlugNotReserved(slug: string): void {
-    const excluded =
-      process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
-    if (excluded.includes(slug.toLowerCase())) {
+    if (isReservedTenantSlug(slug)) {
       throw new BadRequestException(`The subdomain "${slug}" is reserved and cannot be used.`);
     }
   }

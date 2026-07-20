@@ -8,6 +8,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
+import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { UsersService } from '../users/users.service';
@@ -32,7 +33,7 @@ export class TenantsService {
         throw new UnprocessableEntityException('User not found');
       }
       const slug = await this.resolveSlug(data.slug, data.name);
-      if (this.isReservedSlug(slug)) {
+      if (isReservedTenantSlug(slug)) {
         throw new UnprocessableEntityException(
           `The subdomain "${slug}" is reserved and cannot be used.`,
         );
@@ -90,15 +91,6 @@ export class TenantsService {
       }
       throw new UnprocessableEntityException('Failed to create tenant. Please try again.');
     }
-  }
-  private isReservedSlug(slug: string): boolean {
-    const excluded =
-      process.env.TENANT_EXCLUDED_SUBDOMAINS || process.env.EXCLUDED_SUBDOMAINS || '';
-    const reserved = excluded
-      .split(',')
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean);
-    return reserved.includes(slug.toLowerCase());
   }
   private async resolveOwnerMemberProfile(
     userId: string,

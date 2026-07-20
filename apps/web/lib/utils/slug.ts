@@ -1,8 +1,8 @@
+import { isReservedTenantSlug } from '@/lib/constants/reserved-tenant-slugs';
 import {
   getWorkspaceUrlPrefix,
   getWorkspaceUrlSuffix,
   isSubdomainTenantsEnabled,
-  RESERVED_ROUTE_SEGMENTS,
   tenantHostPreview,
 } from '@/lib/navigation/tenant-routes';
 
@@ -25,7 +25,7 @@ export function isSlugFormatValid(slug: string): boolean {
 }
 
 export function isSlugReserved(slug: string): boolean {
-  return RESERVED_ROUTE_SEGMENTS.has(slug);
+  return isReservedTenantSlug(slug);
 }
 
 export function getAppBaseUrl(): string {

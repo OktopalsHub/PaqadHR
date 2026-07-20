@@ -1,28 +1,11 @@
 import type { Tenant } from '@/lib/schemas/tenant';
-
-export const RESERVED_ROUTE_SEGMENTS = new Set([
-  'signin',
-  'signup',
-  'accept-invite',
-  'forgot-password',
-  'reset-password',
-  'onboarding',
-  'app',
-  'api',
-  '_next',
-]);
-
-export const RESERVED_HOST_SUBDOMAINS = new Set([
-  ...RESERVED_ROUTE_SEGMENTS,
-  'www',
-  'dev',
-  'api',
-  'admin',
-  'dashboard',
-  'health',
-  'docs',
-  'metrics',
-]);
+export {
+  isReservedTenantSlug,
+  RESERVED_HOST_SUBDOMAINS,
+  RESERVED_ROUTE_SEGMENTS,
+  RESERVED_TENANT_SLUG_LIST,
+  RESERVED_TENANT_SLUGS,
+} from '@/lib/constants/reserved-tenant-slugs';
 
 export function isSubdomainTenantsEnabled(): boolean {
   return process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS === 'true';

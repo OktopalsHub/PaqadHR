@@ -6,7 +6,7 @@ import { TenantMemberRole } from 'src/common/enums';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { StringUtility } from 'src/common/utils/string.util';
 import { Repository } from 'typeorm';
-import { RESERVED_TENANT_SLUGS } from '../../../../common/constants/reserved-tenant-slugs';
+import { isReservedTenantSlug } from '../../../../common/constants/reserved-tenant-slugs';
 import type { OnboardingData } from '../../../../common/interfaces/onboarding-data.interface';
 import type { OnboardingResult } from '../../../../common/interfaces/onboarding-result.interface';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
@@ -167,7 +167,7 @@ export class TenantOnboardingService {
       return { slug, available: false, reason: 'invalid' };
     }
 
-    if (this.isSlugReserved(slug)) {
+    if (isReservedTenantSlug(slug)) {
       return { slug, available: false, reason: 'reserved' };
     }
 
@@ -233,21 +233,6 @@ export class TenantOnboardingService {
 
   private normalizeSlug(rawSlug: string): string {
     return StringUtility.slugify(rawSlug).slice(0, SLUG_MAX_LENGTH).replace(/-+$/, '');
-  }
-
-  private isSlugReserved(slug: string): boolean {
-    if (RESERVED_TENANT_SLUGS.has(slug)) {
-      return true;
-    }
-    const excluded = (
-      process.env.TENANT_EXCLUDED_SUBDOMAINS ||
-      process.env.EXCLUDED_SUBDOMAINS ||
-      ''
-    )
-      .split(',')
-      .map((item) => item.trim().toLowerCase())
-      .filter(Boolean);
-    return excluded.includes(slug);
   }
 
   private generateSlug(name: string): string {
