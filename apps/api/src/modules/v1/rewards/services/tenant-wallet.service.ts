@@ -36,8 +36,10 @@ export class TenantWalletService {
     try {
       const tenant = await this.tenantsService.getTenant(tenantId);
       currencyCode = (tenant.preferredCurrency || 'NGN').toUpperCase();
-    } catch {
-      // default NGN
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve tenant currency for wallet ${tenantId}, defaulting to NGN: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     wallet = repo.create({ tenantId, currencyCode, balanceAmount: 0 });

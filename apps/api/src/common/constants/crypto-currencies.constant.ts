@@ -4,9 +4,6 @@ export const SUPPORTED_CRYPTO_CURRENCIES = [
   'ETH',
   'USDT',
   'USDC',
-  'BNB',
-  'ADA',
-  'DOT',
   'SOL',
   'MATIC',
 ] as const;

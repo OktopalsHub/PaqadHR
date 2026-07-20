@@ -3,7 +3,11 @@ import { PayrollPayoutService } from '../../payroll/services/payroll-payout.serv
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { BillingProvider } from '../../subscriptions/constants/billing-provider.enum';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
-import { extractWalletTopupCheckout, isSubscriptionPaymentEvent } from '../webhook-request.util';
+import {
+  extractNoahPayrollExternalId,
+  extractWalletTopupCheckout,
+  isSubscriptionPaymentEvent,
+} from '../webhook-request.util';
 
 @Injectable()
 export class NoahWebhookService {
@@ -15,17 +19,11 @@ export class NoahWebhookService {
     private readonly walletTopupService: TenantWalletTopupService,
   ) {}
 
-  async dispatch(
-    rawBody: string,
-    signature: string,
-    timestamp?: string,
-  ): Promise<{ received: boolean }> {
+  async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
     if (!signature?.trim()) {
       throw new UnauthorizedException('Missing webhook signature');
     }
-    if (
-      !this.subscriptionBillingService.verifyNoahWebhookSignature(rawBody, signature, timestamp)
-    ) {
+    if (!this.subscriptionBillingService.verifyNoahWebhookSignature(rawBody, signature)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 
@@ -36,6 +34,10 @@ export class NoahWebhookService {
       throw new BadRequestException('Invalid webhook JSON');
     }
 
+    if (extractNoahPayrollExternalId(payload)) {
+      return this.payrollPayoutService.processNoahPayload(payload);
+    }
+
     const eventType = this.extractNoahEventType(payload);
 
     if (isSubscriptionPaymentEvent(eventType) || this.isNoahCheckoutSuccess(eventType)) {
@@ -44,15 +46,6 @@ export class NoahWebhookService {
         return this.walletTopupService.completeCheckoutTopup(walletTopup, BillingProvider.NOAH);
       }
       return this.subscriptionBillingService.processNoahPayload(payload);
-    }
-
-    const payrollResult = await this.payrollPayoutService.processNoahPayload(payload);
-    if (payrollResult.received) {
-      const body = payload as { data?: { externalID?: string; externalId?: string } };
-      const externalId = body.data?.externalID ?? body.data?.externalId ?? '';
-      if (externalId.startsWith('payroll_')) {
-        return payrollResult;
-      }
     }
 
     this.logger.debug(`Ignoring unhandled Noah webhook event: ${eventType || 'unknown'}`);

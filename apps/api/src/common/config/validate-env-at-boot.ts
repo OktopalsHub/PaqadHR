@@ -57,9 +57,6 @@ export function validateEnvAtBoot(): void {
     if (!process.env.NOAH_API_KEY?.trim()) {
       warnings.push('NOAH_API_KEY is not set — non-NGN payments will be unavailable');
     }
-    if (process.env.NOAH_API_KEY?.trim() && !process.env.NOAH_WEBHOOK_SECRET?.trim()) {
-      warnings.push('NOAH_WEBHOOK_SECRET is not set — Noah webhooks will reject signatures');
-    }
     if (
       process.env.NOAH_ENVIRONMENT === 'production' &&
       !process.env.NOAH_SIGNING_PRIVATE_KEY?.trim()

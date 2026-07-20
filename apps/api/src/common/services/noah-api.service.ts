@@ -4,10 +4,14 @@ import {
   getNoahApiKey,
   getNoahBaseUrl,
   getNoahPayoutCryptoCurrency,
+  getNoahSigningPrivateKey,
   isNoahConfigured,
+  isNoahSigningRequired,
 } from '../config/noah.config';
 import { isNoahOperationSuccessful } from '../config/noah-api.util';
+import { createNoahApiSignature, noahJwtPath } from '../config/noah-request-sign.util';
 import { verifyNoahWebhookSignature } from '../config/noah-webhook.util';
+import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 
 export interface NoahCheckoutInput {
   orderReference: string;
@@ -57,6 +61,8 @@ export interface NoahCryptoPayoutInput {
   narration?: string;
 }
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 function stringifyMeta(
   meta?: Record<string, string | number | boolean | undefined>,
 ): Record<string, string> {
@@ -87,26 +93,71 @@ export class NoahApiService {
     path: string,
     body?: Record<string, unknown>,
     query?: Record<string, string>,
+    idempotencyKey?: string,
   ): Promise<T> {
     this.ensureConfigured();
 
     const base = getNoahBaseUrl();
-    const url = new URL(`${base}${path.startsWith('/') ? path : `/${path}`}`);
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    const url = new URL(`${base}${normalizedPath}`);
     if (query) {
       for (const [key, value] of Object.entries(query)) {
         if (value) url.searchParams.set(key, value);
       }
     }
 
-    const response = await fetch(url.toString(), {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': getNoahApiKey(),
-        'X-Idempotency-Key': randomUUID(),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    const bodyBuffer =
+      body && (method === 'POST' || method === 'PUT')
+        ? Buffer.from(JSON.stringify(body))
+        : undefined;
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Api-Key': getNoahApiKey(),
+    };
+
+    if (method === 'POST' || method === 'PUT') {
+      headers['X-Idempotency-Key'] = idempotencyKey ?? randomUUID();
+    }
+
+    const signingKey = getNoahSigningPrivateKey();
+    if (isNoahSigningRequired() && signingKey) {
+      const jwtPath = noahJwtPath(normalizedPath, base);
+      const queryParams =
+        query && Object.keys(query).length > 0
+          ? Object.fromEntries(
+              Object.entries(query).filter(([, value]) => value) as [string, string][],
+            )
+          : undefined;
+      headers['Api-Signature'] = createNoahApiSignature({
+        method,
+        path: jwtPath,
+        privateKey: signingKey,
+        body: bodyBuffer,
+        queryParams,
+      });
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method,
+        headers,
+        body: bodyBuffer,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        this.logger.error(`Noah ${method} ${path} timed out after ${REQUEST_TIMEOUT_MS}ms`);
+        throw new BadRequestException('Noah request timed out');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const payload = (await response.json().catch(() => ({}))) as T & {
       message?: string;
@@ -135,7 +186,7 @@ export class NoahApiService {
     orderReference: string;
   }> {
     const currency = input.currency.toUpperCase();
-    const isCrypto = ['BTC', 'ETH', 'USDT', 'USDC', 'BNB', 'SOL'].includes(currency);
+    const isCrypto = isCryptoCurrency(currency);
     const path = isCrypto ? '/checkout/payin/crypto' : '/checkout/payin/fiat';
 
     const payload = await this.request<{
@@ -145,17 +196,23 @@ export class NoahApiService {
       orderReference?: string;
       reference?: string;
       id?: string;
-    }>('POST', path, {
-      customerID: input.customerId ?? input.customerEmail,
-      customerEmail: input.customerEmail,
-      fiatAmount: String(input.amount),
-      fiatCurrency: currency,
-      cryptoCurrency: isCrypto ? currency : undefined,
-      returnURL: input.callbackUrl,
-      externalID: input.orderReference,
-      metadata: stringifyMeta(input.meta),
-      savePaymentMethod: input.tokenizeCard ?? true,
-    });
+    }>(
+      'POST',
+      path,
+      {
+        customerID: input.customerId ?? input.customerEmail,
+        customerEmail: input.customerEmail,
+        fiatAmount: String(input.amount),
+        fiatCurrency: currency,
+        cryptoCurrency: isCrypto ? currency : undefined,
+        returnURL: input.callbackUrl,
+        externalID: input.orderReference,
+        metadata: stringifyMeta(input.meta),
+        savePaymentMethod: input.tokenizeCard ?? true,
+      },
+      undefined,
+      input.orderReference,
+    );
 
     const checkoutLink = payload.checkoutUrl ?? payload.checkoutLink ?? payload.url;
     if (!checkoutLink) {
@@ -176,15 +233,21 @@ export class NoahApiService {
       reference?: string;
       externalID?: string;
       id?: string;
-    }>('POST', '/checkout/payin/fiat', {
-      customerEmail: input.customerEmail,
-      fiatAmount: String(input.amount),
-      fiatCurrency: input.currency.toUpperCase(),
-      returnURL: input.callbackUrl,
-      externalID: input.orderReference,
-      paymentMethodID: input.paymentMethodId,
-      metadata: stringifyMeta(input.meta),
-    });
+    }>(
+      'POST',
+      '/checkout/payin/fiat',
+      {
+        customerEmail: input.customerEmail,
+        fiatAmount: String(input.amount),
+        fiatCurrency: input.currency.toUpperCase(),
+        returnURL: input.callbackUrl,
+        externalID: input.orderReference,
+        paymentMethodID: input.paymentMethodId,
+        metadata: stringifyMeta(input.meta),
+      },
+      undefined,
+      input.orderReference,
+    );
 
     return {
       orderReference:
@@ -237,15 +300,21 @@ export class NoahApiService {
       payoutID?: string;
       payoutId?: string;
       status?: string;
-    }>('POST', '/transactions/sell/prepare', {
-      channelID: channelId,
-      cryptoCurrency,
-      fiatAmount: String(input.amount),
-      fiatCurrency: input.fiatCurrency.toUpperCase(),
-      form,
-      externalID: input.merchantTxRef,
-      narration: input.narration,
-    });
+    }>(
+      'POST',
+      '/transactions/sell/prepare',
+      {
+        channelID: channelId,
+        cryptoCurrency,
+        fiatAmount: String(input.amount),
+        fiatCurrency: input.fiatCurrency.toUpperCase(),
+        form,
+        externalID: input.merchantTxRef,
+        narration: input.narration,
+      },
+      undefined,
+      input.merchantTxRef,
+    );
 
     const prepareId =
       prepared.payoutID ?? prepared.payoutId ?? prepared.transactionID ?? prepared.transactionId;
@@ -257,10 +326,16 @@ export class NoahApiService {
       transactionID?: string;
       transactionId?: string;
       status?: string;
-    }>('POST', '/transactions/sell', {
-      transactionID: prepareId,
-      externalID: input.merchantTxRef,
-    });
+    }>(
+      'POST',
+      '/transactions/sell',
+      {
+        transactionID: prepareId,
+        externalID: input.merchantTxRef,
+      },
+      undefined,
+      input.merchantTxRef,
+    );
 
     return {
       transactionId:
@@ -277,14 +352,20 @@ export class NoahApiService {
       transactionID?: string;
       transactionId?: string;
       status?: string;
-    }>('POST', '/transactions/send', {
-      cryptoCurrency: input.cryptoCurrency.toUpperCase(),
-      amount: String(input.amount),
-      destinationAddress: input.walletAddress,
-      network: input.network,
-      externalID: input.merchantTxRef,
-      narration: input.narration,
-    });
+    }>(
+      'POST',
+      '/transactions/send',
+      {
+        cryptoCurrency: input.cryptoCurrency.toUpperCase(),
+        amount: String(input.amount),
+        destinationAddress: input.walletAddress,
+        network: input.network,
+        externalID: input.merchantTxRef,
+        narration: input.narration,
+      },
+      undefined,
+      input.merchantTxRef,
+    );
 
     return {
       transactionId: payload.transactionID ?? payload.transactionId ?? input.merchantTxRef,
@@ -329,8 +410,8 @@ export class NoahApiService {
     }
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string, timestamp?: string): boolean {
-    return verifyNoahWebhookSignature(rawBody, signature, timestamp);
+  verifyWebhookSignature(rawBody: string, signature: string): boolean {
+    return verifyNoahWebhookSignature(rawBody, signature);
   }
 
   parseTransferWebhook(payload: unknown): {

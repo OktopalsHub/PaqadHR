@@ -78,10 +78,8 @@ export class SubscriptionBillingService {
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
 
-  verifyNoahWebhookSignature(rawBody: string, signature: string, timestamp?: string): boolean {
-    return this.billingProviderFactory
-      .getNoahProvider()
-      .verifyWebhookSignature(rawBody, signature, timestamp);
+  verifyNoahWebhookSignature(rawBody: string, signature: string): boolean {
+    return this.billingProviderFactory.getNoahProvider().verifyWebhookSignature(rawBody, signature);
   }
 
   private providerForCurrency(currency: string): BillingProvider {

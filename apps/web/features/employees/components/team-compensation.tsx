@@ -56,7 +56,8 @@ function formatMoney(amount: number, currency: string) {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',
       currency,
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   } catch {
     return `${currency} ${amount.toFixed(2)}`;

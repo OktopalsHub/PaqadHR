@@ -68,4 +68,21 @@ describe('NoahWebhookService', () => {
 
     expect(subscriptionBillingService.processNoahPayload).toHaveBeenCalled();
   });
+
+  it('routes payroll webhooks before subscription checkout heuristic', async () => {
+    const runId = '11111111-1111-4111-8111-111111111111';
+    const itemId = '22222222-2222-4222-8222-222222222222';
+    const payload = {
+      event_type: 'transaction_settled',
+      data: {
+        externalID: `payroll_${runId}_${itemId}`,
+        status: 'Settled',
+      },
+    };
+
+    await service.dispatch(JSON.stringify(payload), 'sig');
+
+    expect(payrollPayoutService.processNoahPayload).toHaveBeenCalledWith(payload);
+    expect(subscriptionBillingService.processNoahPayload).not.toHaveBeenCalled();
+  });
 });

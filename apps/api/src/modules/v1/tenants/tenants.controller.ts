@@ -159,7 +159,7 @@ export class TenantsController {
       throw new BadRequestException(`Currency must be one of: ${supportedCurrencies.join(', ')}`);
     }
     const updateDto: UpdateTenantDto = {
-      preferredCurrency: body.currency,
+      preferredCurrency: body.currency.toUpperCase(),
     };
     const tenant = await this.tenantsService.updateTenant(tenantId, updateDto);
     return tenant;

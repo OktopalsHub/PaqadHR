@@ -30,6 +30,7 @@ import {
   getNombaRawBody,
   resolveNombaSignature,
   resolveNombaTimestamp,
+  resolveNoahSignature,
 } from '../webhook-request.util';
 
 type RawBodyRequestType = Request & { rawBody?: Buffer };
@@ -71,11 +72,7 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.noahWebhookService.dispatch(
-      rawBody,
-      headers['x-noah-signature'] || headers['x-signature'] || '',
-      headers['x-noah-timestamp'] || headers['x-timestamp'],
-    );
+    return this.noahWebhookService.dispatch(rawBody, resolveNoahSignature(headers));
   }
 
   @Post('reloadly')

@@ -169,8 +169,8 @@ export class NoahSubscriptionProvider implements ISubscriptionBillingProvider {
     return this.noahApi.verifyTransaction(subscriptionReference);
   }
 
-  verifyWebhookSignature(rawBody: string, signature: string, timestamp?: string): boolean {
-    return this.noahApi.verifyWebhookSignature(rawBody, signature, timestamp);
+  verifyWebhookSignature(rawBody: string, signature: string, _timestamp?: string): boolean {
+    return this.noahApi.verifyWebhookSignature(rawBody, signature);
   }
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null {

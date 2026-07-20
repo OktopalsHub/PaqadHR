@@ -16,6 +16,15 @@ export function resolveNombaTimestamp(headers: Record<string, string | undefined
   return headers['nomba-timestamp'] || '';
 }
 
+export function resolveNoahSignature(headers: Record<string, string | undefined>): string {
+  return (
+    headers['webhook-signature'] ??
+    headers['x-noah-signature'] ??
+    headers['x-signature'] ??
+    ''
+  );
+}
+
 export function extractNombaEventType(payload: unknown): string {
   const body = payload as { event_type?: string; eventType?: string; event?: string };
   return String(body.event_type || body.eventType || body.event || '').toLowerCase();
@@ -34,6 +43,12 @@ export function extractPayrollMerchantRef(payload: unknown): string | null {
     body.data?.transaction?.merchantTxRef ??
     body.data?.order?.orderMetaData?.merchantTxRef ??
     '';
+  return PAYROLL_REF_PATTERN.test(ref) ? ref : null;
+}
+
+export function extractNoahPayrollExternalId(payload: unknown): string | null {
+  const body = payload as { data?: { externalID?: string; externalId?: string } };
+  const ref = body.data?.externalID ?? body.data?.externalId ?? '';
   return PAYROLL_REF_PATTERN.test(ref) ? ref : null;
 }
 

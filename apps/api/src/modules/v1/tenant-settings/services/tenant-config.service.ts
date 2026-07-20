@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
 import { normalizeFiatCurrencies } from 'src/common/constants/supported-fiat-currencies.constant';
-import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
+import {
+  getSupportedPaymentCurrencies,
+  NOMBA_FIAT_CURRENCIES,
+  NOAH_FIAT_CURRENCIES,
+} from 'src/common/constants/supported-payment-currencies.constant';
 import type { PointsSettings } from 'src/common/interfaces/points-settings.interface';
 import type { ShoutoutSettings } from 'src/common/interfaces/shoutout-settings.interface';
 import { PAGINATION_DEFAULT_LIMIT } from 'src/common/utils/pagination.util';
@@ -116,7 +120,7 @@ export class TenantConfigService {
   }
 
   getGloballySupportedFiatCurrencies(): readonly string[] {
-    return getSupportedPaymentCurrencies();
+    return [...NOMBA_FIAT_CURRENCIES, ...NOAH_FIAT_CURRENCIES];
   }
 
   async getTenantConfig(tenantId: string): Promise<{

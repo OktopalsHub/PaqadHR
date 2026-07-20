@@ -1,41 +1,49 @@
-import { createHmac } from 'node:crypto';
+import { generateKeyPairSync, createSign } from 'node:crypto';
 import { verifyNoahWebhookSignature } from './noah-webhook.util';
 
 describe('verifyNoahWebhookSignature', () => {
-  const secret = 'test-noah-webhook-secret';
   const rawBody = JSON.stringify({ event_type: 'payment_success', data: { externalID: 'nw_abc' } });
 
+  let publicKeyPem: string;
+  let privateKeyPem: string;
+
+  beforeAll(() => {
+    const { publicKey, privateKey } = generateKeyPairSync('ec', { namedCurve: 'secp384r1' });
+    publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+    privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+  });
+
   beforeEach(() => {
-    process.env.NOAH_WEBHOOK_SECRET = secret;
+    process.env.NOAH_WEBHOOK_PUBLIC_KEY = publicKeyPem;
   });
 
   afterEach(() => {
-    delete process.env.NOAH_WEBHOOK_SECRET;
+    delete process.env.NOAH_WEBHOOK_PUBLIC_KEY;
   });
 
-  it('accepts valid HMAC signatures', () => {
-    const signature = createHmac('sha256', secret).update(rawBody).digest('hex');
-    expect(verifyNoahWebhookSignature(rawBody, signature)).toBe(true);
-  });
+  function signBody(body: string): string {
+    const signer = createSign('SHA384');
+    signer.update(body);
+    return signer.sign(privateKeyPem).toString('base64');
+  }
 
-  it('accepts sha256= prefixed signatures', () => {
-    const signature = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
-    expect(verifyNoahWebhookSignature(rawBody, signature)).toBe(true);
-  });
-
-  it('accepts timestamp-prefixed payload when timestamp is provided', () => {
-    const timestamp = '2026-07-06T12:00:00Z';
-    const signature = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
-    expect(verifyNoahWebhookSignature(rawBody, signature, timestamp)).toBe(true);
+  it('accepts valid ECDSA signatures', () => {
+    expect(verifyNoahWebhookSignature(rawBody, signBody(rawBody))).toBe(true);
   });
 
   it('rejects invalid signatures', () => {
-    expect(verifyNoahWebhookSignature(rawBody, 'deadbeef')).toBe(false);
+    expect(verifyNoahWebhookSignature(rawBody, Buffer.from('deadbeef').toString('base64'))).toBe(
+      false,
+    );
   });
 
-  it('rejects when secret is not configured', () => {
-    delete process.env.NOAH_WEBHOOK_SECRET;
-    const signature = createHmac('sha256', secret).update(rawBody).digest('hex');
-    expect(verifyNoahWebhookSignature(rawBody, signature)).toBe(false);
+  it('rejects when public key is not configured', () => {
+    delete process.env.NOAH_WEBHOOK_PUBLIC_KEY;
+    expect(verifyNoahWebhookSignature(rawBody, signBody(rawBody))).toBe(false);
+  });
+
+  it('rejects tampered body', () => {
+    const signature = signBody(rawBody);
+    expect(verifyNoahWebhookSignature(`${rawBody}x`, signature)).toBe(false);
   });
 });
