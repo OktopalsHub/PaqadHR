@@ -157,7 +157,7 @@ export function SubscribePage() {
 
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <CreditCard className="size-4" />
-          Secure checkout via Nomba
+          Secure checkout
         </div>
       </div>
     </AppPage>

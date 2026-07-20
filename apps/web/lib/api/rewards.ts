@@ -70,7 +70,12 @@ export interface TenantWallet {
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
-  /** True when API runs with NOMBA_LIVE=true (real payments, not sandbox UI). */
+  /** Checkout provider for wallet currency (`nomba` | `noah`). */
+  checkoutProvider?: 'nomba' | 'noah';
+  checkoutProviderLabel?: string;
+  /** True when checkout runs in live mode for the wallet currency provider. */
+  checkoutLive?: boolean;
+  /** @deprecated use checkoutLive */
   nombaLive?: boolean;
 }
 

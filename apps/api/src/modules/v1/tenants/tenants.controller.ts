@@ -13,7 +13,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { defaultPayrollCurrency, getNombaPayoutCurrencies } from 'src/common/config/nomba.config';
+import { defaultPayrollCurrency } from 'src/common/config/nomba.config';
+import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { AuthOnly, CurrentUser, Public } from 'src/common/decorators';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { TenantMemberRole, UserRole } from 'src/common/enums';
@@ -153,14 +154,15 @@ export class TenantsController {
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
     @Body() body: UpdatePaymentCurrencyDto,
   ) {
-    const supportedCurrencies = [...getNombaPayoutCurrencies()];
+    const supportedCurrencies = getSupportedPaymentCurrencies();
     if (!supportedCurrencies.includes(body.currency.toUpperCase())) {
       throw new BadRequestException(`Currency must be one of: ${supportedCurrencies.join(', ')}`);
     }
     const updateDto: UpdateTenantDto = {
-      preferredCurrency: body.currency,
+      preferredCurrency: body.currency.toUpperCase(),
     };
-    return this.tenantsService.updateTenant(tenantId, updateDto);
+    const tenant = await this.tenantsService.updateTenant(tenantId, updateDto);
+    return tenant;
   }
   @Get(':tenantId/payment-currency')
   @UseGuards(TenantMemberGuard)
@@ -168,7 +170,9 @@ export class TenantsController {
     const tenant = await this.tenantsService.getTenant(tenantId);
     return {
       currency: tenant.preferredCurrency || defaultPayrollCurrency(),
-      supportedCurrencies: [...getNombaPayoutCurrencies()],
+      supportedCurrencies: getSupportedPaymentCurrencies(),
+      ngnProvider: 'Nomba',
+      globalProvider: 'Noah',
     };
   }
   @Get(':tenantId/profile')

@@ -54,6 +54,17 @@ export function validateEnvAtBoot(): void {
         'NOMBA_WEBHOOK_SIGNATURE_KEY is not set — Nomba webhooks will reject signatures',
       );
     }
+    if (!process.env.NOAH_API_KEY?.trim()) {
+      warnings.push('NOAH_API_KEY is not set — non-NGN payments will be unavailable');
+    }
+    if (
+      process.env.NOAH_ENVIRONMENT === 'production' &&
+      !process.env.NOAH_SIGNING_PRIVATE_KEY?.trim()
+    ) {
+      warnings.push(
+        'NOAH_SIGNING_PRIVATE_KEY is not set — Noah API signing may fail in production',
+      );
+    }
     if (process.env.NOMBA_LIVE === 'true') {
       logger.log('Nomba live mode enabled (NOMBA_LIVE=true)');
     }

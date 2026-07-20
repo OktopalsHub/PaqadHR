@@ -16,6 +16,15 @@ export function resolveNombaTimestamp(headers: Record<string, string | undefined
   return headers['nomba-timestamp'] || '';
 }
 
+export function resolveNoahSignature(headers: Record<string, string | undefined>): string {
+  return (
+    headers['webhook-signature'] ??
+    headers['x-noah-signature'] ??
+    headers['x-signature'] ??
+    ''
+  );
+}
+
 export function extractNombaEventType(payload: unknown): string {
   const body = payload as { event_type?: string; eventType?: string; event?: string };
   return String(body.event_type || body.eventType || body.event || '').toLowerCase();
@@ -37,10 +46,73 @@ export function extractPayrollMerchantRef(payload: unknown): string | null {
   return PAYROLL_REF_PATTERN.test(ref) ? ref : null;
 }
 
+export function extractNoahPayrollExternalId(payload: unknown): string | null {
+  const body = payload as { data?: { externalID?: string; externalId?: string } };
+  const ref = body.data?.externalID ?? body.data?.externalId ?? '';
+  return PAYROLL_REF_PATTERN.test(ref) ? ref : null;
+}
+
 export function isSubscriptionPaymentEvent(eventType: string): boolean {
   return (
     eventType === 'payment_success' ||
     eventType === 'payment_failed' ||
     eventType === 'payment.failure'
   );
+}
+
+/** Checkout wallet top-up shares payment_success with subscriptions; route by order meta. */
+export function extractWalletTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+} | null {
+  const body = payload as {
+    event_type?: string;
+    eventType?: string;
+    data?: {
+      orderReference?: string;
+      amount?: number;
+      meta?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      externalID?: string;
+      order?: {
+        orderReference?: string;
+        amount?: number;
+        orderMetaData?: Record<string, string>;
+      };
+    };
+  };
+  const eventType = (body.event_type || body.eventType || '').toLowerCase();
+  if (eventType !== 'payment_success') return null;
+
+  const data = body.data;
+  const order = data?.order;
+  const orderMeta = order?.orderMetaData ?? {};
+  const flatMeta = (data?.meta ?? data?.metadata ?? {}) as Record<string, unknown>;
+  const billingType = orderMeta.billingType ?? flatMeta.billingType;
+  if (billingType !== 'wallet_topup') return null;
+
+  const tenantId = orderMeta.tenantId ?? flatMeta.tenantId;
+  const orderReference = order?.orderReference ?? data?.orderReference ?? data?.externalID;
+  if (!tenantId || !orderReference) return null;
+
+  const expectedRaw = orderMeta.expectedAmount ?? flatMeta.expectedAmount;
+  const expectedAmount =
+    expectedRaw !== undefined && expectedRaw !== null && String(expectedRaw).trim() !== ''
+      ? Number(expectedRaw)
+      : undefined;
+  const amountFromOrder = Number(order?.amount ?? data?.amount ?? 0);
+  const initiatedByRaw = orderMeta.initiatedByMemberId ?? flatMeta.initiatedByMemberId;
+  const initiatedByMemberId =
+    initiatedByRaw !== undefined && initiatedByRaw !== null && String(initiatedByRaw).trim() !== ''
+      ? String(initiatedByRaw)
+      : undefined;
+
+  return {
+    tenantId: String(tenantId),
+    orderReference: String(orderReference),
+    amount: Number.isFinite(expectedAmount) ? expectedAmount : amountFromOrder || undefined,
+    initiatedByMemberId,
+  };
 }

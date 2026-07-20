@@ -1,4 +1,5 @@
 import { SUPPORTED_FIAT_CURRENCIES } from 'src/common/constants/supported-fiat-currencies.constant';
+import { SUPPORTED_CRYPTO_CURRENCIES } from 'src/common/constants/crypto-currencies.constant';
 
 export const PAYROLL_SECURITY_CONFIG = {
   MAX_SALARY_LIMIT: 1000000,
@@ -12,18 +13,7 @@ export const PAYROLL_SECURITY_CONFIG = {
   PAYROLL_LOCK_TIMEOUT: 300000,
   MAX_PAYROLL_RUNS_PER_DAY: 10,
   MAX_CALCULATION_RETRIES: 3,
-  SUPPORTED_CURRENCIES: [
-    ...SUPPORTED_FIAT_CURRENCIES,
-    'BTC',
-    'ETH',
-    'USDT',
-    'USDC',
-    'BNB',
-    'ADA',
-    'DOT',
-    'SOL',
-    'MATIC',
-  ],
+  SUPPORTED_CURRENCIES: [...SUPPORTED_FIAT_CURRENCIES, ...SUPPORTED_CRYPTO_CURRENCIES],
   EMPLOYEE_ID_PATTERN: /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   PAYROLL_AUTHORIZED_ROLES: ['owner', 'admin'],
   PAYROLL_VIEW_ROLES: ['owner', 'admin', 'hr'],

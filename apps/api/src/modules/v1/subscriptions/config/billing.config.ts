@@ -1,3 +1,4 @@
+import { isNoahConfigured } from 'src/common/config/noah.config';
 import { isNombaConfigured } from './nomba.config';
 
 export function isFeatureGatingEnabled(): boolean {
@@ -5,13 +6,13 @@ export function isFeatureGatingEnabled(): boolean {
 }
 
 export function isBillingGatewayEnabled(): boolean {
-  return isNombaConfigured();
+  return isNombaConfigured() || isNoahConfigured();
 }
 
 export function assertBillingGatewayAllowed(): void {
   if (!isBillingGatewayEnabled()) {
     throw new Error(
-      'Nomba billing is not configured. Set NOMBA_CLIENT_ID, NOMBA_CLIENT_SECRET, and NOMBA_PARENT_ACCOUNT_ID.',
+      'Billing is not configured. Set Nomba credentials for NGN or Noah credentials for other currencies.',
     );
   }
 }

@@ -176,4 +176,21 @@ export class EmploymentService {
     }
     return salaryMap;
   }
+
+  async getCurrentSalariesForTenant(tenantId: string): Promise<
+    Array<{
+      memberId: string;
+      payRate: number;
+      payType: string;
+      paySchedule: string;
+    }>
+  > {
+    const employments = await this.employmentRepository.findCurrentEmploymentsByTenantId(tenantId);
+    return employments.map((employment) => ({
+      memberId: employment.tenantMemberId,
+      payRate: Number(employment.payRate),
+      payType: employment.payType,
+      paySchedule: employment.paySchedule,
+    }));
+  }
 }

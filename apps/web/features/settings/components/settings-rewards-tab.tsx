@@ -43,8 +43,10 @@ import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-const NOMBA_SANDBOX_DOCS =
-  'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing';
+const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'noah', string> = {
+  nomba: 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing',
+  noah: 'https://docs.noah.com/',
+};
 
 const ALL_COUNTRIES = [
   { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
@@ -693,17 +695,20 @@ export function SettingsRewardsTab() {
               )}
             </Button>
 
-            {!wallet?.nombaLive ? (
+            {!wallet?.checkoutLive ? (
               <p className="text-xs text-muted-foreground">
                 <a
-                  href={NOMBA_SANDBOX_DOCS}
+                  href={
+                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ??
+                    CHECKOUT_SANDBOX_DOCS.nomba
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium underline underline-offset-2"
                 >
                   Test payments
                 </a>{' '}
-                (sandbox)
+                via {wallet?.checkoutProviderLabel ?? 'payment gateway'} (sandbox)
               </p>
             ) : null}
           </div>

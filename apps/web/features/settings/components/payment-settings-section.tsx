@@ -325,8 +325,17 @@ export function PaymentSettingsSection() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [otpOpen, setOtpOpen] = useState(false);
 
-  const fiatOptions = currencies?.fiat ?? [];
+  const [walletAddress, setWalletAddress] = useState('');
+  const [cryptoNetwork, setCryptoNetwork] = useState('');
+
+  const fiatOptions = useMemo(() => currencies?.fiat ?? [], [currencies]);
+  const cryptoOptions = useMemo(() => currencies?.crypto ?? [], [currencies]);
+  const currencyOptions = useMemo(
+    () => [...fiatOptions, ...cryptoOptions],
+    [fiatOptions, cryptoOptions],
+  );
   const isNgn = currency === 'NGN';
+  const isCrypto = cryptoOptions.includes(currency);
   const { data: banks = [], isLoading: banksLoading } = useNigerianBanks({
     enabled: openForm && isNgn,
   });
@@ -334,11 +343,11 @@ export function PaymentSettingsSection() {
   const payoutConfig = getPayoutFieldConfig(currency);
 
   useEffect(() => {
-    if (fiatOptions.length === 0) return;
-    if (!fiatOptions.includes(currency)) {
-      setCurrency(fiatOptions[0]);
+    if (currencyOptions.length === 0) return;
+    if (!currencyOptions.includes(currency)) {
+      setCurrency(currencyOptions[0]);
     }
-  }, [currency, fiatOptions]);
+  }, [currency, currencyOptions]);
 
   useEffect(() => {
     setInstitutionCode('');
@@ -399,7 +408,12 @@ export function PaymentSettingsSection() {
   }, [accountNumber, bankCode, banks, isNgn]);
 
   const handleSubmit = () => {
-    if (isNgn) {
+    if (isCrypto) {
+      if (!walletAddress.trim()) {
+        toast.error('Wallet address is required');
+        return;
+      }
+    } else if (isNgn) {
       if (!bankCode || !lookupVerified || !accountName.trim()) {
         toast.error('Verify your account number and bank first');
         return;
@@ -417,7 +431,7 @@ export function PaymentSettingsSection() {
       }
     }
 
-    if (!accountNumber.trim()) {
+    if (!isCrypto && !accountNumber.trim()) {
       toast.error('Account number is required');
       return;
     }
@@ -439,12 +453,19 @@ export function PaymentSettingsSection() {
         : bankCode.trim();
 
       await createMethod.mutateAsync({
+        type: isCrypto ? 'crypto' : 'bank',
         currency,
-        bankName: bankName.trim(),
-        bankCode: isNgn ? bankCode.trim() : normalizedInstitution || undefined,
-        accountName: accountName.trim(),
-        accountNumber: normalizedAccount,
-        country: COUNTRY_BY_CURRENCY[currency] ?? 'NG',
+        bankName: isCrypto ? undefined : bankName.trim(),
+        bankCode: isCrypto
+          ? undefined
+          : isNgn
+            ? bankCode.trim()
+            : normalizedInstitution || undefined,
+        accountName: isCrypto ? 'Crypto wallet' : accountName.trim(),
+        accountNumber: isCrypto ? walletAddress.trim() : normalizedAccount,
+        walletAddress: isCrypto ? walletAddress.trim() : undefined,
+        cryptoNetwork: isCrypto ? cryptoNetwork.trim() || undefined : undefined,
+        country: isCrypto ? 'NG' : (COUNTRY_BY_CURRENCY[currency] ?? 'NG'),
         passcode,
         otpProof,
         isPrimary: true,
@@ -455,6 +476,8 @@ export function PaymentSettingsSection() {
       setInstitutionCode('');
       setAccountName('');
       setAccountNumber('');
+      setWalletAddress('');
+      setCryptoNetwork('');
       setPasscode('');
       setLookupVerified(false);
       setLookupError(null);
@@ -530,114 +553,137 @@ export function PaymentSettingsSection() {
         <div className="grid gap-3 rounded-lg border border-border/60 p-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Currency</Label>
-            {fiatOptions.length <= 1 ? (
-              <Input value={fiatOptions[0] ?? currency} readOnly disabled />
+            {currencyOptions.length <= 1 ? (
+              <Input value={currencyOptions[0] ?? currency} readOnly disabled />
             ) : (
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {fiatOptions.map((code) => (
+                  {currencyOptions.map((code) => (
                     <SelectItem key={code} value={code}>
                       {code}
+                      {cryptoOptions.includes(code) ? ' (crypto)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
             <p className="text-xs text-muted-foreground">
-              Your workspace only accepts payroll accounts in{' '}
-              {fiatOptions.length ? fiatOptions.join(', ') : 'the configured currencies'}.
+              NGN bank accounts use Nomba; other fiat and crypto use Noah.
             </p>
           </div>
 
-          <div className="space-y-2 sm:col-span-2">
-            <Label>{payoutConfig?.accountLabel ?? 'Account number'}</Label>
-            <Input
-              value={accountNumber}
-              onChange={(e) => {
-                if (payoutConfig) {
-                  setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
-                  return;
-                }
-                setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17));
-              }}
-              inputMode={payoutConfig?.accountAlphanumeric ? 'text' : 'numeric'}
-              placeholder={
-                isNgn
-                  ? '10-digit account number'
-                  : (payoutConfig?.accountPlaceholder ?? 'Account number')
-              }
-            />
-          </div>
-
-          {isNgn ? (
+          {isCrypto ? (
             <>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Bank</Label>
-                {banksLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading banks…</p>
-                ) : (
-                  <SearchSelect
-                    options={bankOptions}
-                    value={bankCode}
-                    onValueChange={(code) => {
-                      setBankCode(code);
-                      const selected = banks.find((bank) => bank.code === code);
-                      setBankName(selected?.name ?? '');
-                    }}
-                    placeholder="Select your bank"
-                    searchPlaceholder="Search banks…"
-                  />
-                )}
-              </div>
-              <div className="space-y-2 sm:col-span-2">
-                <Label>Account name</Label>
-                <div className="relative">
-                  <Input value={accountName} readOnly placeholder="Verified automatically" />
-                  {lookupVerified ? (
-                    <CheckCircle2 className="absolute right-3 top-2.5 size-4 text-green-600" />
-                  ) : null}
-                </div>
-                {lookupError ? (
-                  <p className="text-xs text-destructive">{lookupError}</p>
-                ) : lookupVerified ? (
-                  <p className="text-xs text-muted-foreground">Account verified</p>
-                ) : null}
-              </div>
-            </>
-          ) : isGlobalBank && payoutConfig ? (
-            <>
-              <div className="space-y-2">
-                <Label>Bank name</Label>
-                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>{payoutConfig.institutionLabel}</Label>
+                <Label>Wallet address</Label>
                 <Input
-                  value={institutionCode}
-                  placeholder={payoutConfig.institutionPlaceholder}
-                  onChange={(e) =>
-                    setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
-                  }
+                  value={walletAddress}
+                  onChange={(e) => setWalletAddress(e.target.value)}
+                  placeholder="Paste your wallet address"
                 />
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Account name</Label>
-                <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+                <Label>Network (optional)</Label>
+                <Input
+                  value={cryptoNetwork}
+                  onChange={(e) => setCryptoNetwork(e.target.value)}
+                  placeholder="e.g. ethereum, bitcoin"
+                />
               </div>
             </>
           ) : (
             <>
-              <div className="space-y-2">
-                <Label>Bank name</Label>
-                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{payoutConfig?.accountLabel ?? 'Account number'}</Label>
+                <Input
+                  value={accountNumber}
+                  onChange={(e) => {
+                    if (payoutConfig) {
+                      setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
+                      return;
+                    }
+                    setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17));
+                  }}
+                  inputMode={payoutConfig?.accountAlphanumeric ? 'text' : 'numeric'}
+                  placeholder={
+                    isNgn
+                      ? '10-digit account number'
+                      : (payoutConfig?.accountPlaceholder ?? 'Account number')
+                  }
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Account name</Label>
-                <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
-              </div>
+
+              {isNgn ? (
+                <>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Bank</Label>
+                    {banksLoading ? (
+                      <p className="text-sm text-muted-foreground">Loading banks…</p>
+                    ) : (
+                      <SearchSelect
+                        options={bankOptions}
+                        value={bankCode}
+                        onValueChange={(code) => {
+                          setBankCode(code);
+                          const selected = banks.find((bank) => bank.code === code);
+                          setBankName(selected?.name ?? '');
+                        }}
+                        placeholder="Select your bank"
+                        searchPlaceholder="Search banks…"
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Account name</Label>
+                    <div className="relative">
+                      <Input value={accountName} readOnly placeholder="Verified automatically" />
+                      {lookupVerified ? (
+                        <CheckCircle2 className="absolute right-3 top-2.5 size-4 text-green-600" />
+                      ) : null}
+                    </div>
+                    {lookupError ? (
+                      <p className="text-xs text-destructive">{lookupError}</p>
+                    ) : lookupVerified ? (
+                      <p className="text-xs text-muted-foreground">Account verified</p>
+                    ) : null}
+                  </div>
+                </>
+              ) : isGlobalBank && payoutConfig ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Bank name</Label>
+                    <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{payoutConfig.institutionLabel}</Label>
+                    <Input
+                      value={institutionCode}
+                      placeholder={payoutConfig.institutionPlaceholder}
+                      onChange={(e) =>
+                        setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Account name</Label>
+                    <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Bank name</Label>
+                    <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Account name</Label>
+                    <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+                  </div>
+                </>
+              )}
             </>
           )}
 
