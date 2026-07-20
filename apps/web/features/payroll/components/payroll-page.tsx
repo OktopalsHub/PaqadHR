@@ -188,9 +188,7 @@ export function PayrollPage() {
   const fiatCurrencies = currencyOptions?.fiat ?? ['NGN'];
 
   useEffect(() => {
-    const preferred = (
-      tenant as { preferredCurrency?: string } | null
-    )?.preferredCurrency?.toUpperCase();
+    const preferred = tenant?.preferredCurrency?.toUpperCase();
     if (preferred && fiatCurrencies.includes(preferred)) {
       setBaseCurrency(preferred);
       return;

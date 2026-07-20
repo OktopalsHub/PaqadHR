@@ -27,7 +27,7 @@ export function renderFounderWelcomeEmail(
       'Our goal is simple: help businesses like yours run people operations and payroll in one place, so hiring, paying, and supporting your team feels fast, reliable, and enjoyable.',
     ),
     emailParagraph(
-      `As you explore PaqadHR, I would genuinely love to hear your thoughts — questions, feedback, edge cases, feature requests, anything. You want to speak ? reach out to me personally at ${emailLink(`mailto:${founderEmail}`, founderEmail)}.`,
+      `As you explore PaqadHR, I would genuinely love to hear your thoughts — questions, feedback, edge cases, feature requests, anything. If you want to reach out, send me a message at ${emailLink(`mailto:${founderEmail}`, founderEmail)}.`,
     ),
     `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:#3f3f46;">All my best,<br /><strong>${escapeHtml(EMAIL_FOUNDER.name)}</strong></p>`,
   ].join('');
@@ -41,13 +41,13 @@ export function renderFounderWelcomeEmail(
     '',
     'Our goal is simple: help businesses like yours run people operations and payroll in one place.',
     '',
-    `As you explore PaqadHR, I would love to hear your thoughts. Reply to this email, or reach out to me personally at ${founderEmail}.`,
+    `As you explore PaqadHR, I would love to hear your thoughts. If you want to reach out, send me a message at ${founderEmail}.`,
     '',
     `All my best,\n${EMAIL_FOUNDER.name}`,
   ];
 
   return {
-    subject: `A quick note from ${EMAIL_FOUNDER.name} at PaqadHR`,
+    subject: `A quick message from ${EMAIL_FOUNDER.name} at PaqadHR`,
     html: renderEmailLayout({
       preheader: `${EMAIL_FOUNDER.name} from PaqadHR — thanks for signing up`,
       content: bodyHtml,

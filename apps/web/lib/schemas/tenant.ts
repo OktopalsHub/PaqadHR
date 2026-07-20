@@ -17,6 +17,10 @@ export const tenantSchema = z.object({
   industry: z.string().optional(),
   location: z.string().optional(),
   companySize: z.string().optional(),
+  employeeCode: z.string().optional(),
+  countryCode: z.string().optional(),
+  timezone: z.string().optional(),
+  preferredCurrency: z.string().optional(),
   member: tenantMemberSchema.optional(),
   settings: z.unknown().optional(),
 });

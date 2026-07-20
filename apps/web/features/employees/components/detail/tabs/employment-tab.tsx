@@ -74,7 +74,7 @@ export function EmploymentTab({
 }: EmploymentTabProps) {
   const { employee, handleInputChange } = form;
   const { tenant, tenantId } = useTenant();
-  const currency = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
+  const currency = tenant?.preferredCurrency ?? 'USD';
 
   const { data: departments = [], isLoading: departmentsLoading } = useDepartments();
   const { data: tenantMembers = [] } = useQuery({

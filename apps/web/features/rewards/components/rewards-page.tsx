@@ -44,6 +44,7 @@ import {
   useUtilityBillers,
 } from '@/hooks/queries/use-rewards';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
+import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import {
   type CatalogItem,
   calculatePointsCost,
@@ -66,9 +67,10 @@ import { PointsSummaryCard } from './rewards-page-points-summary';
 
 export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { tenant } = useTenant();
+  const { data: tenantSettings } = useTenantSettings();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const settings = tenant?.settings?.rewards;
+  const settings = tenantSettings?.settings?.rewards;
 
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;

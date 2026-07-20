@@ -73,7 +73,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   const tenantHref = useTenantHref();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const currency = (tenant as { preferredCurrency?: string } | null)?.preferredCurrency ?? 'USD';
+  const currency = tenant?.preferredCurrency ?? 'USD';
 
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);

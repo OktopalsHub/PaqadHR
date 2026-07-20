@@ -44,8 +44,8 @@ export function SettingsWorkspaceTab() {
     if (!tenant) return;
     setName(tenant.name ?? '');
     setLogoUrl(tenantLogoUrl);
-    setTimezone((tenant as { timezone?: string }).timezone ?? 'UTC');
-    setEmployeeCode((tenant as { employeeCode?: string }).employeeCode ?? '');
+    setTimezone(tenant.timezone ?? 'UTC');
+    setEmployeeCode(tenant.employeeCode ?? '');
 
     const general = settings?.settings?.general;
     setEmailPayslipOnPublish(general?.emailPayslipOnPublish ?? false);
@@ -57,11 +57,7 @@ export function SettingsWorkspaceTab() {
       return;
     }
 
-    const primary = (
-      general?.currency ??
-      (tenant as { preferredCurrency?: string }).preferredCurrency ??
-      'USD'
-    ).toUpperCase();
+    const primary = (general?.currency ?? tenant.preferredCurrency ?? 'USD').toUpperCase();
     setPayrollCurrencies([primary]);
   }, [tenant, settings, tenantLogoUrl]);
 
