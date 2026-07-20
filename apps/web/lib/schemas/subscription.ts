@@ -11,6 +11,7 @@ export const billingHistoryEntrySchema = z.object({
 
 export const billingStatusSchema = z.object({
   paymentsEnabled: z.boolean(),
+  payrollGatewayEnabled: z.boolean().optional(),
   featureGatingEnabled: z.boolean(),
   entitled: z.boolean(),
   needsPayment: z.boolean(),

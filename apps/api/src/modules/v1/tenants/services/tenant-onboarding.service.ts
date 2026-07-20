@@ -13,7 +13,6 @@ import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events
 import { PlansService } from '../../plans/services/plans.service';
 import { PositionService } from '../../position/services/position.service';
 import { PositionMemberService } from '../../position/services/position-member.service';
-import type { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -69,10 +68,6 @@ export class TenantOnboardingService {
       userIpAddress,
       data.businessCountry,
     );
-    const subscription = await this.subscriptionsService.createTrialSubscription(
-      pricingResult.tenant.id,
-      { planSlug: data.planSlug ?? 'starter' },
-    );
 
     const defaults = GeoLocationHelper.getCountryDefaults(pricingResult.lockedRegion);
 
@@ -85,7 +80,7 @@ export class TenantOnboardingService {
         detectionMethod: pricingResult.detectionMethod,
         isLocked: pricingResult.tenant.pricingLocked,
       },
-      subscription: this.mapSubscriptionSummary(pricingResult.tenant, subscription),
+      subscription: null,
     };
   }
 
@@ -200,26 +195,6 @@ export class TenantOnboardingService {
     });
     const saved = await this.tenantRepository.save(tenant);
     return Array.isArray(saved) ? saved[0] : saved;
-  }
-
-  private mapSubscriptionSummary(
-    tenant: Tenant,
-    subscription: TenantSubscription,
-  ): {
-    plan: string;
-    status: string;
-    currency: string;
-    trialEndsAt: Date | null;
-    pricingLocked: boolean;
-  } {
-    const defaults = GeoLocationHelper.getCountryDefaults(tenant.countryCode || 'GLOBAL');
-    return {
-      plan: subscription.plan?.slug ?? subscription.plan?.name ?? 'starter',
-      status: subscription.status,
-      currency: tenant.preferredCurrency || defaults.currency,
-      trialEndsAt: subscription.trialEndsAt,
-      pricingLocked: tenant.pricingLocked,
-    };
   }
 
   private emitTenantSetupEvents(tenant: Tenant, member: TenantMember, companyName: string): void {

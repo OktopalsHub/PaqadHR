@@ -25,13 +25,22 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     EXEMPT_PATH_SUFFIXES.some((suffix) => pathname.endsWith(suffix)) ||
     isBillingSettingsPath(pathname, tab);
 
-  const shouldBlock =
+  const needsTrialSetup =
+    !isExempt && billing?.featureGatingEnabled && !billing.entitled && !billing.subscription;
+
+  const shouldBlockPayment =
     !isExempt && billing?.featureGatingEnabled && billing.needsPayment && billing.paymentsEnabled;
 
   useEffect(() => {
-    if (isLoading || !shouldBlock || !tenant?.slug) return;
-    router.replace(tenantPath(tenant.slug, 'subscribe'));
-  }, [isLoading, shouldBlock, tenant?.slug, router]);
+    if (isLoading || !tenant?.slug) return;
+    if (needsTrialSetup) {
+      router.replace(tenantPath(tenant.slug, 'subscribe?welcome=1'));
+      return;
+    }
+    if (shouldBlockPayment) {
+      router.replace(tenantPath(tenant.slug, 'subscribe'));
+    }
+  }, [isLoading, needsTrialSetup, shouldBlockPayment, tenant?.slug, router]);
 
   if (isLoading) {
     return (
@@ -41,7 +50,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (shouldBlock) {
+  if (needsTrialSetup || shouldBlockPayment) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
         <LoadingBlock />

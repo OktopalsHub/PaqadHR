@@ -314,7 +314,7 @@ export function PayrollPage() {
     ['draft', 'processing', 'approved'].includes(r.status),
   ).length;
   const notReadyItems = readiness?.items.filter((item) => !item.ready) ?? [];
-  const payrollGatewayEnabled = billingOverview?.paymentsEnabled ?? false;
+  const payrollGatewayEnabled = billingOverview?.payrollGatewayEnabled ?? false;
   const role = tenant?.member?.role;
   const viewerMemberId = tenant?.member?.id;
   const isAdmin = isTenantAdmin(role);

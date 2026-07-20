@@ -20,5 +20,5 @@ export function resolvePaymentProvider(
 }
 
 export function paymentProviderLabel(provider: PaymentProvider): string {
-  return provider === PaymentProvider.NOMBA ? 'Nomba' : 'Noah';
+  return provider === PaymentProvider.NOMBA ? 'Local bank transfer' : 'International payout';
 }

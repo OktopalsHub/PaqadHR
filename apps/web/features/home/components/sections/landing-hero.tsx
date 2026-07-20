@@ -47,7 +47,7 @@ export const LandingHero = () => {
           <Button
             asChild
             size="lg"
-            className="h-12 rounded-full bg-foreground px-8 text-sm font-semibold text-background hover:bg-foreground/90"
+            className="h-12 rounded-full bg-primary px-8 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
             <Link href="/signup">Get started for free</Link>
           </Button>

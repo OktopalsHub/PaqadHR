@@ -3,9 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { type FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
+import { SUBSCRIPTION_TRIAL_DAYS } from '../constants/billing.constants';
 import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import { isWithinRenewalGrace } from '../utils/dunning.util';
@@ -74,6 +76,7 @@ export class SubscriptionsService {
 
   async getBillingStatus(tenantId: string): Promise<{
     paymentsEnabled: boolean;
+    payrollGatewayEnabled: boolean;
     featureGatingEnabled: boolean;
     entitled: boolean;
     needsPayment: boolean;
@@ -90,6 +93,7 @@ export class SubscriptionsService {
     if (!subscription) {
       return {
         paymentsEnabled: isBillingGatewayEnabled(),
+        payrollGatewayEnabled: isPayrollGatewayEnabled(),
         featureGatingEnabled: isFeatureGatingEnabled(),
         entitled: false,
         needsPayment: true,
@@ -114,6 +118,7 @@ export class SubscriptionsService {
 
     return {
       paymentsEnabled: isBillingGatewayEnabled(),
+      payrollGatewayEnabled: isPayrollGatewayEnabled(),
       featureGatingEnabled: isFeatureGatingEnabled(),
       entitled: this.isSubscriptionEntitled(subscription),
       needsPayment: this.computeNeedsPayment(subscriptionSummary),
@@ -359,7 +364,7 @@ export class SubscriptionsService {
       );
     }
 
-    const trialDays = options?.trialDays ?? 14;
+    const trialDays = options?.trialDays ?? SUBSCRIPTION_TRIAL_DAYS;
     const now = new Date();
     const trialEndsAt = new Date(now);
     trialEndsAt.setDate(trialEndsAt.getDate() + trialDays);
@@ -383,6 +388,54 @@ export class SubscriptionsService {
       relations: ['plan', 'planPrice', 'planPrice.plan'],
     });
     return loaded ?? saved;
+  }
+
+  async setTrialPlan(tenantId: string, planSlug: string): Promise<TenantSubscription> {
+    const subscription = await this.getTenantSubscription(tenantId);
+    if (!subscription || subscription.status !== SubscriptionStatus.TRIAL) {
+      throw new BadRequestException('Trial is not active');
+    }
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+
+    const normalizedSlug = planSlug.trim().toLowerCase();
+    const planPrice = await this.plansService.getPlanPrice(
+      normalizedSlug,
+      tenant.countryCode || 'GLOBAL',
+      tenant.preferredCurrency ?? undefined,
+    );
+    if (!planPrice) {
+      throw new BadRequestException(`Plan "${normalizedSlug}" is not available in your region`);
+    }
+
+    subscription.planId = planPrice.planId;
+    subscription.planPriceId = planPrice.id;
+    const saved = await this.subscriptionRepository.save(subscription);
+    const loaded = await this.subscriptionRepository.findOne({
+      where: { id: saved.id },
+      relations: ['plan', 'planPrice', 'planPrice.plan'],
+    });
+    return loaded ?? saved;
+  }
+
+  async startTrial(tenantId: string, planSlug: string): Promise<TenantSubscription> {
+    const existing = await this.getTenantSubscription(tenantId);
+    if (existing?.status === SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException('Workspace already has an active subscription');
+    }
+    if (existing?.status === SubscriptionStatus.TRIAL) {
+      return this.setTrialPlan(tenantId, planSlug);
+    }
+    if (existing) {
+      await this.subscriptionRepository.remove(existing);
+    }
+    return this.createTrialSubscription(tenantId, {
+      planSlug,
+      trialDays: SUBSCRIPTION_TRIAL_DAYS,
+    });
   }
 
   async getSupportedCountries(): Promise<

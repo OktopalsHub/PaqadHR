@@ -5,10 +5,8 @@ import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
 import { formatPaqPoints } from '@/lib/constants/paq-points';
-import { formatDate } from '@/lib/format-date';
 import { AnalyticsCharts } from './analytics-charts';
 
 function formatCurrency(amount: number | null, currency: string | null) {
@@ -50,7 +48,7 @@ export const Analytics = () => {
 
   return (
     <AppPage className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">
             Live workforce, hiring, leave, payroll, and recognition insights.
@@ -59,7 +57,7 @@ export const Analytics = () => {
         <Badge variant="outline" className="font-normal">
           Updated {formatDate(data.generatedAt)}
         </Badge>
-      </div>
+      </div> */}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

@@ -44,7 +44,7 @@ export default function PrivacyPage() {
         <h2>Sharing</h2>
         <p>
           We share data with subprocessors that help us run the service (e.g. hosting, payments,
-          payroll partners such as Nomba where enabled). We do not sell personal data.
+          payment partners where enabled). We do not sell personal data.
         </p>
         <h2>Your rights</h2>
         <p>

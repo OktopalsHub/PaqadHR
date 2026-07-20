@@ -1,8 +1,12 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { Public } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { StartTrialDto } from '../dto/start-trial.dto';
 import { SubscriptionsService } from '../services/subscriptions.service';
 
 class SetTenantRegionDto {
@@ -21,6 +25,24 @@ export class SubscriptionsController {
   @ApiOperation({ summary: 'Supported billing countries' })
   getSupportedCountries() {
     return this.subscriptionsService.getSupportedCountries();
+  }
+
+  @Get('landing-pricing')
+  @Public()
+  @ApiOperation({ summary: 'Landing page pricing currency from visitor IP' })
+  async getLandingPricing(@Req() req: Request) {
+    const ip = this.getClientIP(req);
+    const countryCode = await GeoLocationHelper.getCountryCode(ip);
+    const currency = countryCode === 'NG' ? 'NGN' : 'USD';
+    return { countryCode, currency };
+  }
+
+  @Post('tenant/:tenantId/start-trial')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @ApiOperation({ summary: 'Start or update a 14-day workspace trial on the selected plan' })
+  startTrial(@Param('tenantId') tenantId: string, @Body() dto: StartTrialDto) {
+    return this.subscriptionsService.startTrial(tenantId, dto.planSlug);
   }
   @Post('tenant/:tenantId/set-region')
   @UseGuards(TenantMemberGuard)

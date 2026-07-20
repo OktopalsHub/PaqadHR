@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { WorkspaceSlugField } from '@/features/navigations/components/workspace-slug-field';
 import { useCreateTenant } from '@/hooks/queries/use-tenants';
-import { isSubdomainTenantsEnabled, tenantRoot, tenantUrl } from '@/lib/navigation/tenant-routes';
+import { isSubdomainTenantsEnabled, tenantPath, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 import { isSlugFormatValid } from '@/lib/utils/slug';
@@ -59,9 +59,9 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
       if (tenant.slug) {
         persistTenantSlug(tenant.slug);
         if (isSubdomainTenantsEnabled()) {
-          window.location.assign(tenantUrl(tenant.slug, '/'));
+          window.location.assign(tenantUrl(tenant.slug, '/subscribe?welcome=1'));
         } else {
-          router.push(tenantRoot(tenant.slug));
+          router.push(tenantPath(tenant.slug, 'subscribe?welcome=1'));
         }
       }
     } catch (err) {

@@ -8,6 +8,7 @@ import {
   fetchBillingStatus,
   pauseSubscription,
   resumeSubscription,
+  startTrial,
   updatePaymentMethod,
 } from '@/lib/api/subscriptions';
 import { tenantUrl } from '@/lib/navigation/tenant-routes';
@@ -44,6 +45,19 @@ function useInvalidateBilling() {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.overview(tenantId) });
     }
   };
+}
+
+export function useStartTrial() {
+  const { tenantId } = useTenant();
+  const invalidate = useInvalidateBilling();
+
+  return useMutation({
+    mutationFn: async (planSlug: string) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return startTrial(tenantId, planSlug);
+    },
+    onSuccess: invalidate,
+  });
 }
 
 export function useCreateSubscriptionCheckout() {

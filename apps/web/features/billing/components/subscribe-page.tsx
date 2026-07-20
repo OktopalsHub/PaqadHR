@@ -1,30 +1,44 @@
 'use client';
 
-import { CreditCard, Loader2 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { CreditCard, Loader2, Sparkles } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
-import { useBillingOverview, useCreateSubscriptionCheckout } from '@/hooks/queries/use-billing';
+import {
+  useBillingOverview,
+  useCreateSubscriptionCheckout,
+  useStartTrial,
+} from '@/hooks/queries/use-billing';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { tenantPath, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function SubscribePage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { tenant } = useTenant();
-  const { data: overview, isLoading, isError, error } = useBillingOverview();
+  const { data: overview, isLoading, isError, error, refetch } = useBillingOverview();
   const checkout = useCreateSubscriptionCheckout();
+  const startTrial = useStartTrial();
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState('growth');
+  const isWelcome = searchParams.get('welcome') === '1';
 
   useEffect(() => {
     if (searchParams.get('billing') === 'success') {
       toast.success('Payment received. Welcome back!');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (overview?.subscription?.plan) {
+      setSelectedPlan(overview.subscription.plan);
+    }
+  }, [overview?.subscription?.plan]);
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
 
@@ -45,6 +59,19 @@ export function SubscribePage() {
     }
   };
 
+  const handleStartTrial = async () => {
+    try {
+      await startTrial.mutateAsync(selectedPlan);
+      await refetch();
+      toast.success('Your 14-day free trial has started');
+      if (tenant?.slug) {
+        router.replace(tenantPath(tenant.slug));
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start trial');
+    }
+  };
+
   if (isLoading) {
     return (
       <AppPage>
@@ -59,6 +86,100 @@ export function SubscribePage() {
         <p className="text-sm text-destructive">
           {error instanceof Error ? error.message : 'Unable to load plans'}
         </p>
+      </AppPage>
+    );
+  }
+
+  const showTrialWelcome = isWelcome || !overview.subscription;
+  const isOnTrial = overview.subscription?.isOnTrial && overview.entitled && !overview.needsPayment;
+
+  if (showTrialWelcome) {
+    return (
+      <AppPage>
+        <div className="mx-auto max-w-5xl space-y-8 py-8">
+          <div className="space-y-2 text-center">
+            <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Sparkles className="size-5" />
+            </div>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {isOnTrial ? 'Your workspace trial is active' : 'Choose a plan to start your trial'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isOnTrial
+                ? `You have ${overview.subscription?.daysRemaining ?? 14} days left on your free trial. Pick a plan or continue to your workspace.`
+                : 'Start with 14 days free on any plan. No card required.'}
+            </p>
+          </div>
+
+          {sortedPlans.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-3">
+              {sortedPlans.map((plan) => {
+                const perSeat = plan.breakdown.basePrice / Math.max(1, plan.seatCount);
+                const isSelected = selectedPlan === plan.slug;
+
+                return (
+                  <button
+                    key={plan.planPriceId}
+                    type="button"
+                    className="text-left"
+                    onClick={() => setSelectedPlan(plan.slug)}
+                  >
+                    <PlanPricingCard
+                      slug={plan.slug}
+                      name={plan.name}
+                      description={plan.description}
+                      currency={plan.currency}
+                      pricePerSeat={perSeat}
+                      seatCount={plan.seatCount}
+                      monthlyTotal={plan.monthlyTotal}
+                      maxEmployees={plan.limits.maxEmployees}
+                      isPopular={plan.slug === 'growth'}
+                      className={isSelected ? 'ring-2 ring-primary' : undefined}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground">No plans available.</p>
+          )}
+
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            {overview.canManageBilling ? (
+              <Button
+                size="lg"
+                className="min-w-[220px]"
+                disabled={startTrial.isPending || !selectedPlan}
+                onClick={() => void handleStartTrial()}
+              >
+                {startTrial.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Starting trial…
+                  </>
+                ) : isOnTrial ? (
+                  'Update trial plan'
+                ) : (
+                  'Start 14-day free trial'
+                )}
+              </Button>
+            ) : null}
+            {isOnTrial && tenant?.slug ? (
+              <Button
+                size="lg"
+                variant="outline"
+                className="min-w-[220px]"
+                onClick={() => router.replace(tenantPath(tenant.slug))}
+              >
+                Continue to workspace
+              </Button>
+            ) : null}
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground">
+            Payroll and automated batch payouts are included on every plan during your trial.
+          </p>
+        </div>
       </AppPage>
     );
   }

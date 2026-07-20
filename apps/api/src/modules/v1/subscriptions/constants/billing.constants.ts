@@ -13,6 +13,8 @@ export const DUNNING_RETRY_INTERVALS_DAYS = [0, 2, 4, 6];
 
 export const CARD_UPDATE_VERIFY_AMOUNT = 100;
 
+export const SUBSCRIPTION_TRIAL_DAYS = 14;
+
 /** Minimum Nomba charge for a non-zero prorated seat addition */
 export const MIN_SEAT_PRORATION_CHARGE = CARD_UPDATE_VERIFY_AMOUNT;
 

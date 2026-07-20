@@ -1,6 +1,17 @@
 import { apiClient } from '@/lib/api/client';
 import type { BillingOverview, BillingStatus, CheckoutResponse } from '@/lib/schemas/subscription';
 
+export async function fetchLandingPricing(): Promise<{ currency: string; countryCode: string }> {
+  return apiClient('/subscriptions/landing-pricing');
+}
+
+export async function startTrial(tenantId: string, planSlug: string) {
+  return apiClient(`/subscriptions/tenant/${tenantId}/start-trial`, {
+    method: 'POST',
+    body: JSON.stringify({ planSlug }),
+  });
+}
+
 export async function fetchBillingStatus(tenantId: string): Promise<BillingStatus> {
   return apiClient<BillingStatus>(`/subscriptions/tenant/${tenantId}/billing-status`);
 }

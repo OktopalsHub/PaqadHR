@@ -52,8 +52,10 @@ export function PlanPricingCard({
     <div
       className={cn(
         'relative flex flex-col rounded-xl border p-4 text-left',
-        isPopular && 'border-primary/50 ring-1 ring-primary/20',
-        variant === 'marketing' && 'rounded-2xl bg-card p-5',
+        isPopular && 'border-primary/50 bg-primary/5 ring-1 ring-primary/20 shadow-sm',
+        variant === 'marketing' && 'rounded-2xl p-5',
+        variant === 'marketing' && isPopular && 'bg-primary/5',
+        variant === 'marketing' && !isPopular && 'bg-card',
         variant === 'app' && 'app-card transition-all hover:border-primary/50 hover:shadow-sm',
         className,
       )}
@@ -94,7 +96,7 @@ export function PlanPricingCard({
           ) : null}
           {payrollFee != null ? (
             <Badge variant="outline" className="text-[10px] font-normal">
-              {payrollFee}% gateway payroll fee
+              {payrollFee}% payroll platform fee
             </Badge>
           ) : null}
         </div>

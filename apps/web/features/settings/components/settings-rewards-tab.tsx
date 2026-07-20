@@ -49,6 +49,8 @@ const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'noah', string> = {
   noah: 'https://docs.noah.com/',
 };
 
+const SANDBOX_DOC_URL = 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing';
+
 const ALL_COUNTRIES = [
   { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
   { code: 'US', name: 'United States', flag: '🇺🇸' },
@@ -700,8 +702,7 @@ export function SettingsRewardsTab() {
               <p className="text-xs text-muted-foreground">
                 <a
                   href={
-                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ??
-                    CHECKOUT_SANDBOX_DOCS.nomba
+                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ?? SANDBOX_DOC_URL
                   }
                   target="_blank"
                   rel="noopener noreferrer"
@@ -709,7 +710,7 @@ export function SettingsRewardsTab() {
                 >
                   Test payments
                 </a>{' '}
-                via {wallet?.checkoutProviderLabel ?? 'payment gateway'} (sandbox)
+                in sandbox mode
               </p>
             ) : null}
           </div>

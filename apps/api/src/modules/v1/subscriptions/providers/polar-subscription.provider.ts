@@ -3,7 +3,11 @@ import { getPolarAccessToken } from 'src/common/config/polar.config';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { resolvePolarProductId } from '../../plans/config/plan-external-products.config';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { BillingChargeType, parseBillingChargeType } from '../constants/billing.constants';
+import {
+  BillingChargeType,
+  parseBillingChargeType,
+  SUBSCRIPTION_TRIAL_DAYS,
+} from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
@@ -64,6 +68,9 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         customer_email: email,
         success_url: successUrl,
         seats,
+        allow_trial: true,
+        trial_interval: 'day',
+        trial_interval_count: SUBSCRIPTION_TRIAL_DAYS,
         metadata: {
           ...metadata,
           quantity: seats,

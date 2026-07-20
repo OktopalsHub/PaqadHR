@@ -171,8 +171,6 @@ export class TenantsController {
     return {
       currency: tenant.preferredCurrency || defaultPayrollCurrency(),
       supportedCurrencies: getSupportedPaymentCurrencies(),
-      ngnProvider: 'Nomba',
-      globalProvider: 'Noah',
     };
   }
   @Get(':tenantId/profile')

@@ -52,7 +52,7 @@ export const LandingNav = () => {
           <Button
             asChild
             size="sm"
-            className="h-9 rounded-full bg-foreground px-5 text-sm font-semibold text-background hover:bg-foreground/90"
+            className="h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
             <Link href="/signup">Sign up</Link>
           </Button>
@@ -85,7 +85,10 @@ export const LandingNav = () => {
             <Link href="/signin" className="text-sm font-medium cursor-pointer">
               Sign in
             </Link>
-            <Button asChild className="w-full rounded-full bg-foreground text-background">
+            <Button
+              asChild
+              className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+            >
               <Link href="/signup">Sign up</Link>
             </Button>
           </div>

@@ -25,7 +25,7 @@ export const PLAN_CATALOG: Record<PlanSlug, PlanCatalogEntry> = {
     highlights: [
       'Employee directory & org chart',
       'Leave & attendance',
-      'Payroll runs, bank export & manual pay',
+      'Payroll runs, bank export & automated payouts',
       'Recruitment & careers page',
       'Shoutouts & employee self-service',
     ],
@@ -56,9 +56,9 @@ export const PLAN_CATALOG: Record<PlanSlug, PlanCatalogEntry> = {
     sortOrder: 2,
     highlights: [
       'Everything in Growth',
-      'Gateway batch payouts (Nomba / Noah)',
       'Multi-location & compliance reporting',
       'Performance management & API access',
+      'Priority support',
       '2% payroll platform fee',
     ],
   },

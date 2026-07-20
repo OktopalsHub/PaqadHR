@@ -571,7 +571,8 @@ export function PaymentSettingsSection() {
               </Select>
             )}
             <p className="text-xs text-muted-foreground">
-              NGN bank accounts use Nomba; other fiat and crypto use Noah.
+              Nigerian bank accounts use local bank transfer; other currencies use our international
+              payout network.
             </p>
           </div>
 

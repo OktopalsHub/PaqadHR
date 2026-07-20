@@ -87,6 +87,7 @@ async function syncProducts(): Promise<void> {
             amount: formatAmount(amount),
           },
           billing_cycle: { interval: 'month', frequency: 1 },
+          trial_period: { interval: 'day', frequency: 14 },
           metadata: {
             paqad: 'true',
             plan_slug: slug,

@@ -3,20 +3,11 @@
 import { motion, useInView } from 'framer-motion';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
+import { fetchLandingPricing } from '@/lib/api/subscriptions';
 import { LANDING_PRICING_BY_CURRENCY, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
 import { fadeUp, stagger } from '../../constants/landing-motion';
-
-function resolveLandingCurrency(): string {
-  if (typeof window === 'undefined') return 'USD';
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz === 'Africa/Lagos') return 'NGN';
-  } catch {}
-  return 'USD';
-}
 
 export const LandingCta = () => {
   const ref = useRef(null);
@@ -24,7 +15,9 @@ export const LandingCta = () => {
   const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
-    setCurrency(resolveLandingCurrency());
+    void fetchLandingPricing()
+      .then((result) => setCurrency(result.currency))
+      .catch(() => setCurrency('USD'));
   }, []);
 
   const plans = useMemo(() => {
@@ -52,18 +45,6 @@ export const LandingCta = () => {
             <p className="mt-3 max-w-xl mx-auto text-sm text-muted-foreground">
               Payroll included on every plan. Pay per active employee — no payroll add-on required.
             </p>
-            <div className="mt-4 flex items-center justify-center gap-2">
-              <Badge variant="outline" className="font-normal">
-                Prices in {currency}
-              </Badge>
-              <button
-                type="button"
-                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                onClick={() => setCurrency((c) => (c === 'USD' ? 'NGN' : 'USD'))}
-              >
-                Switch to {currency === 'USD' ? 'NGN' : 'USD'}
-              </button>
-            </div>
           </motion.div>
 
           <motion.div variants={stagger} className="mt-10 grid gap-4 md:grid-cols-3">
