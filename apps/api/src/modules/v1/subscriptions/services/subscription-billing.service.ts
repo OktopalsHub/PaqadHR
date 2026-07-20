@@ -9,7 +9,6 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
-import { NoahApiService } from 'src/common/services/noah-api.service';
 import { Brackets, DataSource, LessThan, Repository } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
@@ -20,12 +19,13 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
 import { isBillingGatewayEnabled } from '../config/billing.config';
 import { BillingChargeType, RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
-import { BillingProvider } from '../constants/billing-provider.enum';
+import { BillingProvider, isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
 import type { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { BillingEvent } from '../entities/billing-event.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type {
   SubscriptionBillingMetadata,
+  SubscriptionWebhookEvent,
   SubscriptionWebhookPayment,
 } from '../interfaces/subscription-billing.interface';
 import { computeDunningNextRetryAt, maxDunningAttempts } from '../utils/dunning.util';
@@ -60,7 +60,6 @@ export class SubscriptionBillingService {
   constructor(
     private readonly billingProviderFactory: BillingProviderFactoryService,
     private readonly nombaApi: NombaApiService,
-    private readonly noahApi: NoahApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly plansService: PlansService,
@@ -79,20 +78,88 @@ export class SubscriptionBillingService {
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
 
-  verifyNoahWebhookSignature(rawBody: string, signature: string): boolean {
-    return this.billingProviderFactory.getNoahProvider().verifyWebhookSignature(rawBody, signature);
+  private providerForCountry(countryCode: string | null | undefined): BillingProvider {
+    return this.billingProviderFactory.resolveBillingProvider(countryCode);
   }
 
-  private providerForCurrency(currency: string): BillingProvider {
-    return this.billingProviderFactory.resolveBillingProvider(currency);
-  }
-
-  private async verifyPaymentReference(reference: string, currency: string) {
-    const provider = this.providerForCurrency(currency);
-    if (provider === BillingProvider.NOMBA) {
-      return this.nombaApi.verifyTransaction(reference);
+  private async verifyPaymentReference(reference: string, provider: BillingProvider) {
+    if (provider !== BillingProvider.NOMBA) {
+      return { status: 'success', amount: 0 };
     }
-    return this.noahApi.verifyTransaction(reference);
+    return this.nombaApi.verifyTransaction(reference);
+  }
+
+  private requiresProviderVerification(provider: BillingProvider): boolean {
+    return provider === BillingProvider.NOMBA;
+  }
+
+  private requiresCardToken(provider: BillingProvider): boolean {
+    return provider === BillingProvider.NOMBA;
+  }
+
+  private resolveWebhookTenantId(event: SubscriptionWebhookEvent): string | null {
+    if (event.kind === 'subscription.created' || event.kind === 'subscription.cancelled') {
+      return event.tenantId;
+    }
+    if (event.kind === 'payment.success' || event.kind === 'payment.failed') {
+      return event.payment.tenantId;
+    }
+    return null;
+  }
+
+  private isStaleProviderWebhook(
+    subscription: TenantSubscription | null,
+    webhookProvider: BillingProvider,
+  ): boolean {
+    if (!subscription?.billingProvider) {
+      return false;
+    }
+    return subscription.billingProvider !== webhookProvider;
+  }
+
+  private async cancelManagedExternalSubscription(
+    subscription: TenantSubscription,
+    atPeriodEnd: boolean,
+  ): Promise<void> {
+    if (!isManagedSubscriptionProvider(subscription.billingProvider)) {
+      return;
+    }
+    const externalId = subscription.externalSubscriptionId?.trim();
+    if (!externalId) {
+      return;
+    }
+    try {
+      await this.billingProviderFactory.cancelExternalSubscription(
+        subscription.billingProvider,
+        externalId,
+        atPeriodEnd,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to cancel ${subscription.billingProvider} subscription ${externalId} for tenant ${subscription.tenantId}: ${message}`,
+      );
+      throw new BadRequestException(
+        'Could not cancel your current billing subscription. Contact support before switching providers.',
+      );
+    }
+  }
+
+  private async prepareManagedProviderSwitch(
+    subscription: TenantSubscription,
+    targetProvider: BillingProvider,
+  ): Promise<void> {
+    if (
+      subscription.billingProvider === targetProvider ||
+      !isManagedSubscriptionProvider(subscription.billingProvider)
+    ) {
+      return;
+    }
+
+    await this.cancelManagedExternalSubscription(subscription, false);
+    subscription.externalSubscriptionId = null;
+    subscription.billingProvider = targetProvider;
+    await this.subscriptionRepository.save(subscription);
   }
 
   private async processBillingPayload(
@@ -103,6 +170,17 @@ export class SubscriptionBillingService {
     const event = billingProvider.parseWebhook(payload);
     if (!event || event.kind === 'ignored') {
       return { received: true };
+    }
+
+    const tenantId = this.resolveWebhookTenantId(event);
+    if (tenantId && UUID_PATTERN.test(tenantId)) {
+      const subscription = await this.subscriptionRepository.findOne({ where: { tenantId } });
+      if (this.isStaleProviderWebhook(subscription, provider)) {
+        this.logger.warn(
+          `Ignoring ${event.kind} webhook from ${provider} for tenant ${tenantId}; active provider is ${subscription?.billingProvider}`,
+        );
+        return { received: true };
+      }
     }
 
     if (event.kind === 'payment.success') {
@@ -122,7 +200,75 @@ export class SubscriptionBillingService {
       await this.processPaymentFailed(event.payment, provider);
     }
 
+    if (event.kind === 'subscription.created') {
+      await this.processExternalSubscriptionCreated(event, provider);
+    }
+
+    if (event.kind === 'subscription.cancelled') {
+      await this.processExternalSubscriptionCancelled(event, provider);
+    }
+
     return { received: true };
+  }
+
+  private async processExternalSubscriptionCreated(
+    event: Extract<SubscriptionWebhookEvent, { kind: 'subscription.created' }>,
+    provider: BillingProvider,
+  ): Promise<void> {
+    if (await this.hasProcessedEvent(event.eventId, provider)) {
+      return;
+    }
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: event.tenantId },
+    });
+    if (!subscription || subscription.billingProvider !== provider) {
+      return;
+    }
+
+    subscription.externalSubscriptionId = event.externalSubscriptionId;
+    subscription.billingProvider = provider;
+    subscription.paymentMethodId = subscription.paymentMethodId ?? event.externalSubscriptionId;
+    await this.subscriptionRepository.save(subscription);
+    await this.recordBillingEvent(
+      event.eventId,
+      'subscription_created',
+      {
+        tenantId: event.tenantId,
+        externalSubscriptionId: event.externalSubscriptionId,
+      },
+      provider,
+    );
+  }
+
+  private async processExternalSubscriptionCancelled(
+    event: Extract<SubscriptionWebhookEvent, { kind: 'subscription.cancelled' }>,
+    provider: BillingProvider,
+  ): Promise<void> {
+    if (await this.hasProcessedEvent(event.eventId, provider)) {
+      return;
+    }
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: event.tenantId },
+    });
+    if (!subscription || subscription.billingProvider !== provider) {
+      return;
+    }
+
+    subscription.status = SubscriptionStatus.CANCELLED;
+    subscription.cancelledAt = new Date();
+    subscription.cancelAtPeriodEnd = false;
+    await this.subscriptionRepository.save(subscription);
+    await this.recordBillingEvent(
+      event.eventId,
+      'subscription_cancelled',
+      {
+        tenantId: event.tenantId,
+        externalSubscriptionId: event.externalSubscriptionId,
+      },
+      provider,
+    );
   }
 
   async getTenantSeatCount(tenantId: string): Promise<number> {
@@ -176,7 +322,9 @@ export class SubscriptionBillingService {
       companyName: tenant.name,
       nextBillingDate: subscription?.nextBillingDate?.toISOString() ?? null,
       hasPaymentMethodOnFile: Boolean(
-        subscription?.nombaSubscriptionId || subscription?.paymentMethodId,
+        subscription?.nombaSubscriptionId ||
+          subscription?.externalSubscriptionId ||
+          subscription?.paymentMethodId,
       ),
       paymentMethodBrand: subscription?.paymentMethodBrand ?? null,
       paymentMethodLastFour: subscription?.paymentMethodLastFour ?? null,
@@ -230,8 +378,25 @@ export class SubscriptionBillingService {
 
     const currentPlanSlug =
       existing?.plan?.slug?.toLowerCase() ?? existing?.plan?.name?.toLowerCase();
+    const billingProvider = this.providerForCountry(tenant.countryCode);
+
     if (existing?.status === SubscriptionStatus.ACTIVE && currentPlanSlug === normalizedSlug) {
-      throw new BadRequestException('Organization already has an active subscription on this plan');
+      if (existing.billingProvider === billingProvider) {
+        throw new BadRequestException(
+          'Organization already has an active subscription on this plan',
+        );
+      }
+    }
+
+    if (
+      existing &&
+      [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE, SubscriptionStatus.PAUSED].includes(
+        existing.status,
+      ) &&
+      existing.billingProvider !== billingProvider &&
+      isManagedSubscriptionProvider(existing.billingProvider)
+    ) {
+      await this.prepareManagedProviderSwitch(existing, billingProvider);
     }
 
     const planPrice = await this.plansService.getPlanPrice(
@@ -243,7 +408,7 @@ export class SubscriptionBillingService {
       throw new NotFoundException(`Plan "${normalizedSlug}" is not available for your region`);
     }
 
-    this.billingProviderFactory.ensureConfigured(planPrice.currency);
+    this.billingProviderFactory.ensureConfigured(tenant.countryCode || 'GLOBAL');
 
     const quantity = await this.getTenantSeatCount(tenantId);
     const tenantMember = await this.tenantMemberRepository.findOne({ where: { tenantId, userId } });
@@ -258,7 +423,7 @@ export class SubscriptionBillingService {
     };
 
     const checkout = await this.billingProviderFactory
-      .getProvider(planPrice.currency)
+      .getProviderForCountry(tenant.countryCode)
       .createCheckout(
         user.email,
         metadata,
@@ -273,7 +438,7 @@ export class SubscriptionBillingService {
       seatCount: quantity,
       amount: calculatePerSeatTotal(planPrice, quantity),
       currency: planPrice.currency,
-      billingProvider: this.providerForCurrency(planPrice.currency),
+      billingProvider,
     };
   }
 
@@ -304,18 +469,24 @@ export class SubscriptionBillingService {
       subscription.planPrice ??
       (await this.plansService.getPlanPriceById(subscription.planPriceId));
     const currency = planPrice?.currency ?? tenant.preferredCurrency ?? 'NGN';
+    const billingProvider = this.providerForCountry(tenant.countryCode);
 
-    this.billingProviderFactory.ensureConfigured(currency);
+    this.billingProviderFactory.ensureConfigured(tenant.countryCode || 'GLOBAL');
 
-    const billingProvider = this.billingProviderFactory.getProvider(currency);
-    const checkout = await billingProvider.createCardUpdateCheckout!(
+    const billingProviderService = this.billingProviderFactory.getProviderForCountry(
+      tenant.countryCode,
+    );
+    if (!billingProviderService.createCardUpdateCheckout) {
+      throw new BadRequestException('Payment method updates are not supported for this provider');
+    }
+    const checkout = await billingProviderService.createCardUpdateCheckout(
       email,
       metadata,
       this.resolveSuccessUrl(tenant.slug, successUrl),
       currency,
     );
 
-    return { ...checkout, currency, billingProvider: this.providerForCurrency(currency) };
+    return { ...checkout, currency, billingProvider };
   }
 
   async cancelSubscription(tenantId: string, dto: CancelSubscriptionDto = {}) {
@@ -332,6 +503,13 @@ export class SubscriptionBillingService {
 
     const atPeriodEnd = dto.atPeriodEnd !== false;
     const reason = dto.reason?.trim() || null;
+
+    if (
+      isManagedSubscriptionProvider(subscription.billingProvider) &&
+      subscription.externalSubscriptionId
+    ) {
+      await this.cancelManagedExternalSubscription(subscription, atPeriodEnd);
+    }
 
     if (atPeriodEnd) {
       subscription.cancelAtPeriodEnd = true;
@@ -415,8 +593,12 @@ export class SubscriptionBillingService {
     return this.processBillingPayload(payload, BillingProvider.NOMBA);
   }
 
-  async processNoahPayload(payload: unknown): Promise<{ received: boolean }> {
-    return this.processBillingPayload(payload, BillingProvider.NOAH);
+  async processBachsPayload(payload: unknown): Promise<{ received: boolean }> {
+    return this.processBillingPayload(payload, BillingProvider.BACHS);
+  }
+
+  async processPolarPayload(payload: unknown): Promise<{ received: boolean }> {
+    return this.processBillingPayload(payload, BillingProvider.POLAR);
   }
 
   async syncSubscriptionQuantity(tenantId: string): Promise<void> {
@@ -429,6 +611,7 @@ export class SubscriptionBillingService {
     if (
       !subscription ||
       subscription.status !== SubscriptionStatus.ACTIVE ||
+      subscription.billingProvider !== BillingProvider.NOMBA ||
       !subscription.nombaSubscriptionId ||
       !subscription.paymentMethodId
     ) {
@@ -490,7 +673,7 @@ export class SubscriptionBillingService {
     }
 
     await this.billingProviderFactory
-      .getProvider(planPrice.currency)
+      .getNombaProvider()
       .chargeSeatAddition(
         subscription.nombaSubscriptionId,
         planPrice,
@@ -535,9 +718,8 @@ export class SubscriptionBillingService {
       .leftJoinAndSelect('sub.tenant', 'tenant')
       .leftJoinAndSelect('tenant.createdBy', 'createdBy')
       .where('sub.payment_method_id IS NOT NULL')
-      .andWhere('(sub.nomba_subscription_id IS NOT NULL OR sub.billing_provider = :noah)', {
-        noah: BillingProvider.NOAH,
-      })
+      .andWhere('sub.billing_provider = :nomba', { nomba: BillingProvider.NOMBA })
+      .andWhere('sub.nomba_subscription_id IS NOT NULL')
       .andWhere('sub.status NOT IN (:...excluded)', {
         excluded: [SubscriptionStatus.CANCELLED, SubscriptionStatus.PAUSED],
       })
@@ -617,10 +799,14 @@ export class SubscriptionBillingService {
     };
 
     try {
-      const billingProvider = this.billingProviderFactory.getProviderByEnum(
-        (subscription.billingProvider as BillingProvider) ||
-          this.providerForCurrency(planPrice.currency),
-      );
+      const billingProviderEnum =
+        subscription.billingProvider ?? this.providerForCountry(subscription.tenant?.countryCode);
+
+      if (isManagedSubscriptionProvider(billingProviderEnum)) {
+        return 'skipped';
+      }
+
+      const billingProvider = this.billingProviderFactory.getProviderByEnum(billingProviderEnum);
       const charge = await billingProvider.chargeRenewal(
         nombaReference,
         planPrice,
@@ -630,8 +816,15 @@ export class SubscriptionBillingService {
         metadata,
       );
 
-      const verified = await this.verifyPaymentReference(charge.orderReference, planPrice.currency);
-      if (!verified || !isNoahPaymentVerified(verified.status)) {
+      const verified = await this.verifyPaymentReference(
+        charge.orderReference,
+        billingProviderEnum,
+      );
+      if (
+        !verified ||
+        (this.requiresProviderVerification(billingProviderEnum) &&
+          !isNoahPaymentVerified(verified.status))
+      ) {
         await this.markRenewalFailed(subscription, charge.orderReference, 'verification_failed');
         await this.recordBillingEvent(attemptEventId, 'renewal_attempt', {
           tenantId: subscription.tenantId,
@@ -648,10 +841,6 @@ export class SubscriptionBillingService {
         expectedAmount,
         planPrice.currency,
       );
-
-      const billingProviderEnum =
-        (subscription.billingProvider as BillingProvider) ||
-        this.providerForCurrency(planPrice.currency);
 
       await this.applyRenewalSuccess(
         subscription.tenantId,
@@ -916,8 +1105,11 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (!verified || !isNoahPaymentVerified(verified.status)) {
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
       throw new BadRequestException('Payment could not be verified with billing provider');
     }
 
@@ -951,8 +1143,29 @@ export class SubscriptionBillingService {
       throw new BadRequestException('Payment amount does not match server quote');
     }
 
-    if (!payment.tokenKey?.trim()) {
+    if (this.requiresCardToken(provider) && !payment.tokenKey?.trim()) {
       throw new BadRequestException('Missing card token for subscription billing');
+    }
+
+    const existingSubscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: payment.tenantId },
+    });
+    if (
+      existingSubscription &&
+      isManagedSubscriptionProvider(existingSubscription.billingProvider) &&
+      existingSubscription.billingProvider !== provider &&
+      existingSubscription.externalSubscriptionId
+    ) {
+      try {
+        await this.cancelManagedExternalSubscription(existingSubscription, false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to cancel old subscription during provider switch for tenant ${existingSubscription.tenantId}: ${message}`,
+        );
+      }
+      existingSubscription.externalSubscriptionId = null;
+      await this.subscriptionRepository.save(existingSubscription);
     }
 
     await this.dataSource.transaction(async (manager) => {
@@ -967,6 +1180,7 @@ export class SubscriptionBillingService {
 
       if (
         subscription?.status === SubscriptionStatus.ACTIVE &&
+        subscription.billingProvider === BillingProvider.NOMBA &&
         subscription.nombaSubscriptionId &&
         subscription.nombaSubscriptionId !== payment.reference
       ) {
@@ -988,9 +1202,10 @@ export class SubscriptionBillingService {
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
           nextBillingDate: periodEnd,
-          nombaSubscriptionId: payment.reference,
+          nombaSubscriptionId: provider === BillingProvider.NOMBA ? payment.reference : null,
           billingProvider: provider,
-          paymentMethodId: payment.tokenKey,
+          externalSubscriptionId: payment.externalSubscriptionId ?? null,
+          paymentMethodId: payment.tokenKey ?? payment.externalSubscriptionId ?? null,
           usageMetrics: {},
           billingHistory: [],
         });
@@ -1005,9 +1220,13 @@ export class SubscriptionBillingService {
         subscription.currentPeriodStart = now;
         subscription.currentPeriodEnd = periodEnd;
         subscription.nextBillingDate = periodEnd;
-        subscription.nombaSubscriptionId = payment.reference;
+        subscription.nombaSubscriptionId =
+          provider === BillingProvider.NOMBA ? payment.reference : subscription.nombaSubscriptionId;
         subscription.billingProvider = provider;
-        subscription.paymentMethodId = payment.tokenKey ?? null;
+        subscription.externalSubscriptionId =
+          payment.externalSubscriptionId ?? subscription.externalSubscriptionId;
+        subscription.paymentMethodId =
+          payment.tokenKey ?? payment.externalSubscriptionId ?? subscription.paymentMethodId;
         this.applyPaymentMethodFromWebhook(subscription, payment);
         this.resetDunningFields(subscription);
       }
@@ -1046,8 +1265,11 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (!verified || !isNoahPaymentVerified(verified.status)) {
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
       throw new BadRequestException('Card update payment could not be verified');
     }
 
@@ -1091,8 +1313,11 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (!verified || !isNoahPaymentVerified(verified.status)) {
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
       throw new BadRequestException('Renewal payment could not be verified');
     }
 
@@ -1107,8 +1332,11 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const verified = await this.verifyPaymentReference(payment.reference, payment.currency);
-    if (!verified || !isNoahPaymentVerified(verified.status)) {
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
       return;
     }
 
@@ -1271,6 +1499,12 @@ export class SubscriptionBillingService {
       ![SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE].includes(subscription.status)
     ) {
       throw new BadRequestException('No renewable subscription found for tenant');
+    }
+    if (subscription.billingProvider !== provider) {
+      this.logger.warn(
+        `Ignoring renewal webhook from ${provider} for tenant ${tenantId}; active provider is ${subscription.billingProvider}`,
+      );
+      return;
     }
 
     const seatCount = resolveSeatCount(

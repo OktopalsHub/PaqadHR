@@ -1,11 +1,10 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { BillingProvider } from '../../subscriptions/constants/billing-provider.enum';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { NoahWebhookService } from './noah-webhook.service';
 
 describe('NoahWebhookService', () => {
-  const subscriptionBillingService = {
-    verifyNoahWebhookSignature: jest.fn().mockReturnValue(true),
-    processNoahPayload: jest.fn().mockResolvedValue({ received: true }),
+  const noahApi = {
+    verifyWebhookSignature: jest.fn().mockReturnValue(true),
   };
   const payrollPayoutService = {
     processNoahPayload: jest.fn().mockResolvedValue({ received: true, matched: false }),
@@ -15,14 +14,14 @@ describe('NoahWebhookService', () => {
   };
 
   const service = new NoahWebhookService(
-    subscriptionBillingService as never,
+    noahApi as never,
     payrollPayoutService as never,
     walletTopupService as never,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    subscriptionBillingService.verifyNoahWebhookSignature.mockReturnValue(true);
+    noahApi.verifyWebhookSignature.mockReturnValue(true);
   });
 
   it('rejects missing signatures', async () => {
@@ -30,7 +29,7 @@ describe('NoahWebhookService', () => {
   });
 
   it('rejects invalid signatures', async () => {
-    subscriptionBillingService.verifyNoahWebhookSignature.mockReturnValue(false);
+    noahApi.verifyWebhookSignature.mockReturnValue(false);
     await expect(service.dispatch('{}', 'bad')).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -51,11 +50,11 @@ describe('NoahWebhookService', () => {
 
     expect(walletTopupService.completeCheckoutTopup).toHaveBeenCalledWith(
       expect.objectContaining({ tenantId: 'tenant-1' }),
-      BillingProvider.NOAH,
+      PaymentProvider.NOAH,
     );
   });
 
-  it('routes subscription events to billing service', async () => {
+  it('ignores subscription checkout events (handled by Bachs/Polar/Nomba)', async () => {
     const payload = {
       event_type: 'payment_success',
       data: {
@@ -66,7 +65,8 @@ describe('NoahWebhookService', () => {
 
     await service.dispatch(JSON.stringify(payload), 'sig');
 
-    expect(subscriptionBillingService.processNoahPayload).toHaveBeenCalled();
+    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
+    expect(payrollPayoutService.processNoahPayload).not.toHaveBeenCalled();
   });
 
   it('routes payroll webhooks before subscription checkout heuristic', async () => {
@@ -87,7 +87,6 @@ describe('NoahWebhookService', () => {
     await service.dispatch(JSON.stringify(payload), 'sig');
 
     expect(payrollPayoutService.processNoahPayload).toHaveBeenCalled();
-    expect(subscriptionBillingService.processNoahPayload).not.toHaveBeenCalled();
   });
 
   it('routes PascalCase Transaction/Settled webhooks to payroll', async () => {
@@ -118,6 +117,5 @@ describe('NoahWebhookService', () => {
         }),
       }),
     );
-    expect(subscriptionBillingService.processNoahPayload).not.toHaveBeenCalled();
   });
 });

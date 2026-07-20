@@ -1,18 +1,26 @@
-import { isNoahConfigured } from 'src/common/config/noah.config';
-import { isNombaConfigured } from './nomba.config';
+import {
+  isAnyBillingProviderConfigured,
+  isBillingProviderConfigured,
+  resolveBillingProviderForCountry,
+} from './billing-provider-resolver';
 
 export function isFeatureGatingEnabled(): boolean {
   return true;
 }
 
 export function isBillingGatewayEnabled(): boolean {
-  return isNombaConfigured() || isNoahConfigured();
+  return isAnyBillingProviderConfigured();
 }
 
-export function assertBillingGatewayAllowed(): void {
-  if (!isBillingGatewayEnabled()) {
+export function isBillingGatewayEnabledForCountry(countryCode: string | null | undefined): boolean {
+  const provider = resolveBillingProviderForCountry(countryCode);
+  return isBillingProviderConfigured(provider);
+}
+
+export function assertBillingGatewayAllowed(countryCode?: string | null): void {
+  if (!isBillingGatewayEnabledForCountry(countryCode ?? 'GLOBAL')) {
     throw new Error(
-      'Billing is not configured. Set Nomba credentials for NGN or Noah credentials for other currencies.',
+      'Billing is not configured for this region. Set provider credentials (Nomba, Bachs, or Polar).',
     );
   }
 }

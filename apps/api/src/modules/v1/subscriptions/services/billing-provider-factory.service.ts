@@ -1,47 +1,67 @@
-import { Injectable } from '@nestjs/common';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  isBillingProviderConfigured,
+  resolveBillingProviderForCountry,
+} from '../config/billing-provider-resolver';
 import { BillingProvider } from '../constants/billing-provider.enum';
-import { NoahSubscriptionProvider } from '../providers/noah-subscription.provider';
+import { BachsSubscriptionProvider } from '../providers/bachs-subscription.provider';
 import { NombaSubscriptionProvider } from '../providers/nomba-subscription.provider';
+import { PolarSubscriptionProvider } from '../providers/polar-subscription.provider';
 import type { ISubscriptionBillingProvider } from '../providers/subscription-billing-provider.interface';
 
 @Injectable()
 export class BillingProviderFactoryService {
   constructor(
     private readonly nombaProvider: NombaSubscriptionProvider,
-    private readonly noahProvider: NoahSubscriptionProvider,
+    private readonly bachsProvider: BachsSubscriptionProvider,
+    private readonly polarProvider: PolarSubscriptionProvider,
   ) {}
 
-  resolveBillingProvider(currency: string): BillingProvider {
-    return resolvePaymentProvider(currency) === PaymentProvider.NOMBA
-      ? BillingProvider.NOMBA
-      : BillingProvider.NOAH;
+  resolveBillingProvider(countryCode: string | null | undefined): BillingProvider {
+    return resolveBillingProviderForCountry(countryCode);
   }
 
-  getProvider(currency: string): ISubscriptionBillingProvider {
-    return this.resolveBillingProvider(currency) === BillingProvider.NOMBA
-      ? this.nombaProvider
-      : this.noahProvider;
+  getProviderForCountry(countryCode: string | null | undefined): ISubscriptionBillingProvider {
+    return this.getProviderByEnum(this.resolveBillingProvider(countryCode));
   }
 
   getProviderByEnum(provider: BillingProvider): ISubscriptionBillingProvider {
-    return provider === BillingProvider.NOMBA ? this.nombaProvider : this.noahProvider;
+    switch (provider) {
+      case BillingProvider.NOMBA:
+        return this.nombaProvider;
+      case BillingProvider.BACHS:
+        return this.bachsProvider;
+      case BillingProvider.POLAR:
+        return this.polarProvider;
+      default:
+        return this.nombaProvider;
+    }
   }
 
-  ensureConfigured(currency: string): void {
-    const provider = this.getProvider(currency);
-    if (!provider.ensureConfigured) {
-      return;
+  ensureConfigured(countryCode: string | null | undefined): void {
+    const provider = this.resolveBillingProvider(countryCode);
+    if (!isBillingProviderConfigured(provider)) {
+      throw new BadRequestException(`${provider} subscription billing is not configured`);
     }
-    provider.ensureConfigured();
+    const billingProvider = this.getProviderByEnum(provider);
+    billingProvider.ensureConfigured?.();
   }
 
   getNombaProvider(): NombaSubscriptionProvider {
     return this.nombaProvider;
   }
 
-  getNoahProvider(): NoahSubscriptionProvider {
-    return this.noahProvider;
+  async cancelExternalSubscription(
+    provider: BillingProvider,
+    externalSubscriptionId: string,
+    atPeriodEnd = false,
+  ): Promise<void> {
+    const billingProvider = this.getProviderByEnum(provider);
+    if (!billingProvider.cancelExternalSubscription) {
+      return;
+    }
+    await billingProvider.cancelExternalSubscription(externalSubscriptionId, {
+      atPeriodEnd,
+    });
   }
 }

@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { normalizeNoahWebhookPayload } from 'src/common/config/noah-api.util';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { NoahApiService } from 'src/common/services/noah-api.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
-import { BillingProvider } from '../../subscriptions/constants/billing-provider.enum';
-import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
   extractNoahPayrollExternalId,
   extractWalletTopupCheckout,
@@ -15,7 +15,7 @@ export class NoahWebhookService {
   private readonly logger = new Logger(NoahWebhookService.name);
 
   constructor(
-    private readonly subscriptionBillingService: SubscriptionBillingService,
+    private readonly noahApi: NoahApiService,
     private readonly payrollPayoutService: PayrollPayoutService,
     private readonly walletTopupService: TenantWalletTopupService,
   ) {}
@@ -24,7 +24,7 @@ export class NoahWebhookService {
     if (!signature?.trim()) {
       throw new UnauthorizedException('Missing webhook signature');
     }
-    if (!this.subscriptionBillingService.verifyNoahWebhookSignature(rawBody, signature)) {
+    if (!this.noahApi.verifyWebhookSignature(rawBody, signature)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 
@@ -47,9 +47,11 @@ export class NoahWebhookService {
     if (isSubscriptionPaymentEvent(eventType) || this.isNoahCheckoutSuccess(eventType)) {
       const walletTopup = extractWalletTopupCheckout(payload);
       if (walletTopup) {
-        return this.walletTopupService.completeCheckoutTopup(walletTopup, BillingProvider.NOAH);
+        return this.walletTopupService.completeCheckoutTopup(walletTopup, PaymentProvider.NOAH);
       }
-      return this.subscriptionBillingService.processNoahPayload(payload);
+      this.logger.debug(
+        `Ignoring Noah checkout event (subscriptions use Bachs/Polar/Nomba): ${eventType}`,
+      );
     }
 
     this.logger.debug(`Ignoring unhandled Noah webhook event: ${eventType || 'unknown'}`);
@@ -57,8 +59,13 @@ export class NoahWebhookService {
   }
 
   private extractNoahEventType(payload: unknown): string {
-    const body = payload as { event_type?: string; eventType?: string; type?: string };
-    return (body.event_type || body.eventType || body.type || '').toLowerCase();
+    const body = payload as {
+      event_type?: string;
+      eventType?: string;
+      EventType?: string;
+      type?: string;
+    };
+    return (body.event_type || body.eventType || body.EventType || body.type || '').toLowerCase();
   }
 
   private isNoahCheckoutSuccess(eventType: string): boolean {

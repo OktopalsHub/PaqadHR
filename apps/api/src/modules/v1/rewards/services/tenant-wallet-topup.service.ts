@@ -9,7 +9,6 @@ import { NoahApiService } from 'src/common/services/noah-api.service';
 import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
-import { BillingProvider } from '../../subscriptions/constants/billing-provider.enum';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import {
@@ -148,18 +147,18 @@ export class TenantWalletTopupService {
       orderReference: string;
       amount?: number;
     },
-    billingProvider: BillingProvider = BillingProvider.NOMBA,
+    billingProvider: PaymentProvider = PaymentProvider.NOMBA,
   ): Promise<{ received: boolean; credited: boolean }> {
     const isNombaRef = isNombaWalletTopupOrderRef(input.orderReference, input.tenantId);
     const isNoahRef = isNoahWalletTopupOrderRef(input.orderReference, input.tenantId);
 
-    if (billingProvider === BillingProvider.NOMBA && !isNombaRef) {
+    if (billingProvider === PaymentProvider.NOMBA && !isNombaRef) {
       this.logger.warn(
         `Wallet checkout top-up reference tenant mismatch for ${input.orderReference}`,
       );
       return { received: true, credited: false };
     }
-    if (billingProvider === BillingProvider.NOAH && !isNoahRef) {
+    if (billingProvider === PaymentProvider.NOAH && !isNoahRef) {
       this.logger.warn(`Noah wallet checkout reference mismatch for ${input.orderReference}`);
       return { received: true, credited: false };
     }
@@ -175,7 +174,7 @@ export class TenantWalletTopupService {
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
 
     const verified =
-      billingProvider === BillingProvider.NOAH
+      billingProvider === PaymentProvider.NOAH
         ? await this.noahApi.verifyTransaction(input.orderReference)
         : await this.nombaApi.verifyTransaction(input.orderReference);
 
@@ -207,7 +206,7 @@ export class TenantWalletTopupService {
       return { received: true, credited: false };
     }
 
-    const providerLabel = billingProvider === BillingProvider.NOAH ? 'Noah' : 'Nomba';
+    const providerLabel = billingProvider === PaymentProvider.NOAH ? 'Noah' : 'Nomba';
 
     return this.dataSource.transaction(async (manager) => {
       await manager

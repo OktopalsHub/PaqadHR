@@ -4,6 +4,7 @@ import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { Plan } from '../../plans/entities/plan.entity';
 import { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { BillingProvider } from '../constants/billing-provider.enum';
 
 @Entity({ name: 'tenant_subscriptions' })
 @Index(['tenantId'], { unique: true })
@@ -40,8 +41,15 @@ export class TenantSubscription extends BaseEntity {
   nextBillingDate: Date;
   @Column({ name: 'nomba_subscription_id', type: 'varchar', length: 100, nullable: true })
   nombaSubscriptionId: string | null;
-  @Column({ name: 'billing_provider', type: 'varchar', length: 16, default: 'nomba' })
-  billingProvider: string;
+  @Column({
+    name: 'billing_provider',
+    type: 'varchar',
+    length: 16,
+    default: BillingProvider.NOMBA,
+  })
+  billingProvider: BillingProvider;
+  @Column({ name: 'external_subscription_id', type: 'varchar', length: 100, nullable: true })
+  externalSubscriptionId: string | null;
   @Column({ name: 'noah_customer_id', type: 'varchar', length: 100, nullable: true })
   noahCustomerId: string | null;
   @Column({ name: 'payment_method_id', type: 'varchar', length: 100, nullable: true })

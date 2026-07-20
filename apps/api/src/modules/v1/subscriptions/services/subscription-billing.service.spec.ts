@@ -1,4 +1,5 @@
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { BillingProvider } from '../constants/billing-provider.enum';
 import { SubscriptionBillingService } from './subscription-billing.service';
 
 function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, unknown> = {}) {
@@ -10,22 +11,24 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     chargeSeatAddition: jest.fn().mockResolvedValue({ orderReference: 'sub_qty_1' }),
     ...nombaProviderOverrides,
   };
-  const noahProvider = {
-    verifyWebhookSignature: jest.fn(),
+  const bachsProvider = {
+    parseWebhook: jest.fn(),
+  };
+  const polarProvider = {
     parseWebhook: jest.fn(),
   };
   const billingProviderFactory = {
     getNombaProvider: () => nombaProvider,
-    getNoahProvider: () => noahProvider,
-    getProvider: jest.fn((currency: string) => (currency === 'NGN' ? nombaProvider : noahProvider)),
-    getProviderByEnum: jest.fn((provider: string) =>
-      provider === 'nomba' ? nombaProvider : noahProvider,
-    ),
-    resolveBillingProvider: jest.fn((currency: string) => (currency === 'NGN' ? 'nomba' : 'noah')),
+    getProviderByEnum: jest.fn((provider: BillingProvider) => {
+      if (provider === BillingProvider.BACHS) return bachsProvider;
+      if (provider === BillingProvider.POLAR) return polarProvider;
+      return nombaProvider;
+    }),
+    resolveBillingProvider: jest.fn(() => BillingProvider.NOMBA),
     ensureConfigured: jest.fn(),
+    cancelExternalSubscription: jest.fn().mockResolvedValue(undefined),
   };
   const nombaApi = { verifyTransaction: jest.fn() };
-  const noahApi = { verifyTransaction: jest.fn() };
   const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
   const tenantSettingsService = { getTenantSettings: jest.fn() };
   const plansService = { getPlanPriceById: jest.fn() };
@@ -48,7 +51,6 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   const service = new SubscriptionBillingService(
     billingProviderFactory as never,
     nombaApi as never,
-    noahApi as never,
     subscriptionsService as never,
     tenantSettingsService as never,
     plansService as never,
@@ -63,7 +65,8 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   return {
     service,
     nombaProvider,
-    noahProvider,
+    bachsProvider,
+    polarProvider,
     billingProviderFactory,
     subscriptionsService,
     subscriptionRepo,
@@ -79,7 +82,6 @@ describe('SubscriptionBillingService renewal jobs', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
   const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
-  const originalNoahApiKey = process.env.NOAH_API_KEY;
 
   const createService = () => buildSubscriptionBillingService();
 
@@ -87,7 +89,6 @@ describe('SubscriptionBillingService renewal jobs', () => {
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
     process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
-    process.env.NOAH_API_KEY = originalNoahApiKey;
     jest.restoreAllMocks();
   });
 
@@ -95,7 +96,8 @@ describe('SubscriptionBillingService renewal jobs', () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
-    delete process.env.NOAH_API_KEY;
+    delete process.env.BACHS_SECRET_KEY;
+    delete process.env.POLAR_ACCESS_TOKEN;
     const { service, billingProviderFactory } = createService();
 
     const result = await service.processDueRenewals();
@@ -208,14 +210,14 @@ describe('SubscriptionBillingService webhooks', () => {
     expect(spy).toHaveBeenCalled();
   });
 
-  it('records Noah failure events under the Noah provider for idempotency', async () => {
+  it('records Bachs failure events under the Bachs provider for idempotency', async () => {
     const tenantId = '11111111-1111-4111-8111-111111111111';
-    const { service, noahProvider, billingEventRepo, subscriptionRepo } = createService();
-    (noahProvider.parseWebhook as jest.Mock).mockReturnValue({
+    const { service, bachsProvider, billingEventRepo, subscriptionRepo } = createService();
+    (bachsProvider.parseWebhook as jest.Mock).mockReturnValue({
       kind: 'payment.failed',
       payment: {
-        eventId: 'evt-noah-fail',
-        reference: 'ref-noah-fail',
+        eventId: 'evt-bachs-fail',
+        reference: 'ref-bachs-fail',
         tenantId,
         billingType: 'subscription_renewal',
       },
@@ -224,6 +226,7 @@ describe('SubscriptionBillingService webhooks', () => {
     billingEventRepo.findOne.mockResolvedValue(null);
     subscriptionRepo.findOne.mockResolvedValue({
       tenantId,
+      billingProvider: BillingProvider.BACHS,
       status: SubscriptionStatus.PAST_DUE,
       dunningAttemptCount: 0,
     });
@@ -231,19 +234,49 @@ describe('SubscriptionBillingService webhooks', () => {
       .spyOn(service as any, 'markRenewalFailed')
       .mockResolvedValue(undefined);
 
-    await service.processNoahPayload({ event_type: 'payment_failed', data: {} });
+    await service.processBachsPayload({ event: 'invoice.payment_failed', data: {} });
 
     expect(markFailedSpy).toHaveBeenCalledTimes(1);
     expect(billingEventRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ eventId: 'evt-noah-fail', provider: 'noah' }),
+      expect.objectContaining({ eventId: 'evt-bachs-fail', provider: BillingProvider.BACHS }),
     );
 
     billingEventRepo.exists.mockResolvedValue(true);
     markFailedSpy.mockClear();
 
-    await service.processNoahPayload({ event_type: 'payment_failed', data: {} });
+    await service.processBachsPayload({ event: 'invoice.payment_failed', data: {} });
 
     expect(markFailedSpy).not.toHaveBeenCalled();
+  });
+
+  it('ignores Bachs renewal webhooks when tenant billing provider is Polar', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, bachsProvider, subscriptionRepo } = createService();
+    (bachsProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-bachs-renewal',
+        reference: 'ref-bachs-renewal',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        billingType: 'subscription_renewal',
+        amount: 100,
+        currency: 'USD',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.POLAR,
+      status: SubscriptionStatus.ACTIVE,
+    });
+    const renewalSpy = jest
+      .spyOn(service as any, 'processRenewalPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processBachsPayload({ event: 'invoice.paid', data: {} });
+
+    expect(renewalSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -262,6 +295,28 @@ describe('SubscriptionBillingService lifecycle', () => {
     const result = await service.cancelSubscription('tenant-1', {});
 
     expect(result.cancelAtPeriodEnd).toBe(true);
+    expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('cancels managed external subscription when user cancels', async () => {
+    const { service, subscriptionsService, billingProviderFactory, subscriptionRepo } =
+      createService();
+    const subscription = {
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.BACHS,
+      externalSubscriptionId: 'sub_bachs_1',
+      cancelAtPeriodEnd: false,
+    };
+    subscriptionsService.getTenantSubscription.mockResolvedValue(subscription);
+
+    await service.cancelSubscription('tenant-1', { atPeriodEnd: true });
+
+    expect(billingProviderFactory.cancelExternalSubscription).toHaveBeenCalledWith(
+      BillingProvider.BACHS,
+      'sub_bachs_1',
+      true,
+    );
     expect(subscriptionRepo.save).toHaveBeenCalled();
   });
 
@@ -313,6 +368,7 @@ describe('SubscriptionBillingService seat sync', () => {
     planId: 'plan-1',
     planPriceId: 'price-1',
     status: SubscriptionStatus.ACTIVE,
+    billingProvider: BillingProvider.NOMBA,
     nombaSubscriptionId: 'nomba_ref_1',
     paymentMethodId: 'tok_123',
     currentUsers: 10,
