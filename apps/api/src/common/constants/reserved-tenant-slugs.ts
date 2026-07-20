@@ -6,7 +6,10 @@ function readEnvExtras(): string[] {
   const values = ENV_EXTRA_KEYS.flatMap((key) => {
     const raw = process.env[key];
     if (!raw?.trim()) return [];
-    return raw.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean);
+    return raw
+      .split(',')
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean);
   });
   return [...new Set(values)];
 }

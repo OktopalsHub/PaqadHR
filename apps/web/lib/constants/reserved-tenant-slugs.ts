@@ -21,10 +21,7 @@ export const RESERVED_ROUTE_SEGMENTS = new Set([
 ]);
 
 /** Reserved subdomain labels (tenant slugs + infra hosts). */
-export const RESERVED_HOST_SUBDOMAINS = new Set([
-  ...RESERVED_TENANT_SLUGS,
-  'dev',
-]);
+export const RESERVED_HOST_SUBDOMAINS = new Set([...RESERVED_TENANT_SLUGS, 'dev']);
 
 export function isReservedTenantSlug(slug: string): boolean {
   const normalized = slug.trim().toLowerCase();

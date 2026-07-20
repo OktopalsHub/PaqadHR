@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantMemberRole } from 'src/common/enums';
 import { StringUtility } from 'src/common/utils';
-import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';

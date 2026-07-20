@@ -1,4 +1,5 @@
 import type { Tenant } from '@/lib/schemas/tenant';
+
 export {
   isReservedTenantSlug,
   RESERVED_HOST_SUBDOMAINS,
