@@ -255,22 +255,7 @@ export class ZeptomailEmailService {
         });
       }
 
-      const templates = this.getEmailTemplates();
-      const template = templates[templateKey];
-      if (!template) {
-        throw new NotFoundException(`Template '${templateKey}' not found`);
-      }
-      const html = this.renderTemplate(template.html, variables);
-      const text = this.renderTemplate(template.text, variables);
-      const subject = options?.subject || this.renderTemplate(template.subject, variables);
-      return await this.sendEmail({
-        to,
-        subject,
-        html,
-        text,
-        from: options?.from,
-        replyTo: options?.replyTo,
-      });
+      throw new NotFoundException(`Template '${templateKey}' not found`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Failed to send template email '${templateKey}': ${message}`);
@@ -279,60 +264,5 @@ export class ZeptomailEmailService {
         error: message,
       };
     }
-  }
-
-  private renderTemplate(template: string, variables: Record<string, unknown>): string {
-    let rendered = template;
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
-      rendered = rendered.replace(regex, String(value || ''));
-    });
-    return rendered;
-  }
-
-  private getEmailTemplates(): Record<string, { subject: string; html: string; text: string }> {
-    return {
-      welcome: {
-        subject: 'Welcome to {{ tenantName }}',
-        html: `
-          <h1>Welcome to {{ tenantName }}, {{ name }}!</h1>
-          <p>We're excited to have you on board.</p>
-          <p>You can now access your dashboard and start collaborating with your team.</p>
-        `,
-        text: `Welcome to {{ tenantName }}, {{ name }}! We're excited to have you on board. You can now access your dashboard and start collaborating with your team.`,
-      },
-      'password-reset': {
-        subject: 'Password Reset Request',
-        html: `
-          <h1>Password Reset Request</h1>
-          <p>You requested a password reset. Click the link below to reset your password:</p>
-          <p><a href="{{ resetLink }}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a></p>
-          <p>If you didn't request this, please ignore this email.</p>
-        `,
-        text: `Password Reset Request. You requested a password reset. Click here to reset: {{ resetLink }}. If you didn't request this, please ignore this email.`,
-      },
-      'payroll-notification': {
-        subject: 'Payroll Processed - {{ payrollPeriod }}',
-        html: `
-          <h1>Payroll Processed</h1>
-          <p>Hello {{ employeeName }},</p>
-          <p>Your payroll for {{ payrollPeriod }} has been processed.</p>
-          <p><strong>Amount: {{ currency }} {{ amount }}</strong></p>
-          <p>Please check your account for the payment details.</p>
-        `,
-        text: `Payroll Processed. Hello {{ employeeName }}, your payroll for {{ payrollPeriod }} has been processed. Amount: {{ currency }} {{ amount }}. Please check your account for payment details.`,
-      },
-      notification: {
-        subject: '{{ title }}',
-        html: `
-          <h1>{{ title }}</h1>
-          <p>{{ message }}</p>
-          {{ #if actionData.url }}
-          <p><a href="{{ actionData.url }}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">{{ actionData.buttonText }}</a></p>
-          {{ /if }}
-        `,
-        text: `{{ title }}. {{ message }}. {{ #if actionData.url }}{{ actionData.buttonText }}: {{ actionData.url }}{{ /if }}`,
-      },
-    };
   }
 }

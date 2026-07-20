@@ -3,7 +3,7 @@ import { LandingJsonLd } from '@/features/home/components/landing-json-ld';
 import { LandingPage } from '@/features/home/components/landing-page';
 
 export const metadata: Metadata = {
-  title: 'Paqad — HR and payroll in one workspace',
+  title: 'PaqadHR',
   description:
     'Hire, pay, and recognize your people in one workspace. Recruitment kanban, payroll, leave management, and Slack shoutouts for growing teams.',
   keywords: [
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     'workforce management',
   ],
   openGraph: {
-    title: 'Paqad — HR and payroll in one workspace',
+    title: 'PaqadHR',
     description:
       'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
     type: 'website',
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Paqad — HR and payroll in one workspace',
+    title: 'PaqadHR',
     description:
       'Hire, pay, and recognize your people in one workspace. Recruitment, payroll, leave, and shoutouts.',
   },

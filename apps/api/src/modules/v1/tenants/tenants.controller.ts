@@ -5,6 +5,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -26,6 +27,7 @@ import { FileUrlService } from 'src/common/services/file-url.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateTenantDto } from './dto/create-tenant.dto';
+import { PublicTenantResponseDto } from './dto/public-tenant-response.dto';
 import { TenantResponseDto, type UserTenantWithMembershipDto } from './dto/tenant-response.dto';
 import { UpdatePaymentCurrencyDto } from './dto/update-payment-currency.dto';
 import { UpdateTenantDto } from './dto/update-tenant.dto';
@@ -141,11 +143,15 @@ export class TenantsController {
   }
   @Public()
   @Get('slug/:slug')
-  async getTenantBySlug(@Param('slug') slug: string) {
+  async getTenantBySlug(@Param('slug') slug: string): Promise<PublicTenantResponseDto> {
     if (!/^[a-zA-Z0-9_-]+$/.test(slug) || slug.length > 50) {
       throw new BadRequestException('Invalid slug format');
     }
-    return this.tenantsService.getTenantBySlug(slug);
+    const tenant = await this.tenantsService.getTenantBySlug(slug);
+    if (!tenant?.isActive) {
+      throw new NotFoundException('Workspace not found');
+    }
+    return PublicTenantResponseDto.toResponse(tenant, this.fileUrlService);
   }
   @Patch(':tenantId/payment-currency')
   @UseGuards(TenantMemberGuard, TenantRoleGuard)

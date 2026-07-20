@@ -14,6 +14,12 @@ export class PublicJobController {
   @Public()
   @ApiOperation({ summary: 'Get all active job openings (public)' })
   @ApiQuery({
+    name: 'tenantId',
+    type: String,
+    required: true,
+    description: 'Workspace ID — required to scope public job listings',
+  })
+  @ApiQuery({
     name: 'departmentId',
     type: String,
     required: false,
@@ -30,7 +36,8 @@ export class PublicJobController {
     type: [JobOpening],
   })
   async getActiveJobs(
-    @Query() filters: JobFilterOptions,
+    @Query('tenantId', ParseUUIDPipe) tenantId: string,
+    @Query() filters: Omit<JobFilterOptions, 'tenantId'>,
   ): Promise<{ jobs: JobOpening[]; total: number }> {
     if (filters.search && filters.search.length > 100) {
       throw new BadRequestException('Search query too long');
@@ -43,7 +50,7 @@ export class PublicJobController {
     ) {
       throw new BadRequestException('Invalid department ID format');
     }
-    return this.jobOpeningService.getActiveJobs(filters);
+    return this.jobOpeningService.getActiveJobs({ ...filters, tenantId });
   }
   @Get('departments/list')
   @Public()

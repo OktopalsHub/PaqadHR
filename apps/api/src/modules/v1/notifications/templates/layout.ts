@@ -34,7 +34,7 @@ export function renderEmailLayout({ preheader, content }: EmailLayoutOptions): s
           </tr>
           <tr>
             <td align="center" style="padding:20px 32px 28px;background-color:${footerBg};border-top:1px solid #e4e4e7;font-size:12px;line-height:1.5;color:${muted};">
-              Sent by PaqadHR · People operations for modern teams
+              Sent by PaqadHR
             </td>
           </tr>
         </table>

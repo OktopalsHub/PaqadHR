@@ -59,8 +59,9 @@ export class CandidateService {
 
   async applyForJob(jobId: string, createCandidateDto: CreateCandidateDto): Promise<Candidate> {
     const job = await this.jobOpeningService.getActiveJob(jobId);
+    const normalizedEmail = createCandidateDto.email.trim().toLowerCase();
     const existingApplication = await this.candidateRepository.findByEmailAndJob(
-      createCandidateDto.email,
+      normalizedEmail,
       jobId,
     );
     if (existingApplication) {
@@ -70,9 +71,9 @@ export class CandidateService {
     }
     const entity = this.candidateRepository.create({
       jobOpeningId: jobId,
-      firstName: createCandidateDto.firstName,
-      lastName: createCandidateDto.lastName,
-      email: createCandidateDto.email,
+      firstName: createCandidateDto.firstName.trim(),
+      lastName: createCandidateDto.lastName.trim(),
+      email: normalizedEmail,
       phone: createCandidateDto.phone || '',
       resume: {
         filename: createCandidateDto.resumeFilename,
@@ -140,18 +141,28 @@ export class CandidateService {
   async getCandidatesByJob(jobId: string, tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByJobOpening(jobId, tenantId);
   }
-  async getApplicationStatus(applicationId: string, email: string): Promise<Candidate> {
-    const candidate = await this.candidateRepository.findByApplicationIdAndEmail(
+  async getApplicationStatus(
+    jobOpeningId: string,
+    applicationId: string,
+    email: string,
+  ): Promise<Candidate> {
+    const normalizedEmail = email.trim().toLowerCase();
+    const candidate = await this.candidateRepository.findByApplicationIdEmailAndJob(
       applicationId,
-      email,
+      normalizedEmail,
+      jobOpeningId,
     );
     if (!candidate) {
       throw new NotFoundException('Application not found');
     }
     return candidate;
   }
-  async withdrawApplication(applicationId: string, email: string): Promise<Candidate> {
-    const candidate = await this.getApplicationStatus(applicationId, email);
+  async withdrawApplication(
+    jobOpeningId: string,
+    applicationId: string,
+    email: string,
+  ): Promise<Candidate> {
+    const candidate = await this.getApplicationStatus(jobOpeningId, applicationId, email);
     if (candidate.status === CandidateStatus.WITHDRAWN) {
       throw new BadRequestException('Application has already been withdrawn');
     }
@@ -176,11 +187,12 @@ export class CandidateService {
     return updatedCandidate;
   }
   async updateApplication(
+    jobOpeningId: string,
     applicationId: string,
     email: string,
     updateDto: UpdateCandidateDto,
   ): Promise<Candidate> {
-    const candidate = await this.getApplicationStatus(applicationId, email);
+    const candidate = await this.getApplicationStatus(jobOpeningId, applicationId, email);
     if (![CandidateStatus.APPLIED, CandidateStatus.UNDER_REVIEW].includes(candidate.status)) {
       throw new BadRequestException('Application cannot be updated in current status');
     }

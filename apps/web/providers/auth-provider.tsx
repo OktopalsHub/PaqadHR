@@ -21,7 +21,6 @@ import {
 } from '@/lib/navigation/resolve-auth-destination';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
-import { readSession } from '@/lib/session';
 
 interface AuthContextType {
   user: User | null;
@@ -50,7 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: getSession,
     staleTime: Infinity,
     enabled: sessionBootstrapEnabled,
-    placeholderData: () => readSession() ?? undefined,
   });
 
   const navigateAfterAuth = useCallback(async () => {

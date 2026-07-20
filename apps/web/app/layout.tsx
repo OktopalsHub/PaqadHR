@@ -10,11 +10,11 @@ import { ThemeProvider } from '@/providers/theme-provider';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Paqad — People operations for modern teams',
-    template: '%s · Paqad',
+    default: 'PaqadHR',
+    template: '%s · PaqadHR',
   },
   description:
-    'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition.',
+    'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition',
   icons: {
     icon: [
       { url: brandFaviconUrls.light, type: 'image/png', media: '(prefers-color-scheme: light)' },

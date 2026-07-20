@@ -98,7 +98,7 @@ export async function loadUserTenantsWithRetry(options?: {
 
 export function persistUserSession(profile: ProfileResponse, needsOnboarding?: boolean): User {
   const user = mapAuthUser(profile, needsOnboarding);
-  persistSession(user);
+  persistSession();
   return user;
 }
 
@@ -120,7 +120,7 @@ export async function getSession(): Promise<User | null> {
       // Profile is authoritative for session; tenant list can load later.
     }
     const user = mapAuthUser(profile, needsOnboarding);
-    persistSession(user);
+    persistSession();
     return user;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
@@ -144,7 +144,7 @@ export async function login(input: LoginInput): Promise<User> {
   await bootstrapCsrf();
   const needsOnboarding = await syncTenantFromApi();
   const user = mapAuthUser(response.user, needsOnboarding);
-  persistSession(user);
+  persistSession();
   return user;
 }
 
@@ -160,7 +160,7 @@ export async function register(input: SignupInput): Promise<User> {
 
   await bootstrapCsrf();
   const user = mapAuthUser(response.user, true);
-  persistSession(user);
+  persistSession();
   return user;
 }
 

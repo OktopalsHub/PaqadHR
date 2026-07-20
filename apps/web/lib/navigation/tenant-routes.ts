@@ -1,3 +1,10 @@
+import {
+  isReservedTenantSlug,
+  RESERVED_HOST_SUBDOMAINS,
+  RESERVED_ROUTE_SEGMENTS,
+  RESERVED_TENANT_SLUG_LIST,
+  RESERVED_TENANT_SLUGS,
+} from '@/lib/constants/reserved-tenant-slugs';
 import type { Tenant } from '@/lib/schemas/tenant';
 
 export {
@@ -6,7 +13,7 @@ export {
   RESERVED_ROUTE_SEGMENTS,
   RESERVED_TENANT_SLUG_LIST,
   RESERVED_TENANT_SLUGS,
-} from '@/lib/constants/reserved-tenant-slugs';
+};
 
 export function isSubdomainTenantsEnabled(): boolean {
   return process.env.NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS === 'true';

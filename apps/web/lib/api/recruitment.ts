@@ -155,8 +155,8 @@ export type PublicApplicationPayload = {
 export async function submitPublicApplication(
   jobId: string,
   body: PublicApplicationPayload & { turnstileToken?: string },
-): Promise<{ message?: string }> {
-  return apiClient<{ message?: string }>(`/jobs/${jobId}/apply`, {
+): Promise<{ id: string; status: string; jobOpeningId: string }> {
+  return apiClient<{ id: string; status: string; jobOpeningId: string }>(`/jobs/${jobId}/apply`, {
     method: 'POST',
     body: JSON.stringify(body),
     skipCsrf: true,

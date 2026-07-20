@@ -264,23 +264,11 @@ export class NotificationService {
         },
       );
     } else {
-      await this.emailService.sendEmail({
-        to: recipientEmail,
-        subject: notification.emailSubject || notification.title,
-        html: `
-          <h1>${notification.title}</h1>
-          <p>${notification.message}</p>
-          ${
-            notification.actionData?.url
-              ? `
-            <p><a href="${notification.actionData.url}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
-              ${notification.actionData.buttonText || 'View'}
-            </a></p>
-          `
-              : ''
-          }
-        `,
-        text: `${notification.title}\n\n${notification.message}${notification.actionData?.url ? `\n\n${notification.actionData.buttonText || 'View'}: ${notification.actionData.url}` : ''}`,
+      await this.emailService.sendTemplateEmail(recipientEmail, 'notification', {
+        title: notification.title,
+        message: notification.message,
+        actionUrl: notification.actionData?.url,
+        actionLabel: notification.actionData?.buttonText,
       });
     }
   }

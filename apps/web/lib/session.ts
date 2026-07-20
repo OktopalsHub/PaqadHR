@@ -1,8 +1,6 @@
 import { getAppDomain } from '@/lib/navigation/tenant-routes';
-import type { User } from '@/lib/schemas/auth';
-import { userSchema } from '@/lib/schemas/auth';
 
-const SESSION_KEY = 'paqad_session';
+const LEGACY_SESSION_KEY = 'paqad_session';
 const TENANT_KEY = 'paqad_tenant_id';
 const TENANT_SLUG_KEY = 'paqad_tenant_slug';
 
@@ -30,28 +28,21 @@ function clearTenantSlugCookie() {
   document.cookie = `tenant_slug=; path=/${domainPart}; max-age=0; SameSite=Lax`;
 }
 
-export function persistSession(user: User) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+/** User profile is loaded from the API only — never cached in localStorage (GDPR/NDPR). */
+export function persistSession(): void {
+  // Intentionally no-op: auth state lives in httpOnly cookies + server profile fetch.
 }
 
-export function readSession(): User | null {
-  if (typeof window === 'undefined') return null;
-
-  const raw = localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-
-  try {
-    return userSchema.parse(JSON.parse(raw));
-  } catch {
-    localStorage.removeItem(SESSION_KEY);
-    return null;
+export function readSession(): null {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem(LEGACY_SESSION_KEY);
   }
+  return null;
 }
 
 export function clearSessionStorage() {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(LEGACY_SESSION_KEY);
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
   clearTenantSlugCookie();
