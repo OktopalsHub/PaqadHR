@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { verifyBachsWebhookSignature } from 'src/common/config/bachs-webhook.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { BachsApiService } from 'src/common/services/bachs-api.service';
-import { getBachsProductId } from '../../plans/config/plan-external-products.config';
+import { resolveBachsProductId } from '../../plans/config/plan-external-products.config';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { BillingChargeType, parseBillingChargeType } from '../constants/billing.constants';
 import type {
@@ -46,10 +46,10 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       throw new BadRequestException('Plan slug missing for Bachs checkout');
     }
 
-    const productId = getBachsProductId(planSlug, planPrice.currency);
+    const productId = resolveBachsProductId(planPrice);
     if (!productId) {
       throw new BadRequestException(
-        `Bachs product not configured for plan "${planSlug}" (${planPrice.currency})`,
+        `Bachs product not configured for plan "${planSlug}" (${planPrice.currency}). Run: pnpm --filter api sync:bachs-products`,
       );
     }
 

@@ -72,3 +72,4 @@ export * from './1783160913090-DropPayrollAuditLogsCreateTenantActivities';
 export * from './1783258356100-invitation-names-nullable';
 export * from './1783369099246-TenantSubscriptionBillingProvider';
 export * from './1784546774315-TenantSubscriptionExternalSubscription';
+export * from './1784548594725-PlanPriceExternalProductIds';

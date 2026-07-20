@@ -1,21 +1,16 @@
 /**
- * Creates or lists Bachs recurring subscription products for PaqadHR plans.
+ * Creates or reuses Bachs recurring products and stores IDs on plan_prices.bachs_product_id.
  * Usage: BACHS_SECRET_KEY=sk_sandbox_... pnpm --filter api sync:bachs-products
  */
 import { Logger } from '@nestjs/common';
 import { getBachsBaseUrl, getBachsSecretKey } from '../common/config/bachs.config';
-import { DEFAULT_PLANS } from '../modules/v1/plans/data/default-plans.data';
+import dataSource from '../common/database/config/data-source';
+import { PlanPrice } from '../modules/v1/plans/entities/plan-price.entity';
 
 const logger = new Logger('SyncBachsProducts');
 
-type PlanSlug = 'starter' | 'growth' | 'scale';
-
 function formatAmount(value: number): string {
   return Number(value).toFixed(2);
-}
-
-function envKey(slug: PlanSlug, currency: string): string {
-  return `BACHS_PRODUCT_${slug.toUpperCase()}_${currency.toUpperCase()}`;
 }
 
 async function bachsRequest<T>(path: string, init?: RequestInit): Promise<T> {
@@ -41,21 +36,17 @@ async function bachsRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function syncProducts(): Promise<void> {
-  const specs: Array<{ slug: PlanSlug; currency: string; amount: number; name: string }> = [];
-
-  for (const plan of DEFAULT_PLANS) {
-    const slug = plan.slug as PlanSlug;
-    for (const price of plan.prices) {
-      const currency = price.currency.toUpperCase();
-      if (currency !== 'NGN' && currency !== 'USD') continue;
-      specs.push({
-        slug,
-        currency,
-        amount: price.regionalConfig.pricePerUser,
-        name: `PaqadHR ${plan.name} (${currency})`,
-      });
-    }
+  dataSource.setOptions({ migrationsRun: false });
+  if (!dataSource.isInitialized) {
+    await dataSource.initialize();
   }
+
+  const priceRepo = dataSource.getRepository(PlanPrice);
+  const planPrices = await priceRepo.find({
+    where: [{ currency: 'NGN' }, { currency: 'USD' }],
+    relations: ['plan'],
+    order: { plan: { sortOrder: 'ASC' } },
+  });
 
   const existing = await bachsRequest<{ items?: Array<Record<string, unknown>> }>(
     '/v1/products?limit=100',
@@ -65,12 +56,21 @@ async function syncProducts(): Promise<void> {
     return metadata?.paqad === 'true';
   });
 
-  const envLines: string[] = [];
+  let updated = 0;
 
-  for (const spec of specs) {
+  for (const planPrice of planPrices) {
+    const slug = planPrice.plan?.slug;
+    if (!slug) continue;
+
+    const currency = planPrice.currency.toUpperCase();
+    if (currency !== 'NGN' && currency !== 'USD') continue;
+
+    const amount = planPrice.regionalConfig?.pricePerUser ?? Number(planPrice.monthlyPrice);
+    const name = `PaqadHR ${planPrice.plan?.name ?? slug} (${currency})`;
+
     const match = paqadProducts.find((item) => {
       const metadata = item.metadata as Record<string, string> | undefined;
-      return metadata?.plan_slug === spec.slug && metadata?.currency === spec.currency;
+      return metadata?.plan_slug === slug && metadata?.currency === currency;
     });
 
     let productId = typeof match?.id === 'string' ? match.id : undefined;
@@ -79,33 +79,39 @@ async function syncProducts(): Promise<void> {
       const created = await bachsRequest<{ id: string }>('/v1/products', {
         method: 'POST',
         body: JSON.stringify({
-          name: spec.name,
-          description: `PaqadHR ${spec.slug} plan — per seat / month`,
+          name,
+          description: `PaqadHR ${slug} plan — per seat / month`,
           price: {
             price_type: 'fixed',
-            currency: spec.currency,
-            amount: formatAmount(spec.amount),
+            currency,
+            amount: formatAmount(amount),
           },
           billing_cycle: { interval: 'month', frequency: 1 },
           metadata: {
             paqad: 'true',
-            plan_slug: spec.slug,
-            currency: spec.currency,
+            plan_slug: slug,
+            currency,
           },
         }),
       });
       productId = created.id;
-      logger.log(`Created ${spec.slug} ${spec.currency}: ${productId}`);
+      logger.log(`Created ${slug} ${currency}: ${productId}`);
     } else {
-      logger.log(`Found ${spec.slug} ${spec.currency}: ${productId}`);
+      logger.log(`Found ${slug} ${currency}: ${productId}`);
     }
 
-    envLines.push(`${envKey(spec.slug, spec.currency)}=${productId}`);
+    if (planPrice.bachsProductId !== productId) {
+      planPrice.bachsProductId = productId;
+      await priceRepo.save(planPrice);
+      updated += 1;
+      logger.log(`Updated plan_prices ${planPrice.id} → bachs_product_id=${productId}`);
+    }
   }
 
-  console.log('\n# Copy into apps/api/.env\n');
-  for (const line of envLines) {
-    console.log(line);
+  logger.log(`Done. ${updated} plan price row(s) updated.`);
+
+  if (dataSource.isInitialized) {
+    await dataSource.destroy();
   }
 }
 

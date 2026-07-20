@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { getPolarAccessToken, getPolarWebhookSecret } from 'src/common/config/polar.config';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
-import { getPolarProductId } from '../../plans/config/plan-external-products.config';
+import { resolvePolarProductId } from '../../plans/config/plan-external-products.config';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { BillingChargeType } from '../constants/billing.constants';
 import type {
@@ -44,9 +44,11 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
       throw new BadRequestException('Plan slug missing for Polar checkout');
     }
 
-    const polarProductId = getPolarProductId(planSlug);
+    const polarProductId = resolvePolarProductId(planPrice);
     if (!polarProductId) {
-      throw new BadRequestException(`Polar product not configured for plan "${planSlug}"`);
+      throw new BadRequestException(
+        `Polar product not configured for plan "${planSlug}". Run: pnpm --filter api sync:polar-products`,
+      );
     }
 
     const seats = resolveSeatCount(quantity);
