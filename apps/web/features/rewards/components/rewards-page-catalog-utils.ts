@@ -119,6 +119,13 @@ export const DEFAULT_CUSTOM_PERKS: CatalogItem[] = [
   },
 ];
 
+export function getAvailableCustomPerkTemplates(customPerks: CatalogItem[]): CatalogItem[] {
+  const activeNames = new Set(customPerks.map((perk) => perk.name.trim().toLowerCase()));
+  return DEFAULT_CUSTOM_PERKS.filter(
+    (template) => !activeNames.has(template.name.trim().toLowerCase()),
+  );
+}
+
 export function dataPlanId(plan: { amount: number; plan: string }) {
   return `${plan.amount}:${plan.plan}`;
 }

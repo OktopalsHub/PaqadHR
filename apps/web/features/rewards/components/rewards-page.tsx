@@ -13,7 +13,7 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
@@ -56,8 +56,8 @@ import { mapMemberWalletError } from '@/lib/wallet-error-message';
 import { useTenant } from '@/providers/tenant-provider';
 import { CatalogCard } from './rewards-page-catalog-card';
 import {
-  DEFAULT_CUSTOM_PERKS,
   dataPlanId,
+  getAvailableCustomPerkTemplates,
   getReloadlyCategory,
   NG_UTILITIES,
 } from './rewards-page-catalog-utils';
@@ -427,6 +427,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   const giftCards = catalog.filter((i) => i.type === 'RELOADLY');
   const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
+  const availablePerkTemplates = useMemo(
+    () => getAvailableCustomPerkTemplates(customPerks),
+    [customPerks],
+  );
 
   const matchesDigitalCardsCountry = (item: CatalogItem) =>
     catalogCountries.length <= 1 || item.countryCode === digitalCardsCountryCode;
@@ -1529,7 +1533,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                   : 'Once added by your admin, they will be redeemable.'}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {DEFAULT_CUSTOM_PERKS.map((item) => (
+                {availablePerkTemplates.map((item) => (
                   <CatalogCard
                     key={item.id}
                     item={item}
@@ -1558,7 +1562,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ))}
               </div>
 
-              {isAdmin && (
+              {isAdmin && availablePerkTemplates.length > 0 && (
                 <div className="space-y-4 border-t pt-8">
                   <div>
                     <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
@@ -1570,7 +1574,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     </p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {DEFAULT_CUSTOM_PERKS.map((item) => (
+                    {availablePerkTemplates.map((item) => (
                       <CatalogCard
                         key={item.id}
                         item={item}
