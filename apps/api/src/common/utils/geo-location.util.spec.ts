@@ -22,4 +22,23 @@ describe('GeoLocationHelper', () => {
 
     expect(result).toEqual({ countryCode: 'NG', detectionMethod: 'header' });
   });
+
+  it('resolveUserCountryCode prefers geoip lookup on public IP', async () => {
+    await expect(GeoLocationHelper.resolveUserCountryCode({ ip: '8.8.8.8' })).resolves.toBe('US');
+  });
+
+  it('resolveUserCountryCode falls back to edge headers when geoip misses', async () => {
+    await expect(
+      GeoLocationHelper.resolveUserCountryCode({
+        ip: '127.0.0.1',
+        headers: { 'cf-ipcountry': 'NG' },
+      }),
+    ).resolves.toBe('NG');
+  });
+
+  it('resolveUserCountryCode never returns GLOBAL', async () => {
+    await expect(
+      GeoLocationHelper.resolveUserCountryCode({ ip: '127.0.0.1' }),
+    ).resolves.toBeNull();
+  });
 });

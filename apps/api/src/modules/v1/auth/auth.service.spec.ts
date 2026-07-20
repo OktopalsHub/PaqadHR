@@ -228,6 +228,28 @@ describe('AuthService', () => {
       expect(result).toBe(existingUser);
       expect(accountRepository.save).not.toHaveBeenCalled();
     });
+
+    it('stores ISO country from geoip on new Google signup', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+      userRepository.insertUser.mockResolvedValue({
+        id: 'user-new',
+        email: 'new@example.com',
+      } as User);
+      accountRepository.create.mockImplementation((data) => data);
+
+      await authService.findOrCreateGoogleUser('google-new', 'new@example.com', {
+        ip: '8.8.8.8',
+        headers: {},
+      });
+
+      expect(userRepository.insertUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'new@example.com',
+          countryCode: 'US',
+        }),
+      );
+    });
   });
 
   describe('forgotPassword', () => {
@@ -396,7 +418,9 @@ describe('AuthService', () => {
       });
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
 
-      const result = await authService.register('test@example.com', 'correctpassword', '127.0.0.1');
+      const result = await authService.register('test@example.com', 'correctpassword', {
+        ip: '127.0.0.1',
+      });
 
       expect(result.user).toBe(existingUser);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
@@ -419,7 +443,7 @@ describe('AuthService', () => {
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
 
       await expect(
-        authService.register('test@example.com', 'wrongpassword', '127.0.0.1'),
+        authService.register('test@example.com', 'wrongpassword', { ip: '127.0.0.1' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -437,7 +461,9 @@ describe('AuthService', () => {
         .mockResolvedValueOnce({ userId: 'user-1', providerId: 'google', accountId: 'google-123' });
       jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('new-hash');
 
-      const result = await authService.register('test@example.com', 'newpassword123', '127.0.0.1');
+      const result = await authService.register('test@example.com', 'newpassword123', {
+        ip: '127.0.0.1',
+      });
 
       expect(result.user).toBe(existingUser);
       expect(accountRepository.save).toHaveBeenCalledWith(
@@ -461,7 +487,7 @@ describe('AuthService', () => {
       accountRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
-        authService.register('test@example.com', 'password123', '127.0.0.1'),
+        authService.register('test@example.com', 'password123', { ip: '127.0.0.1' }),
       ).rejects.toThrow(UnprocessableEntityException);
     });
   });

@@ -14,6 +14,7 @@ import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { GeoLocationHelper, PasswordService, StringUtility, sha256Hex } from 'src/common/utils';
+import type { GeoRequestContext } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
@@ -150,17 +151,19 @@ export class AuthService {
 
   async login(
     user: User,
-    ip: string,
+    geo: GeoRequestContext,
     auditContext?: AuthAuditContext,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!user.isActive) {
       throw new UnauthorizedException('User account is inactive');
     }
+    const ip = GeoLocationHelper.resolveClientIp(geo.headers ?? {}, undefined, geo.ip);
     if (!user.countryCode && !GeoLocationHelper.isLocalhost(ip)) {
-      const countryCode = await GeoLocationHelper.getCountryCode(ip);
-      const stored = GeoLocationHelper.toStoredCountryCode(countryCode) ?? 'UNKNOWN';
-      user.countryCode = stored;
-      await this.userRepository.update(user.id, { countryCode: stored });
+      const stored = await GeoLocationHelper.resolveUserCountryCode(geo);
+      if (stored) {
+        user.countryCode = stored;
+        await this.userRepository.update(user.id, { countryCode: stored });
+      }
     }
 
     const session = await this.createSession(user.id);
@@ -227,7 +230,7 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    ip: string,
+    geo: GeoRequestContext,
     inviteToken?: string,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
@@ -266,14 +269,14 @@ export class AuthService {
 
       const [hashedPassword, countryCode] = await Promise.all([
         PasswordService.hashPassword(password),
-        GeoLocationHelper.getCountryCode(ip || ''),
+        GeoLocationHelper.resolveUserCountryCode(geo),
       ]);
 
       const user = await this.userRepository.insertUser({
         email: normalizedEmail,
         password: hashedPassword,
         role: UserRole.BASIC,
-        countryCode: GeoLocationHelper.toStoredCountryCode(countryCode),
+        countryCode,
         emailVerified: false,
         metadata: buildUserConsentMetadata(true),
       });
@@ -322,7 +325,11 @@ export class AuthService {
     }
   }
 
-  async findOrCreateGoogleUser(googleId: string, email: string, ip?: string): Promise<User> {
+  async findOrCreateGoogleUser(
+    googleId: string,
+    email: string,
+    geo: GeoRequestContext = {},
+  ): Promise<User> {
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
 
     const existingAccount = await this.accountRepository.findOne({
@@ -370,11 +377,11 @@ export class AuthService {
       return existingUser;
     }
 
-    const countryCode = await GeoLocationHelper.getCountryCode(ip ?? '');
+    const countryCode = await GeoLocationHelper.resolveUserCountryCode(geo);
     const user = await this.userRepository.insertUser({
       email: normalizedEmail,
       role: UserRole.BASIC,
-      countryCode: countryCode ?? 'UNKNOWN',
+      countryCode,
       emailVerified: true,
     });
 
