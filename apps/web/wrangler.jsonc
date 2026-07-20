@@ -11,14 +11,19 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  "vars": {
+    "NEXT_PUBLIC_API_URL": "https://api-dev.paqadhr.com",
+    "NEXT_PUBLIC_APP_DOMAIN": "paqadhr.com",
+    "NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS": "true"
+  },
   "routes": [
     {
       "pattern": "dev.paqadhr.com",
       "custom_domain": true
     },
     {
-      "pattern": "*.dev.paqadhr.com",
-      "custom_domain": true
+      "pattern": "*.dev.paqadhr.com/*",
+      "zone_name": "paqadhr.com"
     }
   ],
   "env": {
@@ -33,6 +38,11 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
       },
+      "vars": {
+        "NEXT_PUBLIC_API_URL": "https://api.paqadhr.com",
+        "NEXT_PUBLIC_APP_DOMAIN": "paqadhr.com",
+        "NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS": "true"
+      },
       "routes": [
         {
           "pattern": "paqadhr.com",
@@ -43,8 +53,8 @@
           "custom_domain": true
         },
         {
-          "pattern": "*.paqadhr.com",
-          "custom_domain": true
+          "pattern": "*.paqadhr.com/*",
+          "zone_name": "paqadhr.com"
         }
       ]
     }
