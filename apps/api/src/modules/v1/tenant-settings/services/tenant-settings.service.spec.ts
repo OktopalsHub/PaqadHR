@@ -37,6 +37,7 @@ describe('TenantSettingsService rewards validation', () => {
       repository as unknown as TenantSettingRepository,
       {} as DataSource,
       eventEmitter as unknown as EventEmitter2,
+      {} as never,
     );
   });
 
