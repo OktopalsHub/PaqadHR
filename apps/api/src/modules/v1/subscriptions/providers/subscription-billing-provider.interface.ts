@@ -53,4 +53,9 @@ export interface ISubscriptionBillingProvider {
   mapStatus(status: string): SubscriptionStatus;
 
   ensureConfigured?(): void;
+
+  cancelExternalSubscription?(
+    externalSubscriptionId: string,
+    options?: { atPeriodEnd?: boolean },
+  ): Promise<void>;
 }

@@ -1,4 +1,9 @@
 export enum BillingProvider {
   NOMBA = 'nomba',
-  NOAH = 'noah',
+  BACHS = 'bachs',
+  POLAR = 'polar',
+}
+
+export function isManagedSubscriptionProvider(provider: BillingProvider): boolean {
+  return provider === BillingProvider.BACHS || provider === BillingProvider.POLAR;
 }

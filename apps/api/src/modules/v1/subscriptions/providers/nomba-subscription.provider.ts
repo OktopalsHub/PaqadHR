@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
+import {
+  BillingChargeType,
+  CARD_UPDATE_VERIFY_AMOUNT,
+  parseBillingChargeType,
+} from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
@@ -207,7 +211,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         targetSeatCount: orderMeta.targetSeatCount
           ? Number(orderMeta.targetSeatCount)
           : data?.meta?.targetSeatCount,
-        billingType: orderMeta.billingType ?? data?.meta?.billingType,
+        billingType: parseBillingChargeType(orderMeta.billingType ?? data?.meta?.billingType),
       };
       const reference = order?.orderReference ?? data?.orderReference;
       if (!reference || !meta.tenantId) {
@@ -235,7 +239,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
           tokenKey: data?.tokenizedCardData?.tokenKey,
           customerEmail: order?.customerEmail ?? data?.customerEmail,
           status: data?.status || 'success',
-          billingType: meta.billingType ? String(meta.billingType) : undefined,
+          billingType: parseBillingChargeType(meta.billingType),
           ...card,
         },
       };
@@ -250,7 +254,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         planId: orderMeta.planId ?? data?.meta?.planId,
         planPriceId: orderMeta.planPriceId ?? data?.meta?.planPriceId,
         quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
-        billingType: orderMeta.billingType ?? data?.meta?.billingType,
+        billingType: parseBillingChargeType(orderMeta.billingType ?? data?.meta?.billingType),
       };
       const reference = order?.orderReference ?? data?.orderReference;
       if (!reference || !meta.tenantId) {
@@ -272,7 +276,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
           currency: (order?.currency ?? data?.currency ?? 'NGN').toUpperCase(),
           customerEmail: order?.customerEmail ?? data?.customerEmail,
           status: data?.status || 'failed',
-          billingType: meta.billingType ? String(meta.billingType) : undefined,
+          billingType: parseBillingChargeType(meta.billingType),
         },
       };
     }
