@@ -37,3 +37,19 @@ export function authDestinationToPath(destination: AuthDestination): string {
       return destination.path;
   }
 }
+
+export function isExternalAuthHref(href: string): boolean {
+  return href.startsWith('http://') || href.startsWith('https://');
+}
+
+export function goToAuthDestination(
+  destination: AuthDestination,
+  navigate: (path: string) => void,
+): void {
+  const href = authDestinationToPath(destination);
+  if (isExternalAuthHref(href)) {
+    window.location.assign(href);
+    return;
+  }
+  navigate(href);
+}

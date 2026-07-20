@@ -7,7 +7,7 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import helmet, { type HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
 import passport from 'passport';
-import { resolveTrustedOrigins } from './trusted-origins';
+import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
 
@@ -31,6 +31,9 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       secure: process.env.NODE_ENV === 'production',
       maxAge: 3600000,
+      ...(process.env.NODE_ENV === 'production' && process.env.APP_DOMAIN
+        ? { domain: `.${process.env.APP_DOMAIN}` }
+        : {}),
     },
     ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
   });
@@ -104,6 +107,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
           }
         }
         if (allowedOrigins.includes(origin)) return callback(null, true);
+        if (isTrustedOrigin(origin)) return callback(null, true);
         callback(new Error(`Not allowed by CORS: ${origin}`), false);
       },
       credentials: true,

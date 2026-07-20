@@ -7,6 +7,24 @@ const HOST_API_FALLBACK: Record<string, string> = {
   'www.paqadhr.com': 'https://api.paqadhr.com',
 };
 
+const APP_DOMAIN = process.env.NEXT_PUBLIC_APP_DOMAIN || 'paqadhr.com';
+
+function apiFallbackForHost(host: string): string | undefined {
+  if (HOST_API_FALLBACK[host]) return HOST_API_FALLBACK[host];
+
+  if (host.endsWith(`.dev.${APP_DOMAIN}`)) {
+    return 'https://api-dev.paqadhr.com';
+  }
+  if (host.endsWith(`.${APP_DOMAIN}`) && host !== `www.${APP_DOMAIN}`) {
+    return 'https://api.paqadhr.com';
+  }
+  if (host.endsWith('.localhost')) {
+    return DEFAULT_LOCAL_API_URL;
+  }
+
+  return undefined;
+}
+
 export function normalizeApiV1Base(url: string): string {
   const trimmed = url.replace(/\/$/, '');
   if (trimmed.endsWith('/api/v1')) return trimmed;
@@ -19,8 +37,9 @@ export function resolveApiBaseUrl(options?: { envUrl?: string; requestHost?: str
   if (fromEnv) return fromEnv.replace(/\/$/, '');
 
   const host = options?.requestHost?.split(':')[0];
-  if (host && HOST_API_FALLBACK[host]) {
-    return HOST_API_FALLBACK[host];
+  if (host) {
+    const fallback = apiFallbackForHost(host);
+    if (fallback) return fallback;
   }
 
   return DEFAULT_LOCAL_API_URL;

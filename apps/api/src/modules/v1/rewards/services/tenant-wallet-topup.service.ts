@@ -7,6 +7,7 @@ import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
+import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
@@ -95,10 +96,9 @@ export class TenantWalletTopupService {
     }
 
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const callbackUrl = tenant?.slug
-      ? `${frontendBase}/${tenant.slug}/settings?tab=rewards&wallet_topup=done`
-      : `${frontendBase}/settings?tab=rewards&wallet_topup=done`;
+      ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards&wallet_topup=done')
+      : tenantFrontendUrl('', '/settings?tab=rewards&wallet_topup=done');
 
     const orderReference =
       provider === PaymentProvider.NOMBA
@@ -412,8 +412,9 @@ export class TenantWalletTopupService {
     if (!email) return;
 
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-    const settingsUrl = `${frontendUrl}/settings?tab=rewards`;
+    const settingsUrl = tenant?.slug
+      ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards')
+      : tenantFrontendUrl('', '/settings?tab=rewards');
 
     await this.emailService.sendEmail({
       to: email,

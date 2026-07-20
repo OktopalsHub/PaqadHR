@@ -15,6 +15,10 @@
     {
       "pattern": "dev.paqadhr.com",
       "custom_domain": true
+    },
+    {
+      "pattern": "*.dev.paqadhr.com",
+      "custom_domain": true
     }
   ],
   "env": {
@@ -36,6 +40,10 @@
         },
         {
           "pattern": "www.paqadhr.com",
+          "custom_domain": true
+        },
+        {
+          "pattern": "*.paqadhr.com",
           "custom_domain": true
         }
       ]

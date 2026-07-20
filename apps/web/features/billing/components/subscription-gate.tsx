@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
 import { useBillingStatus } from '@/hooks/queries/use-billing';
+import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 const EXEMPT_PATH_SUFFIXES = ['/subscribe'];
@@ -29,7 +30,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoading || !shouldBlock || !tenant?.slug) return;
-    router.replace(`/${tenant.slug}/subscribe`);
+    router.replace(tenantPath(tenant.slug, 'subscribe'));
   }, [isLoading, shouldBlock, tenant?.slug, router]);
 
   if (isLoading) {

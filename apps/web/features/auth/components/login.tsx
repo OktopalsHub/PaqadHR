@@ -21,7 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { type LoginInput, loginSchema } from '@/lib/schemas/auth';
@@ -64,7 +64,7 @@ export const Login = () => {
     const redirect = new URLSearchParams(window.location.search).get('redirect');
     const destination = resolveAuthDestination({ isAuthenticated, tenants, redirect });
     if (destination.type !== 'signin') {
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
     }
   }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router]);
 

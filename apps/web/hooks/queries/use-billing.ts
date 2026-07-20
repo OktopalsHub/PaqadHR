@@ -10,6 +10,7 @@ import {
   resumeSubscription,
   updatePaymentMethod,
 } from '@/lib/api/subscriptions';
+import { tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -55,10 +56,9 @@ export function useCreateSubscriptionCheckout() {
         throw new Error('Workspace not selected');
       }
 
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const resolvedSuccessUrl =
         successUrl ??
-        (origin ? `${origin}/${tenant.slug}/settings?tab=billing&billing=success` : undefined);
+        (tenant.slug ? tenantUrl(tenant.slug, '/settings?tab=billing&billing=success') : undefined);
 
       return createSubscriptionCheckout(tenantId, planSlug, resolvedSuccessUrl);
     },
@@ -75,9 +75,8 @@ export function useUpdatePaymentMethod() {
       if (!tenantId || !tenant?.slug) {
         throw new Error('Workspace not selected');
       }
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const successUrl = origin
-        ? `${origin}/${tenant.slug}/settings?tab=billing&billing=card-updated`
+      const successUrl = tenant.slug
+        ? tenantUrl(tenant.slug, '/settings?tab=billing&billing=card-updated')
         : undefined;
       return updatePaymentMethod(tenantId, successUrl);
     },

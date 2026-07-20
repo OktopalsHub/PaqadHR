@@ -11,7 +11,7 @@ import {
 } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { queryKeys } from '@/lib/query/keys';
@@ -53,7 +53,7 @@ export default function GoogleCompletePage() {
         isAuthenticated: true,
         tenants,
       });
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
     })();
   }, [queryClient, router]);
 

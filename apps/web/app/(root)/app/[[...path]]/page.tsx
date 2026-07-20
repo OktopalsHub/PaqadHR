@@ -4,7 +4,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
@@ -28,7 +28,7 @@ export default function LegacyAppRedirectPage() {
         tenants: [],
         redirect: pathname,
       });
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
       return;
     }
 
@@ -36,7 +36,7 @@ export default function LegacyAppRedirectPage() {
 
     const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
     if (destination.type === 'onboarding') {
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
       return;
     }
 

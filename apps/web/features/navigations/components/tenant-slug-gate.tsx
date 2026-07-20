@@ -6,10 +6,10 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { isSubdomainTenantsEnabled, tenantRoot, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function TenantSlugGate({ children }: { children: React.ReactNode }) {
@@ -31,7 +31,7 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
         tenants: [],
         redirect: pathname,
       });
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
       return;
     }
 
@@ -39,13 +39,17 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
 
     const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
     if (destination.type === 'onboarding') {
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
       return;
     }
 
     const slugTenant = tenants.find((item) => item.slug === tenantSlug);
     if (!slugTenant) {
       if (tenant) {
+        if (isSubdomainTenantsEnabled()) {
+          window.location.assign(tenantUrl(tenant.slug, pathname));
+          return;
+        }
         const suffix = pathname.replace(`/${tenantSlug}`, '') || '';
         router.replace(`${tenantRoot(tenant.slug)}${suffix}`);
       }

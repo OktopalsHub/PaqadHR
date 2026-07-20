@@ -9,6 +9,11 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import {
+  isAllowedTenantFrontendOrigin,
+  isSubdomainTenantsEnabled,
+  tenantFrontendUrl,
+} from 'src/common/utils/tenant-frontend-url.util';
 import { Brackets, DataSource, LessThan, Repository } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
@@ -1069,8 +1074,7 @@ export class SubscriptionBillingService {
   }
 
   private resolveSuccessUrl(tenantSlug: string, successUrl?: string): string {
-    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-    const fallback = `${frontendBase}/${tenantSlug}/settings?billing=success`;
+    const fallback = tenantFrontendUrl(tenantSlug, '/settings?billing=success');
 
     if (!successUrl?.trim()) return fallback;
 
@@ -1081,11 +1085,15 @@ export class SubscriptionBillingService {
       throw new BadRequestException('Invalid success URL');
     }
 
-    const allowedOrigin = new URL(frontendBase).origin;
-    if (parsed.origin !== allowedOrigin) {
+    if (!isAllowedTenantFrontendOrigin(tenantSlug, parsed.origin)) {
       throw new BadRequestException('Success URL must use the application frontend origin');
     }
-    if (!parsed.pathname.startsWith(`/${tenantSlug}/`)) {
+
+    if (isSubdomainTenantsEnabled()) {
+      if (parsed.pathname.startsWith(`/${tenantSlug}/`)) {
+        throw new BadRequestException('Success URL must not include workspace slug in path');
+      }
+    } else if (!parsed.pathname.startsWith(`/${tenantSlug}/`)) {
       throw new BadRequestException('Success URL must stay within your workspace path');
     }
 

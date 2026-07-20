@@ -11,7 +11,13 @@ import {
   useState,
 } from 'react';
 import { useUserTenants } from '@/hooks/queries/use-tenants';
-import { getTenantSlugFromPath, tenantRoot } from '@/lib/navigation/tenant-routes';
+import {
+  getTenantSlugFromHost,
+  getTenantSlugFromPath,
+  isSubdomainTenantsEnabled,
+  tenantOrigin,
+  tenantRoot,
+} from '@/lib/navigation/tenant-routes';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
 import { useAuth } from '@/providers/auth-provider';
@@ -53,9 +59,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!tenants.length) return;
+    const slugFromHost =
+      typeof window !== 'undefined' ? getTenantSlugFromHost(window.location.host) : null;
     const slugFromPath = getTenantSlugFromPath(pathname);
-    if (!slugFromPath) return;
-    const match = tenants.find((item) => item.slug === slugFromPath);
+    const slug = slugFromHost ?? slugFromPath;
+    if (!slug) return;
+    const match = tenants.find((item) => item.slug === slug);
     if (match && match.id !== selectedId) {
       setSelectedId(match.id);
     }
@@ -74,6 +83,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setSelectedId(tenantId);
       if (next?.slug) {
         persistTenantSlug(next.slug);
+        if (isSubdomainTenantsEnabled()) {
+          window.location.assign(tenantOrigin(next.slug));
+          return;
+        }
         router.push(tenantRoot(next.slug));
       }
     },

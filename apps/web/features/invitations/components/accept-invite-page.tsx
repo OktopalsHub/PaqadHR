@@ -19,6 +19,7 @@ import {
   type InvitationDetails,
 } from '@/lib/api/invitations';
 import { fetchUserTenants } from '@/lib/api/tenants';
+import { tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 
@@ -55,7 +56,7 @@ export function AcceptInvitePage() {
       if (tenantSlug) persistTenantSlug(tenantSlug);
 
       if (tenantSlug) {
-        router.replace(`/${tenantSlug}`);
+        window.location.assign(tenantUrl(tenantSlug, '/'));
         return;
       }
 
@@ -63,7 +64,7 @@ export function AcceptInvitePage() {
       const match = tenants.find((item) => item.id === tenantId) ?? tenants[0];
       if (match?.slug) {
         persistTenantSlug(match.slug);
-        router.replace(`/${match.slug}`);
+        window.location.assign(tenantUrl(match.slug, '/'));
         return;
       }
 

@@ -40,6 +40,7 @@ import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-t
 import { syncRewardsCatalog } from '@/lib/api/rewards';
 import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -114,7 +115,7 @@ export function SettingsRewardsTab() {
   const [autoTopupAmount, setAutoTopupAmount] = useState('5000');
 
   const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
-  const billingSettingsHref = tenant?.slug ? `/${tenant.slug}/settings?tab=billing` : null;
+  const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
   const walletCurrency = wallet?.currencyCode ?? 'NGN';
   const topupAmountValue = Number(topupAmount);
   const topupAmountValid = Number.isFinite(topupAmountValue) && topupAmountValue > 0;

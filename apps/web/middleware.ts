@@ -2,7 +2,14 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { apiOriginFromBase, resolveApiBaseUrl } from '@/lib/api-origin';
 import { BRAND_ORIGIN } from '@/lib/brand';
-import { rewriteLegacyAppPath } from '@/lib/navigation/tenant-routes';
+import {
+  getTenantSlugFromHost,
+  getTenantSlugFromPath,
+  isApexHost,
+  isSubdomainTenantsEnabled,
+  rewriteLegacyAppPath,
+  tenantUrl,
+} from '@/lib/navigation/tenant-routes';
 
 const r2PublicOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
 
@@ -57,13 +64,40 @@ function applySecurityHeaders(response: NextResponse, requestHost?: string): voi
 
 export function middleware(request: NextRequest) {
   const requestHost = request.nextUrl.hostname;
+  const hostHeader = request.headers.get('host') ?? requestHost;
+  const pathname = request.nextUrl.pathname;
+
   const slug = request.cookies.get('tenant_slug')?.value;
-  if (slug && request.nextUrl.pathname.startsWith('/app')) {
-    const destination = rewriteLegacyAppPath(request.nextUrl.pathname, slug);
-    if (destination !== request.nextUrl.pathname) {
+  if (slug && pathname.startsWith('/app')) {
+    const destination = rewriteLegacyAppPath(pathname, slug);
+    if (destination !== pathname) {
       const redirect = NextResponse.redirect(new URL(destination, request.url));
       applySecurityHeaders(redirect, requestHost);
       return redirect;
+    }
+  }
+
+  if (isSubdomainTenantsEnabled()) {
+    const slugFromHost = getTenantSlugFromHost(hostHeader);
+
+    if (slugFromHost) {
+      const alreadyPrefixed =
+        pathname === `/${slugFromHost}` || pathname.startsWith(`/${slugFromHost}/`);
+      if (!alreadyPrefixed) {
+        const internalPath = pathname === '/' ? `/${slugFromHost}` : `/${slugFromHost}${pathname}`;
+        const rewrite = NextResponse.rewrite(new URL(internalPath, request.url));
+        applySecurityHeaders(rewrite, requestHost);
+        return rewrite;
+      }
+    } else if (isApexHost(hostHeader)) {
+      const legacySlug = getTenantSlugFromPath(pathname);
+      if (legacySlug) {
+        const rest = pathname.slice(`/${legacySlug}`.length) || '/';
+        const destination = tenantUrl(legacySlug, rest);
+        const redirect = NextResponse.redirect(destination, 301);
+        applySecurityHeaders(redirect, requestHost);
+        return redirect;
+      }
     }
   }
 

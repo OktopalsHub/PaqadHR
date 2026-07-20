@@ -6,7 +6,6 @@ import {
   Optional,
 } from '@nestjs/common';
 import { DataSource, In } from 'typeorm';
-import { ENVIRONMENT } from '../../../../common/config/env.config';
 import { TenantMemberRole } from '../../../../common/enums';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { PaymentProviderInterface } from '../../../../common/interfaces/payment-provider-interface.interface';
@@ -19,6 +18,7 @@ import {
   paymentProviderLabel,
   resolvePaymentProvider,
 } from '../../../../common/utils/resolve-payment-provider.util';
+import { tenantFrontendUrl } from '../../../../common/utils/tenant-frontend-url.util';
 import { EmploymentService } from '../../employment/employment.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
@@ -1210,7 +1210,6 @@ export class PayrollService {
 
     const publishedItemIds: string[] = [];
     const tenant = await this.tenantsService.getTenant(tenantId);
-    const frontendBase = ENVIRONMENT.APP.FRONTEND_URL.replace(/\/$/, '');
     const payrollPeriod = this.formatPayrollPeriod(payrollRun.periodStart, payrollRun.periodEnd);
 
     for (const item of items) {
@@ -1225,7 +1224,10 @@ export class PayrollService {
       if (shouldSendEmail && item.employee?.id && this.notificationHelper) {
         const employeeName =
           `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim() || 'there';
-        const profileUrl = `${frontendBase}/${tenant.slug}/employees/${item.memberId}?tab=documents`;
+        const profileUrl = tenantFrontendUrl(
+          tenant.slug,
+          `/employees/${item.memberId}?tab=documents`,
+        );
         await this.notificationHelper.sendPayslipPublishedNotification(item.memberId, tenantId, {
           employeeName,
           payrollPeriod,

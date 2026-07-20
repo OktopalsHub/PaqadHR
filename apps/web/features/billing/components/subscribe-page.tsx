@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { useBillingOverview, useCreateSubscriptionCheckout } from '@/hooks/queries/use-billing';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
+import { tenantPath, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function SubscribePage() {
@@ -30,9 +31,9 @@ export function SubscribePage() {
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
     try {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const successUrl =
-        origin && tenant?.slug ? `${origin}/${tenant.slug}/subscribe?billing=success` : undefined;
+      const successUrl = tenant?.slug
+        ? tenantUrl(tenant.slug, '/subscribe?billing=success')
+        : undefined;
       const result = await checkout.mutateAsync({ planSlug, successUrl });
       if (result.checkoutUrl) {
         window.location.assign(result.checkoutUrl);
@@ -72,7 +73,7 @@ export function SubscribePage() {
           </p>
           {tenant?.slug ? (
             <Button asChild>
-              <a href={`/${tenant.slug}`}>Go to workspace</a>
+              <a href={tenantPath(tenant.slug)}>Go to workspace</a>
             </Button>
           ) : null}
         </div>

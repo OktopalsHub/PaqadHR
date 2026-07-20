@@ -16,7 +16,7 @@ import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { queryKeys } from '@/lib/query/keys';
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tenants,
       redirect,
     });
-    router.push(authDestinationToPath(destination));
+    goToAuthDestination(destination, router.push);
   }, [queryClient, router]);
 
   const loginMutation = useMutation({

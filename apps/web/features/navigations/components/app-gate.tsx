@@ -6,7 +6,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { useTenant } from '@/providers/tenant-provider';
@@ -28,7 +28,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
         tenants: [],
         redirect: pathname,
       });
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
       return;
     }
 
@@ -36,7 +36,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
 
     const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
     if (destination.type === 'onboarding') {
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
     }
   }, [
     authLoading,

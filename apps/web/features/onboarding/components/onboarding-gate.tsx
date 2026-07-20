@@ -6,7 +6,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
 import { bootstrapCsrf } from '@/lib/api/client';
 import {
-  authDestinationToPath,
+  goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
 import { useTenant } from '@/providers/tenant-provider';
@@ -26,8 +26,9 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     if (authLoading) return;
 
     if (!isAuthenticated) {
-      router.replace(
-        authDestinationToPath(resolveAuthDestination({ isAuthenticated: false, tenants: [] })),
+      goToAuthDestination(
+        resolveAuthDestination({ isAuthenticated: false, tenants: [] }),
+        router.replace,
       );
       return;
     }
@@ -36,7 +37,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
 
     const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
     if (destination.type === 'dashboard') {
-      router.replace(authDestinationToPath(destination));
+      goToAuthDestination(destination, router.replace);
     }
   }, [authLoading, isAuthenticated, isLoading, hasResolvedTenants, tenants, router]);
 

@@ -19,6 +19,7 @@ import { ENVIRONMENT } from 'src/common/config/env.config';
 import { Public } from 'src/common/decorators';
 import { IntegrationType } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import { TenantsService } from '../../../modules/v1/tenants/tenants.service';
 import type { OAuthStateData } from '../integration.types';
@@ -116,14 +117,8 @@ export class OAuthIntegrationController {
         url: `${ENVIRONMENT.APP.FRONTEND_URL}?error=tenant_not_found`,
       };
     }
-    const frontendBase = ENVIRONMENT.APP.FRONTEND_URL;
-    let baseTarget: string;
-    if (process.env.APP_USE_SUBDOMAIN === 'true') {
-      baseTarget = `https://${tenantSlug}.${frontendBase}`;
-    } else {
-      baseTarget = `${frontendBase}/${tenantSlug}`;
-    }
-    const integrationsSettings = `${baseTarget}/settings?tab=integrations`;
+    const baseTarget = tenantFrontendUrl(tenantSlug, '/');
+    const integrationsSettings = `${baseTarget.replace(/\/$/, '')}/settings?tab=integrations`;
     if (error) {
       this.logger.error('OAuth error', { error });
       return { url: `${integrationsSettings}&error=${error}` };

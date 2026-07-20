@@ -17,10 +17,16 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
-import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { isSubdomainTenantsEnabled, tenantRoot, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { getAppBaseUrl, isSlugFormatValid, slugifyInput } from '@/lib/utils/slug';
+import {
+  formatWorkspaceUrl,
+  getAppBaseUrl,
+  getAppUrlSuffix,
+  isSlugFormatValid,
+  slugifyInput,
+} from '@/lib/utils/slug';
 
 const STEPS = ['Company', 'You', 'Launch'] as const;
 
@@ -54,6 +60,7 @@ export function OnboardingWizard() {
   const employeeCodeTouchedRef = useRef(false);
   const [debouncedSlug, setDebouncedSlug] = useState('');
   const [appBaseUrl, setAppBaseUrl] = useState('');
+  const [appUrlSuffix, setAppUrlSuffix] = useState('');
   const slugTouchedRef = useRef(false);
   const [industry, setIndustry] = useState('');
   const [companySize, setCompanySize] = useState('');
@@ -64,6 +71,7 @@ export function OnboardingWizard() {
 
   useEffect(() => {
     setAppBaseUrl(getAppBaseUrl());
+    setAppUrlSuffix(getAppUrlSuffix());
   }, []);
 
   useEffect(() => {
@@ -149,7 +157,11 @@ export function OnboardingWizard() {
       }
       toast.success(`Workspace "${result.tenant.name}" is ready`);
       if (result.tenant.slug) {
-        router.push(tenantRoot(result.tenant.slug));
+        if (isSubdomainTenantsEnabled()) {
+          window.location.assign(tenantUrl(result.tenant.slug, '/'));
+        } else {
+          router.push(tenantRoot(result.tenant.slug));
+        }
       }
     },
     onError: (error: Error) => {
@@ -245,6 +257,11 @@ export function OnboardingWizard() {
                     className="border-0 shadow-none focus-visible:ring-0"
                     aria-describedby="workspace-slug-hint"
                   />
+                  {appUrlSuffix ? (
+                    <span className="flex shrink-0 items-center border-l border-input bg-muted/50 px-3 text-xs text-muted-foreground sm:max-w-none sm:text-sm">
+                      {appUrlSuffix}
+                    </span>
+                  ) : null}
                 </div>
                 <p
                   id="workspace-slug-hint"
@@ -427,10 +444,7 @@ export function OnboardingWizard() {
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">Workspace path</dt>
-                <dd className="truncate font-medium">
-                  {appBaseUrl}
-                  {slug}
-                </dd>
+                <dd className="truncate font-medium">{slug ? formatWorkspaceUrl(slug) : '—'}</dd>
               </div>
               <div className="flex justify-between gap-4">
                 <dt className="text-muted-foreground">You</dt>

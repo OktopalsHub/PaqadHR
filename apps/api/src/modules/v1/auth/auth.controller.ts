@@ -228,39 +228,35 @@ export class AuthController {
     };
   }
 
+  private cookieOptions() {
+    const isLocal = process.env.NODE_ENV !== 'production';
+    const domain = !isLocal && process.env.APP_DOMAIN ? `.${process.env.APP_DOMAIN}` : undefined;
+    return {
+      httpOnly: true,
+      secure: !isLocal,
+      sameSite: isLocal ? ('lax' as const) : ('none' as const),
+      path: '/',
+      ...(domain ? { domain } : {}),
+    };
+  }
+
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
     const accessMaxAge = 24 * 60 * 60 * 1000;
     const refreshMaxAge = 7 * 24 * 60 * 60 * 1000;
-    const isLocal = process.env.NODE_ENV !== 'production';
+    const options = this.cookieOptions();
     res.cookie('access_token', accessToken, {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
+      ...options,
       maxAge: accessMaxAge,
-      path: '/',
     });
     res.cookie('refresh_token', refreshToken, {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
+      ...options,
       maxAge: refreshMaxAge,
-      path: '/',
     });
   }
 
   private clearAuthCookies(res: Response) {
-    const isLocal = process.env.NODE_ENV !== 'production';
-    res.clearCookie('access_token', {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
-      path: '/',
-    });
-    res.clearCookie('refresh_token', {
-      httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? 'lax' : 'none',
-      path: '/',
-    });
+    const options = this.cookieOptions();
+    res.clearCookie('access_token', options);
+    res.clearCookie('refresh_token', options);
   }
 }

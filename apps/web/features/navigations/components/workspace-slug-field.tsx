@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { checkSlugAvailability } from '@/lib/api/onboarding';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
-import { getAppBaseUrl, isSlugFormatValid, slugifyInput } from '@/lib/utils/slug';
+import { getAppBaseUrl, getAppUrlSuffix, isSlugFormatValid, slugifyInput } from '@/lib/utils/slug';
 
 type WorkspaceSlugFieldProps = {
   name: string;
@@ -25,10 +25,12 @@ export function WorkspaceSlugField({
 }: WorkspaceSlugFieldProps) {
   const [debouncedSlug, setDebouncedSlug] = useState('');
   const [appBaseUrl, setAppBaseUrl] = useState('');
+  const [appUrlSuffix, setAppUrlSuffix] = useState('');
   const autoSlugRef = useRef(false);
 
   useEffect(() => {
     setAppBaseUrl(getAppBaseUrl());
+    setAppUrlSuffix(getAppUrlSuffix());
   }, []);
 
   useEffect(() => {
@@ -80,6 +82,11 @@ export function WorkspaceSlugField({
           placeholder="acme-inc"
           className="border-0 shadow-none focus-visible:ring-0"
         />
+        {appUrlSuffix ? (
+          <span className="flex shrink-0 items-center border-l border-input bg-muted/50 px-3 text-xs text-muted-foreground sm:text-sm">
+            {appUrlSuffix}
+          </span>
+        ) : null}
       </div>
       <p
         className={cn(
