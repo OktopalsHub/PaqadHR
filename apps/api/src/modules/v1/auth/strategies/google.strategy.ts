@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-google-oauth20';
 import type { Request } from 'express';
+import { Strategy } from 'passport-google-oauth20';
 import { StringUtility } from 'src/common/utils';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import type { User } from '../../users/entities/user.entity';

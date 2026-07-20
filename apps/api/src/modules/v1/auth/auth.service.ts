@@ -151,7 +151,7 @@ export class AuthService {
 
   async login(
     user: User,
-    geo: GeoRequestContext,
+    geo: GeoRequestContext = {},
     auditContext?: AuthAuditContext,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!user.isActive) {
@@ -162,7 +162,12 @@ export class AuthService {
       const stored = await GeoLocationHelper.resolveUserCountryCode(geo);
       if (stored) {
         user.countryCode = stored;
-        await this.userRepository.update(user.id, { countryCode: stored });
+        try {
+          await this.userRepository.update(user.id, { countryCode: stored });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn(`Failed to update country code for user ${user.id}: ${message}`);
+        }
       }
     }
 
@@ -230,7 +235,7 @@ export class AuthService {
   async register(
     email: string,
     password: string,
-    geo: GeoRequestContext,
+    geo: GeoRequestContext = {},
     inviteToken?: string,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {

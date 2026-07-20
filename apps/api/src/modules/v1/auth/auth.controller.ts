@@ -16,6 +16,7 @@ import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ChangePasswordDto, SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
@@ -34,6 +35,8 @@ interface AuthUserResponse {
 interface RegisterResponse extends AuthUserResponse {
   invitation?: unknown;
 }
+
+type AuthenticatedRequest = Request & { user: User };
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -74,7 +77,7 @@ export class AuthController {
   @Public()
   @UseGuards(AuthGuard('local'))
   async login(
-    @Req() req: Request,
+    @Req() req: AuthenticatedRequest,
     @Ip() ipParam: string,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthUserResponse> {
@@ -101,7 +104,11 @@ export class AuthController {
   @Get('google/callback')
   @Public()
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Req() req: Request, @Ip() ipParam: string, @Res() res: Response): Promise<void> {
+  async googleCallback(
+    @Req() req: AuthenticatedRequest,
+    @Ip() ipParam: string,
+    @Res() res: Response,
+  ): Promise<void> {
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
     const { accessToken, refreshToken } = await this.authService.login(req.user, {
       ip,

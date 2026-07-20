@@ -37,8 +37,6 @@ describe('GeoLocationHelper', () => {
   });
 
   it('resolveUserCountryCode never returns GLOBAL', async () => {
-    await expect(
-      GeoLocationHelper.resolveUserCountryCode({ ip: '127.0.0.1' }),
-    ).resolves.toBeNull();
+    await expect(GeoLocationHelper.resolveUserCountryCode({ ip: '127.0.0.1' })).resolves.toBeNull();
   });
 });
