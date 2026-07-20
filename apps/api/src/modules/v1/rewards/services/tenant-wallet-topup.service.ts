@@ -1,6 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { isNoahConfigured } from 'src/common/config/noah.config';
+import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
+import { isNombaConfigured } from 'src/common/config/nomba.config';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { NoahApiService } from 'src/common/services/noah-api.service';
+import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
@@ -19,7 +25,12 @@ import {
 } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
-import { buildNombaWalletTopupOrderRef } from '../utils/wallet-order-ref.util';
+import {
+  buildNoahWalletTopupOrderRef,
+  buildNombaWalletTopupOrderRef,
+  isNoahWalletTopupOrderRef,
+  isNombaWalletTopupOrderRef,
+} from '../utils/wallet-order-ref.util';
 import { TenantWalletService } from './tenant-wallet.service';
 
 type ChargeAudience = 'member' | 'admin';
@@ -32,6 +43,7 @@ export class TenantWalletTopupService {
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
     private readonly nombaApi: NombaApiService,
+    private readonly noahApi: NoahApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly emailService: ZeptomailEmailService,
@@ -42,17 +54,16 @@ export class TenantWalletTopupService {
   async manualTopup(
     tenantId: string,
     amount: number,
-    actorMemberId?: string,
+    _initiatedByMemberId?: string,
   ): Promise<TenantWallet> {
     const reference = `manual-topup-${randomUUID()}`;
     return this.chargeAndCredit(
       tenantId,
       amount,
       reference,
-      'Wallet topped up',
+      'Manual rewards wallet top-up via saved payment method',
       undefined,
       'admin',
-      actorMemberId,
     );
   }
 
@@ -60,12 +71,9 @@ export class TenantWalletTopupService {
     tenantId: string,
     amount: number,
     initiatedByMemberId?: string,
-  ): Promise<{ checkoutUrl: string; orderReference: string }> {
+  ): Promise<{ checkoutUrl: string; orderReference: string; provider: string }> {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
-    }
-    if (!this.nombaApi.isConfigured()) {
-      throw new BadRequestException('Nomba checkout is not configured');
     }
 
     const customerEmail = await this.resolveBillingEmail(tenantId);
@@ -76,45 +84,82 @@ export class TenantWalletTopupService {
     }
 
     const wallet = await this.walletService.ensureWallet(tenantId);
+    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
+    const provider = resolvePaymentProvider(currency);
+
+    if (provider === PaymentProvider.NOMBA && !this.nombaApi.isConfigured()) {
+      throw new BadRequestException('Nomba checkout is not configured');
+    }
+    if (provider === PaymentProvider.NOAH && !this.noahApi.isConfigured()) {
+      throw new BadRequestException('Noah checkout is not configured');
+    }
+
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const callbackUrl = tenant?.slug
       ? `${frontendBase}/${tenant.slug}/settings?tab=rewards&wallet_topup=done`
       : `${frontendBase}/settings?tab=rewards&wallet_topup=done`;
 
-    const orderReference = buildNombaWalletTopupOrderRef(tenantId);
-    const result = await this.nombaApi.createCheckoutOrder({
-      orderReference,
-      customerEmail,
-      amount,
-      currency: (wallet.currencyCode || 'NGN').toUpperCase(),
-      callbackUrl,
-      tokenizeCard: false,
-      meta: {
-        tenantId,
-        billingType: 'wallet_topup',
-        expectedAmount: amount,
-        ...(initiatedByMemberId ? { initiatedByMemberId } : {}),
-      },
-    });
+    const orderReference =
+      provider === PaymentProvider.NOMBA
+        ? buildNombaWalletTopupOrderRef(tenantId)
+        : buildNoahWalletTopupOrderRef(tenantId);
+
+    const meta = {
+      tenantId,
+      billingType: 'wallet_topup',
+      expectedAmount: amount,
+      ...(initiatedByMemberId ? { initiatedByMemberId } : {}),
+    };
+
+    const result =
+      provider === PaymentProvider.NOMBA
+        ? await this.nombaApi.createCheckoutOrder({
+            orderReference,
+            customerEmail,
+            amount,
+            currency,
+            callbackUrl,
+            tokenizeCard: false,
+            meta,
+          })
+        : await this.noahApi.createPayinCheckout({
+            orderReference,
+            customerEmail,
+            amount,
+            currency,
+            callbackUrl,
+            customerId: tenantId,
+            tokenizeCard: false,
+            meta,
+          });
 
     return {
       checkoutUrl: result.checkoutLink,
       orderReference: result.orderReference,
+      provider: provider === PaymentProvider.NOMBA ? 'Nomba' : 'Noah',
     };
   }
 
-  async completeCheckoutTopup(input: {
-    tenantId: string;
-    orderReference: string;
-    amount?: number;
-    initiatedByMemberId?: string;
-  }): Promise<{ received: boolean; credited: boolean }> {
-    const tenantKey = input.tenantId.replace(/-/g, '');
-    if (!input.orderReference.startsWith(`wt_${tenantKey}_`)) {
+  async completeCheckoutTopup(
+    input: {
+      tenantId: string;
+      orderReference: string;
+      amount?: number;
+    },
+    billingProvider: PaymentProvider = PaymentProvider.NOMBA,
+  ): Promise<{ received: boolean; credited: boolean }> {
+    const isNombaRef = isNombaWalletTopupOrderRef(input.orderReference, input.tenantId);
+    const isNoahRef = isNoahWalletTopupOrderRef(input.orderReference, input.tenantId);
+
+    if (billingProvider === PaymentProvider.NOMBA && !isNombaRef) {
       this.logger.warn(
         `Wallet checkout top-up reference tenant mismatch for ${input.orderReference}`,
       );
+      return { received: true, credited: false };
+    }
+    if (billingProvider === PaymentProvider.NOAH && !isNoahRef) {
+      this.logger.warn(`Noah wallet checkout reference mismatch for ${input.orderReference}`);
       return { received: true, credited: false };
     }
 
@@ -125,22 +170,24 @@ export class TenantWalletTopupService {
       return { received: true, credited: false };
     }
 
-    const verified = await this.nombaApi.verifyTransaction(input.orderReference);
+    const wallet = await this.walletService.ensureWallet(input.tenantId);
+    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
+
+    const verified =
+      billingProvider === PaymentProvider.NOAH
+        ? await this.noahApi.verifyTransaction(input.orderReference)
+        : await this.nombaApi.verifyTransaction(input.orderReference);
+
     const status = verified?.status?.toLowerCase() ?? '';
     if (status !== 'success' && status !== 'successful') {
       this.logger.warn(
-        'Wallet checkout top-up not yet successful for ' +
-          input.orderReference +
-          ': ' +
-          (status || 'unknown'),
+        `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
       );
       throw new BadRequestException(
         `Wallet checkout top-up not yet successful: ${status || 'unknown'}`,
       );
     }
 
-    const wallet = await this.walletService.ensureWallet(input.tenantId);
-    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
     const expected = input.amount ?? Number(verified?.amount ?? 0);
     const paid = normalizeWebhookAmount(Number(verified?.amount ?? 0), expected, currency);
     if (!Number.isFinite(paid) || paid <= 0) {
@@ -158,6 +205,8 @@ export class TenantWalletTopupService {
       );
       return { received: true, credited: false };
     }
+
+    const providerLabel = billingProvider === PaymentProvider.NOAH ? 'Noah' : 'Nomba';
 
     return this.dataSource.transaction(async (manager) => {
       await manager
@@ -179,15 +228,12 @@ export class TenantWalletTopupService {
         paid,
         'DEPOSIT',
         input.orderReference,
-        'Wallet topped up',
+        `Rewards wallet top-up via ${providerLabel} checkout`,
         manager,
-        {
-          nombaEventId: input.orderReference,
-          actorMemberId: input.initiatedByMemberId ?? null,
-        },
+        { nombaEventId: input.orderReference },
       );
       this.logger.log(
-        `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
+        `Credited wallet ${input.tenantId} for ${providerLabel} checkout top-up ${input.orderReference}`,
       );
       return { received: true, credited: true };
     });
@@ -222,7 +268,6 @@ export class TenantWalletTopupService {
     description: string,
     manager?: EntityManager,
     audience: ChargeAudience = 'admin',
-    actorMemberId?: string,
   ): Promise<TenantWallet> {
     if (!Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Top up amount must be greater than 0');
@@ -253,22 +298,45 @@ export class TenantWalletTopupService {
 
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || 'NGN').toUpperCase();
+    const provider = resolvePaymentProvider(currency);
+
+    if (provider === PaymentProvider.NOMBA && !isNombaConfigured()) {
+      throw new BadRequestException('Nomba checkout is not configured');
+    }
+    if (provider === PaymentProvider.NOAH && !isNoahConfigured()) {
+      throw new BadRequestException('Noah checkout is not configured');
+    }
 
     let chargeReference = reference;
     try {
-      const charge = await this.nombaApi.chargeTokenizedCard({
-        orderReference: reference,
-        customerEmail,
-        amount,
-        currency,
-        callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-        tokenKey,
-        meta: { tenantId, billingType: 'wallet_topup' },
-      });
+      const charge =
+        provider === PaymentProvider.NOMBA
+          ? await this.nombaApi.chargeTokenizedCard({
+              orderReference: reference,
+              customerEmail,
+              amount,
+              currency,
+              callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+              tokenKey,
+              meta: { tenantId, billingType: 'wallet_topup' },
+            })
+          : await this.noahApi.chargeSavedPaymentMethod({
+              orderReference: reference,
+              customerEmail,
+              amount,
+              currency,
+              callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+              paymentMethodId: tokenKey,
+              meta: { tenantId, billingType: 'wallet_topup' },
+            });
 
-      chargeReference = charge.orderReference || reference;
-      const verified = await this.nombaApi.verifyTransaction(chargeReference);
-      if (verified?.status?.toLowerCase() !== 'success') {
+      chargeReference = charge.orderReference;
+      const verified =
+        provider === PaymentProvider.NOMBA
+          ? await this.nombaApi.verifyTransaction(chargeReference)
+          : await this.noahApi.verifyTransaction(chargeReference);
+
+      if (!verified || !isNoahPaymentVerified(verified.status)) {
         throw new Error('Payment verification failed');
       }
 
@@ -296,7 +364,6 @@ export class TenantWalletTopupService {
         manager,
         {
           nombaEventId: chargeReference,
-          actorMemberId: actorMemberId ?? null,
         },
       );
     } catch (error) {

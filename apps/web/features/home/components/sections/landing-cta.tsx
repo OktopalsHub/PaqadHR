@@ -2,28 +2,12 @@
 
 import { motion, useInView } from 'framer-motion';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { landingPricingByCurrency } from '../../constants/landing-demo-data';
+import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
+import { LANDING_PRICING_BY_CURRENCY, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
 import { fadeUp, stagger } from '../../constants/landing-motion';
-
-const currencyLocales: Record<string, string> = {
-  NGN: 'en-NG',
-  USD: 'en-US',
-};
-
-function formatMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(currencyLocales[currency] ?? 'en-US', {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount}`;
-  }
-}
 
 function resolveLandingCurrency(): string {
   if (typeof window === 'undefined') return 'USD';
@@ -38,11 +22,18 @@ export const LandingCta = () => {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-60px' });
   const [currency, setCurrency] = useState('USD');
-  const plans = landingPricingByCurrency[currency] ?? landingPricingByCurrency.USD;
 
   useEffect(() => {
     setCurrency(resolveLandingCurrency());
   }, []);
+
+  const plans = useMemo(() => {
+    const prices = LANDING_PRICING_BY_CURRENCY[currency] ?? LANDING_PRICING_BY_CURRENCY.USD;
+    return prices.map((price) => ({
+      ...price,
+      ...PLAN_CATALOG[price.slug],
+    }));
+  }, [currency]);
 
   return (
     <section id="pricing" ref={ref} className="py-24 md:py-32">
@@ -58,32 +49,40 @@ export const LandingCta = () => {
             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
               Simple per-seat pricing
             </h2>
-            <p className="mt-3 text-xs text-muted-foreground">Prices shown in {currency}</p>
+            <p className="mt-3 max-w-xl mx-auto text-sm text-muted-foreground">
+              Payroll included on every plan. Pay per active employee — no payroll add-on required.
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <Badge variant="outline" className="font-normal">
+                Prices in {currency}
+              </Badge>
+              <button
+                type="button"
+                className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                onClick={() => setCurrency((c) => (c === 'USD' ? 'NGN' : 'USD'))}
+              >
+                Switch to {currency === 'USD' ? 'NGN' : 'USD'}
+              </button>
+            </div>
           </motion.div>
 
           <motion.div variants={stagger} className="mt-10 grid gap-4 md:grid-cols-3">
-            {plans.map((plan) => {
-              const isPopular = plan.slug === 'growth';
-              return (
-                <motion.div
-                  key={plan.slug}
-                  variants={fadeUp}
-                  className={`relative rounded-2xl border bg-card p-5 text-left ${
-                    isPopular ? 'border-primary/50 ring-1 ring-primary/20' : 'border-border/70'
-                  }`}
-                >
-                  {isPopular ? (
-                    <Badge className="absolute -top-2.5 right-4 text-[10px]">Popular</Badge>
-                  ) : null}
-                  <p className="text-sm font-semibold text-foreground">{plan.name}</p>
-                  <p className="mt-2 text-2xl font-semibold text-foreground">
-                    {formatMoney(plan.pricePerSeat, plan.currency)}
-                    <span className="text-sm font-normal text-muted-foreground"> / seat / mo</span>
-                  </p>
-                  <p className="mt-2 text-sm text-muted-foreground">{plan.description}</p>
-                </motion.div>
-              );
-            })}
+            {plans.map((plan) => (
+              <motion.div key={plan.slug} variants={fadeUp}>
+                <PlanPricingCard
+                  slug={plan.slug}
+                  name={plan.name}
+                  description={plan.description}
+                  currency={plan.currency}
+                  pricePerSeat={plan.pricePerSeat}
+                  maxEmployees={plan.maxEmployees}
+                  payrollFeePercent={plan.payrollFeePercent}
+                  highlights={plan.highlights}
+                  isPopular={plan.slug === 'growth'}
+                  variant="marketing"
+                />
+              </motion.div>
+            ))}
           </motion.div>
 
           <motion.div variants={fadeUp} className="mt-10 text-center">
@@ -94,7 +93,9 @@ export const LandingCta = () => {
             >
               <Link href="/signup">Create an account for free</Link>
             </Button>
-            <p className="mt-4 text-sm text-muted-foreground">14 days free · No card required</p>
+            <p className="mt-4 text-sm text-muted-foreground">
+              14 days free · No card required · Manual payroll & bank export free on all plans
+            </p>
           </motion.div>
         </div>
       </motion.div>

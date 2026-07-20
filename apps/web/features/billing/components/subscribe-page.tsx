@@ -6,22 +6,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { useBillingOverview, useCreateSubscriptionCheckout } from '@/hooks/queries/use-billing';
+import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { useTenant } from '@/providers/tenant-provider';
-
-function formatMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
-}
 
 export function SubscribePage() {
   const searchParams = useSearchParams();
@@ -36,10 +25,7 @@ export function SubscribePage() {
     }
   }, [searchParams]);
 
-  const sortedPlans = useMemo(
-    () => [...(overview?.plans ?? [])].sort((a, b) => a.name.localeCompare(b.name)),
-    [overview?.plans],
-  );
+  const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
 
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
@@ -96,7 +82,7 @@ export function SubscribePage() {
 
   return (
     <AppPage>
-      <div className="mx-auto max-w-3xl space-y-8 py-8">
+      <div className="mx-auto max-w-5xl space-y-8 py-8">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">Choose a plan to continue</h1>
           <p className="text-sm text-muted-foreground">
@@ -104,44 +90,49 @@ export function SubscribePage() {
               ? 'Your trial has ended or payment is required. Subscribe to keep using your workspace.'
               : 'Ask a workspace owner or admin to complete subscription payment.'}
           </p>
+          <p className="text-xs text-muted-foreground">
+            Payroll included on every plan · Manual pay & bank export are free
+          </p>
         </div>
 
         {sortedPlans.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-3">
             {sortedPlans.map((plan) => {
               const isPending = checkoutPlan === plan.slug && checkout.isPending;
+              const perSeat = plan.breakdown.basePrice / Math.max(1, plan.seatCount);
+
               return (
-                <div key={plan.planPriceId} className="rounded-xl border p-4">
-                  <p className="font-semibold">{plan.name}</p>
-                  {plan.description ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{plan.description}</p>
-                  ) : null}
-                  <p className="mt-4 text-2xl font-bold tracking-tight">
-                    {formatMoney(plan.monthlyTotal, plan.currency)}
-                    <span className="text-sm font-normal text-muted-foreground"> / month</span>
-                  </p>
-                  {overview.canManageBilling ? (
-                    <Button
-                      className="mt-4 w-full"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() => void handleCheckout(plan.slug)}
-                    >
-                      {isPending ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Redirecting…
-                        </>
-                      ) : (
-                        'Subscribe'
-                      )}
-                    </Button>
-                  ) : (
-                    <Badge variant="secondary" className="mt-4">
-                      Admin only
-                    </Badge>
-                  )}
-                </div>
+                <PlanPricingCard
+                  key={plan.planPriceId}
+                  slug={plan.slug}
+                  name={plan.name}
+                  description={plan.description}
+                  currency={plan.currency}
+                  pricePerSeat={perSeat}
+                  seatCount={plan.seatCount}
+                  monthlyTotal={plan.monthlyTotal}
+                  maxEmployees={plan.limits.maxEmployees}
+                  isPopular={plan.slug === 'growth'}
+                  action={
+                    overview.canManageBilling ? (
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => void handleCheckout(plan.slug)}
+                      >
+                        {isPending ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Redirecting…
+                          </>
+                        ) : (
+                          'Subscribe'
+                        )}
+                      </Button>
+                    ) : undefined
+                  }
+                />
               );
             })}
           </div>
@@ -157,7 +148,7 @@ export function SubscribePage() {
 
         <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <CreditCard className="size-4" />
-          Secure checkout via Nomba
+          Secure checkout
         </div>
       </div>
     </AppPage>

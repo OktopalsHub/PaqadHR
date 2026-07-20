@@ -353,7 +353,7 @@ export function PayrollRunDetail({
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {formatDate(detail.periodStart)} – {formatDate(detail.periodEnd)}
-            {detail.paymentDate ? ` · Pay ${formatDate(detail.paymentDate)}` : ''} ·{' '}
+            {detail.paymentDate ? ` · Expected pay ${formatDate(detail.paymentDate)}` : ''} ·{' '}
             {detail.baseCurrency}
           </p>
         </div>
@@ -406,13 +406,13 @@ export function PayrollRunDetail({
                   onClick={async () => {
                     try {
                       await actions.process.mutateAsync(runId);
-                      toast.success('Nomba payout started');
+                      toast.success('Payout started');
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : 'Payout failed');
                     }
                   }}
                 >
-                  Pay via Nomba
+                  Pay via gateway
                 </Button>
               ) : null}
             </>

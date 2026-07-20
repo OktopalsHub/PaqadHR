@@ -10,7 +10,9 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
+import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentMethodType } from 'src/common/enums';
+
 export class CreatePaymentMethodDto {
   @ApiProperty({
     description: 'Payment method type',
@@ -94,6 +96,25 @@ export class CreatePaymentMethodDto {
     message: 'Country code must be exactly 2 characters (ISO format)',
   })
   country?: string;
+  @ApiProperty({
+    description: 'Crypto wallet address',
+    required: false,
+    example: '0xabc123...',
+  })
+  @ValidateIf((o) => o.type === PaymentMethodType.CRYPTO || isCryptoCurrency(o.currency))
+  @IsNotEmpty({ message: 'Wallet address is required for crypto payment method' })
+  @IsString()
+  @MaxLength(128)
+  walletAddress?: string;
+  @ApiProperty({
+    description: 'Blockchain network for crypto payouts',
+    required: false,
+    example: 'ethereum',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  cryptoNetwork?: string;
   @ApiProperty({
     description: 'Set as primary payment method',
     required: false,

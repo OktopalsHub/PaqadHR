@@ -24,9 +24,13 @@ import type {
 } from 'src/common/integrations/integration.types';
 import { ReloadlyWebhookService } from '../../rewards/services/reloadly-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
+import { BachsWebhookService } from '../services/bachs-webhook.service';
+import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
+import { PolarWebhookService } from '../services/polar-webhook.service';
 import {
   getNombaRawBody,
+  resolveNoahSignature,
   resolveNombaSignature,
   resolveNombaTimestamp,
 } from '../webhook-request.util';
@@ -40,6 +44,9 @@ export class WebhooksController {
 
   constructor(
     private readonly nombaWebhookService: NombaWebhookService,
+    private readonly noahWebhookService: NoahWebhookService,
+    private readonly bachsWebhookService: BachsWebhookService,
+    private readonly polarWebhookService: PolarWebhookService,
     private readonly reloadlyWebhookService: ReloadlyWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
   ) {}
@@ -58,6 +65,46 @@ export class WebhooksController {
       resolveNombaSignature(headers),
       resolveNombaTimestamp(headers),
     );
+  }
+
+  @Post('noah')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Noah payment webhook (payroll payouts, wallet funding)' })
+  handleNoahWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
+    const rawBody = getNombaRawBody(req);
+    if (!rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    return this.noahWebhookService.dispatch(rawBody, resolveNoahSignature(headers));
+  }
+
+  @Post('bachs')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Bachs billing webhook (subscriptions)' })
+  handleBachsWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
+    const rawBody = getNombaRawBody(req);
+    if (!rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    return this.bachsWebhookService.dispatch(
+      rawBody,
+      headers['x-bachs-signature'] ?? headers['X-Bachs-Signature'] ?? '',
+      headers['x-bachs-timestamp'] ?? headers['X-Bachs-Timestamp'] ?? '',
+    );
+  }
+
+  @Post('polar')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Polar billing webhook (subscriptions)' })
+  handlePolarWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
+    const rawBody = getNombaRawBody(req);
+    if (!rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    return this.polarWebhookService.dispatch(rawBody, headers);
   }
 
   @Post('reloadly')

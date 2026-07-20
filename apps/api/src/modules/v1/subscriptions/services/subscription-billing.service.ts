@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { Brackets, DataSource, LessThan, Repository } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -18,15 +19,15 @@ import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
 import { isBillingGatewayEnabled } from '../config/billing.config';
 import { BillingChargeType, RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
-import { BillingProvider } from '../constants/billing-provider.enum';
+import { BillingProvider, isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
 import type { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { BillingEvent } from '../entities/billing-event.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type {
   SubscriptionBillingMetadata,
+  SubscriptionWebhookEvent,
   SubscriptionWebhookPayment,
 } from '../interfaces/subscription-billing.interface';
-import { NombaSubscriptionProvider } from '../providers/nomba-subscription.provider';
 import { computeDunningNextRetryAt, maxDunningAttempts } from '../utils/dunning.util';
 import {
   getBillingFailureMessage,
@@ -39,6 +40,7 @@ import {
   normalizeWebhookAmount,
   resolveSeatCount,
 } from '../utils/per-seat-pricing.util';
+import { BillingProviderFactoryService } from './billing-provider-factory.service';
 import { NombaApiService } from './nomba-api.service';
 import { SubscriptionsService } from './subscriptions.service';
 
@@ -56,7 +58,7 @@ export class SubscriptionBillingService {
   private readonly logger = new Logger(SubscriptionBillingService.name);
 
   constructor(
-    private readonly nombaProvider: NombaSubscriptionProvider,
+    private readonly billingProviderFactory: BillingProviderFactoryService,
     private readonly nombaApi: NombaApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
@@ -75,6 +77,199 @@ export class SubscriptionBillingService {
     private readonly dataSource: DataSource,
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
+
+  private providerForCountry(countryCode: string | null | undefined): BillingProvider {
+    return this.billingProviderFactory.resolveBillingProvider(countryCode);
+  }
+
+  private async verifyPaymentReference(reference: string, provider: BillingProvider) {
+    if (provider !== BillingProvider.NOMBA) {
+      return { status: 'success', amount: 0 };
+    }
+    return this.nombaApi.verifyTransaction(reference);
+  }
+
+  private requiresProviderVerification(provider: BillingProvider): boolean {
+    return provider === BillingProvider.NOMBA;
+  }
+
+  private requiresCardToken(provider: BillingProvider): boolean {
+    return provider === BillingProvider.NOMBA;
+  }
+
+  private resolveWebhookTenantId(event: SubscriptionWebhookEvent): string | null {
+    if (event.kind === 'subscription.created' || event.kind === 'subscription.cancelled') {
+      return event.tenantId;
+    }
+    if (event.kind === 'payment.success' || event.kind === 'payment.failed') {
+      return event.payment.tenantId;
+    }
+    return null;
+  }
+
+  private isStaleProviderWebhook(
+    subscription: TenantSubscription | null,
+    webhookProvider: BillingProvider,
+  ): boolean {
+    if (!subscription?.billingProvider) {
+      return false;
+    }
+    return subscription.billingProvider !== webhookProvider;
+  }
+
+  private async cancelManagedExternalSubscription(
+    subscription: TenantSubscription,
+    atPeriodEnd: boolean,
+  ): Promise<void> {
+    if (!isManagedSubscriptionProvider(subscription.billingProvider)) {
+      return;
+    }
+    const externalId = subscription.externalSubscriptionId?.trim();
+    if (!externalId) {
+      return;
+    }
+    try {
+      await this.billingProviderFactory.cancelExternalSubscription(
+        subscription.billingProvider,
+        externalId,
+        atPeriodEnd,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Failed to cancel ${subscription.billingProvider} subscription ${externalId} for tenant ${subscription.tenantId}: ${message}`,
+      );
+      throw new BadRequestException(
+        'Could not cancel your current billing subscription. Contact support before switching providers.',
+      );
+    }
+  }
+
+  private async prepareBillingProviderSwitch(
+    subscription: TenantSubscription,
+    targetProvider: BillingProvider,
+  ): Promise<void> {
+    if (subscription.billingProvider === targetProvider) {
+      return;
+    }
+
+    if (isManagedSubscriptionProvider(subscription.billingProvider)) {
+      await this.cancelManagedExternalSubscription(subscription, false);
+      subscription.externalSubscriptionId = null;
+    }
+
+    subscription.billingProvider = targetProvider;
+    await this.subscriptionRepository.save(subscription);
+  }
+
+  private async processBillingPayload(
+    payload: unknown,
+    provider: BillingProvider,
+  ): Promise<{ received: boolean }> {
+    const billingProvider = this.billingProviderFactory.getProviderByEnum(provider);
+    const event = billingProvider.parseWebhook(payload);
+    if (!event || event.kind === 'ignored') {
+      return { received: true };
+    }
+
+    const tenantId = this.resolveWebhookTenantId(event);
+    if (tenantId && UUID_PATTERN.test(tenantId)) {
+      const subscription = await this.subscriptionRepository.findOne({ where: { tenantId } });
+      if (this.isStaleProviderWebhook(subscription, provider)) {
+        this.logger.warn(
+          `Ignoring ${event.kind} webhook from ${provider} for tenant ${tenantId}; active provider is ${subscription?.billingProvider}`,
+        );
+        return { received: true };
+      }
+    }
+
+    if (event.kind === 'payment.success') {
+      const billingType = event.payment.billingType;
+      if (billingType === BillingChargeType.SUBSCRIPTION_RENEWAL) {
+        await this.processRenewalPaymentSuccess(event.payment, provider);
+      } else if (billingType === BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE) {
+        await this.processQuantityUpdatePaymentSuccess(event.payment, provider);
+      } else if (billingType === BillingChargeType.CARD_UPDATE) {
+        await this.processCardUpdateSuccess(event.payment, provider);
+      } else {
+        await this.processInitialPaymentSuccess(event.payment, provider);
+      }
+    }
+
+    if (event.kind === 'payment.failed') {
+      await this.processPaymentFailed(event.payment, provider);
+    }
+
+    if (event.kind === 'subscription.created') {
+      await this.processExternalSubscriptionCreated(event, provider);
+    }
+
+    if (event.kind === 'subscription.cancelled') {
+      await this.processExternalSubscriptionCancelled(event, provider);
+    }
+
+    return { received: true };
+  }
+
+  private async processExternalSubscriptionCreated(
+    event: Extract<SubscriptionWebhookEvent, { kind: 'subscription.created' }>,
+    provider: BillingProvider,
+  ): Promise<void> {
+    if (await this.hasProcessedEvent(event.eventId, provider)) {
+      return;
+    }
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: event.tenantId },
+    });
+    if (!subscription || subscription.billingProvider !== provider) {
+      return;
+    }
+
+    subscription.externalSubscriptionId = event.externalSubscriptionId;
+    subscription.billingProvider = provider;
+    subscription.paymentMethodId = subscription.paymentMethodId ?? event.externalSubscriptionId;
+    await this.subscriptionRepository.save(subscription);
+    await this.recordBillingEvent(
+      event.eventId,
+      'subscription_created',
+      {
+        tenantId: event.tenantId,
+        externalSubscriptionId: event.externalSubscriptionId,
+      },
+      provider,
+    );
+  }
+
+  private async processExternalSubscriptionCancelled(
+    event: Extract<SubscriptionWebhookEvent, { kind: 'subscription.cancelled' }>,
+    provider: BillingProvider,
+  ): Promise<void> {
+    if (await this.hasProcessedEvent(event.eventId, provider)) {
+      return;
+    }
+
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: event.tenantId },
+    });
+    if (!subscription || subscription.billingProvider !== provider) {
+      return;
+    }
+
+    subscription.status = SubscriptionStatus.CANCELLED;
+    subscription.cancelledAt = new Date();
+    subscription.cancelAtPeriodEnd = false;
+    await this.subscriptionRepository.save(subscription);
+    await this.recordBillingEvent(
+      event.eventId,
+      'subscription_cancelled',
+      {
+        tenantId: event.tenantId,
+        externalSubscriptionId: event.externalSubscriptionId,
+      },
+      provider,
+    );
+  }
 
   async getTenantSeatCount(tenantId: string): Promise<number> {
     const count = await this.tenantMemberRepository.count({
@@ -127,7 +322,9 @@ export class SubscriptionBillingService {
       companyName: tenant.name,
       nextBillingDate: subscription?.nextBillingDate?.toISOString() ?? null,
       hasPaymentMethodOnFile: Boolean(
-        subscription?.nombaSubscriptionId || subscription?.paymentMethodId,
+        subscription?.nombaSubscriptionId ||
+          subscription?.externalSubscriptionId ||
+          subscription?.paymentMethodId,
       ),
       paymentMethodBrand: subscription?.paymentMethodBrand ?? null,
       paymentMethodLastFour: subscription?.paymentMethodLastFour ?? null,
@@ -164,8 +361,6 @@ export class SubscriptionBillingService {
     userId: string,
     successUrl?: string,
   ) {
-    this.nombaProvider.ensureConfigured();
-
     const normalizedSlug = planSlug.trim().toLowerCase();
     const plan = await this.plansService.findPlanBySlug(normalizedSlug);
     if (!plan?.isActive) {
@@ -183,8 +378,24 @@ export class SubscriptionBillingService {
 
     const currentPlanSlug =
       existing?.plan?.slug?.toLowerCase() ?? existing?.plan?.name?.toLowerCase();
+    const billingProvider = this.providerForCountry(tenant.countryCode);
+
     if (existing?.status === SubscriptionStatus.ACTIVE && currentPlanSlug === normalizedSlug) {
-      throw new BadRequestException('Organization already has an active subscription on this plan');
+      if (existing.billingProvider === billingProvider) {
+        throw new BadRequestException(
+          'Organization already has an active subscription on this plan',
+        );
+      }
+    }
+
+    if (
+      existing &&
+      [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE, SubscriptionStatus.PAUSED].includes(
+        existing.status,
+      ) &&
+      existing.billingProvider !== billingProvider
+    ) {
+      await this.prepareBillingProviderSwitch(existing, billingProvider);
     }
 
     const planPrice = await this.plansService.getPlanPrice(
@@ -195,6 +406,8 @@ export class SubscriptionBillingService {
     if (!planPrice) {
       throw new NotFoundException(`Plan "${normalizedSlug}" is not available for your region`);
     }
+
+    this.billingProviderFactory.ensureConfigured(tenant.countryCode || 'GLOBAL');
 
     const quantity = await this.getTenantSeatCount(tenantId);
     const tenantMember = await this.tenantMemberRepository.findOne({ where: { tenantId, userId } });
@@ -208,13 +421,15 @@ export class SubscriptionBillingService {
       quantity,
     };
 
-    const checkout = await this.nombaProvider.createCheckout(
-      user.email,
-      metadata,
-      planPrice,
-      this.resolveSuccessUrl(tenant.slug, successUrl),
-      quantity,
-    );
+    const checkout = await this.billingProviderFactory
+      .getProviderForCountry(tenant.countryCode)
+      .createCheckout(
+        user.email,
+        metadata,
+        planPrice,
+        this.resolveSuccessUrl(tenant.slug, successUrl),
+        quantity,
+      );
 
     return {
       ...checkout,
@@ -222,12 +437,11 @@ export class SubscriptionBillingService {
       seatCount: quantity,
       amount: calculatePerSeatTotal(planPrice, quantity),
       currency: planPrice.currency,
+      billingProvider,
     };
   }
 
   async createPaymentMethodUpdateCheckout(tenantId: string, userId: string, successUrl?: string) {
-    this.nombaProvider.ensureConfigured();
-
     const [tenant, user, subscription] = await Promise.all([
       this.tenantRepository.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
       this.userRepository.findOne({ where: { id: userId } }),
@@ -254,15 +468,24 @@ export class SubscriptionBillingService {
       subscription.planPrice ??
       (await this.plansService.getPlanPriceById(subscription.planPriceId));
     const currency = planPrice?.currency ?? tenant.preferredCurrency ?? 'NGN';
+    const billingProvider = this.providerForCountry(tenant.countryCode);
 
-    const checkout = await this.nombaProvider.createCardUpdateCheckout(
+    this.billingProviderFactory.ensureConfigured(tenant.countryCode || 'GLOBAL');
+
+    const billingProviderService = this.billingProviderFactory.getProviderForCountry(
+      tenant.countryCode,
+    );
+    if (!billingProviderService.createCardUpdateCheckout) {
+      throw new BadRequestException('Payment method updates are not supported for this provider');
+    }
+    const checkout = await billingProviderService.createCardUpdateCheckout(
       email,
       metadata,
       this.resolveSuccessUrl(tenant.slug, successUrl),
       currency,
     );
 
-    return checkout;
+    return { ...checkout, currency, billingProvider };
   }
 
   async cancelSubscription(tenantId: string, dto: CancelSubscriptionDto = {}) {
@@ -279,6 +502,13 @@ export class SubscriptionBillingService {
 
     const atPeriodEnd = dto.atPeriodEnd !== false;
     const reason = dto.reason?.trim() || null;
+
+    if (
+      isManagedSubscriptionProvider(subscription.billingProvider) &&
+      subscription.externalSubscriptionId
+    ) {
+      await this.cancelManagedExternalSubscription(subscription, atPeriodEnd);
+    }
 
     if (atPeriodEnd) {
       subscription.cancelAtPeriodEnd = true;
@@ -342,7 +572,9 @@ export class SubscriptionBillingService {
     if (!signature?.trim()) {
       throw new UnauthorizedException('Missing webhook signature');
     }
-    if (!this.nombaProvider.verifyWebhookSignature(rawBody, signature)) {
+    if (
+      !this.billingProviderFactory.getNombaProvider().verifyWebhookSignature(rawBody, signature)
+    ) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 
@@ -357,29 +589,15 @@ export class SubscriptionBillingService {
   }
 
   async processNombaPayload(payload: unknown): Promise<{ received: boolean }> {
-    const event = this.nombaProvider.parseWebhook(payload);
-    if (!event || event.kind === 'ignored') {
-      return { received: true };
-    }
+    return this.processBillingPayload(payload, BillingProvider.NOMBA);
+  }
 
-    if (event.kind === 'payment.success') {
-      const billingType = event.payment.billingType;
-      if (billingType === BillingChargeType.SUBSCRIPTION_RENEWAL) {
-        await this.processRenewalPaymentSuccess(event.payment);
-      } else if (billingType === BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE) {
-        await this.processQuantityUpdatePaymentSuccess(event.payment);
-      } else if (billingType === BillingChargeType.CARD_UPDATE) {
-        await this.processCardUpdateSuccess(event.payment);
-      } else {
-        await this.processInitialPaymentSuccess(event.payment);
-      }
-    }
+  async processBachsPayload(payload: unknown): Promise<{ received: boolean }> {
+    return this.processBillingPayload(payload, BillingProvider.BACHS);
+  }
 
-    if (event.kind === 'payment.failed') {
-      await this.processPaymentFailed(event.payment);
-    }
-
-    return { received: true };
+  async processPolarPayload(payload: unknown): Promise<{ received: boolean }> {
+    return this.processBillingPayload(payload, BillingProvider.POLAR);
   }
 
   async syncSubscriptionQuantity(tenantId: string): Promise<void> {
@@ -392,6 +610,7 @@ export class SubscriptionBillingService {
     if (
       !subscription ||
       subscription.status !== SubscriptionStatus.ACTIVE ||
+      subscription.billingProvider !== BillingProvider.NOMBA ||
       !subscription.nombaSubscriptionId ||
       !subscription.paymentMethodId
     ) {
@@ -452,24 +671,26 @@ export class SubscriptionBillingService {
       return;
     }
 
-    await this.nombaProvider.chargeSeatAddition(
-      subscription.nombaSubscriptionId,
-      planPrice,
-      amount,
-      liveSeats,
-      extraSeats,
-      subscription.paymentMethodId,
-      billingEmail,
-      {
-        tenantId,
-        planId: subscription.planId,
-        planPriceId: subscription.planPriceId,
-        quantity: liveSeats,
-        targetSeatCount: liveSeats,
+    await this.billingProviderFactory
+      .getNombaProvider()
+      .chargeSeatAddition(
+        subscription.nombaSubscriptionId,
+        planPrice,
+        amount,
+        liveSeats,
         extraSeats,
-        billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
-      },
-    );
+        subscription.paymentMethodId,
+        billingEmail,
+        {
+          tenantId,
+          planId: subscription.planId,
+          planPriceId: subscription.planPriceId,
+          quantity: liveSeats,
+          targetSeatCount: liveSeats,
+          extraSeats,
+          billingType: BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE,
+        },
+      );
 
     subscription.usageMetrics = {
       ...(subscription.usageMetrics ?? {}),
@@ -486,8 +707,6 @@ export class SubscriptionBillingService {
       return result;
     }
 
-    this.nombaProvider.ensureConfigured();
-
     const now = new Date();
     result.suspended = await this.suspendPastGraceSubscriptions(now);
     await this.finalizeScheduledCancellations(now);
@@ -498,6 +717,7 @@ export class SubscriptionBillingService {
       .leftJoinAndSelect('sub.tenant', 'tenant')
       .leftJoinAndSelect('tenant.createdBy', 'createdBy')
       .where('sub.payment_method_id IS NOT NULL')
+      .andWhere('sub.billing_provider = :nomba', { nomba: BillingProvider.NOMBA })
       .andWhere('sub.nomba_subscription_id IS NOT NULL')
       .andWhere('sub.status NOT IN (:...excluded)', {
         excluded: [SubscriptionStatus.CANCELLED, SubscriptionStatus.PAUSED],
@@ -578,7 +798,15 @@ export class SubscriptionBillingService {
     };
 
     try {
-      const charge = await this.nombaProvider.chargeRenewal(
+      const billingProviderEnum =
+        subscription.billingProvider ?? this.providerForCountry(subscription.tenant?.countryCode);
+
+      if (isManagedSubscriptionProvider(billingProviderEnum)) {
+        return 'skipped';
+      }
+
+      const billingProvider = this.billingProviderFactory.getProviderByEnum(billingProviderEnum);
+      const charge = await billingProvider.chargeRenewal(
         nombaReference,
         planPrice,
         seatCount,
@@ -587,8 +815,15 @@ export class SubscriptionBillingService {
         metadata,
       );
 
-      const verified = await this.nombaApi.verifyTransaction(charge.orderReference);
-      if (verified?.status?.toLowerCase() !== 'success') {
+      const verified = await this.verifyPaymentReference(
+        charge.orderReference,
+        billingProviderEnum,
+      );
+      if (
+        !verified ||
+        (this.requiresProviderVerification(billingProviderEnum) &&
+          !isNoahPaymentVerified(verified.status))
+      ) {
         await this.markRenewalFailed(subscription, charge.orderReference, 'verification_failed');
         await this.recordBillingEvent(attemptEventId, 'renewal_attempt', {
           tenantId: subscription.tenantId,
@@ -621,6 +856,7 @@ export class SubscriptionBillingService {
           status: 'success',
           billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
         },
+        billingProviderEnum,
         subscription.nextBillingDate,
         attemptCount,
       );
@@ -796,16 +1032,17 @@ export class SubscriptionBillingService {
     eventId: string,
     eventType: string,
     payload: Record<string, unknown>,
+    provider: BillingProvider = BillingProvider.NOMBA,
   ): Promise<void> {
     const existing = await this.billingEventRepository.findOne({
-      where: { eventId, provider: BillingProvider.NOMBA },
+      where: { eventId, provider },
     });
     if (existing) return;
 
     await this.billingEventRepository.save(
       this.billingEventRepository.create({
         eventId,
-        provider: BillingProvider.NOMBA,
+        provider,
         eventType,
         payload,
       }),
@@ -855,18 +1092,24 @@ export class SubscriptionBillingService {
     return successUrl;
   }
 
-  private async processInitialPaymentSuccess(payment: SubscriptionWebhookPayment): Promise<void> {
+  private async processInitialPaymentSuccess(
+    payment: SubscriptionWebhookPayment,
+    provider: BillingProvider = BillingProvider.NOMBA,
+  ): Promise<void> {
     if (!UUID_PATTERN.test(payment.tenantId)) {
       throw new BadRequestException('Invalid tenant in webhook metadata');
     }
 
-    if (await this.hasProcessedEvent(payment.eventId)) {
+    if (await this.hasProcessedEvent(payment.eventId, provider)) {
       return;
     }
 
-    const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (verified?.status?.toLowerCase() !== 'success') {
-      throw new BadRequestException('Payment could not be verified with Nomba');
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
+      throw new BadRequestException('Payment could not be verified with billing provider');
     }
 
     if (!payment.planPriceId || !payment.planId) {
@@ -899,14 +1142,35 @@ export class SubscriptionBillingService {
       throw new BadRequestException('Payment amount does not match server quote');
     }
 
-    if (!payment.tokenKey?.trim()) {
+    if (this.requiresCardToken(provider) && !payment.tokenKey?.trim()) {
       throw new BadRequestException('Missing card token for subscription billing');
+    }
+
+    const existingSubscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: payment.tenantId },
+    });
+    if (
+      existingSubscription &&
+      isManagedSubscriptionProvider(existingSubscription.billingProvider) &&
+      existingSubscription.billingProvider !== provider &&
+      existingSubscription.externalSubscriptionId
+    ) {
+      try {
+        await this.cancelManagedExternalSubscription(existingSubscription, false);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to cancel old subscription during provider switch for tenant ${existingSubscription.tenantId}: ${message}`,
+        );
+      }
+      existingSubscription.externalSubscriptionId = null;
+      await this.subscriptionRepository.save(existingSubscription);
     }
 
     await this.dataSource.transaction(async (manager) => {
       const billingEventRepo = manager.getRepository(BillingEvent);
       const existing = await billingEventRepo.findOne({
-        where: { eventId: payment.eventId, provider: BillingProvider.NOMBA },
+        where: { eventId: payment.eventId, provider },
       });
       if (existing) return;
 
@@ -915,6 +1179,7 @@ export class SubscriptionBillingService {
 
       if (
         subscription?.status === SubscriptionStatus.ACTIVE &&
+        subscription.billingProvider === BillingProvider.NOMBA &&
         subscription.nombaSubscriptionId &&
         subscription.nombaSubscriptionId !== payment.reference
       ) {
@@ -936,8 +1201,10 @@ export class SubscriptionBillingService {
           currentPeriodStart: now,
           currentPeriodEnd: periodEnd,
           nextBillingDate: periodEnd,
-          nombaSubscriptionId: payment.reference,
-          paymentMethodId: payment.tokenKey,
+          nombaSubscriptionId: provider === BillingProvider.NOMBA ? payment.reference : null,
+          billingProvider: provider,
+          externalSubscriptionId: payment.externalSubscriptionId ?? null,
+          paymentMethodId: payment.tokenKey ?? payment.externalSubscriptionId ?? null,
           usageMetrics: {},
           billingHistory: [],
         });
@@ -952,8 +1219,13 @@ export class SubscriptionBillingService {
         subscription.currentPeriodStart = now;
         subscription.currentPeriodEnd = periodEnd;
         subscription.nextBillingDate = periodEnd;
-        subscription.nombaSubscriptionId = payment.reference;
-        subscription.paymentMethodId = payment.tokenKey ?? null;
+        subscription.nombaSubscriptionId =
+          provider === BillingProvider.NOMBA ? payment.reference : subscription.nombaSubscriptionId;
+        subscription.billingProvider = provider;
+        subscription.externalSubscriptionId =
+          payment.externalSubscriptionId ?? subscription.externalSubscriptionId;
+        subscription.paymentMethodId =
+          payment.tokenKey ?? payment.externalSubscriptionId ?? subscription.paymentMethodId;
         this.applyPaymentMethodFromWebhook(subscription, payment);
         this.resetDunningFields(subscription);
       }
@@ -973,7 +1245,7 @@ export class SubscriptionBillingService {
       await billingEventRepo.save(
         billingEventRepo.create({
           eventId: payment.eventId,
-          provider: BillingProvider.NOMBA,
+          provider,
           eventType: 'payment_success',
           payload: payment as unknown as Record<string, unknown>,
         }),
@@ -981,14 +1253,23 @@ export class SubscriptionBillingService {
     });
   }
 
-  private async processCardUpdateSuccess(payment: SubscriptionWebhookPayment): Promise<void> {
-    if (!UUID_PATTERN.test(payment.tenantId) || (await this.hasProcessedEvent(payment.eventId))) {
+  private async processCardUpdateSuccess(
+    payment: SubscriptionWebhookPayment,
+    provider: BillingProvider = BillingProvider.NOMBA,
+  ): Promise<void> {
+    if (
+      !UUID_PATTERN.test(payment.tenantId) ||
+      (await this.hasProcessedEvent(payment.eventId, provider))
+    ) {
       return;
     }
 
-    const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (verified?.status?.toLowerCase() !== 'success') {
-      throw new BadRequestException('Card update payment could not be verified with Nomba');
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
+      throw new BadRequestException('Card update payment could not be verified');
     }
 
     if (!payment.tokenKey?.trim()) {
@@ -1008,38 +1289,53 @@ export class SubscriptionBillingService {
     }
 
     await this.subscriptionRepository.save(subscription);
-    await this.recordBillingEvent(payment.eventId, 'card_update_success', {
-      tenantId: payment.tenantId,
-      reference: payment.reference,
-    });
+    await this.recordBillingEvent(
+      payment.eventId,
+      'card_update_success',
+      {
+        tenantId: payment.tenantId,
+        reference: payment.reference,
+      },
+      provider,
+    );
   }
 
-  private async processRenewalPaymentSuccess(payment: SubscriptionWebhookPayment): Promise<void> {
+  private async processRenewalPaymentSuccess(
+    payment: SubscriptionWebhookPayment,
+    provider: BillingProvider = BillingProvider.NOMBA,
+  ): Promise<void> {
     if (!UUID_PATTERN.test(payment.tenantId)) {
       throw new BadRequestException('Invalid tenant in webhook metadata');
     }
 
-    if (await this.hasProcessedEvent(payment.eventId)) {
+    if (await this.hasProcessedEvent(payment.eventId, provider)) {
       return;
     }
 
-    const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (verified?.status?.toLowerCase() !== 'success') {
-      throw new BadRequestException('Renewal payment could not be verified with Nomba');
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
+      throw new BadRequestException('Renewal payment could not be verified');
     }
 
-    await this.applyRenewalSuccess(payment.tenantId, payment);
+    await this.applyRenewalSuccess(payment.tenantId, payment, provider);
   }
 
   private async processQuantityUpdatePaymentSuccess(
     payment: SubscriptionWebhookPayment,
+    provider: BillingProvider = BillingProvider.NOMBA,
   ): Promise<void> {
-    if (!payment.reference || (await this.hasProcessedEvent(payment.eventId))) {
+    if (!payment.reference || (await this.hasProcessedEvent(payment.eventId, provider))) {
       return;
     }
 
-    const verified = await this.nombaApi.verifyTransaction(payment.reference);
-    if (verified?.status?.toLowerCase() !== 'success') {
+    const verified = await this.verifyPaymentReference(payment.reference, provider);
+    if (
+      this.requiresProviderVerification(provider) &&
+      (!verified || !isNoahPaymentVerified(verified.status))
+    ) {
       return;
     }
 
@@ -1102,15 +1398,26 @@ export class SubscriptionBillingService {
     };
 
     await this.subscriptionRepository.save(subscription);
-    await this.recordBillingEvent(payment.eventId, 'quantity_update_success', {
-      ...payment,
-      quantity: targetSeatCount,
-      extraSeats,
-    } as unknown as Record<string, unknown>);
+    await this.recordBillingEvent(
+      payment.eventId,
+      'quantity_update_success',
+      {
+        ...payment,
+        quantity: targetSeatCount,
+        extraSeats,
+      } as unknown as Record<string, unknown>,
+      provider,
+    );
   }
 
-  private async processPaymentFailed(payment: SubscriptionWebhookPayment): Promise<void> {
-    if (!UUID_PATTERN.test(payment.tenantId) || (await this.hasProcessedEvent(payment.eventId))) {
+  private async processPaymentFailed(
+    payment: SubscriptionWebhookPayment,
+    provider: BillingProvider = BillingProvider.NOMBA,
+  ): Promise<void> {
+    if (
+      !UUID_PATTERN.test(payment.tenantId) ||
+      (await this.hasProcessedEvent(payment.eventId, provider))
+    ) {
       return;
     }
 
@@ -1130,23 +1437,38 @@ export class SubscriptionBillingService {
         pendingChargeAmount: undefined,
       };
       await this.subscriptionRepository.save(subscription);
-      await this.recordBillingEvent(payment.eventId, 'quantity_update_failed', {
-        ...payment,
-      } as unknown as Record<string, unknown>);
+      await this.recordBillingEvent(
+        payment.eventId,
+        'quantity_update_failed',
+        {
+          ...payment,
+        } as unknown as Record<string, unknown>,
+        provider,
+      );
       return;
     }
 
     if (payment.billingType === BillingChargeType.SUBSCRIPTION_RENEWAL) {
       await this.markRenewalFailed(subscription, payment.reference, 'renewal_payment_failed');
-      await this.recordBillingEvent(payment.eventId, 'renewal_failed_webhook', {
-        ...payment,
-      } as unknown as Record<string, unknown>);
+      await this.recordBillingEvent(
+        payment.eventId,
+        'renewal_failed_webhook',
+        {
+          ...payment,
+        } as unknown as Record<string, unknown>,
+        provider,
+      );
       return;
     }
 
-    await this.recordBillingEvent(payment.eventId, 'payment_failed', {
-      ...payment,
-    } as unknown as Record<string, unknown>);
+    await this.recordBillingEvent(
+      payment.eventId,
+      'payment_failed',
+      {
+        ...payment,
+      } as unknown as Record<string, unknown>,
+      provider,
+    );
     await this.notifyRenewalIssue(
       subscription,
       'PAYMENT_FAILED',
@@ -1157,6 +1479,7 @@ export class SubscriptionBillingService {
   private async applyRenewalSuccess(
     tenantId: string,
     payment: SubscriptionWebhookPayment,
+    provider: BillingProvider = BillingProvider.NOMBA,
     billingPeriodAnchor?: Date,
     attemptCount = 0,
   ): Promise<void> {
@@ -1175,6 +1498,12 @@ export class SubscriptionBillingService {
       ![SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE].includes(subscription.status)
     ) {
       throw new BadRequestException('No renewable subscription found for tenant');
+    }
+    if (subscription.billingProvider !== provider) {
+      this.logger.warn(
+        `Ignoring renewal webhook from ${provider} for tenant ${tenantId}; active provider is ${subscription.billingProvider}`,
+      );
+      return;
     }
 
     const seatCount = resolveSeatCount(
@@ -1196,7 +1525,7 @@ export class SubscriptionBillingService {
     await this.dataSource.transaction(async (manager) => {
       const billingEventRepo = manager.getRepository(BillingEvent);
       const existing = await billingEventRepo.findOne({
-        where: { eventId: payment.eventId, provider: BillingProvider.NOMBA },
+        where: { eventId: payment.eventId, provider },
       });
       if (existing) return;
 
@@ -1212,7 +1541,7 @@ export class SubscriptionBillingService {
         attemptCount,
       );
       const attemptExists = await billingEventRepo.findOne({
-        where: { eventId: attemptEventId, provider: BillingProvider.NOMBA },
+        where: { eventId: attemptEventId, provider },
       });
 
       if (locked.nextBillingDate > new Date()) {
@@ -1220,7 +1549,7 @@ export class SubscriptionBillingService {
           await billingEventRepo.save(
             billingEventRepo.create({
               eventId: payment.eventId,
-              provider: BillingProvider.NOMBA,
+              provider,
               eventType: 'subscription_renewal',
               payload: payment as unknown as Record<string, unknown>,
             }),
@@ -1230,7 +1559,13 @@ export class SubscriptionBillingService {
       }
 
       if (attemptExists) {
-        return;
+        const attemptFailed =
+          attemptExists.payload &&
+          typeof attemptExists.payload === 'object' &&
+          (attemptExists.payload as Record<string, unknown>).failed === true;
+        if (!attemptFailed) {
+          return;
+        }
       }
 
       const periodStart = new Date(billingPeriodAnchor ?? locked.nextBillingDate);
@@ -1243,6 +1578,7 @@ export class SubscriptionBillingService {
       locked.currentPeriodEnd = periodEnd;
       locked.nextBillingDate = periodEnd;
       locked.nombaSubscriptionId = payment.reference;
+      locked.billingProvider = provider;
       this.applyPaymentMethodFromWebhook(locked, payment);
       this.resetDunningFields(locked);
 
@@ -1261,7 +1597,7 @@ export class SubscriptionBillingService {
       await billingEventRepo.save(
         billingEventRepo.create({
           eventId: payment.eventId,
-          provider: BillingProvider.NOMBA,
+          provider,
           eventType: 'subscription_renewal',
           payload: payment as unknown as Record<string, unknown>,
         }),
@@ -1269,7 +1605,7 @@ export class SubscriptionBillingService {
       await billingEventRepo.save(
         billingEventRepo.create({
           eventId: attemptEventId,
-          provider: BillingProvider.NOMBA,
+          provider,
           eventType: 'renewal_attempt',
           payload: {
             tenantId,
@@ -1282,9 +1618,12 @@ export class SubscriptionBillingService {
     });
   }
 
-  private hasProcessedEvent(eventId: string): Promise<boolean> {
-    return this.billingEventRepository.exists({
-      where: { eventId, provider: BillingProvider.NOMBA },
-    });
+  private hasProcessedEvent(eventId: string, provider?: BillingProvider): Promise<boolean> {
+    if (provider) {
+      return this.billingEventRepository.exists({
+        where: { eventId, provider },
+      });
+    }
+    return this.billingEventRepository.exists({ where: { eventId } });
   }
 }

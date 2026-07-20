@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
 import {
@@ -20,18 +21,12 @@ import {
 } from '@/hooks/queries/use-billing';
 import { usePatchTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { BillingSettings } from '@/lib/api/tenant-settings';
+import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatDate } from '@/lib/format-date';
+import { formatPlanMoney } from '@/lib/format-plan-money';
 
 function formatMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
+  return formatPlanMoney(amount, currency);
 }
 
 function BillingContactForm({
@@ -157,7 +152,7 @@ export function BillingSection() {
     }
   }, [searchParams]);
 
-  const sortedPlans = useMemo(() => overview?.plans ?? [], [overview?.plans]);
+  const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
   const billingHistory = overview?.billingHistory ?? [];
 
   if (isLoading) {
@@ -202,7 +197,11 @@ export function BillingSection() {
     setCheckoutPlan(planSlug);
     try {
       const result = await checkout.mutateAsync({ planSlug });
-      window.location.assign(result.checkoutUrl);
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start checkout');
     } finally {
       setCheckoutPlan(null);
     }
@@ -488,48 +487,46 @@ export function BillingSection() {
             {sortedPlans.map((plan) => {
               const isCurrent = currentPlanSlug === plan.slug;
               const isPending = checkoutPlan === plan.slug && checkout.isPending;
+              const perSeat = plan.breakdown.basePrice / Math.max(1, plan.seatCount);
 
               return (
-                <div
+                <PlanPricingCard
                   key={plan.planPriceId}
-                  className="app-card border p-4 transition-all hover:border-primary/50 hover:shadow-sm"
-                >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-semibold">{plan.name}</p>
-                      {plan.description ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{plan.description}</p>
-                      ) : null}
-                    </div>
-                    {isCurrent ? <Badge variant="secondary">Current</Badge> : null}
-                  </div>
-                  <p className="text-2xl font-bold tracking-tight">
-                    {formatMoney(plan.monthlyTotal, plan.currency)}
-                    <span className="text-sm font-normal text-muted-foreground"> / month</span>
-                  </p>
-                  {overview.canManageBilling ? (
-                    <Button
-                      className="mt-4 w-full"
-                      size="sm"
-                      variant={isCurrent ? 'secondary' : 'default'}
-                      disabled={isCurrent || isPending}
-                      onClick={() => handleCheckout(plan.slug)}
-                    >
-                      {isPending ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Redirecting…
-                        </>
-                      ) : isCurrent ? (
-                        'Current plan'
-                      ) : overview.subscription?.status === 'ACTIVE' ? (
-                        `Switch to ${plan.name}`
-                      ) : (
-                        'Subscribe'
-                      )}
-                    </Button>
-                  ) : null}
-                </div>
+                  slug={plan.slug}
+                  name={plan.name}
+                  description={plan.description}
+                  currency={plan.currency}
+                  pricePerSeat={perSeat}
+                  seatCount={plan.seatCount}
+                  monthlyTotal={plan.monthlyTotal}
+                  maxEmployees={plan.limits.maxEmployees}
+                  isPopular={plan.slug === 'growth'}
+                  isCurrent={isCurrent}
+                  action={
+                    overview.canManageBilling ? (
+                      <Button
+                        className="w-full"
+                        size="sm"
+                        variant={isCurrent ? 'secondary' : 'default'}
+                        disabled={isCurrent || isPending}
+                        onClick={() => handleCheckout(plan.slug)}
+                      >
+                        {isPending ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Redirecting…
+                          </>
+                        ) : isCurrent ? (
+                          'Current plan'
+                        ) : overview.subscription?.status === 'ACTIVE' ? (
+                          `Switch to ${plan.name}`
+                        ) : (
+                          'Subscribe'
+                        )}
+                      </Button>
+                    ) : null
+                  }
+                />
               );
             })}
           </div>

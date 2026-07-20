@@ -2,7 +2,10 @@ import { createHmac } from 'node:crypto';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ReloadlyWebhookService } from '../../rewards/services/reloadly-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
+import { BachsWebhookService } from '../services/bachs-webhook.service';
+import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
+import { PolarWebhookService } from '../services/polar-webhook.service';
 import { WebhooksController } from './webhooks.controller';
 
 jest.mock('src/common/config/nomba-webhook.util', () => ({
@@ -12,6 +15,9 @@ jest.mock('src/common/config/nomba-webhook.util', () => ({
 describe('WebhooksController', () => {
   let controller: WebhooksController;
   let mockNombaWebhookService: jest.Mocked<Pick<NombaWebhookService, 'dispatch'>>;
+  let mockNoahWebhookService: jest.Mocked<Pick<NoahWebhookService, 'dispatch'>>;
+  let mockBachsWebhookService: jest.Mocked<Pick<BachsWebhookService, 'dispatch'>>;
+  let mockPolarWebhookService: jest.Mocked<Pick<PolarWebhookService, 'dispatch'>>;
   let mockReloadlyWebhookService: jest.Mocked<
     Pick<ReloadlyWebhookService, 'processReloadlyWebhookEvent'>
   >;
@@ -23,6 +29,9 @@ describe('WebhooksController', () => {
     process.env.RELOADLY_WEBHOOK_SECRET = webhookSecret;
 
     mockNombaWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
+    mockNoahWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
+    mockBachsWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
+    mockPolarWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockReloadlyWebhookService = {
       processReloadlyWebhookEvent: jest.fn().mockResolvedValue(undefined),
     };
@@ -30,6 +39,9 @@ describe('WebhooksController', () => {
 
     controller = new WebhooksController(
       mockNombaWebhookService as unknown as NombaWebhookService,
+      mockNoahWebhookService as unknown as NoahWebhookService,
+      mockBachsWebhookService as unknown as BachsWebhookService,
+      mockPolarWebhookService as unknown as PolarWebhookService,
       mockReloadlyWebhookService as unknown as ReloadlyWebhookService,
       mockSlackWebhookService as unknown as SlackWebhookService,
     );

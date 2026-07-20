@@ -33,6 +33,21 @@ export class EmploymentController {
     private readonly managerAccessService: ManagerAccessService,
   ) {}
 
+  @Get('compensation/current')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async getCurrentCompensation(@Param('tenantId') tenantId: string): Promise<
+    Array<{
+      memberId: string;
+      payRate: number;
+      payType: string;
+      paySchedule: string;
+    }>
+  > {
+    return this.employmentService.getCurrentSalariesForTenant(tenantId);
+  }
+
   @Post('members/:memberId/compensation')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)

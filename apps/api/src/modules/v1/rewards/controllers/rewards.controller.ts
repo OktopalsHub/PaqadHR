@@ -10,11 +10,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { getNoahEnvironment } from 'src/common/config/noah.config';
 import { isNombaLive } from 'src/common/config/nomba.config';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+import {
+  paymentProviderLabel,
+  resolvePaymentProvider,
+} from 'src/common/utils/resolve-payment-provider.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
@@ -36,6 +42,12 @@ function withWalletResponse(
   wallet: Awaited<ReturnType<TenantWalletService['getWallet']>>,
   fees: { feePercentage: number; flatFee: number },
 ) {
+  const checkoutProvider = resolvePaymentProvider(wallet.currencyCode);
+  const checkoutLive =
+    checkoutProvider === PaymentProvider.NOMBA
+      ? isNombaLive()
+      : getNoahEnvironment() === 'production';
+
   return {
     id: wallet.id,
     tenantId: wallet.tenantId,
@@ -47,6 +59,10 @@ function withWalletResponse(
     autoTopupAmount: wallet.autoTopupAmount,
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
+    checkoutProvider: checkoutProvider === PaymentProvider.NOMBA ? 'nomba' : 'noah',
+    checkoutProviderLabel: paymentProviderLabel(checkoutProvider),
+    checkoutLive,
+    /** @deprecated use checkoutLive */
     nombaLive: isNombaLive(),
   };
 }
@@ -149,7 +165,7 @@ export class RewardsController {
   @Post('wallet/topup/checkout')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
-  @ApiOperation({ summary: 'Create Nomba checkout link to fund rewards wallet' })
+  @ApiOperation({ summary: 'Create checkout link to fund rewards wallet' })
   async topupCheckout(
     @Param('tenantId') tenantId: string,
     @Body() body: WalletTopupDto,

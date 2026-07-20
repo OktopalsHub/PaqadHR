@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { SUPPORTED_CRYPTO_CURRENCIES } from 'src/common/constants/crypto-currencies.constant';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
@@ -225,7 +226,7 @@ export class PaymentMethodController {
   @ApiResponse({ status: 200, description: 'Supported currencies retrieved' })
   async getSupportedCurrencies(@Param('tenantId') tenantId: string) {
     const fiat = await this.paymentMethodService.getAllowedCurrencies(tenantId);
-    return { fiat };
+    return { fiat, crypto: [...SUPPORTED_CRYPTO_CURRENCIES] };
   }
   @Get('member/:memberId')
   @UseGuards(TenantMemberGuard)

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FeatureAccessGuard } from '../../../common/guards/feature-access.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlansModule } from '../plans/plans.module';
@@ -16,8 +17,11 @@ import { BillingEvent } from './entities/billing-event.entity';
 import { TenantSubscription } from './entities/tenant-subscription.entity';
 import { BillingGatewayGuard } from './guards/billing-gateway.guard';
 import { SubscriptionBillingListener } from './listeners/subscription-billing.listener';
+import { BachsSubscriptionProvider } from './providers/bachs-subscription.provider';
 import { NombaSubscriptionProvider } from './providers/nomba-subscription.provider';
+import { PolarSubscriptionProvider } from './providers/polar-subscription.provider';
 import { BillingCronService } from './services/billing-cron.service';
+import { BillingProviderFactoryService } from './services/billing-provider-factory.service';
 import { NombaApiService } from './services/nomba-api.service';
 import { SubscriptionBillingService } from './services/subscription-billing.service';
 import { SubscriptionsService } from './services/subscriptions.service';
@@ -25,6 +29,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([TenantSubscription, Tenant, User, TenantMember, BillingEvent]),
+    PaymentsModule,
     PlansModule,
     NotificationsModule,
     TenantMembersModule,
@@ -43,6 +48,9 @@ import { SubscriptionsService } from './services/subscriptions.service';
     SubscriptionBillingListener,
     NombaApiService,
     NombaSubscriptionProvider,
+    BachsSubscriptionProvider,
+    PolarSubscriptionProvider,
+    BillingProviderFactoryService,
     BillingGatewayGuard,
     FeatureAccessGuard,
   ],
@@ -50,6 +58,9 @@ import { SubscriptionsService } from './services/subscriptions.service';
     SubscriptionsService,
     SubscriptionBillingService,
     NombaSubscriptionProvider,
+    BachsSubscriptionProvider,
+    PolarSubscriptionProvider,
+    BillingProviderFactoryService,
     NombaApiService,
     FeatureAccessGuard,
   ],

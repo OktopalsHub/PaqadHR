@@ -63,9 +63,14 @@ describe('TenantWalletService', () => {
       manager,
     };
 
+    const tenantsService = {
+      findOne: jest.fn().mockResolvedValue({ id: tenantId, preferredCurrency: 'NGN' }),
+    };
+
     const walletService = new TenantWalletService(
       dataSource as any,
       { queueActivity: jest.fn().mockResolvedValue(undefined) } as any,
+      tenantsService as any,
     );
 
     return { walletService, walletRepo, txRepo, manager };
@@ -85,6 +90,21 @@ describe('TenantWalletService', () => {
 describe('TenantWalletTopupService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
   const walletTopupRef = `wt_${tenantId.replace(/-/g, '')}_ref1`;
+  const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
+  const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
+  const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
+
+  beforeEach(() => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+  });
+
+  afterEach(() => {
+    process.env.NOMBA_CLIENT_ID = originalNombaClientId;
+    process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
+    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
+  });
 
   function createTopupService(overrides?: {
     wallet?: Record<string, unknown>;
@@ -154,6 +174,14 @@ describe('TenantWalletTopupService', () => {
       }),
     };
 
+    const noahApi = {
+      createPayinCheckout: jest.fn().mockResolvedValue({
+        checkoutLink: 'https://checkout.noah.com/test',
+        orderReference: 'nw_wallet-topup-ref',
+      }),
+      verifyTransaction: jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
+    };
+
     const subscriptionsService = {
       getTenantSubscription: jest.fn().mockResolvedValue({
         paymentMethodId:
@@ -181,13 +209,23 @@ describe('TenantWalletTopupService', () => {
       dataSource as any,
       walletService as any,
       nombaApi as any,
+      noahApi as any,
       subscriptionsService as any,
       tenantSettingsService as any,
       emailService as any,
       tenantRepository as any,
     );
 
-    return { topupService, walletService, txRepo, nombaApi, emailService, manager, walletRepo };
+    return {
+      topupService,
+      walletService,
+      txRepo,
+      nombaApi,
+      noahApi,
+      emailService,
+      manager,
+      walletRepo,
+    };
   }
 
   describe('maybeAutoTopupAfterDebit', () => {

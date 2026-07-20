@@ -14,6 +14,7 @@ import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
+import { TenantsModule } from '../tenants/tenants.module';
 import { RewardsController } from './controllers/rewards.controller';
 import { CustomReward } from './entities/custom-reward.entity';
 import { RewardRedemption } from './entities/reward-redemption.entity';
@@ -48,6 +49,7 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     ShoutoutsModule,
     TenantMembersModule,
     ActivitiesModule,
+    TenantsModule,
   ],
   controllers: [RewardsController],
   providers: [

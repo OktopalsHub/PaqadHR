@@ -1,17 +1,26 @@
-import { isNombaConfigured } from './nomba.config';
+import {
+  isAnyBillingProviderConfigured,
+  isBillingProviderConfigured,
+  resolveBillingProviderForCountry,
+} from './billing-provider-resolver';
 
 export function isFeatureGatingEnabled(): boolean {
   return true;
 }
 
 export function isBillingGatewayEnabled(): boolean {
-  return isNombaConfigured();
+  return isAnyBillingProviderConfigured();
 }
 
-export function assertBillingGatewayAllowed(): void {
-  if (!isBillingGatewayEnabled()) {
+export function isBillingGatewayEnabledForCountry(countryCode: string | null | undefined): boolean {
+  const provider = resolveBillingProviderForCountry(countryCode);
+  return isBillingProviderConfigured(provider);
+}
+
+export function assertBillingGatewayAllowed(countryCode?: string | null): void {
+  if (!isBillingGatewayEnabledForCountry(countryCode ?? 'GLOBAL')) {
     throw new Error(
-      'Nomba billing is not configured. Set NOMBA_CLIENT_ID, NOMBA_CLIENT_SECRET, and NOMBA_PARENT_ACCOUNT_ID.',
+      'Billing is not configured for this region. Set provider credentials (Nomba, Bachs, or Polar).',
     );
   }
 }

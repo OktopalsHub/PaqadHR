@@ -33,7 +33,7 @@ export class PaymentMethod extends BaseEntity {
     type: 'enum',
     enum: PaymentMethodType,
     default: PaymentMethodType.BANK,
-    comment: 'Payment method type - only BANK supported',
+    comment: 'Payment method type — BANK or CRYPTO',
   })
   type: PaymentMethodType;
   @Column({ name: 'currency', type: 'varchar', length: 10, nullable: true })
@@ -155,6 +155,9 @@ export class PaymentMethod extends BaseEntity {
     }
     if (this.type === PaymentMethodType.BANK) {
       return `${this.bankName} - ${this.accountNumber?.slice(-4)}`;
+    }
+    if (this.type === PaymentMethodType.CRYPTO) {
+      return `Crypto ${this.currency ?? ''} - ${this.accountNumber?.slice(-6)}`;
     }
     return 'Bank Account';
   }

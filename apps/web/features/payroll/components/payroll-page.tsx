@@ -138,7 +138,7 @@ function PayrollRunRow({
                 disabled={busy}
                 onClick={() => onAction('process', run.id)}
               >
-                Pay via Nomba
+                Pay via gateway
               </Button>
             ) : null}
           </>
@@ -218,7 +218,7 @@ export function PayrollPage() {
       return;
     }
     if (!periodStart || !periodEnd || !paymentDate) {
-      toast.error('Set period and payment dates');
+      toast.error('Set period and expected pay dates');
       return;
     }
     const activeIds = activeEmployees.map((e) => e.id);
@@ -385,7 +385,7 @@ export function PayrollPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Payment date</Label>
+                      <Label>Expected pay date</Label>
                       <Input
                         type="date"
                         value={paymentDate}

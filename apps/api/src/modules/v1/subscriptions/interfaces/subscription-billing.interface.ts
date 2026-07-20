@@ -1,4 +1,5 @@
 import type { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import type { BillingChargeType } from '../constants/billing.constants';
 
 export interface SubscriptionBillingMetadata
   extends Record<string, string | number | boolean | undefined> {
@@ -10,7 +11,7 @@ export interface SubscriptionBillingMetadata
   quantity?: number;
   extraSeats?: number;
   targetSeatCount?: number;
-  billingType?: string;
+  billingType?: BillingChargeType;
 }
 
 export interface SubscriptionCheckoutResponse {
@@ -34,14 +35,27 @@ export interface SubscriptionWebhookPayment {
   tokenKey?: string;
   customerEmail?: string;
   status: string;
-  billingType?: string;
+  billingType?: BillingChargeType;
   cardBrand?: string;
   cardLastFour?: string;
+  externalSubscriptionId?: string;
 }
 
 export type SubscriptionWebhookEvent =
   | { kind: 'payment.success'; payment: SubscriptionWebhookPayment }
   | { kind: 'payment.failed'; payment: SubscriptionWebhookPayment }
+  | {
+      kind: 'subscription.created';
+      tenantId: string;
+      externalSubscriptionId: string;
+      eventId: string;
+    }
+  | {
+      kind: 'subscription.cancelled';
+      tenantId: string;
+      externalSubscriptionId?: string;
+      eventId: string;
+    }
   | { kind: 'subscription.updated'; reference: string; quantity?: number; status?: string }
   | { kind: 'ignored'; event: string };
 

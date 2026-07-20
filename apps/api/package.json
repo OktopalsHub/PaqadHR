@@ -25,7 +25,9 @@
     "migration:run": "pnpm build && typeorm migration:run -d dist/common/database/config/data-source.js",
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",
     "migration:generate": "typeorm migration:generate -d dist/common/database/config/data-source.js",
-    "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts"
+    "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts",
+    "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
+    "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",
@@ -57,6 +59,7 @@
     "fast-geoip": "^1.1.88",
     "helmet": "^8.2.0",
     "helmet-csp": "^4.0.0",
+    "jsonwebtoken": "^9.0.2",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -78,6 +81,7 @@
     "@swc/core": "^1.15.40",
     "@types/cookie-parser": "^1.4.10",
     "@types/jest": "^30.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.2",
     "@types/passport-google-oauth20": "^2.0.17",
     "@types/passport-jwt": "^4.0.1",

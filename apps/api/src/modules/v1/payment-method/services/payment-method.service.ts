@@ -8,7 +8,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { getNombaPayoutCurrencies } from 'src/common/config/nomba.config';
+import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
 import { PaymentMethodType, TenantMemberRole } from '../../../../common/enums';
@@ -110,14 +111,27 @@ export class PaymentMethodService {
         accountName = lookup.accountName;
         status = PaymentMethodStatus.VERIFIED;
         verifiedAt = new Date();
+      } else if (dto.type === PaymentMethodType.CRYPTO || isCryptoCurrency(dto.currency)) {
+        if (!dto.accountNumber?.trim()) {
+          throw new BadRequestException('Wallet address is required for crypto payment methods');
+        }
+        status = PaymentMethodStatus.VERIFIED;
+        verifiedAt = new Date();
+        accountName = dto.accountName ?? dto.displayName ?? 'Crypto wallet';
       }
 
       const normalizedCurrency = dto.currency.toUpperCase();
-      validateGlobalBankFields(normalizedCurrency, dto.accountNumber!, dto.bankCode);
-      const normalizedAccountNumber = normalizeAccountNumber(
-        normalizedCurrency,
-        dto.accountNumber!,
-      );
+      const isCryptoMethod =
+        dto.type === PaymentMethodType.CRYPTO || isCryptoCurrency(normalizedCurrency);
+      const rawAccountNumber = isCryptoMethod
+        ? (dto.walletAddress ?? dto.accountNumber ?? '')
+        : dto.accountNumber!;
+      if (dto.type !== PaymentMethodType.CRYPTO && !isCryptoCurrency(normalizedCurrency)) {
+        validateGlobalBankFields(normalizedCurrency, rawAccountNumber, dto.bankCode);
+      }
+      const normalizedAccountNumber = isCryptoMethod
+        ? rawAccountNumber.trim()
+        : normalizeAccountNumber(normalizedCurrency, rawAccountNumber);
       const normalizedBankCode = dto.bankCode
         ? normalizeInstitutionCode(normalizedCurrency, dto.bankCode)
         : dto.bankCode;
@@ -139,7 +153,11 @@ export class PaymentMethodService {
         passcodeHash,
         passcodeSetAt: new Date(),
         lastPasscodeChange: new Date(),
-        metadata: dto.metadata,
+        metadata: {
+          ...(dto.metadata ?? {}),
+          ...(dto.cryptoNetwork ? { cryptoNetwork: dto.cryptoNetwork } : {}),
+          ...(dto.walletAddress ? { walletAddress: dto.walletAddress } : {}),
+        },
       });
       const savedMethod = await this.paymentMethodRepository.save(paymentMethod);
       await this.trackPasscodeChange(
@@ -421,7 +439,17 @@ export class PaymentMethodService {
     if (method.isLocked) {
       issues.push(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD);
     }
-    if (!method.accountNumber?.trim() || !method.accountName?.trim() || !method.bankName?.trim()) {
+    if (method.type === PaymentMethodType.CRYPTO || isCryptoCurrency(normalizedCurrency)) {
+      const walletAddress =
+        (method.metadata?.walletAddress as string | undefined) ?? method.accountNumber;
+      if (!walletAddress?.trim()) {
+        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+      }
+    } else if (
+      !method.accountNumber?.trim() ||
+      !method.accountName?.trim() ||
+      !method.bankName?.trim()
+    ) {
       issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
     }
     if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
@@ -431,7 +459,7 @@ export class PaymentMethodService {
       issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
     }
 
-    if (!getNombaPayoutCurrencies().includes(normalizedCurrency)) {
+    if (!getSupportedPaymentCurrencies().includes(normalizedCurrency)) {
       issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
     }
 
@@ -493,7 +521,7 @@ export class PaymentMethodService {
       return 'No verified payment method matches this payroll currency.';
     }
     if (issues.includes(PayrollPaymentIssue.UNSUPPORTED_CURRENCY)) {
-      return 'This payroll currency is not supported for automated Nomba payouts.';
+      return 'This payroll currency is not supported for automated payouts.';
     }
     return 'Employee is not ready to receive payroll.';
   }
@@ -676,8 +704,21 @@ export class PaymentMethodService {
     }
   }
   private async validatePaymentMethodData(dto: CreatePaymentMethodDto): Promise<void> {
+    const isCrypto = dto.type === PaymentMethodType.CRYPTO || isCryptoCurrency(dto.currency);
+
+    if (isCrypto) {
+      const wallet = dto.walletAddress ?? dto.accountNumber;
+      if (!wallet?.trim()) {
+        throw new BadRequestException('Crypto payment method requires a wallet address');
+      }
+      if (!dto.currency?.trim()) {
+        throw new BadRequestException('Crypto payment method requires a currency code');
+      }
+      return;
+    }
+
     if (dto.type && dto.type !== PaymentMethodType.BANK) {
-      throw new BadRequestException('Only BANK payment method type is supported');
+      throw new BadRequestException('Unsupported payment method type');
     }
     if (!dto.accountNumber || !dto.accountName || !dto.bankName || !dto.country) {
       throw new BadRequestException(

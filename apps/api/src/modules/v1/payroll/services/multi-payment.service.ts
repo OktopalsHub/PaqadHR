@@ -1,6 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
-import { NombaProvider } from 'src/common/providers/nomba.provider';
+import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
+import {
+  paymentProviderLabel,
+  resolvePaymentProvider,
+} from 'src/common/utils/resolve-payment-provider.util';
 import { DataSource } from 'typeorm';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
@@ -28,7 +32,7 @@ export class MultiPaymentService {
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly paymentMethodService: PaymentMethodService,
     readonly _dataSource: DataSource,
-    private readonly nombaProvider: NombaProvider,
+    private readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
   async processMultiPaymentPayroll(
@@ -38,7 +42,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Nomba payroll gateway is not configured. Use manual disburse or configure Nomba credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Noah credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -155,7 +159,12 @@ export class MultiPaymentService {
     const skipped: PayrollItem[] = [];
 
     for (const item of items) {
-      if (item.status === PayrollItemStatus.CANCELLED) {
+      if (
+        item.status === PayrollItemStatus.CANCELLED ||
+        item.status === PayrollItemStatus.PAID ||
+        item.status === PayrollItemStatus.PROCESSING ||
+        item.status === PayrollItemStatus.FAILED
+      ) {
         continue;
       }
 
@@ -213,7 +222,13 @@ export class MultiPaymentService {
           throw new BadRequestException('Payment method not found');
         }
 
-        const provider = this.nombaProvider;
+        const provider = this.paymentProviderFactory.getFiatProvider(
+          item.paymentCurrency,
+          paymentMethod.type,
+        );
+        const providerName = paymentProviderLabel(
+          resolvePaymentProvider(item.paymentCurrency, paymentMethod.type),
+        );
         const employeeName = item.employee
           ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
           : item.memberId;
@@ -240,18 +255,18 @@ export class MultiPaymentService {
           await this.payrollItemRepository.update(item.id, {
             status: itemStatus,
             transactionId: result.transactionId,
-            paymentProvider: 'Nomba',
+            paymentProvider: providerName,
             paymentMethodId: paymentMethod.id,
             paidAt: itemStatus === PayrollItemStatus.PAID ? new Date() : null,
             failureReason:
               itemStatus === PayrollItemStatus.FAILED
-                ? result.error || 'Nomba transfer failed'
+                ? result.error || `${providerName} transfer failed`
                 : null,
           });
           results.push({
             success: itemStatus === PayrollItemStatus.PAID,
             transactionId: result.transactionId,
-            provider: 'Nomba',
+            provider: providerName,
             error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
           });
         } else {
@@ -278,6 +293,11 @@ export class MultiPaymentService {
   }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
     for (const item of items) {
+      item.status = PayrollItemStatus.PENDING;
+      item.failureReason = null;
+      item.transactionId = null;
+      item.paymentProvider = null;
+      item.paidAt = null;
       await this.payrollItemRepository.update(item.id, {
         status: PayrollItemStatus.PENDING,
         failureReason: null,

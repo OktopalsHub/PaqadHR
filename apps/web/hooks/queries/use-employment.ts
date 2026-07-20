@@ -5,7 +5,9 @@ import {
   addCompensation,
   type CreateCompensationInput,
   type CreateEmploymentInput,
+  type CurrentSalary,
   createEmployment,
+  fetchCurrentSalaries,
   fetchEmployments,
   type UpdateEmploymentInput,
   updateEmployment,
@@ -23,6 +25,16 @@ export function useEmployments(memberId?: string, enabled = true) {
   });
 }
 
+export function useCurrentSalaries(enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery<CurrentSalary[]>({
+    queryKey: [...queryKeys.employees.all, tenantId, 'current-salaries'],
+    queryFn: fetchCurrentSalaries,
+    enabled: enabled && !tenantLoading && Boolean(tenantId),
+  });
+}
+
 export function useAddCompensation(memberId: string) {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
@@ -35,6 +47,9 @@ export function useAddCompensation(memberId: string) {
       });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.detail(memberId), tenantId, 'member'],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.employees.all, tenantId, 'current-salaries'],
       });
     },
   });

@@ -39,9 +39,23 @@ export interface ISubscriptionBillingProvider {
 
   getSubscription(subscriptionReference: string): Promise<unknown>;
 
-  verifyWebhookSignature(rawBody: string, signature: string): boolean;
+  createCardUpdateCheckout?(
+    email: string,
+    metadata: SubscriptionBillingMetadata,
+    successUrl: string,
+    currency: string,
+  ): Promise<SubscriptionCheckoutResponse>;
+
+  verifyWebhookSignature?(rawBody: string, signature: string, timestamp?: string): boolean;
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null;
 
   mapStatus(status: string): SubscriptionStatus;
+
+  ensureConfigured?(): void;
+
+  cancelExternalSubscription?(
+    externalSubscriptionId: string,
+    options?: { atPeriodEnd?: boolean },
+  ): Promise<void>;
 }
