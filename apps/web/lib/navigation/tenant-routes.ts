@@ -232,12 +232,41 @@ export function getWorkspaceUrlSuffix(): string {
   return inferTenantHostSuffix();
 }
 
-export function marketingOrigin(): string {
-  const protocol =
-    typeof window !== 'undefined' ? window.location.protocol.replace(/:$/, '') : 'https';
+export function marketingOriginFromHost(host: string): string {
+  const hostname = stripPort(host);
+  const appDomain = getAppDomain();
 
-  if (typeof window !== 'undefined' && isApexHost(window.location.host)) {
-    return window.location.origin;
+  if (hostname === 'localhost') {
+    const port = host.includes(':') ? host.split(':')[1] : '3000';
+    return `http://localhost:${port}`;
+  }
+
+  if (hostname.endsWith('.localhost')) {
+    const port = host.includes(':') ? host.split(':')[1] : '';
+    return `http://${hostname}${port ? `:${port}` : ''}`;
+  }
+
+  if (hostname === `dev.${appDomain}` || hostname.endsWith(`.dev.${appDomain}`)) {
+    return `https://dev.${appDomain}`;
+  }
+
+  if (hostname === appDomain || hostname === `www.${appDomain}`) {
+    return `https://${hostname}`;
+  }
+
+  if (hostname.endsWith(`.${appDomain}`)) {
+    return `https://${appDomain}`;
+  }
+
+  return `https://${appDomain}`;
+}
+
+export function marketingOrigin(): string {
+  if (typeof window !== 'undefined') {
+    if (isApexHost(window.location.host)) {
+      return window.location.origin;
+    }
+    return marketingOriginFromHost(window.location.host);
   }
 
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -249,15 +278,41 @@ export function marketingOrigin(): string {
     }
   }
 
-  const appDomain = getAppDomain();
-  if (typeof window !== 'undefined') {
-    const hostname = window.location.hostname;
-    if (hostname === `dev.${appDomain}` || hostname.endsWith(`.dev.${appDomain}`)) {
-      return `${protocol}://dev.${appDomain}`;
-    }
-  }
+  return marketingOriginFromHost(getAppDomain());
+}
 
-  return `${protocol}://${appDomain}`;
+export const MARKETING_AUTH_SEGMENTS = new Set([
+  'signin',
+  'signup',
+  'onboarding',
+  'subscribe',
+  'reset-password',
+  'accept-invite',
+  'privacy',
+  'terms',
+  'google',
+]);
+
+export function isMarketingAuthPath(pathname: string): boolean {
+  const segment = pathname.split('/').filter(Boolean)[0];
+  return segment ? MARKETING_AUTH_SEGMENTS.has(segment) : false;
+}
+
+export function authPageUrl(
+  path: '/signin' | '/signup' | '/onboarding',
+  returnTo?: string,
+): string {
+  const origin = marketingOrigin();
+  if (!returnTo) return `${origin}${path}`;
+  return `${origin}${path}?redirect=${encodeURIComponent(returnTo)}`;
+}
+
+export function captureAuthReturnTo(pathname?: string): string {
+  if (typeof window === 'undefined') return pathname ?? '/';
+  if (isOnTenantSubdomain()) return window.location.href;
+  const path = pathname ?? window.location.pathname;
+  const search = window.location.search;
+  return `${path}${search}`;
 }
 
 export type SubscribePageParams = {

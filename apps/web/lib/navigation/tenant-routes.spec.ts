@@ -3,6 +3,7 @@ import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
   isSubdomainTenantsEnabled,
+  marketingOriginFromHost,
   subscribePagePath,
   tenantUrl,
 } from './tenant-routes';
@@ -37,6 +38,10 @@ describe('tenant-routes subdomain helpers', () => {
     expect(getTenantSlugFromHost('www.paqadhr.com')).toBeNull();
     expect(getTenantSlugFromHost('dev.paqadhr.com')).toBeNull();
     expect(getTenantSlugFromHost('api.paqadhr.com')).toBeNull();
+  });
+
+  it('resolves marketing apex from tenant dev subdomain host', () => {
+    expect(marketingOriginFromHost('paqad.dev.paqadhr.com')).toBe('https://dev.paqadhr.com');
   });
 
   it('returns null for subscribe on apex path parsing', () => {

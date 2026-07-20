@@ -1,4 +1,4 @@
-import { Suspense, type ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
 import { SubscribeGate } from '@/features/billing/components/subscribe-gate';
 import { OnboardingHeader } from '@/features/onboarding/components/onboarding-header';

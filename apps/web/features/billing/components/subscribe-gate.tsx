@@ -1,16 +1,16 @@
 'use client';
 
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
-import { subscribePagePath } from '@/lib/navigation/tenant-routes';
+import { authPageUrl, subscribePageUrl } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function SubscribeGate({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const workspaceSlug = searchParams.get('workspace');
+  const isWelcome = searchParams.get('welcome') === '1';
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const {
     tenants,
@@ -25,11 +25,17 @@ export function SubscribeGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.replace(
-        `/signin?redirect=${encodeURIComponent(subscribePagePath({ workspace: workspaceSlug ?? undefined }))}`,
+      window.location.assign(
+        authPageUrl(
+          '/signin',
+          subscribePageUrl({
+            workspace: workspaceSlug ?? undefined,
+            welcome: isWelcome || undefined,
+          }),
+        ),
       );
     }
-  }, [authLoading, isAuthenticated, router, workspaceSlug]);
+  }, [authLoading, isAuthenticated, workspaceSlug, isWelcome]);
 
   useEffect(() => {
     if (!workspaceSlug || !tenants.length) return;

@@ -6,6 +6,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
 import {
+  captureAuthReturnTo,
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
@@ -26,7 +27,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
       const destination = resolveAuthDestination({
         isAuthenticated: false,
         tenants: [],
-        redirect: pathname,
+        redirect: captureAuthReturnTo(pathname),
       });
       goToAuthDestination(destination, router.replace);
       return;

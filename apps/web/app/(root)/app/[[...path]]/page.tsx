@@ -4,6 +4,7 @@ import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import {
+  captureAuthReturnTo,
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
@@ -26,7 +27,7 @@ export default function LegacyAppRedirectPage() {
       const destination = resolveAuthDestination({
         isAuthenticated: false,
         tenants: [],
-        redirect: pathname,
+        redirect: captureAuthReturnTo(pathname),
       });
       goToAuthDestination(destination, router.replace);
       return;

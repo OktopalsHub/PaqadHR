@@ -6,7 +6,9 @@ import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
   isApexHost,
+  isMarketingAuthPath,
   isSubdomainTenantsEnabled,
+  marketingOriginFromHost,
   rewriteLegacyAppPath,
   tenantUrl,
 } from '@/lib/navigation/tenant-routes';
@@ -81,6 +83,14 @@ export function middleware(request: NextRequest) {
     const slugFromHost = getTenantSlugFromHost(hostHeader);
 
     if (slugFromHost) {
+      if (isMarketingAuthPath(pathname)) {
+        const apexOrigin = marketingOriginFromHost(hostHeader);
+        const destination = new URL(`${pathname}${request.nextUrl.search}`, apexOrigin);
+        const redirect = NextResponse.redirect(destination);
+        applySecurityHeaders(redirect, requestHost);
+        return redirect;
+      }
+
       const alreadyPrefixed =
         pathname === `/${slugFromHost}` || pathname.startsWith(`/${slugFromHost}/`);
       if (!alreadyPrefixed) {
