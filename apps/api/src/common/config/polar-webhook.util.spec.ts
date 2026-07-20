@@ -2,7 +2,8 @@ import { createHmac } from 'node:crypto';
 import { extractPolarWebhookHeaders, verifyPolarWebhookSignature } from './polar-webhook.util';
 
 describe('polar-webhook.util', () => {
-  const secret = 'polar_whs_test_secret';
+  const signingKey = Buffer.from('test_secret_key_for_hmac!!');
+  const secret = `whsec_${signingKey.toString('base64')}`;
   const rawBody = JSON.stringify({ type: 'order.paid', data: { id: 'ord_1' } });
 
   beforeEach(() => {
@@ -15,7 +16,7 @@ describe('polar-webhook.util', () => {
 
   function sign(body: string, webhookId: string, timestamp: string): string {
     const signedContent = `${webhookId}.${timestamp}.${body}`;
-    const digest = createHmac('sha256', secret).update(signedContent).digest('base64');
+    const digest = createHmac('sha256', signingKey).update(signedContent).digest('base64');
     return `v1,${digest}`;
   }
 
@@ -33,7 +34,7 @@ describe('polar-webhook.util', () => {
     });
   });
 
-  it('accepts valid Polar webhook signatures', () => {
+  it('accepts valid Polar webhook signatures with whsec secret', () => {
     const webhookId = 'msg_123';
     const timestamp = String(Math.floor(Date.now() / 1000));
     const signature = sign(rawBody, webhookId, timestamp);

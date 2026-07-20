@@ -278,6 +278,36 @@ describe('SubscriptionBillingService webhooks', () => {
 
     expect(renewalSpy).not.toHaveBeenCalled();
   });
+
+  it('processes Polar payment webhooks after Nomba→Polar provider switch at checkout', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, polarProvider, subscriptionRepo } = createService();
+    (polarProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-polar-1',
+        reference: 'ord_polar_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        billingType: 'subscription',
+        amount: 100,
+        currency: 'USD',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.POLAR,
+      status: SubscriptionStatus.ACTIVE,
+    });
+    const initialSpy = jest
+      .spyOn(service as any, 'processInitialPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processPolarPayload({ type: 'order.paid', data: {} });
+
+    expect(initialSpy).toHaveBeenCalled();
+  });
 });
 
 describe('SubscriptionBillingService lifecycle', () => {

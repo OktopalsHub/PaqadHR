@@ -3,7 +3,7 @@ import { getPolarAccessToken } from 'src/common/config/polar.config';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { resolvePolarProductId } from '../../plans/config/plan-external-products.config';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { BillingChargeType } from '../constants/billing.constants';
+import { BillingChargeType, parseBillingChargeType } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
@@ -21,6 +21,7 @@ type PolarWebhookPayload = {
     currency?: string;
     status?: string;
     subscription_id?: string;
+    billing_reason?: string;
   };
 };
 
@@ -146,6 +147,11 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
       if (!tenantId || !reference) return null;
 
       const status = String(data.status ?? 'paid').toLowerCase();
+      const billingReason = String(data.billing_reason ?? '').toLowerCase();
+      const billingType =
+        billingReason === 'subscription_cycle'
+          ? BillingChargeType.SUBSCRIPTION_RENEWAL
+          : (parseBillingChargeType(metadata.billingType) ?? BillingChargeType.SUBSCRIPTION);
       const payment = {
         eventId: reference,
         reference,
@@ -156,7 +162,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         amount: Number(data.amount ?? 0) / 100,
         currency: String(data.currency ?? 'USD').toUpperCase(),
         status: status.includes('succeed') ? 'success' : status,
-        billingType: BillingChargeType.SUBSCRIPTION,
+        billingType,
         externalSubscriptionId: data.subscription_id ? String(data.subscription_id) : undefined,
       };
 

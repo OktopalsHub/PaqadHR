@@ -8,9 +8,9 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import {
   useBillingOverview,
   useCancelSubscription,
@@ -22,8 +22,8 @@ import {
 import { usePatchTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { BillingSettings } from '@/lib/api/tenant-settings';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
-import { formatPlanMoney } from '@/lib/format-plan-money';
 import { formatDate } from '@/lib/format-date';
+import { formatPlanMoney } from '@/lib/format-plan-money';
 
 function formatMoney(amount: number, currency: string) {
   return formatPlanMoney(amount, currency);
@@ -197,7 +197,11 @@ export function BillingSection() {
     setCheckoutPlan(planSlug);
     try {
       const result = await checkout.mutateAsync({ planSlug });
-      window.location.assign(result.checkoutUrl);
+      if (result.checkoutUrl) {
+        window.location.assign(result.checkoutUrl);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to start checkout');
     } finally {
       setCheckoutPlan(null);
     }

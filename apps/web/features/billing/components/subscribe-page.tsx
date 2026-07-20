@@ -25,10 +25,7 @@ export function SubscribePage() {
     }
   }, [searchParams]);
 
-  const sortedPlans = useMemo(
-    () => sortPlansByTier(overview?.plans ?? []),
-    [overview?.plans],
-  );
+  const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
 
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);

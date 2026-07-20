@@ -3,6 +3,17 @@ import { getPolarWebhookSecret } from 'src/common/config/polar.config';
 
 const TIMESTAMP_SKEW_SECONDS = 300;
 
+function polarWebhookSigningKey(secret: string): Buffer | string {
+  const trimmed = secret.trim();
+  if (trimmed.startsWith('whsec_')) {
+    return Buffer.from(trimmed.slice('whsec_'.length), 'base64');
+  }
+  if (trimmed.startsWith('polar_whs_')) {
+    return Buffer.from(trimmed.slice('polar_whs_'.length), 'base64');
+  }
+  return trimmed;
+}
+
 export type PolarWebhookHeaders = {
   webhookId: string;
   timestamp: string;
@@ -41,7 +52,8 @@ export function verifyPolarWebhookSignature(
   }
 
   const signedContent = `${headers.webhookId}.${headers.timestamp}.${rawBody}`;
-  const expected = createHmac('sha256', secret).update(signedContent).digest('base64');
+  const signingKey = polarWebhookSigningKey(secret);
+  const expected = createHmac('sha256', signingKey).update(signedContent).digest('base64');
 
   return headers.signature.split(' ').some((part) => {
     const [, value] = part.split(',');

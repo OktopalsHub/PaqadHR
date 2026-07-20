@@ -145,19 +145,19 @@ export class SubscriptionBillingService {
     }
   }
 
-  private async prepareManagedProviderSwitch(
+  private async prepareBillingProviderSwitch(
     subscription: TenantSubscription,
     targetProvider: BillingProvider,
   ): Promise<void> {
-    if (
-      subscription.billingProvider === targetProvider ||
-      !isManagedSubscriptionProvider(subscription.billingProvider)
-    ) {
+    if (subscription.billingProvider === targetProvider) {
       return;
     }
 
-    await this.cancelManagedExternalSubscription(subscription, false);
-    subscription.externalSubscriptionId = null;
+    if (isManagedSubscriptionProvider(subscription.billingProvider)) {
+      await this.cancelManagedExternalSubscription(subscription, false);
+      subscription.externalSubscriptionId = null;
+    }
+
     subscription.billingProvider = targetProvider;
     await this.subscriptionRepository.save(subscription);
   }
@@ -393,10 +393,9 @@ export class SubscriptionBillingService {
       [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE, SubscriptionStatus.PAUSED].includes(
         existing.status,
       ) &&
-      existing.billingProvider !== billingProvider &&
-      isManagedSubscriptionProvider(existing.billingProvider)
+      existing.billingProvider !== billingProvider
     ) {
-      await this.prepareManagedProviderSwitch(existing, billingProvider);
+      await this.prepareBillingProviderSwitch(existing, billingProvider);
     }
 
     const planPrice = await this.plansService.getPlanPrice(

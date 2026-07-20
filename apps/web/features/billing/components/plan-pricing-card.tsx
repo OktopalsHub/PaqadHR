@@ -70,9 +70,7 @@ export function PlanPricingCard({
         <div>
           <p className="font-semibold">{name}</p>
           {tagline ? <p className="mt-0.5 text-xs text-muted-foreground">{tagline}</p> : null}
-          {description ? (
-            <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-          ) : null}
+          {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
         </div>
       </div>
 
