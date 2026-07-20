@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
@@ -192,7 +193,8 @@ export class NoahSubscriptionProvider implements ISubscriptionBillingProvider {
       eventType.includes('completed') ||
       status === 'success' ||
       status === 'completed' ||
-      status === 'paid';
+      status === 'paid' ||
+      isNoahPaymentVerified(status);
     const isFailure = eventType.includes('fail') || status === 'failed' || status === 'rejected';
 
     if (!isSuccess && !isFailure) {

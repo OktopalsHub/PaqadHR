@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { normalizeNoahWebhookPayload } from 'src/common/config/noah-api.util';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { BillingProvider } from '../../subscriptions/constants/billing-provider.enum';
@@ -29,16 +30,19 @@ export class NoahWebhookService {
 
     let payload: unknown;
     try {
-      payload = JSON.parse(rawBody);
+      payload = normalizeNoahWebhookPayload(JSON.parse(rawBody));
     } catch {
       throw new BadRequestException('Invalid webhook JSON');
     }
 
-    if (extractNoahPayrollExternalId(payload)) {
-      return this.payrollPayoutService.processNoahPayload(payload);
-    }
-
     const eventType = this.extractNoahEventType(payload);
+
+    if (extractNoahPayrollExternalId(payload) || this.isNoahTransactionEvent(eventType)) {
+      const payrollResult = await this.payrollPayoutService.processNoahPayload(payload);
+      if (payrollResult.matched) {
+        return { received: true };
+      }
+    }
 
     if (isSubscriptionPaymentEvent(eventType) || this.isNoahCheckoutSuccess(eventType)) {
       const walletTopup = extractWalletTopupCheckout(payload);
@@ -63,5 +67,9 @@ export class NoahWebhookService {
       eventType.includes('checkout') ||
       eventType.includes('transaction')
     );
+  }
+
+  private isNoahTransactionEvent(eventType: string): boolean {
+    return eventType.includes('transaction') || eventType.includes('payout');
   }
 }

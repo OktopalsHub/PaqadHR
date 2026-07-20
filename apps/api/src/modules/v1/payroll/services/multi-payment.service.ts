@@ -159,7 +159,12 @@ export class MultiPaymentService {
     const skipped: PayrollItem[] = [];
 
     for (const item of items) {
-      if (item.status === PayrollItemStatus.CANCELLED) {
+      if (
+        item.status === PayrollItemStatus.CANCELLED ||
+        item.status === PayrollItemStatus.PAID ||
+        item.status === PayrollItemStatus.PROCESSING ||
+        item.status === PayrollItemStatus.FAILED
+      ) {
         continue;
       }
 
