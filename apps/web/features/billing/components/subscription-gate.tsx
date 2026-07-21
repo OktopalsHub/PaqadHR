@@ -10,22 +10,15 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   const { tenant } = useTenant();
   const { data: billing, isLoading } = useBillingStatus();
 
-  const needsTrialSetup =
-    billing?.featureGatingEnabled && !billing.entitled && !billing.subscription;
-
   const shouldBlockPayment =
     billing?.featureGatingEnabled && billing.needsPayment && billing.paymentsEnabled;
 
   useEffect(() => {
     if (isLoading || !tenant?.slug) return;
-    if (needsTrialSetup) {
-      window.location.assign(subscribePageUrl({ welcome: true, workspace: tenant.slug }));
-      return;
-    }
     if (shouldBlockPayment) {
       window.location.assign(subscribePageUrl({ workspace: tenant.slug }));
     }
-  }, [isLoading, needsTrialSetup, shouldBlockPayment, tenant?.slug]);
+  }, [isLoading, shouldBlockPayment, tenant?.slug]);
 
   if (isLoading) {
     return (
@@ -35,7 +28,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (needsTrialSetup || shouldBlockPayment) {
+  if (shouldBlockPayment) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
         <LoadingBlock />

@@ -1,9 +1,9 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, XCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,9 +15,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
+import { usePricingPreview } from '@/hooks/queries/use-pricing-preview';
 import { useAuth } from '@/hooks/use-auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
-import { subscribePagePath } from '@/lib/navigation/tenant-routes';
+import { getPlanCatalog } from '@/lib/constants/plan-catalog';
+import { goToTenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantSlug } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -29,7 +32,7 @@ import {
   slugifyInput,
 } from '@/lib/utils/slug';
 
-const STEPS = ['Company', 'You', 'Launch'] as const;
+const STEPS = ['Company', 'You', 'Plan'] as const;
 
 const INDUSTRIES = [
   'Technology',
@@ -69,6 +72,16 @@ export function OnboardingWizard() {
   const [lastName, setLastName] = useState('');
   const [preferredName, setPreferredName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState('growth');
+  const pricingPreview = usePricingPreview();
+  const sortedPlans = useMemo(() => {
+    const plans = pricingPreview.data?.pricing ?? [];
+    return [...plans].sort((a, b) => {
+      const orderA = getPlanCatalog(a.plan.slug)?.sortOrder ?? 99;
+      const orderB = getPlanCatalog(b.plan.slug)?.sortOrder ?? 99;
+      return orderA - orderB;
+    });
+  }, [pricingPreview.data?.pricing]);
 
   useEffect(() => {
     setAppBaseUrl(getAppBaseUrl());
@@ -155,11 +168,17 @@ export function OnboardingWizard() {
         await queryClient.invalidateQueries({
           queryKey: queryKeys.member.profile(result.tenant.id),
         });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.billing.status(result.tenant.id),
+        });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.billing.overview(result.tenant.id),
+        });
       }
-      toast.success(`Workspace "${result.tenant.name}" is ready`);
+      toast.success(`Workspace "${result.tenant.name}" is ready — your 14-day trial has started`);
       if (result.tenant.slug) {
         persistTenantSlug(result.tenant.slug);
-        router.push(subscribePagePath({ welcome: true, workspace: result.tenant.slug }));
+        goToTenantPath(result.tenant.slug, router.replace);
       }
     },
     onError: (error: Error) => {
@@ -176,7 +195,7 @@ export function OnboardingWizard() {
       ? canContinueStep0
       : step === 1
         ? firstName.trim().length >= 1 && lastName.trim().length >= 1 && jobTitle.trim().length >= 2
-        : true;
+        : Boolean(selectedPlan) && !pricingPreview.isLoading;
 
   const handleNext = () => {
     if (step < STEPS.length - 1) {
@@ -193,11 +212,12 @@ export function OnboardingWizard() {
       preferredName: preferredName.trim() || undefined,
       jobTitle: jobTitle.trim(),
       employeeCode: employeeCode.trim() || undefined,
+      planSlug: selectedPlan,
     });
   };
 
   return (
-    <div className="mx-auto w-full max-w-lg">
+    <div className="mx-auto w-full max-w-3xl">
       <div className="mb-10 flex items-center justify-center gap-2">
         {STEPS.map((label, index) => (
           <div key={label} className="flex items-center gap-2">
@@ -422,56 +442,60 @@ export function OnboardingWizard() {
         {step === 2 ? (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-semibold tracking-tight">Ready to launch</h2>
+              <h2 className="text-xl font-semibold tracking-tight">Choose your plan</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Review your workspace details before we create your account.
+                Start with 14 days free on any plan. No card required.
               </p>
             </div>
-            <dl className="space-y-3 rounded-xl border p-4 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Company</dt>
-                <dd className="font-medium">{name}</dd>
+
+            {pricingPreview.isLoading ? (
+              <div className="flex min-h-[160px] items-center justify-center">
+                <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Slug</dt>
-                <dd className="font-medium">{slug}</dd>
+            ) : pricingPreview.isError || sortedPlans.length === 0 ? (
+              <p className="text-sm text-destructive">
+                {pricingPreview.error instanceof Error
+                  ? pricingPreview.error.message
+                  : 'Unable to load plans. Refresh and try again.'}
+              </p>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-1">
+                {sortedPlans.map((plan) => {
+                  const isSelected = selectedPlan === plan.plan.slug;
+                  return (
+                    <button
+                      key={plan.plan.slug}
+                      type="button"
+                      className="text-left"
+                      onClick={() => setSelectedPlan(plan.plan.slug)}
+                    >
+                      <PlanPricingCard
+                        slug={plan.plan.slug}
+                        name={plan.plan.name}
+                        description={plan.plan.description}
+                        currency={plan.currency}
+                        pricePerSeat={plan.monthlyPrice}
+                        isPopular={plan.plan.slug === 'growth'}
+                        variant="marketing"
+                        className={isSelected ? 'ring-2 ring-primary' : undefined}
+                      />
+                    </button>
+                  );
+                })}
               </div>
+            )}
+
+            <dl className="space-y-2 rounded-xl border bg-muted/20 p-4 text-sm">
               <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Tenant Code</dt>
-                <dd className="font-medium">{employeeCode || 'EMP'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Workspace path</dt>
+                <dt className="text-muted-foreground">Workspace</dt>
                 <dd className="truncate font-medium">{slug ? formatWorkspaceUrl(slug) : '—'}</dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">You</dt>
+                <dt className="text-muted-foreground">Owner</dt>
                 <dd className="font-medium">
                   {firstName} {lastName}
                 </dd>
               </div>
-              {preferredName ? (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Preferred name</dt>
-                  <dd className="font-medium">{preferredName}</dd>
-                </div>
-              ) : null}
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Position</dt>
-                <dd className="font-medium">{jobTitle}</dd>
-              </div>
-              {industry ? (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Industry</dt>
-                  <dd className="font-medium">{industry}</dd>
-                </div>
-              ) : null}
-              {companySize ? (
-                <div className="flex justify-between gap-4">
-                  <dt className="text-muted-foreground">Size</dt>
-                  <dd className="font-medium">{companySize}</dd>
-                </div>
-              ) : null}
             </dl>
           </div>
         ) : null}
@@ -492,8 +516,8 @@ export function OnboardingWizard() {
           >
             {step === STEPS.length - 1
               ? completeMutation.isPending
-                ? 'Creating...'
-                : 'Create workspace'
+                ? 'Creating workspace…'
+                : 'Start free trial & create workspace'
               : 'Continue'}
           </Button>
         </div>

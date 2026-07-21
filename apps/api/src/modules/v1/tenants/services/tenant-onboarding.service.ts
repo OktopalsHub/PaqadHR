@@ -69,6 +69,9 @@ export class TenantOnboardingService {
       data.businessCountry,
     );
 
+    const planSlug = data.planSlug?.trim().toLowerCase() || 'growth';
+    const trial = await this.subscriptionsService.startTrial(pricingResult.tenant.id, planSlug);
+
     const defaults = GeoLocationHelper.getCountryDefaults(pricingResult.lockedRegion);
 
     return {
@@ -80,7 +83,11 @@ export class TenantOnboardingService {
         detectionMethod: pricingResult.detectionMethod,
         isLocked: pricingResult.tenant.pricingLocked,
       },
-      subscription: null,
+      subscription: {
+        plan: trial.plan?.slug ?? planSlug,
+        status: trial.status,
+        trialEndsAt: trial.trialEndsAt?.toISOString() ?? null,
+      },
     };
   }
 
