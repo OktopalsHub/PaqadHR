@@ -28,7 +28,7 @@ function mapAuthUser(
   return userSchema.parse({
     id: user.id,
     email: user.email,
-    name: user.email.split('@')[0],
+    name: '',
     role: user.role,
     needsOnboarding,
   });

@@ -53,7 +53,7 @@ export function SettingsProfileTab() {
   }, [profile]);
 
   const name = memberFullName(profile);
-  const initials = memberInitials(profile, user?.name);
+  const initials = memberInitials(profile);
 
   const saveProfile = async () => {
     if (!firstName.trim() || !lastName.trim()) {

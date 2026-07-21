@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/select';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { usePricingPreview } from '@/hooks/queries/use-pricing-preview';
-import { useAuth } from '@/hooks/use-auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
 import { goToTenantPath } from '@/lib/navigation/tenant-routes';
@@ -32,7 +31,7 @@ import {
   slugifyInput,
 } from '@/lib/utils/slug';
 
-const STEPS = ['Company', 'You', 'Plan'] as const;
+const STEPS = ['Company', 'You', 'Plan', 'Review'] as const;
 
 const INDUSTRIES = [
   'Technology',
@@ -46,17 +45,18 @@ const INDUSTRIES = [
 
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
 
-function splitFullName(name?: string | null) {
-  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  if (parts.length === 0) return { firstName: '', lastName: '' };
-  if (parts.length === 1) return { firstName: parts[0], lastName: '' };
-  return { firstName: parts[0], lastName: parts.slice(1).join(' ') };
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="font-medium sm:text-right">{value}</dd>
+    </div>
+  );
 }
 
 export function OnboardingWizard() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
@@ -87,13 +87,6 @@ export function OnboardingWizard() {
     setAppBaseUrl(getAppBaseUrl());
     setAppUrlSuffix(getAppUrlSuffix());
   }, []);
-
-  useEffect(() => {
-    if (!user?.name || firstName || lastName) return;
-    const parsed = splitFullName(user.name);
-    setFirstName(parsed.firstName);
-    setLastName(parsed.lastName);
-  }, [user?.name, firstName, lastName]);
 
   useEffect(() => {
     if (slugTouchedRef.current) return;
@@ -190,12 +183,16 @@ export function OnboardingWizard() {
     },
   });
 
+  const selectedPlanDetails = sortedPlans.find((plan) => plan.plan.slug === selectedPlan);
+
   const canContinue =
     step === 0
       ? canContinueStep0
       : step === 1
         ? firstName.trim().length >= 1 && lastName.trim().length >= 1 && jobTitle.trim().length >= 2
-        : Boolean(selectedPlan) && !pricingPreview.isLoading;
+        : step === 2
+          ? Boolean(selectedPlan) && !pricingPreview.isLoading
+          : true;
 
   const handleNext = () => {
     if (step < STEPS.length - 1) {
@@ -217,7 +214,7 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className={cn('mx-auto w-full', step >= 2 ? 'max-w-6xl' : 'max-w-lg')}>
       <div className="mb-10 flex items-center justify-center gap-2">
         {STEPS.map((label, index) => (
           <div key={label} className="flex items-center gap-2">
@@ -441,32 +438,32 @@ export function OnboardingWizard() {
 
         {step === 2 ? (
           <div className="space-y-6">
-            <div>
+            <div className="text-center">
               <h2 className="text-xl font-semibold tracking-tight">Choose your plan</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Start with 14 days free on any plan. No card required.
+                14 days free on any plan. No card required.
               </p>
             </div>
 
             {pricingPreview.isLoading ? (
-              <div className="flex min-h-[160px] items-center justify-center">
+              <div className="flex min-h-[200px] items-center justify-center">
                 <Loader2 className="size-6 animate-spin text-muted-foreground" />
               </div>
             ) : pricingPreview.isError || sortedPlans.length === 0 ? (
-              <p className="text-sm text-destructive">
+              <p className="text-center text-sm text-destructive">
                 {pricingPreview.error instanceof Error
                   ? pricingPreview.error.message
                   : 'Unable to load plans. Refresh and try again.'}
               </p>
             ) : (
-              <div className="grid gap-3 sm:grid-cols-1">
+              <div className="grid gap-4 md:grid-cols-3">
                 {sortedPlans.map((plan) => {
                   const isSelected = selectedPlan === plan.plan.slug;
                   return (
                     <button
                       key={plan.plan.slug}
                       type="button"
-                      className="text-left"
+                      className="h-full text-left"
                       onClick={() => setSelectedPlan(plan.plan.slug)}
                     >
                       <PlanPricingCard
@@ -477,26 +474,54 @@ export function OnboardingWizard() {
                         pricePerSeat={plan.monthlyPrice}
                         isPopular={plan.plan.slug === 'growth'}
                         variant="marketing"
-                        className={isSelected ? 'ring-2 ring-primary' : undefined}
+                        className={cn('h-full', isSelected && 'ring-2 ring-primary')}
                       />
                     </button>
                   );
                 })}
               </div>
             )}
+          </div>
+        ) : null}
 
-            <dl className="space-y-2 rounded-xl border bg-muted/20 p-4 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Workspace</dt>
-                <dd className="truncate font-medium">{slug ? formatWorkspaceUrl(slug) : '—'}</dd>
-              </div>
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Owner</dt>
-                <dd className="font-medium">
-                  {firstName} {lastName}
-                </dd>
-              </div>
+        {step === 3 ? (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight">Review and start your trial</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Confirm your workspace details. We&apos;ll create everything when you start your
+                trial.
+              </p>
+            </div>
+
+            <dl className="divide-y rounded-xl border bg-muted/20 text-sm">
+              <ReviewRow label="Workspace name" value={name.trim() || '—'} />
+              <ReviewRow
+                label="Workspace URL"
+                value={slug.trim() ? formatWorkspaceUrl(slug.trim()) : '—'}
+              />
+              <ReviewRow label="Industry" value={industry || '—'} />
+              <ReviewRow label="Team size" value={companySize ? `${companySize} employees` : '—'} />
+              <ReviewRow label="Tenant code" value={employeeCode.trim() || '—'} />
+              <ReviewRow
+                label="Owner"
+                value={[firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || '—'}
+              />
+              {preferredName.trim() ? (
+                <ReviewRow label="Preferred name" value={preferredName.trim()} />
+              ) : null}
+              <ReviewRow label="Role" value={jobTitle.trim() || '—'} />
+              <ReviewRow
+                label="Plan"
+                value={
+                  selectedPlanDetails ? `${selectedPlanDetails.plan.name} · 14-day free trial` : '—'
+                }
+              />
             </dl>
+
+            <p className="text-center text-xs text-muted-foreground">
+              Payroll and automated payouts are included on every plan during your trial.
+            </p>
           </div>
         ) : null}
 
@@ -517,7 +542,7 @@ export function OnboardingWizard() {
             {step === STEPS.length - 1
               ? completeMutation.isPending
                 ? 'Creating workspace…'
-                : 'Start free trial & create workspace'
+                : 'Start 14-day free trial'
               : 'Continue'}
           </Button>
         </div>
