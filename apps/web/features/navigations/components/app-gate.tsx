@@ -1,20 +1,25 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { loadUserTenantsWithRetry } from '@/lib/api/auth';
 import {
   captureAuthReturnTo,
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
+import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
+  const onboardingRedirectRef = useRef(false);
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { tenants, isLoading: tenantLoading, hasResolvedTenants, isError } = useTenant();
 
@@ -35,10 +40,25 @@ export function AppGate({ children }: { children: React.ReactNode }) {
 
     if (tenantLoading || !hasResolvedTenants || isError) return;
 
-    const destination = resolveAuthDestination({ isAuthenticated: true, tenants });
-    if (destination.type === 'onboarding') {
-      goToAuthDestination(destination, router.replace);
-    }
+    void (async () => {
+      let resolvedTenants = tenants;
+      if (resolvedTenants.length === 0) {
+        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 6, baseDelayMs: 200 });
+        if (resolvedTenants.length > 0) {
+          queryClient.setQueryData(queryKeys.tenants.all, resolvedTenants);
+          return;
+        }
+      }
+
+      const destination = resolveAuthDestination({
+        isAuthenticated: true,
+        tenants: resolvedTenants,
+      });
+      if (destination.type === 'onboarding' && !onboardingRedirectRef.current) {
+        onboardingRedirectRef.current = true;
+        goToAuthDestination(destination, router.replace);
+      }
+    })();
   }, [
     authLoading,
     isAuthenticated,
@@ -48,6 +68,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
     tenants,
     pathname,
     router,
+    queryClient,
   ]);
 
   if (isLoading || !hasResolvedTenants) {

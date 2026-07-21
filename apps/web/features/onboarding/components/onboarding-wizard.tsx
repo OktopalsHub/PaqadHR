@@ -2,7 +2,6 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -17,9 +16,10 @@ import {
 } from '@/components/ui/select';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { usePricingPreview } from '@/hooks/queries/use-pricing-preview';
+import { loadUserTenantsWithRetry, waitForAuthenticatedProfile } from '@/lib/api/auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
-import { goToTenantPath } from '@/lib/navigation/tenant-routes';
+import { tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantSlug } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -55,7 +55,6 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 }
 
 export function OnboardingWizard() {
-  const router = useRouter();
   const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -155,8 +154,12 @@ export function OnboardingWizard() {
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
+      await waitForAuthenticatedProfile({ attempts: 6, baseDelayMs: 150 });
+
+      const tenants = await loadUserTenantsWithRetry({ attempts: 8, baseDelayMs: 250 });
+      queryClient.setQueryData(queryKeys.tenants.all, tenants);
       await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+
       if (result.tenant?.id) {
         await queryClient.invalidateQueries({
           queryKey: queryKeys.member.profile(result.tenant.id),
@@ -168,10 +171,12 @@ export function OnboardingWizard() {
           queryKey: queryKeys.billing.overview(result.tenant.id),
         });
       }
+
       toast.success(`Workspace "${result.tenant.name}" is ready — your 14-day trial has started`);
+
       if (result.tenant.slug) {
         persistTenantSlug(result.tenant.slug);
-        goToTenantPath(result.tenant.slug, router.replace);
+        window.location.assign(tenantUrl(result.tenant.slug, '/'));
       }
     },
     onError: (error: Error) => {
@@ -510,7 +515,7 @@ export function OnboardingWizard() {
               {preferredName.trim() ? (
                 <ReviewRow label="Preferred name" value={preferredName.trim()} />
               ) : null}
-              <ReviewRow label="Role" value={jobTitle.trim() || '—'} />
+              <ReviewRow label="Job position" value={jobTitle.trim() || '—'} />
               <ReviewRow
                 label="Plan"
                 value={

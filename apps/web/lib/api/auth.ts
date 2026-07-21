@@ -109,9 +109,10 @@ export async function getSession(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
 
   try {
-    const profile = isOnTenantSubdomain()
-      ? await waitForAuthenticatedProfile({ attempts: 8, baseDelayMs: 175 })
-      : await fetchProfile();
+    const profile = await waitForAuthenticatedProfile({
+      attempts: isOnTenantSubdomain() ? 12 : 4,
+      baseDelayMs: isOnTenantSubdomain() ? 200 : 150,
+    });
     if (!profile) return null;
 
     let needsOnboarding = true;
