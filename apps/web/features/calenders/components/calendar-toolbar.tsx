@@ -41,7 +41,7 @@ export function CalendarToolbar({
         </h2>
         {canAddEvent ? (
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Click a date on the calendar to add an event
+            Click a day or time slot to add an event
           </p>
         ) : null}
       </div>

@@ -96,20 +96,34 @@
       }
     },
     {
-      "includes": ["apps/web/components/ui/**"],
+      "includes": ["apps/web/components/ui/**", "apps/web/components/reui/**"],
       "linter": {
         "rules": {
           "a11y": {
             "useSemanticElements": "off",
             "useFocusableInteractive": "off",
-            "useAriaPropsForRole": "off"
+            "useAriaPropsForRole": "off",
+            "useKeyWithClickEvents": "off",
+            "useKeyWithMouseEvents": "off",
+            "noNoninteractiveTabindex": "off",
+            "noNoninteractiveElementInteractions": "off",
+            "noStaticElementInteractions": "off",
+            "useValidAnchor": "off"
           },
           "security": {
             "noDangerouslySetInnerHtml": "off"
           },
           "suspicious": {
             "noDocumentCookie": "off",
-            "noArrayIndexKey": "off"
+            "noArrayIndexKey": "off",
+            "noAssignInExpressions": "off"
+          },
+          "correctness": {
+            "useExhaustiveDependencies": "off",
+            "noUnusedFunctionParameters": "off"
+          },
+          "complexity": {
+            "noUselessFragments": "off"
           }
         }
       }

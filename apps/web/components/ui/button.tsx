@@ -29,6 +29,7 @@ const buttonVariants = cva(
         app: 'h-10 px-6 py-2.5 text-sm font-bold has-[>svg]:px-5',
         appCta: 'h-11 px-4 text-xs font-semibold uppercase tracking-[0.1em]',
         icon: 'size-9',
+        'icon-sm': 'size-8',
       },
     },
     defaultVariants: {
