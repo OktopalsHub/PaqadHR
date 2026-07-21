@@ -21,6 +21,7 @@ export const RESERVED_ROUTE_SEGMENTS = new Set([
   'app',
   'api',
   '_next',
+  'pricing',
 ]);
 
 /** Reserved subdomain labels (tenant slugs + infra hosts). */
