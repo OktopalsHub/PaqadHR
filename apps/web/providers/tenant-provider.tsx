@@ -14,10 +14,10 @@ import { useUserTenants } from '@/hooks/queries/use-tenants';
 import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
+  goToTenantPath,
   isOnTenantSubdomain,
   isSubdomainTenantsEnabled,
   tenantOrigin,
-  tenantRoot,
 } from '@/lib/navigation/tenant-routes';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
@@ -105,7 +105,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         window.location.assign(tenantOrigin(next.slug));
         return;
       }
-      router.push(tenantRoot(next.slug));
+      goToTenantPath(next.slug, router.push);
     },
     [tenants, router, selectTenantId],
   );

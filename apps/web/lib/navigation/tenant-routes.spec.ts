@@ -5,6 +5,8 @@ import {
   isSubdomainTenantsEnabled,
   marketingOriginFromHost,
   subscribePagePath,
+  tenantPath,
+  tenantRoot,
   tenantUrl,
 } from './tenant-routes';
 
@@ -58,5 +60,11 @@ describe('tenant-routes subdomain helpers', () => {
     expect(isSubdomainTenantsEnabled()).toBe(true);
     expect(buildTenantHost('acme')).toBe('acme.paqadhr.com');
     expect(tenantUrl('acme', '/dashboard')).toBe('https://acme.paqadhr.com/dashboard');
+  });
+
+  it('uses full tenant URLs for apex navigation in subdomain mode', () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://dev.paqadhr.com';
+    expect(tenantRoot('paqad')).toBe('https://paqad.dev.paqadhr.com/');
+    expect(tenantPath('paqad', 'settings')).toBe('https://paqad.dev.paqadhr.com/settings');
   });
 });

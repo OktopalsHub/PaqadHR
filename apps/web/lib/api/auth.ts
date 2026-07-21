@@ -64,13 +64,9 @@ export async function waitForAuthenticatedProfile(options?: {
       return await fetchProfile();
     } catch (error) {
       const isLast = attempt === attempts - 1;
-      if (error instanceof ApiError && error.status === 401) {
-        if (!isLast) {
-          await sleep(baseDelayMs * (attempt + 1));
-          continue;
-        }
-        invalidateSession();
-        clearCsrfToken();
+      if (error instanceof ApiError && error.status === 401 && !isLast) {
+        await sleep(baseDelayMs * (attempt + 1));
+        continue;
       }
       return null;
     }

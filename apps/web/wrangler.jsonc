@@ -13,6 +13,7 @@
   },
   "vars": {
     "NEXT_PUBLIC_API_URL": "https://api-dev.paqadhr.com",
+    "NEXT_PUBLIC_APP_URL": "https://dev.paqadhr.com",
     "NEXT_PUBLIC_APP_DOMAIN": "paqadhr.com",
     "NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS": "true"
   },
@@ -40,6 +41,7 @@
       },
       "vars": {
         "NEXT_PUBLIC_API_URL": "https://api.paqadhr.com",
+        "NEXT_PUBLIC_APP_URL": "https://paqadhr.com",
         "NEXT_PUBLIC_APP_DOMAIN": "paqadhr.com",
         "NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS": "true"
       },

@@ -137,15 +137,43 @@ export function tenantUrl(slug: string, path = '/'): string {
 }
 
 export function tenantRoot(slug: string): string {
-  if (isSubdomainTenantsEnabled() && isOnTenantSubdomain()) return '/';
+  if (isSubdomainTenantsEnabled()) {
+    if (typeof window !== 'undefined' && isOnTenantSubdomain()) return '/';
+    return tenantUrl(slug, '/');
+  }
   return `/${slug}`;
 }
 
 export function tenantPath(slug: string, segment?: string): string {
+  if (isSubdomainTenantsEnabled() && (typeof window === 'undefined' || !isOnTenantSubdomain())) {
+    const clean = segment?.replace(/^\//, '');
+    return tenantUrl(slug, clean ? `/${clean}` : '/');
+  }
+
   const root = tenantRoot(slug);
   if (!segment) return root === '/' ? '/' : root;
   const clean = segment.replace(/^\//, '');
   return root === '/' ? `/${clean}` : `${root}/${clean}`;
+}
+
+/** Strip internal /[slug] prefix when middleware rewrites tenant subdomain routes. */
+export function tenantSubpathFromPathname(pathname: string, slug: string): string {
+  if (!isOnTenantSubdomain()) return pathname;
+  const stripped = pathname.replace(new RegExp(`^/${slug}(?=/|$)`), '') || '/';
+  return stripped.startsWith('/') ? stripped : `/${stripped}`;
+}
+
+export function goToTenantPath(
+  slug: string,
+  navigate: (href: string) => void,
+  segment?: string,
+): void {
+  const href = segment ? tenantPath(slug, segment) : tenantRoot(slug);
+  if (href.startsWith('http://') || href.startsWith('https://')) {
+    window.location.assign(href);
+    return;
+  }
+  navigate(href);
 }
 
 export function rewriteLegacyAppPath(path: string, slug: string): string {

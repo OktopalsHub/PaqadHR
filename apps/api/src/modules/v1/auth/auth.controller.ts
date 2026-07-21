@@ -229,12 +229,13 @@ export class AuthController {
   }
 
   private cookieOptions() {
-    const isLocal = process.env.NODE_ENV !== 'production';
-    const domain = !isLocal && process.env.APP_DOMAIN ? `.${process.env.APP_DOMAIN}` : undefined;
+    const appDomain = process.env.APP_DOMAIN?.trim();
+    const deployed = Boolean(appDomain && appDomain !== 'localhost');
+    const domain = deployed ? `.${appDomain}` : undefined;
     return {
       httpOnly: true,
-      secure: !isLocal,
-      sameSite: isLocal ? ('lax' as const) : ('none' as const),
+      secure: deployed,
+      sameSite: deployed ? ('none' as const) : ('lax' as const),
       path: '/',
       ...(domain ? { domain } : {}),
     };

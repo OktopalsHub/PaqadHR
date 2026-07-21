@@ -14,7 +14,7 @@ import {
   useStartTrial,
 } from '@/hooks/queries/use-billing';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
-import { subscribePageUrl, tenantPath } from '@/lib/navigation/tenant-routes';
+import { goToTenantPath, subscribePageUrl, tenantPath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 type SubscribePageProps = {
@@ -70,7 +70,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
       await refetch();
       toast.success('Your 14-day free trial has started');
       if (tenant?.slug) {
-        router.replace(tenantPath(tenant.slug));
+        goToTenantPath(tenant.slug, router.replace);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start trial');
@@ -182,7 +182,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
               size="lg"
               variant="outline"
               className="min-w-[220px]"
-              onClick={() => router.replace(tenantPath(tenant.slug))}
+              onClick={() => tenant?.slug && goToTenantPath(tenant.slug, router.replace)}
             >
               Continue to workspace
             </Button>

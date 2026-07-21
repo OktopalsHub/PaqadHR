@@ -10,7 +10,12 @@ import {
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { isSubdomainTenantsEnabled, tenantRoot, tenantUrl } from '@/lib/navigation/tenant-routes';
+import {
+  isSubdomainTenantsEnabled,
+  tenantRoot,
+  tenantSubpathFromPathname,
+  tenantUrl,
+} from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function TenantSlugGate({ children }: { children: React.ReactNode }) {
@@ -58,7 +63,9 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
       const fallback = tenant ?? tenants.find((item) => item.isActive) ?? tenants[0];
       if (fallback?.slug) {
         if (isSubdomainTenantsEnabled()) {
-          window.location.assign(tenantUrl(fallback.slug, pathname === '/' ? '/' : pathname));
+          window.location.assign(
+            tenantUrl(fallback.slug, tenantSubpathFromPathname(pathname, tenantSlug)),
+          );
           return;
         }
         const suffix = pathname.replace(`/${tenantSlug}`, '') || '';

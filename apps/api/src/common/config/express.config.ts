@@ -25,15 +25,15 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     }),
   );
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  const csrfAppDomain = process.env.APP_DOMAIN?.trim();
+  const csrfDeployed = Boolean(csrfAppDomain && csrfAppDomain !== 'localhost');
   const csrfProtection = csurf({
     cookie: {
       httpOnly: true,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: csrfDeployed ? 'none' : 'lax',
+      secure: csrfDeployed,
       maxAge: 3600000,
-      ...(process.env.NODE_ENV === 'production' && process.env.APP_DOMAIN
-        ? { domain: `.${process.env.APP_DOMAIN}` }
-        : {}),
+      ...(csrfDeployed && csrfAppDomain ? { domain: `.${csrfAppDomain}` } : {}),
     },
     ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
   });
