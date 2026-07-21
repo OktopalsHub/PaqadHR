@@ -87,7 +87,7 @@ export class NotificationService {
     channel: NotificationChannel = NotificationChannel.IN_APP,
     metadata?: Record<string, unknown>,
   ): Promise<void> {
-    const _notification = await this.createNotification({
+    await this.createNotification({
       type: NotificationType.SYSTEM,
       channel,
       title,
@@ -102,7 +102,7 @@ export class NotificationService {
     channel: NotificationChannel = NotificationChannel.IN_APP,
     metadata?: Record<string, unknown>,
   ): Promise<void> {
-    const _notification = await this.createNotification({
+    await this.createNotification({
       type: NotificationType.TENANT,
       channel,
       title,
@@ -250,7 +250,10 @@ export class NotificationService {
       this.logger.warn('Cannot send email notification without recipient');
       return;
     }
-    const recipientEmail = await this.getRecipientEmail(notification.recipientId);
+    const recipientEmail = await this.getRecipientEmail(
+      notification.recipientId,
+      notification.tenantId,
+    );
     if (!recipientEmail) {
       throw new NotFoundException('Recipient email not found');
     }
@@ -302,9 +305,14 @@ export class NotificationService {
       });
     }
   }
-  private async getRecipientEmail(recipientId: string): Promise<string | null> {
+  private async getRecipientEmail(
+    recipientId: string,
+    tenantId?: string | null,
+  ): Promise<string | null> {
+    if (!tenantId) return null;
     try {
-      return `user-${recipientId}@example.com`;
+      const member = await this.tenantMembersService.getTenantMember(recipientId, tenantId);
+      return member.user?.email ?? null;
     } catch (error) {
       this.logger.error(`Failed to get recipient for ${recipientId}:`, error);
       return null;
