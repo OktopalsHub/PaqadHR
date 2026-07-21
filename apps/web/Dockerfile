@@ -14,6 +14,8 @@ FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/apps/web/node_modules ./apps/web/node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+# Shared reserved-slug list (imported via ../../../../constants/...)
+COPY constants ./constants
 COPY apps/web ./apps/web
 WORKDIR /app/apps/web
 RUN pnpm build

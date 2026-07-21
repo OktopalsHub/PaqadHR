@@ -1,4 +1,10 @@
-import reservedTenantSlugList from '../../../../../constants/reserved-tenant-slugs.json';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+// Runtime load — static JSON import outside src/ expands TS rootDir and nests dist/.
+const reservedTenantSlugList = JSON.parse(
+  readFileSync(join(__dirname, '../../../../../constants/reserved-tenant-slugs.json'), 'utf8'),
+) as string[];
 
 const ENV_EXTRA_KEYS = ['TENANT_EXCLUDED_SUBDOMAINS', 'EXCLUDED_SUBDOMAINS'] as const;
 

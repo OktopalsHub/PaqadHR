@@ -30,6 +30,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 COPY --from=dependencies /app/node_modules /app/node_modules
 COPY --from=dependencies /app/apps/api/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./dist
+# Runtime readFileSync resolves to /app/constants from dist/common/constants/
+COPY constants /app/constants
 COPY apps/api/package.json ./
 
 RUN npm install -g pm2@latest
