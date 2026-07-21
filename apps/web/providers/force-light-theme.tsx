@@ -17,7 +17,7 @@ export function ForceLightTheme({ children, className }: ForceLightThemeProps) {
   useEffect(() => {
     previousTheme.current =
       typeof window !== 'undefined' ? (localStorage.getItem('theme') ?? 'system') : 'system';
-    setTheme('system');
+    setTheme('light');
 
     return () => {
       setTheme(previousTheme.current ?? 'system');
