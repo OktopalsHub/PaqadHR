@@ -311,3 +311,10 @@ export class NotificationService {
     }
   }
 }
+
+
+
+
+
+      const member = await this.tenantMembersService.findOne(recipientId);
+      return member?.email ?? null;
