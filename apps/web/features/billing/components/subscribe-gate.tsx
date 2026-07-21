@@ -15,7 +15,7 @@ export function SubscribeGate({ children }: { children: React.ReactNode }) {
   const {
     tenants,
     tenant,
-    setTenantId,
+    selectTenantId,
     isLoading: tenantLoading,
     hasResolvedTenants,
   } = useTenant();
@@ -41,9 +41,9 @@ export function SubscribeGate({ children }: { children: React.ReactNode }) {
     if (!workspaceSlug || !tenants.length) return;
     const match = tenants.find((item) => item.slug === workspaceSlug);
     if (match && match.id !== tenant?.id) {
-      setTenantId(match.id);
+      selectTenantId(match.id);
     }
-  }, [workspaceSlug, tenants, tenant?.id, setTenantId]);
+  }, [workspaceSlug, tenants, tenant?.id, selectTenantId]);
 
   if (isLoading || !hasResolvedTenants) {
     return (

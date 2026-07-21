@@ -1,12 +1,6 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
-const RAW_API_BASE = resolveApiBaseUrl(
-  typeof window !== 'undefined' ? { requestHost: window.location.hostname } : undefined,
-);
-
-const API_V1_BASE = normalizeApiV1Base(RAW_API_BASE);
-
 const CSRF_HEADER = 'x-csrf-token';
 
 let csrfToken: string | null = null;
@@ -14,6 +8,14 @@ let csrfTokenPromise: Promise<string> | null = null;
 
 const LEGACY_ACCESS_TOKEN_KEY = 'paqad_access_token';
 const LEGACY_REFRESH_TOKEN_KEY = 'paqad_refresh_token';
+
+function resolveApiV1Base(): string {
+  return normalizeApiV1Base(
+    resolveApiBaseUrl(
+      typeof window !== 'undefined' ? { requestHost: window.location.hostname } : undefined,
+    ),
+  );
+}
 
 /** Clears legacy localStorage JWT keys from before cookie-only auth. */
 export function clearLegacyAuthTokens(): void {
@@ -54,11 +56,11 @@ export class ApiError extends Error {
 }
 
 export function getApiV1Base() {
-  return API_V1_BASE;
+  return resolveApiV1Base();
 }
 
 export function getApiOrigin() {
-  return API_V1_BASE.replace(/\/api\/v1$/, '');
+  return getApiV1Base().replace(/\/api\/v1$/, '');
 }
 
 export function tenantPath(tenantId: string, path = '') {
@@ -182,7 +184,7 @@ export async function apiClient<T>(
     headers.set('x-tenant-id', tenantMatch[1]);
   }
 
-  const response = await fetchWithCsrf(`${API_V1_BASE}${path}`, {
+  const response = await fetchWithCsrf(`${resolveApiV1Base()}${path}`, {
     ...init,
     headers,
   }).catch((error: unknown) => {

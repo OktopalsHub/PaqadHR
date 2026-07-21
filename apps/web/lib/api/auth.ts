@@ -1,6 +1,7 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
+import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
 import type { Tenant } from '@/lib/schemas/tenant';
@@ -112,7 +113,11 @@ export async function getSession(): Promise<User | null> {
   if (typeof window === 'undefined') return null;
 
   try {
-    const profile = await fetchProfile();
+    const profile = isOnTenantSubdomain()
+      ? await waitForAuthenticatedProfile({ attempts: 8, baseDelayMs: 175 })
+      : await fetchProfile();
+    if (!profile) return null;
+
     let needsOnboarding = true;
     try {
       needsOnboarding = await syncTenantFromApi();

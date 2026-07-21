@@ -8,17 +8,19 @@ import { ToastMessage } from '@/components/toast-message';
 import {
   clearSession,
   getSession,
+  loadUserTenantsWithRetry,
   login as loginRequest,
   logoutRequest,
   register as registerRequest,
+  waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
 import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
-import { fetchUserTenants } from '@/lib/api/tenants';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import {
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
+import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 
@@ -48,17 +50,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: queryKeys.auth.session,
     queryFn: getSession,
     staleTime: Infinity,
+    retry: 1,
     enabled: sessionBootstrapEnabled,
   });
 
   const navigateAfterAuth = useCallback(async () => {
+    await waitForAuthenticatedProfile({ attempts: 6, baseDelayMs: 150 });
+
     await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
 
-    const tenants = await queryClient.fetchQuery({
-      queryKey: queryKeys.tenants.all,
-      queryFn: fetchUserTenants,
-    });
-
+    const tenants = await loadUserTenantsWithRetry({ attempts: 5, baseDelayMs: 200 });
     queryClient.setQueryData(queryKeys.tenants.all, tenants);
 
     const redirect = readRedirectParam();
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       tenants,
       redirect,
     });
+
     goToAuthDestination(destination, router.push);
   }, [queryClient, router]);
 
@@ -108,9 +110,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
     });
-    router.push('/signin');
+    window.location.assign(authPageUrl('/signin'));
     toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
-  }, [queryClient, router]);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextType>(
     () => ({

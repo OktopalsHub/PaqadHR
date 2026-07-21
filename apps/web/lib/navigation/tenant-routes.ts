@@ -176,6 +176,25 @@ function resolveTenantSubpath(slug: string, redirect: string): string {
   return redirect;
 }
 
+function isAllowedAuthRedirect(redirect: string): boolean {
+  if (redirect.startsWith('/')) return true;
+  try {
+    const parsed = new URL(redirect);
+    const appDomain = getAppDomain();
+    const host = parsed.hostname.toLowerCase();
+    if (host === appDomain || host === `www.${appDomain}` || host === `dev.${appDomain}`) {
+      return true;
+    }
+    if (host.endsWith(`.dev.${appDomain}`) || host.endsWith(`.${appDomain}`)) {
+      return true;
+    }
+    if (host.endsWith('.localhost') || host === 'localhost') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function getPostAuthPath(tenants: Tenant[], redirect?: string | null): string {
   if (tenants.length === 0) return '/onboarding';
 
@@ -194,7 +213,7 @@ export function getPostAuthPath(tenants: Tenant[], redirect?: string | null): st
       return rewriteLegacyAppPath(redirect, tenant.slug);
     }
     if (redirect.startsWith('http://') || redirect.startsWith('https://')) {
-      return redirect;
+      return isAllowedAuthRedirect(redirect) ? redirect : tenantUrl(tenant.slug, '/');
     }
     if (isSubdomainTenantsEnabled() && redirect.startsWith('/')) {
       return tenantUrl(tenant.slug, redirect);

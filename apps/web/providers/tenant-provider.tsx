@@ -14,6 +14,7 @@ import { useUserTenants } from '@/hooks/queries/use-tenants';
 import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
+  isOnTenantSubdomain,
   isSubdomainTenantsEnabled,
   tenantOrigin,
   tenantRoot,
@@ -26,6 +27,7 @@ interface TenantContextValue {
   tenants: Tenant[];
   tenant: Tenant | null;
   tenantId: string | null;
+  selectTenantId: (tenantId: string) => void;
   setTenantId: (tenantId: string) => void;
   isLoading: boolean;
   hasResolvedTenants: boolean;
@@ -67,6 +69,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     const match = tenants.find((item) => item.slug === slug);
     if (match && match.id !== selectedId) {
       setSelectedId(match.id);
+      persistTenantId(match.id);
+      if (match.slug) persistTenantSlug(match.slug);
     }
   }, [tenants, pathname, selectedId]);
 
@@ -76,21 +80,34 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (tenant.slug) persistTenantSlug(tenant.slug);
   }, [tenant]);
 
-  const setTenantId = useCallback(
+  const selectTenantId = useCallback(
     (tenantId: string) => {
       const next = tenants.find((item) => item.id === tenantId);
       persistTenantId(tenantId);
       setSelectedId(tenantId);
-      if (next?.slug) {
-        persistTenantSlug(next.slug);
-        if (isSubdomainTenantsEnabled()) {
-          window.location.assign(tenantOrigin(next.slug));
-          return;
-        }
-        router.push(tenantRoot(next.slug));
-      }
+      if (next?.slug) persistTenantSlug(next.slug);
     },
-    [tenants, router],
+    [tenants],
+  );
+
+  const setTenantId = useCallback(
+    (tenantId: string) => {
+      const next = tenants.find((item) => item.id === tenantId);
+      selectTenantId(tenantId);
+      if (!next?.slug) return;
+
+      const onSubdomain = isOnTenantSubdomain();
+      const hostSlug =
+        typeof window !== 'undefined' ? getTenantSlugFromHost(window.location.host) : null;
+      if (onSubdomain && hostSlug === next.slug) return;
+
+      if (isSubdomainTenantsEnabled()) {
+        window.location.assign(tenantOrigin(next.slug));
+        return;
+      }
+      router.push(tenantRoot(next.slug));
+    },
+    [tenants, router, selectTenantId],
   );
 
   const value = useMemo<TenantContextValue>(
@@ -98,12 +115,13 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       tenants,
       tenant,
       tenantId: tenant?.id ?? null,
+      selectTenantId,
       setTenantId,
       isLoading,
       hasResolvedTenants,
       isError,
     }),
-    [tenants, tenant, setTenantId, isLoading, hasResolvedTenants, isError],
+    [tenants, tenant, selectTenantId, setTenantId, isLoading, hasResolvedTenants, isError],
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
