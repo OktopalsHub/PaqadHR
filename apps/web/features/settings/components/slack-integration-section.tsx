@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { SlackIcon } from '@/components/icons/slack-icon';
@@ -35,7 +35,6 @@ const slackDisconnectButtonClass =
 
 export function SlackIntegrationSection() {
   const { tenant } = useTenant();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const role = tenant?.member?.role?.toLowerCase();
@@ -73,9 +72,9 @@ export function SlackIntegrationSection() {
       params.delete('slack_setup');
       params.delete('integration_id');
       const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
     }
-  }, [shouldAutoOpen, integrationId, pathname, router, searchParams]);
+  }, [shouldAutoOpen, integrationId, pathname, searchParams]);
 
   useEffect(() => {
     if (status?.integrationId && !status.configured) {

@@ -1,6 +1,5 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
@@ -20,7 +19,7 @@ import {
   isSettingsTab,
   type SettingsTab,
 } from '@/features/settings/lib/settings-tabs';
-import { buildTabUrl } from '@/lib/navigation/tab-query';
+import { useUrlTab } from '@/hooks/use-url-tab';
 import { useTenant } from '@/providers/tenant-provider';
 
 const TAB_LABELS: Record<SettingsTab, string> = {
@@ -36,27 +35,24 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   integrations: 'Integrations',
 };
 
-function SettingsPageContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+const TAB_PANEL_CLASS = 'mt-0 data-[state=inactive]:hidden';
+
+function TabPanelFallback() {
+  return <LoadingBlock />;
+}
+
+export function SettingsPage() {
   const { tenant } = useTenant();
+  const [activeTab, setTab] = useUrlTab(isSettingsTab, 'profile');
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
 
-  const tabParam = searchParams.get('tab');
-  const activeTab: SettingsTab = isSettingsTab(tabParam) ? tabParam : 'profile';
-
   useEffect(() => {
     if (!isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab)) {
-      router.replace(buildTabUrl(pathname, searchParams, 'profile'));
+      setTab('profile');
     }
-  }, [activeTab, isAdmin, pathname, router, searchParams]);
-
-  const setTab = (tab: SettingsTab) => {
-    router.replace(buildTabUrl(pathname, searchParams, tab), { scroll: false });
-  };
+  }, [activeTab, isAdmin, setTab]);
 
   const visibleTab = !isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab) ? 'profile' : activeTab;
   const tabOrder: SettingsTab[] = isAdmin
@@ -105,69 +101,61 @@ function SettingsPageContent() {
           </TabsList>
         </div>
 
-        <TabsContent value="profile" className="mt-0">
+        <TabsContent value="profile" forceMount className={TAB_PANEL_CLASS}>
           <SettingsProfileTab />
         </TabsContent>
         {isAdmin ? (
-          <TabsContent value="workspace" className="mt-0">
+          <TabsContent value="workspace" forceMount className={TAB_PANEL_CLASS}>
             <SettingsWorkspaceTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="leave" className="mt-0">
+          <TabsContent value="leave" forceMount className={TAB_PANEL_CLASS}>
             <SettingsLeaveTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="shoutouts" className="mt-0">
+          <TabsContent value="shoutouts" forceMount className={TAB_PANEL_CLASS}>
             <SettingsShoutoutsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="rewards" className="mt-0">
-            <SettingsRewardsTab />
+          <TabsContent value="rewards" forceMount className={TAB_PANEL_CLASS}>
+            <Suspense fallback={<TabPanelFallback />}>
+              <SettingsRewardsTab />
+            </Suspense>
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="holidays" className="mt-0">
+          <TabsContent value="holidays" forceMount className={TAB_PANEL_CLASS}>
             <SettingsHolidaysTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="notifications" className="mt-0">
+          <TabsContent value="notifications" forceMount className={TAB_PANEL_CLASS}>
             <SettingsNotificationsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="attendance" className="mt-0">
+          <TabsContent value="attendance" forceMount className={TAB_PANEL_CLASS}>
             <SettingsAttendanceTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="billing" className="mt-0">
-            <SettingsBillingTab />
+          <TabsContent value="billing" forceMount className={TAB_PANEL_CLASS}>
+            <Suspense fallback={<TabPanelFallback />}>
+              <SettingsBillingTab />
+            </Suspense>
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="integrations" className="mt-0">
-            <SettingsIntegrationsTab />
+          <TabsContent value="integrations" forceMount className={TAB_PANEL_CLASS}>
+            <Suspense fallback={<TabPanelFallback />}>
+              <SettingsIntegrationsTab />
+            </Suspense>
           </TabsContent>
         ) : null}
       </Tabs>
     </AppPage>
-  );
-}
-
-export function SettingsPage() {
-  return (
-    <Suspense
-      fallback={
-        <AppPage>
-          <LoadingBlock />
-        </AppPage>
-      }
-    >
-      <SettingsPageContent />
-    </Suspense>
   );
 }

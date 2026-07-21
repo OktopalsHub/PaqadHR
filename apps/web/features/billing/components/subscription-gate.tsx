@@ -13,6 +13,7 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   const shouldBlockPayment =
     billing?.featureGatingEnabled && billing.needsPayment && billing.paymentsEnabled;
 
+  // Unpaid workspaces are sent to /subscribe before any private route (including settings) renders.
   useEffect(() => {
     if (isLoading || !tenant?.slug) return;
     if (shouldBlockPayment) {

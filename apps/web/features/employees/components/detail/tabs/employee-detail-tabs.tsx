@@ -1,8 +1,7 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { buildTabUrl } from '@/lib/navigation/tab-query';
+import { useUrlTab } from '@/hooks/use-url-tab';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { type EmployeeDetailTab, isEmployeeDetailTab } from '../../../lib/employee-detail-tabs';
 import { DocumentsTab } from './documents-tab';
@@ -26,17 +25,8 @@ export function EmployeeDetailTabs({
   isAdmin = false,
   canEdit = false,
 }: EmployeeDetailTabsProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const [activeTab, setTab] = useUrlTab(isEmployeeDetailTab, 'personal');
   const isSelf = viewerMemberId === memberId;
-
-  const tabParam = searchParams.get('tab');
-  const activeTab: EmployeeDetailTab = isEmployeeDetailTab(tabParam) ? tabParam : 'personal';
-
-  const setTab = (tab: EmployeeDetailTab) => {
-    router.replace(buildTabUrl(pathname, searchParams, tab), { scroll: false });
-  };
 
   return (
     <div className="md:w-2/3">
