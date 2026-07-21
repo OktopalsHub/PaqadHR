@@ -190,6 +190,9 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
       case 'paid':
       case 'succeeded':
         return SubscriptionStatus.ACTIVE;
+      case 'trialing':
+      case 'trial':
+        return SubscriptionStatus.TRIAL;
       case 'cancelled':
       case 'canceled':
         return SubscriptionStatus.CANCELLED;
@@ -231,6 +234,30 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as { detail?: string };
       throw new BadRequestException(payload.detail ?? 'Polar subscription cancellation failed');
+    }
+  }
+
+  async resumeExternalSubscription(externalSubscriptionId: string): Promise<void> {
+    const token = getPolarAccessToken();
+    if (!token) {
+      throw new BadRequestException('Polar is not configured');
+    }
+
+    const response = await fetch(
+      `https://api.polar.sh/v1/subscriptions/${encodeURIComponent(externalSubscriptionId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ cancel_at_period_end: false }),
+      },
+    );
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as { detail?: string };
+      throw new BadRequestException(payload.detail ?? 'Polar subscription resume failed');
     }
   }
 }

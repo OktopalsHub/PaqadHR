@@ -10,10 +10,7 @@ import {
   waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
-import {
-  goToAuthDestination,
-  resolveAuthDestination,
-} from '@/lib/navigation/resolve-auth-destination';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 import { ForceLightTheme } from '@/providers/force-light-theme';
@@ -49,11 +46,8 @@ export default function GoogleCompletePage() {
         if (active.slug) persistTenantSlug(active.slug);
       }
 
-      const destination = resolveAuthDestination({
-        isAuthenticated: true,
-        tenants,
-      });
-      goToAuthDestination(destination, router.replace);
+      const href = await resolvePostAuthHref({ tenants });
+      goToHref(href, router.replace);
     })();
   }, [queryClient, router]);
 

@@ -78,6 +78,9 @@ export const billingOverviewSchema = billingStatusSchema.extend({
   dunningNextRetryAt: z.string().nullable().optional(),
   lastPaymentFailureReason: z.string().nullable().optional(),
   lastPaymentFailureCode: z.string().nullable().optional(),
+  billingProvider: z.enum(['nomba', 'bachs', 'polar']).optional(),
+  supportsPause: z.boolean().optional(),
+  supportsCardUpdate: z.boolean().optional(),
 });
 
 export const checkoutResponseSchema = z.object({

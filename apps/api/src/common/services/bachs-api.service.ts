@@ -109,6 +109,17 @@ export class BachsApiService {
     });
   }
 
+  /**
+   * Best-effort undo of a scheduled period-end cancel.
+   * Bachs docs emphasize cancel; if the API rejects this PATCH, callers surface the error.
+   */
+  async resumeSubscription(subscriptionId: string): Promise<Record<string, unknown>> {
+    return this.request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      method: 'PATCH',
+      body: { cancel_at_period_end: false },
+    });
+  }
+
   private async request<T>(
     path: string,
     options?: { method?: string; body?: unknown },

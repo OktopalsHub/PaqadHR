@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FeatureAccessGuard } from '../../../common/guards/feature-access.guard';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PlanPrice } from '../plans/entities/plan-price.entity';
 import { PlansModule } from '../plans/plans.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -21,6 +22,7 @@ import { BachsSubscriptionProvider } from './providers/bachs-subscription.provid
 import { NombaSubscriptionProvider } from './providers/nomba-subscription.provider';
 import { PolarSubscriptionProvider } from './providers/polar-subscription.provider';
 import { BillingCronService } from './services/billing-cron.service';
+import { BillingProductSyncService } from './services/billing-product-sync.service';
 import { BillingProviderFactoryService } from './services/billing-provider-factory.service';
 import { NombaApiService } from './services/nomba-api.service';
 import { SubscriptionBillingService } from './services/subscription-billing.service';
@@ -28,7 +30,14 @@ import { SubscriptionsService } from './services/subscriptions.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TenantSubscription, Tenant, User, TenantMember, BillingEvent]),
+    TypeOrmModule.forFeature([
+      TenantSubscription,
+      Tenant,
+      User,
+      TenantMember,
+      BillingEvent,
+      PlanPrice,
+    ]),
     PaymentsModule,
     PlansModule,
     NotificationsModule,
@@ -45,6 +54,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
     SubscriptionsService,
     SubscriptionBillingService,
     BillingCronService,
+    BillingProductSyncService,
     SubscriptionBillingListener,
     NombaApiService,
     NombaSubscriptionProvider,
@@ -57,6 +67,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
   exports: [
     SubscriptionsService,
     SubscriptionBillingService,
+    BillingProductSyncService,
     NombaSubscriptionProvider,
     BachsSubscriptionProvider,
     PolarSubscriptionProvider,

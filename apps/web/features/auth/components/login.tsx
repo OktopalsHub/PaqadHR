@@ -20,10 +20,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
-import {
-  goToAuthDestination,
-  resolveAuthDestination,
-} from '@/lib/navigation/resolve-auth-destination';
+import { resolveAuthDestination } from '@/lib/navigation/resolve-auth-destination';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { type LoginInput, loginSchema } from '@/lib/schemas/auth';
 import { useTenant } from '@/providers/tenant-provider';
 import { SocialAuthButtons } from './buttons/social-auth-buttons';
@@ -62,10 +60,10 @@ export const Login = () => {
     if (!isAuthenticated || !hasResolvedTenants || tenantLoading || authLoading) return;
 
     const redirect = new URLSearchParams(window.location.search).get('redirect');
-    const destination = resolveAuthDestination({ isAuthenticated, tenants, redirect });
-    if (destination.type !== 'signin') {
-      goToAuthDestination(destination, router.replace);
-    }
+    void (async () => {
+      const href = await resolvePostAuthHref({ tenants, redirect });
+      goToHref(href, router.replace);
+    })();
   }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router]);
 
   const form = useForm<LoginInput>({

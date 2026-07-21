@@ -27,7 +27,8 @@
     "migration:generate": "typeorm migration:generate -d dist/common/database/config/data-source.js",
     "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts",
     "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
-    "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts"
+    "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts",
+    "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",

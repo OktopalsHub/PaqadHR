@@ -14,7 +14,16 @@ import {
   isSubdomainTenantsEnabled,
   tenantFrontendUrl,
 } from 'src/common/utils/tenant-frontend-url.util';
-import { Brackets, DataSource, LessThan, Repository } from 'typeorm';
+import {
+  Brackets,
+  DataSource,
+  In,
+  IsNull,
+  LessThan,
+  LessThanOrEqual,
+  Not,
+  Repository,
+} from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { PlansService } from '../../plans/services/plans.service';
@@ -343,6 +352,9 @@ export class SubscriptionBillingService {
       needsPayment,
       billingContact: tenantSettings?.settings.billing ?? {},
       ownerEmail: tenant.createdBy?.email ?? null,
+      billingProvider: subscription?.billingProvider ?? this.providerForCountry(countryCode),
+      supportsPause: !subscription || !isManagedSubscriptionProvider(subscription.billingProvider),
+      supportsCardUpdate: !subscription || subscription.billingProvider === BillingProvider.NOMBA,
     };
   }
 
@@ -538,6 +550,11 @@ export class SubscriptionBillingService {
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
+    if (isManagedSubscriptionProvider(subscription.billingProvider)) {
+      throw new BadRequestException(
+        'Pause is not supported for Polar/Bachs subscriptions. Cancel at period end instead.',
+      );
+    }
     if (
       subscription.status !== SubscriptionStatus.ACTIVE &&
       subscription.status !== SubscriptionStatus.PAST_DUE
@@ -559,11 +576,22 @@ export class SubscriptionBillingService {
     if (subscription.status !== SubscriptionStatus.PAUSED && !subscription.cancelAtPeriodEnd) {
       throw new BadRequestException('Subscription is not paused or scheduled for cancellation');
     }
-    if (!subscription.paymentMethodId) {
+    if (!subscription.paymentMethodId && !subscription.externalSubscriptionId) {
       throw new BadRequestException('Add a payment method before resuming');
     }
     if (new Date() >= subscription.currentPeriodEnd) {
       throw new BadRequestException('Subscription period has ended');
+    }
+
+    if (
+      subscription.cancelAtPeriodEnd &&
+      isManagedSubscriptionProvider(subscription.billingProvider) &&
+      subscription.externalSubscriptionId
+    ) {
+      await this.billingProviderFactory.resumeExternalSubscription(
+        subscription.billingProvider,
+        subscription.externalSubscriptionId,
+      );
     }
 
     subscription.status = SubscriptionStatus.ACTIVE;
@@ -879,6 +907,125 @@ export class SubscriptionBillingService {
       });
       return 'failed';
     }
+  }
+
+  /** Pull remote Polar/Bachs state for subscriptions not updated in 24h. */
+  async reconcileStaleManagedSubscriptions(): Promise<{ synced: number; failed: number }> {
+    const staleDate = new Date();
+    staleDate.setHours(staleDate.getHours() - 24);
+
+    const stale = await this.subscriptionRepository.find({
+      where: {
+        billingProvider: In([BillingProvider.POLAR, BillingProvider.BACHS]),
+        externalSubscriptionId: Not(IsNull()),
+        status: In([
+          SubscriptionStatus.ACTIVE,
+          SubscriptionStatus.TRIAL,
+          SubscriptionStatus.PAST_DUE,
+        ]),
+        updatedAt: LessThan(staleDate),
+      },
+    });
+
+    let synced = 0;
+    let failed = 0;
+
+    for (const subscription of stale) {
+      try {
+        await this.syncExternalSubscription(subscription);
+        synced += 1;
+      } catch (error) {
+        failed += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Failed to sync ${subscription.billingProvider} subscription ${subscription.id}: ${message}`,
+        );
+      }
+    }
+
+    return { synced, failed };
+  }
+
+  /**
+   * Bachs renewals are webhook-only. After a 3-day grace past nextBillingDate with no
+   * renewal, mark PAST_DUE so entitlements stop instead of staying ACTIVE forever.
+   */
+  async lapseStaleBachsSubscriptions(): Promise<{ lapsed: number }> {
+    const graceMs = 3 * 24 * 60 * 60 * 1000;
+    const cutoff = new Date(Date.now() - graceMs);
+
+    const stale = await this.subscriptionRepository.find({
+      where: {
+        billingProvider: BillingProvider.BACHS,
+        status: SubscriptionStatus.ACTIVE,
+        externalSubscriptionId: Not(IsNull()),
+        nextBillingDate: LessThanOrEqual(cutoff),
+      },
+    });
+
+    for (const subscription of stale) {
+      subscription.status = SubscriptionStatus.PAST_DUE;
+      await this.subscriptionRepository.save(subscription);
+      this.logger.warn(
+        `Lapsed stale Bachs subscription ${subscription.id} for tenant ${subscription.tenantId}`,
+      );
+    }
+
+    return { lapsed: stale.length };
+  }
+
+  async syncExternalSubscription(subscription: TenantSubscription): Promise<TenantSubscription> {
+    if (
+      !isManagedSubscriptionProvider(subscription.billingProvider) ||
+      !subscription.externalSubscriptionId
+    ) {
+      return subscription;
+    }
+
+    const provider = this.billingProviderFactory.getProviderByEnum(subscription.billingProvider);
+    const remote = (await provider.getSubscription(subscription.externalSubscriptionId)) as Record<
+      string,
+      unknown
+    >;
+
+    const remoteStatus = String(remote.status ?? '').toLowerCase();
+    if (remoteStatus) {
+      subscription.status = provider.mapStatus(remoteStatus);
+    }
+
+    const cancelAtPeriodEnd = remote.cancel_at_period_end;
+    if (typeof cancelAtPeriodEnd === 'boolean') {
+      subscription.cancelAtPeriodEnd = cancelAtPeriodEnd;
+    }
+
+    const periodEnd = this.parseRemoteDate(
+      remote.current_period_end ?? remote.currentPeriodEnd ?? remote.ends_at,
+    );
+    if (periodEnd) {
+      subscription.currentPeriodEnd = periodEnd;
+    }
+
+    const nextBilling = this.parseRemoteDate(
+      remote.next_billed_at ?? remote.nextBillingDate ?? remote.current_period_end,
+    );
+    if (nextBilling) {
+      subscription.nextBillingDate = nextBilling;
+    }
+
+    if (remoteStatus === 'canceled' || remoteStatus === 'cancelled' || remoteStatus === 'revoked') {
+      subscription.status = SubscriptionStatus.CANCELLED;
+      subscription.cancelAtPeriodEnd = false;
+      subscription.cancelledAt = subscription.cancelledAt ?? new Date();
+    }
+
+    return this.subscriptionRepository.save(subscription);
+  }
+
+  private parseRemoteDate(value: unknown): Date | null {
+    if (!value) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+    const parsed = new Date(String(value));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private async finalizeScheduledCancellations(now: Date): Promise<void> {

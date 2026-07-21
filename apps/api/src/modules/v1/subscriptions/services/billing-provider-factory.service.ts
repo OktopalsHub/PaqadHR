@@ -64,4 +64,17 @@ export class BillingProviderFactoryService {
       atPeriodEnd,
     });
   }
+
+  async resumeExternalSubscription(
+    provider: BillingProvider,
+    externalSubscriptionId: string,
+  ): Promise<void> {
+    const billingProvider = this.getProviderByEnum(provider);
+    if (!billingProvider.resumeExternalSubscription) {
+      throw new BadRequestException(
+        `Undo cancellation is not supported for ${provider} subscriptions`,
+      );
+    }
+    await billingProvider.resumeExternalSubscription(externalSubscriptionId);
+  }
 }

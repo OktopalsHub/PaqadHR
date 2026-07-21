@@ -16,10 +16,7 @@ import {
 } from '@/lib/api/auth';
 import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
-import {
-  goToAuthDestination,
-  resolveAuthDestination,
-} from '@/lib/navigation/resolve-auth-destination';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
@@ -63,13 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.setQueryData(queryKeys.tenants.all, tenants);
 
     const redirect = readRedirectParam();
-    const destination = resolveAuthDestination({
-      isAuthenticated: true,
-      tenants,
-      redirect,
-    });
-
-    goToAuthDestination(destination, router.push);
+    const href = await resolvePostAuthHref({ tenants, redirect });
+    goToHref(href, router.push);
   }, [queryClient, router]);
 
   const loginMutation = useMutation({

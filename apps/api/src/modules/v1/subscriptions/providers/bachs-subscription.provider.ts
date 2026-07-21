@@ -174,6 +174,18 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
     await this.bachsApi.cancelSubscription(externalSubscriptionId, options?.atPeriodEnd ?? false);
   }
 
+  async resumeExternalSubscription(externalSubscriptionId: string): Promise<void> {
+    try {
+      await this.bachsApi.resumeSubscription(externalSubscriptionId);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException(
+        message ||
+          'Unable to undo Bachs cancellation. Re-subscribe before the period ends if needed.',
+      );
+    }
+  }
+
   private parsePaymentEvent(
     body: BachsWebhookPayload,
     outcome: 'success' | 'failed',

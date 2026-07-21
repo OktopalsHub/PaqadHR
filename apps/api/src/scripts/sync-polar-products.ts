@@ -4,45 +4,12 @@
  * Usage: POLAR_ACCESS_TOKEN=pat_... pnpm --filter api sync:polar-products
  */
 import { Logger } from '@nestjs/common';
-import { getPolarAccessToken } from '../common/config/polar.config';
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from '../app.module';
 import dataSource from '../common/database/config/data-source';
-import { PlanPrice } from '../modules/v1/plans/entities/plan-price.entity';
+import { BillingProductSyncService } from '../modules/v1/subscriptions/services/billing-product-sync.service';
 
 const logger = new Logger('SyncPolarProducts');
-const POLAR_API = 'https://api.polar.sh/v1';
-
-type PolarProduct = {
-  id: string;
-  name?: string;
-  metadata?: Record<string, string>;
-};
-
-async function polarRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getPolarAccessToken();
-  if (!token) {
-    throw new Error('POLAR_ACCESS_TOKEN is not set');
-  }
-
-  const response = await fetch(`${POLAR_API}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
-  });
-
-  const payload = (await response.json().catch(() => ({}))) as T & { detail?: string };
-  if (!response.ok) {
-    throw new Error(payload.detail ?? `Polar API error (${response.status})`);
-  }
-  return payload;
-}
-
-async function listPaqadPolarProducts(): Promise<PolarProduct[]> {
-  const payload = await polarRequest<{ items?: PolarProduct[] }>('/products/?limit=100');
-  return (payload.items ?? []).filter((item) => item.metadata?.paqad === 'true');
-}
 
 async function syncProducts(): Promise<void> {
   dataSource.setOptions({ migrationsRun: false });
@@ -50,76 +17,19 @@ async function syncProducts(): Promise<void> {
     await dataSource.initialize();
   }
 
-  const priceRepo = dataSource.getRepository(PlanPrice);
-  const planPrices = await priceRepo.find({
-    where: { countryCode: 'GLOBAL', currency: 'USD', isActive: true },
-    relations: ['plan'],
-    order: { plan: { sortOrder: 'ASC' } },
+  const app = await NestFactory.createApplicationContext(AppModule, {
+    logger: ['error', 'warn', 'log'],
   });
 
-  const existing = await listPaqadPolarProducts();
-  let updated = 0;
-
-  for (const planPrice of planPrices) {
-    const slug = planPrice.plan?.slug;
-    if (!slug) continue;
-
-    const amountMinor = Math.round(
-      (planPrice.regionalConfig?.pricePerUser ?? Number(planPrice.monthlyPrice)) * 100,
-    );
-    const name = `PaqadHR ${planPrice.plan?.name ?? slug}`;
-
-    const match = existing.find((item) => item.metadata?.plan_slug === slug);
-
-    let productId = match?.id;
-
-    if (!productId) {
-      const created = await polarRequest<PolarProduct>('/products/', {
-        method: 'POST',
-        body: JSON.stringify({
-          name,
-          description: `PaqadHR ${slug} plan — per seat / month`,
-          visibility: 'private',
-          recurring_interval: 'month',
-          recurring_interval_count: 1,
-          metadata: {
-            paqad: 'true',
-            plan_slug: slug,
-          },
-          prices: [
-            {
-              amount_type: 'seat_based',
-              price_currency: 'usd',
-              seat_tiers: {
-                tiers: [
-                  {
-                    min_seats: 1,
-                    price_per_seat: amountMinor,
-                  },
-                ],
-              },
-            },
-          ],
-        }),
-      });
-      productId = created.id;
-      logger.log(`Created ${slug}: ${productId}`);
-    } else {
-      logger.log(`Found ${slug}: ${productId}`);
+  try {
+    const sync = app.get(BillingProductSyncService);
+    const { updated } = await sync.syncPolarProducts();
+    logger.log(`Done. ${updated} plan price row(s) updated.`);
+  } finally {
+    await app.close();
+    if (dataSource.isInitialized) {
+      await dataSource.destroy();
     }
-
-    if (planPrice.polarProductId !== productId) {
-      planPrice.polarProductId = productId;
-      await priceRepo.save(planPrice);
-      updated += 1;
-      logger.log(`Updated plan_prices ${planPrice.id} → polar_product_id=${productId}`);
-    }
-  }
-
-  logger.log(`Done. ${updated} plan price row(s) updated.`);
-
-  if (dataSource.isInitialized) {
-    await dataSource.destroy();
   }
 }
 

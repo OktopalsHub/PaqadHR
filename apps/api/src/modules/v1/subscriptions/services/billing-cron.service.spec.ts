@@ -1,4 +1,5 @@
 import { BillingCronService } from './billing-cron.service';
+import type { BillingProductSyncService } from './billing-product-sync.service';
 import type { SubscriptionBillingService } from './subscription-billing.service';
 
 describe('BillingCronService', () => {
@@ -9,11 +10,16 @@ describe('BillingCronService', () => {
   const createService = () => {
     const billingService = {
       processDueRenewals: jest.fn(),
+      reconcileStaleManagedSubscriptions: jest.fn(),
+      lapseStaleBachsSubscriptions: jest.fn(),
     } as unknown as SubscriptionBillingService;
+    const productSync = {
+      healMissingProductIds: jest.fn(),
+    } as unknown as BillingProductSyncService;
 
-    const cronService = new BillingCronService(billingService);
+    const cronService = new BillingCronService(billingService, productSync);
 
-    return { cronService, billingService };
+    return { cronService, billingService, productSync };
   };
 
   afterEach(() => {
@@ -50,5 +56,50 @@ describe('BillingCronService', () => {
     await cronService.processSubscriptionRenewals();
 
     expect(billingService.processDueRenewals).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconciles stale managed subscriptions when billing is configured', async () => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+
+    const { cronService, billingService } = createService();
+    (billingService.reconcileStaleManagedSubscriptions as jest.Mock).mockResolvedValue({
+      synced: 2,
+      failed: 0,
+    });
+
+    await cronService.syncManagedSubscriptions();
+
+    expect(billingService.reconcileStaleManagedSubscriptions).toHaveBeenCalledTimes(1);
+  });
+
+  it('lapses stale Bachs subscriptions when billing is configured', async () => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+
+    const { cronService, billingService } = createService();
+    (billingService.lapseStaleBachsSubscriptions as jest.Mock).mockResolvedValue({ lapsed: 1 });
+
+    await cronService.lapseStaleBachsSubscriptions();
+
+    expect(billingService.lapseStaleBachsSubscriptions).toHaveBeenCalledTimes(1);
+  });
+
+  it('heals missing billing product IDs when billing is configured', async () => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+
+    const { cronService, productSync } = createService();
+    (productSync.healMissingProductIds as jest.Mock).mockResolvedValue({
+      bachsUpdated: 1,
+      polarUpdated: 0,
+    });
+
+    await cronService.healMissingBillingProducts();
+
+    expect(productSync.healMissingProductIds).toHaveBeenCalledTimes(1);
   });
 });

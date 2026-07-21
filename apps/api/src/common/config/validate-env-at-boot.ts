@@ -73,6 +73,25 @@ export function validateEnvAtBoot(): void {
     }
   }
 
+  const bachsKey = process.env.BACHS_SECRET_KEY?.trim();
+  const polarToken = process.env.POLAR_ACCESS_TOKEN?.trim();
+  if (bachsKey && !process.env.BACHS_WEBHOOK_SECRET?.trim()) {
+    warnings.push('BACHS_WEBHOOK_SECRET is not set — Bachs webhooks will reject signatures');
+  }
+  if (polarToken && !process.env.POLAR_WEBHOOK_SECRET?.trim()) {
+    warnings.push('POLAR_WEBHOOK_SECRET is not set — Polar webhooks will reject signatures');
+  }
+  if (
+    (process.env.BILLING_NG_PROVIDER === 'bachs' ||
+      process.env.BILLING_GLOBAL_PROVIDER === 'bachs') &&
+    !bachsKey
+  ) {
+    warnings.push('BILLING_*_PROVIDER=bachs but BACHS_SECRET_KEY is empty');
+  }
+  if (process.env.BILLING_GLOBAL_PROVIDER === 'polar' && !polarToken) {
+    warnings.push('BILLING_GLOBAL_PROVIDER=polar but POLAR_ACCESS_TOKEN is empty');
+  }
+
   for (const warning of warnings) {
     logger.warn(warning);
   }

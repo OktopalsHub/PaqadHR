@@ -27,6 +27,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     resolveBillingProvider: jest.fn(() => BillingProvider.NOMBA),
     ensureConfigured: jest.fn(),
     cancelExternalSubscription: jest.fn().mockResolvedValue(undefined),
+    resumeExternalSubscription: jest.fn().mockResolvedValue(undefined),
   };
   const nombaApi = { verifyTransaction: jest.fn() };
   const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
@@ -348,6 +349,41 @@ describe('SubscriptionBillingService lifecycle', () => {
       true,
     );
     expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('uncancels managed provider before clearing cancelAtPeriodEnd', async () => {
+    const { service, subscriptionsService, billingProviderFactory, subscriptionRepo } =
+      createService();
+    const subscription = {
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.POLAR,
+      externalSubscriptionId: 'sub_polar_1',
+      cancelAtPeriodEnd: true,
+      paymentMethodId: 'pm_1',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    };
+    subscriptionsService.getTenantSubscription.mockResolvedValue(subscription);
+
+    await service.resumeSubscription('tenant-1');
+
+    expect(billingProviderFactory.resumeExternalSubscription).toHaveBeenCalledWith(
+      BillingProvider.POLAR,
+      'sub_polar_1',
+    );
+    expect(subscription.cancelAtPeriodEnd).toBe(false);
+    expect(subscriptionRepo.save).toHaveBeenCalled();
+  });
+
+  it('rejects pause for managed Polar/Bachs subscriptions', async () => {
+    const { service, subscriptionsService } = createService();
+    subscriptionsService.getTenantSubscription.mockResolvedValue({
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.POLAR,
+    });
+
+    await expect(service.pauseSubscription('tenant-1')).rejects.toThrow(/Pause is not supported/);
   });
 
   it('routes card_update success to card handler', async () => {

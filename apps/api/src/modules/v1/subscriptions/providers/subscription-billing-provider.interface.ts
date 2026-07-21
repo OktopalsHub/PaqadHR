@@ -58,4 +58,7 @@ export interface ISubscriptionBillingProvider {
     externalSubscriptionId: string,
     options?: { atPeriodEnd?: boolean },
   ): Promise<void>;
+
+  /** Undo a scheduled cancel_at_period_end (Polar / Bachs when supported). */
+  resumeExternalSubscription?(externalSubscriptionId: string): Promise<void>;
 }

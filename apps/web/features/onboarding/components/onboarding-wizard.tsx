@@ -18,8 +18,9 @@ import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card
 import { usePricingPreview } from '@/hooks/queries/use-pricing-preview';
 import { loadUserTenantsWithRetry, waitForAuthenticatedProfile } from '@/lib/api/auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
+import { fetchBillingStatus } from '@/lib/api/subscriptions';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
-import { tenantUrl } from '@/lib/navigation/tenant-routes';
+import { subscribePageUrl, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantSlug } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -176,6 +177,17 @@ export function OnboardingWizard() {
 
       if (result.tenant.slug) {
         persistTenantSlug(result.tenant.slug);
+        try {
+          if (result.tenant.id) {
+            const billing = await fetchBillingStatus(result.tenant.id);
+            if (billing.paymentsEnabled && billing.needsPayment) {
+              window.location.assign(subscribePageUrl({ workspace: result.tenant.slug }));
+              return;
+            }
+          }
+        } catch {
+          // Fall through to dashboard; SubscriptionGate catches unpaid workspaces.
+        }
         window.location.assign(tenantUrl(result.tenant.slug, '/'));
       }
     },
