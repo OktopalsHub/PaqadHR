@@ -668,16 +668,12 @@ export class PaymentMethodService {
     return account.length >= 4 ? account.slice(-4) : account;
   }
   private async verifyPasscode(paymentMethod: PaymentMethod, passcode: string): Promise<void> {
-    if (
-      !paymentMethod.passcodeHash ||
-      paymentMethod.passcodeHash === null ||
-      paymentMethod.passcodeHash === undefined
-    ) {
+    if (!paymentMethod.passcodeHash) {
       throw new BadRequestException(
         'Payment method does not have a passcode set. Please set a passcode first.',
       );
     }
-    if (!passcode || passcode === null || passcode === undefined) {
+    if (!passcode) {
       throw new BadRequestException('Passcode is required');
     }
     if (paymentMethod.isLocked) {
