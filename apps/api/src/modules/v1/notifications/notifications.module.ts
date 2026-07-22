@@ -5,7 +5,6 @@ import { NotificationController } from './controllers/notification.controller';
 import { NotificationPreferenceController } from './controllers/notification-preference.controller';
 import { Notification } from './entities/notification.entity';
 import { NotificationPreference } from './entities/notification-preference.entity';
-import { WelcomeEmailListener } from './listeners/welcome-email.listener';
 import { EmailTemplateService } from './services/email-template.service';
 import { NotificationService } from './services/notification.service';
 import { NotificationHelperService } from './services/notification-helper.service';
@@ -18,7 +17,6 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
   controllers: [NotificationController, NotificationPreferenceController],
   providers: [
     EmailTemplateService,
-    WelcomeEmailListener,
     NotificationService,
     NotificationPreferenceService,
     ZeptomailEmailService,

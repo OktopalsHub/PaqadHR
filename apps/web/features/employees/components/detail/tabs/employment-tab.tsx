@@ -342,7 +342,6 @@ export function EmploymentTab({
                                 {positions.map((position) => (
                                   <SelectItem key={position.id} value={position.id}>
                                     {position.title}
-                                    {position.department ? ` · ${position.department}` : ''}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
@@ -394,21 +393,19 @@ export function EmploymentTab({
               </p>
             ) : (
               <div className="rounded-lg border border-border/60">
-                <div className="hidden grid-cols-[1.2fr_1fr_1fr_0.7fr] gap-3 border-b border-border/60 px-4 py-3 text-xs font-medium text-muted-foreground md:grid">
+                <div className="hidden grid-cols-[1.2fr_1fr_0.7fr] gap-3 border-b border-border/60 px-4 py-3 text-xs font-medium text-muted-foreground md:grid">
                   <span>Effective date</span>
                   <span>Title</span>
-                  <span>Department</span>
                   <span>Status</span>
                 </div>
                 <div className="divide-y divide-border/60">
                   {positionHistory.map((record) => (
                     <div
                       key={record.id}
-                      className="flex flex-col gap-2 px-4 py-3 text-sm md:grid md:grid-cols-[1.2fr_1fr_1fr_0.7fr] md:items-center md:gap-3"
+                      className="flex flex-col gap-2 px-4 py-3 text-sm md:grid md:grid-cols-[1.2fr_1fr_0.7fr] md:items-center md:gap-3"
                     >
                       <p className="font-medium">{formatDate(record.assignedAt)}</p>
                       <p className="font-medium">{displayValue(record.position?.title ?? '')}</p>
-                      <p>{displayValue(record.position?.department ?? '')}</p>
                       <div>
                         <Badge variant={record.isCurrent ? 'secondary' : 'outline'}>
                           {record.isCurrent ? 'Current' : 'Ended'}

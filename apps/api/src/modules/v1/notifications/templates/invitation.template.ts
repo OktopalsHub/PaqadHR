@@ -1,9 +1,7 @@
-import { EMAIL_INTRO_TEXT, EMAIL_SIGNOFF_TEXT, escapeHtml } from './brand';
+import { escapeHtml } from './brand';
 import { renderEmailLayout } from './layout';
 import {
   emailButton,
-  emailDanielIntro,
-  emailDanielSignOff,
   emailHeading,
   emailHighlight,
   emailLink,
@@ -28,7 +26,6 @@ export function renderInvitationEmail(vars: InvitationEmailVariables): RenderedE
   const bodyHtml = [
     emailHeading(`You're invited to join ${tenantName}`),
     emailParagraph(`Hi ${firstName},`),
-    emailDanielIntro(),
     emailParagraph(
       `<strong>${inviterName}</strong> invited you to join <strong>${tenantName}</strong> on PaqadHR.`,
     ),
@@ -38,7 +35,6 @@ export function renderInvitationEmail(vars: InvitationEmailVariables): RenderedE
     emailMuted(
       'This invitation expires in 7 days. If you were not expecting this email, you can ignore it.',
     ),
-    emailDanielSignOff(),
   ].join('');
 
   const subject = `You're invited to join ${vars.tenantName}`;
@@ -51,14 +47,11 @@ export function renderInvitationEmail(vars: InvitationEmailVariables): RenderedE
       `You're invited to join ${vars.tenantName}`,
       '',
       `Hi ${vars.firstName},`,
-      EMAIL_INTRO_TEXT,
       `${vars.inviterName} invited you to join ${vars.tenantName} on PaqadHR.`,
       '',
       `Accept invitation: ${vars.inviteLink}`,
       '',
       'This invitation expires in 7 days.',
-      '',
-      EMAIL_SIGNOFF_TEXT,
     ].join('\n'),
   };
 }

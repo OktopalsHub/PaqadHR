@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
+import { FileUrlMapper } from 'src/common/mappers/file-url.mapper';
+import { FileUrlService } from 'src/common/services/file-url.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
@@ -17,6 +19,7 @@ export class DepartmentsService {
     private readonly departmentsRepository: DepartmentsRepository,
     private readonly departmentMembersRepository: DepartmentMembersRepository,
     private readonly activitiesService: ActivitiesService,
+    private readonly fileUrlService: FileUrlService,
   ) {}
   async getDepartments(
     tenantId: string,
@@ -62,6 +65,8 @@ export class DepartmentsService {
           firstName: true,
           lastName: true,
           phone: true,
+          avatarKey: true,
+          tenantId: true,
           user: {
             id: true,
             email: true,
@@ -77,6 +82,7 @@ export class DepartmentsService {
         },
         departmentMembers: {
           id: true,
+          memberId: true,
           role: true,
           isActive: true,
           member: {
@@ -84,6 +90,8 @@ export class DepartmentsService {
             firstName: true,
             lastName: true,
             phone: true,
+            avatarKey: true,
+            tenantId: true,
             user: {
               id: true,
               email: true,
@@ -144,6 +152,11 @@ export class DepartmentsService {
         position: member.positionHistory?.find((p) => p.isCurrent)?.position?.title,
         role: role || member.positionHistory?.find((p) => p.isCurrent)?.position?.title,
         isManager,
+        avatarUrl:
+          FileUrlMapper.mapMemberAvatar(member.avatarKey ?? null, {
+            tenantId: member.tenantId || tenantId,
+            fileUrlService: this.fileUrlService,
+          }) || undefined,
       });
       const manager = department.manager ? formatMember(department.manager, 'Manager', true) : null;
       const members = activeMembers

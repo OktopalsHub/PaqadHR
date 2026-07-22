@@ -19,7 +19,6 @@ import { Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
-import { EMAIL_FOUNDER } from '../notifications/templates/brand';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import type { User } from '../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../users/interfaces/user-metadata.interface';
@@ -294,8 +293,6 @@ export class AuthService {
           password: hashedPassword,
         }),
       );
-
-      void this.sendAccountWelcomeEmail(normalizedEmail, user.name);
 
       let invitation: IInvitationResponseDto | { error: string } | null = null;
       if (inviteToken) {
@@ -679,36 +676,5 @@ export class AuthService {
     }
 
     return { message: 'Password changed successfully' };
-  }
-
-  private async sendAccountWelcomeEmail(email: string, name?: string | null): Promise<void> {
-    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
-    const firstName = name?.trim() || undefined;
-    const founderReplyTo = process.env.FOUNDER_REPLY_EMAIL?.trim() || EMAIL_FOUNDER.email;
-
-    try {
-      await this.zeptomailEmailService.sendTemplateEmail(email, 'welcome', {
-        firstName,
-        email,
-        setupUrl: `${frontendBase}/onboarding`,
-        trialUrl: `${frontendBase}/onboarding`,
-        docsUrl: `${frontendBase}/onboarding`,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to send product welcome email to ${email}: ${message}`);
-    }
-
-    try {
-      await this.zeptomailEmailService.sendTemplateEmail(
-        email,
-        'founder-welcome',
-        { firstName, email },
-        { replyTo: founderReplyTo },
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Failed to send founder welcome email to ${email}: ${message}`);
-    }
   }
 }

@@ -81,7 +81,6 @@ function PositionTable({
         <AppTableHeaderSection>
           <AppTableHeaderRow>
             <AppTableHeadCell>Title</AppTableHeadCell>
-            <AppTableHeadCell>Department</AppTableHeadCell>
             <AppTableHeadCell className="hidden md:table-cell">Description</AppTableHeadCell>
             <AppTableHeadCell>Status</AppTableHeadCell>
             <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
@@ -99,7 +98,6 @@ function PositionTable({
                   <span>{position.title}</span>
                 </div>
               </AppTableCell>
-              <AppTableCell>{position.department || '—'}</AppTableCell>
               <AppTableCell className="hidden max-w-[200px] truncate md:table-cell">
                 {position.description || '—'}
               </AppTableCell>
@@ -158,14 +156,12 @@ export function PositionsManager({
   const [editingPosition, setEditingPosition] = useState<ApiPosition | null>(null);
 
   const [formTitle, setFormTitle] = useState('');
-  const [formDepartment, setFormDepartment] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formIsActive, setFormIsActive] = useState('true');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
 
   const resetForm = () => {
     setFormTitle('');
-    setFormDepartment('');
     setFormDescription('');
     setFormIsActive('true');
     setSelectedColor(COLORS[0]);
@@ -173,7 +169,6 @@ export function PositionsManager({
 
   const openEdit = (position: ApiPosition) => {
     setFormTitle(position.title);
-    setFormDepartment(position.department ?? '');
     setFormDescription(position.description ?? '');
     setFormIsActive(position.isActive ? 'true' : 'false');
     setSelectedColor(position.color ?? COLORS[0]);
@@ -189,7 +184,6 @@ export function PositionsManager({
     try {
       await createPosition.mutateAsync({
         title: formTitle.trim(),
-        department: formDepartment.trim() || undefined,
         description: formDescription.trim() || undefined,
         isActive: formIsActive === 'true',
         color: selectedColor,
@@ -214,7 +208,6 @@ export function PositionsManager({
         id: editingPosition.id,
         input: {
           title: formTitle.trim(),
-          department: formDepartment.trim() || undefined,
           description: formDescription.trim() || undefined,
           isActive: formIsActive === 'true',
           color: selectedColor,
@@ -281,15 +274,6 @@ export function PositionsManager({
           value={formTitle}
           onChange={(e) => setFormTitle(e.target.value)}
           placeholder="e.g. Software Engineer"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="position-department">Department</Label>
-        <Input
-          id="position-department"
-          value={formDepartment}
-          onChange={(e) => setFormDepartment(e.target.value)}
-          placeholder="e.g. Engineering"
         />
       </div>
       <div className="space-y-2">

@@ -14,22 +14,12 @@ export class NotificationHelperService {
   ): Promise<void> {
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.BOTH,
+      channel: NotificationChannel.IN_APP,
       priority: NotificationPriority.MEDIUM,
       title: `Welcome to ${variables.tenantName}!`,
       message: `Hi ${variables.name}, welcome to ${variables.tenantName}. We're glad you're here.`,
       recipientId,
       tenantId,
-      emailTemplate: 'welcome',
-      emailContext: {
-        firstName: variables.name,
-        email: undefined,
-        tenantName: variables.tenantName,
-        setupUrl: variables.ctaUrl,
-        workspaceUrl: variables.ctaUrl,
-        trialUrl: variables.ctaUrl,
-        docsUrl: variables.ctaUrl,
-      },
     });
   }
   async sendInvitationNotification(

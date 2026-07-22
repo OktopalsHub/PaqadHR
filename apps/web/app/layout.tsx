@@ -16,10 +16,7 @@ export const metadata: Metadata = {
   description:
     'Simplify hiring, empower teams, and run people operations with one calm workspace — recruitment, payroll, leave, and recognition',
   icons: {
-    icon: [
-      { url: brandFaviconUrls.light, type: 'image/png', media: '(prefers-color-scheme: light)' },
-      { url: brandFaviconUrls.dark, type: 'image/png', media: '(prefers-color-scheme: dark)' },
-    ],
+    icon: [{ url: brandFaviconUrls.light, type: 'image/png' }],
     apple: [{ url: brandFaviconUrls.light, type: 'image/png' }],
     shortcut: [{ url: brandFaviconUrls.light, type: 'image/png' }],
   },

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { FileModule } from '../../../common/modules/file.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { Team } from '../teams/entities/team.entity';
 import { TeamsModule } from '../teams/teams.module';
@@ -15,6 +16,7 @@ import { DepartmentsRepository } from './repositories/departments.repository';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Department, DepartmentMember, Team]),
+    FileModule,
     TenantsModule,
     TenantMembersModule,
     TeamsModule,

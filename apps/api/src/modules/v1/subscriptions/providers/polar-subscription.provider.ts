@@ -22,6 +22,7 @@ type PolarWebhookPayload = {
     id?: string;
     metadata?: Record<string, string>;
     amount?: number;
+    total_amount?: number;
     currency?: string;
     status?: string;
     subscription_id?: string;
@@ -166,7 +167,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         planId: metadata.planId,
         planPriceId: metadata.planPriceId,
         quantity: metadata.quantity ? Number(metadata.quantity) : undefined,
-        amount: Number(data.amount ?? 0) / 100,
+        amount: Number(data.total_amount ?? data.amount ?? 0) / 100,
         currency: String(data.currency ?? 'USD').toUpperCase(),
         status: status.includes('succeed') ? 'success' : status,
         billingType,

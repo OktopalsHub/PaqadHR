@@ -7,7 +7,7 @@ export function brandAssetUrl(variant: BrandVariant, mode: BrandMode) {
   return `${BRAND_ORIGIN}/logo-${variant}-${mode}.png`;
 }
 
-/** Browser tab / shortcut icons — icon mark only, never the wordmark lockup. */
+/** Browser tab / shortcut icons — Paqad mark only. */
 export const brandFaviconUrls = {
   light: brandAssetUrl('icon', 'light'),
   dark: brandAssetUrl('icon', 'dark'),

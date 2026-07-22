@@ -19,6 +19,8 @@ export class DepartmentMemberDto {
     required: false,
   })
   isManager?: boolean;
+  @ApiProperty({ description: 'Avatar URL', required: false })
+  avatarUrl?: string;
 }
 export class TeamMemberDto {
   @ApiProperty({ description: 'Member ID' })

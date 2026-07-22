@@ -405,13 +405,7 @@ export class SubscriptionBillingService {
       }
     }
 
-    if (
-      existing &&
-      [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE, SubscriptionStatus.PAUSED].includes(
-        existing.status,
-      ) &&
-      existing.billingProvider !== billingProvider
-    ) {
+    if (existing && existing.billingProvider !== billingProvider) {
       await this.prepareBillingProviderSwitch(existing, billingProvider);
     }
 

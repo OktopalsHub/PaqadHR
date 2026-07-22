@@ -94,13 +94,7 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
                       className="h-10 w-10"
                       fallbackClassName="text-sm"
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{member.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">
-                        {member.role ?? member.position}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                    </div>
+                    <p className="font-medium truncate min-w-0">{member.name}</p>
                   </div>
                 ))}
               </div>

@@ -91,12 +91,6 @@ export function ActivityLogPage() {
           <div className="flex size-10 items-center justify-center rounded-[8px] bg-primary/10 text-primary">
             <Activity className="size-4.5" />
           </div>
-          <div className="min-w-0">
-            <p className="dashboard-outline-label text-[10px] font-semibold uppercase">Showing</p>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              {items.length} {items.length === 1 ? 'event' : 'events'}
-            </p>
-          </div>
         </div>
       </div>
 

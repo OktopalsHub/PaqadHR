@@ -19,10 +19,14 @@ type BachsWebhookPayload = {
     reference?: string;
     charge_id?: string;
     checkout_id?: string;
+    invoice_id?: string;
     subscription_id?: string;
+    subscription?: { subscription_id?: string };
     status?: string;
     fiat_amount?: string;
     amount?: string | number;
+    amount_paid?: string | number;
+    total?: string | number;
     fiat_currency?: string;
     currency?: string;
     metadata?: Record<string, string>;
@@ -190,26 +194,36 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
     body: BachsWebhookPayload,
     outcome: 'success' | 'failed',
     metadata: SubscriptionBillingMetadata,
-    eventType: string,
+    _eventType: string,
   ): SubscriptionWebhookEvent | null {
     const data = body.data ?? {};
     const tenantId = metadata.tenantId;
+    const nestedSubscription = data.subscription as { subscription_id?: string } | undefined;
+    const externalSubscriptionId = String(
+      data.subscription_id ?? nestedSubscription?.subscription_id ?? '',
+    ).trim();
     const reference = String(
-      data.reference ?? data.charge_id ?? data.checkout_id ?? body.id ?? '',
+      data.reference ??
+        data.charge_id ??
+        data.checkout_id ??
+        data.invoice_id ??
+        body.id ??
+        '',
     ).trim();
     if (!tenantId || !reference) {
       return null;
     }
 
-    const amountRaw = data.fiat_amount ?? data.amount ?? metadata.amount ?? 0;
+    const amountRaw =
+      data.amount_paid ?? data.total ?? data.fiat_amount ?? data.amount ?? metadata.amount ?? 0;
     const currency = String(
       data.fiat_currency ?? data.currency ?? metadata.currency ?? 'USD',
     ).toUpperCase();
 
+    // Prefer checkout metadata. Never force renewal on invoice.* — first-cycle
+    // invoices would skip plan activation for TRIAL tenants.
     const billingType =
-      eventType === 'invoice.paid' || eventType === 'invoice.payment_failed'
-        ? BillingChargeType.SUBSCRIPTION_RENEWAL
-        : (parseBillingChargeType(metadata.billingType) ?? BillingChargeType.SUBSCRIPTION);
+      parseBillingChargeType(metadata.billingType) ?? BillingChargeType.SUBSCRIPTION;
 
     const payment = {
       eventId: body.id ?? reference,
@@ -223,7 +237,7 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       customerEmail: metadata.customerEmail ? String(metadata.customerEmail) : undefined,
       status: outcome,
       billingType,
-      externalSubscriptionId: data.subscription_id ? String(data.subscription_id) : undefined,
+      externalSubscriptionId: externalSubscriptionId || undefined,
     };
 
     return outcome === 'success'

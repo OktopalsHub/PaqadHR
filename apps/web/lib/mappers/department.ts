@@ -10,6 +10,7 @@ type ApiDepartmentMember = {
   position?: string;
   role?: string;
   isManager?: boolean;
+  avatarUrl?: string;
 };
 
 type ApiTeamMember = {
@@ -61,6 +62,7 @@ function mapMember(member: ApiDepartmentMember): DepartmentMember {
     phone: member.phone,
     role: member.role,
     position: member.position,
+    avatar: member.avatarUrl,
     initials: initials(firstName, lastName),
     isManager: member.isManager,
   };
