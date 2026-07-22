@@ -483,7 +483,12 @@ export function PayrollRunDetail({
                 onChange={(e) => setScheduleDate(e.target.value)}
               />
             </div>
-            <Button variant="brandSolid" className="w-full" disabled={busy} onClick={handleSchedule}>
+            <Button
+              variant="brandSolid"
+              className="w-full"
+              disabled={busy}
+              onClick={handleSchedule}
+            >
               Confirm schedule
             </Button>
           </div>

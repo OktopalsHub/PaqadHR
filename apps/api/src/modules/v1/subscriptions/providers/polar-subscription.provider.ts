@@ -3,10 +3,7 @@ import { getPolarAccessToken } from 'src/common/config/polar.config';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { resolvePolarProductId } from '../../plans/config/plan-external-products.config';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import {
-  BillingChargeType,
-  parseBillingChargeType,
-} from '../constants/billing.constants';
+import { BillingChargeType, parseBillingChargeType } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,

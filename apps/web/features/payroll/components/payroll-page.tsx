@@ -221,7 +221,7 @@ export function PayrollPage() {
     if (runCurrencies[0]) {
       setBaseCurrency(runCurrencies[0]);
     }
-  }, [tenant?.preferredCurrency, runCurrencies.join(',')]);
+  }, [tenant?.preferredCurrency, runCurrencies[0]]);
 
   const busy =
     createRun.isPending ||
@@ -305,9 +305,7 @@ export function PayrollPage() {
         const existing = data?.runs?.find((r) => r.id === id);
         setScheduleRunId(id);
         setScheduleDate(
-          paymentDateOverride ||
-            existing?.paymentDate?.toString().slice(0, 10) ||
-            defaultPayDate,
+          paymentDateOverride || existing?.paymentDate?.toString().slice(0, 10) || defaultPayDate,
         );
         return;
       }

@@ -248,9 +248,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                                 aria-label={`Add new salary for ${employee.name}`}
                                 onClick={() => {
                                   const existing = currentSalaryByMemberId.get(employee.id);
-                                  setSalaryCurrency(
-                                    existing?.currency || defaultCurrency,
-                                  );
+                                  setSalaryCurrency(existing?.currency || defaultCurrency);
                                   setSalaryMember(employee);
                                 }}
                               >

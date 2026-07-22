@@ -20,8 +20,5 @@ export function resolvePaymentProvider(
 }
 
 export function paymentProviderLabel(provider: PaymentProvider): string {
-  return provider === PaymentProvider.NOMBA
-    ? 'Local bank (NGN)'
-    : 'International / crypto (Noah)';
+  return provider === PaymentProvider.NOMBA ? 'Local bank (NGN)' : 'International / crypto (Noah)';
 }
-

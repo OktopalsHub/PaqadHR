@@ -4,11 +4,11 @@
  */
 import { isCryptoCurrency } from '../../../../common/constants/crypto-currencies.constant';
 import { PaymentMethodType } from '../../../../common/enums';
+import { PaymentProvider } from '../../../../common/enums/payment-provider.enum';
 import {
   paymentProviderLabel,
   resolvePaymentProvider,
 } from '../../../../common/utils/resolve-payment-provider.util';
-import { PaymentProvider } from '../../../../common/enums/payment-provider.enum';
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

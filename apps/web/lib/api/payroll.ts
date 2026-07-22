@@ -21,13 +21,10 @@ export async function createPayrollRun(
   input: CreatePayrollRunInput,
 ): Promise<PayrollRun & { alreadyExists?: boolean }> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollRun & { alreadyExists?: boolean }>(
-    tenantPath(tenantId, 'payroll/runs'),
-    {
-      method: 'POST',
-      body: JSON.stringify(input),
-    },
-  );
+  return apiClient<PayrollRun & { alreadyExists?: boolean }>(tenantPath(tenantId, 'payroll/runs'), {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
 
 export async function calculatePayrollRun(
@@ -136,10 +133,7 @@ export async function payNowPayroll(id: string): Promise<void> {
   });
 }
 
-export async function schedulePayrollPayout(
-  id: string,
-  paymentDate?: string,
-): Promise<PayrollRun> {
+export async function schedulePayrollPayout(id: string, paymentDate?: string): Promise<PayrollRun> {
   const tenantId = await resolveTenantId();
   const result = await apiClient<{ run: PayrollRun }>(
     tenantPath(tenantId, `payroll/runs/${id}/schedule`),
