@@ -270,7 +270,7 @@ export class PayrollController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
-    const run = await this.payrollService.approvePayrollRun(id, tenantId, auditContext);
+    const run = await this.payrollService.approvePayroll(id, tenantId, auditContext);
     return {
       message: 'Payroll run approved',
       payrollRunId: id,
