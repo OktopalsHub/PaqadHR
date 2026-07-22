@@ -29,6 +29,10 @@ type BachsWebhookPayload = {
     total?: string | number;
     fiat_currency?: string;
     currency?: string;
+    trial_end?: string;
+    current_period_start?: string;
+    current_period_end?: string;
+    next_billed_at?: string;
     metadata?: Record<string, string>;
   };
 };
@@ -120,6 +124,16 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
         tenantId,
         externalSubscriptionId,
         eventId: body.id ?? externalSubscriptionId,
+        planId: metadata.planId,
+        planPriceId: metadata.planPriceId,
+        quantity: metadata.quantity,
+        providerStatus: data.status ? String(data.status) : undefined,
+        trialEndsAt: data.trial_end ? String(data.trial_end) : undefined,
+        currentPeriodStart: data.current_period_start
+          ? String(data.current_period_start)
+          : undefined,
+        currentPeriodEnd: data.current_period_end ? String(data.current_period_end) : undefined,
+        nextBillingDate: data.next_billed_at ? String(data.next_billed_at) : undefined,
       };
     }
 

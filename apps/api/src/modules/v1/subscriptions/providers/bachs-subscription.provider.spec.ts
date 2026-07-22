@@ -32,4 +32,36 @@ describe('BachsSubscriptionProvider.parseWebhook', () => {
       expect(event.payment.reference).toBe('inv_1');
     }
   });
+
+  it('parses subscription.created with plan metadata for Scale trial', () => {
+    const event = provider.parseWebhook({
+      id: 'evt_sub_1',
+      type: 'customer.subscription.created',
+      data: {
+        subscription_id: 'sub_177419ea76a54cf393d0',
+        status: 'trialing',
+        trial_end: '2026-08-05T20:19:22.859227+00:00',
+        current_period_start: '2026-07-22T20:19:22.889407+00:00',
+        current_period_end: '2026-08-05T20:19:22.859227+00:00',
+        next_billed_at: '2026-08-05T20:19:22.859227+00:00',
+        metadata: {
+          tenantId: 'c3de206d-ed4d-4cc8-94e7-ea2ea6111111',
+          planId: '355863ce-fb5a-4da6-8c29-842c47111111',
+          planPriceId: '93de2189-cb69-4988-b253-df1330111111',
+          quantity: 3,
+          billingType: 'subscription',
+          planSlug: 'scale',
+        },
+      },
+    });
+
+    expect(event?.kind).toBe('subscription.created');
+    if (event?.kind === 'subscription.created') {
+      expect(event.planId).toBe('355863ce-fb5a-4da6-8c29-842c47111111');
+      expect(event.planPriceId).toBe('93de2189-cb69-4988-b253-df1330111111');
+      expect(event.quantity).toBe(3);
+      expect(event.providerStatus).toBe('trialing');
+      expect(event.externalSubscriptionId).toBe('sub_177419ea76a54cf393d0');
+    }
+  });
 });

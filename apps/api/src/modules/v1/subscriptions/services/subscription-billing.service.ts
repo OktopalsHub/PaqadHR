@@ -128,7 +128,17 @@ export class SubscriptionBillingService {
     if (!subscription?.billingProvider) {
       return false;
     }
-    return subscription.billingProvider !== webhookProvider;
+    if (subscription.billingProvider === webhookProvider) {
+      return false;
+    }
+    // Trial / not yet linked to an external sub: allow the checkout provider through.
+    if (
+      subscription.status === SubscriptionStatus.TRIAL ||
+      !subscription.externalSubscriptionId?.trim()
+    ) {
+      return false;
+    }
+    return true;
   }
 
   private async cancelManagedExternalSubscription(
@@ -236,13 +246,63 @@ export class SubscriptionBillingService {
     const subscription = await this.subscriptionRepository.findOne({
       where: { tenantId: event.tenantId },
     });
-    if (!subscription || subscription.billingProvider !== provider) {
+    if (!subscription) {
+      return;
+    }
+    if (
+      subscription.billingProvider !== provider &&
+      subscription.status !== SubscriptionStatus.TRIAL &&
+      subscription.externalSubscriptionId?.trim()
+    ) {
       return;
     }
 
     subscription.externalSubscriptionId = event.externalSubscriptionId;
     subscription.billingProvider = provider;
     subscription.paymentMethodId = subscription.paymentMethodId ?? event.externalSubscriptionId;
+
+    if (event.planPriceId && event.planId) {
+      const planPrice = await this.plansService.getPlanPriceById(event.planPriceId);
+      if (planPrice?.isActive && planPrice.planId === event.planId) {
+        subscription.planId = planPrice.planId;
+        subscription.planPriceId = planPrice.id;
+      }
+    }
+
+    if (event.quantity != null && Number.isFinite(event.quantity)) {
+      subscription.currentUsers = resolveSeatCount(event.quantity);
+    }
+
+    const providerStatus = event.providerStatus?.toLowerCase();
+    if (providerStatus === 'trialing' || providerStatus === 'trial') {
+      subscription.status = SubscriptionStatus.TRIAL;
+      if (event.trialEndsAt) {
+        const trialEnd = new Date(event.trialEndsAt);
+        if (!Number.isNaN(trialEnd.getTime())) {
+          subscription.trialEndsAt = trialEnd;
+        }
+      }
+    } else if (providerStatus === 'active' || providerStatus === 'paid') {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.trialEndsAt = null;
+    }
+
+    if (event.currentPeriodStart) {
+      const start = new Date(event.currentPeriodStart);
+      if (!Number.isNaN(start.getTime())) subscription.currentPeriodStart = start;
+    }
+    if (event.currentPeriodEnd) {
+      const end = new Date(event.currentPeriodEnd);
+      if (!Number.isNaN(end.getTime())) subscription.currentPeriodEnd = end;
+    }
+    if (event.nextBillingDate) {
+      const next = new Date(event.nextBillingDate);
+      if (!Number.isNaN(next.getTime())) subscription.nextBillingDate = next;
+    } else if (event.trialEndsAt) {
+      const trialEnd = new Date(event.trialEndsAt);
+      if (!Number.isNaN(trialEnd.getTime())) subscription.nextBillingDate = trialEnd;
+    }
+
     await this.subscriptionRepository.save(subscription);
     await this.recordBillingEvent(
       event.eventId,
@@ -250,6 +310,9 @@ export class SubscriptionBillingService {
       {
         tenantId: event.tenantId,
         externalSubscriptionId: event.externalSubscriptionId,
+        planId: event.planId,
+        planPriceId: event.planPriceId,
+        providerStatus: event.providerStatus,
       },
       provider,
     );

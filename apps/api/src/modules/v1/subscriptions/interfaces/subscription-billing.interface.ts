@@ -49,6 +49,14 @@ export type SubscriptionWebhookEvent =
       tenantId: string;
       externalSubscriptionId: string;
       eventId: string;
+      planId?: string;
+      planPriceId?: string;
+      quantity?: number;
+      providerStatus?: string;
+      trialEndsAt?: string;
+      currentPeriodStart?: string;
+      currentPeriodEnd?: string;
+      nextBillingDate?: string;
     }
   | {
       kind: 'subscription.cancelled';
