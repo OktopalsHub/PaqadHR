@@ -203,12 +203,7 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       data.subscription_id ?? nestedSubscription?.subscription_id ?? '',
     ).trim();
     const reference = String(
-      data.reference ??
-        data.charge_id ??
-        data.checkout_id ??
-        data.invoice_id ??
-        body.id ??
-        '',
+      data.reference ?? data.charge_id ?? data.checkout_id ?? data.invoice_id ?? body.id ?? '',
     ).trim();
     if (!tenantId || !reference) {
       return null;
