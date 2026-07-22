@@ -1,5 +1,10 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { formatNombaSenderName, isNombaConfigured } from '../config/nomba.config';
+import {
+  formatNombaSenderName,
+  getNombaBaseUrl,
+  isNombaConfigured,
+  NOMBA_PRODUCTION_BASE_URL,
+} from '../config/nomba.config';
 import { isNombaOperationSuccessful } from '../config/nomba-api.util';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
@@ -11,11 +16,11 @@ import { BasePaymentProvider } from './base-payment.provider';
 @Injectable()
 export class NombaProvider extends BasePaymentProvider {
   constructor(private readonly nombaTransferApi: NombaTransferApiService) {
-    super('Nomba', 'https://api.nomba.com', true);
+    super('Nomba', getNombaBaseUrl() || NOMBA_PRODUCTION_BASE_URL, true);
   }
 
   protected getDefaultBaseUrl(): string {
-    return 'https://api.nomba.com';
+    return getNombaBaseUrl();
   }
 
   protected initializeCurrencyConfigs(): void {

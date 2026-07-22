@@ -323,6 +323,8 @@ export function PaymentSettingsSection() {
   const [passcode, setPasscode] = useState('');
   const [lookupVerified, setLookupVerified] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupPending, setLookupPending] = useState(false);
+  const [lookupUnavailable, setLookupUnavailable] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
 
   const [walletAddress, setWalletAddress] = useState('');
@@ -336,7 +338,12 @@ export function PaymentSettingsSection() {
   );
   const isNgn = currency === 'NGN';
   const isCrypto = cryptoOptions.includes(currency);
-  const { data: banks = [], isLoading: banksLoading } = useNigerianBanks({
+  const {
+    data: banks = [],
+    isLoading: banksLoading,
+    isError: banksError,
+    error: banksQueryError,
+  } = useNigerianBanks({
     enabled: openForm && isNgn,
   });
   const isGlobalBank = isGlobalBankCurrency(currency);
@@ -357,6 +364,8 @@ export function PaymentSettingsSection() {
     setAccountNumber('');
     setLookupVerified(false);
     setLookupError(null);
+    setLookupPending(false);
+    setLookupUnavailable(false);
   }, []);
 
   const bankOptions = useMemo(
@@ -368,18 +377,24 @@ export function PaymentSettingsSection() {
     if (!isNgn) {
       setLookupVerified(false);
       setLookupError(null);
+      setLookupPending(false);
+      setLookupUnavailable(false);
       return;
     }
 
     const normalized = accountNumber.replace(/\D/g, '');
     if (normalized.length !== 10 || !bankCode) {
-      setAccountName('');
       setLookupVerified(false);
       setLookupError(null);
+      setLookupPending(false);
+      if (!lookupUnavailable) {
+        setAccountName('');
+      }
       return;
     }
 
     let cancelled = false;
+    setLookupPending(true);
     const timer = window.setTimeout(async () => {
       try {
         const selectedBank = banks.find((bank) => bank.code === bankCode);
@@ -393,11 +408,28 @@ export function PaymentSettingsSection() {
         setBankName(result.bankName);
         setLookupVerified(true);
         setLookupError(null);
+        setLookupUnavailable(false);
       } catch (err) {
         if (cancelled) return;
-        setAccountName('');
+        const status = typeof err === 'object' && err && 'status' in err ? Number(err.status) : 0;
+        const message = err instanceof Error ? err.message : 'Could not verify account';
+        const unavailable =
+          status === 503 ||
+          /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
+            message,
+          );
         setLookupVerified(false);
-        setLookupError(err instanceof Error ? err.message : 'Could not verify account');
+        setLookupUnavailable(unavailable);
+        setLookupError(
+          unavailable
+            ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
+            : message,
+        );
+        if (!unavailable) {
+          setAccountName('');
+        }
+      } finally {
+        if (!cancelled) setLookupPending(false);
       }
     }, 500);
 
@@ -414,7 +446,23 @@ export function PaymentSettingsSection() {
         return;
       }
     } else if (isNgn) {
-      if (!bankCode || !lookupVerified || !accountName.trim()) {
+      if (!bankCode) {
+        toast.error('Select your bank');
+        return;
+      }
+      if (accountNumber.replace(/\D/g, '').length !== 10) {
+        toast.error('Enter a valid 10-digit Naira account number');
+        return;
+      }
+      if (!lookupVerified && !accountName.trim()) {
+        toast.error(
+          lookupUnavailable
+            ? 'Enter the account name on the account'
+            : 'Verify your account number and bank first',
+        );
+        return;
+      }
+      if (!lookupVerified && !lookupUnavailable) {
         toast.error('Verify your account number and bank first');
         return;
       }
@@ -481,7 +529,13 @@ export function PaymentSettingsSection() {
       setPasscode('');
       setLookupVerified(false);
       setLookupError(null);
-      toast.success('Payment settings saved. An admin may need to verify your account.');
+      setLookupPending(false);
+      setLookupUnavailable(false);
+      toast.success(
+        lookupVerified
+          ? 'Payment settings saved.'
+          : 'Payment settings saved. An admin may need to verify your account.',
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save payment settings');
     }
@@ -610,7 +664,9 @@ export function PaymentSettingsSection() {
                       setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
                       return;
                     }
-                    setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17));
+                    setAccountNumber(
+                      e.target.value.replace(/\D/g, '').slice(0, isNgn ? 10 : 17),
+                    );
                   }}
                   inputMode={payoutConfig?.accountAlphanumeric ? 'text' : 'numeric'}
                   placeholder={
@@ -638,14 +694,42 @@ export function PaymentSettingsSection() {
                         }}
                         placeholder="Select your bank"
                         searchPlaceholder="Search banks…"
+                        emptyMessage={
+                          banksError
+                            ? 'Could not load banks. Try again in a moment.'
+                            : 'No banks found.'
+                        }
                       />
                     )}
+                    {banksError ? (
+                      <p className="text-xs text-destructive">
+                        {banksQueryError instanceof Error
+                          ? banksQueryError.message
+                          : 'Could not load Nigerian banks'}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Account name</Label>
                     <div className="relative">
-                      <Input value={accountName} readOnly placeholder="Verified automatically" />
-                      {lookupVerified ? (
+                      <Input
+                        value={accountName}
+                        readOnly={!lookupUnavailable || lookupVerified}
+                        placeholder={
+                          lookupPending
+                            ? 'Looking up account…'
+                            : lookupUnavailable
+                              ? 'Name on the account'
+                              : 'Verified automatically'
+                        }
+                        onChange={(e) => {
+                          if (lookupVerified || !lookupUnavailable) return;
+                          setAccountName(e.target.value);
+                        }}
+                      />
+                      {lookupPending ? (
+                        <Loader2 className="absolute right-3 top-2.5 size-4 animate-spin text-muted-foreground" />
+                      ) : lookupVerified ? (
                         <CheckCircle2 className="absolute right-3 top-2.5 size-4 text-green-600" />
                       ) : null}
                     </div>

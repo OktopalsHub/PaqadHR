@@ -1,5 +1,18 @@
+export const NOMBA_PRODUCTION_BASE_URL = 'https://api.nomba.com';
+export const NOMBA_SANDBOX_BASE_URL = 'https://sandbox.nomba.com';
+
+/**
+ * Nomba API host.
+ * - Production: NOMBA_LIVE=true → https://api.nomba.com
+ * - Staging/dev: NOMBA_LIVE unset/false → https://sandbox.nomba.com
+ * - Optional override: NOMBA_BASE_URL
+ */
 export function getNombaBaseUrl(): string {
-  return (process.env.NOMBA_BASE_URL || 'https://api.nomba.com').replace(/\/$/, '');
+  const explicit = process.env.NOMBA_BASE_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, '');
+  }
+  return (isNombaLive() ? NOMBA_PRODUCTION_BASE_URL : NOMBA_SANDBOX_BASE_URL).replace(/\/$/, '');
 }
 
 export function getNombaClientId(): string {

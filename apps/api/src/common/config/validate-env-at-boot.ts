@@ -65,8 +65,22 @@ export function validateEnvAtBoot(): void {
         'NOAH_SIGNING_PRIVATE_KEY is not set — Noah API signing may fail in production',
       );
     }
-    if (process.env.NOMBA_LIVE === 'true') {
-      logger.log('Nomba live mode enabled (NOMBA_LIVE=true)');
+    const nombaLive = process.env.NOMBA_LIVE === 'true';
+    logger.log(
+      nombaLive
+        ? 'Nomba live mode (NOMBA_LIVE=true → https://api.nomba.com unless NOMBA_BASE_URL overrides)'
+        : 'Nomba sandbox mode (NOMBA_LIVE≠true → https://sandbox.nomba.com unless NOMBA_BASE_URL overrides)',
+    );
+    const nombaBase = process.env.NOMBA_BASE_URL?.trim().replace(/\/$/, '');
+    if (nombaLive && nombaBase?.includes('sandbox.nomba.com')) {
+      warnings.push(
+        'NOMBA_LIVE=true but NOMBA_BASE_URL points at sandbox — credentials/host mismatch risk',
+      );
+    }
+    if (!nombaLive && nombaBase === 'https://api.nomba.com') {
+      warnings.push(
+        'NOMBA_LIVE is not true but NOMBA_BASE_URL is production — pair sandbox credentials with sandbox.nomba.com',
+      );
     }
     if (process.env.RELOADLY_CLIENT_ID?.trim() && !process.env.RELOADLY_WEBHOOK_SECRET?.trim()) {
       warnings.push('RELOADLY_WEBHOOK_SECRET is not set — Reloadly webhooks will fail');

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { PasswordService } from 'src/common/utils';
 import { Repository } from 'typeorm';
@@ -103,14 +104,18 @@ export class PaymentMethodService {
         if (!dto.bankCode) {
           throw new BadRequestException('Bank is required for NGN payment methods');
         }
-        const lookup = await this.lookupNigerianBankAccount(
+        const resolved = await this.resolveNigerianBankAccount(
           dto.accountNumber!,
           dto.bankCode,
           dto.bankName,
+          dto.accountName,
         );
-        accountName = lookup.accountName;
-        status = PaymentMethodStatus.VERIFIED;
-        verifiedAt = new Date();
+        accountName = resolved.accountName;
+        status = resolved.status;
+        verifiedAt = resolved.verifiedAt;
+        if (resolved.bankName) {
+          dto.bankName = resolved.bankName;
+        }
       } else if (dto.type === PaymentMethodType.CRYPTO || isCryptoCurrency(dto.currency)) {
         if (!dto.accountNumber?.trim()) {
           throw new BadRequestException('Wallet address is required for crypto payment methods');
@@ -208,10 +213,18 @@ export class PaymentMethodService {
           'Account number and bank code are required for NGN payment methods',
         );
       }
-      const lookup = await this.lookupNigerianBankAccount(accNumber, bCode, bName);
-      resolvedAccountName = lookup.accountName;
-      status = PaymentMethodStatus.VERIFIED;
-      verifiedAt = new Date();
+      const resolved = await this.resolveNigerianBankAccount(
+        accNumber,
+        bCode,
+        bName,
+        dto.accountName || resolvedAccountName,
+      );
+      resolvedAccountName = resolved.accountName;
+      status = resolved.status;
+      verifiedAt = resolved.verifiedAt;
+      if (resolved.bankName) {
+        dto.bankName = resolved.bankName;
+      }
     } else if (dto.accountNumber || dto.bankCode) {
       const accNumber = dto.accountNumber ?? this.decryptField(paymentMethod.accountNumber) ?? '';
       const bCode = dto.bankCode ?? paymentMethod.bankCode ?? '';
@@ -832,10 +845,61 @@ export class PaymentMethodService {
   }
 
   async listNigerianBanks(): Promise<Array<{ code: string; name: string }>> {
-    if (!this.nombaTransferApi.isConfigured()) {
-      throw new ServiceUnavailableException('Bank lookup is not available in this environment');
+    if (this.nombaTransferApi.isConfigured()) {
+      try {
+        return await this.nombaTransferApi.listBanks();
+      } catch (error) {
+        this.logger.warn(
+          `Nomba bank list unavailable, using fallback: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
     }
-    return this.nombaTransferApi.listBanks();
+    return [...NIGERIAN_BANKS_FALLBACK].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Auto-verify via Nomba when available. If lookup is down, accept a manual
+   * account name as pending admin verification so NGN users can still save.
+   */
+  private async resolveNigerianBankAccount(
+    accountNumber: string,
+    bankCode: string,
+    bankName?: string,
+    manualAccountName?: string,
+  ): Promise<{
+    accountName: string;
+    bankName?: string;
+    status: PaymentMethodStatus;
+    verifiedAt: Date | null;
+  }> {
+    try {
+      const lookup = await this.lookupNigerianBankAccount(accountNumber, bankCode, bankName);
+      return {
+        accountName: lookup.accountName,
+        bankName: lookup.bankName,
+        status: PaymentMethodStatus.VERIFIED,
+        verifiedAt: new Date(),
+      };
+    } catch (error) {
+      const lookupDown =
+        error instanceof ServiceUnavailableException ||
+        (error instanceof BadRequestException &&
+          /not available|not configured|unavailable|Failed to authenticate with Nomba/i.test(
+            error.message || '',
+          ));
+      const trimmedName = manualAccountName?.trim();
+      if (lookupDown && trimmedName) {
+        return {
+          accountName: trimmedName,
+          bankName: bankName?.trim() || undefined,
+          status: PaymentMethodStatus.PENDING_VERIFICATION,
+          verifiedAt: null,
+        };
+      }
+      throw error;
+    }
   }
 
   async lookupNigerianBankAccount(

@@ -1,10 +1,13 @@
 import {
   defaultPayrollCurrency,
+  getNombaBaseUrl,
   getNombaParentAccountId,
   getNombaPayoutCurrencies,
   getNombaScopedAccountId,
   isNombaGlobalPayoutEnabled,
   isNombaLive,
+  NOMBA_PRODUCTION_BASE_URL,
+  NOMBA_SANDBOX_BASE_URL,
 } from './nomba.config';
 
 describe('nomba.config payout currencies', () => {
@@ -34,13 +37,19 @@ describe('nomba.config payout currencies', () => {
 });
 
 describe('nomba.config live mode', () => {
-  const original = process.env.NOMBA_LIVE;
+  const originalLive = process.env.NOMBA_LIVE;
+  const originalBase = process.env.NOMBA_BASE_URL;
 
   afterEach(() => {
-    if (original === undefined) {
+    if (originalLive === undefined) {
       delete process.env.NOMBA_LIVE;
     } else {
-      process.env.NOMBA_LIVE = original;
+      process.env.NOMBA_LIVE = originalLive;
+    }
+    if (originalBase === undefined) {
+      delete process.env.NOMBA_BASE_URL;
+    } else {
+      process.env.NOMBA_BASE_URL = originalBase;
     }
   });
 
@@ -52,6 +61,24 @@ describe('nomba.config live mode', () => {
   it('is true when NOMBA_LIVE=true', () => {
     process.env.NOMBA_LIVE = 'true';
     expect(isNombaLive()).toBe(true);
+  });
+
+  it('uses sandbox host when not live', () => {
+    delete process.env.NOMBA_BASE_URL;
+    delete process.env.NOMBA_LIVE;
+    expect(getNombaBaseUrl()).toBe(NOMBA_SANDBOX_BASE_URL);
+  });
+
+  it('uses production host when live', () => {
+    delete process.env.NOMBA_BASE_URL;
+    process.env.NOMBA_LIVE = 'true';
+    expect(getNombaBaseUrl()).toBe(NOMBA_PRODUCTION_BASE_URL);
+  });
+
+  it('allows explicit NOMBA_BASE_URL override', () => {
+    process.env.NOMBA_LIVE = 'true';
+    process.env.NOMBA_BASE_URL = 'https://sandbox.nomba.com/';
+    expect(getNombaBaseUrl()).toBe(NOMBA_SANDBOX_BASE_URL);
   });
 });
 

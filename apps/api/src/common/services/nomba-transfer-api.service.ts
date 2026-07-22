@@ -179,6 +179,43 @@ export class NombaTransferApiService {
     return payload;
   }
 
+  private parseBanksPayload(payload: NombaBanksResponse): Array<{ code: string; name: string }> {
+    const rows = Array.isArray(payload.data) ? payload.data : (payload.data?.results ?? []);
+    return rows
+      .filter((row) => row?.code && row?.name)
+      .map((row) => ({ code: String(row.code).trim(), name: String(row.name).trim() }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  private async fetchBanksFromPath(
+    token: string,
+    path: '/v1/transfers/banks' | '/v1/transfers/bank',
+  ): Promise<Array<{ code: string; name: string }>> {
+    const response = await fetch(`${getNombaBaseUrl()}${path}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        accountId: getNombaAccountId(),
+      },
+    });
+
+    let payload: NombaBanksResponse;
+    try {
+      payload = (await response.json()) as NombaBanksResponse;
+    } catch {
+      throw new BadRequestException(`Failed to fetch bank list from Nomba (${path})`);
+    }
+
+    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
+      throw new BadRequestException(
+        payload.code
+          ? `Failed to fetch bank list from Nomba (${path}, code ${payload.code})`
+          : `Failed to fetch bank list from Nomba (${path})`,
+      );
+    }
+
+    return this.parseBanksPayload(payload);
+  }
+
   async listBanks(): Promise<Array<{ code: string; name: string }>> {
     if (
       this.cachedBanks &&
@@ -189,20 +226,27 @@ export class NombaTransferApiService {
 
     this.ensureConfigured();
     const token = await this.getAccessToken();
-    const response = await fetch(`${getNombaBaseUrl()}/v1/transfers/banks`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        accountId: getNombaAccountId(),
-      },
-    });
 
-    const payload = (await response.json()) as NombaBanksResponse;
-    if (!response.ok || (payload.code !== undefined && !isNombaAcceptedCode(payload.code))) {
-      throw new BadRequestException('Failed to fetch bank list from Nomba');
+    let banks: Array<{ code: string; name: string }> = [];
+    let lastError: unknown;
+    for (const path of ['/v1/transfers/banks', '/v1/transfers/bank'] as const) {
+      try {
+        banks = await this.fetchBanksFromPath(token, path);
+        if (banks.length > 0) break;
+      } catch (error) {
+        lastError = error;
+        this.logger.warn(
+          `Nomba ${path} failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
 
-    const rows = Array.isArray(payload.data) ? payload.data : (payload.data?.results ?? []);
-    const banks = rows.slice().sort((a, b) => a.name.localeCompare(b.name));
+    if (banks.length === 0) {
+      throw lastError instanceof BadRequestException
+        ? lastError
+        : new BadRequestException('Failed to fetch bank list from Nomba');
+    }
+
     this.cachedBanks = { fetchedAt: Date.now(), banks };
     return banks;
   }
