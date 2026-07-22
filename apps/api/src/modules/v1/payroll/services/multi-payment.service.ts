@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import {
@@ -20,6 +21,10 @@ import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
 import { PayrollPayoutService } from './payroll-payout.service';
 
 interface PaymentSummary {
+  bankSuccess: number;
+  bankFailed: number;
+  cryptoSuccess: number;
+  cryptoFailed: number;
   fiatSuccess: number;
   fiatFailed: number;
 }
@@ -42,7 +47,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba (NGN) and/or Noah credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -65,23 +70,23 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.baseCurrency,
     );
-    const fiatPaymentResults = await this.processFiatPayments(
-      paymentBatch.fiatPayments,
+    const payoutResults = await this.processPayouts(
+      [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments],
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
       payrollRun.title,
     );
-    const summary = this.calculatePaymentSummary(fiatPaymentResults);
+    const summary = this.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
-    const result: BatchPaymentResult = {
+    return {
       totalItems: payrollRun.items.length,
-      successfulPayments: summary.fiatSuccess,
-      failedPayments: summary.fiatFailed,
-      fiatResults: fiatPaymentResults,
+      successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+      failedPayments: summary.bankFailed + summary.cryptoFailed,
+      fiatResults: payoutResults,
+      payoutResults,
       summary,
     };
-    return result;
   }
   async retryFailedPayments(
     payrollRunId: string,
@@ -90,7 +95,9 @@ export class MultiPaymentService {
     specificItemIds?: string[],
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
-      throw new BadRequestException('Nomba payroll gateway is not configured.');
+      throw new BadRequestException(
+        'Payroll gateway is not configured. Configure Nomba (NGN) and/or Noah credentials.',
+      );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -112,23 +119,23 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.baseCurrency,
     );
-    const fiatPaymentResults = await this.processFiatPayments(
-      paymentBatch.fiatPayments,
+    const payoutResults = await this.processPayouts(
+      [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments],
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
       payrollRun.title,
     );
-    const summary = this.calculatePaymentSummary(fiatPaymentResults);
+    const summary = this.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
-    const result: BatchPaymentResult = {
+    return {
       totalItems: failedItems.length,
-      successfulPayments: summary.fiatSuccess,
-      failedPayments: summary.fiatFailed,
-      fiatResults: fiatPaymentResults,
+      successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
+      failedPayments: summary.bankFailed + summary.cryptoFailed,
+      fiatResults: payoutResults,
+      payoutResults,
       summary,
     };
-    return result;
   }
   async getPaymentStatusSummary(payrollRunId: string, tenantId: string) {
     const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId);
@@ -155,8 +162,10 @@ export class MultiPaymentService {
     tenantId: string,
     currency: string,
   ): Promise<PaymentBatch> {
-    const fiatPayments: PayrollItem[] = [];
+    const bankPayments: PayrollItem[] = [];
+    const cryptoPayments: PayrollItem[] = [];
     const skipped: PayrollItem[] = [];
+    const runIsCrypto = isCryptoCurrency(currency);
 
     for (const item of items) {
       if (
@@ -183,7 +192,11 @@ export class MultiPaymentService {
         continue;
       }
 
-      fiatPayments.push(item);
+      if (runIsCrypto) {
+        cryptoPayments.push(item);
+      } else {
+        bankPayments.push(item);
+      }
     }
 
     if (skipped.length > 0) {
@@ -192,9 +205,9 @@ export class MultiPaymentService {
       );
     }
 
-    return { fiatPayments };
+    return { bankPayments, cryptoPayments };
   }
-  private async processFiatPayments(
+  private async processPayouts(
     items: PayrollItem[],
     auditContext: AuditContext,
     tenantId: string,
@@ -203,6 +216,7 @@ export class MultiPaymentService {
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
     for (const item of items) {
+      const rail: 'bank' | 'crypto' = isCryptoCurrency(item.paymentCurrency) ? 'crypto' : 'bank';
       try {
         await this.payrollItemRepository.update(item.id, {
           status: PayrollItemStatus.PROCESSING,
@@ -268,6 +282,7 @@ export class MultiPaymentService {
             transactionId: result.transactionId,
             provider: providerName,
             error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
+            rail,
           });
         } else {
           throw new BadRequestException(result.error || 'Payment failed');
@@ -280,15 +295,26 @@ export class MultiPaymentService {
         results.push({
           success: false,
           error: error.message,
+          rail,
         });
       }
     }
     return results;
   }
-  private calculatePaymentSummary(fiatResults: PaymentResult[]): PaymentSummary {
+  private calculatePaymentSummary(results: PaymentResult[]): PaymentSummary {
+    const bank = results.filter((r) => r.rail !== 'crypto');
+    const crypto = results.filter((r) => r.rail === 'crypto');
+    const bankSuccess = bank.filter((r) => r.success).length;
+    const bankFailed = bank.filter((r) => !r.success).length;
+    const cryptoSuccess = crypto.filter((r) => r.success).length;
+    const cryptoFailed = crypto.filter((r) => !r.success).length;
     return {
-      fiatSuccess: fiatResults.filter((r) => r.success).length,
-      fiatFailed: fiatResults.filter((r) => !r.success && r.error).length,
+      bankSuccess,
+      bankFailed,
+      cryptoSuccess,
+      cryptoFailed,
+      fiatSuccess: bankSuccess + cryptoSuccess,
+      fiatFailed: bankFailed + cryptoFailed,
     };
   }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
@@ -309,19 +335,26 @@ export class MultiPaymentService {
   }
   private async getPaymentTypeBreakdown(items: PayrollItem[]) {
     const breakdown = {
+      bank: { total: 0, paid: 0, failed: 0, pending: 0 },
+      crypto: { total: 0, paid: 0, failed: 0, pending: 0 },
       fiat: { total: 0, paid: 0, failed: 0, pending: 0 },
     };
     for (const item of items) {
+      const rail = isCryptoCurrency(item.paymentCurrency) ? 'crypto' : 'bank';
+      breakdown[rail].total++;
       breakdown.fiat.total++;
       switch (item.status) {
         case PayrollItemStatus.PAID:
+          breakdown[rail].paid++;
           breakdown.fiat.paid++;
           break;
         case PayrollItemStatus.FAILED:
+          breakdown[rail].failed++;
           breakdown.fiat.failed++;
           break;
         case PayrollItemStatus.PENDING:
         case PayrollItemStatus.PROCESSING:
+          breakdown[rail].pending++;
           breakdown.fiat.pending++;
           break;
       }

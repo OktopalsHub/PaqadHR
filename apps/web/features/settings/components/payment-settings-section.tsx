@@ -571,8 +571,8 @@ export function PaymentSettingsSection() {
               </Select>
             )}
             <p className="text-xs text-muted-foreground">
-              Nigerian bank accounts use local bank transfer; other currencies use our international
-              payout network.
+              Choose a currency your company allows. Bank accounts and crypto wallets are both
+              supported — pick the currency that matches how you get paid.
             </p>
           </div>
 
@@ -585,13 +585,17 @@ export function PaymentSettingsSection() {
                   onChange={(e) => setWalletAddress(e.target.value)}
                   placeholder="Paste your wallet address"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Required for crypto payouts. Use the network that matches this asset (e.g.
+                  ethereum for ETH/USDC).
+                </p>
               </div>
               <div className="space-y-2 sm:col-span-2">
-                <Label>Network (optional)</Label>
+                <Label>Network</Label>
                 <Input
                   value={cryptoNetwork}
                   onChange={(e) => setCryptoNetwork(e.target.value)}
-                  placeholder="e.g. ethereum, bitcoin"
+                  placeholder="e.g. ethereum, bitcoin, tron"
                 />
               </div>
             </>

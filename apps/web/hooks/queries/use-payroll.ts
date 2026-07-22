@@ -12,9 +12,11 @@ import {
   fetchPayrollRuns,
   fetchRunPayslips,
   notifyEmployeePaymentSetup,
+  payNowPayroll,
   processPayrollRun,
   publishPayslips,
   removePayrollItem,
+  schedulePayrollPayout,
   updatePayrollItem,
 } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
@@ -124,6 +126,15 @@ export function usePayrollActions() {
     }),
     process: useMutation({
       mutationFn: processPayrollRun,
+      onSuccess: invalidate,
+    }),
+    payNow: useMutation({
+      mutationFn: payNowPayroll,
+      onSuccess: invalidate,
+    }),
+    schedule: useMutation({
+      mutationFn: ({ id, paymentDate }: { id: string; paymentDate?: string }) =>
+        schedulePayrollPayout(id, paymentDate),
       onSuccess: invalidate,
     }),
     exportCsv: useMutation({

@@ -92,6 +92,13 @@ export function SettingsWorkspaceTab() {
     }
 
     const primaryCurrency = payrollCurrencies[0]?.toUpperCase();
+    const previousPrimary = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
+    if (primaryCurrency && primaryCurrency !== previousPrimary) {
+      const confirmed = window.confirm(
+        `Change workspace default from ${previousPrimary} to ${primaryCurrency}? Employees still paid in ${previousPrimary} must have their salary currency updated first — the save will be blocked until then.`,
+      );
+      if (!confirmed) return;
+    }
 
     try {
       await updateTenant.mutateAsync({
@@ -214,7 +221,7 @@ export function SettingsWorkspaceTab() {
 
           <SettingsFieldHint
             label="Payroll currencies"
-            hint="Members can only add bank accounts in these currencies. The first selected currency is the workspace default for billing and payroll."
+            hint="Members can only add bank accounts in these currencies. The first selected currency is the workspace default. Changing it does not rewrite salary amounts — update each employee’s salary currency first if people are still paid in the old default."
             className="lg:col-span-2"
           >
             <div className="dashboard-soft-tile rounded-[8px] px-4 py-4">

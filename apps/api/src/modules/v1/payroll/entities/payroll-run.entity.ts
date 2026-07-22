@@ -36,6 +36,14 @@ export class PayrollRun extends BaseEntity {
   })
   paymentDate: Date;
   @Column({
+    name: 'payout_mode',
+    type: 'varchar',
+    length: 16,
+    nullable: true,
+    comment: 'immediate | scheduled — how approved run will be paid',
+  })
+  payoutMode: 'immediate' | 'scheduled' | null;
+  @Column({
     type: 'enum',
     enum: PayrollStatus,
     default: PayrollStatus.DRAFT,

@@ -21,7 +21,7 @@ describe('resolvePaymentProvider', () => {
   });
 
   it('labels providers', () => {
-    expect(paymentProviderLabel(PaymentProvider.NOMBA)).toBe('Local bank transfer');
-    expect(paymentProviderLabel(PaymentProvider.NOAH)).toBe('International payout');
+    expect(paymentProviderLabel(PaymentProvider.NOMBA)).toBe('Local bank (NGN)');
+    expect(paymentProviderLabel(PaymentProvider.NOAH)).toBe('International / crypto (Noah)');
   });
 });

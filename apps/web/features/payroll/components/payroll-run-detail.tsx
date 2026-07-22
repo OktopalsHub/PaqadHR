@@ -278,7 +278,18 @@ export function PayrollRunDetail({
     actions.approve.isPending ||
     actions.disburse.isPending ||
     actions.process.isPending ||
+    actions.payNow.isPending ||
+    actions.schedule.isPending ||
     actions.publishPayslips.isPending;
+
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState('');
+
+  useEffect(() => {
+    if (detail?.paymentDate) {
+      setScheduleDate(String(detail.paymentDate).slice(0, 10));
+    }
+  }, [detail?.paymentDate]);
 
   const handleDownloadPayslip = async (payslip: {
     runId: string;
@@ -310,6 +321,34 @@ export function PayrollRunDetail({
     }
   };
 
+  const handlePayNow = async () => {
+    try {
+      await actions.payNow.mutateAsync(runId);
+      toast.success('Payout started');
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Payout failed');
+    }
+  };
+
+  const handleSchedule = async () => {
+    if (!scheduleDate) {
+      toast.error('Pick a payment date');
+      return;
+    }
+    try {
+      await actions.schedule.mutateAsync({
+        id: runId,
+        paymentDate: new Date(scheduleDate).toISOString(),
+      });
+      setScheduleOpen(false);
+      toast.success(`Scheduled for ${formatDate(scheduleDate)}`);
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Schedule failed');
+    }
+  };
+
   const handlePublishAll = async () => {
     try {
       const unpublished = payslips.filter((p) => !p.published && canManagePayrollItem(p.memberId));
@@ -336,7 +375,7 @@ export function PayrollRunDetail({
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
               {detail.title}
             </h3>
@@ -350,6 +389,11 @@ export function PayrollRunDetail({
               />
               {detail.status}
             </span>
+            {detail.payoutMode === 'scheduled' && detail.paymentDate ? (
+              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400">
+                Scheduled · {formatDate(detail.paymentDate)}
+              </span>
+            ) : null}
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {formatDate(detail.periodStart)} – {formatDate(detail.periodEnd)}
@@ -359,9 +403,14 @@ export function PayrollRunDetail({
         </div>
         <div className="flex flex-wrap gap-2">
           {isAdmin && isDraft ? (
-            <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
-              Calculate
-            </Button>
+            <>
+              <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
+                Calculate
+              </Button>
+              <p className="w-full text-xs text-slate-500 dark:text-slate-400 sm:w-auto sm:self-center">
+                Add bonuses/deductions on lines before Calculate.
+              </p>
+            </>
           ) : null}
           {isAdmin && detail.status === 'processing' ? (
             <Button
@@ -382,9 +431,27 @@ export function PayrollRunDetail({
           ) : null}
           {isAdmin && detail.status === 'approved' ? (
             <>
+              {payrollGatewayEnabled ? (
+                <Button size="sm" variant="brandSolid" disabled={busy} onClick={handlePayNow}>
+                  Pay now
+                </Button>
+              ) : null}
+              {payrollGatewayEnabled ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                  disabled={busy}
+                  onClick={() => setScheduleOpen(true)}
+                >
+                  Schedule
+                  {detail.paymentDate ? ` for ${formatDate(detail.paymentDate)}` : ''}
+                </Button>
+              ) : null}
               <Button
                 size="sm"
-                variant="brandSolid"
+                variant="outline"
+                className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
                 disabled={busy}
                 onClick={async () => {
                   try {
@@ -397,28 +464,31 @@ export function PayrollRunDetail({
               >
                 Mark paid
               </Button>
-              {payrollGatewayEnabled ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                  disabled={busy}
-                  onClick={async () => {
-                    try {
-                      await actions.process.mutateAsync(runId);
-                      toast.success('Payout started');
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : 'Payout failed');
-                    }
-                  }}
-                >
-                  Pay via gateway
-                </Button>
-              ) : null}
             </>
           ) : null}
         </div>
       </div>
+
+      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule payout</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Payment date</Label>
+              <Input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+              />
+            </div>
+            <Button variant="brandSolid" className="w-full" disabled={busy} onClick={handleSchedule}>
+              Confirm schedule
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {isLocked ? (
         <Alert>
@@ -463,7 +533,8 @@ export function PayrollRunDetail({
                     </div>
                   </AppTableCell>
                   <AppTableCell>
-                    {Number(item.baseSalary ?? 0).toLocaleString()} {detail.baseCurrency}
+                    {Number(item.baseSalary ?? 0).toLocaleString()}{' '}
+                    {item.baseSalaryCurrency || detail.baseCurrency}
                   </AppTableCell>
                   <AppTableCell>
                     {Number(item.adjustments ?? 0).toLocaleString()}

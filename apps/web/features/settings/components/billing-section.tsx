@@ -182,7 +182,8 @@ export function BillingSection() {
   const subStatus = overview.subscription?.status;
   const isPastDue = subStatus === 'PAST_DUE';
   const isPaused = subStatus === 'PAUSED';
-  const isActive = subStatus === 'ACTIVE';
+  const isActive =
+    subStatus === 'ACTIVE' || (subStatus === 'TRIAL' && Boolean(overview.hasPaymentMethodOnFile));
   const isCancelledOrExpired =
     subStatus === 'CANCELLED' || subStatus === 'EXPIRED' || subStatus === 'SUSPENDED';
   const supportsPause = overview.supportsPause !== false;
@@ -349,19 +350,31 @@ export function BillingSection() {
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <span className="font-medium capitalize">{overview.subscription.plan}</span>
             <Badge variant="secondary" className="capitalize">
-              {overview.subscription.status}
+              {overview.hasPaymentMethodOnFile && subStatus === 'TRIAL'
+                ? 'Active'
+                : overview.subscription.status}
             </Badge>
             {overview.cancelAtPeriodEnd && overview.subscription.currentPeriodEnd ? (
               <Badge variant="outline">
                 Cancels {formatDate(overview.subscription.currentPeriodEnd)}
               </Badge>
             ) : null}
-            {overview.subscription.daysRemaining != null ? (
+            {overview.subscription.daysRemaining != null &&
+            subStatus === 'TRIAL' &&
+            !overview.hasPaymentMethodOnFile ? (
               <span className="text-muted-foreground">
                 · {overview.subscription.daysRemaining} trial days left
               </span>
             ) : null}
-            {overview.subscription.currentPeriodEnd ? (
+            {overview.hasPaymentMethodOnFile &&
+            subStatus === 'TRIAL' &&
+            overview.subscription.currentPeriodEnd ? (
+              <span className="text-muted-foreground">
+                · First charge {formatDate(overview.subscription.currentPeriodEnd)}
+              </span>
+            ) : null}
+            {overview.subscription.currentPeriodEnd &&
+            !(overview.hasPaymentMethodOnFile && subStatus === 'TRIAL') ? (
               <span className="text-muted-foreground">
                 · Period ends {formatDate(overview.subscription.currentPeriodEnd)}
               </span>

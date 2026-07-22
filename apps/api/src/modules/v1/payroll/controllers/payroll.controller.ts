@@ -27,6 +27,7 @@ import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
 import { PayrollCalculationPreviewDto, UpdatePayrollRunDto } from '../dto/payroll-adjustment.dto';
 import { PublishPayslipsDto } from '../dto/publish-payslips.dto';
+import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
 import { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { AuditService } from '../services/audit.service';
 import { MultiPaymentService } from '../services/multi-payment.service';
@@ -71,7 +72,7 @@ export class PayrollController {
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN, TenantMemberRole.MEMBER)
   async getPayrollRuns(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
-    @Query('limit') limit = 20,
+    @Query('limit') limit = 100,
     @Query('offset') offset = 0,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
@@ -497,6 +498,45 @@ export class PayrollController {
       this.logger.error(`Failed to process multi-payment payroll run: ${id}`, error);
       throw error;
     }
+  }
+
+  @Post('runs/:id/pay-now')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async payNow(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      tenantId,
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const result = await this.payrollService.payNowPayroll(id, tenantId, auditContext);
+    return {
+      message: 'Payroll payout started',
+      result,
+      processedAt: new Date().toISOString(),
+    };
+  }
+
+  @Post('runs/:id/schedule')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async schedulePayout(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: SchedulePayrollPayoutDto,
+  ) {
+    const run = await this.payrollService.schedulePayrollPayout(id, tenantId, dto.paymentDate);
+    return {
+      message: 'Payroll scheduled',
+      run,
+    };
   }
 
   @Post('runs/:id/retry-failed-payments')

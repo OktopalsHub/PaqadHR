@@ -22,6 +22,7 @@ export type CurrentSalary = {
   payRate: number;
   payType: string;
   paySchedule: string;
+  currency?: string;
 };
 
 export type CreateEmploymentInput = {
@@ -39,6 +40,7 @@ export type CreateCompensationInput = {
   payRate: number;
   payType?: string;
   paySchedule?: string;
+  currency?: string;
   comments?: string;
 };
 

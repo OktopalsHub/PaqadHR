@@ -8,4 +8,5 @@ export interface PaymentResult {
   error?: string;
   errorCode?: string;
   retryable?: boolean;
+  rail?: 'bank' | 'crypto';
 }

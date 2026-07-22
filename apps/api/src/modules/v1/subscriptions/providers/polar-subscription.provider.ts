@@ -6,7 +6,6 @@ import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import {
   BillingChargeType,
   parseBillingChargeType,
-  SUBSCRIPTION_TRIAL_DAYS,
 } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
@@ -69,9 +68,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         customer_email: email,
         success_url: successUrl,
         seats,
-        allow_trial: true,
-        trial_interval: 'day',
-        trial_interval_count: SUBSCRIPTION_TRIAL_DAYS,
+        allow_trial: false,
         metadata: {
           ...metadata,
           quantity: seats,

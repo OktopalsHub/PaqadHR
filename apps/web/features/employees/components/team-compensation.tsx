@@ -39,6 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useAddCompensation, useCurrentSalaries } from '@/hooks/queries/use-employment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { SUPPORTED_PAYROLL_CURRENCIES } from '@/lib/constants/currencies';
 import { numberToWords } from '@/lib/number-to-words';
 import { useTenant } from '@/providers/tenant-provider';
 import type { Employee } from '../types/';
@@ -73,7 +74,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   const tenantHref = useTenantHref();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const currency = tenant?.preferredCurrency ?? 'USD';
+  const defaultCurrency = tenant?.preferredCurrency ?? 'USD';
 
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
@@ -85,6 +86,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
   const [payRate, setPayRate] = useState('');
   const [payType, setPayType] = useState('Salary');
   const [paySchedule, setPaySchedule] = useState('Monthly');
+  const [salaryCurrency, setSalaryCurrency] = useState(defaultCurrency);
   const [comments, setComments] = useState('');
 
   const resetSalaryDialog = () => {
@@ -92,6 +94,7 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
     setPayRate('');
     setPayType('Salary');
     setPaySchedule('Monthly');
+    setSalaryCurrency(defaultCurrency);
     setComments('');
   };
 
@@ -204,11 +207,15 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                           {currentSalary ? (
                             <div className="space-y-0.5">
                               <p className="font-medium text-sm">
-                                {formatMoney(Number(currentSalary.payRate), currency)}
+                                {formatMoney(
+                                  Number(currentSalary.payRate),
+                                  currentSalary.currency || defaultCurrency,
+                                )}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {currentSalary.payType} ·{' '}
-                                {formatPaySchedule(currentSalary.paySchedule)}
+                                {formatPaySchedule(currentSalary.paySchedule)} ·{' '}
+                                {(currentSalary.currency || defaultCurrency).toUpperCase()}
                               </p>
                             </div>
                           ) : (
@@ -239,7 +246,13 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                                 size="icon"
                                 title={`Add new salary for ${employee.name}`}
                                 aria-label={`Add new salary for ${employee.name}`}
-                                onClick={() => setSalaryMember(employee)}
+                                onClick={() => {
+                                  const existing = currentSalaryByMemberId.get(employee.id);
+                                  setSalaryCurrency(
+                                    existing?.currency || defaultCurrency,
+                                  );
+                                  setSalaryMember(employee);
+                                }}
                               >
                                 <Plus className="size-4" />
                               </Button>
@@ -247,7 +260,10 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setSalaryMember(employee)}
+                                onClick={() => {
+                                  setSalaryCurrency(defaultCurrency);
+                                  setSalaryMember(employee);
+                                }}
                               >
                                 <Plus className="mr-1.5 size-3.5" />
                                 Salary
@@ -274,11 +290,13 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
           payRate={payRate}
           payType={payType}
           paySchedule={paySchedule}
+          currency={salaryCurrency}
           comments={comments}
           onEffectiveDateChange={setEffectiveDate}
           onPayRateChange={setPayRate}
           onPayTypeChange={setPayType}
           onPayScheduleChange={setPaySchedule}
+          onCurrencyChange={setSalaryCurrency}
           onCommentsChange={setComments}
           onClose={() => {
             setSalaryMember(null);
@@ -297,11 +315,13 @@ interface SalaryDialogProps {
   payRate: string;
   payType: string;
   paySchedule: string;
+  currency: string;
   comments: string;
   onEffectiveDateChange: (value: string) => void;
   onPayRateChange: (value: string) => void;
   onPayTypeChange: (value: string) => void;
   onPayScheduleChange: (value: string) => void;
+  onCurrencyChange: (value: string) => void;
   onCommentsChange: (value: string) => void;
   onClose: () => void;
 }
@@ -313,11 +333,13 @@ function SalaryDialog({
   payRate,
   payType,
   paySchedule,
+  currency,
   comments,
   onEffectiveDateChange,
   onPayRateChange,
   onPayTypeChange,
   onPayScheduleChange,
+  onCurrencyChange,
   onCommentsChange,
   onClose,
 }: SalaryDialogProps) {
@@ -340,6 +362,7 @@ function SalaryDialog({
         payRate: rate,
         payType,
         paySchedule,
+        currency,
         comments: comments.trim() || undefined,
       });
       toast.success(`Salary added for ${memberName}`);
@@ -360,7 +383,7 @@ function SalaryDialog({
         <DialogHeader>
           <DialogTitle>Add salary — {memberName}</DialogTitle>
           <DialogDescription>
-            Record a new salary amount. Previous salaries stay in history.
+            Record a new salary amount and currency. Previous salaries stay in history.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
@@ -373,20 +396,37 @@ function SalaryDialog({
               onChange={(e) => onEffectiveDateChange(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="comp-pay-rate">Amount</Label>
-            <Input
-              id="comp-pay-rate"
-              type="number"
-              min={0}
-              value={payRate}
-              onChange={(e) => onPayRateChange(e.target.value)}
-            />
-            {payRate && Number(payRate) > 0 ? (
-              <p className="text-xs text-muted-foreground capitalize">
-                {numberToWords(Number(payRate))}
-              </p>
-            ) : null}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="comp-pay-rate">Amount</Label>
+              <Input
+                id="comp-pay-rate"
+                type="number"
+                min={0}
+                value={payRate}
+                onChange={(e) => onPayRateChange(e.target.value)}
+              />
+              {payRate && Number(payRate) > 0 ? (
+                <p className="text-xs text-muted-foreground capitalize">
+                  {numberToWords(Number(payRate))}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="comp-currency">Currency</Label>
+              <Select value={currency} onValueChange={onCurrencyChange}>
+                <SelectTrigger id="comp-currency">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_PAYROLL_CURRENCIES.map((code) => (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">

@@ -9,7 +9,7 @@ import type {
 
 export async function fetchPayrollRuns(): Promise<PayrollRunsResponse> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollRunsResponse>(tenantPath(tenantId, 'payroll/runs'));
+  return apiClient<PayrollRunsResponse>(tenantPath(tenantId, 'payroll/runs?limit=100'));
 }
 
 export async function fetchPayrollRun(id: string): Promise<PayrollRun> {
@@ -17,12 +17,17 @@ export async function fetchPayrollRun(id: string): Promise<PayrollRun> {
   return apiClient<PayrollRun>(tenantPath(tenantId, `payroll/runs/${id}`));
 }
 
-export async function createPayrollRun(input: CreatePayrollRunInput): Promise<PayrollRun> {
+export async function createPayrollRun(
+  input: CreatePayrollRunInput,
+): Promise<PayrollRun & { alreadyExists?: boolean }> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollRun>(tenantPath(tenantId, 'payroll/runs'), {
-    method: 'POST',
-    body: JSON.stringify(input),
-  });
+  return apiClient<PayrollRun & { alreadyExists?: boolean }>(
+    tenantPath(tenantId, 'payroll/runs'),
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
 }
 
 export async function calculatePayrollRun(
@@ -122,6 +127,28 @@ export async function processPayrollRun(id: string): Promise<void> {
   await apiClient(tenantPath(tenantId, `payroll/runs/${id}/process-multi-payment`), {
     method: 'POST',
   });
+}
+
+export async function payNowPayroll(id: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payroll/runs/${id}/pay-now`), {
+    method: 'POST',
+  });
+}
+
+export async function schedulePayrollPayout(
+  id: string,
+  paymentDate?: string,
+): Promise<PayrollRun> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ run: PayrollRun }>(
+    tenantPath(tenantId, `payroll/runs/${id}/schedule`),
+    {
+      method: 'POST',
+      body: JSON.stringify(paymentDate ? { paymentDate } : {}),
+    },
+  );
+  return result.run;
 }
 
 export async function approvePayrollRun(id: string): Promise<void> {

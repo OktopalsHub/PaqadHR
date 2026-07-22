@@ -274,7 +274,12 @@ export class SubscriptionBillingService {
     }
 
     const providerStatus = event.providerStatus?.toLowerCase();
-    if (providerStatus === 'trialing' || providerStatus === 'trial') {
+    // Checkout with plan metadata = customer subscribed (card on file). Do not map
+    // provider "trialing" to our free-app TRIAL — that made Scale look unpaid.
+    if (event.planId && event.planPriceId) {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.trialEndsAt = null;
+    } else if (providerStatus === 'trialing' || providerStatus === 'trial') {
       subscription.status = SubscriptionStatus.TRIAL;
       if (event.trialEndsAt) {
         const trialEnd = new Date(event.trialEndsAt);

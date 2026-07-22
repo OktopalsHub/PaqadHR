@@ -6,7 +6,7 @@ import {
   ArrayUnique,
   IsArray,
   IsEnum,
-  IsISO4217CurrencyCode,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -15,6 +15,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { TransactionType } from 'src/common/enums';
 import {
   IsAfterStartDate,
@@ -109,17 +110,22 @@ export class CreatePayrollRunDto {
     message: 'Pay period length is invalid for the selected frequency',
   })
   periodEnd: Date;
-  @ApiProperty({ description: 'Scheduled payment date' })
-  @Type(() => Date)
-  @IsAfterStartDate('periodEnd', {
-    message: 'Payment date must be after pay period end date',
+  @ApiProperty({
+    description: 'Scheduled payment date (any calendar day; usually on or after period end)',
   })
+  @Type(() => Date)
   paymentDate: Date;
-  @ApiProperty({ description: 'Base currency for calculations' })
+  @ApiProperty({
+    description:
+      'Payout currency for this run (one currency per run). NGN bank via Nomba; other fiat and crypto via Noah.',
+    example: 'NGN',
+  })
   @IsString()
   @IsNotEmpty()
-  @IsISO4217CurrencyCode({
-    message: 'Base currency must be a valid ISO 4217 currency code',
+  @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
+  @IsIn(getSupportedPaymentCurrencies(), {
+    message:
+      'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, BTC, ETH, USDT, USDC)',
   })
   baseCurrency: string;
   @ApiProperty({

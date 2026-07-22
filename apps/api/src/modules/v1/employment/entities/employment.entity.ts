@@ -36,6 +36,13 @@ export class Employment extends BaseEntity {
     name: 'pay_rate',
   })
   payRate: number;
+  @Column({
+    type: 'varchar',
+    length: 3,
+    default: 'USD',
+    comment: 'ISO 4217 salary currency for this employment record',
+  })
+  currency: string;
   @Column({ type: 'text', nullable: true })
   comments?: string;
   @Column({ name: 'created_by', nullable: true })

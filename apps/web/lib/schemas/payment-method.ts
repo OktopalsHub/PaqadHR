@@ -1,16 +1,6 @@
 import { z } from 'zod';
 
-const CRYPTO_CURRENCIES = [
-  'BTC',
-  'ETH',
-  'USDT',
-  'USDC',
-  'BNB',
-  'ADA',
-  'DOT',
-  'SOL',
-  'MATIC',
-] as const;
+const CRYPTO_CURRENCIES = ['BTC', 'ETH', 'USDT', 'USDC'] as const;
 
 export function isCryptoCurrency(code: string): boolean {
   return CRYPTO_CURRENCIES.includes(code.toUpperCase() as (typeof CRYPTO_CURRENCIES)[number]);

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from '../../../common/modules/file.module';
+import { Employment } from '../employment/entities/employment.entity';
 import { PlansModule } from '../plans/plans.module';
 import { PositionModule } from '../position/position.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
@@ -15,7 +16,7 @@ import { TenantsService } from './tenants.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Tenant]),
+    TypeOrmModule.forFeature([Tenant, Employment]),
     TenantMembersModule,
     UsersModule,
     PlansModule,

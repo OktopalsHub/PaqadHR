@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -34,9 +34,16 @@ export class EmploymentService {
     await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
 
     const { positionStartDate: _positionStartDate, ...employmentData } = createEmploymentDto;
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const currency = (
+      (employmentData as { currency?: string }).currency ||
+      tenant?.preferredCurrency ||
+      'USD'
+    ).toUpperCase();
 
     const employment = await this.employmentRepository.createEmployment({
       ...employmentData,
+      currency,
       tenantMemberId,
       tenantId,
       createdBy,
@@ -61,7 +68,8 @@ export class EmploymentService {
   ): Promise<Employment> {
     await this.tenantMembersService.getTenantMember(tenantMemberId, tenantId);
 
-    const { effectiveDate, payRate, payType, paySchedule, comments } = createCompensationDto;
+    const { effectiveDate, payRate, payType, paySchedule, comments, currency } =
+      createCompensationDto;
     if (payRate <= 0) {
       throw new BadRequestException('Pay rate must be greater than zero');
     }
@@ -70,6 +78,14 @@ export class EmploymentService {
       tenantMemberId,
       tenantId,
     );
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const salaryCurrency = (
+      currency ||
+      currentEmployment?.currency ||
+      tenant?.preferredCurrency ||
+      'USD'
+    ).toUpperCase();
 
     const inheritedPositionId: string | null | undefined = currentEmployment?.positionId ?? null;
     if (currentEmployment) {
@@ -86,6 +102,7 @@ export class EmploymentService {
       payType,
       paySchedule,
       comments,
+      currency: salaryCurrency,
       positionId: inheritedPositionId ?? undefined,
       tenantMemberId,
       tenantId,
@@ -143,7 +160,7 @@ export class EmploymentService {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
     });
-    const currency = tenant?.preferredCurrency || 'USD';
+    const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
     return {
       employment,
       baseSalary: employment.payRate,
@@ -151,6 +168,16 @@ export class EmploymentService {
       paySchedule: employment.paySchedule,
       currency,
     };
+  }
+
+  async countActiveEmploymentsWithCurrency(tenantId: string, currency: string): Promise<number> {
+    return this.employmentRepository.count({
+      where: {
+        tenantId,
+        currency: currency.toUpperCase(),
+        endDate: IsNull(),
+      },
+    });
   }
   async getBulkEmploymentSalaryInfo(
     tenantMemberIds: string[],
@@ -183,6 +210,7 @@ export class EmploymentService {
       payRate: number;
       payType: string;
       paySchedule: string;
+      currency: string;
     }>
   > {
     const employments = await this.employmentRepository.findCurrentEmploymentsByTenantId(tenantId);
@@ -191,6 +219,7 @@ export class EmploymentService {
       payRate: Number(employment.payRate),
       payType: employment.payType,
       paySchedule: employment.paySchedule,
+      currency: (employment.currency || 'USD').toUpperCase(),
     }));
   }
 }

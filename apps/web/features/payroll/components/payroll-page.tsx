@@ -72,11 +72,16 @@ function PayrollRunRow({
   run: PayrollRun;
   selected: boolean;
   onSelect: (id: string) => void;
-  onAction: (action: string, id: string) => void;
+  onAction: (action: string, id: string, paymentDate?: string) => void;
   busy: boolean;
   payrollGatewayEnabled: boolean;
   isAdmin: boolean;
 }) {
+  const scheduledLabel =
+    run.payoutMode === 'scheduled' && run.paymentDate
+      ? `Scheduled · ${formatDate(run.paymentDate)}`
+      : null;
+
   return (
     <div
       className={`dashboard-soft-tile flex flex-col gap-4 rounded-[8px] border p-4 transition-colors sm:flex-row sm:items-center sm:justify-between ${
@@ -86,9 +91,10 @@ function PayrollRunRow({
       }`}
     >
       <button type="button" className="space-y-1 text-left" onClick={() => onSelect(run.id)}>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium text-slate-950 dark:text-slate-100">{run.title}</p>
           <Badge variant={statusVariant(run.status)}>{run.status}</Badge>
+          {scheduledLabel ? <Badge variant="outline">{scheduledLabel}</Badge> : null}
         </div>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {formatDate(run.periodStart)} – {formatDate(run.periodEnd)} · {run.baseCurrency}
@@ -122,25 +128,42 @@ function PayrollRunRow({
         ) : null}
         {isAdmin && run.status === 'approved' ? (
           <>
-            <Button
-              size="sm"
-              variant="brandSolid"
-              disabled={busy}
-              onClick={() => onAction('disburse', run.id)}
-            >
-              Mark paid
-            </Button>
+            {payrollGatewayEnabled ? (
+              <Button
+                size="sm"
+                variant="brandSolid"
+                disabled={busy}
+                onClick={() => onAction('pay-now', run.id)}
+              >
+                Pay now
+              </Button>
+            ) : null}
             {payrollGatewayEnabled ? (
               <Button
                 size="sm"
                 variant="secondary"
                 className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
                 disabled={busy}
-                onClick={() => onAction('process', run.id)}
+                onClick={() =>
+                  onAction(
+                    'schedule',
+                    run.id,
+                    run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
+                  )
+                }
               >
-                Pay via gateway
+                Schedule
               </Button>
             ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+              disabled={busy}
+              onClick={() => onAction('disburse', run.id)}
+            >
+              Mark paid
+            </Button>
           </>
         ) : null}
         {isAdmin && ['processing', 'approved', 'completed'].includes(run.status) ? (
@@ -186,17 +209,19 @@ export function PayrollPage() {
   const actions = usePayrollActions();
 
   const fiatCurrencies = currencyOptions?.fiat ?? ['NGN'];
+  const cryptoCurrencies = currencyOptions?.crypto ?? [];
+  const runCurrencies = [...fiatCurrencies, ...cryptoCurrencies];
 
   useEffect(() => {
     const preferred = tenant?.preferredCurrency?.toUpperCase();
-    if (preferred && fiatCurrencies.includes(preferred)) {
+    if (preferred && runCurrencies.includes(preferred)) {
       setBaseCurrency(preferred);
       return;
     }
-    if (fiatCurrencies[0]) {
-      setBaseCurrency(fiatCurrencies[0]);
+    if (runCurrencies[0]) {
+      setBaseCurrency(runCurrencies[0]);
     }
-  }, [tenant?.preferredCurrency, fiatCurrencies]);
+  }, [tenant?.preferredCurrency, runCurrencies.join(',')]);
 
   const busy =
     createRun.isPending ||
@@ -204,11 +229,15 @@ export function PayrollPage() {
     actions.approve.isPending ||
     actions.disburse.isPending ||
     actions.process.isPending ||
+    actions.payNow.isPending ||
+    actions.schedule.isPending ||
     actions.exportCsv.isPending ||
     actions.removeItem.isPending ||
     actions.notifyPaymentSetup.isPending;
 
   const activeEmployees = employees.filter((e) => e.status === 'Active');
+  const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -217,6 +246,10 @@ export function PayrollPage() {
     }
     if (!periodStart || !periodEnd || !paymentDate) {
       toast.error('Set period and expected pay dates');
+      return;
+    }
+    if (new Date(periodEnd) <= new Date(periodStart)) {
+      toast.error('Period end must be after period start');
       return;
     }
     const activeIds = activeEmployees.map((e) => e.id);
@@ -237,20 +270,24 @@ export function PayrollPage() {
       setOpen(false);
       setTitle('');
       setSelectedRunId(run.id);
-      toast.success('Payroll run created');
+      if (run.alreadyExists) {
+        toast.message('Run already exists for this period');
+      } else {
+        toast.success('Payroll run created');
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create run');
     }
   };
 
-  const handleAction = async (action: string, id: string) => {
+  const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
       if (action === 'calculate') {
         const result = await actions.calculate.mutateAsync({ id });
         setSelectedRunId(id);
         if (result.warnings?.length) {
           toast.warning(
-            `${result.warnings.length} employee(s) are missing payment settings and will miss payout.`,
+            `${result.warnings.length} employee(s) need attention (payment settings or currency).`,
           );
         } else {
           toast.success('Payroll calculated');
@@ -259,11 +296,42 @@ export function PayrollPage() {
       }
       if (action === 'approve') await actions.approve.mutateAsync(id);
       if (action === 'disburse') await actions.disburse.mutateAsync(id);
-      if (action === 'process') await actions.process.mutateAsync(id);
+      if (action === 'process' || action === 'pay-now') {
+        await actions.payNow.mutateAsync(id);
+        toast.success('Payout started');
+        return;
+      }
+      if (action === 'schedule') {
+        const existing = data?.runs?.find((r) => r.id === id);
+        setScheduleRunId(id);
+        setScheduleDate(
+          paymentDateOverride ||
+            existing?.paymentDate?.toString().slice(0, 10) ||
+            defaultPayDate,
+        );
+        return;
+      }
       if (action === 'export') await actions.exportCsv.mutateAsync(id);
       toast.success(`Payroll ${action} completed`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Action failed');
+    }
+  };
+
+  const confirmSchedule = async () => {
+    if (!scheduleRunId || !scheduleDate) {
+      toast.error('Pick a payment date');
+      return;
+    }
+    try {
+      await actions.schedule.mutateAsync({
+        id: scheduleRunId,
+        paymentDate: new Date(scheduleDate).toISOString(),
+      });
+      setScheduleRunId(null);
+      toast.success(`Scheduled for ${formatDate(scheduleDate)}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Schedule failed');
     }
   };
 
@@ -354,6 +422,11 @@ export function PayrollPage() {
                   <DialogTitle>Create payroll run</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Creating a run does not take money. You calculate, approve, then Pay now or
+                    Schedule. One currency per run — create another run for a different currency.
+                    Bonuses and deductions are added before Calculate.
+                  </p>
                   <div className="space-y-2">
                     <Label>Title</Label>
                     <Input
@@ -390,6 +463,9 @@ export function PayrollPage() {
                         onChange={(e) => setPaymentDate(e.target.value)}
                         className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
                       />
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Usually on or after period end. Any calendar day is allowed.
+                      </p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -399,13 +475,18 @@ export function PayrollPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {fiatCurrencies.map((code) => (
+                        {runCurrencies.map((code) => (
                           <SelectItem key={code} value={code}>
                             {code}
+                            {cryptoCurrencies.includes(code) ? ' (crypto)' : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Payout currency for this run. Only employees paid in this currency are
+                      included. Split different currencies into separate runs.
+                    </p>
                   </div>
                   <Button
                     variant="brandSolid"
@@ -464,7 +545,7 @@ export function PayrollPage() {
             title="Payroll runs"
             description={
               isAdmin
-                ? 'Calculate, review payment readiness, approve, and disburse salaries'
+                ? 'Calculate, approve, then Pay now or Schedule. Mark paid stays available for offline payouts.'
                 : 'Review and publish payslips for your direct reports'
             }
             className="dashboard-panel rounded-[8px]"
@@ -580,6 +661,42 @@ export function PayrollPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog
+        open={Boolean(scheduleRunId)}
+        onOpenChange={(next) => {
+          if (!next) setScheduleRunId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule payout</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Gateway payout starts automatically on or after this date while the run stays
+              approved.
+            </p>
+            <div className="space-y-2">
+              <Label>Payment date</Label>
+              <Input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+              />
+            </div>
+            <Button
+              variant="brandSolid"
+              className="w-full"
+              disabled={actions.schedule.isPending}
+              onClick={() => void confirmSchedule()}
+            >
+              Schedule for {scheduleDate ? formatDate(scheduleDate) : '…'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppPage>
   );
 }

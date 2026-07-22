@@ -118,7 +118,6 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
               amount: formatAmount(amount),
             },
             billing_cycle: { interval: 'month', frequency: 1 },
-            trial_period: { interval: 'day', frequency: 14 },
             metadata: {
               paqad: 'true',
               plan_slug: slug,
@@ -128,6 +127,20 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
         });
         productId = created.id;
         this.logger.log(`Created Bachs ${slug} ${currency}: ${productId}`);
+      } else if (match?.trial_period) {
+        // Existing products were synced with a free trial; strip it so checkout bills immediately.
+        try {
+          await this.bachsRequest(`/v1/products/${productId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ trial_period: null }),
+          });
+          this.logger.log(`Cleared Bachs trial_period on ${slug} ${currency}: ${productId}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `Could not clear trial_period on Bachs product ${productId}: ${message}`,
+          );
+        }
       }
 
       if (planPrice.bachsProductId !== productId) {

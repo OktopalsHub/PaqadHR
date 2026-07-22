@@ -415,6 +415,7 @@ export class PaymentMethodService {
     }
 
     const normalizedCurrency = currency.toUpperCase();
+    const runIsCrypto = isCryptoCurrency(normalizedCurrency);
     const method = await this.resolvePayrollPaymentMethod(tenantId, memberId, normalizedCurrency);
 
     if (!method) {
@@ -422,8 +423,9 @@ export class PaymentMethodService {
         memberId,
         ready: false,
         issues: [PayrollPaymentIssue.MISSING_PAYMENT_METHOD],
-        message:
-          'Payment settings are not set up yet. This employee will miss this payroll unless you remove them or ask them to add bank details.',
+        message: runIsCrypto
+          ? `Add a verified ${normalizedCurrency} crypto wallet in payment settings to be included in this run.`
+          : `Add a verified ${normalizedCurrency} bank account in payment settings to be included in this run.`,
         currency: normalizedCurrency,
       };
     }
@@ -433,30 +435,44 @@ export class PaymentMethodService {
     if (method.currency?.toUpperCase() !== normalizedCurrency) {
       issues.push(PayrollPaymentIssue.CURRENCY_MISMATCH);
     }
+
+    const methodIsCrypto = method.type === PaymentMethodType.CRYPTO;
+    if (runIsCrypto && !methodIsCrypto) {
+      issues.push(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH);
+    } else if (!runIsCrypto && methodIsCrypto) {
+      issues.push(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH);
+    }
+
     if (!method.isVerified) {
       issues.push(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD);
     }
     if (method.isLocked) {
       issues.push(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD);
     }
-    if (method.type === PaymentMethodType.CRYPTO || isCryptoCurrency(normalizedCurrency)) {
+
+    if (runIsCrypto || methodIsCrypto) {
       const walletAddress =
         (method.metadata?.walletAddress as string | undefined) ?? method.accountNumber;
       if (!walletAddress?.trim()) {
+        issues.push(PayrollPaymentIssue.INCOMPLETE_WALLET_DETAILS);
+      }
+    } else {
+      if (
+        !method.accountNumber?.trim() ||
+        !method.accountName?.trim() ||
+        !method.bankName?.trim()
+      ) {
         issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
       }
-    } else if (
-      !method.accountNumber?.trim() ||
-      !method.accountName?.trim() ||
-      !method.bankName?.trim()
-    ) {
-      issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
-    }
-    if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
-      issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
-    }
-    if (requiresGlobalInstitutionCode(normalizedCurrency) && !method.bankCode?.trim()) {
-      issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+      if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
+        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+      }
+      if (requiresGlobalInstitutionCode(normalizedCurrency) && !method.bankCode?.trim()) {
+        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+      }
+      if (normalizedCurrency !== 'NGN' && !method.country?.trim()) {
+        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+      }
     }
 
     if (!getSupportedPaymentCurrencies().includes(normalizedCurrency)) {
@@ -464,7 +480,9 @@ export class PaymentMethodService {
     }
 
     const ready = issues.length === 0 && method.canReceivePayments;
-    const message = ready ? 'Ready for payroll disbursement.' : this.buildReadinessMessage(issues);
+    const message = ready
+      ? 'Ready for payroll disbursement.'
+      : this.buildReadinessMessage(issues, runIsCrypto);
 
     return {
       memberId,
@@ -504,18 +522,30 @@ export class PaymentMethodService {
     return this.withDecrypted(fallback);
   }
 
-  private buildReadinessMessage(issues: PayrollPaymentIssue[]): string {
+  private buildReadinessMessage(issues: PayrollPaymentIssue[], runIsCrypto = false): string {
     if (issues.includes(PayrollPaymentIssue.MISSING_PAYMENT_METHOD)) {
-      return 'Payment settings are not set up yet. This employee will miss this payroll unless you remove them or ask them to add bank details.';
+      return runIsCrypto
+        ? 'Payment settings are not set up yet. Add a crypto wallet for this currency to be included.'
+        : 'Payment settings are not set up yet. Add a bank account for this currency to be included.';
+    }
+    if (issues.includes(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH)) {
+      return runIsCrypto
+        ? 'This run pays in crypto. Add a matching crypto wallet (not a bank account) for this currency.'
+        : 'This run pays to bank accounts. Add a matching bank account (not a crypto wallet) for this currency.';
     }
     if (issues.includes(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD)) {
-      return 'Bank details are pending verification. This employee will miss payment until an admin verifies their account.';
+      return runIsCrypto
+        ? 'Crypto wallet is pending verification. This employee will miss payment until an admin verifies it.'
+        : 'Bank details are pending verification. This employee will miss payment until an admin verifies their account.';
     }
     if (issues.includes(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD)) {
       return 'Payment settings are temporarily locked. Ask the employee to unlock their payment passcode.';
     }
+    if (issues.includes(PayrollPaymentIssue.INCOMPLETE_WALLET_DETAILS)) {
+      return 'Crypto wallet address is missing. This employee will miss payment until their wallet details are completed.';
+    }
     if (issues.includes(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS)) {
-      return 'Bank account details are incomplete (check routing number, IBAN/BIC, or sort code). This employee will miss payment until their payment settings are completed.';
+      return 'Bank account details are incomplete (check account number, bank name, country, IBAN/BIC, or sort code). This employee will miss payment until their payment settings are completed.';
     }
     if (issues.includes(PayrollPaymentIssue.CURRENCY_MISMATCH)) {
       return 'No verified payment method matches this payroll currency.';

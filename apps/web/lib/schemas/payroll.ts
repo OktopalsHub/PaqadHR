@@ -8,12 +8,14 @@ export const payrollRunSchema = z.object({
   periodStart: z.string(),
   periodEnd: z.string(),
   paymentDate: z.string().optional(),
+  payoutMode: z.enum(['immediate', 'scheduled']).nullable().optional(),
   baseCurrency: z.string(),
   employeeCount: z.number().optional(),
   totalNetAmount: z.union([z.number(), z.string()]).optional(),
   totalGrossAmount: z.union([z.number(), z.string()]).optional(),
   createdAt: z.string().optional(),
   processedAt: z.string().nullable().optional(),
+  alreadyExists: z.boolean().optional(),
 });
 
 export type PayrollRun = z.infer<typeof payrollRunSchema>;
@@ -78,6 +80,7 @@ export const payrollItemSchema = z.object({
   memberId: z.string(),
   status: z.string(),
   baseSalary: z.union([z.number(), z.string()]).optional(),
+  baseSalaryCurrency: z.string().optional(),
   grossAmount: z.union([z.number(), z.string()]).optional(),
   adjustments: z.union([z.number(), z.string()]).optional(),
   deductions: z.union([z.number(), z.string()]).optional(),

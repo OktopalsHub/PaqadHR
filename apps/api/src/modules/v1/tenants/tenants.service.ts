@@ -5,10 +5,13 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
 import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
+import { IsNull, Repository } from 'typeorm';
+import { Employment } from '../employment/entities/employment.entity';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { UsersService } from '../users/users.service';
@@ -25,6 +28,8 @@ export class TenantsService {
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     readonly _fileUrlService: FileUrlService,
+    @InjectRepository(Employment)
+    private readonly employmentRepository: Repository<Employment>,
   ) {}
   async createTenant(creatorId: string, data: CreateTenantDto): Promise<Tenant> {
     try {
@@ -161,6 +166,25 @@ export class TenantsService {
     const existingTenant = await this.tenantRepository.findById(tenantId);
     if (!existingTenant) {
       throw new NotFoundException('Tenant does not exist');
+    }
+    if (updateTenantDto.preferredCurrency) {
+      const next = updateTenantDto.preferredCurrency.toUpperCase();
+      const current = (existingTenant.preferredCurrency || 'USD').toUpperCase();
+      if (next !== current) {
+        const stillOnOld = await this.employmentRepository.count({
+          where: {
+            tenantId,
+            endDate: IsNull(),
+            currency: current,
+          },
+        });
+        if (stillOnOld > 0) {
+          throw new BadRequestException(
+            `${stillOnOld} employee salary record(s) are still in ${current}. Update those salaries to ${next} (or another currency) before changing the workspace currency.`,
+          );
+        }
+        updateTenantDto.preferredCurrency = next;
+      }
     }
     if (updateTenantDto.name) {
       existingTenant.name = updateTenantDto.name;
