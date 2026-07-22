@@ -94,6 +94,7 @@ const AppDataSource = {
     Migrations.TenantSubscriptionBillingProvider1783369099246,
     Migrations.TenantSubscriptionExternalSubscription1784546774315,
     Migrations.PlanPriceExternalProductIds1784548594725,
+    Migrations.PayrollPayoutModeAndEmploymentCurrency1784756934802,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
