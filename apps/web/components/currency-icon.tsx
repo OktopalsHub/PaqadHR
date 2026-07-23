@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import type React from 'react';
 import { cn } from '@/lib/utils';
 
 export type CurrencyCode = 'NGN' | 'USD' | 'EUR' | 'GBP' | 'BTC' | 'ETH' | 'USDT' | 'USDC' | string;
@@ -76,12 +76,7 @@ export function CurrencyIcon({ code, className, size = 20, ...props }: CurrencyI
             strokeWidth="2.5"
             strokeLinecap="round"
           />
-          <path
-            d="M8 14.5H18M8 17.5H18"
-            stroke="#FFCC00"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-          />
+          <path d="M8 14.5H18M8 17.5H18" stroke="#FFCC00" strokeWidth="2.2" strokeLinecap="round" />
         </svg>
       );
 

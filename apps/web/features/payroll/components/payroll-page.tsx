@@ -1,5 +1,8 @@
 'use client';
 
+import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
@@ -41,9 +44,6 @@ import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
 import type { PayrollRun } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
-import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { toast } from 'sonner';
 
 function statusVariant(status: string) {
   switch (status) {
