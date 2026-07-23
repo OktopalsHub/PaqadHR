@@ -31,6 +31,7 @@ import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import { CreatePositionDialog } from './create-position-dialog';
 
+// Define the props for the AddEmployeeDialog component
 interface AddEmployeeDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
