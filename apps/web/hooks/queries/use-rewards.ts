@@ -158,7 +158,7 @@ export function useClaimReward() {
           if (!old) return old;
           return {
             ...old,
-            currentBalance: Math.max(0, old.currentBalance - input.points),
+            currentBalance: Math.max(0, old.currentBalance - input.pointsCost),
           };
         },
       );

@@ -6,6 +6,7 @@ import { createShoutout, fetchShoutoutCategories, fetchShoutouts } from '@/lib/a
 import { queryKeys } from '@/lib/query/keys';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import type { CreateShoutoutInput, Shoutout, ShoutoutFeed } from '@/lib/schemas/shoutout';
+import { useAuth } from '@/providers/auth-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useShoutouts() {
@@ -33,6 +34,7 @@ export function useShoutoutCategories() {
 export function useCreateShoutout() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
+  const { user } = useAuth();
 
   return useMutation({
     mutationFn: (input: CreateShoutoutInput) => createShoutout(input),
@@ -48,7 +50,7 @@ export function useCreateShoutout() {
         queryKeys.shoutouts.points(tenantId ?? ''),
       );
 
-      const currentUserId = tenant?.member?.id ?? '';
+      const currentUserId = user?.id ?? '';
       const totalPoints = input.recipients.reduce((sum, r) => sum + r.points, 0);
 
       const optimisticShoutout: Shoutout = {
