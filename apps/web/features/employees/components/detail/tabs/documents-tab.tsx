@@ -1,7 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, FileText, Loader2, Trash2, Upload, Folder, FolderOpen, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Folder,
+  FolderOpen,
+  Loader2,
+  Trash2,
+  Upload,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -202,9 +211,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   );
   const cvDocs = sortedDocs.filter((doc) => CV_TYPES.includes(doc.type));
   const othersDocs = sortedDocs.filter(
-    (doc) =>
-      !EMPLOYMENT_DETAILS_TYPES.includes(doc.type) &&
-      !CV_TYPES.includes(doc.type),
+    (doc) => !EMPLOYMENT_DETAILS_TYPES.includes(doc.type) && !CV_TYPES.includes(doc.type),
   );
 
   // Unified sorting of payslips (legacy + published)
@@ -269,20 +276,26 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
     }));
   };
 
-  const renderDocRow = (doc: typeof employeeDocs[0]) => (
-    <div key={doc.id} className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors">
+  const renderDocRow = (doc: (typeof employeeDocs)[0]) => (
+    <div
+      key={doc.id}
+      className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors"
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium text-sm truncate">{doc.name}</p>
           {isAdmin && !doc.isVerified ? (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4.5 bg-yellow-50 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/30">Unverified</Badge>
+            <Badge
+              variant="secondary"
+              className="text-[10px] px-1.5 py-0 h-4.5 bg-yellow-50 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 border-yellow-200 dark:border-yellow-900/30"
+            >
+              Unverified
+            </Badge>
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">
           {doc.type.replaceAll('_', ' ')}
-          {doc.createdAt
-            ? ` · ${new Date(doc.createdAt).toLocaleDateString()}`
-            : ''}
+          {doc.createdAt ? ` · ${new Date(doc.createdAt).toLocaleDateString()}` : ''}
         </p>
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -319,14 +332,27 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   );
 
   const renderPayslipRow = (payslip: (typeof allPayslips)[0]) => (
-    <div key={payslip.id} className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors">
+    <div
+      key={payslip.id}
+      className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors"
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
           <p className="font-medium text-sm truncate">{payslip.name}</p>
           {payslip.type === 'published' ? (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4.5 text-emerald-600 dark:text-emerald-400 border-emerald-600/30 bg-emerald-50 dark:bg-emerald-950/20">Published</Badge>
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4.5 text-emerald-600 dark:text-emerald-400 border-emerald-600/30 bg-emerald-50 dark:bg-emerald-950/20"
+            >
+              Published
+            </Badge>
           ) : (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4.5 text-orange-600 dark:text-orange-400 border-orange-600/30 bg-orange-50 dark:bg-orange-950/20">Legacy</Badge>
+            <Badge
+              variant="outline"
+              className="text-[10px] px-1.5 py-0 h-4.5 text-orange-600 dark:text-orange-400 border-orange-600/30 bg-orange-50 dark:bg-orange-950/20"
+            >
+              Legacy
+            </Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">
@@ -455,7 +481,9 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                       )}
                       <div>
                         <span className="font-semibold text-sm">Employment Details</span>
-                        <p className="text-xs text-muted-foreground">Contracts, NDAs, offer letters, and agreements</p>
+                        <p className="text-xs text-muted-foreground">
+                          Contracts, NDAs, offer letters, and agreements
+                        </p>
                       </div>
                       <Badge variant="secondary" className="ml-2 font-medium text-xs">
                         {employmentDetailsDocs.length}
@@ -495,7 +523,9 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                       )}
                       <div>
                         <span className="font-semibold text-sm">CV / Resume</span>
-                        <p className="text-xs text-muted-foreground">Employee curriculums and resumes</p>
+                        <p className="text-xs text-muted-foreground">
+                          Employee curriculums and resumes
+                        </p>
                       </div>
                       <Badge variant="secondary" className="ml-2 font-medium text-xs">
                         {cvDocs.length}
@@ -535,7 +565,9 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                       )}
                       <div>
                         <span className="font-semibold text-sm">Others</span>
-                        <p className="text-xs text-muted-foreground">IDs, passports, tax forms, and miscellaneous files</p>
+                        <p className="text-xs text-muted-foreground">
+                          IDs, passports, tax forms, and miscellaneous files
+                        </p>
                       </div>
                       <Badge variant="secondary" className="ml-2 font-medium text-xs">
                         {othersDocs.length}
@@ -576,7 +608,9 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                         )}
                         <div>
                           <span className="font-semibold text-sm">Payslips</span>
-                          <p className="text-xs text-muted-foreground">Published payslips and legacy pay stubs</p>
+                          <p className="text-xs text-muted-foreground">
+                            Published payslips and legacy pay stubs
+                          </p>
                         </div>
                         <Badge variant="secondary" className="ml-2 font-medium text-xs">
                           {allPayslips.length}
