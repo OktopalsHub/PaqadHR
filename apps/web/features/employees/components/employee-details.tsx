@@ -18,7 +18,6 @@ import { queryKeys } from '@/lib/query/keys';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 import { useTenant } from '@/providers/tenant-provider';
 import { useEmployeeDetailForm } from '../hooks/use-employee-detail-form';
-import { EmployeeDetailHeader } from './detail/employee-detail-header';
 import { EmployeeDetailSidebar } from './detail/employee-detail-sidebar';
 import { EmployeeDetailTabs } from './detail/tabs/employee-detail-tabs';
 
@@ -116,13 +115,6 @@ function EmployeeDetailFormReady({
 
   return (
     <div className="space-y-6">
-      <EmployeeDetailHeader
-        isDirty={form.isDirty}
-        isSaving={form.isSaving}
-        canEdit={canEdit}
-        onSave={form.handleSaveChanges}
-      />
-
       <div className="flex flex-col md:flex-row gap-6">
         <EmployeeDetailSidebar
           employee={form.employee}
@@ -133,6 +125,10 @@ function EmployeeDetailFormReady({
           canManageStatus={canManageStatus}
           canManageRole={isAdmin && !isSelf && memberTenantRole !== 'owner'}
           statusUpdatePending={statusMutation.isPending}
+          isDirty={form.isDirty}
+          isSaving={form.isSaving}
+          canEditForm={canEdit}
+          onSave={form.handleSaveChanges}
           onMemberStatusChange={(isActive) => {
             statusMutation.mutate(isActive, {
               onSuccess: () => {

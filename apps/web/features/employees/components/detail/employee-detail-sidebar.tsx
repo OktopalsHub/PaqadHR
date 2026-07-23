@@ -3,6 +3,7 @@
 import { toast } from 'sonner';
 import { AvatarUpload } from '@/components/avatar-upload';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -31,6 +32,10 @@ interface EmployeeDetailSidebarProps {
   canManageStatus?: boolean;
   canManageRole?: boolean;
   statusUpdatePending?: boolean;
+  isDirty?: boolean;
+  isSaving?: boolean;
+  canEditForm?: boolean;
+  onSave?: () => void;
   onMemberStatusChange?: (isActive: boolean) => void;
   onInputChange: (field: string, value: string) => void;
   onAvatarUpdated?: (avatarUrl: string) => void;
@@ -44,6 +49,10 @@ export function EmployeeDetailSidebar({
   canManageStatus = false,
   canManageRole = false,
   statusUpdatePending = false,
+  isDirty = false,
+  isSaving = false,
+  canEditForm = false,
+  onSave,
   onMemberStatusChange,
   onInputChange,
   onAvatarUpdated,
@@ -67,9 +76,16 @@ export function EmployeeDetailSidebar({
             <CardTitle>{displayName}</CardTitle>
             <CardDescription>{display(employee.position)}</CardDescription>
           </div>
-          <Badge variant={employee.status === 'Active' ? 'default' : 'outline'}>
-            {employee.status}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={employee.status === 'Active' ? 'default' : 'outline'}>
+              {employee.status}
+            </Badge>
+            {canEditForm ? (
+              <Button size="sm" disabled={!isDirty || isSaving} onClick={onSave}>
+                {isSaving ? 'Saving…' : 'Save'}
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col items-center space-y-4">
           <AvatarUpload

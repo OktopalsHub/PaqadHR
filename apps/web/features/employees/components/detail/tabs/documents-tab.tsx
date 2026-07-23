@@ -15,7 +15,6 @@ import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -72,6 +71,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   const [uploadName, setUploadName] = useState('');
   const [uploadType, setUploadType] = useState<string>(UPLOAD_DOCUMENT_TYPES[0].value);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [expandedFolder, setExpandedFolder] = useState<string | null>('employment');
 
   const documentsQueryKey = [...queryKeys.employees.detail(memberId), tenantId, 'documents'];
 
@@ -91,7 +91,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   const legacyPayStubs = allDocs.filter((doc) => doc.type === 'pay_stub');
 
   const showPayrollSection = isAdmin || (isSelf && publishedPayslips.length > 0);
-  const canUpload = isAdmin; // Only admin role should be able to upload
+  const canUpload = isAdmin;
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -187,7 +187,6 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
     }
   };
 
-  // Categorization lists
   const EMPLOYMENT_DETAILS_TYPES = [
     'employment_contract',
     'offer_letter',
@@ -199,7 +198,6 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
 
   const CV_TYPES = ['resume_cv'];
 
-  // Sorting: most recent first
   const sortedDocs = [...employeeDocs].sort((a, b) => {
     const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
     const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -214,7 +212,6 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
     (doc) => !EMPLOYMENT_DETAILS_TYPES.includes(doc.type) && !CV_TYPES.includes(doc.type),
   );
 
-  // Unified sorting of payslips (legacy + published)
   const legacyItems = legacyPayStubs.map((doc) => ({
     id: doc.id,
     name: doc.name,
@@ -262,24 +259,41 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
     (a, b) => b.date.getTime() - a.date.getTime(),
   );
 
-  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
-    employment: true,
-    cv: true,
-    others: false,
-    payslips: false,
-  });
-
-  const toggleFolder = (folderKey: string) => {
-    setExpandedFolders((prev) => ({
-      ...prev,
-      [folderKey]: !prev[folderKey],
-    }));
-  };
+  const folders = [
+    {
+      key: 'employment',
+      label: 'Employment Details',
+      color: 'blue',
+      docs: employmentDetailsDocs,
+    },
+    {
+      key: 'cv',
+      label: 'CV / Resume',
+      color: 'emerald',
+      docs: cvDocs,
+    },
+    {
+      key: 'others',
+      label: 'Others',
+      color: 'amber',
+      docs: othersDocs,
+    },
+    ...(showPayrollSection
+      ? [
+          {
+            key: 'payslips',
+            label: 'Payslips',
+            color: 'purple',
+            docs: allPayslips,
+          },
+        ]
+      : []),
+  ];
 
   const renderDocRow = (doc: (typeof employeeDocs)[0]) => (
     <div
       key={doc.id}
-      className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors"
+      className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -334,7 +348,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   const renderPayslipRow = (payslip: (typeof allPayslips)[0]) => (
     <div
       key={payslip.id}
-      className="flex items-center justify-between gap-3 p-4 hover:bg-muted/30 transition-colors"
+      className="flex items-center justify-between gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors"
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2 flex-wrap">
@@ -386,19 +400,23 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
     </div>
   );
 
+  const folderColorMap: Record<string, string> = {
+    blue: 'text-blue-500',
+    emerald: 'text-emerald-500',
+    amber: 'text-amber-500',
+    purple: 'text-purple-500',
+  };
+
   return (
     <TabsContent value="documents">
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
-          <div>
-            <CardTitle>Documents & Files</CardTitle>
-            <CardDescription>View and manage employee documents</CardDescription>
-          </div>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Documents</h3>
           {canUpload ? (
             <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <Upload className="mr-2 size-4" />
+                <Button size="sm" variant="outline" className="h-8">
+                  <Upload className="mr-1.5 size-3.5" />
                   Upload
                 </Button>
               </DialogTrigger>
@@ -456,192 +474,67 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
               </DialogContent>
             </Dialog>
           ) : null}
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {isLoading || (showPayrollSection && payslipsLoading) ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground space-y-3">
-                <Loader2 className="size-8 animate-spin text-primary" />
-                <p className="text-sm">Loading documents and payslips...</p>
-              </div>
-            ) : (
-              <>
-                {/* Employment Details Folder */}
-                <div className="flex flex-col border rounded-lg overflow-hidden bg-card">
+        </div>
+
+        {isLoading || (showPayrollSection && payslipsLoading) ? (
+          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground space-y-3">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <p className="text-sm">Loading documents...</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {folders.map((folder) => {
+              const isExpanded = expandedFolder === folder.key;
+              const count = folder.key === 'payslips' ? allPayslips.length : folder.docs.length;
+              const Icon = isExpanded ? FolderOpen : Folder;
+
+              return (
+                <div key={folder.key} className="border rounded-lg overflow-hidden">
                   <button
                     type="button"
-                    onClick={() => toggleFolder('employment')}
-                    className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors text-left"
+                    onClick={() => setExpandedFolder(isExpanded ? null : folder.key)}
+                    className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/40 transition-colors text-left"
                   >
-                    <div className="flex items-center gap-3">
-                      {expandedFolders.employment ? (
-                        <FolderOpen className="size-5 text-blue-500 fill-blue-500/10 shrink-0" />
-                      ) : (
-                        <Folder className="size-5 text-blue-500 fill-blue-500/10 shrink-0" />
-                      )}
-                      <div>
-                        <span className="font-semibold text-sm">Employment Details</span>
-                        <p className="text-xs text-muted-foreground">
-                          Contracts, NDAs, offer letters, and agreements
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className="ml-2 font-medium text-xs">
-                        {employmentDetailsDocs.length}
-                      </Badge>
-                    </div>
-                    {expandedFolders.employment ? (
+                    <Icon
+                      className={`size-4 shrink-0 ${folderColorMap[folder.color] ?? 'text-muted-foreground'}`}
+                    />
+                    <span className="font-medium text-sm flex-1">{folder.label}</span>
+                    <Badge variant="secondary" className="font-medium text-xs tabular-nums">
+                      {count}
+                    </Badge>
+                    {isExpanded ? (
                       <ChevronDown className="size-4 text-muted-foreground shrink-0" />
                     ) : (
                       <ChevronRight className="size-4 text-muted-foreground shrink-0" />
                     )}
                   </button>
-                  {expandedFolders.employment && (
+                  {isExpanded && (
                     <div className="border-t divide-y bg-background/50">
-                      {employmentDetailsDocs.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                          No employment details on file.
-                        </div>
-                      ) : (
-                        employmentDetailsDocs.map(renderDocRow)
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* CV Folder */}
-                <div className="flex flex-col border rounded-lg overflow-hidden bg-card">
-                  <button
-                    type="button"
-                    onClick={() => toggleFolder('cv')}
-                    className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      {expandedFolders.cv ? (
-                        <FolderOpen className="size-5 text-emerald-500 fill-emerald-500/10 shrink-0" />
-                      ) : (
-                        <Folder className="size-5 text-emerald-500 fill-emerald-500/10 shrink-0" />
-                      )}
-                      <div>
-                        <span className="font-semibold text-sm">CV / Resume</span>
-                        <p className="text-xs text-muted-foreground">
-                          Employee curriculums and resumes
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className="ml-2 font-medium text-xs">
-                        {cvDocs.length}
-                      </Badge>
-                    </div>
-                    {expandedFolders.cv ? (
-                      <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    )}
-                  </button>
-                  {expandedFolders.cv && (
-                    <div className="border-t divide-y bg-background/50">
-                      {cvDocs.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                          No CV or resume on file.
-                        </div>
-                      ) : (
-                        cvDocs.map(renderDocRow)
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Others Folder */}
-                <div className="flex flex-col border rounded-lg overflow-hidden bg-card">
-                  <button
-                    type="button"
-                    onClick={() => toggleFolder('others')}
-                    className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      {expandedFolders.others ? (
-                        <FolderOpen className="size-5 text-amber-500 fill-amber-500/10 shrink-0" />
-                      ) : (
-                        <Folder className="size-5 text-amber-500 fill-amber-500/10 shrink-0" />
-                      )}
-                      <div>
-                        <span className="font-semibold text-sm">Others</span>
-                        <p className="text-xs text-muted-foreground">
-                          IDs, passports, tax forms, and miscellaneous files
-                        </p>
-                      </div>
-                      <Badge variant="secondary" className="ml-2 font-medium text-xs">
-                        {othersDocs.length}
-                      </Badge>
-                    </div>
-                    {expandedFolders.others ? (
-                      <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                    )}
-                  </button>
-                  {expandedFolders.others && (
-                    <div className="border-t divide-y bg-background/50">
-                      {othersDocs.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-muted-foreground">
-                          No other documents on file.
-                        </div>
-                      ) : (
-                        othersDocs.map(renderDocRow)
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Payslips Folder */}
-                {showPayrollSection && (
-                  <div className="flex flex-col border rounded-lg overflow-hidden bg-card">
-                    <button
-                      type="button"
-                      onClick={() => toggleFolder('payslips')}
-                      className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        {expandedFolders.payslips ? (
-                          <FolderOpen className="size-5 text-purple-500 fill-purple-500/10 shrink-0" />
-                        ) : (
-                          <Folder className="size-5 text-purple-500 fill-purple-500/10 shrink-0" />
-                        )}
-                        <div>
-                          <span className="font-semibold text-sm">Payslips</span>
-                          <p className="text-xs text-muted-foreground">
-                            Published payslips and legacy pay stubs
-                          </p>
-                        </div>
-                        <Badge variant="secondary" className="ml-2 font-medium text-xs">
-                          {allPayslips.length}
-                        </Badge>
-                      </div>
-                      {expandedFolders.payslips ? (
-                        <ChevronDown className="size-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronRight className="size-4 text-muted-foreground shrink-0" />
-                      )}
-                    </button>
-                    {expandedFolders.payslips && (
-                      <div className="border-t divide-y bg-background/50">
-                        {allPayslips.length === 0 ? (
-                          <div className="p-8 text-center text-sm text-muted-foreground">
+                      {folder.key === 'payslips' ? (
+                        allPayslips.length === 0 ? (
+                          <div className="p-6 text-center text-sm text-muted-foreground">
                             {isAdmin
                               ? 'No published payslips yet. Publish them from a completed payroll run.'
                               : 'No published payslips yet.'}
                           </div>
                         ) : (
                           allPayslips.map(renderPayslipRow)
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
+                        )
+                      ) : folder.docs.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-muted-foreground">
+                          No documents in this folder.
+                        </div>
+                      ) : (
+                        (folder.docs as typeof employeeDocs).map(renderDocRow)
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </TabsContent>
   );
 }
