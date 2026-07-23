@@ -145,7 +145,9 @@ export function useClaimReward() {
   return useMutation({
     mutationFn: (input: ClaimInput) => claimReward(input),
     onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: [...queryKeys.shoutouts.points, tenantId] });
+      await queryClient.cancelQueries({
+        queryKey: [...queryKeys.shoutouts.points(tenantId ?? '')],
+      });
 
       const previousPoints = queryClient.getQueryData(queryKeys.shoutouts.points(tenantId ?? ''));
 
