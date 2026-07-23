@@ -26,6 +26,9 @@ function lookupDownMessage(message: string): boolean {
 
 assert(lookupDownMessage('Bank lookup is not available in this environment'), '503 copy');
 assert(lookupDownMessage('Failed to authenticate with Nomba (401)'), 'auth failure');
-assert(!lookupDownMessage('Could not verify this bank account'), 'invalid account must stay hard fail');
+assert(
+  !lookupDownMessage('Could not verify this bank account'),
+  'invalid account must stay hard fail',
+);
 
 console.log('nigerian-banks.check: ok');

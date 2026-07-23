@@ -437,7 +437,7 @@ export function PaymentSettingsSection() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [accountNumber, bankCode, banks, isNgn]);
+  }, [accountNumber, bankCode, banks, isNgn, lookupUnavailable]);
 
   const handleSubmit = () => {
     if (isCrypto) {
@@ -664,9 +664,7 @@ export function PaymentSettingsSection() {
                       setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
                       return;
                     }
-                    setAccountNumber(
-                      e.target.value.replace(/\D/g, '').slice(0, isNgn ? 10 : 17),
-                    );
+                    setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, isNgn ? 10 : 17));
                   }}
                   inputMode={payoutConfig?.accountAlphanumeric ? 'text' : 'numeric'}
                   placeholder={

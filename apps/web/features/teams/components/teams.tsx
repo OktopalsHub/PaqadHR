@@ -78,9 +78,7 @@ export const Teams = ({
         </PageActions>
       ) : null}
 
-      {isAdmin ? (
-        <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
-      ) : null}
+      {isAdmin ? <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} /> : null}
 
       {isError ? (
         <Alert variant="destructive">

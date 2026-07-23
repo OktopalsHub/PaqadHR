@@ -85,9 +85,7 @@ function PositionTable({
             <AppTableHeadCell>Title</AppTableHeadCell>
             <AppTableHeadCell className="hidden md:table-cell">Description</AppTableHeadCell>
             <AppTableHeadCell>Status</AppTableHeadCell>
-            {canManage ? (
-              <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
-            ) : null}
+            {canManage ? <AppTableHeadCell className="text-right">Actions</AppTableHeadCell> : null}
           </AppTableHeaderRow>
         </AppTableHeaderSection>
         <AppTableBodySection>

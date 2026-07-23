@@ -21,8 +21,7 @@ import { useTenant } from '@/providers/tenant-provider';
 export function useJobOpenings(searchOrOptions?: string | { search?: string; enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const search = typeof searchOrOptions === 'string' ? searchOrOptions : searchOrOptions?.search;
-  const enabledOption =
-    typeof searchOrOptions === 'object' ? searchOrOptions.enabled : undefined;
+  const enabledOption = typeof searchOrOptions === 'object' ? searchOrOptions.enabled : undefined;
 
   return useQuery({
     queryKey: [...queryKeys.recruitment.jobs, tenantId, search ?? ''],

@@ -9,7 +9,7 @@ export class PaymentSecurityService {
 
   async setPasscode(memberId: string, plainPasscode: string): Promise<PaymentSecurity | null> {
     const hashed = await PasswordService.hashPassword(plainPasscode);
-    let security = await this.paymentSecurityRepo.findOne({
+    const security = await this.paymentSecurityRepo.findOne({
       where: { member: { id: memberId } },
     });
     if (!security) {
