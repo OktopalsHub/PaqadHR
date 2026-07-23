@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchMyPointsBalance } from '@/lib/api/member-points';
 import { createShoutout, fetchShoutoutCategories, fetchShoutouts } from '@/lib/api/shoutouts';
 import { queryKeys } from '@/lib/query/keys';
-import type { CreateShoutoutInput, Shoutout, ShoutoutFeed } from '@/lib/schemas/shoutout';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
+import type { CreateShoutoutInput, Shoutout, ShoutoutFeed } from '@/lib/schemas/shoutout';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useShoutouts() {
@@ -40,9 +40,10 @@ export function useCreateShoutout() {
       await queryClient.cancelQueries({ queryKey: [...queryKeys.shoutouts.all, tenantId] });
       await queryClient.cancelQueries({ queryKey: queryKeys.shoutouts.points(tenantId ?? '') });
 
-      const previousFeed = queryClient.getQueryData<ShoutoutFeed>(
-        [...queryKeys.shoutouts.all, tenantId],
-      );
+      const previousFeed = queryClient.getQueryData<ShoutoutFeed>([
+        ...queryKeys.shoutouts.all,
+        tenantId,
+      ]);
       const previousPoints = queryClient.getQueryData<MemberPointsBalance>(
         queryKeys.shoutouts.points(tenantId ?? ''),
       );
@@ -65,36 +66,31 @@ export function useCreateShoutout() {
 
       if (previousFeed) {
         const records =
-          previousFeed.records ?? previousFeed.data ?? previousFeed.items ?? previousFeed.shoutouts ?? [];
-        queryClient.setQueryData<ShoutoutFeed>(
-          [...queryKeys.shoutouts.all, tenantId],
-          {
-            ...previousFeed,
-            records: [optimisticShoutout, ...records],
-          },
-        );
+          previousFeed.records ??
+          previousFeed.data ??
+          previousFeed.items ??
+          previousFeed.shoutouts ??
+          [];
+        queryClient.setQueryData<ShoutoutFeed>([...queryKeys.shoutouts.all, tenantId], {
+          ...previousFeed,
+          records: [optimisticShoutout, ...records],
+        });
       }
 
       if (previousPoints) {
-        queryClient.setQueryData<MemberPointsBalance>(
-          queryKeys.shoutouts.points(tenantId ?? ''),
-          {
-            ...previousPoints,
-            remainingAllowance: Math.max(0, previousPoints.remainingAllowance - totalPoints),
-            totalGiven: previousPoints.totalGiven + totalPoints,
-            monthlyGiven: previousPoints.monthlyGiven + totalPoints,
-          },
-        );
+        queryClient.setQueryData<MemberPointsBalance>(queryKeys.shoutouts.points(tenantId ?? ''), {
+          ...previousPoints,
+          remainingAllowance: Math.max(0, previousPoints.remainingAllowance - totalPoints),
+          totalGiven: previousPoints.totalGiven + totalPoints,
+          monthlyGiven: previousPoints.monthlyGiven + totalPoints,
+        });
       }
 
       return { previousFeed, previousPoints };
     },
     onError: (_err, _input, context) => {
       if (context?.previousFeed) {
-        queryClient.setQueryData(
-          [...queryKeys.shoutouts.all, tenantId],
-          context.previousFeed,
-        );
+        queryClient.setQueryData([...queryKeys.shoutouts.all, tenantId], context.previousFeed);
       }
       if (context?.previousPoints) {
         queryClient.setQueryData(

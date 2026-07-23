@@ -1,7 +1,6 @@
 import {
   invalidateSession,
   refreshAccessToken,
-  resetConsecutiveFailures,
   startProactiveRefresh,
 } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';

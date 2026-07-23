@@ -147,18 +147,19 @@ export function useClaimReward() {
     onMutate: async (input) => {
       await queryClient.cancelQueries({ queryKey: [...queryKeys.shoutouts.points, tenantId] });
 
-      const previousPoints = queryClient.getQueryData(
-        queryKeys.shoutouts.points(tenantId ?? ''),
-      );
+      const previousPoints = queryClient.getQueryData(queryKeys.shoutouts.points(tenantId ?? ''));
 
       // Optimistically deduct points
-      queryClient.setQueryData(queryKeys.shoutouts.points(tenantId ?? ''), (old: MemberPointsBalance | undefined) => {
-        if (!old) return old;
-        return {
-          ...old,
-          currentBalance: Math.max(0, old.currentBalance - input.points),
-        };
-      });
+      queryClient.setQueryData(
+        queryKeys.shoutouts.points(tenantId ?? ''),
+        (old: MemberPointsBalance | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            currentBalance: Math.max(0, old.currentBalance - input.points),
+          };
+        },
+      );
 
       return { previousPoints };
     },

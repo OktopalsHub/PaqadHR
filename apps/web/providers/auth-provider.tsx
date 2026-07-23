@@ -14,8 +14,8 @@ import {
   register as registerRequest,
   waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
-import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { startProactiveRefresh, stopProactiveRefresh } from '@/lib/api/auth-refresh';
+import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
