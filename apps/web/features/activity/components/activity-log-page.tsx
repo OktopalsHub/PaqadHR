@@ -81,19 +81,6 @@ export function ActivityLogPage() {
 
   return (
     <AppPage className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="mt-2 text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
-            Activity
-          </h1>
-        </div>
-        <div className="dashboard-soft-tile flex w-full items-center gap-3 rounded-[8px] px-4 py-3 dark:border-slate-800 sm:max-w-xs lg:w-auto">
-          <div className="flex size-10 items-center justify-center rounded-[8px] bg-primary/10 text-primary">
-            <Activity className="size-4.5" />
-          </div>
-        </div>
-      </div>
-
       <ContentCard
         className="dashboard-panel rounded-[8px]"
         headerClassName="border-b border-[#d7e3f6] px-5 py-4 dark:border-slate-800"

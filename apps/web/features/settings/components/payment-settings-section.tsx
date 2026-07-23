@@ -563,7 +563,7 @@ export function PaymentSettingsSection() {
         <AlertTitle>Payroll bank account</AlertTitle>
         <AlertDescription>
           {isNgn
-            ? 'For NGN accounts, enter your account number and bank — we verify the account name automatically.'
+            ? 'For NGN accounts, enter your account number and bank.'
             : isGlobalBank && payoutConfig
               ? payoutConfig.help
               : 'Enter your bank details. An admin must verify non-NGN accounts before payroll can be sent.'}
@@ -618,16 +618,12 @@ export function PaymentSettingsSection() {
                   {currencyOptions.map((code) => (
                     <SelectItem key={code} value={code}>
                       {code}
-                      {cryptoOptions.includes(code) ? ' (crypto)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
-            <p className="text-xs text-muted-foreground">
-              Choose a currency your company allows. Bank accounts and crypto wallets are both
-              supported — pick the currency that matches how you get paid.
-            </p>
+            <p className="text-xs text-muted-foreground">Select your payment method and currency</p>
           </div>
 
           {isCrypto ? (

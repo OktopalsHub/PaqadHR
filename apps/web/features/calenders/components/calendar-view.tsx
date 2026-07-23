@@ -440,10 +440,6 @@ function CalendarSettingsPopover({
               options={TIME_ZONES.map((entry) => ({ value: entry.id, label: entry.label }))}
               onValueChange={(timeZoneId) => patch({ timeZoneId })}
             />
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              Language switches the date-fns locale and every UI label. Time zone shifts all event
-              times. Arabic also flips the calendar to right-to-left.
-            </p>
           </TabsContent>
         </Tabs>
         <Button

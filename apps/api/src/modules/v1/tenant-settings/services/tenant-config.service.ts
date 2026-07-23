@@ -119,6 +119,15 @@ export class TenantConfigService {
     return fallback.length > 0 ? fallback : ['NGN'];
   }
 
+  async isCryptoEnabled(tenantId: string): Promise<boolean> {
+    try {
+      const settings = await this.getSettingsRecord(tenantId);
+      return settings?.settings?.general?.cryptoEnabled === true;
+    } catch {
+      return false;
+    }
+  }
+
   getGloballySupportedFiatCurrencies(): readonly string[] {
     return [...NOMBA_FIAT_CURRENCIES, ...NOAH_FIAT_CURRENCIES];
   }

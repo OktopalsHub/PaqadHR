@@ -308,6 +308,15 @@ export class GeneralSettingsDto {
   @IsOptional()
   @IsBoolean()
   emailPayslipOnPublish?: boolean;
+
+  @ApiProperty({
+    description: 'Allow crypto currency payout methods in workspace',
+    required: false,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  cryptoEnabled?: boolean;
 }
 export class EmployeeSettingsDto {
   @ApiProperty({
