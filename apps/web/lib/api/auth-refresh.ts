@@ -65,7 +65,7 @@ async function proactiveRefresh(): Promise<void> {
 
 export function startProactiveRefresh(): void {
   if (typeof window === 'undefined') return;
-  stopProactiveRefresh();
+  if (proactiveTimer !== null) return; // Already running — don't reset
   proactiveTimer = setInterval(() => {
     void proactiveRefresh();
   }, PROACTIVE_REFRESH_INTERVAL_MS);
