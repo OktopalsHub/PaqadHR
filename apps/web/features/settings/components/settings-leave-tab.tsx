@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { LeaveAssignmentPanel } from '@/features/leaves/components/leave-assignment-panel';
+import { LeaveBalancesAdminTab } from '@/features/leaves/components/leave-balances-admin-tab';
 import {
   SettingsFieldHint,
   SettingsSwitchRow,
@@ -285,6 +287,9 @@ export function SettingsLeaveTab() {
           </Button>
         </div>
       </ContentCard>
+
+      <LeaveBalancesAdminTab />
+      <LeaveAssignmentPanel />
     </div>
   );
 }

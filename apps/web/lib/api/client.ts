@@ -1,8 +1,4 @@
-import {
-  invalidateSession,
-  refreshAccessToken,
-  startProactiveRefresh,
-} from '@/lib/api/auth-refresh';
+import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
 const CSRF_HEADER = 'x-csrf-token';

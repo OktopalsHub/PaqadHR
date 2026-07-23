@@ -64,6 +64,61 @@ export async function activateJobOpening(jobId: string): Promise<JobOpening> {
   return jobOpeningSchema.parse(data);
 }
 
+export async function deactivateJobOpening(jobId: string): Promise<JobOpening> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, `jobs/${jobId}/deactivate`), {
+    method: 'PATCH',
+  });
+  return jobOpeningSchema.parse(data);
+}
+
+export async function closeJobOpening(jobId: string): Promise<JobOpening> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, `jobs/${jobId}/close`), {
+    method: 'PATCH',
+  });
+  return jobOpeningSchema.parse(data);
+}
+
+export async function archiveJobOpening(jobId: string): Promise<JobOpening> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, `jobs/${jobId}/archive`), {
+    method: 'PATCH',
+  });
+  return jobOpeningSchema.parse(data);
+}
+
+export async function deleteJobOpening(jobId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `jobs/${jobId}`), { method: 'DELETE' });
+}
+
+export async function updateJobOpening(
+  jobId: string,
+  input: Partial<CreateJobOpeningInput>,
+): Promise<JobOpening> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, `jobs/${jobId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  return jobOpeningSchema.parse(data);
+}
+
+export type JobStats = {
+  total: number;
+  draft: number;
+  active: number;
+  inactive: number;
+  closed: number;
+  archived: number;
+};
+
+export async function fetchJobStats(): Promise<JobStats> {
+  const tenantId = await resolveTenantId();
+  return apiClient<JobStats>(tenantPath(tenantId, 'jobs/stats'));
+}
+
 export async function fetchCandidatesByJob(jobId: string): Promise<Candidate[]> {
   const tenantId = await resolveTenantId();
   const data = await apiClient<unknown>(tenantPath(tenantId, `candidates/jobs/${jobId}`));

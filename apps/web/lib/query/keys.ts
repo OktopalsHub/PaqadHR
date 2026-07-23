@@ -19,6 +19,7 @@ export const queryKeys = {
   leaves: {
     all: ['leaves'] as const,
     balances: ['leaves', 'balances'] as const,
+    assignments: ['leaves', 'assignments'] as const,
   },
   departments: {
     all: ['departments'] as const,
@@ -29,6 +30,13 @@ export const queryKeys = {
     myRecords: ['attendance', 'my-records'] as const,
     teamRecords: ['attendance', 'team-records'] as const,
     monthly: ['attendance', 'monthly'] as const,
+    today: ['attendance', 'today'] as const,
+    stats: ['attendance', 'stats'] as const,
+    exceptions: ['attendance', 'exceptions'] as const,
+    dailyReport: ['attendance', 'daily-report'] as const,
+    monthlyReport: ['attendance', 'monthly-report'] as const,
+    sessionLimit: ['attendance', 'session-limit'] as const,
+    sessionCount: ['attendance', 'session-count'] as const,
   },
   calendar: {
     events: ['calendar', 'events'] as const,
@@ -65,6 +73,13 @@ export const queryKeys = {
     job: (id: string) => ['recruitment', 'jobs', id] as const,
     candidates: (jobId: string) => ['recruitment', 'candidates', jobId] as const,
     allCandidates: ['recruitment', 'allCandidates'] as const,
+  },
+  plans: {
+    all: ['plans', 'all'] as const,
+    detect: ['plans', 'detect'] as const,
+    country: (code: string) => ['plans', 'country', code] as const,
+    admin: ['plans', 'admin'] as const,
+    prices: (countryCode: string) => ['plans', 'prices', countryCode] as const,
   },
   billing: {
     status: (tenantId: string) => ['billing', tenantId] as const,

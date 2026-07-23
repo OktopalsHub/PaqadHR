@@ -206,3 +206,206 @@ export async function fetchMonthlyTimesheet(
     tenantPath(tenantId, `attendance?${params.toString()}`),
   );
 }
+
+export type TodayAttendance = {
+  id: string;
+  date: string;
+  clockIn: string | null;
+  clockOut: string | null;
+  workHours: string | null;
+  status: string;
+  sessionStatus: string;
+  sessionNumber: number;
+};
+
+export async function fetchTodayAttendance(): Promise<TodayAttendance[]> {
+  const tenantId = await resolveTenantId();
+  return apiClient<TodayAttendance[]>(tenantPath(tenantId, 'attendance/today'));
+}
+
+export type AttendanceStats = {
+  totalMembers: number;
+  presentToday: number;
+  absentToday: number;
+  lateToday: number;
+  averageWorkHours: number;
+  attendanceRate: number;
+};
+
+export async function fetchAttendanceStats(
+  startDate?: string,
+  endDate?: string,
+): Promise<AttendanceStats> {
+  const tenantId = await resolveTenantId();
+  const params = new URLSearchParams();
+  if (startDate) params.set('startDate', startDate);
+  if (endDate) params.set('endDate', endDate);
+  const qs = params.toString();
+  return apiClient<AttendanceStats>(tenantPath(tenantId, `attendance/stats${qs ? `?${qs}` : ''}`));
+}
+
+export type AttendanceException = {
+  id: string;
+  tenantMemberId: string;
+  date: string;
+  type: string;
+  reason: string;
+  status: string;
+  reviewedBy?: string | null;
+  reviewComments?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+};
+
+export async function fetchAttendanceExceptions(filters?: {
+  employeeId?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}): Promise<AttendanceException[]> {
+  const tenantId = await resolveTenantId();
+  const params = new URLSearchParams();
+  if (filters?.employeeId) params.set('employeeId', filters.employeeId);
+  if (filters?.startDate) params.set('startDate', filters.startDate);
+  if (filters?.endDate) params.set('endDate', filters.endDate);
+  if (filters?.status) params.set('status', filters.status);
+  const qs = params.toString();
+  return apiClient<AttendanceException[]>(
+    tenantPath(tenantId, `attendance/exceptions${qs ? `?${qs}` : ''}`),
+  );
+}
+
+export async function createAttendanceException(input: {
+  date: string;
+  type: 'OVERTIME' | 'UNDERTIME' | 'ABSENCE' | 'LATE';
+  reason: string;
+}): Promise<AttendanceException> {
+  const tenantId = await resolveTenantId();
+  return apiClient<AttendanceException>(tenantPath(tenantId, 'attendance/exceptions'), {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function approveAttendanceException(
+  exceptionId: string,
+  comments?: string,
+): Promise<AttendanceException> {
+  const tenantId = await resolveTenantId();
+  return apiClient<AttendanceException>(
+    tenantPath(tenantId, `attendance/exceptions/${exceptionId}/approve`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ comments: comments ?? '' }),
+    },
+  );
+}
+
+export async function rejectAttendanceException(
+  exceptionId: string,
+  comments: string,
+): Promise<AttendanceException> {
+  const tenantId = await resolveTenantId();
+  return apiClient<AttendanceException>(
+    tenantPath(tenantId, `attendance/exceptions/${exceptionId}/reject`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ comments }),
+    },
+  );
+}
+
+export type DailyReportEntry = {
+  memberId: string;
+  memberName: string;
+  status: string;
+  clockIn: string | null;
+  clockOut: string | null;
+  workHours: string | null;
+  sessions: number;
+};
+
+export async function fetchDailyReport(date?: string): Promise<DailyReportEntry[]> {
+  const tenantId = await resolveTenantId();
+  const params = date ? `?date=${encodeURIComponent(date)}` : '';
+  return apiClient<DailyReportEntry[]>(tenantPath(tenantId, `attendance/reports/daily${params}`));
+}
+
+export type MonthlyReportEntry = {
+  memberId: string;
+  memberName: string;
+  totalDays: number;
+  presentDays: number;
+  absentDays: number;
+  lateDays: number;
+  workHours: number;
+  attendanceRate: number;
+};
+
+export async function fetchMonthlyReport(
+  month: number,
+  year: number,
+): Promise<MonthlyReportEntry[]> {
+  const tenantId = await resolveTenantId();
+  const params = new URLSearchParams({ month: String(month), year: String(year) });
+  return apiClient<MonthlyReportEntry[]>(
+    tenantPath(tenantId, `attendance/reports/monthly?${params.toString()}`),
+  );
+}
+
+export async function fetchEmployeeReport(
+  employeeId: string,
+  startDate: string,
+  endDate: string,
+): Promise<AttendanceRecord[]> {
+  const tenantId = await resolveTenantId();
+  const params = new URLSearchParams({ startDate, endDate });
+  return apiClient<AttendanceRecord[]>(
+    tenantPath(tenantId, `attendance/reports/employee/${employeeId}?${params.toString()}`),
+  );
+}
+
+export async function createManualAttendance(input: {
+  tenantMemberId: string;
+  date: string;
+  clockIn?: string;
+  clockOut?: string;
+  status: string;
+  location?: string;
+  notes?: string;
+}): Promise<AttendanceRecord> {
+  const tenantId = await resolveTenantId();
+  return apiClient<AttendanceRecord>(tenantPath(tenantId, 'attendance/manual'), {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateAttendance(
+  attendanceId: string,
+  input: { status?: string; clockIn?: string; clockOut?: string; notes?: string },
+): Promise<AttendanceRecord> {
+  const tenantId = await resolveTenantId();
+  return apiClient<AttendanceRecord>(tenantPath(tenantId, `attendance/${attendanceId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAttendance(attendanceId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `attendance/${attendanceId}`), { method: 'DELETE' });
+}
+
+export async function fetchSessionLimit(): Promise<{ maxSessionsPerDay: number }> {
+  const tenantId = await resolveTenantId();
+  return apiClient<{ maxSessionsPerDay: number }>(tenantPath(tenantId, 'attendance/session-limit'));
+}
+
+export async function fetchSessionCount(date?: string): Promise<{ sessionCount: number }> {
+  const tenantId = await resolveTenantId();
+  const params = date ? `?date=${encodeURIComponent(date)}` : '';
+  return apiClient<{ sessionCount: number }>(
+    tenantPath(tenantId, `attendance/session-count${params}`),
+  );
+}
