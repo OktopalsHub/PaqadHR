@@ -10,8 +10,13 @@ function resolveApiV1Base(): string {
 }
 
 let refreshPromise: Promise<boolean> | null = null;
+let proactiveTimer: ReturnType<typeof setInterval> | null = null;
+let consecutiveFailures = 0;
+const MAX_CONSECUTIVE_FAILURES = 3;
+const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000; // 12 minutes (token expires in 15)
 
 export function invalidateSession() {
+  stopProactiveRefresh();
   clearSessionStorage();
   if (typeof window !== 'undefined') {
     window.localStorage.removeItem('paqad_access_token');
@@ -30,8 +35,14 @@ export async function refreshAccessToken(): Promise<boolean> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
-      return response.ok;
+      if (response.ok) {
+        consecutiveFailures = 0;
+        return true;
+      }
+      consecutiveFailures++;
+      return false;
     } catch {
+      consecutiveFailures++;
       return false;
     } finally {
       refreshPromise = null;
@@ -39,4 +50,34 @@ export async function refreshAccessToken(): Promise<boolean> {
   })();
 
   return refreshPromise;
+}
+
+/**
+ * Proactively refresh the access token before it expires.
+ * Called on a 12-minute interval (token expires in 15 min).
+ */
+async function proactiveRefresh(): Promise<void> {
+  const success = await refreshAccessToken();
+  if (!success && consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+    stopProactiveRefresh();
+  }
+}
+
+export function startProactiveRefresh(): void {
+  if (typeof window === 'undefined') return;
+  stopProactiveRefresh();
+  proactiveTimer = setInterval(() => {
+    void proactiveRefresh();
+  }, PROACTIVE_REFRESH_INTERVAL_MS);
+}
+
+export function stopProactiveRefresh(): void {
+  if (proactiveTimer !== null) {
+    clearInterval(proactiveTimer);
+    proactiveTimer = null;
+  }
+}
+
+export function resetConsecutiveFailures(): void {
+  consecutiveFailures = 0;
 }

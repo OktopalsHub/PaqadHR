@@ -5,7 +5,12 @@ import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
 import type { Tenant } from '@/lib/schemas/tenant';
-import { persistSession, persistTenantId, persistTenantSlug } from '@/lib/session';
+import {
+  persistSession,
+  persistTenantId,
+  persistTenantSlug,
+  readTenantId,
+} from '@/lib/session';
 
 type AuthResponse = {
   user: { id: string; email: string; role: string };
@@ -38,7 +43,13 @@ async function syncTenantFromApi(): Promise<boolean> {
   const tenants = await fetchUserTenants();
   if (tenants.length === 0) return true;
 
-  const active = tenants.find((item) => item.isActive) ?? tenants[0];
+  // Respect the stored tenant ID if it still belongs to the user
+  const storedTenantId = readTenantId();
+  const storedTenant = storedTenantId
+    ? tenants.find((item) => item.id === storedTenantId)
+    : null;
+
+  const active = storedTenant ?? tenants.find((item) => item.isActive) ?? tenants[0];
   persistTenantId(active.id);
   if (active.slug) persistTenantSlug(active.slug);
   return false;

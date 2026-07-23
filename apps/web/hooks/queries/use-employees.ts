@@ -12,6 +12,7 @@ export function useEmployees() {
     queryKey: [...queryKeys.employees.all, tenantId],
     queryFn: fetchEmployees,
     enabled: !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
   });
 }
 

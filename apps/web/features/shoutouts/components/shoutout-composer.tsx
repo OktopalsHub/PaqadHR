@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import type { ShoutoutCategory } from '@/lib/schemas/shoutout';
 import { parseShoutout } from '@/lib/shoutouts/parse-shoutout';
-import { renderShoutoutMessage } from '@/lib/shoutouts/render-shoutout-message';
 import { cn } from '@/lib/utils';
 
 type EmployeeOption = { id: string; name: string };
@@ -331,20 +330,6 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
               </div>
             ) : null}
           </div>
-
-          {message.trim() ? (
-            <div className="rounded-[8px] border border-[#dce9e3] bg-white/70 px-3 py-2.5 dark:border-slate-800 dark:bg-slate-950/45">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Preview
-              </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800 dark:text-slate-100">
-                {renderShoutoutMessage(message, {
-                  employees: employeeLookup,
-                  categories: categoryLookup,
-                })}
-              </p>
-            </div>
-          ) : null}
 
           {parsed.recipients.length > 0 || parsed.categoryNames.length > 0 ? (
             <div className="flex flex-wrap gap-1.5">

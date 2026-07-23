@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { createContext, type ReactNode, useCallback, useContext, useMemo } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
 import {
@@ -15,6 +15,7 @@ import {
   waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
 import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
+import { startProactiveRefresh, stopProactiveRefresh } from '@/lib/api/auth-refresh';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
@@ -50,6 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: 1,
     enabled: sessionBootstrapEnabled,
   });
+
+  // Start proactive token refresh when user is authenticated
+  useEffect(() => {
+    if (sessionQuery.data) {
+      startProactiveRefresh();
+    }
+    return () => {
+      stopProactiveRefresh();
+    };
+  }, [sessionQuery.data]);
 
   const navigateAfterAuth = useCallback(async () => {
     await waitForAuthenticatedProfile({ attempts: 6, baseDelayMs: 150 });

@@ -1,4 +1,9 @@
-import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
+import {
+  invalidateSession,
+  refreshAccessToken,
+  resetConsecutiveFailures,
+  startProactiveRefresh,
+} from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
 const CSRF_HEADER = 'x-csrf-token';
@@ -110,11 +115,13 @@ export async function bootstrapCsrf(): Promise<void> {
   try {
     await ensureCsrfToken(true);
   } catch {}
+  startProactiveRefresh();
 }
 
 export function clearCsrfToken() {
   csrfToken = null;
   csrfTokenPromise = null;
+  refreshRetryCount = 0;
 }
 
 type ApiClientOptions = RequestInit & {
@@ -129,8 +136,15 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/reset-password',
 ];
 
+const REFRESH_RETRY_DELAYS_MS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
+let refreshRetryCount = 0;
+
 function shouldAttemptAuthRefresh(path: string): boolean {
   return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function parseErrorPayload(response: Response) {
@@ -202,12 +216,26 @@ export async function apiClient<T>(
       `Request failed (${response.status})`;
 
     if (response.status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return apiClient<T>(path, init, true);
+      // Retry refresh with exponential backoff
+      for (let attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          refreshRetryCount = 0;
+          startProactiveRefresh(); // Restart proactive timer on success
+          return apiClient<T>(path, init, true);
+        }
+        // If not last attempt, wait before retrying
+        if (attempt < REFRESH_RETRY_DELAYS_MS.length) {
+          await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+        }
       }
-      invalidateSession();
-      clearCsrfToken();
+      // All retries exhausted — only invalidate after consecutive failures
+      refreshRetryCount++;
+      if (refreshRetryCount >= 3) {
+        invalidateSession();
+        clearCsrfToken();
+        refreshRetryCount = 0;
+      }
     }
 
     throw new ApiError(message, response.status, payload?.code);

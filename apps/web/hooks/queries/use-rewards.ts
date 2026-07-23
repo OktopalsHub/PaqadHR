@@ -24,6 +24,7 @@ import {
   updateAutoTopupConfig,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
+import type { MemberPointsBalance } from '@/lib/schemas/member-points';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useNombaDataPlans(network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE', enabled = true) {
@@ -63,6 +64,7 @@ export function useRewardsCatalog() {
     queryKey: [...queryKeys.rewards.catalog, tenantId],
     queryFn: fetchRewardsCatalog,
     enabled: !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
   });
 }
 
@@ -142,6 +144,32 @@ export function useClaimReward() {
 
   return useMutation({
     mutationFn: (input: ClaimInput) => claimReward(input),
+    onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: [...queryKeys.shoutouts.points, tenantId] });
+
+      const previousPoints = queryClient.getQueryData(
+        queryKeys.shoutouts.points(tenantId ?? ''),
+      );
+
+      // Optimistically deduct points
+      queryClient.setQueryData(queryKeys.shoutouts.points(tenantId ?? ''), (old: MemberPointsBalance | undefined) => {
+        if (!old) return old;
+        return {
+          ...old,
+          currentBalance: Math.max(0, old.currentBalance - input.points),
+        };
+      });
+
+      return { previousPoints };
+    },
+    onError: (_err, _input, context) => {
+      if (context?.previousPoints) {
+        queryClient.setQueryData(
+          queryKeys.shoutouts.points(tenantId ?? ''),
+          context.previousPoints,
+        );
+      }
+    },
     onSuccess: () => {
       if (tenantId) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.claims });

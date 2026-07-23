@@ -55,6 +55,7 @@ export function useMembersPoints() {
     queryKey: [...queryKeys.settings.membersPoints, tenantId],
     queryFn: fetchMembersPoints,
     enabled: !tenantLoading && Boolean(tenantId),
+    staleTime: 60_000,
   });
 }
 

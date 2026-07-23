@@ -1,8 +1,7 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
-import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
@@ -34,12 +33,6 @@ const TAB_LABELS: Record<SettingsTab, string> = {
   billing: 'Billing',
   integrations: 'Integrations',
 };
-
-const TAB_PANEL_CLASS = 'mt-0 data-[state=inactive]:hidden';
-
-function TabPanelFallback() {
-  return <LoadingBlock />;
-}
 
 export function SettingsPage() {
   const { tenant } = useTenant();
@@ -101,58 +94,52 @@ export function SettingsPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="profile" forceMount className={TAB_PANEL_CLASS}>
+        <TabsContent value="profile" className="mt-0 data-[state=inactive]:hidden">
           <SettingsProfileTab />
         </TabsContent>
         {isAdmin ? (
-          <TabsContent value="workspace" forceMount className={TAB_PANEL_CLASS}>
+          <TabsContent value="workspace" className="mt-0 data-[state=inactive]:hidden">
             <SettingsWorkspaceTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="leave" forceMount className={TAB_PANEL_CLASS}>
+          <TabsContent value="leave" className="mt-0 data-[state=inactive]:hidden">
             <SettingsLeaveTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="shoutouts" forceMount className={TAB_PANEL_CLASS}>
+          <TabsContent value="shoutouts" className="mt-0 data-[state=inactive]:hidden">
             <SettingsShoutoutsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="rewards" forceMount className={TAB_PANEL_CLASS}>
-            <Suspense fallback={<TabPanelFallback />}>
-              <SettingsRewardsTab />
-            </Suspense>
+          <TabsContent value="rewards" className="mt-0 data-[state=inactive]:hidden">
+            <SettingsRewardsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="holidays" forceMount className={TAB_PANEL_CLASS}>
+          <TabsContent value="holidays" className="mt-0 data-[state=inactive]:hidden">
             <SettingsHolidaysTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="notifications" forceMount className={TAB_PANEL_CLASS}>
+          <TabsContent value="notifications" className="mt-0 data-[state=inactive]:hidden">
             <SettingsNotificationsTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="attendance" forceMount className={TAB_PANEL_CLASS}>
+          <TabsContent value="attendance" className="mt-0 data-[state=inactive]:hidden">
             <SettingsAttendanceTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="billing" forceMount className={TAB_PANEL_CLASS}>
-            <Suspense fallback={<TabPanelFallback />}>
-              <SettingsBillingTab />
-            </Suspense>
+          <TabsContent value="billing" className="mt-0 data-[state=inactive]:hidden">
+            <SettingsBillingTab />
           </TabsContent>
         ) : null}
         {isAdmin ? (
-          <TabsContent value="integrations" forceMount className={TAB_PANEL_CLASS}>
-            <Suspense fallback={<TabPanelFallback />}>
-              <SettingsIntegrationsTab />
-            </Suspense>
+          <TabsContent value="integrations" className="mt-0 data-[state=inactive]:hidden">
+            <SettingsIntegrationsTab />
           </TabsContent>
         ) : null}
       </Tabs>

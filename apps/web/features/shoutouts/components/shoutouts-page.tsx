@@ -1,9 +1,8 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Coins, Heart, Sparkles, X } from 'lucide-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -27,6 +26,7 @@ import {
 } from '@/hooks/queries/use-shoutouts';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import { ShoutoutCard } from './shoutout-card';
@@ -44,21 +44,23 @@ function allowancePeriodLabel(period?: string): string {
 }
 
 function ShoutoutsPageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname();
-  const activeTab = searchParams.get('tab') || 'feed';
-
-  const setTab = (tab: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set('tab', tab);
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  };
-
-  const { tenant } = useTenant();
+  const [activeTab, setActiveTab] = useState('feed');
+  const { tenant, tenantId } = useTenant();
+  const queryClient = useQueryClient();
   const currentMemberId = tenant?.member?.id;
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+
+  // Prefetch rewards catalog when component mounts
+  useEffect(() => {
+    if (tenantId) {
+      void queryClient.prefetchQuery({
+        queryKey: [...queryKeys.rewards.catalog, tenantId],
+        queryFn: () => apiClient(tenantPath(tenantId, 'rewards/catalog')),
+        staleTime: 60_000,
+      });
+    }
+  }, [tenantId, queryClient]);
 
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useShoutoutCategories();
@@ -71,6 +73,7 @@ function ShoutoutsPageContent() {
     queryFn: () =>
       apiClient<{ id: string; status: string }[]>(tenantPath(tenant?.id ?? '', 'rewards/tasks')),
     enabled: Boolean(tenant?.id),
+    staleTime: 30_000,
   });
 
   const availableCount = tasks.filter(
@@ -176,7 +179,7 @@ function ShoutoutsPageContent() {
         ) : null}
       </div>
 
-      <Tabs value={activeTab} onValueChange={setTab} className="space-y-5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <div className="overflow-x-auto pb-1">
           <TabsList className="inline-flex h-auto min-w-max items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
             <TabsTrigger
@@ -286,7 +289,7 @@ function ShoutoutsPageContent() {
                     size="sm"
                     variant="outline"
                     className="w-full text-xs"
-                    onClick={() => setTab('redeem')}
+                    onClick={() => setActiveTab('redeem')}
                   >
                     Go to Rewards Catalog
                   </Button>
@@ -387,9 +390,7 @@ function ShoutoutsPageContent() {
 export function ShoutoutsPage() {
   return (
     <AppPage className="mx-auto w-full max-w-7xl">
-      <Suspense fallback={<LoadingBlock />}>
-        <ShoutoutsPageContent />
-      </Suspense>
+      <ShoutoutsPageContent />
     </AppPage>
   );
 }

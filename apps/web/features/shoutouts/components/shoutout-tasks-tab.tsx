@@ -116,6 +116,7 @@ export function ShoutoutTasksTab() {
     queryKey: ['shoutout-tasks', tenantId],
     queryFn: () => apiClient<Task[]>(tenantPath(tenantId ?? '', 'rewards/tasks')),
     enabled: Boolean(tenantId),
+    staleTime: 30_000,
   });
 
   const { data: pendingSubmissions = [] } = useQuery<PendingSubmission[]>({
@@ -124,9 +125,8 @@ export function ShoutoutTasksTab() {
       apiClient<PendingSubmission[]>(
         tenantPath(tenantId ?? '', 'rewards/tasks/submissions/pending'),
       ),
-    // All authenticated users can call this — the backend filters to only return
-    // submissions they are allowed to approve (admin/owner/manager of submitter)
     enabled: Boolean(tenantId),
+    staleTime: 30_000,
   });
 
   const { data: members = [] } = useMembersPoints();
