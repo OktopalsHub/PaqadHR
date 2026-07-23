@@ -62,26 +62,3 @@ export function useRecruitmentOverview(options?: { enabled?: boolean }) {
     jobsErrorObj,
   };
 }
-
-const overview = useMemo(() => {
-  const jobs = apiJobs;
-  return {
-    kpis: computeRecruitmentKpis(apiCandidates),
-    applicationsChart: computeApplicationsChart(apiCandidates),
-    departmentChart: computeDepartmentChart(apiCandidates, jobs),
-    sourceChart: computeSourceChart(apiCandidates),
-    jobs,
-    applicantCounts: countApplicantsByJob(apiCandidates),
-    applicantRows: toApplicantRows(apiCandidates, jobs),
-    schedule: calendarEventsToSchedule(calendarEvents),
-    activity: [] as const,
-  };
-}, [apiCandidates, apiJobs, calendarEvents]);
-
-return {
-    overview,
-    isLoading,
-    jobsError,
-    jobsErrorObj,
-  };
-}

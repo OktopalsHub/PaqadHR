@@ -54,3 +54,5 @@ assert(salaryMatchesRun('ngn', 'NGN'), 'currency compare is case-insensitive');
 assert(!salaryMatchesRun('USD', 'NGN'), 'mismatched currencies skip');
 
 console.log('payroll-payout-mode.check: ok');
+
+export {};

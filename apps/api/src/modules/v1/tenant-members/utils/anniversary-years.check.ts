@@ -16,3 +16,5 @@ assert(anniversaryYearsThisCalendarYear(new Date('2024-07-01'), asOf) === 2, '2 
 assert(anniversaryYearsThisCalendarYear(new Date('2026-07-01'), asOf) < 1, 'filter year-0');
 
 console.log('anniversary-years.check: ok');
+
+export {};
