@@ -17,7 +17,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
-import { isTenantAdmin } from 'src/common/utils/member-access.util';
+import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateEducationDto } from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
@@ -42,7 +42,7 @@ export class EducationController {
   ): Promise<Education> {
     const { memberId, ...educationData } = createEducationDto;
     const targetMemberId = memberId ?? member.id;
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, targetMemberId, tenantId);
+    assertSelfOnly(member, targetMemberId);
     return this.educationService.createEducation(tenantId, targetMemberId, educationData);
   }
 
@@ -97,11 +97,7 @@ export class EducationController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<Education> {
     const education = await this.educationService.getEducation(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      education.tenantMemberId,
-      tenantId,
-    );
+    assertSelfOnly(member, education.tenantMemberId);
     return this.educationService.updateEducation(id, updateEducationDto, tenantId);
   }
 
@@ -113,11 +109,7 @@ export class EducationController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<void> {
     const education = await this.educationService.getEducation(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      education.tenantMemberId,
-      tenantId,
-    );
+    assertSelfOnly(member, education.tenantMemberId);
     return this.educationService.deleteEducation(id, tenantId);
   }
 }

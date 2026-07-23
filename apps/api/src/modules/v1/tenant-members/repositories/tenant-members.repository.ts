@@ -6,6 +6,18 @@ import { type FindOneOptions, MoreThanOrEqual, Repository } from 'typeorm';
 import type { CelebrationResponseDto } from '../dto/celebrations-response.dto';
 import { TenantMember } from '../entities/tenant-member.entity';
 
+/** Years completed on this calendar year's anniversary date (0 = start year). */
+function anniversaryYearsThisCalendarYear(startDate: Date, asOf: Date): number {
+  return asOf.getFullYear() - startDate.getFullYear();
+}
+
+function celebrationSortKey(rawDate: string | Date, year: number): number {
+  const iso = typeof rawDate === 'string' ? rawDate : rawDate.toISOString();
+  const parts = iso.slice(0, 10).split('-');
+  if (parts.length < 3) return 0;
+  return Date.UTC(year, Number(parts[1]) - 1, Number(parts[2]));
+}
+
 @Injectable()
 export class TenantMemberRepository extends Repository<TenantMember> {
   constructor(
@@ -239,9 +251,9 @@ export class TenantMemberRepository extends Repository<TenantMember> {
   }
   async findUpcomingCelebrations(tenantId: string): Promise<CelebrationResponseDto[]> {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const _currentYear = now.getFullYear();
-    const months = [currentMonth, (currentMonth + 1) % 12, (currentMonth + 2) % 12];
+    // JS getMonth() is 0-11; PostgreSQL EXTRACT(MONTH) is 1-12
+    const currentMonth = now.getMonth() + 1;
+    const months = [currentMonth, (currentMonth % 12) + 1, ((currentMonth + 1) % 12) + 1];
     const birthdayQuery = this.tenantMemberRepository
       .createQueryBuilder('member')
       .leftJoin('member.user', 'user')
@@ -319,30 +331,37 @@ export class TenantMemberRepository extends Repository<TenantMember> {
         type: CelebrationType.BIRTHDAY,
         date: b.member_date_of_birth,
       })),
-      ...anniversaries.map((a) => {
+      ...anniversaries.flatMap((a) => {
         const startDate = new Date(a.anniversarydate);
-        const now = new Date();
-        const years = now.getFullYear() - startDate.getFullYear();
-        return {
-          id: a.member_id,
-          firstName: a.member_first_name,
-          lastName: a.member_last_name,
-          preferredName: a.member_preferred_name,
-          employeeNumber: a.member_employee_number,
-          avatarUrl:
-            a.member_avatar_key && a.member_tenant_id
-              ? this.fileUrlService.getMemberAvatarUrl(a.member_tenant_id, a.member_avatar_key) ||
-                undefined
-              : undefined,
-          positionTitle: a.positiontitle,
-          departmentName: a.departmentname,
-          type: CelebrationType.ANNIVERSARY,
-          date: a.anniversarydate,
-          years: years,
-        };
+        if (Number.isNaN(startDate.getTime())) return [];
+        const years = anniversaryYearsThisCalendarYear(startDate, now);
+        if (years < 1) return [];
+        return [
+          {
+            id: a.member_id,
+            firstName: a.member_first_name,
+            lastName: a.member_last_name,
+            preferredName: a.member_preferred_name,
+            employeeNumber: a.member_employee_number,
+            avatarUrl:
+              a.member_avatar_key && a.member_tenant_id
+                ? this.fileUrlService.getMemberAvatarUrl(a.member_tenant_id, a.member_avatar_key) ||
+                  undefined
+                : undefined,
+            positionTitle: a.positiontitle,
+            departmentName: a.departmentname,
+            type: CelebrationType.ANNIVERSARY,
+            date: a.anniversarydate,
+            years,
+          },
+        ];
       }),
     ];
-    return celebrations.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return celebrations.sort((a, b) => {
+      const aKey = celebrationSortKey(a.date, now.getFullYear());
+      const bKey = celebrationSortKey(b.date, now.getFullYear());
+      return aKey - bKey;
+    });
   }
 
   async findMembersWithBirthdayToday(tenantId: string): Promise<TenantMember[]> {

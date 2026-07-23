@@ -39,6 +39,7 @@ type EmployeeRecords = {
 type EmployeeDetailFormOptions = {
   managerName?: string;
   canEdit?: boolean;
+  canEditPersonal?: boolean;
   isSelf?: boolean;
   isAdmin?: boolean;
 };
@@ -118,58 +119,54 @@ export function useEmployeeDetailForm(
 
     setIsSaving(true);
     try {
-      const profilePayload = {
-        firstName: employee.firstName.trim(),
-        lastName: employee.lastName.trim(),
-        middleName: employee.middleName.trim() || undefined,
-        preferredName: employee.preferredName || undefined,
-        phone: employee.phone || undefined,
-        dateOfBirth: employee.dateOfBirth || undefined,
-        gender: employee.personalInfo.gender || undefined,
-      };
-
-      if (options?.isSelf) {
-        await updateMemberProfile(profilePayload);
-      } else {
-        const adminPayload = {
-          ...profilePayload,
-          ...(options?.isAdmin
-            ? {
-                role: employee.workspaceRole,
-                departmentId: employee.departmentId || null,
-                reportsToId: employee.reportsToId || null,
-              }
-            : {}),
-        };
-        await updateEmployee(employee.id, adminPayload);
+      if (options?.canEditPersonal) {
+        await updateMemberProfile({
+          firstName: employee.firstName.trim(),
+          lastName: employee.lastName.trim(),
+          middleName: employee.middleName.trim() || undefined,
+          preferredName: employee.preferredName || undefined,
+          phone: employee.phone || undefined,
+          dateOfBirth: employee.dateOfBirth || undefined,
+          gender: employee.personalInfo.gender || undefined,
+        });
       }
 
-      const { street, city, state, zipCode, country } = employee.address;
-      const hasAddress =
-        street.trim() || city.trim() || state.trim() || zipCode.trim() || country.trim();
-      if (hasAddress) {
-        if (!city.trim() || !state.trim() || !country.trim()) {
-          toast.error('Address requires city, state, and country');
-          return;
-        }
-        const saved = await upsertMemberAddress(employee.id, {
-          street: street.trim() || undefined,
-          city: city.trim(),
-          state: state.trim(),
-          postalCode: zipCode.trim() || undefined,
-          country: country.trim(),
+      if (options?.isAdmin) {
+        await updateEmployee(employee.id, {
+          role: employee.workspaceRole,
+          departmentId: employee.departmentId || null,
+          reportsToId: employee.reportsToId || null,
         });
-        setEmployee((prev) => ({
-          ...prev,
-          addressId: saved.id,
-          address: {
-            street: saved.street ?? '',
-            city: saved.city,
-            state: saved.state,
-            zipCode: saved.postalCode ?? '',
-            country: saved.country,
-          },
-        }));
+      }
+
+      if (options?.canEditPersonal) {
+        const { street, city, state, zipCode, country } = employee.address;
+        const hasAddress =
+          street.trim() || city.trim() || state.trim() || zipCode.trim() || country.trim();
+        if (hasAddress) {
+          if (!city.trim() || !state.trim() || !country.trim()) {
+            toast.error('Address requires city, state, and country');
+            return;
+          }
+          const saved = await upsertMemberAddress(employee.id, {
+            street: street.trim() || undefined,
+            city: city.trim(),
+            state: state.trim(),
+            postalCode: zipCode.trim() || undefined,
+            country: country.trim(),
+          });
+          setEmployee((prev) => ({
+            ...prev,
+            addressId: saved.id,
+            address: {
+              street: saved.street ?? '',
+              city: saved.city,
+              state: saved.state,
+              zipCode: saved.postalCode ?? '',
+              country: saved.country,
+            },
+          }));
+        }
       }
 
       await invalidateMemberQueries();

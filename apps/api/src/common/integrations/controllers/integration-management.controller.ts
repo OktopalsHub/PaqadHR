@@ -1,12 +1,16 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
 import { IntegrationSetupService } from '../services/integration-setup.service';
 import { UserSyncService } from '../services/user-sync.service';
+
 @ApiTags('Integration Management')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
+@Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
 @Controller('tenants/:tenantId/integrations')
 export class IntegrationManagementController {
   constructor(

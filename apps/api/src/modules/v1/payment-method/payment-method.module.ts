@@ -7,14 +7,18 @@ import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { TenantsModule } from '../tenants/tenants.module';
 import { PaymentMethodController } from './controllers/payment-method.controller';
+import { PaymentSecurityController } from './controllers/payment-security.controller';
 import { PaymentMethod } from './entities/payment-method.entity';
 import { PaymentMethodPasscodeHistory } from './entities/payment-method-passcode-history.entity';
+import { PaymentSecurity } from './entities/payment-security.entity';
 import { PaymentMethodRepository } from './repositories/payment-method.repository';
+import { PaymentSecurityRepository } from './repositories/payment-security.repository';
 import { PaymentMethodService } from './services/payment-method.service';
+import { PaymentSecurityService } from './services/payment-security.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PaymentMethod, PaymentMethodPasscodeHistory]),
+    TypeOrmModule.forFeature([PaymentMethod, PaymentMethodPasscodeHistory, PaymentSecurity]),
     PaymentsModule,
     AuditLogsModule,
     AuthModule,
@@ -22,8 +26,13 @@ import { PaymentMethodService } from './services/payment-method.service';
     TenantMembersModule,
     TenantConfigModule,
   ],
-  controllers: [PaymentMethodController],
-  providers: [PaymentMethodService, PaymentMethodRepository],
+  controllers: [PaymentMethodController, PaymentSecurityController],
+  providers: [
+    PaymentMethodService,
+    PaymentMethodRepository,
+    PaymentSecurityService,
+    PaymentSecurityRepository,
+  ],
   exports: [PaymentMethodService],
 })
 export class PaymentMethodModule {}

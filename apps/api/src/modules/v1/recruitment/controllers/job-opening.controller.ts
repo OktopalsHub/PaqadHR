@@ -14,9 +14,10 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
-import { EmploymentType, JobStatus } from 'src/common/enums';
+import { EmploymentType, JobStatus, TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -27,7 +28,8 @@ import { JobOpeningService } from '../services/job-opening.service';
 
 @ApiTags('Job Openings')
 @Controller('tenants/:tenantId/jobs')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
+@Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
 @RequireFeatures(FeatureAccess.RECRUITMENT)
 export class JobOpeningController {
   private readonly logger = new Logger(JobOpeningController.name);

@@ -21,3 +21,9 @@ export function assertMemberRecordAccess(member: MemberContext, targetMemberId: 
 export function assertSelfOrAdmin(member: MemberContext, targetMemberId: string): void {
   assertMemberRecordAccess(member, targetMemberId);
 }
+
+export function assertSelfOnly(member: MemberContext, targetMemberId: string): void {
+  if (member.id !== targetMemberId) {
+    throw new ForbiddenException('You can only edit your own personal information');
+  }
+}

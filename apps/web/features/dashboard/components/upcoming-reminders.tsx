@@ -7,6 +7,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Badge } from '@/components/ui/badge';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
+import { formatOrdinal } from '@/lib/format-ordinal';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -17,6 +18,7 @@ type ApiCelebration = {
   preferredName?: string;
   type: 'birthday' | 'anniversary';
   date: string;
+  years?: number;
 };
 
 async function fetchCelebrations(): Promise<ApiCelebration[]> {
@@ -50,7 +52,12 @@ export function UpcomingReminders() {
       item.preferredName?.trim() ||
       [item.firstName, item.lastName].filter(Boolean).join(' ') ||
       'Team member';
-    const label = item.type === 'birthday' ? 'Birthday' : 'Anniversary';
+    const label =
+      item.type === 'birthday'
+        ? 'Birthday'
+        : item.years && item.years >= 1
+          ? `${formatOrdinal(item.years)} anniversary`
+          : 'Anniversary';
     const date = typeof item.date === 'string' ? item.date.slice(0, 10) : '';
     return { id: item.id, title: `${name} — ${label}`, date, type: item.type };
   });

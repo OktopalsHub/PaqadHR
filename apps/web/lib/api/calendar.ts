@@ -6,6 +6,7 @@ import { fetchUpcomingInterviews } from '@/lib/api/interviews';
 import { fetchLeavesForCalendar } from '@/lib/api/leaves';
 import { resolveTenantId } from '@/lib/api/tenants';
 import { formatDisplayName, formatPersonName } from '@/lib/format-name';
+import { formatOrdinal } from '@/lib/format-ordinal';
 import type { CalendarEvent, CalendarEventType } from '@/lib/schemas/calendar';
 
 type ApiCelebration = {
@@ -15,6 +16,7 @@ type ApiCelebration = {
   preferredName?: string;
   type: 'birthday' | 'anniversary';
   date: string;
+  years?: number;
 };
 
 type Celebration = {
@@ -22,6 +24,7 @@ type Celebration = {
   memberName: string;
   type: 'birthday' | 'anniversary';
   date: string;
+  years?: number;
 };
 
 type Holiday = {
@@ -61,6 +64,7 @@ function mapCelebration(item: ApiCelebration): Celebration {
     date: normalizeCelebrationDate(
       typeof item.date === 'string' ? item.date : new Date(item.date).toISOString(),
     ),
+    years: item.years,
   };
 }
 
@@ -82,9 +86,13 @@ function leaveToEvents(leave: {
 }
 
 function celebrationToEvent(item: Celebration): CalendarEvent {
+  const anniversaryLabel =
+    item.years && item.years >= 1
+      ? `${formatOrdinal(item.years)} Work Anniversary`
+      : 'Work Anniversary';
   return {
     id: `celebration-${item.id}-${item.date}`,
-    title: `${item.memberName} — ${item.type === 'birthday' ? 'Birthday' : 'Work Anniversary'}`,
+    title: `${item.memberName} — ${item.type === 'birthday' ? 'Birthday' : anniversaryLabel}`,
     date: item.date,
     type: 'celebration',
   };

@@ -10,6 +10,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDepartments } from '@/hooks/queries/use-departments';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { useTenant } from '@/providers/tenant-provider';
 import { CreateDepartmentDialog } from './create-department-dialog';
 import { DepartmentCard } from './department-card';
 
@@ -22,6 +24,8 @@ export const Teams = ({
   createOpenExternal?: boolean;
   setCreateOpenExternal?: (open: boolean) => void;
 }) => {
+  const { tenant } = useTenant();
+  const isAdmin = isTenantAdmin(tenant?.member?.role);
   const [searchTerm, setSearchTerm] = useState('');
   const [createOpenInternal, setCreateOpenInternal] = useState(false);
   const createOpen = createOpenExternal !== undefined ? createOpenExternal : createOpenInternal;
@@ -60,7 +64,7 @@ export const Teams = ({
 
   return (
     <AppPage>
-      {!hidePageActions && (
+      {!hidePageActions && isAdmin ? (
         <PageActions>
           <Button
             variant="brandSolid"
@@ -72,9 +76,11 @@ export const Teams = ({
             Add department
           </Button>
         </PageActions>
-      )}
+      ) : null}
 
-      <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {isAdmin ? (
+        <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
+      ) : null}
 
       {isError ? (
         <Alert variant="destructive">
@@ -119,6 +125,7 @@ export const Teams = ({
                   department={dept}
                   isExpanded={expandedDepts.includes(dept.id)}
                   onToggle={() => toggleDepartment(dept.id)}
+                  canManage={isAdmin}
                 />
               ))}
             </div>

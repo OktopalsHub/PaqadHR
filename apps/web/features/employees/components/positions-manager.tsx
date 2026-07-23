@@ -69,11 +69,13 @@ function PositionTable({
   onEdit,
   onDelete,
   faded = false,
+  canManage = true,
 }: {
   positions: ApiPosition[];
   onEdit: (position: ApiPosition) => void;
   onDelete: (id: string) => void;
   faded?: boolean;
+  canManage?: boolean;
 }) {
   return (
     <AppTablePanel>
@@ -83,7 +85,9 @@ function PositionTable({
             <AppTableHeadCell>Title</AppTableHeadCell>
             <AppTableHeadCell className="hidden md:table-cell">Description</AppTableHeadCell>
             <AppTableHeadCell>Status</AppTableHeadCell>
-            <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
+            {canManage ? (
+              <AppTableHeadCell className="text-right">Actions</AppTableHeadCell>
+            ) : null}
           </AppTableHeaderRow>
         </AppTableHeaderSection>
         <AppTableBodySection>
@@ -113,16 +117,18 @@ function PositionTable({
                   {position.isActive ? 'Active' : 'Inactive'}
                 </span>
               </AppTableCell>
-              <AppTableCell className="text-right">
-                <div className="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" onClick={() => onEdit(position)}>
-                    <Edit className="size-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => void onDelete(position.id)}>
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
-                </div>
-              </AppTableCell>
+              {canManage ? (
+                <AppTableCell className="text-right">
+                  <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(position)}>
+                      <Edit className="size-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => void onDelete(position.id)}>
+                      <Trash2 className="size-4 text-destructive" />
+                    </Button>
+                  </div>
+                </AppTableCell>
+              ) : null}
             </AppTableBodyRow>
           ))}
         </AppTableBodySection>
@@ -230,17 +236,6 @@ export function PositionsManager({
     }
   };
 
-  if (!isAdmin) {
-    return (
-      <AppPage>
-        <Alert>
-          <AlertTitle>Access restricted</AlertTitle>
-          <AlertDescription>Only admins and owners can manage positions.</AlertDescription>
-        </Alert>
-      </AppPage>
-    );
-  }
-
   if (isLoading) {
     return (
       <AppPage>
@@ -340,52 +335,57 @@ export function PositionsManager({
 
   const mainContent = (
     <>
-      <Dialog
-        open={createOpen}
-        onOpenChange={(open) => {
-          setCreateOpen(open);
-          if (!open) resetForm();
-        }}
-      >
-        {!hidePageActions && (
-          <PageActions>
-            <DialogTrigger asChild>
-              <Button variant="brandSolid" size="app" className="flex items-center gap-2">
-                <Plus size={16} />
-                <span>Add position</span>
+      {isAdmin ? (
+        <Dialog
+          open={createOpen}
+          onOpenChange={(open) => {
+            setCreateOpen(open);
+            if (!open) resetForm();
+          }}
+        >
+          {!hidePageActions && (
+            <PageActions>
+              <DialogTrigger asChild>
+                <Button variant="brandSolid" size="app" className="flex items-center gap-2">
+                  <Plus size={16} />
+                  <span>Add position</span>
+                </Button>
+              </DialogTrigger>
+            </PageActions>
+          )}
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Create position</DialogTitle>
+              <DialogDescription>
+                Add a new position to your workspace. Positions can then be assigned to employees.
+              </DialogDescription>
+            </DialogHeader>
+            {formDialog}
+            <DialogFooter>
+              <Button disabled={createPosition.isPending} onClick={() => void handleCreate()}>
+                {createPosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Create position
               </Button>
-            </DialogTrigger>
-          </PageActions>
-        )}
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Create position</DialogTitle>
-            <DialogDescription>
-              Add a new position to your workspace. Positions can then be assigned to employees.
-            </DialogDescription>
-          </DialogHeader>
-          {formDialog}
-          <DialogFooter>
-            <Button disabled={createPosition.isPending} onClick={() => void handleCreate()}>
-              {createPosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Create position
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <Card>
         <CardHeader>
           <CardTitle>Positions</CardTitle>
           <CardDescription>
-            Manage all positions in your workspace. Positions are assigned to employees via their
-            employment profile.
+            {isAdmin
+              ? 'Manage all positions in your workspace. Positions are assigned to employees via their employment profile.'
+              : 'All positions in your workspace.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {positions.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">
-              No positions yet. Create your first position to start assigning roles to employees.
+              {isAdmin
+                ? 'No positions yet. Create your first position to start assigning roles to employees.'
+                : 'No positions yet.'}
             </p>
           ) : (
             <div className="space-y-6">
@@ -394,6 +394,7 @@ export function PositionsManager({
                   positions={activePositions}
                   onEdit={openEdit}
                   onDelete={handleDelete}
+                  canManage={isAdmin}
                 />
               ) : null}
 
@@ -407,6 +408,7 @@ export function PositionsManager({
                     onEdit={openEdit}
                     onDelete={handleDelete}
                     faded
+                    canManage={isAdmin}
                   />
                 </div>
               ) : null}
@@ -415,30 +417,31 @@ export function PositionsManager({
         </CardContent>
       </Card>
 
-      {}
-      <Dialog
-        open={editingPosition !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditingPosition(null);
-            resetForm();
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>Edit position</DialogTitle>
-            <DialogDescription>Update the details for this position.</DialogDescription>
-          </DialogHeader>
-          {formDialog}
-          <DialogFooter>
-            <Button disabled={updatePosition.isPending} onClick={() => void handleUpdate()}>
-              {updatePosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Save changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {isAdmin ? (
+        <Dialog
+          open={editingPosition !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditingPosition(null);
+              resetForm();
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-[480px]">
+            <DialogHeader>
+              <DialogTitle>Edit position</DialogTitle>
+              <DialogDescription>Update the details for this position.</DialogDescription>
+            </DialogHeader>
+            {formDialog}
+            <DialogFooter>
+              <Button disabled={updatePosition.isPending} onClick={() => void handleUpdate()}>
+                {updatePosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+                Save changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </>
   );
 

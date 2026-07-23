@@ -1,5 +1,10 @@
 import { ActivityLogPage } from '@/features/activity/components/activity-log-page';
+import { AdminOnlyGate } from '@/features/navigations/components/admin-only-gate';
 
 export default function ActivityPage() {
-  return <ActivityLogPage />;
+  return (
+    <AdminOnlyGate>
+      <ActivityLogPage />
+    </AdminOnlyGate>
+  );
 }

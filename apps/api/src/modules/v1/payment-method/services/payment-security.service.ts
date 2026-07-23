@@ -6,28 +6,32 @@ import { PaymentSecurityRepository } from '../repositories/payment-security.repo
 @Injectable()
 export class PaymentSecurityService {
   constructor(private readonly paymentSecurityRepo: PaymentSecurityRepository) {}
+
   async setPasscode(memberId: string, plainPasscode: string): Promise<PaymentSecurity | null> {
     const hashed = await PasswordService.hashPassword(plainPasscode);
     let security = await this.paymentSecurityRepo.findOne({
       where: { member: { id: memberId } },
     });
     if (!security) {
-      security = await this.paymentSecurityRepo.create({
-        member: { id: memberId },
-      });
+      return this.paymentSecurityRepo.save(
+        this.paymentSecurityRepo.create({
+          member: { id: memberId },
+          paymentPasscode: hashed,
+          passcodeAttempts: 0,
+          passcodeLockedUntil: null,
+        }),
+      );
     }
-    security.paymentPasscode = hashed;
-    security.passcodeAttempts = 0;
-    security.passcodeLockedUntil = null;
     await this.paymentSecurityRepo.update(security.id, {
-      paymentPasscode: security.paymentPasscode,
-      passcodeAttempts: security.passcodeAttempts,
-      passcodeLockedUntil: security.passcodeLockedUntil,
+      paymentPasscode: hashed,
+      passcodeAttempts: 0,
+      passcodeLockedUntil: null,
     });
     return this.paymentSecurityRepo.findOne({
       where: { id: security.id },
     });
   }
+
   async verifyPasscode(memberId: string, plainPasscode: string): Promise<boolean> {
     const security = await this.paymentSecurityRepo.findOne({
       where: { member: { id: memberId } },
@@ -51,8 +55,6 @@ export class PaymentSecurityService {
       });
       return false;
     }
-    security.passcodeAttempts = 0;
-    security.passcodeLockedUntil = null;
     await this.paymentSecurityRepo.update(security.id, {
       passcodeAttempts: 0,
       passcodeLockedUntil: null,

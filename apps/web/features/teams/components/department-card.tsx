@@ -10,9 +10,15 @@ interface DepartmentCardProps {
   department: Department;
   isExpanded: boolean;
   onToggle: () => void;
+  canManage?: boolean;
 }
 
-export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentCardProps) {
+export function DepartmentCard({
+  department,
+  isExpanded,
+  onToggle,
+  canManage = false,
+}: DepartmentCardProps) {
   const memberCount = department.members.length + (department.manager ? 1 : 0);
 
   const color = department.color || '#64748b';
@@ -38,7 +44,7 @@ export function DepartmentCard({ department, isExpanded, onToggle }: DepartmentC
               </div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">{memberCount} members</Badge>
-                <DepartmentEditButton department={department} />
+                {canManage ? <DepartmentEditButton department={department} /> : null}
                 {isExpanded ? (
                   <ChevronDown className="h-4 w-4" />
                 ) : (

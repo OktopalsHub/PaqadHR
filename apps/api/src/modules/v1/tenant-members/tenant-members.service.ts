@@ -21,6 +21,7 @@ import { Employment } from '../employment/entities/employment.entity';
 import { TenantMemberChangedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
+import type { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
 import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import type { TenantMember } from './entities/tenant-member.entity';
 import { TenantCounterRepository } from './repositories/tenant-counter.repository';
@@ -162,11 +163,11 @@ export class TenantMembersService {
   async updateTenantMember(
     tenantId: string,
     userId: string,
-    updateDto: UpdateTenantMemberDto,
+    updateDto: UpdateMemberProfileDto,
   ): Promise<TenantMember> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
     if (!member) throw new NotFoundException('Tenant member not found');
-    await this.applyMemberUpdates(member, tenantId, updateDto);
+    await this.applyProfileUpdates(member, updateDto);
     return this.getTenantMember(member.id, tenantId);
   }
   async updateTenantMemberById(
@@ -176,7 +177,7 @@ export class TenantMembersService {
     actorMemberId?: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
-    await this.applyMemberUpdates(member, tenantId, updateDto);
+    await this.applyOrgUpdates(member, tenantId, updateDto);
     if (actorMemberId) {
       void this.activitiesService
         .queueActivity({
@@ -191,10 +192,9 @@ export class TenantMembersService {
     }
     return this.getTenantMember(memberId, tenantId);
   }
-  private async applyMemberUpdates(
+  private async applyProfileUpdates(
     member: TenantMember,
-    tenantId: string,
-    updateDto: UpdateTenantMemberDto,
+    updateDto: UpdateMemberProfileDto,
   ): Promise<void> {
     const updateData: Partial<TenantMember> = {};
     if (updateDto.firstName !== undefined) updateData.firstName = updateDto.firstName;
@@ -208,6 +208,21 @@ export class TenantMembersService {
       updateData.dateOfBirth = updateDto.dateOfBirth;
     }
     if (updateDto.gender !== undefined) updateData.gender = updateDto.gender;
+    if (updateDto.avatarKey !== undefined) updateData.avatarKey = updateDto.avatarKey;
+
+    if (Object.keys(updateData).length > 0) {
+      await this.tenantMemberRepository.update(
+        member.id,
+        updateData as QueryDeepPartialEntity<TenantMember>,
+      );
+    }
+  }
+  private async applyOrgUpdates(
+    member: TenantMember,
+    tenantId: string,
+    updateDto: UpdateTenantMemberDto,
+  ): Promise<void> {
+    const updateData: Partial<TenantMember> = {};
     if (updateDto.role !== undefined) {
       if (member.role === TenantMemberRole.OWNER) {
         throw new BadRequestException('Cannot change workspace role of the owner');
@@ -217,7 +232,6 @@ export class TenantMembersService {
       }
       updateData.role = updateDto.role;
     }
-    if (updateDto.avatarKey !== undefined) updateData.avatarKey = updateDto.avatarKey;
 
     if (Object.keys(updateData).length > 0) {
       await this.tenantMemberRepository.update(

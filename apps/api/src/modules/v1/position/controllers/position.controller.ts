@@ -10,6 +10,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreatePositionDto } from '../dto/create-position.dto';
 import { UpdatePositionDto } from '../dto/update-position.dto';
@@ -22,6 +24,8 @@ import { PositionService } from '../services/position.service';
 export class PositionController {
   constructor(private readonly positionService: PositionService) {}
   @Post()
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createPosition(
     @Param('tenantId') tenantId: string,
     @Body() createPositionDto: CreatePositionDto,
@@ -37,6 +41,8 @@ export class PositionController {
     return this.positionService.getPosition(id, tenantId);
   }
   @Patch(':id')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updatePosition(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -45,6 +51,8 @@ export class PositionController {
     return this.positionService.updatePosition(id, updatePositionDto, tenantId);
   }
   @Delete(':id')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async deletePosition(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
@@ -53,6 +61,8 @@ export class PositionController {
     return { message: 'Position deleted successfully' };
   }
   @Post(':id/restore')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async restorePosition(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,

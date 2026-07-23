@@ -20,8 +20,10 @@ import { useEmployees } from '@/hooks/queries/use-employees';
 import { useLeaves } from '@/hooks/queries/use-leaves';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
 import type { JobOpening } from '@/lib/schemas/recruitment';
+import { useTenant } from '@/providers/tenant-provider';
 
 function leaveStatusVariant(status: string) {
   switch (status.toLowerCase()) {
@@ -37,23 +39,30 @@ function leaveStatusVariant(status: string) {
 }
 
 export const Dashboard = () => {
+  const { tenant } = useTenant();
+  const isAdmin = isTenantAdmin(tenant?.member?.role);
   const {
     data: employees = [],
     isLoading: employeesLoading,
     isError: employeesError,
   } = useEmployees();
   const { data: leaves = [], isLoading: leavesLoading, isError: leavesError } = useLeaves();
-  const { data: jobsData, isLoading: jobsLoading, isError: jobsError } = useJobOpenings();
+  const {
+    data: jobsData,
+    isLoading: jobsLoading,
+    isError: jobsError,
+  } = useJobOpenings({ enabled: isAdmin });
   const {
     overview,
     isLoading: overviewLoading,
     jobsError: overviewError,
-  } = useRecruitmentOverview();
+  } = useRecruitmentOverview({ enabled: isAdmin });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
-  const isLoading = employeesLoading || leavesLoading || jobsLoading || overviewLoading;
-  const hasError = employeesError || leavesError || jobsError || overviewError;
+  const isLoading =
+    employeesLoading || leavesLoading || (isAdmin && (jobsLoading || overviewLoading));
+  const hasError = employeesError || leavesError || (isAdmin && (jobsError || overviewError));
 
   const jobs = jobsData?.jobs ?? [];
   const openRoles = jobs.filter((job) => job.status === 'ACTIVE').length;
@@ -80,13 +89,17 @@ export const Dashboard = () => {
       icon: Users,
       iconClassName: 'bg-[#ffddb8] text-[#653e00]',
     },
-    {
-      label: 'Open roles',
-      value: openRoles,
-      hint: `${jobs.length} total postings`,
-      icon: Briefcase,
-      iconClassName: 'bg-[#dbeafe] text-[#1d4ed8]',
-    },
+    ...(isAdmin
+      ? [
+          {
+            label: 'Open roles',
+            value: openRoles,
+            hint: `${jobs.length} total postings`,
+            icon: Briefcase,
+            iconClassName: 'bg-[#dbeafe] text-[#1d4ed8]',
+          },
+        ]
+      : []),
     {
       label: 'Pending leave',
       value: pendingLeaves,
@@ -130,19 +143,21 @@ export const Dashboard = () => {
 
   return (
     <AppPage className="space-y-6">
-      <div className="flex justify-stretch sm:justify-end">
-        <Button
-          asChild
-          variant="brand"
-          size="appCta"
-          className="w-full normal-case tracking-normal text-sm sm:w-auto"
-        >
-          <Link href={tenantHref('recruitment')}>
-            View Recruitment
-            <ArrowUpRight className="ml-1.5 size-3.5" />
-          </Link>
-        </Button>
-      </div>
+      {isAdmin ? (
+        <div className="flex justify-stretch sm:justify-end">
+          <Button
+            asChild
+            variant="brand"
+            size="appCta"
+            className="w-full normal-case tracking-normal text-sm sm:w-auto"
+          >
+            <Link href={tenantHref('recruitment')}>
+              View Recruitment
+              <ArrowUpRight className="ml-1.5 size-3.5" />
+            </Link>
+          </Button>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {statCards.map((card) => {
@@ -174,7 +189,7 @@ export const Dashboard = () => {
 
       <div className="grid gap-4 xl:grid-cols-12">
         <ContentCard
-          className="dashboard-panel rounded-[8px] xl:col-span-8"
+          className={`dashboard-panel rounded-[8px] ${isAdmin ? 'xl:col-span-8' : 'xl:col-span-7'}`}
           headerClassName="border-b border-[#d7e3f6] px-5 py-4"
           titleClassName="text-[17px] font-semibold text-slate-950"
           title="Recent leave requests"
@@ -217,78 +232,91 @@ export const Dashboard = () => {
           )}
         </ContentCard>
 
-        <ContentCard
-          className="dashboard-panel rounded-[8px] xl:col-span-4"
-          headerClassName="border-b border-[#d7e3f6] px-5 py-4"
-          titleClassName="text-[17px] font-semibold text-slate-950"
-          title="Hiring pipeline"
-          action={
-            <Link href={tenantHref('recruitment')} className="dashboard-link text-xs font-semibold">
-              Manage
-            </Link>
-          }
-          bodyClassName="space-y-4 p-4"
-        >
-          <div className="grid grid-cols-2 gap-3">
-            {pipelineStages.map((stage) => (
-              <div key={stage.label} className="dashboard-soft-tile rounded-[8px] px-3 py-3">
-                <p className="dashboard-outline-label text-[10px] font-semibold uppercase">
-                  {stage.label}
-                </p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
-                  {stage.count}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div className="rounded-[8px] border border-[#d7e3f6] bg-white/55 px-3 pb-2 pt-4">
-            <div className="flex h-24 items-end gap-2 border-b border-[#d7e3f6] pb-2">
-              {pipelineStages.map((stage) => {
-                const height = Math.max(10, (stage.count / pipelineMax) * 100);
-                return (
-                  <div key={stage.label} className="flex flex-1 flex-col items-center gap-2">
-                    <div
-                      className="w-full max-w-9 rounded-t-xl bg-linear-to-t from-[#334e7e] to-[#7da7ef]"
-                      style={{ height: `${height}%` }}
-                    ></div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-2 flex justify-between text-[10px] font-medium text-slate-500">
+        {isAdmin ? (
+          <ContentCard
+            className="dashboard-panel rounded-[8px] xl:col-span-4"
+            headerClassName="border-b border-[#d7e3f6] px-5 py-4"
+            titleClassName="text-[17px] font-semibold text-slate-950"
+            title="Hiring pipeline"
+            action={
+              <Link
+                href={tenantHref('recruitment')}
+                className="dashboard-link text-xs font-semibold"
+              >
+                Manage
+              </Link>
+            }
+            bodyClassName="space-y-4 p-4"
+          >
+            <div className="grid grid-cols-2 gap-3">
               {pipelineStages.map((stage) => (
-                <span key={stage.label}>{stage.label}</span>
+                <div key={stage.label} className="dashboard-soft-tile rounded-[8px] px-3 py-3">
+                  <p className="dashboard-outline-label text-[10px] font-semibold uppercase">
+                    {stage.label}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                    {stage.count}
+                  </p>
+                </div>
               ))}
             </div>
+            <div className="rounded-[8px] border border-[#d7e3f6] bg-white/55 px-3 pb-2 pt-4">
+              <div className="flex h-24 items-end gap-2 border-b border-[#d7e3f6] pb-2">
+                {pipelineStages.map((stage) => {
+                  const height = Math.max(10, (stage.count / pipelineMax) * 100);
+                  return (
+                    <div key={stage.label} className="flex flex-1 flex-col items-center gap-2">
+                      <div
+                        className="w-full max-w-9 rounded-t-xl bg-linear-to-t from-[#334e7e] to-[#7da7ef]"
+                        style={{ height: `${height}%` }}
+                      ></div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-2 flex justify-between text-[10px] font-medium text-slate-500">
+                {pipelineStages.map((stage) => (
+                  <span key={stage.label}>{stage.label}</span>
+                ))}
+              </div>
+            </div>
+          </ContentCard>
+        ) : (
+          <div className="min-w-0 xl:col-span-5">
+            <DashboardActivityFeed />
           </div>
-        </ContentCard>
+        )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-2">
-        <RecruitmentVacancyGrid
-          jobs={overview.jobs.filter((job) => job.status === 'ACTIVE')}
-          applicantCounts={overview.applicantCounts}
-          onSelectDetails={handleSelectJobDetails}
-        />
-        <RecruitmentScheduleWidget events={overview.schedule} />
-      </div>
+      {isAdmin ? (
+        <>
+          <div className="grid gap-5 lg:grid-cols-2">
+            <RecruitmentVacancyGrid
+              jobs={overview.jobs.filter((job) => job.status === 'ACTIVE')}
+              applicantCounts={overview.applicantCounts}
+              onSelectDetails={handleSelectJobDetails}
+            />
+            <RecruitmentScheduleWidget events={overview.schedule} />
+          </div>
 
-      <div className="grid gap-5 xl:grid-cols-3">
-        <div className="min-w-0 h-full xl:col-span-2">
-          <RecruitmentApplicantsTable rows={overview.applicantRows} />
-        </div>
-        <div className="min-w-0 h-full">
-          <DashboardActivityFeed />
-        </div>
-      </div>
+          <div className="grid gap-5 xl:grid-cols-3">
+            <div className="min-w-0 h-full xl:col-span-2">
+              <RecruitmentApplicantsTable rows={overview.applicantRows} />
+            </div>
+            <div className="min-w-0 h-full">
+              <DashboardActivityFeed />
+            </div>
+          </div>
 
-      <JobDetailSheet
-        jobId={selectedJobId}
-        open={Boolean(selectedJobId)}
-        onOpenChange={(open) => {
-          if (!open) setSelectedJobId(null);
-        }}
-      />
+          <JobDetailSheet
+            jobId={selectedJobId}
+            open={Boolean(selectedJobId)}
+            onOpenChange={(open) => {
+              if (!open) setSelectedJobId(null);
+            }}
+          />
+        </>
+      ) : null}
     </AppPage>
   );
 };

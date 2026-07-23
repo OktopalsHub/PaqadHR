@@ -101,7 +101,9 @@ function EmployeeDetailFormReady({
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const isSelf = tenant?.member?.id === memberId;
-  const canEdit = isAdmin || isSelf;
+  const canEditPersonal = isSelf;
+  const canEditOrg = isAdmin;
+  const canEdit = canEditPersonal || canEditOrg;
   const memberTenantRole = member.role?.toLowerCase();
   const canManageStatus = isAdmin && !isSelf && memberTenantRole !== 'owner';
   const statusMutation = useUpdateEmployeeMemberStatus(memberId);
@@ -109,7 +111,7 @@ function EmployeeDetailFormReady({
   const form = useEmployeeDetailForm(
     member,
     { emergencyContacts, education, address },
-    { managerName, canEdit, isSelf, isAdmin },
+    { managerName, canEdit, canEditPersonal, isSelf, isAdmin },
   );
 
   return (
@@ -126,7 +128,7 @@ function EmployeeDetailFormReady({
           employee={form.employee}
           memberId={memberId}
           isSelf={isSelf}
-          canEdit={canEdit}
+          canEdit={canEditPersonal}
           isAdmin={isAdmin}
           canManageStatus={canManageStatus}
           canManageRole={isAdmin && !isSelf && memberTenantRole !== 'owner'}
@@ -149,7 +151,7 @@ function EmployeeDetailFormReady({
           memberId={memberId}
           viewerMemberId={tenant?.member?.id}
           isAdmin={isAdmin}
-          canEdit={canEdit}
+          canEditPersonal={canEditPersonal}
         />
       </div>
     </div>

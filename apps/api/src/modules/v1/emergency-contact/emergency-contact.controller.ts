@@ -18,7 +18,7 @@ import { CurrentTenantMember } from 'src/common/decorators';
 import type { RelationshipType } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
-import { isTenantAdmin } from 'src/common/utils/member-access.util';
+import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
@@ -43,7 +43,7 @@ export class EmergencyContactController {
   ): Promise<EmergencyContact> {
     const { memberId, ...contactData } = createEmergencyContactDto;
     const targetMemberId = memberId ?? member.id;
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, targetMemberId, tenantId);
+    assertSelfOnly(member, targetMemberId);
     return this.emergencyContactService.createEmergencyContact(
       tenantId,
       targetMemberId,
@@ -122,11 +122,7 @@ export class EmergencyContactController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<EmergencyContact> {
     const contact = await this.emergencyContactService.getEmergencyContact(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      contact.tenantMemberId,
-      tenantId,
-    );
+    assertSelfOnly(member, contact.tenantMemberId);
     return this.emergencyContactService.updateEmergencyContact(
       id,
       updateEmergencyContactDto,
@@ -142,11 +138,7 @@ export class EmergencyContactController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<EmergencyContact> {
     const contact = await this.emergencyContactService.getEmergencyContact(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      contact.tenantMemberId,
-      tenantId,
-    );
+    assertSelfOnly(member, contact.tenantMemberId);
     return this.emergencyContactService.setAsPrimary(id, tenantId);
   }
 
@@ -158,11 +150,7 @@ export class EmergencyContactController {
     @CurrentTenantMember() member: MemberContext,
   ): Promise<void> {
     const contact = await this.emergencyContactService.getEmergencyContact(id, tenantId);
-    await this.managerAccessService.assertAdminOrSelfOrManagerOf(
-      member,
-      contact.tenantMemberId,
-      tenantId,
-    );
+    assertSelfOnly(member, contact.tenantMemberId);
     return this.emergencyContactService.deleteEmergencyContact(id, tenantId);
   }
 }

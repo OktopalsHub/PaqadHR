@@ -18,13 +18,16 @@ import type {
 } from '@/lib/schemas/recruitment';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function useJobOpenings(search?: string) {
+export function useJobOpenings(searchOrOptions?: string | { search?: string; enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
+  const search = typeof searchOrOptions === 'string' ? searchOrOptions : searchOrOptions?.search;
+  const enabledOption =
+    typeof searchOrOptions === 'object' ? searchOrOptions.enabled : undefined;
 
   return useQuery({
     queryKey: [...queryKeys.recruitment.jobs, tenantId, search ?? ''],
     queryFn: () => fetchJobOpenings({ search, limit: 50 }),
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (enabledOption ?? true) && !tenantLoading && Boolean(tenantId),
   });
 }
 
@@ -82,13 +85,13 @@ export function useCandidatesByJob(jobId: string | null) {
   });
 }
 
-export function useAllCandidates() {
+export function useAllCandidates(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
     queryFn: fetchAllCandidates,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     retry: false,
   });
 }

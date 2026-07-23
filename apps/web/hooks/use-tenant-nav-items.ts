@@ -12,11 +12,12 @@ export function useTenantNavItems(): NavItem[] {
     if (!tenant?.slug) return [];
 
     const items = getNavItems(tenant.slug).filter((item) => item.segment !== 'settings');
-    if (!isTenantAdmin(tenant.member?.role)) {
-      return items.filter((item) => item.segment !== 'activity');
+    if (isTenantAdmin(tenant.member?.role)) {
+      return items;
     }
 
-    return items;
+    const memberHidden = new Set(['payroll', 'recruitment', 'analytics', 'activity']);
+    return items.filter((item) => !item.segment || !memberHidden.has(item.segment));
   }, [tenant?.slug, tenant?.member?.role]);
 }
 

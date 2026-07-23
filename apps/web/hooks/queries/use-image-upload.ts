@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { updateEmployee } from '@/lib/api/employees';
 import { uploadMemberAvatar, uploadWorkspaceLogo } from '@/lib/api/files';
 import { updateMemberProfile } from '@/lib/api/member-profile';
 import { updateTenant } from '@/lib/api/tenants';
@@ -15,16 +14,12 @@ export function useMemberAvatarUpload(options?: { memberId?: string; isSelf?: bo
 
   return useMutation({
     mutationFn: async (file: File) => {
+      if (!options?.isSelf) {
+        throw new Error('Only the member can update their own photo');
+      }
       const { fileName } = await uploadMemberAvatar(file);
-      if (options?.isSelf) {
-        const profile = await updateMemberProfile({ avatarKey: fileName });
-        return profile.avatarUrl ?? undefined;
-      }
-      if (!options?.memberId) {
-        throw new Error('Member ID is required');
-      }
-      const member = await updateEmployee(options.memberId, { avatarKey: fileName });
-      return member.avatar || undefined;
+      const profile = await updateMemberProfile({ avatarKey: fileName });
+      return profile.avatarUrl ?? undefined;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.member.profile(tenantId ?? '') });

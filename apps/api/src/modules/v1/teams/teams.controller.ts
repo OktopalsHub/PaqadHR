@@ -12,7 +12,9 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddTeamMemberDto } from './dto/add-team-member.dto';
@@ -38,6 +40,8 @@ export class TeamsController {
     return this.teamsService.getTeam(tenantId, id);
   }
   @Post()
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createTeam(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateTeamDto,
@@ -46,6 +50,8 @@ export class TeamsController {
     return this.teamsService.createTeam(tenantId, member.id, dto);
   }
   @Put(':id')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -55,6 +61,8 @@ export class TeamsController {
     return this.teamsService.updateTeam(tenantId, id, dto, member.id);
   }
   @Delete(':id')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async deleteTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -71,6 +79,8 @@ export class TeamsController {
     return this.teamsService.getTeamMembers(tenantId, id, role);
   }
   @Post(':id/members')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async addTeamMember(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -80,6 +90,8 @@ export class TeamsController {
     return this.teamsService.addTeamMember(tenantId, id, dto, member.id);
   }
   @Put(':id/members/:memberId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateTeamMember(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -89,6 +101,8 @@ export class TeamsController {
     return this.teamsService.updateTeamMember(tenantId, id, memberId, dto);
   }
   @Delete(':id/members/:memberId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async removeTeamMember(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -98,6 +112,8 @@ export class TeamsController {
     return this.teamsService.removeTeamMember(tenantId, id, memberId, member.id);
   }
   @Patch(':id/leader')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async assignTeamLeader(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,

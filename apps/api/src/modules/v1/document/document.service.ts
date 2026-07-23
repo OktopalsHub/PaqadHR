@@ -237,7 +237,8 @@ export class DocumentService {
   }
 
   private isPrivilegedDocumentRole(memberRole: string): boolean {
-    return ['admin', 'owner', 'hr'].includes(memberRole.toLowerCase());
+    const role = memberRole.toLowerCase();
+    return role === 'admin' || role === 'owner';
   }
 
   async checkDocumentAccess(
@@ -260,7 +261,7 @@ export class DocumentService {
       }
     }
 
-    if (isPrivileged || memberRole === 'hr') {
+    if (isPrivileged) {
       return true;
     }
 
@@ -280,11 +281,10 @@ export class DocumentService {
       case DocumentAccessLevel.EMPLOYEE_ONLY:
         return document.tenantMemberId === memberId;
       case DocumentAccessLevel.MANAGEMENT:
-        return ['admin', 'hr', 'manager'].includes(memberRole);
       case DocumentAccessLevel.HR_ONLY:
-        return ['admin', 'hr'].includes(memberRole);
+        return false;
       case DocumentAccessLevel.ADMIN_ONLY:
-        return memberRole === 'admin';
+        return false;
       default:
         return document.tenantMemberId === memberId;
     }

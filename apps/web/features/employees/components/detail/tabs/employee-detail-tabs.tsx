@@ -15,7 +15,7 @@ interface EmployeeDetailTabsProps {
   memberId: string;
   viewerMemberId?: string;
   isAdmin?: boolean;
-  canEdit?: boolean;
+  canEditPersonal?: boolean;
 }
 
 export function EmployeeDetailTabs({
@@ -23,7 +23,7 @@ export function EmployeeDetailTabs({
   memberId,
   viewerMemberId,
   isAdmin = false,
-  canEdit = false,
+  canEditPersonal = false,
 }: EmployeeDetailTabsProps) {
   const [activeTab, setTab] = useUrlTab(isEmployeeDetailTab, 'personal');
   const isSelf = viewerMemberId === memberId;
@@ -39,15 +39,15 @@ export function EmployeeDetailTabs({
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
-        <PersonalInfoTab form={form} canEdit={canEdit} />
-        <EmergencyContactsTab form={form} canEdit={canEdit} />
+        <PersonalInfoTab form={form} canEdit={canEditPersonal} />
+        <EmergencyContactsTab form={form} canEdit={canEditPersonal} />
         <EmploymentTab
           form={form}
           memberId={memberId}
           isAdmin={isAdmin}
           canViewCompensation={isAdmin || isSelf}
         />
-        <EducationTab form={form} canEdit={canEdit} />
+        <EducationTab form={form} canEdit={canEditPersonal} />
         <DocumentsTab memberId={memberId} isSelf={isSelf} isAdmin={isAdmin} />
       </Tabs>
     </div>

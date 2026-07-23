@@ -12,8 +12,8 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
-import { TenantMemberRole } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
+import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddressService } from './address.service';
 import { CreateAddressDto } from './dto/create-address.dto';
@@ -24,10 +24,8 @@ import { CreateAddressDto } from './dto/create-address.dto';
 export class MemberAddressController {
   constructor(private readonly addressService: AddressService) {}
 
-  private assertCanAccess(member: MemberContext, memberId: string): void {
-    const isAdmin =
-      member.role === TenantMemberRole.ADMIN || member.role === TenantMemberRole.OWNER;
-    if (!isAdmin && member.id !== memberId) {
+  private assertCanView(member: MemberContext, memberId: string): void {
+    if (!isTenantAdmin(member) && member.id !== memberId) {
       throw new ForbiddenException('You can only view your own address');
     }
   }
@@ -38,7 +36,7 @@ export class MemberAddressController {
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.assertCanAccess(member, memberId);
+    this.assertCanView(member, memberId);
     return this.addressService.getPrimaryAddress(memberId);
   }
 
@@ -49,7 +47,7 @@ export class MemberAddressController {
     @Body() dto: CreateAddressDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    this.assertCanAccess(member, memberId);
+    assertSelfOnly(member, memberId);
     return this.addressService.upsertMemberAddress(memberId, dto);
   }
 }

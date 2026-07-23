@@ -13,8 +13,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { InterviewFilters, MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateInterviewDto } from '../dto/interview.dto';
@@ -22,7 +24,8 @@ import { UpdateInterviewDto } from '../dto/update-interview.dto';
 import { InterviewService } from '../services/interview.service';
 
 @ApiTags('Interviews')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
+@Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
 @RequireFeatures(FeatureAccess.RECRUITMENT)
 @Controller('tenants/:tenantId/interviews')
 export class InterviewController {

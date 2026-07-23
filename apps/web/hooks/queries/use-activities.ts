@@ -10,12 +10,13 @@ export function useTenantActivities(params?: {
   limit?: number;
   resourceType?: string;
   enabled?: boolean;
+  mild?: boolean;
 }) {
   const { tenant } = useTenant();
-  const { enabled = true, ...queryParams } = params ?? {};
+  const { enabled = true, mild: _mild, ...queryParams } = params ?? {};
 
   return useQuery({
-    queryKey: [...queryKeys.activities.list(tenant?.id ?? ''), queryParams],
+    queryKey: [...queryKeys.activities.list(tenant?.id ?? ''), queryParams, { mild: _mild }],
     queryFn: () => fetchTenantActivities(queryParams),
     enabled: Boolean(tenant?.id) && enabled,
     staleTime: 30_000,

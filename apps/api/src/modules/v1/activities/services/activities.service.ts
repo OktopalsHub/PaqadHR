@@ -15,10 +15,23 @@ export interface ListActivitiesQuery {
   resourceType?: string;
   action?: string;
   resourceId?: string;
+  /** When true, only return non-sensitive workspace-visible events. */
+  mildOnly?: boolean;
 }
 
 /** Actions omitted from the default workspace activity feed. */
 export const DEFAULT_EXCLUDED_ACTIVITY_ACTIONS = [] as const;
+
+/** Safe actions members may see on the dashboard feed. */
+export const MEMBER_MILD_ACTIVITY_ACTIONS = [
+  'shoutout.created',
+  'leave.requested',
+  'leave.approved',
+  'leave.rejected',
+  'invite.accepted',
+  'points.assigned',
+  'reward.redeemed',
+] as const;
 
 export interface TenantActivitiesListResult {
   items: TenantActivityListItemDto[];
@@ -91,7 +104,11 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       qb.andWhere('activity.resourceId = :resourceId', { resourceId: query.resourceId });
     }
 
-    if (DEFAULT_EXCLUDED_ACTIVITY_ACTIONS.length > 0) {
+    if (query.mildOnly) {
+      qb.andWhere('activity.action IN (:...mildActions)', {
+        mildActions: [...MEMBER_MILD_ACTIVITY_ACTIONS],
+      });
+    } else if (DEFAULT_EXCLUDED_ACTIVITY_ACTIONS.length > 0) {
       qb.andWhere('activity.action NOT IN (:...excludedActions)', {
         excludedActions: [...DEFAULT_EXCLUDED_ACTIVITY_ACTIONS],
       });

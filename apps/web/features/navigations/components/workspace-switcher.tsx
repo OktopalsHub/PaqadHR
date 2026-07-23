@@ -85,10 +85,7 @@ export const WorkspaceSwitcher = () => {
             variant="ghost"
             className="h-auto w-full justify-start gap-2.5 rounded-[10px] px-1.5 py-1.5 font-normal hover:bg-sidebar-accent group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
           >
-            <WorkspaceMark
-              name={tenant?.name}
-              logoUrl={(tenant as { logoUrl?: string })?.logoUrl}
-            />
+            <WorkspaceMark name={tenant?.name} logoUrl={tenant?.logoUrl} />
             <div className="min-w-0 flex-1 text-left group-data-[collapsible=icon]:hidden">
               <p className="truncate text-sm font-semibold tracking-tight">
                 {formatWorkspaceName(tenant?.name)}
@@ -97,19 +94,26 @@ export const WorkspaceSwitcher = () => {
             <ChevronsUpDown className="size-4 shrink-0 opacity-50 group-data-[collapsible=icon]:hidden" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-56 rounded-xl">
+        <DropdownMenuContent align="start" className="w-64 rounded-xl">
           <DropdownMenuLabel className="text-xs text-muted-foreground">
             Workspaces
           </DropdownMenuLabel>
           {tenants.map((item) => (
-            <DropdownMenuItem key={item.id} onClick={() => setTenantId(item.id)} className="gap-2">
+            <DropdownMenuItem
+              key={item.id}
+              onClick={() => setTenantId(item.id)}
+              className="gap-2.5"
+            >
+              <WorkspaceMark name={item.name} logoUrl={item.logoUrl} />
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {formatWorkspaceName(item.name)}
+              </span>
               <Check
                 className={cn(
                   'size-4 shrink-0',
                   item.id === tenant?.id ? 'opacity-100' : 'opacity-0',
                 )}
               />
-              <span className="truncate">{formatWorkspaceName(item.name)}</span>
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />

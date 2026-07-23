@@ -9,17 +9,9 @@ import {
 import { type Employee, employeeListSchema, employeeSchema } from '@/lib/schemas/employee';
 
 export type UpdateEmployeeInput = {
-  firstName?: string;
-  lastName?: string;
-  middleName?: string;
-  preferredName?: string;
-  phone?: string;
-  dateOfBirth?: string;
-  gender?: string;
   role?: string;
   departmentId?: string | null;
   reportsToId?: string | null;
-  avatarKey?: string;
 };
 
 export type CreateEmployeeInviteInput = {

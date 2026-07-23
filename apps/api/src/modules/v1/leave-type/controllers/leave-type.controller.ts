@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateLeaveTypeDto } from '../dto/create-leave-type.dto';
@@ -13,6 +15,8 @@ import { LeaveTypeService } from '../leave-type.service';
 export class LeaveTypeController {
   constructor(private readonly leaveTypeService: LeaveTypeService) {}
   @Post()
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createLeaveType(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateLeaveTypeDto,
@@ -29,6 +33,8 @@ export class LeaveTypeController {
     return this.leaveTypeService.getLeaveType(tenantId, typeId);
   }
   @Patch(':typeId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async updateLeaveType(
     @Param('tenantId') tenantId: string,
     @Param('typeId') typeId: string,
@@ -37,6 +43,8 @@ export class LeaveTypeController {
     return this.leaveTypeService.updateLeaveType(tenantId, typeId, dto);
   }
   @Delete(':typeId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async deleteLeaveType(@Param('tenantId') tenantId: string, @Param('typeId') typeId: string) {
     await this.leaveTypeService.deleteLeaveType(tenantId, typeId);
   }

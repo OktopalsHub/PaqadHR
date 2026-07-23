@@ -17,7 +17,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { Public } from 'src/common/decorators';
-import { IntegrationType } from 'src/common/enums';
+import { IntegrationType, TenantMemberRole } from 'src/common/enums';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
@@ -41,7 +42,8 @@ export class OAuthIntegrationController {
     private readonly eventEmitter: EventEmitter2,
   ) {}
   @Get('tenants/:tenantId/integrations/oauth/connect/:platform')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async connectPlatform(
     @Param('tenantId') tenantId: string,
     @Param('platform') platform: IntegrationType,
@@ -145,7 +147,8 @@ export class OAuthIntegrationController {
     }
   }
   @Get('tenants/:tenantId/integrations/:integrationId/channels')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async getAvailableChannels(
     @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
@@ -154,7 +157,8 @@ export class OAuthIntegrationController {
     return this.channelService.getAvailableChannels(integrationId);
   }
   @Post('tenants/:tenantId/integrations/:integrationId/channels/create')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async createChannel(
     @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
@@ -164,7 +168,8 @@ export class OAuthIntegrationController {
     return this.channelService.createSlackChannel(integrationId, body.name);
   }
   @Post('tenants/:tenantId/integrations/:integrationId/setup-channel')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async setupChannel(
     @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,
@@ -198,7 +203,8 @@ export class OAuthIntegrationController {
   }
 
   @Post('tenants/:tenantId/integrations/:integrationId/setup-channels')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   async setupChannels(
     @Param('tenantId') tenantId: string,
     @Param('integrationId') integrationId: string,

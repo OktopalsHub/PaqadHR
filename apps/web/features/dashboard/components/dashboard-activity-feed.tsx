@@ -19,7 +19,7 @@ export function DashboardActivityFeed() {
   const { tenant } = useTenant();
   const tenantHref = useTenantHref();
   const isAdmin = isTenantAdmin(tenant?.member?.role);
-  const { data, isLoading } = useTenantActivities({ enabled: isAdmin, limit: 8 });
+  const { data, isLoading } = useTenantActivities({ enabled: true, limit: 8 });
 
   const items = data?.items ?? [];
 
@@ -38,9 +38,7 @@ export function DashboardActivityFeed() {
         ) : undefined
       }
     >
-      {!isAdmin ? (
-        <FeedMessage text="Workspace activity is visible to owners and admins." />
-      ) : isLoading ? (
+      {isLoading ? (
         <FeedMessage text="Loading recent activity…" />
       ) : items.length === 0 ? (
         <FeedMessage text="Activity will appear here as your team works across the workspace." />
@@ -58,33 +56,28 @@ export function DashboardActivityFeed() {
                 className={cn(
                   'flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-white/60 shadow-sm',
                   iconClassName,
-                  failed && 'border-destructive/15 bg-destructive/10 text-destructive',
                 )}
               >
-                <Icon className="size-4" aria-hidden />
+                <Icon className="size-3.5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p
-                  className={cn(
-                    'text-sm leading-snug text-slate-900 dark:text-slate-100',
-                    failed && 'text-destructive',
-                  )}
-                >
-                  {title}
-                </p>
-                <p className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="flex items-start gap-2">
                   <PersonAvatar
                     src={activity.actorAvatarUrl}
                     name={actor}
-                    className="size-4 border border-border/60"
-                    fallbackClassName="text-[9px] font-semibold"
+                    className="size-6 shrink-0"
                   />
-                  <span className="font-medium text-slate-600 dark:text-slate-300">{actor}</span>
-                  <span aria-hidden>•</span>
-                  <span>
-                    {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
-                  </span>
-                </p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {title}
+                      {failed ? ' (failed)' : ''}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {actor} ·{' '}
+                      {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           );
@@ -96,11 +89,9 @@ export function DashboardActivityFeed() {
 
 function FeedMessage({ text }: { text: string }) {
   return (
-    <div className="flex min-h-[300px] flex-col items-center justify-center gap-3 text-center">
-      <div className="flex size-11 items-center justify-center rounded-full border border-border/70 bg-background text-primary shadow-sm">
-        <Activity className="size-5" aria-hidden />
-      </div>
-      <p className="max-w-xs text-sm text-slate-500 dark:text-slate-400">{text}</p>
+    <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-slate-500">
+      <Activity className="size-8 text-slate-400" />
+      <p className="text-sm">{text}</p>
     </div>
   );
 }
