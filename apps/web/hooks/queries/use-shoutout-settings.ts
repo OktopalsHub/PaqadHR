@@ -14,7 +14,7 @@ import { useTenant } from '@/providers/tenant-provider';
 export function useShoutoutCategoriesAdmin() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   return useQuery({
-    queryKey: [...queryKeys.settings.shoutoutCategories, tenantId],
+    queryKey: [...queryKeys.shoutouts.categories, tenantId],
     queryFn: fetchShoutoutCategoriesAdmin,
     enabled: !tenantLoading && Boolean(tenantId),
   });
