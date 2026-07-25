@@ -55,18 +55,24 @@ export async function resolvePostAuthHref(opts: {
     ),
   );
 
-  const sortedPaid = billingChecks
-    .map((result) => (result.status === 'fulfilled' ? result.value : null))
-    .filter(
-      (entry): boolean =>
-        entry !== null &&
-        !(entry.billing.paymentsEnabled && entry.billing.needsPayment),
-    )
-    .sort((a, b) => {
-      if (a.tenant.slug === slugHint) return -1;
-      if (b.tenant.slug === slugHint) return 1;
-      return 0;
-    });
+  const paidBilling: Array<{
+    tenant: Tenant;
+    billing: { paymentsEnabled: boolean; needsPayment: boolean };
+  }> = [];
+  for (const result of billingChecks) {
+    if (result.status === 'fulfilled' && result.value) {
+      const { tenant, billing } = result.value;
+      if (!(billing.paymentsEnabled && billing.needsPayment)) {
+        paidBilling.push({ tenant, billing });
+      }
+    }
+  }
+
+  const sortedPaid = paidBilling.sort((a, b) => {
+    if (a.tenant.slug === slugHint) return -1;
+    if (b.tenant.slug === slugHint) return 1;
+    return 0;
+  });
 
   if (sortedPaid.length > 0) {
     return tenantUrl(sortedPaid[0].tenant.slug, '/');
