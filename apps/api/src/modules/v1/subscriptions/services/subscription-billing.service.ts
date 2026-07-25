@@ -485,6 +485,9 @@ export class SubscriptionBillingService {
       tenant.preferredCurrency ?? undefined,
     );
     if (!planPrice) {
+      this.logger.warn(
+        `Checkout blocked: plan "${normalizedSlug}" not available for tenant=${tenantId} country=${tenant.countryCode || 'GLOBAL'} currency=${tenant.preferredCurrency ?? '(any)'}`,
+      );
       throw new NotFoundException(`Plan "${normalizedSlug}" is not available for your region`);
     }
 
