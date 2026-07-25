@@ -3,7 +3,9 @@
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AttendanceExceptionsTab } from '@/features/attendance/components/attendance-exceptions-tab';
 import { AttendanceMyTab } from '@/features/attendance/components/attendance-my-tab';
+import { AttendanceReportsTab } from '@/features/attendance/components/attendance-reports-tab';
 import { AttendanceTeamTab } from '@/features/attendance/components/attendance-team-tab';
 import { useClockInInfo } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
@@ -49,6 +51,20 @@ export function AttendancePage() {
                 Team
               </TabsTrigger>
             ) : null}
+            <TabsTrigger
+              value="exceptions"
+              className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+            >
+              Exceptions
+            </TabsTrigger>
+            {isAdmin ? (
+              <TabsTrigger
+                value="reports"
+                className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
+              >
+                Reports
+              </TabsTrigger>
+            ) : null}
           </TabsList>
         </div>
 
@@ -59,6 +75,16 @@ export function AttendancePage() {
         {canViewTeam ? (
           <TabsContent value="team" className="mt-0">
             <AttendanceTeamTab />
+          </TabsContent>
+        ) : null}
+
+        <TabsContent value="exceptions" className="mt-0">
+          <AttendanceExceptionsTab />
+        </TabsContent>
+
+        {isAdmin ? (
+          <TabsContent value="reports" className="mt-0">
+            <AttendanceReportsTab />
           </TabsContent>
         ) : null}
       </Tabs>

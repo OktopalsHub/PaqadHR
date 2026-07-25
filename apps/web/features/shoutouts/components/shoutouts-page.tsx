@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Coins, Heart, Sparkles, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';

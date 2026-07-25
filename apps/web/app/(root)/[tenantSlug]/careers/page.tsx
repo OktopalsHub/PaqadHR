@@ -566,8 +566,72 @@ export default function PublicCareersPage() {
             </select>
           </div>
         </div>
-
         {}
+
+        {(() => {
+          const urgentJobs = jobs.filter((j) => j.isUrgent && j.status === 'ACTIVE');
+          if (
+            urgentJobs.length === 0 ||
+            search ||
+            selectedDept !== 'ALL' ||
+            selectedType !== 'ALL' ||
+            selectedLoc !== 'ALL'
+          ) {
+            return null;
+          }
+          return (
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <Star className="h-5 w-5 text-destructive fill-destructive" />
+                <h2 className="text-lg font-bold">Featured &amp; Urgent Roles</h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {urgentJobs.map((job) => (
+                  <button
+                    type="button"
+                    key={`urgent-${job.id}`}
+                    className="group flex flex-col text-left w-full justify-between p-5 border-2 border-destructive/20 rounded-2xl bg-destructive/5 transition-all duration-300 hover:shadow-lg hover:border-destructive/40 hover:-translate-y-1 cursor-pointer"
+                    onClick={() => {
+                      setSelectedJob(job);
+                      setShowApplyForm(false);
+                      setIsSuccess(false);
+                      setCustomAnswers({});
+                    }}
+                  >
+                    <div>
+                      <Badge variant="destructive" className="mb-2 text-xs">
+                        Urgent
+                      </Badge>
+                      <h3 className="text-lg font-bold tracking-tight text-foreground group-hover:text-destructive transition-colors">
+                        {job.title}
+                      </h3>
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>{job.departmentName || 'General'}</span>
+                        <span>·</span>
+                        <span>
+                          {job.location?.type === 'REMOTE' ? 'Remote' : job.location?.city || 'HQ'}
+                        </span>
+                        {job.position ? (
+                          <>
+                            <span>·</span>
+                            <span>{job.position}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-center justify-between">
+                      <span className="text-xs font-semibold text-destructive uppercase tracking-wider">
+                        View &amp; Apply
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-destructive group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
+
         {filteredJobs.length === 0 ? (
           <div className="text-center py-20 border-2 border-dashed rounded-2xl bg-muted/10">
             <Briefcase className="h-12 w-12 mx-auto text-muted-foreground" />
@@ -625,7 +689,28 @@ export default function PublicCareersPage() {
                       <MapPin className="h-4 w-4 mr-1 text-muted-foreground/80" />
                       {job.location?.type === 'REMOTE' ? 'Remote' : `${job.location?.city || 'HQ'}`}
                     </span>
+                    {job.position ? (
+                      <span className="flex items-center">
+                        <Briefcase className="h-4 w-4 mr-1 text-muted-foreground/80" />
+                        {job.position}
+                      </span>
+                    ) : null}
+                    {job.numberOfOpenings != null && job.numberOfOpenings > 0 ? (
+                      <span className="text-xs text-muted-foreground/80">
+                        {job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}
+                      </span>
+                    ) : null}
                   </div>
+                  {job.applicationDeadline ? (
+                    <p className="mt-2 text-xs text-muted-foreground/70">
+                      Deadline:{' '}
+                      {new Date(job.applicationDeadline).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-6 pt-4 border-t flex items-center justify-between">

@@ -1,9 +1,4 @@
-import {
-  invalidateSession,
-  refreshAccessToken,
-  resetConsecutiveFailures,
-  startProactiveRefresh,
-} from '@/lib/api/auth-refresh';
+import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
 const CSRF_HEADER = 'x-csrf-token';
@@ -121,7 +116,6 @@ export async function bootstrapCsrf(): Promise<void> {
 export function clearCsrfToken() {
   csrfToken = null;
   csrfTokenPromise = null;
-  refreshRetryCount = 0;
 }
 
 type ApiClientOptions = RequestInit & {
@@ -136,8 +130,7 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/reset-password',
 ];
 
-const REFRESH_RETRY_DELAYS_MS = [1000, 2000, 4000]; // Exponential backoff: 1s, 2s, 4s
-let refreshRetryCount = 0;
+const REFRESH_RETRY_DELAYS_MS = [1000, 2000]; // Exponential backoff: 1s, 2s
 
 function shouldAttemptAuthRefresh(path: string): boolean {
   return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));
@@ -216,26 +209,19 @@ export async function apiClient<T>(
       `Request failed (${response.status})`;
 
     if (response.status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      // Retry refresh with exponential backoff
-      for (let attempt = 0; attempt <= REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+      // refreshAccessToken() is deduplicated — concurrent 401s share one refresh attempt.
+      // Retry with backoff if the first attempt fails (e.g. transient network issue).
+      for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
-          refreshRetryCount = 0;
-          startProactiveRefresh(); // Restart proactive timer on success
+          startProactiveRefresh();
           return apiClient<T>(path, init, true);
         }
-        // If not last attempt, wait before retrying
-        if (attempt < REFRESH_RETRY_DELAYS_MS.length) {
-          await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
-        }
+        await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
       }
-      // All retries exhausted — only invalidate after consecutive failures
-      refreshRetryCount++;
-      if (refreshRetryCount >= 3) {
-        invalidateSession();
-        clearCsrfToken();
-        refreshRetryCount = 0;
-      }
+      // Final attempt — if this fails, let the error propagate.
+      // Do NOT invalidateSession here; auth-refresh.ts tracks consecutive failures
+      // and stops the proactive refresh after MAX_CONSECUTIVE_FAILURES.
     }
 
     throw new ApiError(message, response.status, payload?.code);

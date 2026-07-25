@@ -20,10 +20,6 @@ export async function fetchBillingOverview(tenantId: string): Promise<BillingOve
   return apiClient<BillingOverview>(`/subscriptions/tenant/${tenantId}/billing-overview`);
 }
 
-export async function fetchTenantSubscription(tenantId: string) {
-  return apiClient(`/subscriptions/tenant/${tenantId}`);
-}
-
 export async function createSubscriptionCheckout(
   tenantId: string,
   planSlug: string,
@@ -64,4 +60,27 @@ export async function pauseSubscription(tenantId: string) {
 
 export async function resumeSubscription(tenantId: string) {
   return apiClient(`/subscriptions/tenant/${tenantId}/resume`, { method: 'POST' });
+}
+
+export interface ActivateTenantSubscriptionInput {
+  planSlug?: string;
+  periodMonths?: number;
+  note?: string;
+}
+
+export async function activateTenantSubscription(
+  tenantId: string,
+  input: ActivateTenantSubscriptionInput,
+) {
+  return apiClient(`/admin/subscriptions/tenant/${tenantId}/activate`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function extendTenantTrial(tenantId: string, additionalDays: number) {
+  return apiClient(`/admin/subscriptions/tenant/${tenantId}/extend-trial`, {
+    method: 'POST',
+    body: JSON.stringify({ additionalDays }),
+  });
 }

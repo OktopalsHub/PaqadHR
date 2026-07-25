@@ -259,9 +259,10 @@ export class SubscriptionsService {
         `Pricing region is locked for tenant ${tenantId} (${tenant.countryCode})`,
       );
     }
-    const pricingRegion = GeoLocationHelper.toPricingRegion(data.countryCode);
+    const normalizedCountry = data.countryCode === 'GLOBAL' ? null : data.countryCode;
+    const pricingRegion = normalizedCountry ?? 'GLOBAL';
     const defaults = GeoLocationHelper.getCountryDefaults(pricingRegion);
-    tenant.countryCode = GeoLocationHelper.toStoredCountryCode(data.countryCode);
+    tenant.countryCode = GeoLocationHelper.toStoredCountryCode(normalizedCountry);
     tenant.timezone = data.timezone ?? defaults.timezone;
     tenant.preferredCurrency = data.preferredCurrency ?? defaults.currency;
     tenant.pricingLocked = true;
@@ -297,11 +298,16 @@ export class SubscriptionsService {
       detectionMethod = 'user_selected';
     } else {
       countryCode = await GeoLocationHelper.getCountryCode(ipAddress);
-      detectionMethod = countryCode === 'GLOBAL' ? 'default' : 'ip_detected';
+      if (countryCode === 'GLOBAL') {
+        detectionMethod = 'default';
+        countryCode = 'GLOBAL';
+      } else {
+        detectionMethod = 'ip_detected';
+      }
     }
 
     const updatedTenant = await this.setTenantRegion(tenantId, { countryCode });
-    const lockedRegion = GeoLocationHelper.toPricingRegion(countryCode);
+    const lockedRegion = countryCode === 'GLOBAL' ? 'GLOBAL' : countryCode;
     return { tenant: updatedTenant, detectionMethod, lockedRegion };
   }
 

@@ -2,13 +2,19 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  archiveJobOpening,
+  closeJobOpening,
   createCandidate,
   createJobOpening,
+  deactivateJobOpening,
+  deleteJobOpening,
   fetchAllCandidates,
   fetchCandidatesByJob,
   fetchJobOpening,
   fetchJobOpenings,
+  fetchJobStats,
   updateCandidateStatus,
+  updateJobOpening,
 } from '@/lib/api/recruitment';
 import { queryKeys } from '@/lib/query/keys';
 import type {
@@ -112,5 +118,79 @@ export function useUpdateCandidateStatus(jobId: string | null) {
         });
       }
     },
+  });
+}
+
+export function useDeactivateJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => deactivateJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+    },
+  });
+}
+
+export function useCloseJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => closeJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+    },
+  });
+}
+
+export function useArchiveJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => archiveJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+    },
+  });
+}
+
+export function useDeleteJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: (jobId: string) => deleteJobOpening(jobId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+    },
+  });
+}
+
+export function useUpdateJobOpening() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({ jobId, input }: { jobId: string; input: Partial<CreateJobOpeningInput> }) =>
+      updateJobOpening(jobId, input),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.job(variables.jobId), tenantId],
+      });
+    },
+  });
+}
+
+export function useJobStats() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.recruitment.jobs, 'stats', tenantId],
+    queryFn: fetchJobStats,
+    enabled: !tenantLoading && Boolean(tenantId),
   });
 }

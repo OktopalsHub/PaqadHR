@@ -7,11 +7,6 @@ export type GeoRequestContext = {
   headers?: Record<string, string | string[] | undefined>;
 };
 
-const COUNTRY_DEFAULTS: Record<string, { currency: string; timezone: string }> = {
-  NG: { currency: 'NGN', timezone: 'Africa/Lagos' },
-  GLOBAL: { currency: 'USD', timezone: 'UTC' },
-};
-
 export class GeoLocationHelper {
   static isPrivateIp(ip: string): boolean {
     if (!ip || ip === 'localhost') return true;
@@ -141,7 +136,10 @@ export class GeoLocationHelper {
     timezone: string;
   } {
     const code = countryCode?.toUpperCase() || DEFAULT_COUNTRY;
-    return COUNTRY_DEFAULTS[code] ?? COUNTRY_DEFAULTS.GLOBAL;
+    if (code === 'NG') {
+      return { currency: 'NGN', timezone: 'Africa/Lagos' };
+    }
+    return { currency: 'USD', timezone: 'UTC' };
   }
 
   static toStoredCountryCode(code: string | null | undefined): string | null {

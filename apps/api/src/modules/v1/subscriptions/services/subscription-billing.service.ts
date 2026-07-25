@@ -465,12 +465,14 @@ export class SubscriptionBillingService {
       existing?.plan?.slug?.toLowerCase() ?? existing?.plan?.name?.toLowerCase();
     const billingProvider = this.providerForCountry(tenant.countryCode);
 
-    if (existing?.status === SubscriptionStatus.ACTIVE && currentPlanSlug === normalizedSlug) {
-      if (existing.billingProvider === billingProvider) {
-        throw new BadRequestException(
-          'Organization already has an active subscription on this plan',
-        );
-      }
+    if (
+      existing &&
+      currentPlanSlug === normalizedSlug &&
+      existing.billingProvider === billingProvider &&
+      (existing.status === SubscriptionStatus.ACTIVE ||
+        existing.status === SubscriptionStatus.TRIAL)
+    ) {
+      throw new BadRequestException('Organization already has an active subscription on this plan');
     }
 
     if (existing && existing.billingProvider !== billingProvider) {
@@ -483,6 +485,9 @@ export class SubscriptionBillingService {
       tenant.preferredCurrency ?? undefined,
     );
     if (!planPrice) {
+      this.logger.warn(
+        `Checkout blocked: plan "${normalizedSlug}" not available for tenant=${tenantId} country=${tenant.countryCode || 'GLOBAL'} currency=${tenant.preferredCurrency ?? '(any)'}`,
+      );
       throw new NotFoundException(`Plan "${normalizedSlug}" is not available for your region`);
     }
 
