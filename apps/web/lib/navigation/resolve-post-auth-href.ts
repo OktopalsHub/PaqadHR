@@ -56,25 +56,20 @@ export async function resolvePostAuthHref(opts: {
   );
 
   const sortedPaid = billingChecks
+    .map((result) => (result.status === 'fulfilled' ? result.value : null))
     .filter(
-      (
-        result,
-      ): result is PromiseFulfilledResult<{
-        tenant: Tenant;
-        billing: { paymentsEnabled: boolean; needsPayment: boolean };
-      }> =>
-        result.status === 'fulfilled' &&
-        result.value !== null &&
-        !(result.value.billing.paymentsEnabled && result.value.billing.needsPayment),
+      (entry): boolean =>
+        entry !== null &&
+        !(entry.billing.paymentsEnabled && entry.billing.needsPayment),
     )
     .sort((a, b) => {
-      if (a.value.tenant.slug === slugHint) return -1;
-      if (b.value.tenant.slug === slugHint) return 1;
+      if (a.tenant.slug === slugHint) return -1;
+      if (b.tenant.slug === slugHint) return 1;
       return 0;
     });
 
   if (sortedPaid.length > 0) {
-    return tenantUrl(sortedPaid[0].value.tenant.slug, '/');
+    return tenantUrl(sortedPaid[0].tenant.slug, '/');
   }
 
   const targetTenant = opts.tenants.find((entry) => entry.slug === slugHint) ?? opts.tenants[0];
