@@ -9,6 +9,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
   isAllowedTenantFrontendOrigin,
   isSubdomainTenantsEnabled,
@@ -373,7 +374,10 @@ export class SubscriptionBillingService {
       throw new NotFoundException('Tenant not found');
     }
 
-    const countryCode = tenant.countryCode || 'GLOBAL';
+    const { countryCode } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+      tenant.countryCode,
+      tenant.preferredCurrency,
+    );
     const planPrices = await this.plansService.getPricesForCountry(countryCode);
     const _paymentsEnabled = isBillingGatewayEnabled();
 
@@ -445,6 +449,7 @@ export class SubscriptionBillingService {
     planSlug: string,
     userId: string,
     successUrl?: string,
+    clientIp?: string | null,
   ) {
     const normalizedSlug = planSlug.trim().toLowerCase();
     const plan = await this.plansService.findPlanBySlug(normalizedSlug);
@@ -461,9 +466,19 @@ export class SubscriptionBillingService {
     if (!tenant) throw new NotFoundException('Tenant not found');
     if (!user) throw new NotFoundException('User not found');
 
+    await GeoLocationHelper.autoFillCountryCode(tenant, clientIp);
+    if (GeoLocationHelper.toStoredCountryCode(tenant.countryCode)) {
+      await this.tenantRepository.save(tenant);
+    }
+
+    const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+      tenant.countryCode,
+      tenant.preferredCurrency,
+    );
+
     const currentPlanSlug =
       existing?.plan?.slug?.toLowerCase() ?? existing?.plan?.name?.toLowerCase();
-    const billingProvider = this.providerForCountry(tenant.countryCode);
+    const billingProvider = this.providerForCountry(countryCode);
 
     if (
       existing &&
@@ -479,19 +494,15 @@ export class SubscriptionBillingService {
       await this.prepareBillingProviderSwitch(existing, billingProvider);
     }
 
-    const planPrice = await this.plansService.getPlanPrice(
-      normalizedSlug,
-      tenant.countryCode || 'GLOBAL',
-      tenant.preferredCurrency ?? undefined,
-    );
+    const planPrice = await this.plansService.getPlanPrice(normalizedSlug, countryCode, currency);
     if (!planPrice) {
       this.logger.warn(
-        `Checkout blocked: plan "${normalizedSlug}" not available for tenant=${tenantId} country=${tenant.countryCode || 'GLOBAL'} currency=${tenant.preferredCurrency ?? '(any)'}`,
+        `Checkout blocked: plan "${normalizedSlug}" not available for tenant=${tenantId} country=${countryCode} currency=${currency}`,
       );
       throw new NotFoundException(`Plan "${normalizedSlug}" is not available for your region`);
     }
 
-    this.billingProviderFactory.ensureConfigured(tenant.countryCode || 'GLOBAL');
+    this.billingProviderFactory.ensureConfigured(countryCode);
 
     const quantity = await this.getTenantSeatCount(tenantId);
     const tenantMember = await this.tenantMemberRepository.findOne({ where: { tenantId, userId } });
@@ -506,7 +517,7 @@ export class SubscriptionBillingService {
     };
 
     const checkout = await this.billingProviderFactory
-      .getProviderForCountry(tenant.countryCode)
+      .getProviderForCountry(countryCode)
       .createCheckout(
         user.email,
         metadata,
@@ -551,14 +562,17 @@ export class SubscriptionBillingService {
     const planPrice =
       subscription.planPrice ??
       (await this.plansService.getPlanPriceById(subscription.planPriceId));
-    const currency = planPrice?.currency ?? tenant.preferredCurrency ?? 'NGN';
-    const billingProvider = this.providerForCountry(tenant.countryCode);
+    const { countryCode: effectiveCountry, currency } =
+      GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+        tenant.countryCode,
+        planPrice?.currency ?? tenant.preferredCurrency,
+      );
+    const billingProvider = this.providerForCountry(effectiveCountry);
 
-    this.billingProviderFactory.ensureConfigured(tenant.countryCode || 'GLOBAL');
+    this.billingProviderFactory.ensureConfigured(effectiveCountry);
 
-    const billingProviderService = this.billingProviderFactory.getProviderForCountry(
-      tenant.countryCode,
-    );
+    const billingProviderService =
+      this.billingProviderFactory.getProviderForCountry(effectiveCountry);
     if (!billingProviderService.createCardUpdateCheckout) {
       throw new BadRequestException('Payment method updates are not supported for this provider');
     }

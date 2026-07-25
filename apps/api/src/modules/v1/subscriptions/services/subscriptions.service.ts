@@ -170,11 +170,14 @@ export class SubscriptionsService {
     }
 
     if (options.planSlug) {
-      const countryCode = tenant.countryCode || 'GLOBAL';
+      const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+        tenant.countryCode,
+        tenant.preferredCurrency,
+      );
       const planPrice = await this.plansService.getPlanPrice(
         options.planSlug,
         countryCode,
-        tenant.preferredCurrency ?? undefined,
+        currency,
       );
       if (!planPrice) {
         throw new BadRequestException(
@@ -342,7 +345,7 @@ export class SubscriptionsService {
 
   async createTrialSubscription(
     tenantId: string,
-    options?: { trialDays?: number; planSlug?: string },
+    options?: { trialDays?: number; planSlug?: string; clientIp?: string | null },
   ): Promise<TenantSubscription> {
     const existing = await this.getTenantSubscription(tenantId);
     if (existing) {
@@ -356,13 +359,18 @@ export class SubscriptionsService {
       throw new NotFoundException('Tenant not found');
     }
 
-    const countryCode = tenant.countryCode || 'GLOBAL';
-    const planSlug = options?.planSlug ?? 'starter';
-    const planPrice = await this.plansService.getPlanPrice(
-      planSlug,
-      countryCode,
-      tenant.preferredCurrency ?? undefined,
+    await GeoLocationHelper.autoFillCountryCode(tenant, options?.clientIp);
+    if (GeoLocationHelper.toStoredCountryCode(tenant.countryCode)) {
+      await this.tenantRepository.save(tenant);
+    }
+
+    const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+      tenant.countryCode,
+      tenant.preferredCurrency,
     );
+
+    const planSlug = options?.planSlug ?? 'starter';
+    const planPrice = await this.plansService.getPlanPrice(planSlug, countryCode, currency);
 
     if (!planPrice) {
       throw new BadRequestException(
@@ -396,7 +404,11 @@ export class SubscriptionsService {
     return loaded ?? saved;
   }
 
-  async setTrialPlan(tenantId: string, planSlug: string): Promise<TenantSubscription> {
+  async setTrialPlan(
+    tenantId: string,
+    planSlug: string,
+    clientIp?: string | null,
+  ): Promise<TenantSubscription> {
     const subscription = await this.getTenantSubscription(tenantId);
     if (!subscription || subscription.status !== SubscriptionStatus.TRIAL) {
       throw new BadRequestException('Trial is not active');
@@ -407,12 +419,18 @@ export class SubscriptionsService {
       throw new NotFoundException('Tenant not found');
     }
 
-    const normalizedSlug = planSlug.trim().toLowerCase();
-    const planPrice = await this.plansService.getPlanPrice(
-      normalizedSlug,
-      tenant.countryCode || 'GLOBAL',
-      tenant.preferredCurrency ?? undefined,
+    await GeoLocationHelper.autoFillCountryCode(tenant, clientIp);
+    if (GeoLocationHelper.toStoredCountryCode(tenant.countryCode)) {
+      await this.tenantRepository.save(tenant);
+    }
+
+    const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+      tenant.countryCode,
+      tenant.preferredCurrency,
     );
+
+    const normalizedSlug = planSlug.trim().toLowerCase();
+    const planPrice = await this.plansService.getPlanPrice(normalizedSlug, countryCode, currency);
     if (!planPrice) {
       throw new BadRequestException(`Plan "${normalizedSlug}" is not available in your region`);
     }
@@ -427,13 +445,17 @@ export class SubscriptionsService {
     return loaded ?? saved;
   }
 
-  async startTrial(tenantId: string, planSlug: string): Promise<TenantSubscription> {
+  async startTrial(
+    tenantId: string,
+    planSlug: string,
+    clientIp?: string | null,
+  ): Promise<TenantSubscription> {
     const existing = await this.getTenantSubscription(tenantId);
     if (existing?.status === SubscriptionStatus.ACTIVE) {
       throw new BadRequestException('Workspace already has an active subscription');
     }
     if (existing?.status === SubscriptionStatus.TRIAL) {
-      return this.setTrialPlan(tenantId, planSlug);
+      return this.setTrialPlan(tenantId, planSlug, clientIp);
     }
     if (existing) {
       await this.subscriptionRepository.remove(existing);
@@ -441,6 +463,7 @@ export class SubscriptionsService {
     return this.createTrialSubscription(tenantId, {
       planSlug,
       trialDays: SUBSCRIPTION_TRIAL_DAYS,
+      clientIp,
     });
   }
 

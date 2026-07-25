@@ -97,9 +97,8 @@ export class PlansService {
     });
 
     if (!price) {
-      const globalWhere = { ...where, countryCode: 'GLOBAL' };
       price = await this.planPriceRepository.findOne({
-        where: globalWhere,
+        where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
         relations: ['plan'],
       });
     }

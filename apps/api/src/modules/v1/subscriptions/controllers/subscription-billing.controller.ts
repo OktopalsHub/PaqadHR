@@ -13,6 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { CreateSubscriptionCheckoutDto } from '../dto/create-subscription-checkout.dto';
@@ -52,11 +53,18 @@ export class SubscriptionBillingController {
       throw new UnauthorizedException('Authentication required');
     }
 
+    const clientIp = GeoLocationHelper.resolveClientIp(
+      req.headers,
+      req.socket?.remoteAddress,
+      req.ip,
+    );
+
     return this.subscriptionBillingService.createSubscriptionCheckout(
       tenantId,
       dto.planSlug,
       userId,
       dto.successUrl,
+      clientIp,
     );
   }
 

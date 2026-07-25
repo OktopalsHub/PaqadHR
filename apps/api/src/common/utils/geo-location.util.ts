@@ -174,4 +174,61 @@ export class GeoLocationHelper {
     const stored = GeoLocationHelper.toStoredCountryCode(code);
     return stored ?? DEFAULT_COUNTRY;
   }
+
+  /**
+   * Normalizes a tenant's country code and preferred currency into the effective
+   * values used for plan-price lookups.  Rules:
+   *   - null / undefined / 'GLOBAL' → countryCode 'GLOBAL', currency 'USD'
+   *   - 'NG'                         → countryCode 'NG',    currency 'NGN'
+   *   - any other valid ISO-2 code   → countryCode <code>,  currency 'USD'
+   *
+   * The supplied `preferredCurrency` is ignored when it doesn't match the
+   * expected currency for the resolved country (safety net against stale data).
+   */
+  static resolveEffectiveCountryAndCurrency(
+    countryCode: string | null | undefined,
+    preferredCurrency?: string | null,
+  ): { countryCode: string; currency: string } {
+    const code = GeoLocationHelper.toStoredCountryCode(countryCode) ?? DEFAULT_COUNTRY;
+
+    if (code === 'NG') {
+      return { countryCode: 'NG', currency: 'NGN' };
+    }
+
+    // Everything else (including GLOBAL) uses USD
+    return { countryCode: code, currency: 'USD' };
+  }
+
+  /**
+   * When a tenant's countryCode is null or 'GLOBAL', attempt to re-detect
+   * the real country from the request IP / headers.  Returns the (possibly
+   * updated) tenant-like object.  Non-destructive — only updates when the
+   * current value is null or GLOBAL-equivalent.
+   */
+  static async autoFillCountryCode<
+    T extends { countryCode: string | null; preferredCurrency: string | null },
+  >(
+    tenant: T,
+    clientIp?: string | null,
+    headers?: Record<string, string | string[] | undefined>,
+  ): Promise<T> {
+    const current = GeoLocationHelper.toStoredCountryCode(tenant.countryCode);
+    if (current && current !== DEFAULT_COUNTRY) {
+      return tenant;
+    }
+
+    const detected = await GeoLocationHelper.resolveDetectedCountry({
+      ip: clientIp ?? undefined,
+      stored: null,
+      headers,
+    });
+
+    if (detected.countryCode && detected.countryCode !== DEFAULT_COUNTRY) {
+      tenant.countryCode = detected.countryCode;
+      const defaults = GeoLocationHelper.getCountryDefaults(detected.countryCode);
+      tenant.preferredCurrency = defaults.currency;
+    }
+
+    return tenant;
+  }
 }

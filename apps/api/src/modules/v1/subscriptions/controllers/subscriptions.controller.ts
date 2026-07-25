@@ -41,8 +41,13 @@ export class SubscriptionsController {
   @UseGuards(TenantMemberGuard, TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Start or update a 14-day workspace trial on the selected plan' })
-  startTrial(@Param('tenantId') tenantId: string, @Body() dto: StartTrialDto) {
-    return this.subscriptionsService.startTrial(tenantId, dto.planSlug);
+  startTrial(@Param('tenantId') tenantId: string, @Body() dto: StartTrialDto, @Req() req: Request) {
+    const clientIp = GeoLocationHelper.resolveClientIp(
+      req.headers,
+      req.socket.remoteAddress,
+      req.ip,
+    );
+    return this.subscriptionsService.startTrial(tenantId, dto.planSlug, clientIp);
   }
   @Post('tenant/:tenantId/set-region')
   @UseGuards(TenantMemberGuard)
