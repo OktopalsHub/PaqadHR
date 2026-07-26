@@ -1,95 +1,94 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
-import { useMemo } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { X } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
-import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { getPlansForFeature } from '@/lib/constants/feature-tier-map';
-import type { PlanSlug } from '@/lib/constants/plan-catalog';
-import { sortPlansByTier } from '@/lib/constants/plan-catalog';
+import { PLAN_CATALOG } from '@/lib/constants/plan-catalog';
 import { getFeatureForRoute } from '@/lib/constants/route-feature-map';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function UpgradePrompt({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { hasFeature, currentPlan, isLoading: featureLoading } = useFeatureAccess();
-  const { data: overview, isLoading: billingLoading } = useBillingOverview();
+  const { tenant } = useTenant();
+  const { data: overview } = useBillingOverview();
+  const [dismissed, setDismissed] = useState(false);
 
-  const requiredFeature = useMemo(() => getFeatureForRoute(pathname ?? ''), [pathname]);
+  const feature = getFeatureForRoute(pathname);
+  const currentPlan = overview?.subscription?.plan?.toLowerCase();
+  const plansForFeature = feature ? getPlansForFeature(feature, currentPlan ?? 'starter') : [];
 
-  const needsUpgrade = useMemo(() => {
-    if (!requiredFeature) return false;
-    return !hasFeature(requiredFeature);
-  }, [requiredFeature, hasFeature]);
+  const sortedPlans = useMemo(() => {
+    if (!overview?.plans) return [];
+    return overview.plans
+      .filter((plan) => plansForFeature.includes(plan.slug))
+      .sort((a, b) => {
+        const orderA = PLAN_CATALOG[a.slug as keyof typeof PLAN_CATALOG]?.sortOrder ?? 99;
+        const orderB = PLAN_CATALOG[b.slug as keyof typeof PLAN_CATALOG]?.sortOrder ?? 99;
+        return orderA - orderB;
+      });
+  }, [overview?.plans, plansForFeature]);
 
-  const upgradePlans = useMemo(() => {
-    if (!requiredFeature || !currentPlan) return [];
-    const plans = getPlansForFeature(requiredFeature, currentPlan as PlanSlug);
-    return sortPlansByTier(
-      (overview?.plans ?? []).filter((p) => plans.includes(p.slug as PlanSlug)),
-    );
-  }, [requiredFeature, currentPlan, overview?.plans]);
+  const hasAccess = useMemo(() => {
+    if (!feature) return true;
+    return plansForFeature.length === 0;
+  }, [feature, plansForFeature.length]);
 
-  if (featureLoading || billingLoading) {
-    return (
-      <div className="relative">
-        <div className="blur-sm pointer-events-none">{children}</div>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <LoadingBlock />
-        </div>
-      </div>
-    );
-  }
+  const handleUpgrade = useCallback(
+    (planSlug: string) => {
+      if (!tenant?.slug) return;
+      window.location.assign(`/${tenant.slug}/subscribe?plan=${planSlug}`);
+    },
+    [tenant?.slug],
+  );
 
-  if (!needsUpgrade) {
+  if (hasAccess || dismissed) {
     return <>{children}</>;
   }
 
   return (
-    <div className="relative">
-      <div className="blur-sm pointer-events-none select-none">{children}</div>
-      <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto max-w-3xl space-y-6 rounded-lg border bg-background p-8 shadow-lg">
-          <div className="space-y-2 text-center">
-            <h2 className="text-xl font-semibold tracking-tight">Upgrade Required</h2>
-            <p className="text-sm text-muted-foreground">
-              This feature requires a higher plan. Upgrade to continue.
-            </p>
-          </div>
-
-          {upgradePlans.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {upgradePlans.map((plan) => {
-                const perSeat = plan.breakdown.basePrice / Math.max(1, plan.seatCount);
-                return (
-                  <PlanPricingCard
-                    key={plan.planPriceId}
-                    slug={plan.slug}
-                    name={plan.name}
-                    description={plan.description}
-                    currency={plan.currency}
-                    pricePerSeat={perSeat}
-                    seatCount={plan.seatCount}
-                    monthlyTotal={plan.monthlyTotal}
-                    maxEmployees={plan.limits.maxEmployees}
-                    isPopular={plan.slug === 'growth'}
-                    variant="app"
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-center text-sm text-muted-foreground">No upgrade plans available.</p>
-          )}
-
-          <div className="flex justify-center gap-3">
-            <Button variant="outline" onClick={() => router.back()}>
-              Go Back
+    <div className="relative min-h-svh">
+      <div className="pointer-events-none filter blur-sm select-none">{children}</div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
+        <div className="mx-4 w-full max-w-lg rounded-lg border border-border/60 bg-card p-6 shadow-xl">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Upgrade Required</h2>
+            <Button variant="ghost" size="icon" onClick={() => setDismissed(true)}>
+              <X className="size-4" />
             </Button>
-            <Button onClick={() => router.push('/subscribe')}>Upgrade Plan</Button>
+          </div>
+          <p className="mb-4 text-sm text-muted-foreground">
+            This feature is not available on your current plan. Upgrade your workspace to access it.
+          </p>
+          <div className="grid gap-3">
+            {sortedPlans.map((plan) => {
+              const isCurrent = currentPlan === plan.slug;
+              return (
+                <div
+                  key={plan.planPriceId}
+                  className="flex items-center justify-between rounded-lg border border-border/60 p-3"
+                >
+                  <div>
+                    <p className="font-medium capitalize">{plan.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {plan.seatCount} seat
+                      {plan.seatCount !== 1 ? 's' : ''} · ${plan.pricePerSeat}/seat/mo
+                    </p>
+                  </div>
+                  {isCurrent ? (
+                    <Button className="w-24" size="sm" disabled>
+                      Current
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={() => handleUpgrade(plan.slug)}>
+                      Upgrade
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

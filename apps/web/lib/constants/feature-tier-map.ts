@@ -1,30 +1,27 @@
-import type { PlanSlug } from '@/lib/constants/plan-catalog';
-import { PLAN_SLUG_ORDER } from '@/lib/constants/plan-catalog';
+import { SubscriptionPlan } from '@/lib/constants/feature-access';
 
-type SubscriptionPlan = PlanSlug;
-
-const FEATURE_TIER_MAP: Record<string, SubscriptionPlan> = {
-  BASIC_HR: 'starter',
-  PAYROLL: 'starter',
-  ATTENDANCE: 'starter',
-  LEAVE_MANAGEMENT: 'starter',
-  RECRUITMENT: 'starter',
-  EMPLOYEE_SELF_SERVICE: 'starter',
-  ADVANCED_PAYROLL: 'starter',
-  INTEGRATIONS: 'growth',
-  ADVANCED_REPORTING: 'growth',
-  ADVANCED_ATTENDANCE: 'scale',
-  PERFORMANCE_MANAGEMENT: 'scale',
-  API_ACCESS: 'scale',
-  MULTI_LOCATION: 'scale',
-  COMPLIANCE_REPORTING: 'scale',
-  MULTI_CURRENCY: 'scale',
-  LEARNING_DEVELOPMENT: 'scale',
-  CUSTOM_WORKFLOWS: 'scale',
-  WHITE_LABEL: 'scale',
+export const FEATURE_TIER_MAP: Record<string, SubscriptionPlan> = {
+  BASIC_HR: SubscriptionPlan.STARTER,
+  PAYROLL: SubscriptionPlan.STARTER,
+  ATTENDANCE: SubscriptionPlan.STARTER,
+  LEAVE_MANAGEMENT: SubscriptionPlan.STARTER,
+  MULTI_CURRENCY: SubscriptionPlan.STARTER,
+  ADVANCED_ATTENDANCE: SubscriptionPlan.SCALE,
+  PERFORMANCE_MANAGEMENT: SubscriptionPlan.SCALE,
+  RECRUITMENT: SubscriptionPlan.STARTER,
+  EMPLOYEE_SELF_SERVICE: SubscriptionPlan.STARTER,
+  ADVANCED_REPORTING: SubscriptionPlan.GROWTH,
+  API_ACCESS: SubscriptionPlan.SCALE,
+  INTEGRATIONS: SubscriptionPlan.GROWTH,
+  MULTI_LOCATION: SubscriptionPlan.SCALE,
+  ADVANCED_PAYROLL: SubscriptionPlan.SCALE,
+  LEARNING_DEVELOPMENT: SubscriptionPlan.SCALE,
+  CUSTOM_WORKFLOWS: SubscriptionPlan.SCALE,
+  WHITE_LABEL: SubscriptionPlan.SCALE,
+  COMPLIANCE_REPORTING: SubscriptionPlan.SCALE,
 };
 
-export function getMinimumTierForFeature(feature: string): SubscriptionPlan | null {
+export function getFeatureTier(feature: string): SubscriptionPlan | null {
   return FEATURE_TIER_MAP[feature] ?? null;
 }
 
@@ -32,15 +29,14 @@ export function getPlansForFeature(
   feature: string,
   currentPlan: SubscriptionPlan,
 ): SubscriptionPlan[] {
-  const minimumTier = getMinimumTierForFeature(feature);
-  if (!minimumTier) return [];
+  const tier = FEATURE_TIER_MAP[feature];
+  if (!tier) return [];
 
-  const currentIndex = PLAN_SLUG_ORDER.indexOf(currentPlan);
-  const minimumIndex = PLAN_SLUG_ORDER.indexOf(minimumTier);
+  const tierOrder = [SubscriptionPlan.STARTER, SubscriptionPlan.GROWTH, SubscriptionPlan.SCALE];
+  const currentIndex = tierOrder.indexOf(currentPlan);
+  const requiredIndex = tierOrder.indexOf(tier);
 
-  if (currentIndex >= minimumIndex) return [];
+  if (requiredIndex <= currentIndex) return [];
 
-  return PLAN_SLUG_ORDER.filter(
-    (_, index) => index >= minimumIndex && PLAN_SLUG_ORDER[index] !== currentPlan,
-  );
+  return tierOrder.slice(requiredIndex);
 }

@@ -15,7 +15,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest, MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
@@ -34,7 +33,7 @@ import { DateValidationUtil } from './utils/date-validation.util';
 
 @ApiTags('Attendance')
 @Controller('tenants/:tenantId/attendance')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard)
 @RequireFeatures(FeatureAccess.ATTENDANCE)
 export class AttendanceController {
   constructor(
@@ -259,6 +258,7 @@ export class AttendanceController {
   @Get('reports/daily')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   getDailyAttendanceReport(@Param('tenantId') tenantId: string, @Query('date') date: string) {
     const reportDate = date ? new Date(date) : new Date();
     return this.attendanceService.getDailyAttendanceReport(tenantId, reportDate);
@@ -267,6 +267,7 @@ export class AttendanceController {
   @Get('reports/monthly')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   getMonthlyAttendanceReport(
     @Param('tenantId') tenantId: string,
     @Query('month') month: string,
@@ -284,6 +285,7 @@ export class AttendanceController {
   }
 
   @Get('reports/employee/:employeeId')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   async getEmployeeAttendanceReport(
     @Param('tenantId') tenantId: string,
     @Param('employeeId') employeeId: string,
@@ -344,6 +346,7 @@ export class AttendanceController {
   }
 
   @Get('session-limit')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   async getSessionLimit(@Param('tenantId') tenantId: string) {
     const limit = await this.attendanceService.getSessionLimit(tenantId);
     return { maxSessionsPerDay: limit };

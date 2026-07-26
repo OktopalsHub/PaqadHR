@@ -18,7 +18,6 @@ function resolveApiV1Base(): string {
   );
 }
 
-/** Clears legacy localStorage JWT keys from before cookie-only auth. */
 export function clearLegacyAuthTokens(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(LEGACY_ACCESS_TOKEN_KEY);
@@ -56,15 +55,15 @@ export class ApiError extends Error {
   }
 }
 
-export function getApiV1Base() {
+export function getApiV1Base(): string {
   return resolveApiV1Base();
 }
 
-export function getApiOrigin() {
+export function getApiOrigin(): string {
   return getApiV1Base().replace(/\/api\/v1$/, '');
 }
 
-export function tenantPath(tenantId: string, path = '') {
+export function tenantPath(tenantId: string, path = ''): string {
   const suffix = path.startsWith('/') ? path : path ? `/${path}` : '';
   return `/tenants/${tenantId}${suffix}`;
 }
@@ -124,7 +123,7 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/reset-password',
 ];
 
-const REFRESH_RETRY_DELAYS_MS = [1000, 2000]; // Exponential backoff: 1s, 2s
+const REFRESH_RETRY_DELAYS_MS = [1000, 2000];
 
 function shouldAttemptAuthRefresh(path: string): boolean {
   return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));
@@ -140,6 +139,69 @@ function isCsrfError(status: number, payload: unknown): boolean {
   const message = String((payload as { message?: string }).message ?? '').toLowerCase();
   return message.includes('csrf');
 }
+
+const http = axios.create({
+  baseURL: resolveApiV1Base(),
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+http.interceptors.request.use(async (config) => {
+  const method = (config.method ?? 'get').toUpperCase();
+  const skipCsrf = (config as AxiosRequestConfig & { skipCsrf?: boolean }).skipCsrf ?? false;
+  const needsCsrf = !skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
+  if (needsCsrf) {
+    config.headers.set(CSRF_HEADER, await ensureCsrfToken());
+  }
+
+  const path = config.url ?? '';
+  const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
+  if (tenantMatch?.[1]) {
+    config.headers.set('x-tenant-id', tenantMatch[1]);
+  }
+
+  return config;
+});
+
+http.interceptors.response.use(
+  (response) => {
+    if (isCsrfError(response.status, response.data)) {
+      clearCsrfToken();
+    }
+    return response;
+  },
+  async (error: AxiosError) => {
+    const config = error.config;
+    if (!config) return Promise.reject(error);
+
+    const path = config.url ?? '';
+    const status = error.response?.status ?? 0;
+    const isRetry = (config as AxiosRequestConfig & { _isRetry?: boolean })._isRetry ?? false;
+
+    if (status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
+      (config as AxiosRequestConfig & { _isRetry?: boolean })._isRetry = true;
+
+      for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          startProactiveRefresh();
+          return http(config as AxiosRequestConfig);
+        }
+        await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+
+    const payload = error.response?.data;
+    const message =
+      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
+      `Request failed (${status})`;
+
+    throw new ApiError(message, status, payload?.code);
+  },
+);
 
 export async function fetchWithCsrf(
   url: string,
@@ -178,106 +240,44 @@ async function parseErrorPayload(response: Response) {
   return response.json().catch(() => null);
 }
 
-let refreshQueue: Array<{ resolve: (value: boolean) => void; reject: (reason: unknown) => void }> =
-  [];
-let isRefreshing = false;
-
-async function attemptRefresh(): Promise<boolean> {
-  for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      startProactiveRefresh();
-      return true;
-    }
-    await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
-  }
-  return false;
-}
-
 export async function apiClient<T>(
   path: string,
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
-  const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
-  const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) };
-  const requestData = init?.body ?? init?.data;
-  if (!headers['Content-Type'] && requestData) {
-    headers['Content-Type'] = 'application/json';
-  }
-  if (tenantMatch?.[1]) {
-    headers['x-tenant-id'] = tenantMatch[1];
-  }
-
-  const skipCsrf = init?.skipCsrf ?? false;
-  const method = (init?.method ?? 'GET').toUpperCase();
-  const needsCsrf = !skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-
-  if (needsCsrf) {
-    headers[CSRF_HEADER] = await ensureCsrfToken();
-  }
-
-  const axiosConfig = {
-    url: `${resolveApiV1Base()}${path}`,
-    method,
-    headers,
-    data: requestData,
+  const config: AxiosRequestConfig = {
+    url: path,
+    method: (init?.method as string) ?? 'GET',
+    data: init?.body ?? init?.data,
     params: init?.params,
-    withCredentials: true as const,
-    validateStatus: () => true as const,
+    skipCsrf: init?.skipCsrf,
+    _isRetry: isRetry,
   };
 
-  let response = await axios.request(axiosConfig).catch((error: unknown) => {
-    if (axios.isAxiosError(error) && !error.response) {
+  if (init?.headers) {
+    const headers = init.headers as Record<string, string>;
+    for (const [key, value] of Object.entries(headers)) {
+      config.headers = config.headers ?? {};
+      config.headers[key] = value;
+    }
+  }
+
+  if (init?.body && typeof init.body === 'string' && !config.headers?.['Content-Type']) {
+    config.headers = config.headers ?? {};
+    config.headers['Content-Type'] = 'application/json';
+  }
+
+  const response = await http(config).catch((err: unknown) => {
+    if (err instanceof ApiError) throw err;
+    if (err instanceof TypeError) {
       throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
     }
-    throw error;
+    throw err;
   });
-
-  if (needsCsrf && isCsrfError(response.status, response.data)) {
-    clearCsrfToken();
-    headers[CSRF_HEADER] = await ensureCsrfToken(true);
-    response = await axios.request({ ...axiosConfig, headers });
-  }
-
-  if (response.status >= 400) {
-    const payload = response.data;
-    const message =
-      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
-      `Request failed (${response.status})`;
-
-    if (response.status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      if (isRefreshing) {
-        const success = await new Promise<boolean>((resolve, reject) => {
-          refreshQueue.push({ resolve, reject });
-        });
-        if (success) {
-          return apiClient<T>(path, init, true);
-        }
-      } else {
-        isRefreshing = true;
-        const success = await attemptRefresh();
-        for (const entry of refreshQueue) {
-          entry.resolve(success);
-        }
-        refreshQueue = [];
-        isRefreshing = false;
-
-        if (success) {
-          return apiClient<T>(path, init, true);
-        }
-      }
-    }
-
-    throw new ApiError(message, response.status, payload?.code);
-  }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  const data = response.data;
-  if (data === undefined || data === null) return undefined as T;
-
-  return data as T;
+  return response.data as T;
 }

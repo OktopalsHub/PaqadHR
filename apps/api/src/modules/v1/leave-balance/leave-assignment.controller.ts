@@ -2,13 +2,12 @@ import { Controller, Delete, Get, Param, Post, Query, UseGuards } from '@nestjs/
 import { RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { LeaveTypeAssignmentService } from './leave-type-assignment.service';
 
 @Controller('tenants/:tenantId/leave-assignments')
-@UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
 @RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeaveAssignmentController {
   constructor(private readonly leaveAssignmentService: LeaveTypeAssignmentService) {}

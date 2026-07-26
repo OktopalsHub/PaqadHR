@@ -13,7 +13,6 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
@@ -22,7 +21,7 @@ import { CreateAddressDto } from './dto/create-address.dto';
 
 @ApiTags('Addresses')
 @Controller('tenants/:tenantId/members/:memberId/address')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard)
 @RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class MemberAddressController {
   constructor(private readonly addressService: AddressService) {}

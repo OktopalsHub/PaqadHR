@@ -6,9 +6,12 @@ export const ROUTE_FEATURE_MAP: Record<string, string> = {
 
 export function getFeatureForRoute(pathname: string): string | null {
   const segments = pathname.split('/').filter(Boolean);
+
   for (const segment of segments) {
-    const feature = ROUTE_FEATURE_MAP[segment];
-    if (feature) return feature;
+    if (segment in ROUTE_FEATURE_MAP) {
+      return ROUTE_FEATURE_MAP[segment];
+    }
   }
+
   return null;
 }

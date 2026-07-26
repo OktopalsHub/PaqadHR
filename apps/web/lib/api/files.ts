@@ -46,7 +46,9 @@ export async function requestUploadUrl(
 
 export async function uploadFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
   await axios.put(uploadUrl, file, {
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
   });
 }
 

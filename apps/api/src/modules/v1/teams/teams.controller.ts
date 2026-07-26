@@ -14,7 +14,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
@@ -27,7 +26,7 @@ import { TeamsService } from './teams.service';
 
 @ApiTags('Teams')
 @Controller('tenants/:tenantId/teams')
-@UseGuards(JwtAuthGuard, TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(JwtAuthGuard, TenantMemberGuard)
 @RequireFeatures(FeatureAccess.BASIC_HR)
 export class TeamsController {
   constructor(private readonly teamsService: TeamsService) {}

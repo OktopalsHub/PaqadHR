@@ -20,7 +20,6 @@ import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { DocumentType } from 'src/common/enums/document-type.enum';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
@@ -37,7 +36,7 @@ import { Document } from './entities/document.entity';
 
 @ApiTags('Documents')
 @Controller('tenants/:tenantId/documents')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard)
 @RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class DocumentController {
   constructor(

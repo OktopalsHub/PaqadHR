@@ -17,7 +17,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import type { RelationshipType } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
@@ -29,7 +28,7 @@ import type { EmergencyContact } from './entities/emergency-contact.entity';
 
 @ApiTags('Emergency Contacts')
 @Controller('tenants/:tenantId/emergency-contacts')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard)
 @RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class EmergencyContactController {
   constructor(

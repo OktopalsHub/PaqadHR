@@ -251,7 +251,9 @@ export async function uploadPublicCandidateFile(
     file.type || undefined,
   );
   await axios.put(uploadUrl, file, {
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
   });
   return { fileName, fileKey };
 }

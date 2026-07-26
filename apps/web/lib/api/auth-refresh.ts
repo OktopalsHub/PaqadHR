@@ -14,7 +14,7 @@ let refreshPromise: Promise<boolean> | null = null;
 let proactiveTimer: ReturnType<typeof setInterval> | null = null;
 let consecutiveFailures = 0;
 const MAX_CONSECUTIVE_FAILURES = 3;
-const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000; // 12 minutes (token expires in 15)
+const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000;
 
 export function invalidateSession() {
   stopProactiveRefresh();
