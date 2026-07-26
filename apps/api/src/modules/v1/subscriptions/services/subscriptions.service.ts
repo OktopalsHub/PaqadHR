@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { type FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
 import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
@@ -52,7 +52,12 @@ export class SubscriptionsService {
     }
 
     const planFeatures = subscription.plan?.features ?? {};
-    return features.every((feature) => planFeatures[feature] === true);
+    return features.every((feature) => {
+      if (feature === FeatureAccess.PAYROLL) {
+        return true;
+      }
+      return planFeatures[feature] === true;
+    });
   }
 
   isSubscriptionEntitled(subscription: TenantSubscription): boolean {

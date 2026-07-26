@@ -13,8 +13,10 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { getNoahEnvironment } from 'src/common/config/noah.config';
 import { isNombaLive } from 'src/common/config/nomba.config';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
 import { TenantMemberRole } from 'src/common/enums';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import {
@@ -70,6 +72,7 @@ function withWalletResponse(
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 export class RewardsController {
   constructor(
     private readonly rewardsService: RewardsService,

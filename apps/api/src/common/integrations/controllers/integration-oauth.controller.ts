@@ -17,7 +17,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { ENVIRONMENT } from 'src/common/config/env.config';
 import { Public } from 'src/common/decorators';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
 import { IntegrationType, TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
@@ -31,6 +33,7 @@ import { PlatformIntegrationService } from '../services/platform-integration.ser
 import { UserSyncService } from '../services/user-sync.service';
 
 @Controller()
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 export class OAuthIntegrationController {
   private readonly logger = new Logger(OAuthIntegrationController.name);
   constructor(
