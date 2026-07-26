@@ -1,3 +1,9 @@
+export enum SubscriptionPlan {
+  STARTER = 'starter',
+  GROWTH = 'growth',
+  SCALE = 'scale',
+}
+
 export enum FeatureAccess {
   BASIC_HR = 'BASIC_HR',
   PAYROLL = 'PAYROLL',

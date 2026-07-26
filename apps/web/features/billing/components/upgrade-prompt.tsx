@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
+import { type SubscriptionPlan } from '@/lib/constants/feature-access';
 import { getPlansForFeature } from '@/lib/constants/feature-tier-map';
 import { PLAN_CATALOG } from '@/lib/constants/plan-catalog';
 import { getFeatureForRoute } from '@/lib/constants/route-feature-map';
@@ -18,12 +19,12 @@ export function UpgradePrompt({ children }: { children: React.ReactNode }) {
 
   const feature = getFeatureForRoute(pathname);
   const currentPlan = overview?.subscription?.plan?.toLowerCase();
-  const plansForFeature = feature ? getPlansForFeature(feature, currentPlan ?? 'starter') : [];
+  const plansForFeature = feature ? getPlansForFeature(feature, (currentPlan ?? 'starter') as SubscriptionPlan) : [];
 
   const sortedPlans = useMemo(() => {
     if (!overview?.plans) return [];
     return overview.plans
-      .filter((plan) => plansForFeature.includes(plan.slug))
+      .filter((plan) => plansForFeature.includes(plan.slug as SubscriptionPlan))
       .sort((a, b) => {
         const orderA = PLAN_CATALOG[a.slug as keyof typeof PLAN_CATALOG]?.sortOrder ?? 99;
         const orderB = PLAN_CATALOG[b.slug as keyof typeof PLAN_CATALOG]?.sortOrder ?? 99;

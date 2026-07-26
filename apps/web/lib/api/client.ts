@@ -194,12 +194,13 @@ http.interceptors.response.use(
       }
     }
 
-    const payload = error.response?.data;
+    const payload = error.response?.data as Record<string, unknown> | undefined;
+    const rawMessage = payload?.message;
     const message =
-      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
+      (Array.isArray(rawMessage) ? rawMessage.join(', ') : (rawMessage as string)) ??
       `Request failed (${status})`;
 
-    throw new ApiError(message, status, payload?.code);
+    throw new ApiError(message, status, payload?.code as string | undefined);
   },
 );
 
@@ -245,14 +246,14 @@ export async function apiClient<T>(
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
-  const config: AxiosRequestConfig = {
+  const config = {
     url: path,
     method: (init?.method as string) ?? 'GET',
     data: init?.body ?? init?.data,
     params: init?.params,
     skipCsrf: init?.skipCsrf,
     _isRetry: isRetry,
-  };
+  } as AxiosRequestConfig & { skipCsrf?: boolean; _isRetry?: boolean };
 
   if (init?.headers) {
     const headers = init.headers as Record<string, string>;
