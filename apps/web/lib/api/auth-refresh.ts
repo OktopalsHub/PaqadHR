@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { clearSessionStorage } from '@/lib/session';
 
@@ -13,7 +14,7 @@ let refreshPromise: Promise<boolean> | null = null;
 let proactiveTimer: ReturnType<typeof setInterval> | null = null;
 let consecutiveFailures = 0;
 const MAX_CONSECUTIVE_FAILURES = 3;
-const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000; // 12 minutes (token expires in 15)
+const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000;
 
 export function invalidateSession() {
   stopProactiveRefresh();
@@ -29,13 +30,15 @@ export async function refreshAccessToken(): Promise<boolean> {
 
   refreshPromise = (async () => {
     try {
-      const response = await fetch(`${resolveApiV1Base()}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (response.ok) {
+      const response = await axios.post(
+        `${resolveApiV1Base()}/auth/refresh`,
+        {},
+        {
+          withCredentials: true,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+      if (response.status === 200 || response.status === 204) {
         consecutiveFailures = 0;
         return true;
       }
