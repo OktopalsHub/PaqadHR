@@ -1,8 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import type { IntegrationType } from 'src/common/enums';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../../modules/v1/tenant-members/guards/tenant-members.guards';
@@ -10,8 +12,9 @@ import type { IntegrationConfig } from '../integration.types';
 import { PlatformIntegrationService } from '../services/platform-integration.service';
 
 @Controller('tenants/:tenantId/integrations')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
 @ApiTags('Integrations')
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 export class IntegrationController {
   constructor(private readonly integrationService: PlatformIntegrationService) {}
 

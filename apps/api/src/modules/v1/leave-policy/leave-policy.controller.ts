@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateLeavePolicyDto } from './dto/create-leave-policy.dto';
@@ -9,7 +12,8 @@ import { LeavePolicyService } from './leave-policy.service';
 
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leave-policies')
-@UseGuards(TenantMemberGuard, TenantRoleGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeavePolicyController {
   constructor(private readonly leavePolicyService: LeavePolicyService) {}
   @Get()

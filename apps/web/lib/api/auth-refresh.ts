@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { clearSessionStorage } from '@/lib/session';
 
@@ -29,13 +30,12 @@ export async function refreshAccessToken(): Promise<boolean> {
 
   refreshPromise = (async () => {
     try {
-      const response = await fetch(`${resolveApiV1Base()}/auth/refresh`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      if (response.ok) {
+      const response = await axios.post(
+        `${resolveApiV1Base()}/auth/refresh`,
+        {},
+        { withCredentials: true, headers: { 'Content-Type': 'application/json' } },
+      );
+      if (response.status >= 200 && response.status < 300) {
         consecutiveFailures = 0;
         return true;
       }

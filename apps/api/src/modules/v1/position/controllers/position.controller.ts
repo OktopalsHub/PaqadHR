@@ -10,7 +10,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreatePositionDto } from '../dto/create-position.dto';
@@ -19,8 +22,9 @@ import type { Position } from '../entities/position.entity';
 import { PositionService } from '../services/position.service';
 
 @ApiTags('Positions')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/positions')
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.BASIC_HR)
 export class PositionController {
   constructor(private readonly positionService: PositionService) {}
   @Post()

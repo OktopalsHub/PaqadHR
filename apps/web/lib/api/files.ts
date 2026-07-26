@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
 
@@ -44,17 +45,9 @@ export async function requestUploadUrl(
 }
 
 export async function uploadFileToPresignedUrl(uploadUrl: string, file: File): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: file,
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream',
-    },
+  await axios.put(uploadUrl, file, {
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to upload file to storage');
-  }
 }
 
 export async function uploadViaPresignedUrl(

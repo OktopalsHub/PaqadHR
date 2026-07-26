@@ -12,8 +12,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
@@ -25,7 +27,8 @@ import { LeaveBalanceService } from './leave-balance.service';
 
 @ApiTags('Leave Balances')
 @Controller('tenants/:tenantId/leave-balances')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeaveBalanceController {
   constructor(
     private readonly leaveBalanceService: LeaveBalanceService,

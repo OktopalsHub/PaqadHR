@@ -9,8 +9,10 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
@@ -19,7 +21,8 @@ import { AssignPositionDto } from '../dto/assign-position.dto';
 import { PositionMemberService } from '../services/position-member.service';
 
 @Controller('tenants/:tenantId/positions')
-@UseGuards(TenantMemberGuard)
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.BASIC_HR)
 export class PositionMemberController {
   constructor(
     private readonly positionMemberService: PositionMemberService,

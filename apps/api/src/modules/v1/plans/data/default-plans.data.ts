@@ -172,3 +172,11 @@ export const DEFAULT_PLANS: DefaultPlanSeed[] = [
     ],
   },
 ];
+
+for (const plan of DEFAULT_PLANS) {
+  if (!plan.features[FeatureAccess.PAYROLL]) {
+    throw new Error(
+      `Plan "${plan.slug}" must include FeatureAccess.PAYROLL — payroll is a core revenue feature on all tiers.`,
+    );
+  }
+}

@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { AddressService } from './address.service';
@@ -8,8 +10,9 @@ import { CreateAddressDto } from './dto/create-address.dto';
 import { UpdateAddressDto } from './dto/update-address.dto';
 
 @ApiTags('Addresses')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/address')
+@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class AddressController {
   constructor(private readonly addressService: AddressService) {}
   @Post()

@@ -28,10 +28,18 @@ export interface NotificationsListResponse {
   total: number;
 }
 
-function tenantHeaders(tenantId: string, init?: RequestInit): RequestInit {
-  const headers = new Headers(init?.headers);
-  headers.set('x-tenant-id', tenantId);
-  return { ...init, headers };
+function tenantHeaders(
+  tenantId: string,
+  init?: { method?: string },
+): {
+  headers: Record<string, string>;
+  method?: string;
+} {
+  return {
+    ...init,
+    headers: { 'x-tenant-id': tenantId, ...(init?.method ? {} : {}) },
+    method: init?.method,
+  };
 }
 
 export async function fetchNotifications(

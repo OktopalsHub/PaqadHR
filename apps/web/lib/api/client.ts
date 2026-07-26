@@ -1,3 +1,4 @@
+import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
@@ -68,34 +69,26 @@ export function tenantPath(tenantId: string, path = '') {
   return `/tenants/${tenantId}${suffix}`;
 }
 
-function isCsrfError(status: number, payload: unknown): boolean {
-  if (status !== 403) return false;
-  if (!payload || typeof payload !== 'object') return false;
-  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
-  return message.includes('csrf');
-}
-
 export async function ensureCsrfToken(force = false): Promise<string> {
   if (!force && csrfToken) return csrfToken;
   if (!force && csrfTokenPromise) return csrfTokenPromise;
 
   csrfTokenPromise = (async () => {
-    const response = await fetch(`${getApiOrigin()}/csrf/token`, {
-      credentials: 'include',
-      cache: 'no-store',
-    });
-
-    if (!response.ok) {
-      throw new ApiError('Failed to fetch CSRF token', response.status);
+    try {
+      const { data } = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
+        withCredentials: true,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+      if (!data.csrfToken) {
+        throw new ApiError('CSRF token missing in response', 200);
+      }
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const status = (error as AxiosError)?.response?.status ?? 0;
+      throw new ApiError('Failed to fetch CSRF token', status);
     }
-
-    const data = (await response.json()) as { csrfToken: string };
-    if (!data.csrfToken) {
-      throw new ApiError('CSRF token missing in response', response.status);
-    }
-
-    csrfToken = data.csrfToken;
-    return csrfToken;
   })();
 
   try {
@@ -118,8 +111,9 @@ export function clearCsrfToken() {
   csrfTokenPromise = null;
 }
 
-type ApiClientOptions = RequestInit & {
+type ApiClientOptions = AxiosRequestConfig & {
   skipCsrf?: boolean;
+  body?: string;
 };
 
 const AUTH_PATHS_WITHOUT_REFRESH = [
@@ -140,8 +134,11 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function parseErrorPayload(response: Response) {
-  return response.json().catch(() => null);
+function isCsrfError(status: number, payload: unknown): boolean {
+  if (status !== 403) return false;
+  if (!payload || typeof payload !== 'object') return false;
+  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
+  return message.includes('csrf');
 }
 
 export async function fetchWithCsrf(
@@ -177,51 +174,99 @@ export async function fetchWithCsrf(
   return response;
 }
 
+async function parseErrorPayload(response: Response) {
+  return response.json().catch(() => null);
+}
+
+let refreshQueue: Array<{ resolve: (value: boolean) => void; reject: (reason: unknown) => void }> =
+  [];
+let isRefreshing = false;
+
+async function attemptRefresh(): Promise<boolean> {
+  for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      startProactiveRefresh();
+      return true;
+    }
+    await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+  }
+  return false;
+}
+
 export async function apiClient<T>(
   path: string,
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
   const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
-  const headers = new Headers(init?.headers);
-  if (!headers.has('Content-Type') && init?.body) {
-    headers.set('Content-Type', 'application/json');
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) };
+  const requestData = init?.body ?? init?.data;
+  if (!headers['Content-Type'] && requestData) {
+    headers['Content-Type'] = 'application/json';
   }
   if (tenantMatch?.[1]) {
-    headers.set('x-tenant-id', tenantMatch[1]);
+    headers['x-tenant-id'] = tenantMatch[1];
   }
 
-  const response = await fetchWithCsrf(`${resolveApiV1Base()}${path}`, {
-    ...init,
+  const skipCsrf = init?.skipCsrf ?? false;
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const needsCsrf = !skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+
+  if (needsCsrf) {
+    headers[CSRF_HEADER] = await ensureCsrfToken();
+  }
+
+  const axiosConfig = {
+    url: `${resolveApiV1Base()}${path}`,
+    method,
     headers,
-  }).catch((error: unknown) => {
-    if (error instanceof ApiError) throw error;
-    if (error instanceof TypeError) {
+    data: requestData,
+    params: init?.params,
+    withCredentials: true as const,
+    validateStatus: () => true as const,
+  };
+
+  let response = await axios.request(axiosConfig).catch((error: unknown) => {
+    if (axios.isAxiosError(error) && !error.response) {
       throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
     }
     throw error;
   });
 
-  if (!response.ok) {
-    const payload = await parseErrorPayload(response);
+  if (needsCsrf && isCsrfError(response.status, response.data)) {
+    clearCsrfToken();
+    headers[CSRF_HEADER] = await ensureCsrfToken(true);
+    response = await axios.request({ ...axiosConfig, headers });
+  }
+
+  if (response.status >= 400) {
+    const payload = response.data;
     const message =
       (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
       `Request failed (${response.status})`;
 
     if (response.status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      // refreshAccessToken() is deduplicated — concurrent 401s share one refresh attempt.
-      // Retry with backoff if the first attempt fails (e.g. transient network issue).
-      for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          startProactiveRefresh();
+      if (isRefreshing) {
+        const success = await new Promise<boolean>((resolve, reject) => {
+          refreshQueue.push({ resolve, reject });
+        });
+        if (success) {
           return apiClient<T>(path, init, true);
         }
-        await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+      } else {
+        isRefreshing = true;
+        const success = await attemptRefresh();
+        for (const entry of refreshQueue) {
+          entry.resolve(success);
+        }
+        refreshQueue = [];
+        isRefreshing = false;
+
+        if (success) {
+          return apiClient<T>(path, init, true);
+        }
       }
-      // Final attempt — if this fails, let the error propagate.
-      // Do NOT invalidateSession here; auth-refresh.ts tracks consecutive failures
-      // and stops the proactive refresh after MAX_CONSECUTIVE_FAILURES.
     }
 
     throw new ApiError(message, response.status, payload?.code);
@@ -231,8 +276,8 @@ export async function apiClient<T>(
     return undefined as T;
   }
 
-  const text = await response.text();
-  if (!text) return undefined as T;
+  const data = response.data;
+  if (data === undefined || data === null) return undefined as T;
 
-  return JSON.parse(text) as T;
+  return data as T;
 }
