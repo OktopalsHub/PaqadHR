@@ -14,7 +14,7 @@ export const FEATURE_TIER_MAP: Record<string, SubscriptionPlan> = {
   API_ACCESS: SubscriptionPlan.SCALE,
   INTEGRATIONS: SubscriptionPlan.GROWTH,
   MULTI_LOCATION: SubscriptionPlan.SCALE,
-  ADVANCED_PAYROLL: SubscriptionPlan.SCALE,
+  ADVANCED_PAYROLL: SubscriptionPlan.STARTER,
   LEARNING_DEVELOPMENT: SubscriptionPlan.SCALE,
   CUSTOM_WORKFLOWS: SubscriptionPlan.SCALE,
   WHITE_LABEL: SubscriptionPlan.SCALE,
