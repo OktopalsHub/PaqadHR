@@ -187,6 +187,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @Public()
   async logout(@Req() req: Request, @Res() res: Response): Promise<void> {
     const refreshToken = req.cookies.refresh_token;
     const user = req.user as JwtPayload | undefined;

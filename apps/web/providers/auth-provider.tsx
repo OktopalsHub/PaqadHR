@@ -106,15 +106,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  const logout = useCallback(() => {
-    void logoutRequest().finally(() => {
+  const logout = useCallback(async () => {
+    stopProactiveRefresh();
+    try {
+      await logoutRequest();
+    } finally {
       clearSession();
       clearCsrfToken();
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
-    });
-    window.location.assign(authPageUrl('/signin'));
-    toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
+      toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
+      window.location.assign(authPageUrl('/signin'));
+    }
   }, [queryClient]);
 
   const value = useMemo<AuthContextType>(
