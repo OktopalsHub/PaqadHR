@@ -23,6 +23,10 @@ export function useUrlTab<T extends string>(
     return () => window.removeEventListener('popstate', onPopState);
   }, [isValid, fallback]);
 
+  useEffect(() => {
+    setActiveTab(readTabParam(window.location.search, isValid, fallback));
+  }, [isValid, fallback]);
+
   const setTab = useCallback(
     (tab: T) => {
       setActiveTab((previous) => {

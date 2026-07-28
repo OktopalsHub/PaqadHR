@@ -120,7 +120,7 @@ export class NotificationService {
       unreadOnly?: boolean;
     },
   ): Promise<{ notifications: Notification[]; total: number }> {
-    const where: FindOptionsWhere<Notification>[] = [{ recipientId: memberId }];
+    const where: FindOptionsWhere<Notification>[] = [];
     if (tenantId) {
       where.push(
         { tenantId, recipientId: IsNull() },
@@ -188,7 +188,7 @@ export class NotificationService {
     });
   }
   async getUnreadCount(memberId: string, tenantId?: string): Promise<number> {
-    const where: FindOptionsWhere<Notification>[] = [{ recipientId: memberId, readAt: IsNull() }];
+    const where: FindOptionsWhere<Notification>[] = [];
     if (tenantId) {
       where.push(
         { tenantId, recipientId: IsNull(), readAt: IsNull() },

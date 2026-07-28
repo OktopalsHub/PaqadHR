@@ -19,6 +19,7 @@ import { Public } from 'src/common/decorators';
 import type {
   SlackEventPayload,
   SlackInteractiveBody,
+  SlackInteractivePayload,
   SlackSlashCommandPayload,
   SlackUrlVerificationPayload,
 } from 'src/common/integrations/integration.types';
@@ -195,11 +196,11 @@ export class WebhooksController {
     }
     let payload: Record<string, unknown>;
     try {
-      payload = JSON.parse(body.payload);
+      payload = JSON.parse(body.payload) as Record<string, unknown>;
     } catch {
       throw new BadRequestException('Malformed Slack payload');
     }
-    await this.slackWebhookService.handleInteractiveComponent(payload);
+    await this.slackWebhookService.handleInteractiveComponent(payload as SlackInteractivePayload);
     return { ok: true };
   }
 
