@@ -1,7 +1,5 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { apiOriginFromBase, resolveApiBaseUrl } from '@/lib/api-origin';
-import { BRAND_ORIGIN } from '@/lib/brand';
 import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
@@ -12,62 +10,7 @@ import {
   rewriteLegacyAppPath,
   tenantUrl,
 } from '@/lib/navigation/tenant-routes';
-
-const r2PublicOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
-
-function buildContentSecurityPolicy(requestHost?: string): string {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const apiOrigin = apiOriginFromBase(resolveApiBaseUrl({ requestHost }));
-  const imageSources = [
-    "'self'",
-    'data:',
-    'blob:',
-    BRAND_ORIGIN,
-    'https://images.unsplash.com',
-    'https://cdn.reloadly.com',
-    'https://*.r2.dev',
-  ];
-  if (r2PublicOrigin) {
-    imageSources.push(r2PublicOrigin);
-  }
-
-  const connectSources = [
-    "'self'",
-    apiOrigin,
-    'https://challenges.cloudflare.com',
-    'https://cloudflareinsights.com',
-    'https://*.r2.cloudflarestorage.com',
-    'https://*.r2.dev',
-  ];
-  if (r2PublicOrigin) {
-    connectSources.push(r2PublicOrigin);
-  }
-
-  const scriptSources = [
-    "'self'",
-    "'unsafe-inline'",
-    'https://challenges.cloudflare.com',
-    'https://static.cloudflareinsights.com',
-  ];
-  if (isDevelopment) {
-    scriptSources.push("'unsafe-eval'");
-    connectSources.push('ws:', 'wss:');
-  }
-
-  return [
-    "default-src 'self'",
-    `script-src ${scriptSources.join(' ')}`,
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
-    `img-src ${imageSources.join(' ')}`,
-    `connect-src ${connectSources.join(' ')}`,
-    'frame-src https://challenges.cloudflare.com',
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ].join('; ');
-}
+import { buildContentSecurityPolicy } from './lib/security/content-security-policy';
 
 function applySecurityHeaders(response: NextResponse, requestHost?: string): void {
   response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost));

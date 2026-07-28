@@ -25,9 +25,8 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
 import {
-  ADMIN_SETTINGS_TABS,
   getVisibleSettingsTabs,
-  isSettingsTab,
+  resolveSettingsTab,
   SETTINGS_TAB_LABELS,
   type SettingsTab,
   settingsTabHref,
@@ -52,13 +51,7 @@ export function SettingsSidebarNav() {
   const tenantHref = useTenantHref();
   const settingsBase = tenantHref('settings');
   const isAdmin = isTenantAdmin(tenant?.member?.role);
-  const requestedTab = searchParams.get('tab');
-  const activeTab =
-    !isAdmin && ADMIN_SETTINGS_TABS.includes(requestedTab as SettingsTab)
-      ? 'profile'
-      : isSettingsTab(requestedTab)
-        ? requestedTab
-        : 'profile';
+  const activeTab = resolveSettingsTab(searchParams.get('tab'), isAdmin);
   const visibleTabs = getVisibleSettingsTabs(isAdmin);
 
   return (

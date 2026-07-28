@@ -7,5 +7,5 @@ type AppPageProps = {
 };
 
 export function AppPage({ children, className }: AppPageProps) {
-  return <div className={cn('min-w-0 w-full space-y-5', className, 'max-w-none')}>{children}</div>;
+  return <div className={cn('min-w-0 w-full max-w-none space-y-5', className)}>{children}</div>;
 }

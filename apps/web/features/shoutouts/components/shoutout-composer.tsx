@@ -261,7 +261,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
         )}
       >
         <div className="flex items-center gap-3 border-b border-border/60 pb-3">
-          <div className="flex size-10 items-center justify-center rounded-[8px] bg-gradient-to-br from-primary/10 to-primary/20 text-primary shadow-sm">
+          <div className="flex size-10 items-center justify-center rounded-[8px] bg-linear-to-br from-primary/10 to-primary/20 text-primary shadow-sm">
             <Sparkles className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -374,7 +374,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
           ) : null}
 
           {parsed.unknownCategories.length > 0 ? (
-            <p className="rounded-lg border border-dashed border-primary/35 bg-primary/6 px-3 py-2 text-xs text-primary">
+            <p className="rounded-lg border border-dashed border-amber-300/60 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
               No core value found for:{' '}
               {parsed.unknownCategories.map((name) => `#${name}`).join(', ')}
             </p>

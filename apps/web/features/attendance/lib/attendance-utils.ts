@@ -97,6 +97,8 @@ export function attendanceStatusPillClass(status: string) {
       return 'border-warning/25 bg-warning/12 text-warning';
     case 'ABSENT':
       return 'border-destructive/25 bg-destructive/12 text-destructive';
+    case 'HALF_DAY':
+      return 'border-warning/25 bg-warning/12 text-warning';
     case 'ON_LEAVE':
       return 'border-primary/25 bg-primary/12 text-primary';
     case 'WEEKEND':
@@ -114,6 +116,8 @@ export function attendanceStatusDotClass(status: string) {
       return 'bg-warning';
     case 'ABSENT':
       return 'bg-destructive';
+    case 'HALF_DAY':
+      return 'bg-warning';
     case 'ON_LEAVE':
       return 'bg-primary';
     default:
@@ -128,6 +132,8 @@ export function dayCellClass(status: string) {
       return 'bg-primary/15 text-primary';
     case 'ABSENT':
       return 'bg-destructive/15 text-destructive';
+    case 'HALF_DAY':
+      return 'bg-warning/15 text-warning';
     case 'ON_LEAVE':
       return 'bg-primary/12 text-primary';
     case 'WEEKEND':

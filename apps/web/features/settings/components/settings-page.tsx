@@ -14,9 +14,9 @@ import { SettingsRewardsTab } from '@/features/settings/components/settings-rewa
 import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
 import {
-  ADMIN_SETTINGS_TABS,
   getVisibleSettingsTabs,
   isSettingsTab,
+  resolveSettingsTab,
   SETTINGS_TAB_LABELS,
 } from '@/features/settings/lib/settings-tabs';
 import { useUrlTab } from '@/hooks/use-url-tab';
@@ -28,14 +28,14 @@ export function SettingsPage() {
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+  const visibleTab = resolveSettingsTab(activeTab, isAdmin);
 
   useEffect(() => {
-    if (!isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab)) {
-      setTab('profile');
+    if (activeTab !== visibleTab) {
+      setTab(visibleTab);
     }
-  }, [activeTab, isAdmin, setTab]);
+  }, [activeTab, setTab, visibleTab]);
 
-  const visibleTab = !isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab) ? 'profile' : activeTab;
   const visibleTabs = getVisibleSettingsTabs(isAdmin);
 
   return (

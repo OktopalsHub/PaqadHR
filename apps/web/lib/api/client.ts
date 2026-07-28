@@ -7,6 +7,12 @@ import axios, {
 } from 'axios';
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
+import { prepareApiRequestHeaders } from './api-request-headers';
+import {
+  executeFetchWithCsrf,
+  type FetchWithCsrfOptions,
+  isCsrfErrorResponse,
+} from './fetch-with-csrf';
 
 const CSRF_HEADER = 'x-csrf-token';
 
@@ -74,13 +80,6 @@ export function tenantPath(tenantId: string, path = ''): string {
   return `/tenants/${tenantId}${suffix}`;
 }
 
-function isCsrfError(status: number, payload: unknown): boolean {
-  if (status !== 403) return false;
-  if (!payload || typeof payload !== 'object') return false;
-  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
-  return message.includes('csrf');
-}
-
 export async function ensureCsrfToken(force = false): Promise<string> {
   if (!force && csrfToken) return csrfToken;
   if (!force && csrfTokenPromise) return csrfTokenPromise;
@@ -122,10 +121,6 @@ export function clearCsrfToken() {
   csrfToken = null;
   csrfTokenPromise = null;
 }
-
-type FetchWithCsrfOptions = RequestInit & {
-  skipCsrf?: boolean;
-};
 
 type ErrorPayload = {
   message?: string | string[];
@@ -176,28 +171,9 @@ async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPay
   }
 }
 
-async function parseFetchErrorPayload(response: Response) {
-  return response.json().catch(() => null);
-}
-
-function createAxiosHeaders(headersInit?: HeadersInit): AxiosHeaders {
-  const headers = new AxiosHeaders();
-  if (!headersInit) return headers;
-
-  const normalizedHeaders = new Headers(headersInit);
-  for (const [key, value] of normalizedHeaders.entries()) {
-    headers.set(key, value);
-  }
-
-  return headers;
-}
-
 const http = axios.create({
   baseURL: resolveApiV1Base(),
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 http.interceptors.request.use(async (config) => {
@@ -222,7 +198,7 @@ http.interceptors.request.use(async (config) => {
 
 http.interceptors.response.use(
   (response) => {
-    if (isCsrfError(response.status, response.data)) {
+    if (isCsrfErrorResponse(response.status, response.data)) {
       clearCsrfToken();
     }
     return response;
@@ -262,33 +238,12 @@ export async function fetchWithCsrf(
   input: RequestInfo | URL,
   init?: FetchWithCsrfOptions,
 ): Promise<Response> {
-  const method = (init?.method ?? 'GET').toUpperCase();
-  const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-  const headers = new Headers(init?.headers);
-
-  if (needsCsrf) {
-    headers.set(CSRF_HEADER, await ensureCsrfToken());
-  }
-
-  let response = await fetch(input, {
-    ...init,
-    method,
-    headers,
-    credentials: 'include',
+  return executeFetchWithCsrf(input, init, {
+    fetchImpl: fetch,
+    ensureCsrfToken,
+    clearCsrfToken,
+    csrfHeader: CSRF_HEADER,
   });
-
-  if (needsCsrf && isCsrfError(response.status, await parseFetchErrorPayload(response.clone()))) {
-    clearCsrfToken();
-    headers.set(CSRF_HEADER, await ensureCsrfToken(true));
-    response = await fetch(input, {
-      ...init,
-      method,
-      headers,
-      credentials: 'include',
-    });
-  }
-
-  return response;
 }
 
 export async function apiClient<T>(
@@ -296,11 +251,7 @@ export async function apiClient<T>(
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
-  const headers = createAxiosHeaders(init?.headers);
-
-  if (init?.body && typeof init.body === 'string' && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
+  const headers = prepareApiRequestHeaders(init?.headers, init?.body);
 
   const config: ApiRequestConfig = {
     url: path,

@@ -46,6 +46,24 @@ export function getVisibleSettingsTabs(isAdmin: boolean): SettingsTab[] {
   return isAdmin ? [...SETTINGS_TABS] : ['profile'];
 }
 
+export function resolveSettingsTab(
+  requestedTab: string | null | undefined,
+  isAdmin: boolean,
+): SettingsTab {
+  if (isSettingsTab(requestedTab)) {
+    if (!isAdmin && ADMIN_SETTINGS_TABS.includes(requestedTab)) {
+      return 'profile';
+    }
+    return requestedTab;
+  }
+
+  return 'profile';
+}
+
+export function shouldUseSettingsSidebar(pathname: string, settingsHref: string): boolean {
+  return pathname.startsWith(settingsHref);
+}
+
 export function settingsTabHref(settingsPath: string, tab: SettingsTab): string {
   return `${settingsPath}?tab=${tab}`;
 }
