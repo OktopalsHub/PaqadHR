@@ -6,6 +6,7 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import helmet, { type HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
+import morgan from 'morgan';
 import passport from 'passport';
 import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
@@ -13,6 +14,7 @@ type RequestWithRawBody = Request & { rawBody?: Buffer };
 
 export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(cookieParser());
+  app.use(morgan('dev'));
   app.use(
     express.json({
       limit: '10mb',
@@ -41,6 +43,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     const excludedPaths = [
       '/api/v1/auth/register',
       '/api/v1/auth/login',
+      '/api/v1/auth/logout',
       '/api/v1/auth/refresh',
       '/api/v1/auth/forgot-password',
       '/api/v1/auth/reset-password',
