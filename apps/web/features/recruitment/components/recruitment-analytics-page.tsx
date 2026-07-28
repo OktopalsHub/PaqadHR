@@ -45,10 +45,7 @@ export function RecruitmentAnalyticsPage() {
         <RecruitmentApplicationsChart data={overview.applicationsChart} />
         <div className="grid gap-5 lg:grid-cols-2">
           <RecruitmentDepartmentChart data={overview.departmentChart} />
-          <RecruitmentSourceChart
-            data={overview.sourceChart}
-            total={overview.kpis.totalApplications}
-          />
+          <RecruitmentSourceChart data={overview.sourceChart} total={overview.kpis.applications} />
         </div>
       </div>
 
