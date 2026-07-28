@@ -15,10 +15,7 @@ describe('PayrollPayoutCronService', () => {
       processDueScheduledPayouts: jest.fn(),
     } as unknown as PayrollService;
 
-    const cronService = new PayrollPayoutCronService(
-      payrollPayoutService,
-      payrollService,
-    );
+    const cronService = new PayrollPayoutCronService(payrollPayoutService, payrollService);
 
     return { cronService, payrollPayoutService, payrollService };
   };
