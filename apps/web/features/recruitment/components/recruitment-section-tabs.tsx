@@ -5,12 +5,13 @@ import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { cn } from '@/lib/utils';
 
 type RecruitmentSectionTabsProps = {
-  active: 'pipeline' | 'roles';
+  active: 'pipeline' | 'roles' | 'analytics';
 };
 
 const TABS = [
-  { id: 'pipeline', label: 'Pipeline', href: 'recruitment' },
-  { id: 'roles', label: 'Roles & analytics', href: 'recruitment/roles' },
+  { id: 'pipeline', label: 'Candidate', href: 'recruitment' },
+  { id: 'roles', label: 'Roles', href: 'recruitment/roles' },
+  { id: 'analytics', label: 'Analytics', href: 'recruitment/analytics' },
 ] as const;
 
 export function RecruitmentSectionTabs({ active }: RecruitmentSectionTabsProps) {

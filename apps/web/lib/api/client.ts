@@ -1,4 +1,10 @@
-import axios, { type AxiosError, type AxiosRequestConfig } from 'axios';
+import axios, {
+  type AxiosError,
+  AxiosHeaders,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
@@ -68,6 +74,13 @@ export function tenantPath(tenantId: string, path = ''): string {
   return `/tenants/${tenantId}${suffix}`;
 }
 
+function isCsrfError(status: number, payload: unknown): boolean {
+  if (status !== 403) return false;
+  if (!payload || typeof payload !== 'object') return false;
+  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
+  return message.includes('csrf');
+}
+
 export async function ensureCsrfToken(force = false): Promise<string> {
   if (!force && csrfToken) return csrfToken;
   if (!force && csrfTokenPromise) return csrfTokenPromise;
@@ -110,9 +123,31 @@ export function clearCsrfToken() {
   csrfTokenPromise = null;
 }
 
-type ApiClientOptions = AxiosRequestConfig & {
+type FetchWithCsrfOptions = RequestInit & {
   skipCsrf?: boolean;
-  body?: string;
+};
+
+type ErrorPayload = {
+  message?: string | string[];
+  code?: string;
+} | null;
+
+type ApiRequestConfig = AxiosRequestConfig & {
+  skipCsrf?: boolean;
+  _isRetry?: boolean;
+};
+
+type ApiInterceptorConfig = InternalAxiosRequestConfig & {
+  skipCsrf?: boolean;
+  _isRetry?: boolean;
+};
+
+export type ApiClientOptions = Omit<AxiosRequestConfig, 'method' | 'headers' | 'data'> & {
+  method?: string;
+  headers?: HeadersInit;
+  body?: BodyInit | null;
+  data?: unknown;
+  skipCsrf?: boolean;
 };
 
 const AUTH_PATHS_WITHOUT_REFRESH = [
@@ -133,11 +168,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isCsrfError(status: number, payload: unknown): boolean {
-  if (status !== 403) return false;
-  if (!payload || typeof payload !== 'object') return false;
-  const message = String((payload as { message?: string }).message ?? '').toLowerCase();
-  return message.includes('csrf');
+async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPayload> {
+  try {
+    return response.data as ErrorPayload;
+  } catch {
+    return null;
+  }
+}
+
+async function parseFetchErrorPayload(response: Response) {
+  return response.json().catch(() => null);
+}
+
+function createAxiosHeaders(headersInit?: HeadersInit): AxiosHeaders {
+  const headers = new AxiosHeaders();
+  if (!headersInit) return headers;
+
+  const normalizedHeaders = new Headers(headersInit);
+  for (const [key, value] of normalizedHeaders.entries()) {
+    headers.set(key, value);
+  }
+
+  return headers;
 }
 
 const http = axios.create({
@@ -149,21 +201,23 @@ const http = axios.create({
 });
 
 http.interceptors.request.use(async (config) => {
-  const method = (config.method ?? 'get').toUpperCase();
-  const skipCsrf = (config as AxiosRequestConfig & { skipCsrf?: boolean }).skipCsrf ?? false;
-  const needsCsrf = !skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  const requestConfig = config as ApiInterceptorConfig;
+  const headers = AxiosHeaders.from(requestConfig.headers ?? {});
+  const method = (requestConfig.method ?? 'get').toUpperCase();
+  const needsCsrf = !requestConfig.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   if (needsCsrf) {
-    config.headers.set(CSRF_HEADER, await ensureCsrfToken());
+    headers.set(CSRF_HEADER, await ensureCsrfToken());
   }
 
-  const path = config.url ?? '';
+  const path = requestConfig.url ?? '';
   const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
   if (tenantMatch?.[1]) {
-    config.headers.set('x-tenant-id', tenantMatch[1]);
+    headers.set('x-tenant-id', tenantMatch[1]);
   }
 
-  return config;
+  requestConfig.headers = headers;
+  return requestConfig;
 });
 
 http.interceptors.response.use(
@@ -176,69 +230,65 @@ http.interceptors.response.use(
   async (error: AxiosError) => {
     const config = error.config;
     if (!config) return Promise.reject(error);
+    const requestConfig = config as ApiRequestConfig;
 
-    const path = config.url ?? '';
+    const path = requestConfig.url ?? '';
     const status = error.response?.status ?? 0;
-    const isRetry = (config as AxiosRequestConfig & { _isRetry?: boolean })._isRetry ?? false;
+    const isRetry = requestConfig._isRetry ?? false;
 
     if (status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      (config as AxiosRequestConfig & { _isRetry?: boolean })._isRetry = true;
+      requestConfig._isRetry = true;
 
       for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
           startProactiveRefresh();
-          return http(config as AxiosRequestConfig);
+          return http(requestConfig);
         }
         await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
       }
     }
 
-    const payload = error.response?.data as Record<string, unknown> | undefined;
-    const rawMessage = payload?.message;
+    const payload = error.response ? await parseAxiosErrorPayload(error.response) : null;
     const message =
-      (Array.isArray(rawMessage) ? rawMessage.join(', ') : (rawMessage as string)) ??
+      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
       `Request failed (${status})`;
 
-    throw new ApiError(message, status, payload?.code as string | undefined);
+    throw new ApiError(message, status, payload?.code);
   },
 );
 
 export async function fetchWithCsrf(
-  url: string,
-  init?: RequestInit & { skipCsrf?: boolean },
+  input: RequestInfo | URL,
+  init?: FetchWithCsrfOptions,
 ): Promise<Response> {
   const method = (init?.method ?? 'GET').toUpperCase();
   const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
-
   const headers = new Headers(init?.headers);
+
   if (needsCsrf) {
     headers.set(CSRF_HEADER, await ensureCsrfToken());
   }
 
-  let response = await fetch(url, {
+  let response = await fetch(input, {
     ...init,
     method,
-    credentials: 'include',
     headers,
+    credentials: 'include',
   });
 
-  if (needsCsrf && isCsrfError(response.status, await parseErrorPayload(response.clone()))) {
+  if (needsCsrf && isCsrfError(response.status, await parseFetchErrorPayload(response.clone()))) {
     clearCsrfToken();
     headers.set(CSRF_HEADER, await ensureCsrfToken(true));
-    response = await fetch(url, {
+    response = await fetch(input, {
       ...init,
       method,
-      credentials: 'include',
       headers,
+      credentials: 'include',
     });
   }
 
   return response;
-}
-
-async function parseErrorPayload(response: Response) {
-  return response.json().catch(() => null);
 }
 
 export async function apiClient<T>(
@@ -246,27 +296,21 @@ export async function apiClient<T>(
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
-  const config = {
+  const headers = createAxiosHeaders(init?.headers);
+
+  if (init?.body && typeof init.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const config: ApiRequestConfig = {
     url: path,
-    method: (init?.method as string) ?? 'GET',
+    method: init?.method ?? 'GET',
     data: init?.body ?? init?.data,
     params: init?.params,
-    skipCsrf: init?.skipCsrf,
     _isRetry: isRetry,
-  } as AxiosRequestConfig & { skipCsrf?: boolean; _isRetry?: boolean };
-
-  if (init?.headers) {
-    const headers = init.headers as Record<string, string>;
-    for (const [key, value] of Object.entries(headers)) {
-      config.headers = config.headers ?? {};
-      config.headers[key] = value;
-    }
-  }
-
-  if (init?.body && typeof init.body === 'string' && !config.headers?.['Content-Type']) {
-    config.headers = config.headers ?? {};
-    config.headers['Content-Type'] = 'application/json';
-  }
+    skipCsrf: init?.skipCsrf,
+    headers,
+  };
 
   const response = await http(config).catch((err: unknown) => {
     if (err instanceof ApiError) throw err;

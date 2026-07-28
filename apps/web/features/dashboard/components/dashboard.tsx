@@ -81,13 +81,15 @@ export const Dashboard = () => {
     { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
   ];
   const pipelineMax = Math.max(1, ...pipelineStages.map((stage) => stage.count));
+  const contentCardHeaderClassName = 'border-b border-border/60 px-5 py-4';
+  const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
   const statCards = [
     {
       label: 'Headcount',
       value: employees.length,
       hint: 'Active employees',
       icon: Users,
-      iconClassName: 'bg-[#ffddb8] text-[#653e00]',
+      iconClassName: 'bg-warning/15 text-warning',
     },
     ...(isAdmin
       ? [
@@ -96,7 +98,7 @@ export const Dashboard = () => {
             value: openRoles,
             hint: `${jobs.length} total postings`,
             icon: Briefcase,
-            iconClassName: 'bg-[#dbeafe] text-[#1d4ed8]',
+            iconClassName: 'bg-info/15 text-info',
           },
         ]
       : []),
@@ -105,14 +107,14 @@ export const Dashboard = () => {
       value: pendingLeaves,
       hint: `${leaves.length} requests total`,
       icon: CalendarClock,
-      iconClassName: 'bg-[#dcfce7] text-[#166534]',
+      iconClassName: 'bg-success/15 text-success',
     },
     {
       label: 'Departments',
       value: departmentCount || '—',
       hint: 'With assigned members',
       icon: Building2,
-      iconClassName: 'bg-[#f3e8ff] text-[#7e22ce]',
+      iconClassName: 'bg-brand-dim text-primary',
     },
   ] as const;
 
@@ -169,10 +171,10 @@ export const Dashboard = () => {
                   <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
                     {card.label}
                   </p>
-                  <p className="mt-3 text-[31px] font-semibold leading-none tracking-[-0.035em] text-slate-950">
+                  <p className="mt-3 text-[31px] font-semibold leading-none tracking-[-0.035em] text-foreground">
                     {card.value}
                   </p>
-                  <p className="mt-2 text-sm text-slate-600">{card.hint}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{card.hint}</p>
                 </div>
                 <div
                   className={`flex size-11 items-center justify-center rounded-2xl shadow-sm ${card.iconClassName}`}
@@ -190,8 +192,8 @@ export const Dashboard = () => {
       <div className="grid gap-4 xl:grid-cols-12">
         <ContentCard
           className={`dashboard-panel rounded-[8px] ${isAdmin ? 'xl:col-span-8' : 'xl:col-span-7'}`}
-          headerClassName="border-b border-[#d7e3f6] px-5 py-4"
-          titleClassName="text-[17px] font-semibold text-slate-950"
+          headerClassName={contentCardHeaderClassName}
+          titleClassName={contentCardTitleClassName}
           title="Recent leave requests"
           action={
             <Link href={tenantHref('leaves')} className="dashboard-link text-xs font-semibold">
@@ -201,8 +203,8 @@ export const Dashboard = () => {
           bodyClassName="p-4"
         >
           {recentLeaves.length === 0 ? (
-            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-slate-500">
-              <CalendarClock className="size-10 text-slate-400" />
+            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+              <CalendarClock className="size-10 text-muted-foreground" />
               <p className="text-sm">No leave requests yet.</p>
             </div>
           ) : (
@@ -210,13 +212,13 @@ export const Dashboard = () => {
               {recentLeaves.map((leave) => (
                 <div
                   key={leave.id}
-                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] px-4 py-3 transition-colors hover:bg-white/80 sm:flex-row sm:items-center sm:justify-between"
+                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] px-4 py-3 transition-colors hover:bg-background/70 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-900">
+                    <p className="truncate text-sm font-semibold text-foreground">
                       {leave.employee}
                     </p>
-                    <p className="mt-1 text-xs text-slate-600">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {leave.type} · {formatDate(leave.startDate)} – {formatDate(leave.endDate)}
                     </p>
                   </div>
@@ -235,8 +237,8 @@ export const Dashboard = () => {
         {isAdmin ? (
           <ContentCard
             className="dashboard-panel rounded-[8px] xl:col-span-4"
-            headerClassName="border-b border-[#d7e3f6] px-5 py-4"
-            titleClassName="text-[17px] font-semibold text-slate-950"
+            headerClassName={contentCardHeaderClassName}
+            titleClassName={contentCardTitleClassName}
             title="Hiring pipeline"
             action={
               <Link
@@ -254,27 +256,27 @@ export const Dashboard = () => {
                   <p className="dashboard-outline-label text-[10px] font-semibold uppercase">
                     {stage.label}
                   </p>
-                  <p className="mt-1 text-2xl font-semibold tracking-tight text-slate-950">
+                  <p className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
                     {stage.count}
                   </p>
                 </div>
               ))}
             </div>
-            <div className="rounded-[8px] border border-[#d7e3f6] bg-white/55 px-3 pb-2 pt-4">
-              <div className="flex h-24 items-end gap-2 border-b border-[#d7e3f6] pb-2">
+            <div className="dashboard-soft-tile rounded-[8px] px-3 pb-2 pt-4">
+              <div className="flex h-24 items-end gap-2 border-b border-border/60 pb-2">
                 {pipelineStages.map((stage) => {
                   const height = Math.max(10, (stage.count / pipelineMax) * 100);
                   return (
                     <div key={stage.label} className="flex flex-1 flex-col items-center gap-2">
                       <div
-                        className="w-full max-w-9 rounded-t-xl bg-linear-to-t from-[#334e7e] to-[#7da7ef]"
+                        className="dashboard-chart-bar w-full max-w-9"
                         style={{ height: `${height}%` }}
                       ></div>
                     </div>
                   );
                 })}
               </div>
-              <div className="mt-2 flex justify-between text-[10px] font-medium text-slate-500">
+              <div className="mt-2 flex justify-between text-[10px] font-medium text-muted-foreground">
                 {pipelineStages.map((stage) => (
                   <span key={stage.label}>{stage.label}</span>
                 ))}

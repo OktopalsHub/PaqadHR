@@ -27,8 +27,8 @@ export function DashboardActivityFeed() {
     <ContentCard
       title="Recent activity"
       className="dashboard-panel min-w-0 h-full rounded-[8px]"
-      headerClassName="border-b border-[#d7e3f6] px-5 py-4 dark:border-slate-800"
-      titleClassName="text-[17px] font-semibold text-slate-950 dark:text-slate-100"
+      headerClassName="border-b border-border/60 px-5 py-4"
+      titleClassName="text-[17px] font-semibold text-foreground"
       bodyClassName="min-w-0 flex-1 space-y-3 p-4 sm:p-5"
       action={
         isAdmin ? (
@@ -54,7 +54,7 @@ export function DashboardActivityFeed() {
             >
               <div
                 className={cn(
-                  'flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-white/60 shadow-sm',
+                  'flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border/50 shadow-sm',
                   iconClassName,
                 )}
               >
@@ -68,11 +68,11 @@ export function DashboardActivityFeed() {
                     className="size-6 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                    <p className="text-sm font-medium text-foreground">
                       {title}
                       {failed ? ' (failed)' : ''}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {actor} ·{' '}
                       {formatDistanceToNow(new Date(activity.createdAt), { addSuffix: true })}
                     </p>
@@ -89,8 +89,8 @@ export function DashboardActivityFeed() {
 
 function FeedMessage({ text }: { text: string }) {
   return (
-    <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-slate-500">
-      <Activity className="size-8 text-slate-400" />
+    <div className="flex min-h-40 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+      <Activity className="size-8 text-muted-foreground" />
       <p className="text-sm">{text}</p>
     </div>
   );

@@ -39,8 +39,8 @@ export function UpcomingReminders() {
       <ContentCard
         title="Upcoming celebrations"
         className="dashboard-panel rounded-[8px]"
-        headerClassName="border-b border-[#d7e3f6] px-5 py-4"
-        titleClassName="text-[17px] font-semibold text-slate-950"
+        headerClassName="border-b border-border/60 px-5 py-4"
+        titleClassName="text-[17px] font-semibold text-foreground"
       >
         <LoadingBlock />
       </ContentCard>
@@ -67,14 +67,14 @@ export function UpcomingReminders() {
       title="Upcoming celebrations"
       description="Birthdays and work anniversaries"
       className="dashboard-panel rounded-[8px]"
-      headerClassName="border-b border-[#d7e3f6] px-5 py-4"
-      titleClassName="text-[17px] font-semibold text-slate-950"
-      descriptionClassName="text-sm text-slate-600"
+      headerClassName="border-b border-border/60 px-5 py-4"
+      titleClassName="text-[17px] font-semibold text-foreground"
+      descriptionClassName="text-sm text-muted-foreground"
       bodyClassName="p-5"
     >
       {items.length === 0 ? (
-        <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center text-slate-500">
-          <Gift className="size-10 text-slate-400" />
+        <div className="flex min-h-[180px] flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+          <Gift className="size-10 text-muted-foreground" />
           <p className="text-sm">No upcoming celebrations.</p>
         </div>
       ) : (
@@ -85,21 +85,21 @@ export function UpcomingReminders() {
               className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] p-3.5 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-2">
-                <div className="flex size-10 items-center justify-center rounded-2xl bg-white/80 shadow-sm">
+                <div className="flex size-10 items-center justify-center rounded-2xl border border-border/60 bg-background/70 shadow-sm">
                   {item.type === 'birthday' ? (
-                    <Gift className="size-4 text-[#dd6b20]" />
+                    <Gift className="size-4 text-warning" />
                   ) : (
-                    <Calendar className="size-4 text-[#35598e]" />
+                    <Calendar className="size-4 text-info" />
                   )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-slate-900">{item.title}</p>
-                  <p className="text-xs text-slate-600">{item.date}</p>
+                  <p className="text-sm font-medium text-foreground">{item.title}</p>
+                  <p className="text-xs text-muted-foreground">{item.date}</p>
                 </div>
               </div>
               <Badge
                 variant="outline"
-                className="self-start rounded-full border-[#cad7ee] bg-white/70 px-2.5 py-1 text-[11px] capitalize text-slate-600 sm:self-auto"
+                className="self-start rounded-full border-border/60 bg-background/70 px-2.5 py-1 text-[11px] capitalize text-muted-foreground sm:self-auto"
               >
                 {item.type}
               </Badge>

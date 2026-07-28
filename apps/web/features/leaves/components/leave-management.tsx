@@ -86,7 +86,6 @@ const LeaveManagement = () => {
           <div className="space-y-4">
             <ContentCard
               title="Leave requests"
-              description="Review and action pending time-off"
               className="dashboard-panel rounded-[8px]"
               bodyClassName="p-0"
             >

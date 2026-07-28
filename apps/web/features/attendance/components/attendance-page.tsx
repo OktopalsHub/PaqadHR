@@ -36,32 +36,20 @@ export function AttendancePage() {
     <AppPage className="mx-auto w-full max-w-7xl space-y-6">
       <Tabs defaultValue="mine" className="w-full gap-5">
         <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex h-auto min-w-max flex-nowrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
-            <TabsTrigger
-              value="mine"
-              className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
-            >
+          <TabsList className="app-segmented-control">
+            <TabsTrigger value="mine" className="app-segmented-trigger sm:px-6">
               My timesheet
             </TabsTrigger>
             {canViewTeam ? (
-              <TabsTrigger
-                value="team"
-                className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
-              >
+              <TabsTrigger value="team" className="app-segmented-trigger sm:px-6">
                 Team
               </TabsTrigger>
             ) : null}
-            <TabsTrigger
-              value="exceptions"
-              className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
-            >
+            <TabsTrigger value="exceptions" className="app-segmented-trigger sm:px-6">
               Exceptions
             </TabsTrigger>
             {isAdmin ? (
-              <TabsTrigger
-                value="reports"
-                className="rounded-[8px] px-5 py-2 text-sm font-medium whitespace-nowrap text-slate-500 shadow-none data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none sm:px-6"
-              >
+              <TabsTrigger value="reports" className="app-segmented-trigger sm:px-6">
                 Reports
               </TabsTrigger>
             ) : null}

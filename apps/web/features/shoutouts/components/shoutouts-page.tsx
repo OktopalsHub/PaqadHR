@@ -181,17 +181,11 @@ function ShoutoutsPageContent() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-5">
         <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex h-auto min-w-max items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
-            <TabsTrigger
-              className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
-              value="feed"
-            >
+          <TabsList className="app-segmented-control gap-1">
+            <TabsTrigger className="app-segmented-trigger !flex-none" value="feed">
               Shoutouts Feed
             </TabsTrigger>
-            <TabsTrigger
-              className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
-              value="tasks"
-            >
+            <TabsTrigger className="app-segmented-trigger !flex-none" value="tasks">
               Points Tasks
               {availableCount > 0 ? (
                 <span className="ml-1 inline-flex items-center justify-center rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
@@ -199,10 +193,7 @@ function ShoutoutsPageContent() {
                 </span>
               ) : null}
             </TabsTrigger>
-            <TabsTrigger
-              className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
-              value="redeem"
-            >
+            <TabsTrigger className="app-segmented-trigger !flex-none" value="redeem">
               Redeem Rewards
             </TabsTrigger>
           </TabsList>

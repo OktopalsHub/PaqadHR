@@ -15,7 +15,7 @@ function AppTablePanel({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       className={cn(
-        'min-w-0 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-none',
+        'min-w-0 overflow-hidden rounded-[8px] border border-border/60 bg-background/80 shadow-sm',
         className,
       )}
       {...props}
@@ -34,31 +34,20 @@ function AppTableHeaderSection({ className, ...props }: React.ComponentProps<typ
 function AppTableHeaderRow({ className, ...props }: React.ComponentProps<typeof TableRow>) {
   return (
     <TableRow
-      className={cn(
-        'border-b border-slate-200 bg-slate-50 hover:bg-slate-50 dark:border-slate-700/80 dark:bg-slate-900/70',
-        className,
-      )}
+      className={cn('border-b border-border/60 bg-muted/40 hover:bg-muted/40', className)}
       {...props}
     />
   );
 }
 
 function AppTableBodySection({ className, ...props }: React.ComponentProps<typeof TableBody>) {
-  return (
-    <TableBody
-      className={cn('divide-y divide-slate-200 dark:divide-slate-800', className)}
-      {...props}
-    />
-  );
+  return <TableBody className={cn('divide-y divide-border/60', className)} {...props} />;
 }
 
 function AppTableBodyRow({ className, ...props }: React.ComponentProps<typeof TableRow>) {
   return (
     <TableRow
-      className={cn(
-        'border-0 transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-900/70',
-        className,
-      )}
+      className={cn('border-0 transition-colors hover:bg-muted/25', className)}
       {...props}
     />
   );
@@ -68,7 +57,7 @@ function AppTableHeadCell({ className, ...props }: React.ComponentProps<typeof T
   return (
     <TableHead
       className={cn(
-        'px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 sm:px-6 dark:text-slate-400',
+        'px-4 py-4 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground sm:px-6',
         className,
       )}
       {...props}
@@ -78,10 +67,7 @@ function AppTableHeadCell({ className, ...props }: React.ComponentProps<typeof T
 
 function AppTableCell({ className, ...props }: React.ComponentProps<typeof TableCell>) {
   return (
-    <TableCell
-      className={cn('px-4 py-4 text-sm text-slate-700 sm:px-6 dark:text-slate-300', className)}
-      {...props}
-    />
+    <TableCell className={cn('px-4 py-4 text-sm text-foreground sm:px-6', className)} {...props} />
   );
 }
 
@@ -89,7 +75,7 @@ function AppTableFooterBar({ className, ...props }: React.ComponentProps<'div'>)
   return (
     <div
       className={cn(
-        'flex flex-col items-start gap-3 border-t border-slate-100 bg-slate-50/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6 dark:border-slate-800 dark:bg-slate-900/50',
+        'flex flex-col items-start gap-3 border-t border-border/60 bg-muted/25 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6',
         className,
       )}
       {...props}

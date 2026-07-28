@@ -107,14 +107,6 @@ export function ActivityLogPage() {
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center xl:ml-auto xl:justify-end">
-              <div className="dashboard-soft-tile flex items-center gap-2 rounded-[8px] px-4 py-3 text-sm text-slate-600 dark:text-slate-300">
-                <span className="size-2 rounded-full bg-primary" />
-                Filtered by:
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
-                  {FILTERS.find((option) => option.value === filter)?.label ?? 'All'}
-                </span>
-              </div>
-
               <Button
                 variant="outline"
                 size="sm"

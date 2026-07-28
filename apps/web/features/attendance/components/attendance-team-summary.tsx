@@ -39,7 +39,7 @@ export function AttendanceSummaryMonthPicker({
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Month</span>
+      <span className="text-sm font-medium text-muted-foreground">Month</span>
       <Input
         id="team-month"
         type="month"
@@ -51,7 +51,7 @@ export function AttendanceSummaryMonthPicker({
             onMonthChange(m);
           }
         }}
-        className="w-[180px] border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+        className="app-input-surface w-[180px]"
       />
     </div>
   );
@@ -84,6 +84,59 @@ function MemberSummaryRow({
   const [expanded, setExpanded] = useState(false);
   const name = memberDisplayName(entry.member);
   const stats = entry.statistics;
+  const expandedRow = expanded ? (
+    <AppTableBodyRow className="bg-muted/35 hover:bg-muted/35">
+      <AppTableCell colSpan={6}>
+        <div className="flex flex-wrap gap-1 py-2">
+          {entry.dailyAttendance.map((day) => {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const dateObj = new Date(day.date);
+
+            const weekends = tenantSettings?.settings?.attendance?.weekends ?? [0, 6];
+            const isWeekend = weekends.includes(dateObj.getDay());
+            const holidayName = isHolidayDate(
+              day.date,
+              tenantSettings?.settings?.holidays?.customHolidays,
+            );
+
+            const isPast = day.date < todayStr;
+            const isToday = day.date === todayStr;
+            const isPresent = day.status === 'PRESENT' || day.status === 'LATE';
+
+            let cellColorClass = 'bg-muted text-muted-foreground';
+
+            if (isPresent) {
+              cellColorClass = 'bg-success text-primary-foreground';
+            } else if (isWeekend || holidayName) {
+              cellColorClass = 'bg-secondary text-secondary-foreground';
+            } else if (isPast || isToday) {
+              cellColorClass = 'bg-destructive text-destructive-foreground';
+            }
+
+            const dayOfWeekName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            let hoverText = `${day.date} (${dayOfWeekName})`;
+            if (holidayName) {
+              hoverText += ` - Holiday: ${holidayName}`;
+            } else if (isWeekend) {
+              hoverText += ` - Weekend (${dayOfWeekName})`;
+            } else {
+              hoverText += ` - Status: ${statusLabel(day.status)}`;
+            }
+
+            return (
+              <div
+                key={day.date}
+                title={hoverText}
+                className={`flex size-7 items-center justify-center rounded-[6px] text-[10px] font-medium transition-colors ${cellColorClass}`}
+              >
+                {day.day}
+              </div>
+            );
+          })}
+        </div>
+      </AppTableCell>
+    </AppTableBodyRow>
+  ) : null;
 
   return (
     <>
@@ -105,7 +158,7 @@ function MemberSummaryRow({
             </div>
           </div>
         </AppTableCell>
-        <AppTableCell className="text-slate-500 dark:text-slate-400">
+        <AppTableCell className="text-muted-foreground">
           {entry.member.employeeNumber ?? '—'}
         </AppTableCell>
         <AppTableCell>{stats.presentDays}</AppTableCell>
@@ -113,60 +166,7 @@ function MemberSummaryRow({
         <AppTableCell>{stats.leaveDays}</AppTableCell>
         <AppTableCell>{stats.attendanceRate.toFixed(1)}%</AppTableCell>
       </AppTableBodyRow>
-      {expanded ? (
-        <AppTableBodyRow className="bg-slate-50/70 hover:bg-slate-50/70 dark:bg-slate-900/40 dark:hover:bg-slate-900/40">
-          <AppTableCell colSpan={6}>
-            <div className="flex flex-wrap gap-1 py-2">
-              {entry.dailyAttendance.map((day) => {
-                const todayStr = new Date().toISOString().split('T')[0];
-                const dateObj = new Date(day.date);
-
-                const weekends = tenantSettings?.settings?.attendance?.weekends ?? [0, 6];
-                const isWeekend = weekends.includes(dateObj.getDay());
-                const holidayName = isHolidayDate(
-                  day.date,
-                  tenantSettings?.settings?.holidays?.customHolidays,
-                );
-
-                const isPast = day.date < todayStr;
-                const isToday = day.date === todayStr;
-                const isPresent = day.status === 'PRESENT' || day.status === 'LATE';
-
-                let cellColorClass =
-                  'bg-zinc-200 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500';
-
-                if (isPresent) {
-                  cellColorClass = 'bg-emerald-500 text-white dark:bg-emerald-600';
-                } else if (isWeekend || holidayName) {
-                  cellColorClass = 'bg-zinc-700 text-zinc-100 dark:bg-zinc-800 dark:text-zinc-200';
-                } else if (isPast || isToday) {
-                  cellColorClass = 'bg-rose-500 text-white dark:bg-rose-600';
-                }
-
-                const dayOfWeekName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-                let hoverText = `${day.date} (${dayOfWeekName})`;
-                if (holidayName) {
-                  hoverText += ` - Holiday: ${holidayName}`;
-                } else if (isWeekend) {
-                  hoverText += ` - Weekend (${dayOfWeekName})`;
-                } else {
-                  hoverText += ` - Status: ${statusLabel(day.status)}`;
-                }
-
-                return (
-                  <div
-                    key={day.date}
-                    title={hoverText}
-                    className={`flex size-7 items-center justify-center rounded-[6px] text-[10px] font-medium transition-colors ${cellColorClass}`}
-                  >
-                    {day.day}
-                  </div>
-                );
-              })}
-            </div>
-          </AppTableCell>
-        </AppTableBodyRow>
-      ) : null}
+      {expandedRow}
     </>
   );
 }
@@ -224,14 +224,14 @@ export function AttendanceTeamSummary({ month, year }: { month: number; year: nu
           </AppTable>
           {pagination && pagination.totalPages > 1 ? (
             <AppTableFooterBar>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-muted-foreground">
                 Page {pagination.page} of {pagination.totalPages} · {pagination.total} members
               </p>
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                  className="border-border/70 bg-background/80 text-foreground shadow-none hover:bg-muted/35 hover:text-foreground"
                   disabled={!pagination.hasPrev}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                 >
@@ -240,7 +240,7 @@ export function AttendanceTeamSummary({ month, year }: { month: number; year: nu
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                  className="border-border/70 bg-background/80 text-foreground shadow-none hover:bg-muted/35 hover:text-foreground"
                   disabled={!pagination.hasNext}
                   onClick={() => setPage((p) => p + 1)}
                 >

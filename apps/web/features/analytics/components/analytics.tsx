@@ -5,7 +5,12 @@ import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  isUpgradeRequiredError,
+  UpgradeRequiredPanel,
+} from '@/features/billing/components/upgrade-prompt';
 import { useAnalyticsOverview } from '@/hooks/queries/use-analytics';
+import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatPaqPoints } from '@/lib/constants/paq-points';
 import { AnalyticsCharts } from './analytics-charts';
 
@@ -29,6 +34,14 @@ export const Analytics = () => {
     return (
       <AppPage>
         <LoadingBlock />
+      </AppPage>
+    );
+  }
+
+  if (isError && isUpgradeRequiredError(error)) {
+    return (
+      <AppPage className="mx-auto w-full max-w-5xl">
+        <UpgradeRequiredPanel feature={FeatureAccess.ADVANCED_REPORTING} />
       </AppPage>
     );
   }

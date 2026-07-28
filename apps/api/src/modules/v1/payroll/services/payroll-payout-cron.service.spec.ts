@@ -1,3 +1,4 @@
+import type { PayrollService } from './payroll.service';
 import type { PayrollPayoutService } from './payroll-payout.service';
 import { PayrollPayoutCronService } from './payroll-payout-cron.service';
 
@@ -10,10 +11,13 @@ describe('PayrollPayoutCronService', () => {
     const payrollPayoutService = {
       requeryStuckPayouts: jest.fn(),
     } as unknown as PayrollPayoutService;
+    const payrollService = {
+      processDueScheduledPayouts: jest.fn(),
+    } as unknown as PayrollService;
 
-    const cronService = new PayrollPayoutCronService(payrollPayoutService);
+    const cronService = new PayrollPayoutCronService(payrollPayoutService, payrollService);
 
-    return { cronService, payrollPayoutService };
+    return { cronService, payrollPayoutService, payrollService };
   };
 
   afterEach(() => {

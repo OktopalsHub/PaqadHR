@@ -32,7 +32,7 @@ export function AttendanceDateFilters({
   return (
     <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-end xl:justify-between">
       <div className="overflow-x-auto pb-1">
-        <div className="inline-flex min-w-max flex-nowrap items-center rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
+        <div className="app-segmented-control">
           {PRESETS.map((item) => (
             <Button
               key={item.id}
@@ -42,8 +42,8 @@ export function AttendanceDateFilters({
               className={cn(
                 'rounded-[8px] px-4 text-sm whitespace-nowrap shadow-none',
                 preset === item.id
-                  ? 'border border-slate-200 bg-slate-50 font-semibold text-slate-800 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-900'
-                  : 'font-medium text-slate-500 hover:bg-transparent hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100',
+                  ? 'border border-primary/25 bg-primary/12 font-semibold text-foreground hover:bg-primary/12'
+                  : 'font-medium text-muted-foreground hover:bg-muted/35 hover:text-foreground',
               )}
               onClick={() => onPresetChange(item.id)}
             >
@@ -58,14 +58,14 @@ export function AttendanceDateFilters({
             type="date"
             value={from}
             onChange={(e) => onFromChange(e.target.value)}
-            className="w-full sm:w-[170px] border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+            className="app-input-surface w-full sm:w-[170px]"
           />
-          <span className="text-sm text-slate-500 dark:text-slate-400 sm:block">to</span>
+          <span className="text-sm text-muted-foreground sm:block">to</span>
           <Input
             type="date"
             value={to}
             onChange={(e) => onToChange(e.target.value)}
-            className="w-full sm:w-[170px] border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+            className="app-input-surface w-full sm:w-[170px]"
           />
         </div>
       ) : null}

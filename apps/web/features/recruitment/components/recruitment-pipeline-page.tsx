@@ -87,7 +87,6 @@ export function RecruitmentPipelinePage() {
 
       <RecruitmentBoardToolbar
         title="Candidate pipeline"
-        description="Track applicants across every hiring stage and keep the process moving."
         qualifiedCount={qualifiedCount}
         disqualifiedCount={disqualifiedCount}
         search={search}
@@ -99,7 +98,7 @@ export function RecruitmentPipelinePage() {
         <EmptyState
           icon={Users}
           title="No candidates yet"
-          description="Add your first candidate or publish a role to start receiving applications."
+          description="Add your first candidate to start building the pipeline."
           action={
             <Button variant="brandSolid" size="app" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" />

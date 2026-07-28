@@ -17,6 +17,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { AttendanceDateFilters } from '@/features/attendance/components/attendance-date-filters';
 import {
+  attendanceStatusDotClass,
+  attendanceStatusPillClass,
   type DateRangePreset,
   formatRecordDate,
   formatTimeOnly,
@@ -26,40 +28,6 @@ import {
 } from '@/features/attendance/lib/attendance-utils';
 import { useTeamAttendanceRecords } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
-
-function getAttendanceStatusStyles(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/20 dark:text-green-400';
-    case 'LATE':
-      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-400';
-    case 'ABSENT':
-      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400';
-    case 'ON_LEAVE':
-      return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400';
-    case 'WEEKEND':
-      return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-800/20 dark:text-gray-400';
-    default:
-      return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-800/20 dark:text-gray-400';
-  }
-}
-
-function getAttendanceStatusDotClass(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'bg-green-500';
-    case 'LATE':
-      return 'bg-amber-500';
-    case 'ABSENT':
-      return 'bg-red-500';
-    case 'ON_LEAVE':
-      return 'bg-blue-500';
-    default:
-      return 'bg-gray-400 dark:bg-gray-500';
-  }
-}
 
 export function AttendanceTeamSessions() {
   const [preset, setPreset] = useState<DateRangePreset>('month');
@@ -92,7 +60,7 @@ export function AttendanceTeamSessions() {
 
   return (
     <>
-      <div className="border-b border-[#d7e3f6] px-5 py-4 dark:border-slate-800">
+      <div className="border-b border-border/60 px-5 py-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:flex-wrap xl:items-start xl:justify-between">
           <AttendanceDateFilters
             preset={preset}
@@ -103,12 +71,12 @@ export function AttendanceTeamSessions() {
             onToChange={setCustomTo}
           />
           <div className="relative w-full xl:w-[340px] xl:flex-none">
-            <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+            <Search className="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by name or employee number…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="border-slate-200 bg-white py-2 pr-3 pl-10 text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:placeholder:text-slate-500"
+              className="app-input-surface py-2 pr-3 pl-10"
             />
           </div>
         </div>
@@ -156,7 +124,7 @@ export function AttendanceTeamSessions() {
                       <span>{name}</span>
                     </div>
                   </AppTableCell>
-                  <AppTableCell className="text-slate-500 dark:text-slate-400">
+                  <AppTableCell className="text-muted-foreground">
                     {record.member?.employeeNumber ?? '—'}
                   </AppTableCell>
                   <AppTableCell>{formatRecordDate(record.date)}</AppTableCell>
@@ -166,12 +134,12 @@ export function AttendanceTeamSessions() {
                   <AppTableCell>{record.workHours ?? '—'}</AppTableCell>
                   <AppTableCell>
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getAttendanceStatusStyles(
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${attendanceStatusPillClass(
                         record.status,
                       )}`}
                     >
                       <span
-                        className={`size-1.5 rounded-full ${getAttendanceStatusDotClass(
+                        className={`size-1.5 rounded-full ${attendanceStatusDotClass(
                           record.status,
                         )}`}
                       />
