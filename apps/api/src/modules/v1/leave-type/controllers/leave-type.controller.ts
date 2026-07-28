@@ -1,7 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -12,6 +13,7 @@ import { LeaveTypeService } from '../leave-type.service';
 @ApiTags('Leave Types')
 @Controller('tenants/:tenantId/leave-types')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeaveTypeController {
   constructor(private readonly leaveTypeService: LeaveTypeService) {}
   @Post()

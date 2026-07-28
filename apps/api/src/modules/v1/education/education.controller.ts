@@ -14,7 +14,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { assertSelfOnly, isTenantAdmin } from 'src/common/utils/member-access.util';
@@ -25,8 +26,9 @@ import { EducationService } from './education.service';
 import type { Education } from './entities/education.entity';
 
 @ApiTags('Education')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/education')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class EducationController {
   constructor(
     private readonly educationService: EducationService,

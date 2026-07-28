@@ -64,12 +64,12 @@ export function isUpgradeRequiredError(error: unknown): boolean {
   return hasUpgradeMessage;
 }
 
-type UpgradeRequiredModalProps = {
+type UpgradeRequiredPanelProps = {
   feature: string;
   className?: string;
 };
 
-export function UpgradeRequiredPanel({ feature, className }: UpgradeRequiredModalProps) {
+export function UpgradeRequiredPanel({ feature, className }: UpgradeRequiredPanelProps) {
   const { currentPlan, plansForFeature, sortedPlans, handleUpgrade } = useUpgradeOptions(feature);
   const fallbackPlan = plansForFeature[0];
 

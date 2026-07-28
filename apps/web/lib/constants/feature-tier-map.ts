@@ -15,7 +15,7 @@ export const FEATURE_TIER_MAP: Record<FeatureAccess, PlanSlug> = {
   [FeatureAccess.API_ACCESS]: 'scale',
   [FeatureAccess.INTEGRATIONS]: 'growth',
   [FeatureAccess.MULTI_LOCATION]: 'scale',
-  [FeatureAccess.ADVANCED_PAYROLL]: 'scale',
+  [FeatureAccess.ADVANCED_PAYROLL]: 'starter',
   [FeatureAccess.LEARNING_DEVELOPMENT]: 'scale',
   [FeatureAccess.CUSTOM_WORKFLOWS]: 'scale',
   [FeatureAccess.WHITE_LABEL]: 'scale',
@@ -26,10 +26,7 @@ export function getFeatureTier(feature: string): PlanSlug | null {
   return FEATURE_TIER_MAP[feature as FeatureAccess] ?? null;
 }
 
-export function getPlansForFeature(
-  feature: string,
-  currentPlan: PlanSlug,
-): PlanSlug[] {
+export function getPlansForFeature(feature: string, currentPlan: PlanSlug): PlanSlug[] {
   const tier = FEATURE_TIER_MAP[feature as FeatureAccess];
   if (!tier) return [];
 

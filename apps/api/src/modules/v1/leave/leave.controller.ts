@@ -11,8 +11,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { LeaveStatus } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
 import { isTenantAdmin } from 'src/common/utils/member-access.util';
@@ -26,6 +27,7 @@ import { LeaveService } from './leave.service';
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leaves')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.LEAVE_MANAGEMENT)
 export class LeaveController {
   constructor(
     private readonly leaveService: LeaveService,

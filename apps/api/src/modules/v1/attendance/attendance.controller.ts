@@ -12,8 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
-import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
@@ -33,8 +32,8 @@ import { UpdateAttendancePolicyDto } from './dto/update-attendance-policy.dto';
 import { DateValidationUtil } from './utils/date-validation.util';
 
 @ApiTags('Attendance')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/attendance')
+@UseGuards(TenantMemberGuard)
 @RequireFeatures(FeatureAccess.ATTENDANCE)
 export class AttendanceController {
   constructor(
@@ -93,6 +92,7 @@ export class AttendanceController {
   @Post('policies')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   createAttendancePolicy(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateAttendancePolicyDto,
@@ -103,6 +103,7 @@ export class AttendanceController {
   @Get('policies')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   getAttendancePolicies(@Param('tenantId') tenantId: string) {
     return this.attendanceService.getAttendancePolicies(tenantId);
   }
@@ -110,6 +111,7 @@ export class AttendanceController {
   @Get('policies/:policyId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   getAttendancePolicy(@Param('tenantId') tenantId: string, @Param('policyId') policyId: string) {
     return this.attendanceService.getAttendancePolicy(tenantId, policyId);
   }
@@ -117,6 +119,7 @@ export class AttendanceController {
   @Patch('policies/:policyId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   updateAttendancePolicy(
     @Param('tenantId') tenantId: string,
     @Param('policyId') policyId: string,
@@ -128,6 +131,7 @@ export class AttendanceController {
   @Delete('policies/:policyId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   deleteAttendancePolicy(@Param('tenantId') tenantId: string, @Param('policyId') policyId: string) {
     return this.attendanceService.deleteAttendancePolicy(tenantId, policyId);
   }
@@ -164,6 +168,7 @@ export class AttendanceController {
   }
 
   @Post('exceptions')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   createAttendanceException(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateAttendanceExceptionDto,
@@ -173,6 +178,7 @@ export class AttendanceController {
   }
 
   @Get('exceptions')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   async getAttendanceExceptions(
     @Param('tenantId') tenantId: string,
     @Query('employeeId') employeeId?: string,
@@ -212,6 +218,7 @@ export class AttendanceController {
   }
 
   @Get('exceptions/:exceptionId')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   async getAttendanceException(
     @Param('tenantId') tenantId: string,
     @Param('exceptionId') exceptionId: string,
@@ -223,6 +230,7 @@ export class AttendanceController {
   }
 
   @Patch('exceptions/:exceptionId/approve')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   async approveAttendanceException(
     @Param('tenantId') tenantId: string,
     @Param('exceptionId') exceptionId: string,
@@ -235,6 +243,7 @@ export class AttendanceController {
   }
 
   @Patch('exceptions/:exceptionId/reject')
+  @RequireFeatures(FeatureAccess.ADVANCED_ATTENDANCE)
   async rejectAttendanceException(
     @Param('tenantId') tenantId: string,
     @Param('exceptionId') exceptionId: string,

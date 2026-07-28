@@ -1,4 +1,4 @@
-import { apiClient, fetchWithCsrf, getApiV1Base, type ApiClientOptions } from '@/lib/api/client';
+import { type ApiClientOptions, apiClient, fetchWithCsrf, getApiV1Base } from '@/lib/api/client';
 
 export type NotificationType = 'system' | 'tenant' | 'user';
 export type NotificationChannel = 'email' | 'in_app' | 'both';

@@ -18,7 +18,6 @@ import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from '../../../../common/enums';
 import { FeatureAccess } from '../../../../common/enums/subscription.enum';
-import { FeatureAccessGuard } from '../../../../common/guards/feature-access.guard';
 import { Roles, TenantRoleGuard } from '../../../../common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest, MemberContext } from '../../../../common/interfaces';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
@@ -35,7 +34,7 @@ import { PayrollService } from '../services/payroll.service';
 
 @ApiTags('Payroll')
 @Controller('tenants/:tenantId/payroll')
-@UseGuards(TenantMemberGuard, TenantRoleGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard, TenantRoleGuard)
 @RequireFeatures(FeatureAccess.PAYROLL)
 export class PayrollController {
   private readonly logger = new Logger(PayrollController.name);

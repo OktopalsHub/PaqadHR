@@ -2,7 +2,6 @@ import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequireFeatures } from 'src/common/decorators';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { PayrollFeeService } from '../services/payroll-fee.service';
 export class PayrollFeePreviewDto {
@@ -10,7 +9,7 @@ export class PayrollFeePreviewDto {
 }
 @ApiTags('Payroll Fees')
 @Controller('tenants/:tenantId/payroll/fees')
-@UseGuards(TenantMemberGuard, FeatureAccessGuard)
+@UseGuards(TenantMemberGuard)
 @RequireFeatures(FeatureAccess.PAYROLL)
 export class PayrollFeeController {
   constructor(private readonly payrollFeeService: PayrollFeeService) {}

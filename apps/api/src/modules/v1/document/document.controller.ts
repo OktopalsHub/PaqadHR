@@ -16,9 +16,10 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { DocumentType } from 'src/common/enums/document-type.enum';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { FileUrlService } from 'src/common/services/file-url.service';
@@ -34,8 +35,9 @@ import { UpdateDocumentDto } from './dto/update-document.dto';
 import { Document } from './entities/document.entity';
 
 @ApiTags('Documents')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/documents')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.EMPLOYEE_SELF_SERVICE)
 export class DocumentController {
   constructor(
     private readonly documentService: DocumentService,

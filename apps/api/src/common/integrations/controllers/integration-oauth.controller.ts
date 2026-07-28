@@ -16,8 +16,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { Request } from 'express';
 import { ENVIRONMENT } from 'src/common/config/env.config';
-import { Public } from 'src/common/decorators';
-import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
+import { Public, RequireFeatures } from 'src/common/decorators';
 import { IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';

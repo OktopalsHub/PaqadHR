@@ -10,8 +10,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
@@ -24,8 +25,9 @@ import { DepartmentResponseDto } from './dto/department-response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
 
 @ApiTags('Departments')
-@UseGuards(TenantMemberGuard)
 @Controller('tenants/:tenantId/departments')
+@UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.BASIC_HR)
 export class DepartmentsController {
   constructor(
     private readonly departmentsService: DepartmentsService,

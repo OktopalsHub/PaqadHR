@@ -1,5 +1,6 @@
 import axios, {
   type AxiosError,
+  AxiosHeaders,
   type AxiosRequestConfig,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
@@ -85,17 +86,21 @@ export async function ensureCsrfToken(force = false): Promise<string> {
   if (!force && csrfTokenPromise) return csrfTokenPromise;
 
   csrfTokenPromise = (async () => {
-    const response = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
-      withCredentials: true,
-    });
-
-    const data = response.data;
-    if (!data.csrfToken) {
-      throw new ApiError('CSRF token missing in response', response.status);
+    try {
+      const { data } = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
+        withCredentials: true,
+        headers: { 'Cache-Control': 'no-store' },
+      });
+      if (!data.csrfToken) {
+        throw new ApiError('CSRF token missing in response', 200);
+      }
+      csrfToken = data.csrfToken;
+      return csrfToken;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      const status = (error as AxiosError)?.response?.status ?? 0;
+      throw new ApiError('Failed to fetch CSRF token', status);
     }
-
-    csrfToken = data.csrfToken;
-    return csrfToken;
   })();
 
   try {
@@ -137,10 +142,11 @@ type ApiInterceptorConfig = InternalAxiosRequestConfig & {
   _isRetry?: boolean;
 };
 
-export type ApiClientOptions = {
+export type ApiClientOptions = Omit<AxiosRequestConfig, 'method' | 'headers' | 'data'> & {
   method?: string;
   headers?: HeadersInit;
   body?: BodyInit | null;
+  data?: unknown;
   skipCsrf?: boolean;
 };
 
@@ -162,7 +168,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function parseErrorPayload(response: AxiosResponse): Promise<ErrorPayload> {
+async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPayload> {
   try {
     return response.data as ErrorPayload;
   } catch {
@@ -170,38 +176,20 @@ async function parseErrorPayload(response: AxiosResponse): Promise<ErrorPayload>
   }
 }
 
-export async function fetchWithCsrf(
-  input: RequestInfo | URL,
-  init?: FetchWithCsrfOptions,
-): Promise<Response> {
-  const method = (init?.method ?? 'GET').toUpperCase();
-  const headers = new Headers(init?.headers);
+async function parseFetchErrorPayload(response: Response) {
+  return response.json().catch(() => null);
+}
 
-  if (!init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-    headers.set(CSRF_HEADER, await ensureCsrfToken());
+function createAxiosHeaders(headersInit?: HeadersInit): AxiosHeaders {
+  const headers = new AxiosHeaders();
+  if (!headersInit) return headers;
+
+  const normalizedHeaders = new Headers(headersInit);
+  for (const [key, value] of normalizedHeaders.entries()) {
+    headers.set(key, value);
   }
 
-  const response = await fetch(input, {
-    ...init,
-    method,
-    headers,
-    credentials: 'include',
-  });
-
-  if (!response.ok) {
-    const payload = await response
-      .clone()
-      .json()
-      .catch(() => null) as { message?: string | string[]; code?: string } | null;
-
-    const message =
-      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
-      `Request failed (${response.status})`;
-
-    throw new ApiError(message, response.status, payload?.code);
-  }
-
-  return response;
+  return headers;
 }
 
 const http = axios.create({
@@ -214,26 +202,31 @@ const http = axios.create({
 
 http.interceptors.request.use(async (config) => {
   const requestConfig = config as ApiInterceptorConfig;
+  const headers = AxiosHeaders.from(requestConfig.headers ?? {});
   const method = (requestConfig.method ?? 'get').toUpperCase();
-  const headers = (requestConfig.headers as unknown) as Record<string, string>;
-  const needsCsrf =
-    !requestConfig.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  const needsCsrf = !requestConfig.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   if (needsCsrf) {
-    headers[CSRF_HEADER] = await ensureCsrfToken();
+    headers.set(CSRF_HEADER, await ensureCsrfToken());
   }
 
   const path = requestConfig.url ?? '';
   const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
   if (tenantMatch?.[1]) {
-    headers['x-tenant-id'] = tenantMatch[1];
+    headers.set('x-tenant-id', tenantMatch[1]);
   }
 
-  return config;
+  requestConfig.headers = headers;
+  return requestConfig;
 });
 
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (isCsrfError(response.status, response.data)) {
+      clearCsrfToken();
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     const config = error.config;
     if (!config) return Promise.reject(error);
@@ -241,7 +234,6 @@ http.interceptors.response.use(
 
     const path = requestConfig.url ?? '';
     const status = error.response?.status ?? 0;
-
     const isRetry = requestConfig._isRetry ?? false;
 
     if (status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
@@ -257,7 +249,7 @@ http.interceptors.response.use(
       }
     }
 
-    const payload = await parseErrorPayload(error.response as AxiosResponse);
+    const payload = error.response ? await parseAxiosErrorPayload(error.response) : null;
     const message =
       (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
       `Request failed (${status})`;
@@ -266,31 +258,59 @@ http.interceptors.response.use(
   },
 );
 
+export async function fetchWithCsrf(
+  input: RequestInfo | URL,
+  init?: FetchWithCsrfOptions,
+): Promise<Response> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const needsCsrf = !init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  const headers = new Headers(init?.headers);
+
+  if (needsCsrf) {
+    headers.set(CSRF_HEADER, await ensureCsrfToken());
+  }
+
+  let response = await fetch(input, {
+    ...init,
+    method,
+    headers,
+    credentials: 'include',
+  });
+
+  if (needsCsrf && isCsrfError(response.status, await parseFetchErrorPayload(response.clone()))) {
+    clearCsrfToken();
+    headers.set(CSRF_HEADER, await ensureCsrfToken(true));
+    response = await fetch(input, {
+      ...init,
+      method,
+      headers,
+      credentials: 'include',
+    });
+  }
+
+  return response;
+}
+
 export async function apiClient<T>(
   path: string,
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
+  const headers = createAxiosHeaders(init?.headers);
+
+  if (init?.body && typeof init.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const config: ApiRequestConfig = {
     url: path,
     method: init?.method ?? 'GET',
-    data: init?.body,
+    data: init?.body ?? init?.data,
+    params: init?.params,
     _isRetry: isRetry,
     skipCsrf: init?.skipCsrf,
-    headers: {},
+    headers,
   };
-  const headers = ((config.headers ??= {}) as unknown) as Record<string, string>;
-
-  if (init?.headers) {
-    const initialHeaders = new Headers(init.headers);
-    for (const [key, value] of initialHeaders.entries()) {
-      headers[key] = value;
-    }
-  }
-
-  if (init?.body && typeof init.body === 'string' && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
 
   const response = await http(config).catch((err: unknown) => {
     if (err instanceof ApiError) throw err;
