@@ -17,7 +17,11 @@ import {
 } from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { memberDisplayName, statusLabel } from '@/features/attendance/lib/attendance-utils';
+import {
+  dayCellClass,
+  memberDisplayName,
+  statusLabel,
+} from '@/features/attendance/lib/attendance-utils';
 import { useMonthlyTimesheet } from '@/hooks/queries/use-attendance';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
@@ -99,19 +103,13 @@ function MemberSummaryRow({
               tenantSettings?.settings?.holidays?.customHolidays,
             );
 
-            const isPast = day.date < todayStr;
-            const isToday = day.date === todayStr;
-            const isPresent = day.status === 'PRESENT' || day.status === 'LATE';
-
-            let cellColorClass = 'bg-muted text-muted-foreground';
-
-            if (isPresent) {
-              cellColorClass = 'bg-success text-primary-foreground';
-            } else if (isWeekend || holidayName) {
-              cellColorClass = 'bg-secondary text-secondary-foreground';
-            } else if (isPast || isToday) {
-              cellColorClass = 'bg-destructive text-destructive-foreground';
-            }
+            const isFutureWorkingDay = !isWeekend && !holidayName && day.date > todayStr;
+            const cellColorClass =
+              isWeekend || holidayName
+                ? 'bg-secondary text-secondary-foreground'
+                : isFutureWorkingDay
+                  ? 'bg-muted text-muted-foreground'
+                  : dayCellClass(day.status);
 
             const dayOfWeekName = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
             let hoverText = `${day.date} (${dayOfWeekName})`;

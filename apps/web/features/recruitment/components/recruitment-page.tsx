@@ -8,6 +8,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useRecruitmentOverview } from '../hooks/use-recruitment-overview';
+import { filterRecruitmentJobs } from '../lib/filter-recruitment-jobs';
 import { RecruitmentBoardToolbar } from './board/recruitment-board-toolbar';
 import { CreateJobDialog } from './create-job-dialog';
 import { JobDetailSheet } from './job-detail-sheet';
@@ -21,25 +22,10 @@ export function RecruitmentPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const { overview, isLoading, jobsError, jobsErrorObj } = useRecruitmentOverview();
 
-  const filteredJobs = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    if (!term) return overview.jobs;
-
-    return overview.jobs.filter((job) => {
-      const haystack = [
-        job.title,
-        job.departmentName,
-        job.position,
-        job.employmentType,
-        job.location?.type,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return haystack.includes(term);
-    });
-  }, [overview.jobs, search]);
+  const filteredJobs = useMemo(
+    () => filterRecruitmentJobs(overview.jobs, search),
+    [overview.jobs, search],
+  );
 
   if (isLoading) {
     return (

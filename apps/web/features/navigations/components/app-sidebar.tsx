@@ -15,6 +15,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { SettingsSidebarNav } from '@/features/settings/components/settings-sidebar-nav';
+import { shouldUseSettingsSidebar } from '@/features/settings/lib/settings-tabs';
 import { useTenantHref, useTenantNavItems } from '@/hooks/use-tenant-nav-items';
 import { NavMain } from './nav-main';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -24,7 +25,7 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
   const tenantHref = useTenantHref();
   const pathname = usePathname();
   const settingsHref = tenantHref('settings');
-  const isSettingsActive = pathname.startsWith(settingsHref);
+  const isSettingsActive = shouldUseSettingsSidebar(pathname, settingsHref);
 
   return (
     <Sidebar
