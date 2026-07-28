@@ -1,4 +1,4 @@
-import { apiClient, fetchWithCsrf, getApiV1Base } from '@/lib/api/client';
+import { apiClient, fetchWithCsrf, getApiV1Base, type ApiClientOptions } from '@/lib/api/client';
 
 export type NotificationType = 'system' | 'tenant' | 'user';
 export type NotificationChannel = 'email' | 'in_app' | 'both';
@@ -28,7 +28,7 @@ export interface NotificationsListResponse {
   total: number;
 }
 
-function tenantHeaders(tenantId: string, init?: RequestInit): RequestInit {
+function tenantHeaders(tenantId: string, init?: ApiClientOptions): ApiClientOptions {
   const headers = new Headers(init?.headers);
   headers.set('x-tenant-id', tenantId);
   return { ...init, headers };

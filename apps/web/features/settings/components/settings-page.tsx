@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
@@ -15,24 +15,12 @@ import { SettingsShoutoutsTab } from '@/features/settings/components/settings-sh
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
 import {
   ADMIN_SETTINGS_TABS,
+  getVisibleSettingsTabs,
   isSettingsTab,
-  type SettingsTab,
+  SETTINGS_TAB_LABELS,
 } from '@/features/settings/lib/settings-tabs';
 import { useUrlTab } from '@/hooks/use-url-tab';
 import { useTenant } from '@/providers/tenant-provider';
-
-const TAB_LABELS: Record<SettingsTab, string> = {
-  profile: 'Profile',
-  workspace: 'Workspace',
-  leave: 'Leave',
-  shoutouts: 'Shoutouts',
-  rewards: 'Rewards',
-  holidays: 'Holidays',
-  notifications: 'Notifications',
-  attendance: 'Attendance',
-  billing: 'Billing',
-  integrations: 'Integrations',
-};
 
 export function SettingsPage() {
   const { tenant } = useTenant();
@@ -48,25 +36,14 @@ export function SettingsPage() {
   }, [activeTab, isAdmin, setTab]);
 
   const visibleTab = !isAdmin && ADMIN_SETTINGS_TABS.includes(activeTab) ? 'profile' : activeTab;
-  const tabOrder: SettingsTab[] = isAdmin
-    ? [
-        'profile',
-        'workspace',
-        'leave',
-        'shoutouts',
-        'rewards',
-        'holidays',
-        'notifications',
-        'attendance',
-        'billing',
-        'integrations',
-      ]
-    : ['profile'];
+  const visibleTabs = getVisibleSettingsTabs(isAdmin);
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <div className="space-y-1.5">
-        <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Workspace</p>
+        <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
+          {SETTINGS_TAB_LABELS[visibleTab]}
+        </p>
         <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
           Settings
         </h1>
@@ -75,69 +52,51 @@ export function SettingsPage() {
         </p>
       </div>
 
-      <Tabs
-        value={visibleTab}
-        onValueChange={(value) => setTab(value as SettingsTab)}
-        className="space-y-5"
-      >
-        <div className="overflow-x-auto pb-1">
-          <TabsList className="inline-flex h-auto min-w-max flex-nowrap items-center justify-start gap-1 rounded-[8px] border border-slate-100 bg-white p-1 shadow-[0_4px_20px_-2px_rgba(0,0,0,0.05)] dark:border-slate-800 dark:bg-slate-950/75 dark:shadow-none">
-            {tabOrder.map((tab) => (
-              <TabsTrigger
-                key={tab}
-                className="!flex-none rounded-[8px] px-5 py-2 text-sm font-medium text-slate-500 transition-colors data-[state=active]:border data-[state=active]:border-slate-200 data-[state=active]:bg-slate-50 data-[state=active]:font-semibold data-[state=active]:text-slate-800 data-[state=active]:shadow-sm dark:text-slate-400 dark:data-[state=active]:border-slate-700 dark:data-[state=active]:bg-slate-900 dark:data-[state=active]:text-slate-100 dark:data-[state=active]:shadow-none"
-                value={tab}
-              >
-                {TAB_LABELS[tab]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-
+      <Tabs value={visibleTab} className="space-y-5">
         <TabsContent value="profile" className="mt-0 data-[state=inactive]:hidden">
           <SettingsProfileTab />
         </TabsContent>
-        {isAdmin ? (
+        {visibleTabs.includes('workspace') ? (
           <TabsContent value="workspace" className="mt-0 data-[state=inactive]:hidden">
             <SettingsWorkspaceTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('leave') ? (
           <TabsContent value="leave" className="mt-0 data-[state=inactive]:hidden">
             <SettingsLeaveTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('shoutouts') ? (
           <TabsContent value="shoutouts" className="mt-0 data-[state=inactive]:hidden">
             <SettingsShoutoutsTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('rewards') ? (
           <TabsContent value="rewards" className="mt-0 data-[state=inactive]:hidden">
             <SettingsRewardsTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('holidays') ? (
           <TabsContent value="holidays" className="mt-0 data-[state=inactive]:hidden">
             <SettingsHolidaysTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('notifications') ? (
           <TabsContent value="notifications" className="mt-0 data-[state=inactive]:hidden">
             <SettingsNotificationsTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('attendance') ? (
           <TabsContent value="attendance" className="mt-0 data-[state=inactive]:hidden">
             <SettingsAttendanceTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('billing') ? (
           <TabsContent value="billing" className="mt-0 data-[state=inactive]:hidden">
             <SettingsBillingTab />
           </TabsContent>
         ) : null}
-        {isAdmin ? (
+        {visibleTabs.includes('integrations') ? (
           <TabsContent value="integrations" className="mt-0 data-[state=inactive]:hidden">
             <SettingsIntegrationsTab />
           </TabsContent>

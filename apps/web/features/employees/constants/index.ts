@@ -11,7 +11,6 @@ export const DEPARTMENTS = [
 export const STATUSES = [
   { value: 'all_statuses', label: 'All Status' },
   { value: 'Active', label: 'Active' },
-  { value: 'On Leave', label: 'On Leave' },
   { value: 'Inactive', label: 'Inactive' },
 ] as const;
 

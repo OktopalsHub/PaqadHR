@@ -260,15 +260,13 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
           className,
         )}
       >
-        <div className="flex items-center gap-3 border-b border-[#dce9e3] pb-3 dark:border-slate-700">
+        <div className="flex items-center gap-3 border-b border-border/60 pb-3">
           <div className="flex size-10 items-center justify-center rounded-[8px] bg-gradient-to-br from-primary/10 to-primary/20 text-primary shadow-sm">
             <Sparkles className="size-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-slate-950 dark:text-slate-50">
-              Celebrate your team
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+            <h3 className="text-sm font-semibold text-foreground">Celebrate your team</h3>
+            <p className="text-xs text-muted-foreground">
               Mention teammates with <span className="font-mono">@</span>, tag values with{' '}
               <span className="font-mono">#</span>, and assign points with{' '}
               <span className="font-mono">+10</span>.
@@ -288,7 +286,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
         </div>
 
         <div className="mt-4 space-y-4">
-          <div className="relative rounded-[8px] border border-[#dce9e3] bg-white/75 p-3 transition-all focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/15 dark:border-slate-800 dark:bg-slate-950/45">
+          <div className="relative rounded-[8px] border border-border/60 bg-background/75 p-3 transition-all focus-within:border-primary/40 focus-within:ring-1 focus-within:ring-primary/15">
             <textarea
               ref={textareaRef}
               className="min-h-[90px] w-full resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground/80"
@@ -308,21 +306,21 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
             />
 
             {active && suggestions.length > 0 ? (
-              <div className="absolute left-3 right-3 top-full z-20 mt-1 overflow-hidden rounded-[8px] border border-[#dce9e3] bg-white shadow-lg dark:border-slate-800 dark:bg-slate-950">
+              <div className="absolute left-3 right-3 top-full z-20 mt-1 overflow-hidden rounded-[8px] border border-border/60 bg-popover shadow-lg">
                 {suggestions.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-900"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/35"
                     onMouseDown={(event) => {
                       event.preventDefault();
                       applySuggestion(item.name);
                     }}
                   >
                     {active.type === '@' ? (
-                      <User className="size-3.5 text-sky-500" />
+                      <User className="size-3.5 text-primary" />
                     ) : (
-                      <Hash className="size-3.5 text-indigo-500" />
+                      <Hash className="size-3.5 text-primary" />
                     )}
                     {item.name}
                   </button>
@@ -338,7 +336,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   key={recipient.occurrenceKey}
                   variant="secondary"
                   className={cn(
-                    'flex items-center gap-1 border-sky-100 bg-sky-500/10 text-sky-600',
+                    'flex items-center gap-1 border-primary/20 bg-primary/10 text-primary',
                     recipient.points < 1 && 'border-amber-200 bg-amber-500/10 text-amber-600',
                   )}
                 >
@@ -351,7 +349,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                 <Badge
                   key={name}
                   variant="secondary"
-                  className="flex items-center gap-1 border-indigo-100 bg-indigo-500/10 text-indigo-600"
+                  className="flex items-center gap-1 border-primary/20 bg-primary/10 text-primary"
                 >
                   <Hash className="size-3" />
                   {name}
@@ -376,7 +374,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
           ) : null}
 
           {parsed.unknownCategories.length > 0 ? (
-            <p className="rounded-lg border border-dashed border-indigo-300/60 bg-indigo-500/5 px-3 py-2 text-xs text-indigo-600 dark:text-indigo-300">
+            <p className="rounded-lg border border-dashed border-primary/35 bg-primary/6 px-3 py-2 text-xs text-primary">
               No core value found for:{' '}
               {parsed.unknownCategories.map((name) => `#${name}`).join(', ')}
             </p>
@@ -406,7 +404,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                 title="Mention a teammate"
                 onClick={() => insertTrigger('@')}
               >
-                <AtSign className="size-4 text-sky-500" />
+                <AtSign className="size-4 text-primary" />
               </Button>
 
               {categories.length > 0 ? (
@@ -417,7 +415,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   title="Tag a core value"
                   onClick={() => insertTrigger('#')}
                 >
-                  <Hash className="size-4 text-indigo-500" />
+                  <Hash className="size-4 text-primary" />
                 </Button>
               ) : null}
 
@@ -431,12 +429,12 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   <Smile className="size-4 text-pink-500" />
                 </Button>
                 {emojiOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-1 grid grid-cols-5 gap-1 rounded-[8px] border border-[#dce9e3] bg-white p-2 shadow-lg dark:border-slate-800 dark:bg-slate-950">
+                  <div className="absolute left-0 top-full z-20 mt-1 grid grid-cols-5 gap-1 rounded-[8px] border border-border/60 bg-popover p-2 shadow-lg">
                     {EMOJIS.map((emoji) => (
                       <button
                         key={emoji}
                         type="button"
-                        className="flex size-8 items-center justify-center rounded text-lg transition-transform hover:scale-125 hover:bg-slate-100 dark:hover:bg-slate-900"
+                        className="flex size-8 items-center justify-center rounded text-lg transition-transform hover:scale-125 hover:bg-muted/35"
                         onMouseDown={(event) => {
                           event.preventDefault();
                           insertEmoji(emoji);

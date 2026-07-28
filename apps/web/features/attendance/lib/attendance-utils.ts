@@ -89,6 +89,38 @@ export function statusBadgeVariant(
   return 'outline';
 }
 
+export function attendanceStatusPillClass(status: string) {
+  switch (status) {
+    case 'PRESENT':
+      return 'border-success/25 bg-success/12 text-success';
+    case 'LATE':
+      return 'border-warning/25 bg-warning/12 text-warning';
+    case 'ABSENT':
+      return 'border-destructive/25 bg-destructive/12 text-destructive';
+    case 'ON_LEAVE':
+      return 'border-primary/25 bg-primary/12 text-primary';
+    case 'WEEKEND':
+      return 'border-border/70 bg-muted/40 text-muted-foreground';
+    default:
+      return 'border-border/70 bg-muted/40 text-muted-foreground';
+  }
+}
+
+export function attendanceStatusDotClass(status: string) {
+  switch (status) {
+    case 'PRESENT':
+      return 'bg-success';
+    case 'LATE':
+      return 'bg-warning';
+    case 'ABSENT':
+      return 'bg-destructive';
+    case 'ON_LEAVE':
+      return 'bg-primary';
+    default:
+      return 'bg-muted-foreground/55';
+  }
+}
+
 export function dayCellClass(status: string) {
   switch (status) {
     case 'PRESENT':
@@ -97,7 +129,7 @@ export function dayCellClass(status: string) {
     case 'ABSENT':
       return 'bg-destructive/15 text-destructive';
     case 'ON_LEAVE':
-      return 'bg-amber-500/15 text-amber-700 dark:text-amber-400';
+      return 'bg-primary/12 text-primary';
     case 'WEEKEND':
       return 'bg-muted text-muted-foreground';
     default:

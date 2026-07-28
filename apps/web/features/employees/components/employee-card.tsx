@@ -21,7 +21,7 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
     Boolean(viewerMemberId && canManageMember(viewerMemberId, employee, viewerRole));
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       {employees.length > 0 ? (
         employees.map((employee) => {
           const card = (
@@ -29,27 +29,27 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
               key={employee.id}
               className="overflow-hidden gap-0 rounded-[8px] border-slate-200 py-0 transition-[border-color,box-shadow,background-color] hover:border-primary/20 hover:bg-white/85 hover:shadow-sm dark:hover:bg-slate-950/80"
             >
-              <CardHeader className="px-4 py-4 pb-3">
+              <CardHeader className="px-3 py-3 pb-2.5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <PersonAvatar
                       src={employee.avatar}
                       name={employee.name}
-                      className="size-12 border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-700 dark:bg-slate-900"
-                      fallbackClassName="bg-slate-100 text-sm font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                      className="size-10 border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-700 dark:bg-slate-900"
+                      fallbackClassName="bg-slate-100 text-xs font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
                     />
                     <div className="min-w-0">
-                      <CardTitle className="truncate text-[17px] font-semibold text-slate-900 dark:text-foreground">
+                      <CardTitle className="truncate text-[15px] font-semibold text-slate-900 dark:text-foreground">
                         {employee.name}
                       </CardTitle>
-                      <div className="mt-1 flex min-w-0 items-center gap-2">
+                      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
                         {employee.role ? (
                           <span
-                            className="size-2 shrink-0 rounded-full border border-black/10"
+                            className="size-1.5 shrink-0 rounded-full border border-black/10"
                             style={{ backgroundColor: employee.positionColor || '#9ca3af' }}
                           />
                         ) : null}
-                        <p className="truncate text-sm text-slate-500 dark:text-muted-foreground">
+                        <p className="truncate text-xs text-slate-500 dark:text-muted-foreground">
                           {employee.role || 'No role assigned'}
                         </p>
                       </div>
@@ -57,7 +57,7 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
                   </div>
 
                   <span
-                    className={`inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-xs font-medium ${getStatusStyles(
+                    className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${getStatusStyles(
                       employee.status,
                     )}`}
                   >
@@ -66,37 +66,37 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
                 </div>
               </CardHeader>
 
-              <CardContent className="px-4 pb-4 pt-0">
-                <div className="rounded-[8px] border border-border/60 bg-muted/20 p-3 dark:bg-slate-950/30">
-                  <dl className="grid grid-cols-[92px_minmax(0,1fr)] gap-x-4 gap-y-2.5">
-                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+              <CardContent className="px-3 pb-3 pt-0">
+                <div className="rounded-[8px] border border-border/60 bg-muted/20 p-2.5 dark:bg-slate-950/30">
+                  <dl className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 gap-y-2">
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
                       Email
                     </dt>
-                    <dd className="min-w-0 truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                    <dd className="min-w-0 truncate text-[13px] font-medium text-slate-800 dark:text-slate-200">
                       {employee.email}
                     </dd>
 
-                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                      Department
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                      Dept
                     </dt>
                     <dd className="min-w-0">
                       <div className="flex items-center justify-end gap-2">
                         {employee.department ? (
                           <span
-                            className="size-2 shrink-0 rounded-full border border-black/10"
+                            className="size-1.5 shrink-0 rounded-full border border-black/10"
                             style={{ backgroundColor: employee.departmentColor || '#9ca3af' }}
                           />
                         ) : null}
-                        <span className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                        <span className="truncate text-[13px] font-medium text-slate-800 dark:text-slate-200">
                           {employee.department || '—'}
                         </span>
                       </div>
                     </dd>
 
-                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
-                      Join Date
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+                      Joined
                     </dt>
-                    <dd className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                    <dd className="text-[13px] font-medium text-slate-800 dark:text-slate-200">
                       {employee.joinDate || '—'}
                     </dd>
                   </dl>

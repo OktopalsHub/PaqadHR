@@ -14,6 +14,7 @@ import {
   SidebarRail,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { SettingsSidebarNav } from '@/features/settings/components/settings-sidebar-nav';
 import { useTenantHref, useTenantNavItems } from '@/hooks/use-tenant-nav-items';
 import { NavMain } from './nav-main';
 import { WorkspaceSwitcher } from './workspace-switcher';
@@ -40,25 +41,27 @@ export const AppSidebar = ({ ...props }: React.ComponentProps<typeof Sidebar>) =
         </div>
       </SidebarHeader>
       <SidebarContent className="px-1.5 pb-2 pt-5">
-        <NavMain items={navItems} />
+        {isSettingsActive ? <SettingsSidebarNav /> : <NavMain items={navItems} />}
       </SidebarContent>
-      <SidebarFooter className="border-t border-border/60 p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              isActive={isSettingsActive}
-              tooltip="Settings"
-              className="h-11 rounded-md px-3"
-            >
-              <Link href={settingsHref}>
-                <Settings className="size-4.5" />
-                <span>Settings</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      {!isSettingsActive ? (
+        <SidebarFooter className="border-t border-border/60 p-2">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={isSettingsActive}
+                tooltip="Settings"
+                className="h-11 rounded-md px-3"
+              >
+                <Link href={settingsHref}>
+                  <Settings className="size-4.5" />
+                  <span>Settings</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      ) : null}
       <SidebarRail />
     </Sidebar>
   );

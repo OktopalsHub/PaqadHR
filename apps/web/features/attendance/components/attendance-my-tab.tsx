@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/app-table';
 import { AttendanceDateFilters } from '@/features/attendance/components/attendance-date-filters';
 import {
+  attendanceStatusDotClass,
+  attendanceStatusPillClass,
   type DateRangePreset,
   formatRecordDate,
   formatTimeOnly,
@@ -24,40 +26,6 @@ import {
   summarizeAttendanceRecords,
 } from '@/features/attendance/lib/attendance-utils';
 import { useMyAttendanceRecords } from '@/hooks/queries/use-attendance';
-
-function getAttendanceStatusStyles(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'border-green-200 bg-green-50 text-green-700 dark:border-green-900 dark:bg-green-950/20 dark:text-green-400';
-    case 'LATE':
-      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/20 dark:text-amber-400';
-    case 'ABSENT':
-      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950/20 dark:text-red-400';
-    case 'ON_LEAVE':
-      return 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400';
-    case 'WEEKEND':
-      return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-800/20 dark:text-gray-400';
-    default:
-      return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-800 dark:bg-gray-800/20 dark:text-gray-400';
-  }
-}
-
-function getAttendanceStatusDotClass(status: string) {
-  const key = status.toUpperCase();
-  switch (key) {
-    case 'PRESENT':
-      return 'bg-green-500';
-    case 'LATE':
-      return 'bg-amber-500';
-    case 'ABSENT':
-      return 'bg-red-500';
-    case 'ON_LEAVE':
-      return 'bg-blue-500';
-    default:
-      return 'bg-gray-400 dark:bg-gray-500';
-  }
-}
 
 export function AttendanceMyTab() {
   const [preset, setPreset] = useState<DateRangePreset>('30d');
@@ -103,28 +71,28 @@ export function AttendanceMyTab() {
         bodyClassName="p-0"
       >
         {!isLoading && sortedRecords.length > 0 ? (
-          <div className="grid grid-cols-1 gap-px border-b border-[#d7e3f6] bg-[#d7e3f6] sm:grid-cols-3 dark:border-slate-800 dark:bg-slate-800">
+          <div className="grid grid-cols-1 gap-px border-b border-border/60 bg-border/60 sm:grid-cols-3">
             <div className="dashboard-soft-tile rounded-none border-0 px-5 py-4 text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#516079] dark:text-slate-400">
+              <p className="dashboard-outline-label text-xs font-semibold uppercase tracking-[0.08em]">
                 Sessions
               </p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950 dark:text-slate-100">
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
                 {totals.sessionCount}
               </p>
             </div>
             <div className="dashboard-soft-tile rounded-none border-0 px-5 py-4 text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#516079] dark:text-slate-400">
+              <p className="dashboard-outline-label text-xs font-semibold uppercase tracking-[0.08em]">
                 Total hours
               </p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950 dark:text-slate-100">
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
                 {totals.formattedHours}
               </p>
             </div>
             <div className="dashboard-soft-tile rounded-none border-0 px-5 py-4 text-center">
-              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#516079] dark:text-slate-400">
+              <p className="dashboard-outline-label text-xs font-semibold uppercase tracking-[0.08em]">
                 Days worked
               </p>
-              <p className="mt-2 text-2xl font-semibold tabular-nums text-slate-950 dark:text-slate-100">
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-foreground">
                 {totals.daysWithSessions}
               </p>
             </div>
@@ -165,12 +133,12 @@ export function AttendanceMyTab() {
                   <AppTableCell>{record.workHours ?? '—'}</AppTableCell>
                   <AppTableCell>
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getAttendanceStatusStyles(
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${attendanceStatusPillClass(
                         record.status,
                       )}`}
                     >
                       <span
-                        className={`size-1.5 rounded-full ${getAttendanceStatusDotClass(
+                        className={`size-1.5 rounded-full ${attendanceStatusDotClass(
                           record.status,
                         )}`}
                       />

@@ -1,4 +1,9 @@
-import axios, { type AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
+import axios, {
+  type AxiosError,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 
@@ -113,9 +118,30 @@ export function clearCsrfToken() {
   csrfTokenPromise = null;
 }
 
-type ApiClientOptions = {
+type FetchWithCsrfOptions = RequestInit & {
   skipCsrf?: boolean;
-  [key: string]: unknown;
+};
+
+type ErrorPayload = {
+  message?: string | string[];
+  code?: string;
+} | null;
+
+type ApiRequestConfig = AxiosRequestConfig & {
+  skipCsrf?: boolean;
+  _isRetry?: boolean;
+};
+
+type ApiInterceptorConfig = InternalAxiosRequestConfig & {
+  skipCsrf?: boolean;
+  _isRetry?: boolean;
+};
+
+export type ApiClientOptions = {
+  method?: string;
+  headers?: HeadersInit;
+  body?: BodyInit | null;
+  skipCsrf?: boolean;
 };
 
 const AUTH_PATHS_WITHOUT_REFRESH = [
@@ -136,12 +162,46 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function parseErrorPayload(response: AxiosResponse): Promise<unknown> {
+async function parseErrorPayload(response: AxiosResponse): Promise<ErrorPayload> {
   try {
-    return response.data;
+    return response.data as ErrorPayload;
   } catch {
     return null;
   }
+}
+
+export async function fetchWithCsrf(
+  input: RequestInfo | URL,
+  init?: FetchWithCsrfOptions,
+): Promise<Response> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const headers = new Headers(init?.headers);
+
+  if (!init?.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    headers.set(CSRF_HEADER, await ensureCsrfToken());
+  }
+
+  const response = await fetch(input, {
+    ...init,
+    method,
+    headers,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const payload = await response
+      .clone()
+      .json()
+      .catch(() => null) as { message?: string | string[]; code?: string } | null;
+
+    const message =
+      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
+      `Request failed (${response.status})`;
+
+    throw new ApiError(message, response.status, payload?.code);
+  }
+
+  return response;
 }
 
 const http = axios.create({
@@ -153,17 +213,20 @@ const http = axios.create({
 });
 
 http.interceptors.request.use(async (config) => {
-  const method = (config.method ?? 'get').toUpperCase();
-  const needsCsrf = !(config as AxiosRequestConfig & { skipCsrf?: boolean }).skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  const requestConfig = config as ApiInterceptorConfig;
+  const method = (requestConfig.method ?? 'get').toUpperCase();
+  const headers = (requestConfig.headers as unknown) as Record<string, string>;
+  const needsCsrf =
+    !requestConfig.skipCsrf && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
   if (needsCsrf) {
-    config.headers[CSRF_HEADER] = await ensureCsrfToken();
+    headers[CSRF_HEADER] = await ensureCsrfToken();
   }
 
-  const path = config.url ?? '';
+  const path = requestConfig.url ?? '';
   const tenantMatch = path.match(/^\/tenants\/([^/]+)/);
   if (tenantMatch?.[1]) {
-    config.headers['x-tenant-id'] = tenantMatch[1];
+    headers['x-tenant-id'] = tenantMatch[1];
   }
 
   return config;
@@ -174,20 +237,21 @@ http.interceptors.response.use(
   async (error: AxiosError) => {
     const config = error.config;
     if (!config) return Promise.reject(error);
+    const requestConfig = config as ApiRequestConfig;
 
-    const path = config.url ?? '';
+    const path = requestConfig.url ?? '';
     const status = error.response?.status ?? 0;
 
-    const isRetry = (config as AxiosRequestConfig & { _isRetry?: boolean })._isRetry ?? false;
+    const isRetry = requestConfig._isRetry ?? false;
 
     if (status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
-      (config as AxiosRequestConfig & { _isRetry?: boolean })._isRetry = true;
+      requestConfig._isRetry = true;
 
       for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
         const refreshed = await refreshAccessToken();
         if (refreshed) {
           startProactiveRefresh();
-          return http(config as AxiosRequestConfig);
+          return http(requestConfig);
         }
         await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
       }
@@ -207,23 +271,25 @@ export async function apiClient<T>(
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
-  const config: AxiosRequestConfig = {
+  const config: ApiRequestConfig = {
     url: path,
-    method: (init?.method as string) ?? 'GET',
+    method: init?.method ?? 'GET',
     data: init?.body,
-    skipCsrf: init?.skipCsrf,
     _isRetry: isRetry,
+    skipCsrf: init?.skipCsrf,
+    headers: {},
   };
+  const headers = ((config.headers ??= {}) as unknown) as Record<string, string>;
 
   if (init?.headers) {
-    const headers = init.headers as Record<string, string>;
-    for (const [key, value] of Object.entries(headers)) {
-      config.headers[key] = value;
+    const initialHeaders = new Headers(init.headers);
+    for (const [key, value] of initialHeaders.entries()) {
+      headers[key] = value;
     }
   }
 
-  if (init?.body && typeof init.body === 'string' && !config.headers['Content-Type']) {
-    config.headers['Content-Type'] = 'application/json';
+  if (init?.body && typeof init.body === 'string' && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
   }
 
   const response = await http(config).catch((err: unknown) => {

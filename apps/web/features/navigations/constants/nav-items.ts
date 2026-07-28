@@ -24,14 +24,14 @@ export type NavItem = {
 export const navItemDefs: Omit<NavItem, 'href'>[] = [
   { name: 'Dashboard', segment: '', icon: LayoutDashboard },
   { name: 'Employees', segment: 'employees', icon: Users },
-  { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },
   { name: 'Schedule', segment: 'schedule', icon: Calendar },
   { name: 'Attendance', segment: 'attendance', icon: Clock },
   { name: 'Leaves', segment: 'leaves', icon: CalendarClock },
   { name: 'Payroll', segment: 'payroll', icon: FileText },
   { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
+  { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },
   { name: 'Analytics', segment: 'analytics', icon: BarChart2 },
-  { name: 'Logs', segment: 'activity', icon: ScrollText },
+  { name: 'Activities', segment: 'activity', icon: ScrollText },
   { name: 'Settings', segment: 'settings', icon: Settings },
 ];
 

@@ -1,42 +1,42 @@
-import { SubscriptionPlan } from '@/lib/constants/feature-access';
+import { FeatureAccess } from '@/lib/constants/feature-access';
+import { PLAN_SLUG_ORDER, type PlanSlug } from '@/lib/constants/plan-catalog';
 
-export const FEATURE_TIER_MAP: Record<string, SubscriptionPlan> = {
-  BASIC_HR: SubscriptionPlan.STARTER,
-  PAYROLL: SubscriptionPlan.STARTER,
-  ATTENDANCE: SubscriptionPlan.STARTER,
-  LEAVE_MANAGEMENT: SubscriptionPlan.STARTER,
-  MULTI_CURRENCY: SubscriptionPlan.STARTER,
-  ADVANCED_ATTENDANCE: SubscriptionPlan.SCALE,
-  PERFORMANCE_MANAGEMENT: SubscriptionPlan.SCALE,
-  RECRUITMENT: SubscriptionPlan.STARTER,
-  EMPLOYEE_SELF_SERVICE: SubscriptionPlan.STARTER,
-  ADVANCED_REPORTING: SubscriptionPlan.GROWTH,
-  API_ACCESS: SubscriptionPlan.SCALE,
-  INTEGRATIONS: SubscriptionPlan.GROWTH,
-  MULTI_LOCATION: SubscriptionPlan.SCALE,
-  ADVANCED_PAYROLL: SubscriptionPlan.SCALE,
-  LEARNING_DEVELOPMENT: SubscriptionPlan.SCALE,
-  CUSTOM_WORKFLOWS: SubscriptionPlan.SCALE,
-  WHITE_LABEL: SubscriptionPlan.SCALE,
-  COMPLIANCE_REPORTING: SubscriptionPlan.SCALE,
+export const FEATURE_TIER_MAP: Record<FeatureAccess, PlanSlug> = {
+  [FeatureAccess.BASIC_HR]: 'starter',
+  [FeatureAccess.PAYROLL]: 'starter',
+  [FeatureAccess.ATTENDANCE]: 'starter',
+  [FeatureAccess.LEAVE_MANAGEMENT]: 'starter',
+  [FeatureAccess.MULTI_CURRENCY]: 'starter',
+  [FeatureAccess.ADVANCED_ATTENDANCE]: 'scale',
+  [FeatureAccess.PERFORMANCE_MANAGEMENT]: 'scale',
+  [FeatureAccess.RECRUITMENT]: 'starter',
+  [FeatureAccess.EMPLOYEE_SELF_SERVICE]: 'starter',
+  [FeatureAccess.ADVANCED_REPORTING]: 'growth',
+  [FeatureAccess.API_ACCESS]: 'scale',
+  [FeatureAccess.INTEGRATIONS]: 'growth',
+  [FeatureAccess.MULTI_LOCATION]: 'scale',
+  [FeatureAccess.ADVANCED_PAYROLL]: 'scale',
+  [FeatureAccess.LEARNING_DEVELOPMENT]: 'scale',
+  [FeatureAccess.CUSTOM_WORKFLOWS]: 'scale',
+  [FeatureAccess.WHITE_LABEL]: 'scale',
+  [FeatureAccess.COMPLIANCE_REPORTING]: 'scale',
 };
 
-export function getFeatureTier(feature: string): SubscriptionPlan | null {
-  return FEATURE_TIER_MAP[feature] ?? null;
+export function getFeatureTier(feature: string): PlanSlug | null {
+  return FEATURE_TIER_MAP[feature as FeatureAccess] ?? null;
 }
 
 export function getPlansForFeature(
   feature: string,
-  currentPlan: SubscriptionPlan,
-): SubscriptionPlan[] {
-  const tier = FEATURE_TIER_MAP[feature];
+  currentPlan: PlanSlug,
+): PlanSlug[] {
+  const tier = FEATURE_TIER_MAP[feature as FeatureAccess];
   if (!tier) return [];
 
-  const tierOrder = [SubscriptionPlan.STARTER, SubscriptionPlan.GROWTH, SubscriptionPlan.SCALE];
-  const currentIndex = tierOrder.indexOf(currentPlan);
-  const requiredIndex = tierOrder.indexOf(tier);
+  const currentIndex = PLAN_SLUG_ORDER.indexOf(currentPlan);
+  const requiredIndex = PLAN_SLUG_ORDER.indexOf(tier);
 
   if (requiredIndex <= currentIndex) return [];
 
-  return tierOrder.slice(requiredIndex);
+  return PLAN_SLUG_ORDER.slice(requiredIndex);
 }

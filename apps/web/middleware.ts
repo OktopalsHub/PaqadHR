@@ -16,6 +16,7 @@ import {
 const r2PublicOrigin = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
 
 function buildContentSecurityPolicy(requestHost?: string): string {
+  const isDevelopment = process.env.NODE_ENV === 'development';
   const apiOrigin = apiOriginFromBase(resolveApiBaseUrl({ requestHost }));
   const imageSources = [
     "'self'",
@@ -42,9 +43,20 @@ function buildContentSecurityPolicy(requestHost?: string): string {
     connectSources.push(r2PublicOrigin);
   }
 
+  const scriptSources = [
+    "'self'",
+    "'unsafe-inline'",
+    'https://challenges.cloudflare.com',
+    'https://static.cloudflareinsights.com',
+  ];
+  if (isDevelopment) {
+    scriptSources.push("'unsafe-eval'");
+    connectSources.push('ws:', 'wss:');
+  }
+
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://static.cloudflareinsights.com",
+    `script-src ${scriptSources.join(' ')}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     `img-src ${imageSources.join(' ')}`,
