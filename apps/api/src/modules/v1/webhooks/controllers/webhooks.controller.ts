@@ -200,7 +200,9 @@ export class WebhooksController {
     } catch {
       throw new BadRequestException('Malformed Slack payload');
     }
-    await this.slackWebhookService.handleInteractiveComponent(payload as SlackInteractivePayload);
+    await this.slackWebhookService.handleInteractiveComponent(
+      payload as unknown as SlackInteractivePayload,
+    );
     return { ok: true };
   }
 

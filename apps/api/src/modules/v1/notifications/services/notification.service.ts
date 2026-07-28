@@ -153,32 +153,38 @@ export class NotificationService {
     const [notifications, total] = await queryBuilder.getManyAndCount();
     return { notifications, total };
   }
-  async markAsRead(notificationId: string, memberId: string): Promise<void> {
-    await this.notificationRepository.update(
-      {
-        id: notificationId,
-        recipientId: memberId,
-      },
-      {
-        readAt: new Date(),
-        status: NotificationStatus.READ,
-      },
-    );
+  async markAsRead(notificationId: string, memberId: string, tenantId?: string): Promise<void> {
+    const where: FindOptionsWhere<Notification> = {
+      id: notificationId,
+      recipientId: IsNull(),
+    };
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
+    await this.notificationRepository.update(where, {
+      readAt: new Date(),
+      status: NotificationStatus.READ,
+    });
   }
-  async markMultipleAsRead(notificationIds: string[], memberId: string): Promise<void> {
-    await this.notificationRepository.update(
-      {
-        id: In(notificationIds),
-        recipientId: memberId,
-      },
-      {
-        readAt: new Date(),
-        status: NotificationStatus.READ,
-      },
-    );
+  async markMultipleAsRead(
+    notificationIds: string[],
+    memberId: string,
+    tenantId?: string,
+  ): Promise<void> {
+    const where: FindOptionsWhere<Notification> = {
+      id: In(notificationIds),
+      recipientId: IsNull(),
+    };
+    if (tenantId) {
+      where.tenantId = tenantId;
+    }
+    await this.notificationRepository.update(where, {
+      readAt: new Date(),
+      status: NotificationStatus.READ,
+    });
   }
   async markAllAsRead(memberId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { recipientId: memberId };
+    const where: FindOptionsWhere<Notification> = { recipientId: IsNull() };
     if (tenantId) {
       where.tenantId = tenantId;
     }

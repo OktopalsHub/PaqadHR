@@ -88,7 +88,6 @@ export async function ensureCsrfToken(force = false): Promise<string> {
     try {
       const { data } = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
         withCredentials: true,
-        headers: { 'Cache-Control': 'no-store' },
       });
       if (!data.csrfToken) {
         throw new ApiError('CSRF token missing in response', 200);

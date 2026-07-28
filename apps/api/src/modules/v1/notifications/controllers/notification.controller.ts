@@ -76,8 +76,9 @@ export class NotificationController {
   async markMultipleAsRead(
     @Body() body: { notificationIds: string[] },
     @CurrentTenantMember() member: MemberContext,
+    @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markMultipleAsRead(body.notificationIds, member.id);
+    await this.notificationService.markMultipleAsRead(body.notificationIds, member.id, tenant?.id);
     return { success: true };
   }
   @Patch('read-all')
@@ -96,8 +97,9 @@ export class NotificationController {
   async markAsRead(
     @Param('id') id: string,
     @CurrentTenantMember() member: MemberContext,
+    @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.markAsRead(id, member.id);
+    await this.notificationService.markAsRead(id, member.id, tenant?.id);
     return { success: true };
   }
   @Delete(':id')
