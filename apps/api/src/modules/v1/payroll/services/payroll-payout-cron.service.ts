@@ -20,9 +20,14 @@ export class PayrollPayoutCronService {
       return;
     }
 
-    await runCronJob(this.logger, 'payroll-payout-requery', async () => {
-      return this.payrollPayoutService.requeryStuckPayouts();
-    });
+    await runCronJob(
+      this.logger,
+      'payroll-payout-requery',
+      async () => {
+        return this.payrollPayoutService.requeryStuckPayouts();
+      },
+      { silentWhenIdle: true },
+    );
   }
 
   @Cron(CronExpression.EVERY_HOUR)
@@ -31,8 +36,13 @@ export class PayrollPayoutCronService {
       return;
     }
 
-    await runCronJob(this.logger, 'payroll-scheduled-payouts', async () => {
-      return this.payrollService.processDueScheduledPayouts();
-    });
+    await runCronJob(
+      this.logger,
+      'payroll-scheduled-payouts',
+      async () => {
+        return this.payrollService.processDueScheduledPayouts();
+      },
+      { silentWhenIdle: true },
+    );
   }
 }

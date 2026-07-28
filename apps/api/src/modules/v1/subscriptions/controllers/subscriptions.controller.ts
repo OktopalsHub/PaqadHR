@@ -50,13 +50,15 @@ export class SubscriptionsController {
     return this.subscriptionsService.startTrial(tenantId, dto.planSlug, clientIp);
   }
   @Post('tenant/:tenantId/set-region')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Lock tenant billing country (once)' })
   setTenantRegion(@Param('tenantId') tenantId: string, @Body() dto: SetTenantRegionDto) {
     return this.subscriptionsService.setTenantRegion(tenantId, dto);
   }
   @Post('tenant/:tenantId/onboarding-region')
-  @UseGuards(TenantMemberGuard)
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Set tenant region during onboarding' })
   setOnboardingRegion(
     @Param('tenantId') tenantId: string,

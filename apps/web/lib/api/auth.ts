@@ -172,9 +172,10 @@ export async function register(input: SignupInput): Promise<User> {
 
 export async function logoutRequest(): Promise<void> {
   try {
-    await apiClient('/auth/logout', { method: 'POST' });
+    await apiClient('/auth/logout', { method: 'POST', skipCsrf: true });
   } catch (error) {
     console.error('Logout request failed:', error);
+    throw error;
   } finally {
     clearCsrfToken();
   }

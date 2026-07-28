@@ -33,8 +33,7 @@ export class UsersController {
   }
   @Get()
   @UseGuards(RoleGuard)
-  @Roles(UserRole.ADMIN)
-  @Roles(UserRole.SUPER_ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
   async listUsers(): Promise<UserResponseDto[]> {
     const users = await this.usersService.getUsers();
     const userResponse: UserResponseDto[] = UserResponseDto.toResponseList(users);

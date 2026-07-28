@@ -14,13 +14,19 @@ type RequestWithRawBody = Request & { rawBody?: Buffer };
 
 export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(cookieParser());
-  app.use(morgan('dev'));
+  if (process.env.NODE_ENV !== 'production') {
+    app.use(morgan('dev'));
+  }
   app.use(
     express.json({
       limit: '10mb',
       verify: (req, _res, buf) => {
         const path = (req as Request).originalUrl ?? (req as Request).url ?? '';
-        if (path.includes('/webhooks/')) {
+        if (
+          path.startsWith('/api/v1/webhooks') ||
+          path.startsWith('/api/v1/subscriptions/webhooks') ||
+          path.startsWith('/api/v1/payroll/webhooks')
+        ) {
           (req as RequestWithRawBody).rawBody = buf;
         }
       },
@@ -97,16 +103,23 @@ export const ExpressSetup = (app: NestExpressApplication) => {
         if (!origin) return callback(null, true);
         if (allowedOrigins.includes('*')) return callback(null, true);
         if (process.env.NODE_ENV === 'development') {
-          if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-            return callback(null, true);
-          }
-          if (
-            origin.includes('vercel.app') ||
-            origin.includes('netlify.app') ||
-            origin.includes('devtunnels.ms') ||
-            origin.includes('ngrok.io')
-          ) {
-            return callback(null, true);
+          try {
+            const host = new URL(origin).hostname;
+            if (host === 'localhost' || host === '127.0.0.1') {
+              return callback(null, true);
+            }
+            const devSuffixes = [
+              '.vercel.app',
+              '.netlify.app',
+              '.devtunnels.ms',
+              '.ngrok.io',
+              '.ngrok-free.app',
+            ];
+            if (devSuffixes.some((suffix) => host.endsWith(suffix))) {
+              return callback(null, true);
+            }
+          } catch {
+            // invalid URL — reject below
           }
         }
         if (allowedOrigins.includes(origin)) return callback(null, true);
@@ -187,7 +200,10 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     skip: (req) => {
       const skipPaths = ['/health', '/metrics', '/csrf/token'];
       const securityProbes = ['/.git/', '/admin', '/wp-admin', '/.env'];
-      const isWebhook = req.path.includes('/webhooks/');
+      const isWebhook =
+        req.path.startsWith('/api/v1/webhooks') ||
+        req.path.startsWith('/api/v1/subscriptions/webhooks') ||
+        req.path.startsWith('/api/v1/payroll/webhooks');
       return (
         isWebhook ||
         skipPaths.includes(req.path) ||

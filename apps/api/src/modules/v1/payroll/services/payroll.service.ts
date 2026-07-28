@@ -1101,8 +1101,9 @@ export class PayrollService {
           );
         }
       } catch (error) {
+        this.logger.error(`Error calculating for employee ${employeePreview.employeeId}:`, error);
         warnings.push(
-          `Error calculating for employee ${employeePreview.employeeId}: ${error.message}`,
+          `Error calculating for employee ${employeePreview.employeeId}: calculation failed`,
         );
       }
     }

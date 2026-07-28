@@ -69,8 +69,8 @@ export const ENVIRONMENT: IEnvironment = {
     URL: process.env.DATABASE_URL || '',
   },
   JWT: {
-    ACCESS_SECRET: env.getOptional('ACCESS_SECRET', 'dev-access-secret'),
-    REFRESH_SECRET: env.getOptional('REFRESH_SECRET', 'dev-refresh-secret'),
+    ACCESS_SECRET: env.getRequired('ACCESS_SECRET'),
+    REFRESH_SECRET: env.getRequired('REFRESH_SECRET'),
     ACCESS_EXPIRES_IN: resolveJwtAccessExpiresIn(),
   },
   GOOGLE: {
@@ -94,6 +94,6 @@ export const ENVIRONMENT: IEnvironment = {
     BUCKET_NAME: env.getRequired('R2_BUCKET_NAME'),
   },
   ENCRYPTION: {
-    KEY: env.getOptional('ENCRYPTION_KEY', '01234567890123456789012345678901'),
+    KEY: env.getRequired('ENCRYPTION_KEY'),
   },
 };

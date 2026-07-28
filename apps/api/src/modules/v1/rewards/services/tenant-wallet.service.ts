@@ -67,13 +67,17 @@ export class TenantWalletService {
     description: string,
     manager: EntityManager,
   ): Promise<TenantWallet> {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid debit amount');
+    }
     const walletRepo = manager.getRepository(TenantWallet);
     const txRepo = manager.getRepository(TenantWalletTransaction);
 
     const result = await walletRepo
       .createQueryBuilder()
       .update(TenantWallet)
-      .set({ balanceAmount: () => `balance_amount - ${amount}` })
+      .set({ balanceAmount: () => 'balance_amount - :amount' })
+      .setParameters({ amount })
       .where('tenant_id = :tenantId AND balance_amount >= :amount', { tenantId, amount })
       .execute();
 
@@ -105,6 +109,9 @@ export class TenantWalletService {
     manager?: EntityManager,
     options?: WalletCreditOptions,
   ): Promise<TenantWallet> {
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Invalid credit amount');
+    }
     const mgr = manager ?? this.dataSource.manager;
     const walletRepo = mgr.getRepository(TenantWallet);
     const txRepo = mgr.getRepository(TenantWalletTransaction);
@@ -114,7 +121,8 @@ export class TenantWalletService {
     await walletRepo
       .createQueryBuilder()
       .update(TenantWallet)
-      .set({ balanceAmount: () => `balance_amount + ${amount}` })
+      .set({ balanceAmount: () => 'balance_amount + :amount' })
+      .setParameters({ amount })
       .where('tenant_id = :tenantId', { tenantId })
       .execute();
 

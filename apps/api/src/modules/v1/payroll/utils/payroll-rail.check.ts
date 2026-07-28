@@ -30,5 +30,3 @@ assert(!railOk('USD', PaymentMethodType.CRYPTO), 'USD crypto not ok');
 assert(paymentProviderLabel(PaymentProvider.NOMBA).includes('NGN'), 'Nomba label');
 assert(paymentProviderLabel(PaymentProvider.NOAH).includes('Noah'), 'Noah label');
 assert(!isCryptoCurrency('SOL'), 'SOL dropped from supported crypto');
-
-console.log('payroll-rail.check: ok');

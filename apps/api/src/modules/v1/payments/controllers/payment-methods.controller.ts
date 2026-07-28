@@ -13,7 +13,9 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { CurrentTenantMember } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { TenantGuard } from 'src/common/guards/tenant.guard';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import {
@@ -210,6 +212,8 @@ export class PaymentMethodsController {
     return this.paymentMethodService.getPasscodeHistory(paymentMethodId, tenantId, member.id);
   }
   @Post(':paymentMethodId/verify')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Manually verify payment method (Admin only)' })
   @ApiResponse({
     status: 200,
@@ -236,12 +240,14 @@ export class PaymentMethodsController {
     );
   }
   @Get('member/:memberId')
+  @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method by member ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method retrieved' })
   async getPaymentMethodByMember(@Param('memberId') memberId: string) {
     return this.paymentMethodService.findByMemberId(memberId);
   }
   @Get('details/:id')
+  @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method details by ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method details retrieved' })
   async getPaymentMethodDetails(@Param('id') id: string) {

@@ -30,5 +30,3 @@ assert(
   !lookupDownMessage('Could not verify this bank account'),
   'invalid account must stay hard fail',
 );
-
-console.log('nigerian-banks.check: ok');

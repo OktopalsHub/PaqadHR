@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
@@ -581,7 +581,7 @@ export class AuthService {
       throw new UnauthorizedException('Too many failed attempts. Try again later.');
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(randomInt(100000, 999999));
     const identifier = this.otpIdentifier(userId, purpose);
     const hashedCode = await PasswordService.hashPassword(code);
     await this.verificationRepository.delete({ identifier });
@@ -673,6 +673,8 @@ export class AuthService {
       user.password = hashedPassword;
       await this.userRepository.save(user);
     }
+
+    await this.sessionRepository.delete({ userId });
 
     return { message: 'Password changed successfully' };
   }

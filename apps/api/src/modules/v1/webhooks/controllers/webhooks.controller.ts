@@ -193,7 +193,12 @@ export class WebhooksController {
     if (!isValid) {
       throw new UnauthorizedException('Invalid signature');
     }
-    const payload = JSON.parse(body.payload);
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(body.payload);
+    } catch {
+      throw new BadRequestException('Malformed Slack payload');
+    }
     await this.slackWebhookService.handleInteractiveComponent(payload);
     return { ok: true };
   }

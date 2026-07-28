@@ -24,5 +24,3 @@ assert.equal(isTenantAdmin(member), false);
 assertSelfOnly(member, 'm1');
 assert.throws(() => assertSelfOnly(admin, 'm1'), /own personal information/);
 assert.throws(() => assertSelfOnly(member, 'other'), /own personal information/);
-
-console.log('member-access.check: ok');

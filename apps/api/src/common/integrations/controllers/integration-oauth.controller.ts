@@ -125,7 +125,7 @@ export class OAuthIntegrationController {
     const integrationsSettings = `${baseTarget.replace(/\/$/, '')}/settings?tab=integrations`;
     if (error) {
       this.logger.error('OAuth error', { error });
-      return { url: `${integrationsSettings}&error=${error}` };
+      return { url: `${integrationsSettings}&error=auth_failed` };
     }
     if (!code) {
       this.logger.error('No code parameter in callback');
@@ -144,7 +144,7 @@ export class OAuthIntegrationController {
     } catch (err) {
       this.logger.error('OAuth callback processing failed', err);
       return {
-        url: `${integrationsSettings}&error=auth_failed&message=${encodeURIComponent(err instanceof Error ? err.message : String(err))}`,
+        url: `${integrationsSettings}&error=auth_failed`,
       };
     }
   }

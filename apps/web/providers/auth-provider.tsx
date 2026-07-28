@@ -110,13 +110,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     stopProactiveRefresh();
     try {
       await logoutRequest();
-    } finally {
       clearSession();
       clearCsrfToken();
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
       toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
       window.location.assign(authPageUrl('/signin'));
+    } catch {
+      clearSession();
+      clearCsrfToken();
+      queryClient.setQueryData(queryKeys.auth.session, null);
+      queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
+      toast.error(
+        <ToastMessage
+          title="Logout Failed"
+          description="Could not reach the server. Please try again."
+        />,
+      );
     }
   }, [queryClient]);
 

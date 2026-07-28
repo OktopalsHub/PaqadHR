@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { dataSourceOptions } from './common/config';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
 import { FeatureAccessGuard } from './common/guards/feature-access.guard';
@@ -14,6 +15,7 @@ import { IntegrationModule } from './common/integrations/integrations.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { ManagerAccessModule } from './common/modules/manager-access.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
+import { ErrorResponseService } from './common/services/error-response.service';
 import { ActivitiesModule } from './modules/v1/activities/activities.module';
 import { AddressModule } from './modules/v1/address/address.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
@@ -95,6 +97,13 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
   controllers: [AppController],
   providers: [
     AppService,
+    ErrorResponseService,
+    {
+      provide: APP_FILTER,
+      useFactory: (errorResponseService: ErrorResponseService) =>
+        new AllExceptionsFilter(errorResponseService),
+      inject: [ErrorResponseService],
+    },
     {
       provide: APP_FILTER,
       useFactory: (auditLogsService: AuditLogsService) =>

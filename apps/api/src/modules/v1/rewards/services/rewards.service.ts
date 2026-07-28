@@ -590,7 +590,8 @@ export class RewardsService {
       const updateResult = await pointsRepo
         .createQueryBuilder()
         .update(ShoutoutMemberPoints)
-        .set({ currentBalance: () => `current_balance - ${pointsCost}` })
+        .set({ currentBalance: () => 'current_balance - :pointsCost' })
+        .setParameters({ pointsCost })
         .where(
           'tenant_id = :tenantId AND member_id = :memberId AND current_balance >= :pointsCost',
           {
@@ -679,7 +680,8 @@ export class RewardsService {
         await pointsRepo
           .createQueryBuilder()
           .update(ShoutoutMemberPoints)
-          .set({ currentBalance: () => `current_balance + ${pointsCost}` })
+          .set({ currentBalance: () => 'current_balance + :pointsCost' })
+          .setParameters({ pointsCost })
           .where('tenant_id = :tenantId AND member_id = :memberId', { tenantId, memberId })
           .execute();
 

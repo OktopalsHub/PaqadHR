@@ -5,6 +5,7 @@ import { CurrentTenantMember, TenantId } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
+import type { PartialTenantSettingsData } from 'src/common/interfaces/partial-tenant-settings-data.interface';
 import type { TenantSettingsData } from 'src/common/interfaces/tenant-settings-data.interface';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
@@ -80,7 +81,7 @@ export class TenantSettingsController {
       language?: string;
       monthlyPointsAllowance?: number;
       enableNotifications?: boolean;
-      customSettings?: unknown;
+      customSettings?: PartialTenantSettingsData;
     },
   ) {
     const {
@@ -126,7 +127,7 @@ export class TenantSettingsController {
       enableNotifications?: boolean;
       initializeMemberPoints?: boolean;
       initialPointsOverride?: number;
-      customSettings?: unknown;
+      customSettings?: PartialTenantSettingsData;
     },
   ) {
     const {
