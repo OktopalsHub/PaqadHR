@@ -108,6 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     stopProactiveRefresh();
+    // Flag AppGate so it doesn't capture the tenant URL as a redirect param
+    // while the session is being torn down.
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('auth_signing_out', '1');
+    }
     try {
       await logoutRequest();
       clearSession();
@@ -127,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           description="Could not reach the server. Please try again."
         />,
       );
+      window.location.assign(authPageUrl('/signin'));
     }
   }, [queryClient]);
 

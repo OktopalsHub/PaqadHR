@@ -28,6 +28,15 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authLoading) return;
 
+    // During sign-out, the session is torn down before the full-page redirect
+    // fires. Skip capturing a redirect param so the signin URL stays clean.
+    const signingOut =
+      typeof window !== 'undefined' && sessionStorage.getItem('auth_signing_out') === '1';
+    if (signingOut) {
+      sessionStorage.removeItem('auth_signing_out');
+      return;
+    }
+
     if (!isAuthenticated) {
       const destination = resolveAuthDestination({
         isAuthenticated: false,

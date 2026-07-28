@@ -64,7 +64,6 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       '/api/v1/payroll/webhooks',
       '/health',
       '/metrics',
-      '/csrf/token',
     ];
     const isExcludedPath = excludedPaths.some((path) => req.path.startsWith(path));
     // Bearer-authenticated requests are not CSRF-vulnerable (the token isn't
