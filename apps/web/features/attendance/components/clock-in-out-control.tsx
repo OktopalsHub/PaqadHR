@@ -7,10 +7,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useElapsedSince } from '@/features/attendance/hooks/use-elapsed-since';
 import { formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
 import { useClockIn, useClockInInfo, useClockOut } from '@/hooks/queries/use-attendance';
+import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
+import { FeatureAccess } from '@/lib/constants/feature-access';
 import { cn } from '@/lib/utils';
 
 export function ClockInOutControl() {
+  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
+  const canAccessAttendance = !featureGatingEnabled || hasFeature(FeatureAccess.ATTENDANCE);
+
+  if (!canAccessAttendance) {
+    return null;
+  }
+
+  return <ClockInOutControlContent />;
+}
+
+function ClockInOutControlContent() {
   const { enabled: clockInEnabled, isLoading: settingsLoading } = useClockInEnabled();
   const { data: info, isLoading: infoLoading } = useClockInInfo();
   const clockInMutation = useClockIn();

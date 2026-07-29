@@ -21,7 +21,7 @@ export const EmployeeCards = ({ employees, viewerMemberId, viewerRole }: Employe
     Boolean(viewerMemberId && canManageMember(viewerMemberId, employee, viewerRole));
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1680px]:grid-cols-6">
       {employees.length > 0 ? (
         employees.map((employee) => {
           const card = (

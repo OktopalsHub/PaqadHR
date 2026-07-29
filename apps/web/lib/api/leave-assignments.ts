@@ -1,33 +1,94 @@
 import { apiClient, tenantPath } from '@/lib/api/client';
 
-export interface AssignmentReportEntry {
+export interface LeaveTypeAssignmentResult {
   memberId: string;
-  memberName?: string;
-  email?: string;
   leaveTypeId: string;
   leaveTypeName?: string;
-  totalDays: number;
-  usedDays: number;
-  remainingDays: number;
+  allocatedDays: number;
+  balanceId: string;
+}
+
+export interface LeaveTypeAssignmentToAllUsersResult {
+  memberId: string;
+  allocatedDays: number;
+  balanceId: string;
+}
+
+export interface LeaveTypeAssignmentRemovalResult {
+  memberId: string;
+  balanceId: string;
+  removedDays: number;
+}
+
+export interface MissingLeaveTypeAssignment {
+  leaveTypeId: string;
+  leaveTypeName: string;
+  defaultDays: number;
+}
+
+export interface MissingLeaveAssignment {
+  memberId: string;
+  memberName: string;
+  missingTypes: MissingLeaveTypeAssignment[];
+}
+
+export interface LeaveAssignmentReport {
+  tenantId: string;
   year: number;
+  totalLeaveTypes: number;
+  totalMembers: number;
+  missingAssignments: MissingLeaveAssignment[];
+  completeAssignments: number;
+}
+
+export interface SyncLeaveTypeAssignmentsResponse {
+  tenantId: string;
+  year: number;
+  totalAssignments: number;
+  assignments: LeaveTypeAssignmentResult[];
+  message: string;
+}
+
+export interface AssignExistingLeaveTypesResponse {
+  tenantId: string;
+  year: number;
+  totalAssignments: number;
+  assignments: LeaveTypeAssignmentResult[];
+}
+
+export interface AssignLeaveTypeToAllUsersResponse {
+  leaveTypeId: string;
+  leaveTypeName: string;
+  totalAssignments: number;
+  assignments: LeaveTypeAssignmentToAllUsersResult[];
+}
+
+export interface RemoveLeaveTypeAssignmentsResponse {
+  leaveTypeId: string;
+  totalRemovals: number;
+  removals: LeaveTypeAssignmentRemovalResult[];
+  balancesWithUsedDays: number;
 }
 
 export async function syncLeaveTypeAssignments(
   tenantId: string,
   year?: number,
-): Promise<{ synced: number }> {
+): Promise<SyncLeaveTypeAssignmentsResponse> {
   const params = year ? `?year=${year}` : '';
-  return apiClient<{ synced: number }>(tenantPath(tenantId, `leave-assignments/sync${params}`), {
-    method: 'POST',
-  });
+  return apiClient<SyncLeaveTypeAssignmentsResponse>(
+    tenantPath(tenantId, `leave-assignments/sync${params}`),
+    {
+      method: 'POST',
+    },
+  );
 }
 
 export async function assignExistingLeaveTypes(
   tenantId: string,
   year?: number,
-): Promise<{ assigned: number }> {
+): Promise<AssignExistingLeaveTypesResponse> {
   const params = year ? `?year=${year}` : '';
-  return apiClient<{ assigned: number }>(
+  return apiClient<AssignExistingLeaveTypesResponse>(
     tenantPath(tenantId, `leave-assignments/assign-existing${params}`),
     { method: 'POST' },
   );
@@ -37,9 +98,9 @@ export async function assignLeaveTypeToAllUsers(
   tenantId: string,
   leaveTypeId: string,
   year?: number,
-): Promise<{ assigned: number }> {
+): Promise<AssignLeaveTypeToAllUsersResponse> {
   const params = year ? `?year=${year}` : '';
-  return apiClient<{ assigned: number }>(
+  return apiClient<AssignLeaveTypeToAllUsersResponse>(
     tenantPath(tenantId, `leave-assignments/assign-leave-type/${leaveTypeId}${params}`),
     { method: 'POST' },
   );
@@ -49,9 +110,9 @@ export async function removeLeaveTypeAssignments(
   tenantId: string,
   leaveTypeId: string,
   year?: number,
-): Promise<{ removed: number }> {
+): Promise<RemoveLeaveTypeAssignmentsResponse> {
   const params = year ? `?year=${year}` : '';
-  return apiClient<{ removed: number }>(
+  return apiClient<RemoveLeaveTypeAssignmentsResponse>(
     tenantPath(tenantId, `leave-assignments/remove-leave-type/${leaveTypeId}${params}`),
     { method: 'DELETE' },
   );
@@ -60,9 +121,9 @@ export async function removeLeaveTypeAssignments(
 export async function fetchAssignmentReport(
   tenantId: string,
   year?: number,
-): Promise<AssignmentReportEntry[]> {
+): Promise<LeaveAssignmentReport> {
   const params = year ? `?year=${year}` : '';
-  return apiClient<AssignmentReportEntry[]>(
+  return apiClient<LeaveAssignmentReport>(
     tenantPath(tenantId, `leave-assignments/report${params}`),
   );
 }

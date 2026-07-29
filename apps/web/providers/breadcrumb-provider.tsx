@@ -19,7 +19,7 @@ type BreadcrumbContextValue = {
 const BreadcrumbContext = createContext<BreadcrumbContextValue | null>(null);
 
 export function BreadcrumbProvider({ children }: { children: ReactNode }) {
-  const _pathname = usePathname();
+  const pathname = usePathname();
   const [tailLabel, setTailLabelState] = useState<string | null>(null);
 
   const setTailLabel = useCallback((label: string | null) => {
@@ -27,8 +27,9 @@ export function BreadcrumbProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    void pathname;
     setTailLabelState(null);
-  }, []);
+  }, [pathname]);
 
   const value = useMemo(() => ({ tailLabel, setTailLabel }), [tailLabel, setTailLabel]);
 

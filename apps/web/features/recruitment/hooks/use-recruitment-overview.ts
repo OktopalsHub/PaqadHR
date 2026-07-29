@@ -22,7 +22,7 @@ export function useRecruitmentOverview(options?: { enabled?: boolean }) {
   const { data: apiCandidates = [], isLoading: candidatesLoading } = useAllCandidates({
     enabled,
   });
-  const { data: calendarEvents = [] } = useCalendarEvents();
+  const { data: calendarEvents = [] } = useCalendarEvents({ enabled });
 
   const apiJobs = jobsData?.jobs ?? [];
   const isLoading = enabled && (jobsLoading || candidatesLoading);

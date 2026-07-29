@@ -15,9 +15,23 @@ export const LandingCta = () => {
   const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
+    let isActive = true;
+
     void fetchLandingPricing()
-      .then((result) => setCurrency(result.currency))
-      .catch(() => setCurrency('USD'));
+      .then((result) => {
+        if (isActive) {
+          setCurrency(result.currency);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setCurrency('USD');
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, []);
 
   const plans = useMemo(() => {

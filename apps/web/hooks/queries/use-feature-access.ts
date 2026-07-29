@@ -2,10 +2,20 @@
 
 import { useMemo } from 'react';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
-import type { FeatureAccess } from '@/lib/constants/feature-access';
+import { FeatureAccess } from '@/lib/constants/feature-access';
+import { getFeatureTier } from '@/lib/constants/feature-tier-map';
+import { isPlanSlug, PLAN_SLUG_ORDER, type PlanSlug } from '@/lib/constants/plan-catalog';
 
 export function useFeatureAccess() {
-  const { data: overview } = useBillingOverview();
+  const overviewQuery = useBillingOverview();
+  const { data: overview } = overviewQuery;
+  const featureGatingEnabled = overview?.featureGatingEnabled ?? false;
+  const isLoading = overviewQuery.isLoading || overviewQuery.isPending;
+
+  const currentPlan = useMemo<null | PlanSlug>(() => {
+    const plan = overview?.subscription?.plan?.toLowerCase();
+    return plan && isPlanSlug(plan) ? plan : null;
+  }, [overview?.subscription?.plan]);
 
   const features = useMemo(() => {
     const currentPlan = overview?.plans?.find(
@@ -17,10 +27,27 @@ export function useFeatureAccess() {
   const hasFeature = useMemo(
     () =>
       (feature: FeatureAccess): boolean => {
-        return Boolean(features[feature]);
+        if (!featureGatingEnabled || feature === FeatureAccess.PAYROLL) {
+          return true;
+        }
+
+        if (feature in features) {
+          return Boolean(features[feature]);
+        }
+
+        if (!currentPlan) {
+          return false;
+        }
+
+        const requiredTier = getFeatureTier(feature);
+        if (!requiredTier) {
+          return false;
+        }
+
+        return PLAN_SLUG_ORDER.indexOf(currentPlan) >= PLAN_SLUG_ORDER.indexOf(requiredTier);
       },
-    [features],
+    [currentPlan, featureGatingEnabled, features],
   );
 
-  return { hasFeature, featureGatingEnabled: overview?.featureGatingEnabled ?? false };
+  return { currentPlan, hasFeature, featureGatingEnabled, isLoading };
 }

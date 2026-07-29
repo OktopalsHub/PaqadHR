@@ -178,6 +178,16 @@ export class PlansService {
         sortOrder: params.sortOrder ?? 0,
         isActive: true,
       });
+    } else {
+      plan = await this.planRepository.save({
+        ...plan,
+        name: params.name,
+        description: params.description ?? null,
+        features: params.features ?? {},
+        limits: params.limits ?? {},
+        sortOrder: params.sortOrder ?? plan.sortOrder ?? 0,
+        isActive: true,
+      });
     }
     const existing = await this.planPriceRepository.findOne({
       where: {

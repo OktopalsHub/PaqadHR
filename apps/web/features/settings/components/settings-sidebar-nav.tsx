@@ -21,8 +21,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { FeatureAccess } from '@/lib/constants/feature-access';
 import { useTenant } from '@/providers/tenant-provider';
 import {
   getVisibleSettingsTabs,
@@ -48,11 +50,15 @@ const SETTINGS_TAB_ICONS: Record<SettingsTab, LucideIcon> = {
 export function SettingsSidebarNav() {
   const searchParams = useSearchParams();
   const { tenant } = useTenant();
+  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
   const tenantHref = useTenantHref();
   const settingsBase = tenantHref('settings');
   const isAdmin = isTenantAdmin(tenant?.member?.role);
   const activeTab = resolveSettingsTab(searchParams.get('tab'), isAdmin);
-  const visibleTabs = getVisibleSettingsTabs(isAdmin);
+  const canAccessShoutouts = !featureGatingEnabled || hasFeature(FeatureAccess.INTEGRATIONS);
+  const visibleTabs = getVisibleSettingsTabs(isAdmin).filter(
+    (tab) => canAccessShoutouts || tab !== 'shoutouts',
+  );
 
   return (
     <div className="flex h-full flex-col">

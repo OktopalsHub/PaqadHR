@@ -78,18 +78,21 @@ export const Analytics = () => {
           value={data.workforce.activeEmployees}
           hint={`${data.workforce.totalEmployees} total · ${data.workforce.newHiresLast30Days} new this month`}
           icon={Users}
+          iconClassName="bg-emerald-500/12 text-emerald-700"
         />
         <StatCard
           label="Open roles"
           value={data.recruitment.openRoles}
           hint={`${data.recruitment.totalCandidates} candidates · ${data.recruitment.hired} hired`}
           icon={Briefcase}
+          iconClassName="bg-sky-500/12 text-sky-700"
         />
         <StatCard
           label="Pending leave"
           value={data.leaves.pending}
           hint={`${data.leaves.onLeaveNow} out today`}
           icon={CalendarClock}
+          iconClassName="bg-amber-500/14 text-amber-700"
         />
         <StatCard
           label="Last payroll"
@@ -100,6 +103,7 @@ export const Analytics = () => {
               : `${data.payroll.completedRuns} completed runs`
           }
           icon={Wallet}
+          iconClassName="bg-violet-500/12 text-violet-700"
         />
       </div>
 
@@ -111,25 +115,28 @@ export const Analytics = () => {
           }
           hint={`Last ${data.attendance.periodDays} days`}
           icon={Target}
+          iconClassName="bg-cyan-500/12 text-cyan-700"
         />
         <StatCard
           label="Departments"
           value={data.workforce.departmentCount}
           hint="Organizational units"
           icon={TrendingUp}
+          iconClassName="bg-indigo-500/12 text-indigo-700"
         />
         <StatCard
           label="Shoutouts"
           value={data.recognition.shoutoutsThisMonth}
           hint={`${formatPaqPoints(data.recognition.pointsAwardedThisMonth)} this month`}
           icon={Heart}
+          iconClassName="bg-rose-500/12 text-rose-700"
         />
         <StatCard
           label="Payroll runs"
           value={data.payroll.totalRuns}
           hint={`${data.payroll.completedRuns} completed`}
           icon={Wallet}
-          iconClassName="bg-chart-2/15 text-chart-2"
+          iconClassName="bg-blue-500/12 text-blue-700"
         />
       </div>
 

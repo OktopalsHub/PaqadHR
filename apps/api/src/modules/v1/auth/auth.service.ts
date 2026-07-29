@@ -425,6 +425,7 @@ export class AuthService {
     });
 
     if (!session) {
+      await this.sessionRepository.delete({ userId: user.id });
       throw new UnauthorizedException('Invalid or expired session');
     }
 

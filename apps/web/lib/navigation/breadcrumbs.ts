@@ -16,6 +16,7 @@ function labelForSegment(segment: string): string {
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TAB_BREADCRUMB_SEGMENTS = new Set(['settings']);
 
 export function getBreadcrumbs(pathname: string, tailLabel?: string | null): BreadcrumbSegment[] {
   const tenantSlug = getTenantSlugFromPath(pathname);
@@ -54,6 +55,20 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
       label: labelForSegment(part),
       href: isLast ? undefined : currentPath,
     });
+  }
+
+  const trimmedTailLabel = tailLabel?.trim();
+  const lastPart = parts[parts.length - 1];
+  const lastSegment = segments[segments.length - 1];
+  if (
+    trimmedTailLabel &&
+    lastPart &&
+    lastSegment &&
+    TAB_BREADCRUMB_SEGMENTS.has(lastPart) &&
+    trimmedTailLabel.toLowerCase() !== lastSegment.label.toLowerCase()
+  ) {
+    lastSegment.href = currentPath;
+    segments.push({ label: trimmedTailLabel });
   }
 
   return segments;

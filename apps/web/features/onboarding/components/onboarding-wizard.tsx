@@ -1,7 +1,16 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import {
+  Building2,
+  CheckCircle2,
+  ClipboardList,
+  Loader2,
+  type LucideIcon,
+  UserRound,
+  WalletCards,
+  XCircle,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -34,6 +43,41 @@ import {
 
 const STEPS = ['Company', 'You', 'Plan', 'Review'] as const;
 
+type StepDetail = {
+  label: (typeof STEPS)[number];
+  title: string;
+  description: string;
+  icon: LucideIcon;
+};
+
+const STEP_DETAILS: StepDetail[] = [
+  {
+    label: 'Company',
+    title: 'Set up your company',
+    description: 'Tell us about your organization to personalize your workspace.',
+    icon: Building2,
+  },
+  {
+    label: 'You',
+    title: 'About you',
+    description: "This is how you'll appear to your team in the workspace.",
+    icon: UserRound,
+  },
+  {
+    label: 'Plan',
+    title: 'Choose your plan',
+    description: '14 days free on any plan. No card required.',
+    icon: WalletCards,
+  },
+  {
+    label: 'Review',
+    title: 'Review and start your trial',
+    description:
+      "Confirm your workspace details. We'll create everything when you start your trial.",
+    icon: ClipboardList,
+  },
+] as const;
+
 const INDUSTRIES = [
   'Technology',
   'Finance',
@@ -46,18 +90,43 @@ const INDUSTRIES = [
 
 const COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '500+'];
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
+const fieldLabelClass = 'text-[13px] font-semibold tracking-[0.01em] text-slate-700';
+const inputClass =
+  'h-10 rounded-[16px] border-slate-200 bg-white px-4 text-[15px] text-slate-900 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] placeholder:text-slate-400 focus-visible:ring-[3px] focus-visible:ring-emerald-500/18';
+const selectTriggerClass =
+  'h-10 w-full rounded-[16px] border-slate-200 bg-white px-4 text-[15px] text-slate-900 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-visible:ring-[3px] focus-visible:ring-emerald-500/18 focus-visible:ring-offset-0';
+
+function ReviewRow({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="font-medium sm:text-right">{value}</dd>
+    <div
+      className={cn(
+        'rounded-[18px] border border-slate-200/80 bg-white/82 px-4 py-3 shadow-[0_12px_30px_-30px_rgba(15,23,42,0.24)]',
+        className,
+      )}
+    >
+      <dt className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </dt>
+      <dd className="mt-2 break-words text-sm font-semibold leading-5 text-slate-900">{value}</dd>
     </div>
   );
 }
 
-export function OnboardingWizard() {
+type OnboardingWizardProps = {
+  step: number;
+  onStepChange: (step: number) => void;
+};
+
+export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) {
   const queryClient = useQueryClient();
-  const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [employeeCode, setEmployeeCode] = useState('');
@@ -201,6 +270,8 @@ export function OnboardingWizard() {
   });
 
   const selectedPlanDetails = sortedPlans.find((plan) => plan.plan.slug === selectedPlan);
+  const currentStep = STEP_DETAILS[step];
+  const CurrentStepIcon = currentStep.icon;
 
   const canContinue =
     step === 0
@@ -213,7 +284,7 @@ export function OnboardingWizard() {
 
   const handleNext = () => {
     if (step < STEPS.length - 1) {
-      setStep(step + 1);
+      onStepChange(step + 1);
       return;
     }
     completeMutation.mutate({
@@ -231,337 +302,375 @@ export function OnboardingWizard() {
   };
 
   return (
-    <div className={cn('mx-auto w-full', step >= 2 ? 'max-w-6xl' : 'max-w-lg')}>
-      <div className="mb-10 flex items-center justify-center gap-2">
-        {STEPS.map((label, index) => (
-          <div key={label} className="flex items-center gap-2">
+    <div className="w-full xl:h-full">
+      <div className="relative overflow-hidden rounded-[28px] border border-white/70 bg-white/76 p-3 shadow-[0_40px_120px_-72px_rgba(15,23,42,0.42)] backdrop-blur-xl sm:p-3.5 lg:h-full lg:p-4">
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-10 top-3 h-24 rounded-full bg-[#00a070]/16 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute -right-24 top-24 h-56 w-56 rounded-full border border-white/30 bg-white/30 blur-3xl"
+        />
+
+        <div className="relative flex flex-col gap-3 lg:h-full">
+          <div className="relative overflow-hidden rounded-[22px] border border-emerald-100/80 bg-[linear-gradient(135deg,rgba(236,249,242,0.98)_0%,rgba(255,255,255,0.96)_48%,rgba(239,252,247,0.98)_100%)] p-3.5 sm:p-4">
             <div
-              className={cn(
-                'flex size-8 items-center justify-center rounded-full border text-xs font-medium transition-colors',
-                index <= step
-                  ? 'border-foreground bg-foreground text-background'
-                  : 'border-border text-muted-foreground',
-              )}
-            >
-              {index + 1}
-            </div>
-            {index < STEPS.length - 1 ? (
-              <div className={cn('h-px w-8', index < step ? 'bg-foreground' : 'bg-border')} />
-            ) : null}
-          </div>
-        ))}
-      </div>
+              aria-hidden="true"
+              className="absolute -right-12 top-0 h-36 w-36 rounded-full bg-[#00a070]/14 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute bottom-0 left-10 h-28 w-28 rounded-full bg-white/70 blur-3xl"
+            />
 
-      <div className="rounded-2xl border bg-card p-8 shadow-sm">
-        {step === 0 ? (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">Set up your company</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Tell us about your organization to personalize your workspace.
-              </p>
-            </div>
-            <div className="space-y-4">
+            <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-2">
-                <Label htmlFor="company-name">Company name</Label>
-                <Input
-                  id="company-name"
-                  placeholder="Acme Inc."
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                <span className="inline-flex rounded-full border border-emerald-200/80 bg-white/72 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.25)]">
+                  Step {step + 1} of {STEP_DETAILS.length}
+                </span>
+                <div>
+                  <h2 className="text-[clamp(1.35rem,1.8vw,1.8rem)] font-semibold tracking-[-0.05em] text-slate-950">
+                    {currentStep.title}
+                  </h2>
+                  <p className="mt-1 max-w-2xl text-sm leading-5 text-slate-500">
+                    {currentStep.description}
+                  </p>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="workspace-slug">Workspace slug</Label>
-                <div className="flex overflow-hidden rounded-lg border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
-                  <span className="flex max-w-[55%] shrink-0 items-center border-r border-input bg-muted/50 px-3 text-xs text-muted-foreground sm:max-w-none sm:text-sm">
-                    {appBaseUrl || '…/'}
-                  </span>
+              <div className="flex items-center gap-2.5 rounded-[16px] border border-white/85 bg-white/78 px-3 py-2 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.28)]">
+                <div className="flex size-9 items-center justify-center rounded-[12px] bg-[#00a070]/10 text-primary">
+                  <CurrentStepIcon className="size-4" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Current section
+                  </p>
+                  <p className="text-sm font-semibold text-slate-900">{currentStep.label}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] border border-slate-200/80 bg-white/92 p-3.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.18)] sm:p-4 lg:flex lg:flex-1 lg:flex-col lg:p-4">
+            {step === 0 ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="company-name" className={fieldLabelClass}>
+                    Company name
+                  </Label>
                   <Input
-                    id="workspace-slug"
-                    value={slug}
-                    onChange={(e) => {
-                      slugTouchedRef.current = true;
-                      setSlug(slugifyInput(e.target.value));
-                    }}
-                    placeholder="acme-inc"
-                    className="border-0 shadow-none focus-visible:ring-0"
-                    aria-describedby="workspace-slug-hint"
+                    id="company-name"
+                    placeholder="Acme Inc."
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={inputClass}
                   />
-                  {appUrlSuffix ? (
-                    <span className="flex shrink-0 items-center border-l border-input bg-muted/50 px-3 text-xs text-muted-foreground sm:max-w-none sm:text-sm">
-                      {appUrlSuffix}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="workspace-slug" className={fieldLabelClass}>
+                    Workspace slug
+                  </Label>
+                  <div className="flex overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-within:ring-[3px] focus-within:ring-emerald-500/18">
+                    <span className="flex max-w-[55%] shrink-0 items-center border-r border-slate-200 bg-slate-50/90 px-4 text-xs text-slate-500 sm:max-w-none sm:text-sm">
+                      {appBaseUrl || '…/'}
                     </span>
-                  ) : null}
+                    <Input
+                      id="workspace-slug"
+                      value={slug}
+                      onChange={(e) => {
+                        slugTouchedRef.current = true;
+                        setSlug(slugifyInput(e.target.value));
+                      }}
+                      placeholder="acme-inc"
+                      className="h-10 border-0 bg-transparent px-4 text-[15px] text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0"
+                      aria-describedby="workspace-slug-hint"
+                    />
+                    {appUrlSuffix ? (
+                      <span className="flex shrink-0 items-center border-l border-slate-200 bg-slate-50/90 px-4 text-xs text-slate-500 sm:max-w-none sm:text-sm">
+                        {appUrlSuffix}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p
+                    id="workspace-slug-hint"
+                    className={cn(
+                      'flex items-center gap-1.5 text-[11px] leading-4',
+                      slugCheckPending && 'text-slate-500',
+                      slug.trim().length >= 2 &&
+                        !slugCheckPending &&
+                        slugAvailabilityQuery.data?.available &&
+                        'text-emerald-600',
+                      slugBlocked && 'text-destructive',
+                      slug.trim().length >= 2 && !slugFormatValid && 'text-destructive',
+                      slug.trim().length < 2 && 'text-slate-500',
+                    )}
+                  >
+                    {slug.trim().length < 2 ? (
+                      'Pick a short slug for your workspace. It cannot be changed later.'
+                    ) : !slugFormatValid ? (
+                      <>
+                        <XCircle className="size-3.5 shrink-0" />
+                        Use 2–25 lowercase letters, numbers, and hyphens.
+                      </>
+                    ) : slugCheckPending ? (
+                      'Checking availability…'
+                    ) : slugAvailabilityQuery.data?.available ? (
+                      <>
+                        <CheckCircle2 className="size-3.5 shrink-0" />
+                        This slug is available.
+                      </>
+                    ) : slugAvailabilityQuery.data?.reason === 'taken' ? (
+                      <>
+                        <XCircle className="size-3.5 shrink-0" />
+                        This slug is already taken.
+                      </>
+                    ) : slugAvailabilityQuery.data?.reason === 'reserved' ? (
+                      <>
+                        <XCircle className="size-3.5 shrink-0" />
+                        This slug is reserved.
+                      </>
+                    ) : null}
+                  </p>
                 </div>
-                <p
-                  id="workspace-slug-hint"
-                  className={cn(
-                    'flex items-center gap-1.5 text-xs',
-                    slugCheckPending && 'text-muted-foreground',
-                    slug.trim().length >= 2 &&
-                      !slugCheckPending &&
-                      slugAvailabilityQuery.data?.available &&
-                      'text-emerald-600 dark:text-emerald-400',
-                    slugBlocked && 'text-destructive',
-                    slug.trim().length >= 2 && !slugFormatValid && 'text-destructive',
-                    slug.trim().length < 2 && 'text-muted-foreground',
-                  )}
-                >
-                  {slug.trim().length < 2 ? (
-                    'Pick a short slug for your workspace. It cannot be changed later.'
-                  ) : !slugFormatValid ? (
-                    <>
-                      <XCircle className="size-3.5 shrink-0" />
-                      Use 2–25 lowercase letters, numbers, and hyphens.
-                    </>
-                  ) : slugCheckPending ? (
-                    'Checking availability…'
-                  ) : slugAvailabilityQuery.data?.available ? (
-                    <>
-                      <CheckCircle2 className="size-3.5 shrink-0" />
-                      This slug is available.
-                    </>
-                  ) : slugAvailabilityQuery.data?.reason === 'taken' ? (
-                    <>
-                      <XCircle className="size-3.5 shrink-0" />
-                      This slug is already taken.
-                    </>
-                  ) : slugAvailabilityQuery.data?.reason === 'reserved' ? (
-                    <>
-                      <XCircle className="size-3.5 shrink-0" />
-                      This slug is reserved.
-                    </>
-                  ) : null}
-                </p>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="tenant-code">Tenant Code</Label>
-                <Input
-                  id="tenant-code"
-                  placeholder="e.g. EMP, ZPR"
-                  value={employeeCode}
-                  onChange={(e) => {
-                    employeeCodeTouchedRef.current = true;
-                    setEmployeeCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
-                  }}
-                  maxLength={10}
-                />
-                <p
-                  className={cn(
-                    'text-xs',
-                    !isEmployeeCodeValid && employeeCode.length > 0
-                      ? 'text-destructive'
-                      : 'text-muted-foreground',
-                  )}
-                >
-                  {!isEmployeeCodeValid && employeeCode.length > 0
-                    ? 'Tenant code must be between 2 and 10 characters.'
-                    : `Short identifier prefix for employee IDs (e.g., ${employeeCode || 'EMP'}001).`}
-                </p>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Industry</Label>
-                  <Select value={industry} onValueChange={setIndustry}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select industry" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {INDUSTRIES.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {item}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Company size</Label>
-                  <Select value={companySize} onValueChange={setCompanySize}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COMPANY_SIZES.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {item} employees
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {step === 1 ? (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">About you</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                This is how you&apos;ll appear to your team in the workspace.
-              </p>
-            </div>
-            <div className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="first-name">First name</Label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="tenant-code" className={fieldLabelClass}>
+                    Tenant Code
+                  </Label>
                   <Input
-                    id="first-name"
-                    placeholder="Jane"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    id="tenant-code"
+                    placeholder="e.g. EMP, ZPR"
+                    value={employeeCode}
+                    onChange={(e) => {
+                      employeeCodeTouchedRef.current = true;
+                      setEmployeeCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''));
+                    }}
+                    maxLength={10}
+                    className={inputClass}
+                  />
+                  <p
+                    className={cn(
+                      'text-[11px] leading-4',
+                      !isEmployeeCodeValid && employeeCode.length > 0
+                        ? 'text-destructive'
+                        : 'text-slate-500',
+                    )}
+                  >
+                    {!isEmployeeCodeValid && employeeCode.length > 0
+                      ? 'Tenant code must be between 2 and 10 characters.'
+                      : `Short identifier prefix for employee IDs (e.g., ${employeeCode || 'EMP'}001).`}
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className={fieldLabelClass}>Industry</Label>
+                    <Select value={industry} onValueChange={setIndustry}>
+                      <SelectTrigger className={selectTriggerClass}>
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDUSTRIES.map((item) => (
+                          <SelectItem key={item} value={item}>
+                            {item}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className={fieldLabelClass}>Company size</Label>
+                    <Select value={companySize} onValueChange={setCompanySize}>
+                      <SelectTrigger className={selectTriggerClass}>
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMPANY_SIZES.map((item) => (
+                          <SelectItem key={item} value={item}>
+                            {item} employees
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {step === 1 ? (
+              <div className="space-y-3">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="first-name" className={fieldLabelClass}>
+                      First name
+                    </Label>
+                    <Input
+                      id="first-name"
+                      placeholder="Jane"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="last-name" className={fieldLabelClass}>
+                      Last name
+                    </Label>
+                    <Input
+                      id="last-name"
+                      placeholder="Doe"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="preferred-name" className={fieldLabelClass}>
+                    Preferred name <span className="font-medium text-slate-400">(optional)</span>
+                  </Label>
+                  <Input
+                    id="preferred-name"
+                    placeholder="What should we call you on the dashboard?"
+                    value={preferredName}
+                    onChange={(e) => setPreferredName(e.target.value)}
+                    className={inputClass}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last-name">Last name</Label>
+                  <Label htmlFor="job-title" className={fieldLabelClass}>
+                    Job position
+                  </Label>
                   <Input
-                    id="last-name"
-                    placeholder="Doe"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    id="job-title"
+                    placeholder="Head of People"
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    className={inputClass}
                   />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="preferred-name">
-                  Preferred name{' '}
-                  <span className="font-normal text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="preferred-name"
-                  placeholder="What should we call you on the dashboard?"
-                  value={preferredName}
-                  onChange={(e) => setPreferredName(e.target.value)}
-                />
+            ) : null}
+
+            {step === 2 ? (
+              <div className="space-y-4">
+                {pricingPreview.isLoading ? (
+                  <div className="flex min-h-[170px] items-center justify-center rounded-[20px] border border-dashed border-slate-200 bg-slate-50/80">
+                    <Loader2 className="size-6 animate-spin text-slate-400" />
+                  </div>
+                ) : pricingPreview.isError || sortedPlans.length === 0 ? (
+                  <p className="rounded-[22px] border border-destructive/20 bg-destructive/5 px-4 py-5 text-center text-sm text-destructive">
+                    {pricingPreview.error instanceof Error
+                      ? pricingPreview.error.message
+                      : 'Unable to load plans. Refresh and try again.'}
+                  </p>
+                ) : (
+                  <div className="grid gap-3.5 xl:grid-cols-3">
+                    {sortedPlans.map((plan) => {
+                      const isSelected = selectedPlan === plan.plan.slug;
+                      const compactHighlights =
+                        getPlanCatalog(plan.plan.slug)
+                          ?.highlights.filter((item) => !item.includes('payroll platform fee'))
+                          .slice(0, 4) ?? [];
+                      return (
+                        <button
+                          key={plan.plan.slug}
+                          type="button"
+                          className="group h-full text-left"
+                          onClick={() => setSelectedPlan(plan.plan.slug)}
+                        >
+                          <PlanPricingCard
+                            slug={plan.plan.slug}
+                            name={plan.plan.name}
+                            description={plan.plan.description}
+                            currency={plan.currency}
+                            pricePerSeat={plan.monthlyPrice}
+                            highlights={compactHighlights}
+                            isPopular={plan.plan.slug === 'growth'}
+                            variant="onboarding"
+                            className={cn(
+                              'h-full border-white/80 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_30px_54px_-36px_rgba(15,23,42,0.3)]',
+                              isSelected &&
+                                'ring-2 ring-primary shadow-[0_30px_70px_-42px_rgba(0,160,112,0.38)]',
+                            )}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="job-title">Job position</Label>
-                <Input
-                  id="job-title"
-                  placeholder="Head of People"
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                />
+            ) : null}
+
+            {step === 3 ? (
+              <div className="space-y-3.5">
+                <dl className="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-3">
+                  <ReviewRow label="Workspace name" value={name.trim() || '—'} />
+                  <ReviewRow
+                    label="Workspace URL"
+                    value={slug.trim() ? formatWorkspaceUrl(slug.trim()) : '—'}
+                  />
+                  <ReviewRow label="Industry" value={industry || '—'} />
+                  <ReviewRow
+                    label="Team size"
+                    value={companySize ? `${companySize} employees` : '—'}
+                  />
+                  <ReviewRow label="Tenant code" value={employeeCode.trim() || '—'} />
+                  <ReviewRow
+                    label="Owner"
+                    value={[firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || '—'}
+                  />
+                  {preferredName.trim() ? (
+                    <ReviewRow label="Preferred name" value={preferredName.trim()} />
+                  ) : null}
+                  <ReviewRow label="Job position" value={jobTitle.trim() || '—'} />
+                  <ReviewRow
+                    label="Plan"
+                    value={
+                      selectedPlanDetails
+                        ? `${selectedPlanDetails.plan.name} · 14-day free trial`
+                        : '—'
+                    }
+                  />
+                </dl>
+
+                <p className="text-center text-[11px] leading-4 text-slate-500">
+                  Payroll and automated payouts are included on every plan during your trial.
+                </p>
               </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-col-reverse gap-2.5 border-t border-slate-200/80 pt-3 sm:mt-auto sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={step === 0 || completeMutation.isPending}
+                onClick={() => onStepChange(step - 1)}
+                className={cn(
+                  'h-10 rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.2)] hover:bg-slate-50',
+                  step === 0 && 'pointer-events-none opacity-0',
+                )}
+              >
+                Back
+              </Button>
+              <Button
+                type="button"
+                disabled={!canContinue || completeMutation.isPending}
+                onClick={handleNext}
+                variant="brandSolid"
+                className="h-10 rounded-[16px] px-5 text-sm font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
+              >
+                {step === STEPS.length - 1
+                  ? completeMutation.isPending
+                    ? 'Creating workspace…'
+                    : 'Start 14-day free trial'
+                  : 'Continue'}
+              </Button>
             </div>
           </div>
-        ) : null}
-
-        {step === 2 ? (
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold tracking-tight">Choose your plan</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                14 days free on any plan. No card required.
-              </p>
-            </div>
-
-            {pricingPreview.isLoading ? (
-              <div className="flex min-h-[200px] items-center justify-center">
-                <Loader2 className="size-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : pricingPreview.isError || sortedPlans.length === 0 ? (
-              <p className="text-center text-sm text-destructive">
-                {pricingPreview.error instanceof Error
-                  ? pricingPreview.error.message
-                  : 'Unable to load plans. Refresh and try again.'}
-              </p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-3">
-                {sortedPlans.map((plan) => {
-                  const isSelected = selectedPlan === plan.plan.slug;
-                  return (
-                    <button
-                      key={plan.plan.slug}
-                      type="button"
-                      className="h-full text-left"
-                      onClick={() => setSelectedPlan(plan.plan.slug)}
-                    >
-                      <PlanPricingCard
-                        slug={plan.plan.slug}
-                        name={plan.plan.name}
-                        description={plan.plan.description}
-                        currency={plan.currency}
-                        pricePerSeat={plan.monthlyPrice}
-                        isPopular={plan.plan.slug === 'growth'}
-                        variant="marketing"
-                        className={cn('h-full', isSelected && 'ring-2 ring-primary')}
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        {step === 3 ? (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-semibold tracking-tight">Review and start your trial</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Confirm your workspace details. We&apos;ll create everything when you start your
-                trial.
-              </p>
-            </div>
-
-            <dl className="divide-y rounded-xl border bg-muted/20 text-sm">
-              <ReviewRow label="Workspace name" value={name.trim() || '—'} />
-              <ReviewRow
-                label="Workspace URL"
-                value={slug.trim() ? formatWorkspaceUrl(slug.trim()) : '—'}
-              />
-              <ReviewRow label="Industry" value={industry || '—'} />
-              <ReviewRow label="Team size" value={companySize ? `${companySize} employees` : '—'} />
-              <ReviewRow label="Tenant code" value={employeeCode.trim() || '—'} />
-              <ReviewRow
-                label="Owner"
-                value={[firstName.trim(), lastName.trim()].filter(Boolean).join(' ') || '—'}
-              />
-              {preferredName.trim() ? (
-                <ReviewRow label="Preferred name" value={preferredName.trim()} />
-              ) : null}
-              <ReviewRow label="Job position" value={jobTitle.trim() || '—'} />
-              <ReviewRow
-                label="Plan"
-                value={
-                  selectedPlanDetails ? `${selectedPlanDetails.plan.name} · 14-day free trial` : '—'
-                }
-              />
-            </dl>
-
-            <p className="text-center text-xs text-muted-foreground">
-              Payroll and automated payouts are included on every plan during your trial.
-            </p>
-          </div>
-        ) : null}
-
-        <div className="mt-8 flex justify-between gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={step === 0 || completeMutation.isPending}
-            onClick={() => setStep(step - 1)}
-          >
-            Back
-          </Button>
-          <Button
-            type="button"
-            disabled={!canContinue || completeMutation.isPending}
-            onClick={handleNext}
-          >
-            {step === STEPS.length - 1
-              ? completeMutation.isPending
-                ? 'Creating workspace…'
-                : 'Start 14-day free trial'
-              : 'Continue'}
-          </Button>
         </div>
       </div>
     </div>

@@ -9,7 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import { CurrentTenantMember, RequireFeatures, TenantId } from 'src/common/decorators';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -20,6 +21,7 @@ import { ShoutoutsService } from '../services/shoutouts.service';
 
 @ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 @Controller('tenants/:tenantId/shoutouts')
 export class ShoutoutsController {
   constructor(private readonly shoutoutsService: ShoutoutsService) {}

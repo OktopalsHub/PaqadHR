@@ -123,6 +123,7 @@ export class SubscriptionBillingService {
   }
 
   private isStaleProviderWebhook(
+    event: SubscriptionWebhookEvent,
     subscription: TenantSubscription | null,
     webhookProvider: BillingProvider,
   ): boolean {
@@ -132,10 +133,12 @@ export class SubscriptionBillingService {
     if (subscription.billingProvider === webhookProvider) {
       return false;
     }
-    // Trial / not yet linked to an external sub: allow the checkout provider through.
+    // During trial, allow an initial checkout webhook from the provider taking over.
     if (
-      subscription.status === SubscriptionStatus.TRIAL ||
-      !subscription.externalSubscriptionId?.trim()
+      subscription.status === SubscriptionStatus.TRIAL &&
+      event.kind === 'payment.success' &&
+      event.payment.billingType !== BillingChargeType.SUBSCRIPTION_RENEWAL &&
+      event.payment.billingType !== BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE
     ) {
       return false;
     }
@@ -200,7 +203,7 @@ export class SubscriptionBillingService {
     const tenantId = this.resolveWebhookTenantId(event);
     if (tenantId && UUID_PATTERN.test(tenantId)) {
       const subscription = await this.subscriptionRepository.findOne({ where: { tenantId } });
-      if (this.isStaleProviderWebhook(subscription, provider)) {
+      if (this.isStaleProviderWebhook(event, subscription, provider)) {
         this.logger.warn(
           `Ignoring ${event.kind} webhook from ${provider} for tenant ${tenantId}; active provider is ${subscription?.billingProvider}`,
         );
@@ -374,7 +377,7 @@ export class SubscriptionBillingService {
       throw new NotFoundException('Tenant not found');
     }
 
-    const { countryCode } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
+    const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
       tenant.countryCode,
       tenant.preferredCurrency,
     );
@@ -402,7 +405,7 @@ export class SubscriptionBillingService {
       ...billingStatus,
       seatCount,
       countryCode,
-      currency: tenant.preferredCurrency ?? plans[0]?.currency ?? 'USD',
+      currency: plans[0]?.currency ?? currency,
       canManageBilling: canManageBilling,
       plans,
       companyName: tenant.name,

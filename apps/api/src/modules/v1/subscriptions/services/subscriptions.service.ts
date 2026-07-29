@@ -52,12 +52,7 @@ export class SubscriptionsService {
     }
 
     const planFeatures = subscription.plan?.features ?? {};
-    return features.every((feature) => {
-      if (feature === FeatureAccess.PAYROLL) {
-        return true;
-      }
-      return planFeatures[feature] === true;
-    });
+    return features.every((feature) => planFeatures[feature] === true);
   }
 
   isSubscriptionEntitled(subscription: TenantSubscription): boolean {

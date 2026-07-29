@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { FeatureGate } from '@/features/billing/components/feature-gate';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
 import { SettingsBillingTab } from '@/features/settings/components/settings-billing-tab';
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
@@ -20,6 +21,8 @@ import {
   SETTINGS_TAB_LABELS,
 } from '@/features/settings/lib/settings-tabs';
 import { useUrlTab } from '@/hooks/use-url-tab';
+import { FeatureAccess } from '@/lib/constants/feature-access';
+import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function SettingsPage() {
@@ -37,13 +40,11 @@ export function SettingsPage() {
   }, [activeTab, setTab, visibleTab]);
 
   const visibleTabs = getVisibleSettingsTabs(isAdmin);
+  useBreadcrumbTail(SETTINGS_TAB_LABELS[visibleTab]);
 
   return (
     <AppPage className="space-y-6">
       <div className="space-y-1.5">
-        <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
-          {SETTINGS_TAB_LABELS[visibleTab]}
-        </p>
         <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
           Settings
         </h1>
@@ -73,7 +74,9 @@ export function SettingsPage() {
         ) : null}
         {visibleTabs.includes('rewards') ? (
           <TabsContent value="rewards" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsRewardsTab />
+            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+              <SettingsRewardsTab />
+            </FeatureGate>
           </TabsContent>
         ) : null}
         {visibleTabs.includes('holidays') ? (
@@ -88,7 +91,9 @@ export function SettingsPage() {
         ) : null}
         {visibleTabs.includes('attendance') ? (
           <TabsContent value="attendance" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsAttendanceTab />
+            <FeatureGate feature={FeatureAccess.ATTENDANCE}>
+              <SettingsAttendanceTab />
+            </FeatureGate>
           </TabsContent>
         ) : null}
         {visibleTabs.includes('billing') ? (
@@ -98,7 +103,9 @@ export function SettingsPage() {
         ) : null}
         {visibleTabs.includes('integrations') ? (
           <TabsContent value="integrations" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsIntegrationsTab />
+            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+              <SettingsIntegrationsTab />
+            </FeatureGate>
           </TabsContent>
         ) : null}
       </Tabs>

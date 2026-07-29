@@ -96,7 +96,7 @@ export const EmployeeList = () => {
           : null;
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="w-full max-w-none space-y-6">
       <AddEmployeeDialog isOpen={inviteOpen} onOpenChange={setInviteOpen} />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
