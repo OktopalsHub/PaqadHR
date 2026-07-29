@@ -15,11 +15,12 @@ import { SettingsRewardsTab } from '@/features/settings/components/settings-rewa
 import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
 import {
-  getVisibleSettingsTabs,
+  getAccessibleSettingsTabs,
   isSettingsTab,
-  resolveSettingsTab,
+  resolveAccessibleSettingsTab,
   SETTINGS_TAB_LABELS,
 } from '@/features/settings/lib/settings-tabs';
+import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useUrlTab } from '@/hooks/use-url-tab';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
@@ -27,11 +28,16 @@ import { useTenant } from '@/providers/tenant-provider';
 
 export function SettingsPage() {
   const { tenant } = useTenant();
+  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
   const [activeTab, setTab] = useUrlTab(isSettingsTab, 'profile');
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const visibleTab = resolveSettingsTab(activeTab, isAdmin);
+  const availability = {
+    canAccessAttendance: !featureGatingEnabled || hasFeature(FeatureAccess.ATTENDANCE),
+    canAccessIntegrations: !featureGatingEnabled || hasFeature(FeatureAccess.INTEGRATIONS),
+  };
+  const visibleTab = resolveAccessibleSettingsTab(activeTab, isAdmin, availability);
 
   useEffect(() => {
     if (activeTab !== visibleTab) {
@@ -39,7 +45,7 @@ export function SettingsPage() {
     }
   }, [activeTab, setTab, visibleTab]);
 
-  const visibleTabs = getVisibleSettingsTabs(isAdmin);
+  const visibleTabs = getAccessibleSettingsTabs(isAdmin, availability);
   useBreadcrumbTail(SETTINGS_TAB_LABELS[visibleTab]);
 
   return (

@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,21 @@ import { useTenant } from '@/providers/tenant-provider';
 type SearchParamsLike = {
   get(name: string): string | null;
 };
+
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (element) => !element.hasAttribute('disabled') && element.getClientRects().length > 0,
+  );
+}
 
 function useUpgradeOptions(feature: string | null) {
   const { tenant } = useTenant();
@@ -77,12 +92,16 @@ type UpgradeRequiredPanelProps = {
   feature: FeatureAccess | string;
   className?: string;
   dismissAction?: React.ReactNode;
+  titleId?: string;
+  descriptionId?: string;
 };
 
 export function UpgradeRequiredPanel({
   feature,
   className,
   dismissAction,
+  titleId,
+  descriptionId,
 }: UpgradeRequiredPanelProps) {
   const { currentPlan, plansForFeature, sortedPlans, handleUpgrade } = useUpgradeOptions(feature);
   const fallbackPlan = plansForFeature[0];
@@ -96,10 +115,16 @@ export function UpgradeRequiredPanel({
               Upgrade required
             </span>
             <div className="space-y-2">
-              <h2 className="text-[28px] font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-100">
+              <h2
+                id={titleId}
+                className="text-[28px] font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-100"
+              >
                 Upgrade to access this feature
               </h2>
-              <p className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+              <p
+                id={descriptionId}
+                className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400"
+              >
                 This feature is not available on your current plan. Upgrade your workspace to unlock
                 access.
               </p>
@@ -189,8 +214,13 @@ export function UpgradePrompt({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const dismissButtonRef = useRef<HTMLButtonElement>(null);
+  const blurredContentRef = useRef<HTMLDivElement>(null);
   const { tenant } = useTenant();
   const { hasFeature, featureGatingEnabled, isLoading: featureAccessLoading } = useFeatureAccess();
+  const dialogTitleId = useId();
+  const dialogDescriptionId = useId();
   const feature = featureOverride ?? getFeatureForRoute(pathname, searchParams);
   const hasAccess = !feature || !featureGatingEnabled || hasFeature(feature as FeatureAccess);
 
@@ -202,6 +232,93 @@ export function UpgradePrompt({
   const handleDismiss = useCallback(() => {
     router.replace(dismissHref);
   }, [dismissHref, router]);
+
+  useEffect(() => {
+    if (hasAccess || !feature) {
+      return;
+    }
+
+    const blurredContent = blurredContentRef.current;
+    const dialog = dialogRef.current;
+
+    if (!blurredContent || !dialog) {
+      return;
+    }
+
+    const previousActiveElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousAriaHidden = blurredContent.getAttribute('aria-hidden');
+    const previousInert = blurredContent.inert;
+
+    blurredContent.inert = true;
+    blurredContent.setAttribute('aria-hidden', 'true');
+
+    const focusFirstElement = () => {
+      const focusableElements = getFocusableElements(dialog);
+      const nextFocusTarget = dismissButtonRef.current ?? focusableElements[0] ?? dialog;
+      nextFocusTarget.focus();
+    };
+
+    const frame = window.requestAnimationFrame(focusFirstElement);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const focusableElements = getFocusableElements(dialog);
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement =
+        document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (event.shiftKey) {
+        if (activeElement === firstElement || activeElement === dialog) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof Node && dialog.contains(target)) {
+        return;
+      }
+
+      focusFirstElement();
+    };
+
+    dialog.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      dialog.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
+      blurredContent.inert = previousInert;
+      if (previousAriaHidden === null) {
+        blurredContent.removeAttribute('aria-hidden');
+      } else {
+        blurredContent.setAttribute('aria-hidden', previousAriaHidden);
+      }
+      if (previousActiveElement?.isConnected) {
+        previousActiveElement.focus();
+      }
+    };
+  }, [feature, hasAccess]);
 
   if (feature && featureAccessLoading) {
     return (
@@ -218,7 +335,7 @@ export function UpgradePrompt({
   return (
     <div className="relative h-full min-h-full min-w-0 overflow-hidden">
       <div
-        aria-hidden="true"
+        ref={blurredContentRef}
         className="pointer-events-none absolute inset-0 min-w-0 overflow-hidden blur-[6px] saturate-50 transition-[filter] duration-200"
       >
         {children}
@@ -226,22 +343,34 @@ export function UpgradePrompt({
       <div className="absolute inset-0 z-30 overflow-hidden bg-background/55 backdrop-blur-sm">
         <div className="flex h-full items-center justify-center px-3 py-6 sm:px-4 md:py-10">
           <AppPage className="w-full max-w-5xl">
-            <UpgradeRequiredPanel
-              feature={feature}
-              className="mx-auto w-full max-w-3xl"
-              dismissAction={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                  onClick={handleDismiss}
-                >
-                  <ArrowLeft className="size-4" />
-                  Dismiss
-                </Button>
-              }
-            />
+            <div
+              ref={dialogRef}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={dialogTitleId}
+              aria-describedby={dialogDescriptionId}
+              tabIndex={-1}
+            >
+              <UpgradeRequiredPanel
+                feature={feature}
+                titleId={dialogTitleId}
+                descriptionId={dialogDescriptionId}
+                className="mx-auto w-full max-w-3xl"
+                dismissAction={
+                  <Button
+                    ref={dismissButtonRef}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={handleDismiss}
+                  >
+                    <ArrowLeft className="size-4" />
+                    Dismiss
+                  </Button>
+                }
+              />
+            </div>
           </AppPage>
         </div>
       </div>

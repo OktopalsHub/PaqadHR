@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useElapsedSince } from '@/features/attendance/hooks/use-elapsed-since';
+import { canAccessAttendanceFeature } from '@/features/attendance/lib/attendance-feature-access';
 import { formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
 import { useClockIn, useClockInInfo, useClockOut } from '@/hooks/queries/use-attendance';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
@@ -14,7 +15,11 @@ import { cn } from '@/lib/utils';
 
 export function ClockInOutControl() {
   const { hasFeature, featureGatingEnabled } = useFeatureAccess();
-  const canAccessAttendance = !featureGatingEnabled || hasFeature(FeatureAccess.ATTENDANCE);
+  const canAccessAttendance = canAccessAttendanceFeature(
+    featureGatingEnabled,
+    hasFeature,
+    FeatureAccess.ATTENDANCE,
+  );
 
   if (!canAccessAttendance) {
     return null;

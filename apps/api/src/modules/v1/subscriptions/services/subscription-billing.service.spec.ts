@@ -1,4 +1,5 @@
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { BillingChargeType } from '../constants/billing.constants';
 import { BillingProvider } from '../constants/billing-provider.enum';
 import { SubscriptionBillingService } from './subscription-billing.service';
 
@@ -308,6 +309,65 @@ describe('SubscriptionBillingService webhooks', () => {
     await service.processPolarPayload({ type: 'order.paid', data: {} });
 
     expect(initialSpy).toHaveBeenCalled();
+  });
+
+  it('allows trial subscription checkout webhooks from the provider taking over', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, polarProvider, subscriptionRepo } = createService();
+    (polarProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-polar-trial-checkout',
+        reference: 'ord_polar_trial_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        billingType: BillingChargeType.SUBSCRIPTION,
+        amount: 100,
+        currency: 'USD',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.NOMBA,
+      status: SubscriptionStatus.TRIAL,
+    });
+    const initialSpy = jest
+      .spyOn(service as any, 'processInitialPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processPolarPayload({ type: 'order.paid', data: {} });
+
+    expect(initialSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores stale card update webhooks during trial provider switch', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, polarProvider, subscriptionRepo } = createService();
+    (polarProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-polar-card-update',
+        reference: 'ord_polar_card_1',
+        tenantId,
+        billingType: BillingChargeType.CARD_UPDATE,
+        tokenKey: 'tok_trial_switch',
+        amount: 100,
+        currency: 'USD',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.NOMBA,
+      status: SubscriptionStatus.TRIAL,
+    });
+    const cardUpdateSpy = jest
+      .spyOn(service as any, 'processCardUpdateSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processPolarPayload({ type: 'order.updated', data: {} });
+
+    expect(cardUpdateSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -122,6 +122,17 @@ export class SubscriptionBillingService {
     return null;
   }
 
+  private isTrialInitialCheckoutWebhook(
+    event: SubscriptionWebhookEvent,
+    subscription: TenantSubscription,
+  ): boolean {
+    return (
+      subscription.status === SubscriptionStatus.TRIAL &&
+      event.kind === 'payment.success' &&
+      event.payment.billingType === BillingChargeType.SUBSCRIPTION
+    );
+  }
+
   private isStaleProviderWebhook(
     event: SubscriptionWebhookEvent,
     subscription: TenantSubscription | null,
@@ -133,13 +144,9 @@ export class SubscriptionBillingService {
     if (subscription.billingProvider === webhookProvider) {
       return false;
     }
-    // During trial, allow an initial checkout webhook from the provider taking over.
-    if (
-      subscription.status === SubscriptionStatus.TRIAL &&
-      event.kind === 'payment.success' &&
-      event.payment.billingType !== BillingChargeType.SUBSCRIPTION_RENEWAL &&
-      event.payment.billingType !== BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE
-    ) {
+    // During trial, allow only the initial subscription checkout webhook from the provider
+    // taking over. Follow-up webhooks like card updates must still come from the active provider.
+    if (this.isTrialInitialCheckoutWebhook(event, subscription)) {
       return false;
     }
     return true;

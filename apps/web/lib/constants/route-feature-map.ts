@@ -1,47 +1,60 @@
-import { FeatureAccess } from '@/lib/constants/feature-access';
+import type { FeatureAccess } from './feature-access';
 
 type SearchParamsLike = {
   get(name: string): string | null;
 };
 
+const NO_ROUTE_FEATURE_REQUIRED = Symbol('NO_ROUTE_FEATURE_REQUIRED');
+
+const ROUTE_FEATURES = {
+  advancedReporting: 'ADVANCED_REPORTING' as FeatureAccess,
+  attendance: 'ATTENDANCE' as FeatureAccess,
+  integrations: 'INTEGRATIONS' as FeatureAccess,
+  leaveManagement: 'LEAVE_MANAGEMENT' as FeatureAccess,
+  recruitment: 'RECRUITMENT' as FeatureAccess,
+} as const;
+
 export const ROUTE_FEATURE_MAP: Partial<Record<string, FeatureAccess>> = {
-  analytics: FeatureAccess.ADVANCED_REPORTING,
-  integrations: FeatureAccess.INTEGRATIONS,
-  shoutouts: FeatureAccess.INTEGRATIONS,
-  attendance: FeatureAccess.ATTENDANCE,
-  schedule: FeatureAccess.ATTENDANCE,
-  calendar: FeatureAccess.ATTENDANCE,
-  leaves: FeatureAccess.LEAVE_MANAGEMENT,
-  recruitment: FeatureAccess.RECRUITMENT,
+  analytics: ROUTE_FEATURES.advancedReporting,
+  integrations: ROUTE_FEATURES.integrations,
+  attendance: ROUTE_FEATURES.attendance,
+  schedule: ROUTE_FEATURES.attendance,
+  calendar: ROUTE_FEATURES.attendance,
+  leaves: ROUTE_FEATURES.leaveManagement,
+  recruitment: ROUTE_FEATURES.recruitment,
 };
 
 const SETTINGS_TAB_FEATURE_MAP: Partial<Record<string, FeatureAccess>> = {
-  attendance: FeatureAccess.ATTENDANCE,
-  integrations: FeatureAccess.INTEGRATIONS,
-  shoutouts: FeatureAccess.INTEGRATIONS,
-  rewards: FeatureAccess.INTEGRATIONS,
+  attendance: ROUTE_FEATURES.attendance,
+  integrations: ROUTE_FEATURES.integrations,
+  shoutouts: ROUTE_FEATURES.integrations,
+  rewards: ROUTE_FEATURES.integrations,
 };
 
 const SHOUTOUT_TAB_FEATURE_MAP: Partial<Record<string, FeatureAccess>> = {
-  redeem: FeatureAccess.INTEGRATIONS,
-  rewards: FeatureAccess.INTEGRATIONS,
+  redeem: ROUTE_FEATURES.integrations,
+  rewards: ROUTE_FEATURES.integrations,
 };
 
 function getScopedTabFeature(
   pathname: string,
   searchParams?: SearchParamsLike | null,
-): FeatureAccess | null {
+): FeatureAccess | typeof NO_ROUTE_FEATURE_REQUIRED | null {
   const tab = searchParams?.get('tab');
-  if (!tab) return null;
 
   const segments = pathname.split('/').filter(Boolean);
 
   if (segments.includes('settings')) {
+    if (!tab) return null;
     return SETTINGS_TAB_FEATURE_MAP[tab] ?? null;
   }
 
   if (segments.includes('shoutouts')) {
-    return SHOUTOUT_TAB_FEATURE_MAP[tab] ?? null;
+    if (!tab) {
+      return NO_ROUTE_FEATURE_REQUIRED;
+    }
+
+    return SHOUTOUT_TAB_FEATURE_MAP[tab] ?? NO_ROUTE_FEATURE_REQUIRED;
   }
 
   return null;
@@ -52,6 +65,10 @@ export function getFeatureForRoute(
   searchParams?: SearchParamsLike | null,
 ): FeatureAccess | null {
   const scopedFeature = getScopedTabFeature(pathname, searchParams);
+  if (scopedFeature === NO_ROUTE_FEATURE_REQUIRED) {
+    return null;
+  }
+
   if (scopedFeature) {
     return scopedFeature;
   }

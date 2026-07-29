@@ -21,6 +21,7 @@ export type SearchSelectOption = {
 };
 
 type SearchSelectProps = {
+  id?: string;
   options: SearchSelectOption[];
   value: string;
   onValueChange: (value: string) => void;
@@ -34,6 +35,7 @@ type SearchSelectProps = {
 };
 
 export function SearchSelect({
+  id,
   options,
   value,
   onValueChange,
@@ -62,6 +64,7 @@ export function SearchSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           variant="outline"
           role="combobox"
           aria-expanded={open}

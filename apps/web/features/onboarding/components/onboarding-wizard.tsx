@@ -1,16 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Building2,
-  CheckCircle2,
-  ClipboardList,
-  Loader2,
-  type LucideIcon,
-  UserRound,
-  WalletCards,
-  XCircle,
-} from 'lucide-react';
+import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -24,6 +15,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
+import { clampOnboardingStep } from '@/features/onboarding/lib/onboarding-step';
+import {
+  ONBOARDING_STEP_DETAILS,
+  ONBOARDING_STEPS,
+} from '@/features/onboarding/lib/onboarding-steps';
 import { usePricingPreview } from '@/hooks/queries/use-pricing-preview';
 import { loadUserTenantsWithRetry, waitForAuthenticatedProfile } from '@/lib/api/auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
@@ -40,43 +36,6 @@ import {
   isSlugFormatValid,
   slugifyInput,
 } from '@/lib/utils/slug';
-
-const STEPS = ['Company', 'You', 'Plan', 'Review'] as const;
-
-type StepDetail = {
-  label: (typeof STEPS)[number];
-  title: string;
-  description: string;
-  icon: LucideIcon;
-};
-
-const STEP_DETAILS: StepDetail[] = [
-  {
-    label: 'Company',
-    title: 'Set up your company',
-    description: 'Tell us about your organization to personalize your workspace.',
-    icon: Building2,
-  },
-  {
-    label: 'You',
-    title: 'About you',
-    description: "This is how you'll appear to your team in the workspace.",
-    icon: UserRound,
-  },
-  {
-    label: 'Plan',
-    title: 'Choose your plan',
-    description: '14 days free on any plan. No card required.',
-    icon: WalletCards,
-  },
-  {
-    label: 'Review',
-    title: 'Review and start your trial',
-    description:
-      "Confirm your workspace details. We'll create everything when you start your trial.",
-    icon: ClipboardList,
-  },
-] as const;
 
 const INDUSTRIES = [
   'Technology',
@@ -127,6 +86,7 @@ type OnboardingWizardProps = {
 
 export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) {
   const queryClient = useQueryClient();
+  const normalizedStep = clampOnboardingStep(step, ONBOARDING_STEP_DETAILS.length);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [employeeCode, setEmployeeCode] = useState('');
@@ -270,21 +230,21 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
   });
 
   const selectedPlanDetails = sortedPlans.find((plan) => plan.plan.slug === selectedPlan);
-  const currentStep = STEP_DETAILS[step];
+  const currentStep = ONBOARDING_STEP_DETAILS[normalizedStep];
   const CurrentStepIcon = currentStep.icon;
 
   const canContinue =
-    step === 0
+    normalizedStep === 0
       ? canContinueStep0
-      : step === 1
+      : normalizedStep === 1
         ? firstName.trim().length >= 1 && lastName.trim().length >= 1 && jobTitle.trim().length >= 2
-        : step === 2
+        : normalizedStep === 2
           ? Boolean(selectedPlan) && !pricingPreview.isLoading
           : true;
 
   const handleNext = () => {
-    if (step < STEPS.length - 1) {
-      onStepChange(step + 1);
+    if (normalizedStep < ONBOARDING_STEPS.length - 1) {
+      onStepChange(normalizedStep + 1);
       return;
     }
     completeMutation.mutate({
@@ -327,7 +287,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
             <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-2">
                 <span className="inline-flex rounded-full border border-emerald-200/80 bg-white/72 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.25)]">
-                  Step {step + 1} of {STEP_DETAILS.length}
+                  Step {normalizedStep + 1} of {ONBOARDING_STEP_DETAILS.length}
                 </span>
                 <div>
                   <h2 className="text-[clamp(1.35rem,1.8vw,1.8rem)] font-semibold tracking-[-0.05em] text-slate-950">
@@ -354,7 +314,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
           </div>
 
           <div className="rounded-[24px] border border-slate-200/80 bg-white/92 p-3.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.18)] sm:p-4 lg:flex lg:flex-1 lg:flex-col lg:p-4">
-            {step === 0 ? (
+            {normalizedStep === 0 ? (
               <div className="space-y-3">
                 <div className="space-y-2">
                   <Label htmlFor="company-name" className={fieldLabelClass}>
@@ -500,7 +460,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
               </div>
             ) : null}
 
-            {step === 1 ? (
+            {normalizedStep === 1 ? (
               <div className="space-y-3">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
@@ -555,7 +515,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
               </div>
             ) : null}
 
-            {step === 2 ? (
+            {normalizedStep === 2 ? (
               <div className="space-y-4">
                 {pricingPreview.isLoading ? (
                   <div className="flex min-h-[170px] items-center justify-center rounded-[20px] border border-dashed border-slate-200 bg-slate-50/80">
@@ -605,7 +565,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
               </div>
             ) : null}
 
-            {step === 3 ? (
+            {normalizedStep === 3 ? (
               <div className="space-y-3.5">
                 <dl className="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-3">
                   <ReviewRow label="Workspace name" value={name.trim() || '—'} />
@@ -647,11 +607,11 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
               <Button
                 type="button"
                 variant="ghost"
-                disabled={step === 0 || completeMutation.isPending}
-                onClick={() => onStepChange(step - 1)}
+                disabled={normalizedStep === 0 || completeMutation.isPending}
+                onClick={() => onStepChange(normalizedStep - 1)}
                 className={cn(
                   'h-10 rounded-[16px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-[0_12px_30px_-24px_rgba(15,23,42,0.2)] hover:bg-slate-50',
-                  step === 0 && 'pointer-events-none opacity-0',
+                  normalizedStep === 0 && 'pointer-events-none opacity-0',
                 )}
               >
                 Back
@@ -663,7 +623,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                 variant="brandSolid"
                 className="h-10 rounded-[16px] px-5 text-sm font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
               >
-                {step === STEPS.length - 1
+                {normalizedStep === ONBOARDING_STEPS.length - 1
                   ? completeMutation.isPending
                     ? 'Creating workspace…'
                     : 'Start 14-day free trial'

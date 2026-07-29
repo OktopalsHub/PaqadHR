@@ -21,9 +21,12 @@ export class PlansService {
       relations: ['prices'],
     });
   }
-  async findPlanBySlug(slug: string): Promise<Plan | null> {
+  async findPlanBySlug(
+    slug: string,
+    options?: { includeInactive?: boolean },
+  ): Promise<Plan | null> {
     return this.planRepository.findOne({
-      where: { slug, isActive: true },
+      where: options?.includeInactive ? { slug } : { slug, isActive: true },
       relations: ['prices'],
     });
   }
@@ -167,7 +170,7 @@ export class PlansService {
     limits?: Record<string, number>;
     sortOrder?: number;
   }): Promise<PlanPrice> {
-    let plan = await this.findPlanBySlug(params.slug);
+    let plan = await this.findPlanBySlug(params.slug, { includeInactive: true });
     if (!plan) {
       plan = await this.createPlan({
         slug: params.slug,

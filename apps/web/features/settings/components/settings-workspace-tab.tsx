@@ -10,6 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
+import {
+  reprioritizePayrollCurrenciesForCountry,
+  resolveInitialPayrollCurrencies,
+} from '@/features/settings/lib/workspace-payroll-currencies';
 import { useWorkspaceLogoUpload } from '@/hooks/queries/use-image-upload';
 import {
   usePatchTenantSettings,
@@ -25,56 +29,6 @@ const timezoneOptions = Intl.supportedValuesOf('timeZone').map((tz) => ({
   value: tz,
   label: tz,
 }));
-
-const EURO_COUNTRY_CODES = new Set([
-  'AD',
-  'AT',
-  'BE',
-  'CY',
-  'DE',
-  'EE',
-  'ES',
-  'FI',
-  'FR',
-  'GR',
-  'HR',
-  'IE',
-  'IT',
-  'LT',
-  'LU',
-  'LV',
-  'MC',
-  'ME',
-  'MT',
-  'NL',
-  'PT',
-  'SI',
-  'SK',
-  'SM',
-  'VA',
-  'XK',
-]);
-
-const GBP_COUNTRY_CODES = new Set(['GB', 'GG', 'IM', 'JE']);
-
-function getDefaultPayrollCurrencyForCountry(countryCode?: string | null): string {
-  const code = countryCode?.trim().toUpperCase();
-  if (!code) return 'USD';
-  if (code === 'NG') return 'NGN';
-  if (GBP_COUNTRY_CODES.has(code)) return 'GBP';
-  if (EURO_COUNTRY_CODES.has(code)) return 'EUR';
-  return 'USD';
-}
-
-function withDefaultCurrencyFirst(currencies: string[], defaultCurrency: string): string[] {
-  const allowed = new Set<string>(SUPPORTED_FIAT_CURRENCIES);
-  const normalized = currencies
-    .map((code) => code.toUpperCase())
-    .filter((code) => allowed.has(code));
-
-  const unique = Array.from(new Set(normalized.filter((code) => code !== defaultCurrency)));
-  return [defaultCurrency, ...unique];
-}
 
 export function SettingsWorkspaceTab() {
   const { tenant, tenantId } = useTenant();
@@ -116,21 +70,14 @@ export function SettingsWorkspaceTab() {
 
     const general = settings?.settings?.general;
     setEmailPayslipOnPublish(general?.emailPayslipOnPublish ?? false);
-    const defaultCurrency = getDefaultPayrollCurrencyForCountry(workspaceCountry);
-    const fromSettings = general?.payrollCurrencies
-      ?.map((code) => code.toUpperCase())
-      .filter(Boolean);
-    if (fromSettings && fromSettings.length > 0) {
-      setPayrollCurrencies(withDefaultCurrencyFirst(fromSettings, defaultCurrency));
-      return;
-    }
-
-    const primary = (
-      general?.currency ??
-      tenant.preferredCurrency ??
-      defaultCurrency
-    ).toUpperCase();
-    setPayrollCurrencies(withDefaultCurrencyFirst([primary], defaultCurrency));
+    setPayrollCurrencies(
+      resolveInitialPayrollCurrencies({
+        countryCode: workspaceCountry,
+        settingsPayrollCurrencies: general?.payrollCurrencies,
+        settingsCurrency: general?.currency,
+        tenantPreferredCurrency: tenant.preferredCurrency,
+      }),
+    );
   }, [tenant, settings, tenantLogoUrl]);
 
   const toggleCurrency = (code: string) => {
@@ -149,7 +96,7 @@ export function SettingsWorkspaceTab() {
   const handleCountryChange = (nextCountryCode: string) => {
     setCountryCode(nextCountryCode);
     setPayrollCurrencies((current) =>
-      withDefaultCurrencyFirst(current, getDefaultPayrollCurrencyForCountry(nextCountryCode)),
+      reprioritizePayrollCurrenciesForCountry(current, nextCountryCode),
     );
   };
 
@@ -285,12 +232,13 @@ export function SettingsWorkspaceTab() {
           </SettingsFieldHint>
 
           <SettingsFieldHint
-            htmlFor="workspace-timezone"
+            htmlFor="workspace-country"
             label="Country"
             hint="Used to suggest the default payroll currency for this workspace."
             className="lg:col-span-2"
           >
             <SearchSelect
+              id="workspace-country"
               options={countryOptions}
               value={countryCode}
               onValueChange={handleCountryChange}
@@ -306,6 +254,7 @@ export function SettingsWorkspaceTab() {
             className="lg:col-span-2"
           >
             <SearchSelect
+              id="workspace-timezone"
               options={timezoneOptions}
               value={timezone}
               onValueChange={setTimezone}

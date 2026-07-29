@@ -4,9 +4,8 @@ import { CheckCircle2 } from 'lucide-react';
 import { useState } from 'react';
 import { OnboardingGate } from '@/features/onboarding/components/onboarding-gate';
 import { OnboardingWizard } from '@/features/onboarding/components/onboarding-wizard';
+import { ONBOARDING_STEPS } from '@/features/onboarding/lib/onboarding-steps';
 import { cn } from '@/lib/utils';
-
-const ONBOARDING_STEPS = ['Company', 'You', 'Plan', 'Review'] as const;
 
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);

@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { getLeaveAssignmentPanelState } from '@/features/leaves/lib/leave-assignment-panel-state';
 import {
   useAssignExistingLeaveTypes,
   useAssignmentReport,
@@ -26,7 +27,7 @@ export function LeaveAssignmentPanel() {
   const { data: report, isLoading } = useAssignmentReport(year);
   const syncAll = useSyncLeaveTypeAssignments();
   const assignExisting = useAssignExistingLeaveTypes();
-  const missingAssignments = report?.missingAssignments ?? [];
+  const panelState = getLeaveAssignmentPanelState({ report, isLoading, year });
 
   const handleSync = async () => {
     try {
@@ -69,22 +70,18 @@ export function LeaveAssignmentPanel() {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {panelState.kind === 'loading' ? (
           <div className="text-muted-foreground py-8 text-center text-sm">
             Loading assignment report…
           </div>
-        ) : !report ? (
-          <p className="text-muted-foreground py-4 text-center text-sm">
-            Unable to load assignment data for {year}.
-          </p>
-        ) : missingAssignments.length === 0 ? (
+        ) : panelState.kind === 'error' ? (
+          <p className="text-muted-foreground py-4 text-center text-sm">{panelState.message}</p>
+        ) : panelState.kind === 'complete' ? (
           <div className="space-y-2 py-4 text-center">
             <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-              All active members have every leave type assigned for {year}.
+              {panelState.title}
             </p>
-            <p className="text-muted-foreground text-sm">
-              {report.completeAssignments} of {report.totalMembers} members are fully configured.
-            </p>
+            <p className="text-muted-foreground text-sm">{panelState.description}</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -94,7 +91,7 @@ export function LeaveAssignmentPanel() {
                   Members
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">
-                  {report.totalMembers}
+                  {panelState.totals.members}
                 </p>
               </div>
               <div className="rounded-lg border border-border/60 px-4 py-3">
@@ -102,7 +99,7 @@ export function LeaveAssignmentPanel() {
                   Complete
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">
-                  {report.completeAssignments}
+                  {panelState.totals.complete}
                 </p>
               </div>
               <div className="rounded-lg border border-border/60 px-4 py-3">
@@ -110,7 +107,7 @@ export function LeaveAssignmentPanel() {
                   Missing
                 </p>
                 <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">
-                  {missingAssignments.length}
+                  {panelState.totals.missing}
                 </p>
               </div>
             </div>
@@ -124,11 +121,9 @@ export function LeaveAssignmentPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {missingAssignments.map((entry) => (
+                {panelState.rows.map((entry) => (
                   <TableRow key={entry.memberId}>
-                    <TableCell className="font-medium">
-                      {entry.memberName || entry.memberId}
-                    </TableCell>
+                    <TableCell className="font-medium">{entry.memberLabel}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-2">
                         {entry.missingTypes.map((leaveType) => (
@@ -141,7 +136,7 @@ export function LeaveAssignmentPanel() {
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">{entry.missingTypes.length}</TableCell>
+                    <TableCell className="text-right">{entry.missingCount}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

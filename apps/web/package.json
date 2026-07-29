@@ -11,7 +11,7 @@
     "clean": "rm -rf .next .turbo",
     "typecheck:tests": "tsc --noEmit --pretty false -p tsconfig.test.json",
     "build": "pnpm run typecheck:tests && next build --webpack",
-    "test": "node --experimental-strip-types --test features/recruitment/lib/filter-recruitment-jobs.test.ts features/settings/lib/settings-tabs.test.ts lib/api/api-request-headers.test.ts lib/api/fetch-with-csrf.test.ts lib/security/content-security-policy.test.ts",
+    "test": "node --experimental-strip-types --test features/attendance/lib/attendance-feature-access.test.ts features/dashboard/lib/dashboard-feature-access.test.ts features/home/lib/landing-pricing-currency.test.ts features/leaves/lib/leave-assignment-panel-state.test.ts features/onboarding/lib/onboarding-step.test.ts features/recruitment/hooks/recruitment-overview-query-options.test.ts features/recruitment/lib/filter-recruitment-jobs.test.ts features/settings/lib/settings-tabs.test.ts features/settings/lib/workspace-payroll-currencies.test.ts features/shoutouts/lib/shoutouts-rewards-access.test.ts hooks/queries/use-calendar.test.ts lib/api/api-request-headers.test.ts lib/api/fetch-with-csrf.test.ts lib/constants/feature-access-resolver.test.ts lib/constants/route-feature-map.test.ts lib/security/content-security-policy.test.ts providers/breadcrumb-tail-state.test.ts",
     "start": "next start",
     "lint": "biome check .",
     "check": "biome check . && pnpm run typecheck:tests",

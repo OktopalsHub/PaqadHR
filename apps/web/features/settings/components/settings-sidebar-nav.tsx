@@ -27,8 +27,8 @@ import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { useTenant } from '@/providers/tenant-provider';
 import {
-  getVisibleSettingsTabs,
-  resolveSettingsTab,
+  getAccessibleSettingsTabs,
+  resolveAccessibleSettingsTab,
   SETTINGS_TAB_LABELS,
   type SettingsTab,
   settingsTabHref,
@@ -54,11 +54,12 @@ export function SettingsSidebarNav() {
   const tenantHref = useTenantHref();
   const settingsBase = tenantHref('settings');
   const isAdmin = isTenantAdmin(tenant?.member?.role);
-  const activeTab = resolveSettingsTab(searchParams.get('tab'), isAdmin);
-  const canAccessShoutouts = !featureGatingEnabled || hasFeature(FeatureAccess.INTEGRATIONS);
-  const visibleTabs = getVisibleSettingsTabs(isAdmin).filter(
-    (tab) => canAccessShoutouts || tab !== 'shoutouts',
-  );
+  const availability = {
+    canAccessAttendance: !featureGatingEnabled || hasFeature(FeatureAccess.ATTENDANCE),
+    canAccessIntegrations: !featureGatingEnabled || hasFeature(FeatureAccess.INTEGRATIONS),
+  };
+  const activeTab = resolveAccessibleSettingsTab(searchParams.get('tab'), isAdmin, availability);
+  const visibleTabs = getAccessibleSettingsTabs(isAdmin, availability);
 
   return (
     <div className="flex h-full flex-col">

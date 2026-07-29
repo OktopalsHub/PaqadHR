@@ -33,6 +33,7 @@ import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
+import { getShoutoutsRewardsAccessState } from '../lib/shoutouts-rewards-access';
 import { ShoutoutCard } from './shoutout-card';
 import {
   ShoutoutComposer,
@@ -60,23 +61,28 @@ function ShoutoutsPageContent() {
   const [urlTab, setUrlTab] = useUrlTab(isShoutoutsTab, 'feed');
   const { tenant, tenantId } = useTenant();
   const queryClient = useQueryClient();
-  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
+  const { hasFeature, featureGatingEnabled, isLoading: featureAccessLoading } = useFeatureAccess();
   const currentMemberId = tenant?.member?.id;
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const activeTab: ShoutoutsTab = urlTab === 'rewards' ? 'redeem' : urlTab;
-  const canAccessRewards = !featureGatingEnabled || hasFeature(FeatureAccess.INTEGRATIONS);
+  const { rewardsCatalogPrefetchEnabled, showRewardsContent } = getShoutoutsRewardsAccessState({
+    featureAccessLoading,
+    featureGatingEnabled,
+    hasFeature,
+    integrationsFeature: FeatureAccess.INTEGRATIONS,
+  });
 
   // Prefetch rewards catalog when component mounts
   useEffect(() => {
-    if (tenantId && canAccessRewards) {
+    if (tenantId && rewardsCatalogPrefetchEnabled) {
       void queryClient.prefetchQuery({
         queryKey: [...queryKeys.rewards.catalog, tenantId],
         queryFn: () => apiClient(tenantPath(tenantId, 'rewards/catalog')),
         staleTime: 60_000,
       });
     }
-  }, [canAccessRewards, tenantId, queryClient]);
+  }, [queryClient, rewardsCatalogPrefetchEnabled, tenantId]);
 
   const { data: employees = [] } = useEmployees();
   const { data: categories = [] } = useShoutoutCategories();
@@ -387,9 +393,13 @@ function ShoutoutsPageContent() {
               Redeem your points for digital vouchers, mobile top-ups, and custom perks
             </p>
           </div>
-          <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
-            {canAccessRewards ? <RewardsPage isTab={true} /> : null}
-          </FeatureGate>
+          {featureAccessLoading ? (
+            <LoadingBlock />
+          ) : (
+            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+              {showRewardsContent ? <RewardsPage isTab={true} /> : null}
+            </FeatureGate>
+          )}
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-0">

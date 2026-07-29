@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { canAccessAttendanceFeature } from '@/features/attendance/lib/attendance-feature-access';
 import { formatRecordDate, formatTimeOnly } from '@/features/attendance/lib/attendance-utils';
 import { useClockInInfo, useClockOut } from '@/hooks/queries/use-attendance';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
@@ -21,7 +22,11 @@ import { FeatureAccess } from '@/lib/constants/feature-access';
 
 export function ForgottenSessionModal() {
   const { hasFeature, featureGatingEnabled } = useFeatureAccess();
-  const canAccessAttendance = !featureGatingEnabled || hasFeature(FeatureAccess.ATTENDANCE);
+  const canAccessAttendance = canAccessAttendanceFeature(
+    featureGatingEnabled,
+    hasFeature,
+    FeatureAccess.ATTENDANCE,
+  );
 
   if (!canAccessAttendance) {
     return null;
