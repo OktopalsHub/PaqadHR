@@ -1,7 +1,7 @@
-export function canAccessAttendanceFeature(
+export function canAccessAttendanceFeature<TFeature extends string>(
   featureGatingEnabled: boolean,
-  hasFeature: (feature: string) => boolean,
-  attendanceFeature: string,
-) {
+  hasFeature: (feature: TFeature) => boolean,
+  attendanceFeature: TFeature,
+): boolean {
   return !featureGatingEnabled || hasFeature(attendanceFeature);
 }

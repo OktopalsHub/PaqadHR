@@ -1,8 +1,8 @@
-export function getDashboardRecruitmentAccessState(params: {
+export function getDashboardRecruitmentAccessState<TFeature extends string>(params: {
   isAdmin: boolean;
   featureGatingEnabled: boolean;
-  hasFeature: (feature: string) => boolean;
-  recruitmentFeature: string;
+  hasFeature: (feature: TFeature) => boolean;
+  recruitmentFeature: TFeature;
 }) {
   const canAccessRecruitment =
     !params.featureGatingEnabled || params.hasFeature(params.recruitmentFeature);

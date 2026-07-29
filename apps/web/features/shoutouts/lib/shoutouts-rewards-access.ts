@@ -1,8 +1,8 @@
-export function getShoutoutsRewardsAccessState(params: {
+export function getShoutoutsRewardsAccessState<TFeature extends string>(params: {
   featureAccessLoading: boolean;
   featureGatingEnabled: boolean;
-  hasFeature: (feature: string) => boolean;
-  integrationsFeature: string;
+  hasFeature: (feature: TFeature) => boolean;
+  integrationsFeature: TFeature;
 }) {
   if (params.featureAccessLoading) {
     return {
