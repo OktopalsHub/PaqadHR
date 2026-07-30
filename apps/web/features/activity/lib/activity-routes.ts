@@ -19,7 +19,7 @@ export function getActivityHref(
     case 'rewards_wallet':
       return settingsTabHref(tenantPath(slug, 'settings'), 'rewards');
     case 'reward':
-      return `${tenantPath(slug, 'shoutouts')}?tab=rewards`;
+      return `${tenantPath(slug, 'shoutouts')}?tab=redeem`;
     default:
       if (action.startsWith('settings.')) {
         return tenantPath(slug, 'settings');

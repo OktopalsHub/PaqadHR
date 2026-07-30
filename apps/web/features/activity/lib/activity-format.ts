@@ -161,7 +161,7 @@ export function getActivityPresentation(activity: TenantActivity): ActivityPrese
     case 'settings':
       return {
         icon: Settings,
-        iconClassName: 'bg-slate-500/10 text-slate-700',
+        iconClassName: 'bg-linear-to-br from-cyan-500/20 to-blue-500/15 text-cyan-700',
         title,
       };
     case 'org':

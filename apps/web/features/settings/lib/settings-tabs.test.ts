@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  getAccessibleSettingsTabs,
   getVisibleSettingsTabs,
+  resolveAccessibleSettingsTab,
   resolveSettingsTab,
   SETTINGS_TABS,
   shouldUseSettingsSidebar,
@@ -23,6 +25,33 @@ test('non-admin requests for admin tabs resolve back to profile', () => {
 test('admin requests keep the requested settings tab when valid', () => {
   assert.equal(resolveSettingsTab('billing', true), 'billing');
   assert.equal(resolveSettingsTab('profile', true), 'profile');
+});
+
+test('restricted settings tabs are hidden when the required entitlement is missing', () => {
+  assert.deepEqual(
+    getAccessibleSettingsTabs(true, {
+      canAccessAttendance: false,
+      canAccessIntegrations: false,
+    }),
+    ['profile', 'workspace', 'leave', 'holidays', 'notifications', 'billing'],
+  );
+});
+
+test('restricted settings deep links resolve to the first accessible tab', () => {
+  assert.equal(
+    resolveAccessibleSettingsTab('shoutouts', true, {
+      canAccessAttendance: true,
+      canAccessIntegrations: false,
+    }),
+    'profile',
+  );
+  assert.equal(
+    resolveAccessibleSettingsTab('attendance', true, {
+      canAccessAttendance: false,
+      canAccessIntegrations: true,
+    }),
+    'profile',
+  );
 });
 
 test('invalid or missing tab values resolve to profile', () => {

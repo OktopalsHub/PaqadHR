@@ -8,6 +8,7 @@ import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card
 import { fetchLandingPricing } from '@/lib/api/subscriptions';
 import { LANDING_PRICING_BY_CURRENCY, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
 import { fadeUp, stagger } from '../../constants/landing-motion';
+import { createLandingPricingCurrencyController } from '../../lib/landing-pricing-currency';
 
 export const LandingCta = () => {
   const ref = useRef(null);
@@ -15,9 +16,15 @@ export const LandingCta = () => {
   const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
+    const controller = createLandingPricingCurrencyController(setCurrency);
+
     void fetchLandingPricing()
-      .then((result) => setCurrency(result.currency))
-      .catch(() => setCurrency('USD'));
+      .then((result) => controller.applyResolvedCurrency(result))
+      .catch(() => controller.applyFallbackCurrency());
+
+    return () => {
+      controller.cleanup();
+    };
   }, []);
 
   const plans = useMemo(() => {

@@ -8,6 +8,7 @@ import { useTenant } from '@/providers/tenant-provider';
 
 export function useTenantNavItems(): NavItem[] {
   const { tenant } = useTenant();
+
   return useMemo(() => {
     if (!tenant?.slug) return [];
 

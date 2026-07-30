@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LogoUpload } from '@/components/logo-upload';
@@ -10,8 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
+import {
+  reprioritizePayrollCurrenciesForCountry,
+  resolveInitialPayrollCurrencies,
+} from '@/features/settings/lib/workspace-payroll-currencies';
 import { useWorkspaceLogoUpload } from '@/hooks/queries/use-image-upload';
-import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
+import {
+  usePatchTenantSettings,
+  useSupportedHolidayCountries,
+  useTenantSettings,
+} from '@/hooks/queries/use-tenant-settings';
 import { useUpdateTenant } from '@/hooks/queries/use-tenants';
 import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { cn } from '@/lib/utils';
@@ -25,6 +33,7 @@ const timezoneOptions = Intl.supportedValuesOf('timeZone').map((tz) => ({
 export function SettingsWorkspaceTab() {
   const { tenant, tenantId } = useTenant();
   const { data: settings } = useTenantSettings();
+  const { data: countriesData } = useSupportedHolidayCountries();
   const updateTenant = useUpdateTenant();
   const patchSettings = usePatchTenantSettings();
   const logoUpload = useWorkspaceLogoUpload();
@@ -35,30 +44,40 @@ export function SettingsWorkspaceTab() {
 
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [countryCode, setCountryCode] = useState('');
   const [timezone, setTimezone] = useState('UTC');
   const [employeeCode, setEmployeeCode] = useState('');
   const [payrollCurrencies, setPayrollCurrencies] = useState<string[]>(['USD']);
   const [emailPayslipOnPublish, setEmailPayslipOnPublish] = useState(false);
 
+  const countryOptions = useMemo(
+    () =>
+      (countriesData?.countries ?? []).map((country) => ({
+        value: country.code,
+        label: country.name,
+      })),
+    [countriesData?.countries],
+  );
+
   useEffect(() => {
     if (!tenant) return;
     setName(tenant.name ?? '');
     setLogoUrl(tenantLogoUrl);
+    const workspaceCountry = tenant.countryCode ?? settings?.settings?.holidays?.countryCode ?? '';
+    setCountryCode(workspaceCountry);
     setTimezone(tenant.timezone ?? 'UTC');
     setEmployeeCode(tenant.employeeCode ?? '');
 
     const general = settings?.settings?.general;
     setEmailPayslipOnPublish(general?.emailPayslipOnPublish ?? false);
-    const fromSettings = general?.payrollCurrencies
-      ?.map((code) => code.toUpperCase())
-      .filter(Boolean);
-    if (fromSettings && fromSettings.length > 0) {
-      setPayrollCurrencies(fromSettings);
-      return;
-    }
-
-    const primary = (general?.currency ?? tenant.preferredCurrency ?? 'USD').toUpperCase();
-    setPayrollCurrencies([primary]);
+    setPayrollCurrencies(
+      resolveInitialPayrollCurrencies({
+        countryCode: workspaceCountry,
+        settingsPayrollCurrencies: general?.payrollCurrencies,
+        settingsCurrency: general?.currency,
+        tenantPreferredCurrency: tenant.preferredCurrency,
+      }),
+    );
   }, [tenant, settings, tenantLogoUrl]);
 
   const toggleCurrency = (code: string) => {
@@ -70,8 +89,15 @@ export function SettingsWorkspaceTab() {
         }
         return current.filter((item) => item !== code);
       }
-      return [...current, code].sort();
+      return [...current, code];
     });
+  };
+
+  const handleCountryChange = (nextCountryCode: string) => {
+    setCountryCode(nextCountryCode);
+    setPayrollCurrencies((current) =>
+      reprioritizePayrollCurrenciesForCountry(current, nextCountryCode),
+    );
   };
 
   const saveWorkspace = async () => {
@@ -105,6 +131,7 @@ export function SettingsWorkspaceTab() {
         tenantId,
         input: {
           name: name.trim(),
+          ...(countryCode ? { countryCode } : {}),
           timezone: timezone.trim() || 'UTC',
           preferredCurrency: primaryCurrency,
           ...(employeeCode.trim() ? { employeeCode: employeeCode.trim().toUpperCase() } : {}),
@@ -205,12 +232,29 @@ export function SettingsWorkspaceTab() {
           </SettingsFieldHint>
 
           <SettingsFieldHint
+            htmlFor="workspace-country"
+            label="Country"
+            hint="Used to suggest the default payroll currency for this workspace."
+            className="lg:col-span-2"
+          >
+            <SearchSelect
+              id="workspace-country"
+              options={countryOptions}
+              value={countryCode}
+              onValueChange={handleCountryChange}
+              placeholder="Select country…"
+              searchPlaceholder="Search countries…"
+            />
+          </SettingsFieldHint>
+
+          <SettingsFieldHint
             htmlFor="workspace-timezone"
             label="Timezone"
             hint="Used for schedules, attendance, and date displays."
             className="lg:col-span-2"
           >
             <SearchSelect
+              id="workspace-timezone"
               options={timezoneOptions}
               value={timezone}
               onValueChange={setTimezone}

@@ -3,9 +3,19 @@
 import { useMemo } from 'react';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import type { FeatureAccess } from '@/lib/constants/feature-access';
+import { isPlanSlug, type PlanSlug } from '@/lib/constants/plan-catalog';
+import { hasPlanFeatureAccess } from '../../../../constants/feature-access-resolver';
 
 export function useFeatureAccess() {
-  const { data: overview } = useBillingOverview();
+  const overviewQuery = useBillingOverview();
+  const { data: overview } = overviewQuery;
+  const featureGatingEnabled = overview?.featureGatingEnabled ?? false;
+  const isLoading = overviewQuery.isLoading || overviewQuery.isPending;
+
+  const currentPlan = useMemo<null | PlanSlug>(() => {
+    const plan = overview?.subscription?.plan?.toLowerCase();
+    return plan && isPlanSlug(plan) ? plan : null;
+  }, [overview?.subscription?.plan]);
 
   const features = useMemo(() => {
     const currentPlan = overview?.plans?.find(
@@ -17,10 +27,14 @@ export function useFeatureAccess() {
   const hasFeature = useMemo(
     () =>
       (feature: FeatureAccess): boolean => {
-        return Boolean(features[feature]);
+        if (!featureGatingEnabled) {
+          return true;
+        }
+
+        return hasPlanFeatureAccess(features, feature);
       },
-    [features],
+    [featureGatingEnabled, features],
   );
 
-  return { hasFeature, featureGatingEnabled: overview?.featureGatingEnabled ?? false };
+  return { currentPlan, hasFeature, featureGatingEnabled, isLoading };
 }

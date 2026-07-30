@@ -24,10 +24,10 @@ export const PLAN_CATALOG: Record<PlanSlug, PlanCatalogEntry> = {
     sortOrder: 0,
     highlights: [
       'Employee directory & org chart',
-      'Leave & attendance',
-      'Payroll runs, bank export & automated payouts',
-      'Recruitment & careers page',
+      'Leave management & self-service',
+      'Payroll runs, bank export & manual payouts',
       'Shoutouts & employee self-service',
+      'Core HR workflows for lean teams',
     ],
   },
   growth: {
@@ -40,6 +40,8 @@ export const PLAN_CATALOG: Record<PlanSlug, PlanCatalogEntry> = {
     sortOrder: 1,
     highlights: [
       'Everything in Starter',
+      'Attendance, policies & clock-in',
+      'Recruitment & careers page',
       'Slack integration',
       'Advanced reporting & analytics',
       'Rewards catalog & redemptions',

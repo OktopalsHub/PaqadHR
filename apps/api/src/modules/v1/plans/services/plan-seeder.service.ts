@@ -1,24 +1,13 @@
 import { Injectable, type OnApplicationBootstrap } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import { DEFAULT_PLANS } from '../data/default-plans.data';
-import { Plan } from '../entities/plan.entity';
 import type { PlanPrice } from '../entities/plan-price.entity';
 import { PlansService } from './plans.service';
 
 @Injectable()
 export class PlanSeederService implements OnApplicationBootstrap {
-  constructor(
-    @InjectRepository(Plan)
-    private readonly planRepository: Repository<Plan>,
-    private readonly plansService: PlansService,
-  ) {}
+  constructor(private readonly plansService: PlansService) {}
 
   async onApplicationBootstrap(): Promise<void> {
-    const planCount = await this.planRepository.count();
-    if (planCount > 0) {
-      return;
-    }
     await this.seedPlans();
   }
 

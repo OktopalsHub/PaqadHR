@@ -6,5 +6,5 @@ export default async function RewardsRoute({
   params: Promise<{ tenantSlug: string }>;
 }) {
   const { tenantSlug } = await params;
-  redirect(`/${tenantSlug}/shoutouts?tab=rewards`);
+  redirect(`/${tenantSlug}/shoutouts?tab=redeem`);
 }

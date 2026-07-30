@@ -12,8 +12,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { TenantId } from 'src/common/decorators';
+import { RequireFeatures, TenantId } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreateShoutoutCategoryDto } from '../dto/create-shoutout-category.dto';
@@ -23,6 +24,7 @@ import { ShoutoutCategoriesService } from '../services/shoutout-categories.servi
 
 @ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 @Controller('tenants/:tenantId/shoutout-categories')
 export class ShoutoutCategoriesController {
   constructor(private readonly categoriesService: ShoutoutCategoriesService) {}

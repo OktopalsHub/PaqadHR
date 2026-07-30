@@ -347,7 +347,7 @@ describe('AuthService', () => {
       expect(jwtService.sign).toHaveBeenCalled();
     });
 
-    it('revokes all sessions when refresh token is reused', async () => {
+    it('rejects stale refresh tokens without revoking unrelated sessions', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'stale-session' });
       userRepository.findUser.mockResolvedValue(mockUser);
       sessionRepository.findOne.mockResolvedValue(null);
@@ -355,7 +355,41 @@ describe('AuthService', () => {
       await expect(authService.refreshToken('stale-refresh')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
+      expect(sessionRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('rejects a repeated refresh attempt after rotation without clearing the active session', async () => {
+      jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'old-session' });
+      userRepository.findUser.mockResolvedValue(mockUser);
+
+      let activeSession = {
+        token: 'old-session',
+        userId: 'user-1',
+        expiresAt: new Date(Date.now() + 60_000),
+      };
+
+      sessionRepository.findOne.mockImplementation(async ({ where }) => {
+        if (where?.userId === activeSession.userId && where?.token === activeSession.token) {
+          return activeSession;
+        }
+        return null;
+      });
+      sessionRepository.save.mockImplementation(async (session) => {
+        activeSession = {
+          token: session.token,
+          userId: session.userId,
+          expiresAt: session.expiresAt,
+        };
+        return activeSession;
+      });
+
+      await authService.refreshToken('valid-refresh');
+
+      await expect(authService.refreshToken('stale-refresh')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(activeSession.token).not.toBe('old-session');
+      expect(sessionRepository.delete).not.toHaveBeenCalled();
     });
   });
 

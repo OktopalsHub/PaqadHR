@@ -17,14 +17,13 @@ export function QuickActionsMenu() {
   const tenantHref = useTenantHref();
   const { tenant } = useTenant();
   const isAdmin = isTenantAdmin(tenant?.member?.role);
-
   const actions = isAdmin
-    ? ([
+    ? [
         { label: 'Add employee', segment: 'employees', icon: UserPlus },
         { label: 'Run payroll', segment: 'payroll', icon: Wallet },
         { label: 'Send shoutout', segment: 'shoutouts', icon: Heart },
-      ] as const)
-    : ([{ label: 'Send shoutout', segment: 'shoutouts', icon: Heart }] as const);
+      ]
+    : [{ label: 'Send shoutout', segment: 'shoutouts', icon: Heart }];
 
   return (
     <DropdownMenu>

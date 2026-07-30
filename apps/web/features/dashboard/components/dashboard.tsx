@@ -11,16 +11,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DashboardActivityFeed } from '@/features/dashboard/components/dashboard-activity-feed';
 import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
+import { getDashboardRecruitmentAccessState } from '@/features/dashboard/lib/dashboard-feature-access';
 import { RecruitmentApplicantsTable } from '@/features/recruitment/components/dashboard/recruitment-applicants-table';
 import { RecruitmentScheduleWidget } from '@/features/recruitment/components/dashboard/recruitment-schedule-widget';
 import { RecruitmentVacancyGrid } from '@/features/recruitment/components/dashboard/recruitment-vacancy-grid';
 import { JobDetailSheet } from '@/features/recruitment/components/job-detail-sheet';
 import { useRecruitmentOverview } from '@/features/recruitment/hooks/use-recruitment-overview';
 import { useEmployees } from '@/hooks/queries/use-employees';
+import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useLeaves } from '@/hooks/queries/use-leaves';
 import { useJobOpenings } from '@/hooks/queries/use-recruitment';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { FeatureAccess } from '@/lib/constants/feature-access';
 import { formatDate } from '@/lib/format-date';
 import type { JobOpening } from '@/lib/schemas/recruitment';
 import { useTenant } from '@/providers/tenant-provider';
@@ -41,6 +44,14 @@ function leaveStatusVariant(status: string) {
 export const Dashboard = () => {
   const { tenant } = useTenant();
   const isAdmin = isTenantAdmin(tenant?.member?.role);
+  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
+  const recruitmentAccess = getDashboardRecruitmentAccessState({
+    isAdmin,
+    featureGatingEnabled,
+    hasFeature,
+    recruitmentFeature: FeatureAccess.RECRUITMENT,
+  });
+  const { canAccessRecruitment, recruitmentQueriesEnabled } = recruitmentAccess;
   const {
     data: employees = [],
     isLoading: employeesLoading,
@@ -51,18 +62,23 @@ export const Dashboard = () => {
     data: jobsData,
     isLoading: jobsLoading,
     isError: jobsError,
-  } = useJobOpenings({ enabled: isAdmin });
+  } = useJobOpenings({ enabled: recruitmentQueriesEnabled });
   const {
     overview,
     isLoading: overviewLoading,
     jobsError: overviewError,
-  } = useRecruitmentOverview({ enabled: isAdmin });
+  } = useRecruitmentOverview({ enabled: recruitmentQueriesEnabled });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
   const isLoading =
-    employeesLoading || leavesLoading || (isAdmin && (jobsLoading || overviewLoading));
-  const hasError = employeesError || leavesError || (isAdmin && (jobsError || overviewError));
+    employeesLoading ||
+    leavesLoading ||
+    (isAdmin && canAccessRecruitment && (jobsLoading || overviewLoading));
+  const hasError =
+    employeesError ||
+    leavesError ||
+    (isAdmin && canAccessRecruitment && (jobsError || overviewError));
 
   const jobs = jobsData?.jobs ?? [];
   const openRoles = jobs.filter((job) => job.status === 'ACTIVE').length;
@@ -91,7 +107,7 @@ export const Dashboard = () => {
       icon: Users,
       iconClassName: 'bg-warning/15 text-warning',
     },
-    ...(isAdmin
+    ...(recruitmentAccess.includeOpenRolesCard
       ? [
           {
             label: 'Open roles',
@@ -111,12 +127,16 @@ export const Dashboard = () => {
     },
     {
       label: 'Departments',
-      value: departmentCount || '—',
+      value: departmentCount,
       hint: 'With assigned members',
       icon: Building2,
-      iconClassName: 'bg-brand-dim text-primary',
+      iconClassName: 'bg-indigo-100 text-indigo-700',
     },
   ] as const;
+  const statGridClassName =
+    statCards.length === 3
+      ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
+      : 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
 
   const handleSelectJobDetails = (job: JobOpening) => {
     setSelectedJobId(job.id);
@@ -145,7 +165,7 @@ export const Dashboard = () => {
 
   return (
     <AppPage className="space-y-6">
-      {isAdmin ? (
+      {recruitmentAccess.showRecruitmentCallToAction ? (
         <div className="flex justify-stretch sm:justify-end">
           <Button
             asChild
@@ -161,7 +181,7 @@ export const Dashboard = () => {
         </div>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className={statGridClassName}>
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -191,7 +211,9 @@ export const Dashboard = () => {
 
       <div className="grid gap-4 xl:grid-cols-12">
         <ContentCard
-          className={`dashboard-panel rounded-[8px] ${isAdmin ? 'xl:col-span-8' : 'xl:col-span-7'}`}
+          className={`dashboard-panel rounded-[8px] ${
+            recruitmentAccess.showRecruitmentSections ? 'xl:col-span-8' : 'xl:col-span-7'
+          }`}
           headerClassName={contentCardHeaderClassName}
           titleClassName={contentCardTitleClassName}
           title="Recent leave requests"
@@ -234,7 +256,7 @@ export const Dashboard = () => {
           )}
         </ContentCard>
 
-        {isAdmin ? (
+        {recruitmentAccess.showRecruitmentSections ? (
           <ContentCard
             className="dashboard-panel rounded-[8px] xl:col-span-4"
             headerClassName={contentCardHeaderClassName}
@@ -290,7 +312,7 @@ export const Dashboard = () => {
         )}
       </div>
 
-      {isAdmin ? (
+      {recruitmentAccess.showRecruitmentSections ? (
         <>
           <div className="grid gap-5 lg:grid-cols-2">
             <RecruitmentVacancyGrid

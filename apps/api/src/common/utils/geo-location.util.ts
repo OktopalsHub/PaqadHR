@@ -144,7 +144,7 @@ export class GeoLocationHelper {
 
   static toStoredCountryCode(code: string | null | undefined): string | null {
     if (!code) return null;
-    const upper = code.toUpperCase();
+    const upper = code.trim().toUpperCase();
     return /^[A-Z]{2}$/.test(upper) ? upper : null;
   }
 

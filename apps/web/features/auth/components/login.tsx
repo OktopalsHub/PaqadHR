@@ -88,16 +88,21 @@ export const Login = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-        <p className="text-sm text-muted-foreground">
+    <div className="space-y-6 sm:min-h-[33.5rem]">
+      <div className="space-y-2">
+        <h1 className="text-[clamp(1.8rem,2.5vw,2.25rem)] font-semibold tracking-[-0.05em] text-slate-950">
+          Sign in
+        </h1>
+        <p className="max-w-sm text-sm leading-6 text-slate-500">
           Welcome back. Enter your details to continue.
         </p>
       </div>
 
       {googleSignInFailed && !isAuthenticated && !authLoading ? (
-        <Alert variant="destructive">
+        <Alert
+          variant="destructive"
+          className="rounded-[20px] border-destructive/20 bg-destructive/5"
+        >
           <AlertTitle>Google sign-in incomplete</AlertTitle>
           <AlertDescription>
             Try &quot;Continue with Google&quot; again, or sign in with your email and password.
@@ -107,25 +112,34 @@ export const Login = () => {
 
       <SocialAuthButtons />
 
-      <div className="relative">
+      <div className="relative py-1">
         <div className="absolute inset-0 flex items-center">
           <Separator className="w-full" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">Or continue with email</span>
+          <span className="bg-white/90 px-3 text-[10px] font-semibold tracking-[0.18em] text-slate-400">
+            Or continue with email
+          </span>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((values) => login(values))} className="space-y-4">
+        <form onSubmit={form.handleSubmit((values) => login(values))} className="space-y-4.5">
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email address</FormLabel>
+              <FormItem className="space-y-2">
+                <FormLabel className="text-[13px] font-semibold tracking-[0.01em] text-slate-700">
+                  Email address
+                </FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="admin@example.com" className="h-11" {...field} />
+                  <Input
+                    type="email"
+                    placeholder="admin@example.com"
+                    className="h-11.5 rounded-[16px] border-slate-200 bg-white/90 px-4 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-visible:ring-[3px] focus-visible:ring-emerald-500/18"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -136,17 +150,23 @@ export const Login = () => {
             control={form.control}
             name="password"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
+              <FormItem className="space-y-2">
+                <FormLabel className="text-[13px] font-semibold tracking-[0.01em] text-slate-700">
+                  Password
+                </FormLabel>
                 <FormControl>
-                  <PasswordInput placeholder="Enter your password" className="h-11" {...field} />
+                  <PasswordInput
+                    placeholder="Enter your password"
+                    className="h-11.5 rounded-[16px] border-slate-200 bg-white/90 px-4 pr-11 shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-visible:ring-[3px] focus-visible:ring-emerald-500/18 focus-visible:ring-offset-0"
+                    {...field}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
             <FormField
               control={form.control}
               name="rememberMe"
@@ -155,9 +175,7 @@ export const Login = () => {
                   <FormControl>
                     <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
-                  <FormLabel className="text-sm font-normal text-muted-foreground">
-                    Remember me
-                  </FormLabel>
+                  <FormLabel className="text-sm font-medium text-slate-500">Remember me</FormLabel>
                 </FormItem>
               )}
             />
@@ -165,19 +183,24 @@ export const Login = () => {
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="text-sm font-medium text-primary hover:text-primary/90"
+              className="text-sm font-semibold text-primary hover:text-primary/90"
             >
               Forgot password?
             </button>
           </div>
 
-          <Button type="submit" className="w-full h-11" disabled={isLoading}>
+          <Button
+            type="submit"
+            variant="brandSolid"
+            className="h-11.5 w-full rounded-[16px] text-base font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
+            disabled={isLoading}
+          >
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
       </Form>
 
-      <p className="text-center text-sm text-muted-foreground">
+      <p className="pt-1 text-center text-sm text-slate-500">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="font-medium text-primary hover:text-primary/90">
           Sign up

@@ -22,7 +22,7 @@ export interface PlanPricingCardProps {
   isCurrent?: boolean;
   action?: ReactNode;
   className?: string;
-  variant?: 'app' | 'marketing';
+  variant?: 'app' | 'marketing' | 'onboarding';
 }
 
 export function PlanPricingCard({
@@ -43,6 +43,7 @@ export function PlanPricingCard({
   variant = 'app',
 }: PlanPricingCardProps) {
   const catalog = getPlanCatalog(slug);
+  const isOnboarding = variant === 'onboarding';
   const featureList = highlights ?? catalog?.highlights ?? [];
   const employeeLimit = maxEmployees ?? catalog?.maxEmployees;
   const payrollFee = payrollFeePercent ?? catalog?.payrollFeePercent;
@@ -56,29 +57,70 @@ export function PlanPricingCard({
         variant === 'marketing' && 'rounded-2xl p-5',
         variant === 'marketing' && isPopular && 'bg-primary/5',
         variant === 'marketing' && !isPopular && 'bg-card',
+        variant === 'onboarding' &&
+          'rounded-[22px] p-4 shadow-[0_18px_44px_-34px_rgba(15,23,42,0.18)]',
+        variant === 'onboarding' && isPopular && 'bg-primary/5',
+        variant === 'onboarding' && !isPopular && 'bg-card/95',
         variant === 'app' && 'app-card transition-all hover:border-primary/50 hover:shadow-sm',
         className,
       )}
     >
       {isCurrent ? (
-        <Badge variant="secondary" className="absolute -top-2.5 right-4 text-[10px]">
+        <Badge
+          variant="secondary"
+          className={cn('absolute -top-2.5 right-4 text-[10px]', isOnboarding && 'text-[11px]')}
+        >
           Current
         </Badge>
       ) : isPopular ? (
-        <Badge className="absolute -top-2.5 right-4 text-[10px]">Popular</Badge>
+        <Badge
+          className={cn('absolute -top-2.5 right-4 text-[10px]', isOnboarding && 'text-[11px]')}
+        >
+          Popular
+        </Badge>
       ) : null}
 
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
-          <p className="font-semibold">{name}</p>
-          {tagline ? <p className="mt-0.5 text-xs text-muted-foreground">{tagline}</p> : null}
-          {description ? <p className="mt-1 text-xs text-muted-foreground">{description}</p> : null}
+          <p className={cn('font-semibold', isOnboarding && 'text-[1.05rem] tracking-[-0.02em]')}>
+            {name}
+          </p>
+          {tagline ? (
+            <p
+              className={cn(
+                'mt-0.5 text-xs text-muted-foreground',
+                isOnboarding && 'text-[11px] leading-4.5',
+              )}
+            >
+              {tagline}
+            </p>
+          ) : null}
+          {description ? (
+            <p
+              className={cn(
+                'mt-1 text-xs text-muted-foreground',
+                isOnboarding && 'text-[11px] leading-5',
+              )}
+            >
+              {description}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <p className="text-2xl font-bold tracking-tight">
+      <p
+        className={cn(
+          'text-2xl font-bold tracking-tight',
+          isOnboarding && 'text-[2.05rem] leading-none',
+        )}
+      >
         {formatPlanMoney(pricePerSeat, currency)}
-        <span className="text-sm font-normal text-muted-foreground"> / user / mo</span>
+        <span
+          className={cn('text-sm font-normal text-muted-foreground', isOnboarding && 'text-[12px]')}
+        >
+          {' '}
+          / user / mo
+        </span>
       </p>
 
       {seatCount != null && seatCount > 1 && monthlyTotal != null ? (
@@ -88,14 +130,20 @@ export function PlanPricingCard({
       ) : null}
 
       {employeeLimit != null || payrollFee != null ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className={cn('mt-3 flex flex-wrap gap-2', isOnboarding && 'mt-2.5 gap-1.5')}>
           {employeeLimit != null ? (
-            <Badge variant="outline" className="text-[10px] font-normal">
+            <Badge
+              variant="outline"
+              className={cn('text-[10px] font-normal', isOnboarding && 'px-2.5 py-1 text-[10px]')}
+            >
               Up to {employeeLimit} employees
             </Badge>
           ) : null}
           {payrollFee != null ? (
-            <Badge variant="outline" className="text-[10px] font-normal">
+            <Badge
+              variant="outline"
+              className={cn('text-[10px] font-normal', isOnboarding && 'px-2.5 py-1 text-[10px]')}
+            >
               {payrollFee}% payroll platform fee
             </Badge>
           ) : null}
@@ -103,10 +151,24 @@ export function PlanPricingCard({
       ) : null}
 
       {featureList.length > 0 ? (
-        <ul className="mt-4 flex-1 space-y-2 border-t border-border/60 pt-4">
+        <ul
+          className={cn(
+            'mt-4 flex-1 space-y-2 border-t border-border/60 pt-4',
+            isOnboarding && 'mt-3 space-y-1.5 pt-3',
+          )}
+        >
           {featureList.map((feature) => (
-            <li key={feature} className="flex gap-2 text-xs text-muted-foreground">
-              <Check className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
+            <li
+              key={feature}
+              className={cn(
+                'flex gap-2 text-xs text-muted-foreground',
+                isOnboarding && 'text-[11px] leading-5',
+              )}
+            >
+              <Check
+                className={cn('mt-0.5 size-3.5 shrink-0 text-primary', isOnboarding && 'size-3')}
+                aria-hidden
+              />
               <span>{feature}</span>
             </li>
           ))}

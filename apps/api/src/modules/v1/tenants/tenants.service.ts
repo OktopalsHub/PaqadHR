@@ -10,6 +10,7 @@ import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
+import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { IsNull, Repository } from 'typeorm';
 import { Employment } from '../employment/entities/employment.entity';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
@@ -167,8 +168,16 @@ export class TenantsService {
     if (!existingTenant) {
       throw new NotFoundException('Tenant does not exist');
     }
+    if (updateTenantDto.countryCode !== undefined) {
+      const normalizedCountry = GeoLocationHelper.toStoredCountryCode(updateTenantDto.countryCode);
+      if (!normalizedCountry) {
+        throw new BadRequestException('Country code must be a valid ISO 3166-1 alpha-2 code');
+      }
+      updateTenantDto.countryCode = normalizedCountry;
+    }
     if (updateTenantDto.preferredCurrency) {
       const next = updateTenantDto.preferredCurrency.toUpperCase();
+      updateTenantDto.preferredCurrency = next;
       const current = (existingTenant.preferredCurrency || 'USD').toUpperCase();
       if (next !== current) {
         const stillOnOld = await this.employmentRepository.count({

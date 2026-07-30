@@ -67,7 +67,7 @@ describe('SubscriptionsService', () => {
       expect(allowed).toBe(false);
     });
 
-    it('denies payroll when plan lacks feature', async () => {
+    it('denies payroll when the plan feature key is absent', async () => {
       subscriptionRepo.findOne.mockResolvedValue({
         status: SubscriptionStatus.TRIAL,
         trialEndsAt: new Date(Date.now() + 86_400_000),
@@ -76,6 +76,36 @@ describe('SubscriptionsService', () => {
 
       const allowed = await service.hasFeatureAccess('tenant-1', [FeatureAccess.PAYROLL]);
       expect(allowed).toBe(false);
+    });
+
+    it('denies access when a plan feature is explicitly false', async () => {
+      subscriptionRepo.findOne.mockResolvedValue({
+        status: SubscriptionStatus.ACTIVE,
+        trialEndsAt: null,
+        plan: { features: { [FeatureAccess.PAYROLL]: false } },
+      });
+
+      const allowed = await service.hasFeatureAccess('tenant-1', [FeatureAccess.PAYROLL]);
+      expect(allowed).toBe(false);
+    });
+
+    it('allows access only when every requested feature is explicitly true', async () => {
+      subscriptionRepo.findOne.mockResolvedValue({
+        status: SubscriptionStatus.ACTIVE,
+        trialEndsAt: null,
+        plan: {
+          features: {
+            [FeatureAccess.PAYROLL]: true,
+            [FeatureAccess.LEAVE_MANAGEMENT]: true,
+          },
+        },
+      });
+
+      const allowed = await service.hasFeatureAccess('tenant-1', [
+        FeatureAccess.PAYROLL,
+        FeatureAccess.LEAVE_MANAGEMENT,
+      ]);
+      expect(allowed).toBe(true);
     });
   });
 

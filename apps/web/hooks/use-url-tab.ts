@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { readTabParam, replaceTabInUrl } from '@/lib/navigation/tab-query';
 
@@ -9,11 +9,9 @@ export function useUrlTab<T extends string>(
   fallback: T,
 ): [T, (tab: T) => void] {
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState<T>(() =>
-    typeof window !== 'undefined'
-      ? readTabParam(window.location.search, isValid, fallback)
-      : fallback,
-  );
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  const [activeTab, setActiveTab] = useState<T>(() => readTabParam(search, isValid, fallback));
 
   useEffect(() => {
     const onPopState = () => {
@@ -24,8 +22,8 @@ export function useUrlTab<T extends string>(
   }, [isValid, fallback]);
 
   useEffect(() => {
-    setActiveTab(readTabParam(window.location.search, isValid, fallback));
-  }, [isValid, fallback]);
+    setActiveTab(readTabParam(search, isValid, fallback));
+  }, [search, isValid, fallback]);
 
   const setTab = useCallback(
     (tab: T) => {

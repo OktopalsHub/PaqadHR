@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { getLeaveAssignmentPanelState } from '@/features/leaves/lib/leave-assignment-panel-state';
 import {
   useAssignExistingLeaveTypes,
   useAssignmentReport,
@@ -23,14 +24,15 @@ export function LeaveAssignmentPanel() {
   const currentYear = new Date().getFullYear();
   const [year, _setYear] = useState(currentYear);
 
-  const { data: report = [], isLoading } = useAssignmentReport(year);
+  const { data: report, isLoading } = useAssignmentReport(year);
   const syncAll = useSyncLeaveTypeAssignments();
   const assignExisting = useAssignExistingLeaveTypes();
+  const panelState = getLeaveAssignmentPanelState({ report, isLoading, year });
 
   const handleSync = async () => {
     try {
       const result = await syncAll.mutateAsync(year);
-      toast.success(`Synced ${result.synced} assignments`);
+      toast.success(`Created ${result.totalAssignments} missing assignments`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sync failed');
     }
@@ -39,7 +41,7 @@ export function LeaveAssignmentPanel() {
   const handleAssignExisting = async () => {
     try {
       const result = await assignExisting.mutateAsync(year);
-      toast.success(`Assigned leave types to ${result.assigned} members`);
+      toast.success(`Created ${result.totalAssignments} missing assignments`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Assignment failed');
     }
@@ -68,39 +70,78 @@ export function LeaveAssignmentPanel() {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {panelState.kind === 'loading' ? (
           <div className="text-muted-foreground py-8 text-center text-sm">
             Loading assignment report…
           </div>
-        ) : report.length === 0 ? (
-          <p className="text-muted-foreground py-4 text-center text-sm">
-            No assignment data for {year}.
-          </p>
+        ) : panelState.kind === 'error' ? (
+          <p className="text-muted-foreground py-4 text-center text-sm">{panelState.message}</p>
+        ) : panelState.kind === 'complete' ? (
+          <div className="space-y-2 py-4 text-center">
+            <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+              {panelState.title}
+            </p>
+            <p className="text-muted-foreground text-sm">{panelState.description}</p>
+          </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Leave Type</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Used</TableHead>
-                <TableHead className="text-right">Remaining</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {report.map((entry) => (
-                <TableRow key={`${entry.memberId}-${entry.leaveTypeId}`}>
-                  <TableCell className="font-medium">
-                    {entry.memberName ?? entry.email ?? entry.memberId}
-                  </TableCell>
-                  <TableCell>{entry.leaveTypeName ?? entry.leaveTypeId}</TableCell>
-                  <TableCell className="text-right">{entry.totalDays}</TableCell>
-                  <TableCell className="text-right">{entry.usedDays}</TableCell>
-                  <TableCell className="text-right">{entry.remainingDays}</TableCell>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-border/60 px-4 py-3">
+                <p className="text-muted-foreground text-xs font-medium uppercase tracking-[0.16em]">
+                  Members
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">
+                  {panelState.totals.members}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/60 px-4 py-3">
+                <p className="text-muted-foreground text-xs font-medium uppercase tracking-[0.16em]">
+                  Complete
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">
+                  {panelState.totals.complete}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/60 px-4 py-3">
+                <p className="text-muted-foreground text-xs font-medium uppercase tracking-[0.16em]">
+                  Missing
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-slate-950 dark:text-slate-50">
+                  {panelState.totals.missing}
+                </p>
+              </div>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Missing leave types</TableHead>
+                  <TableHead className="text-right">Count</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {panelState.rows.map((entry) => (
+                  <TableRow key={entry.memberId}>
+                    <TableCell className="font-medium">{entry.memberLabel}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {entry.missingTypes.map((leaveType) => (
+                          <span
+                            key={leaveType.leaveTypeId}
+                            className="inline-flex items-center rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-300"
+                          >
+                            {leaveType.leaveTypeName}
+                          </span>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">{entry.missingCount}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         )}
       </CardContent>
     </Card>

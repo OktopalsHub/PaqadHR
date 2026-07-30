@@ -77,7 +77,6 @@ export class TenantWalletService {
       .createQueryBuilder()
       .update(TenantWallet)
       .set({ balanceAmount: () => 'balance_amount - :amount' })
-      .setParameters({ amount })
       .where('tenant_id = :tenantId AND balance_amount >= :amount', { tenantId, amount })
       .execute();
 
@@ -122,8 +121,7 @@ export class TenantWalletService {
       .createQueryBuilder()
       .update(TenantWallet)
       .set({ balanceAmount: () => 'balance_amount + :amount' })
-      .setParameters({ amount })
-      .where('tenant_id = :tenantId', { tenantId })
+      .where('tenant_id = :tenantId', { tenantId, amount })
       .execute();
 
     const updated = await walletRepo.findOneOrFail({ where: { tenantId } });

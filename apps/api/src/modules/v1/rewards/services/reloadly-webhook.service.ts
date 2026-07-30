@@ -77,8 +77,11 @@ export class ReloadlyWebhookService {
           .createQueryBuilder()
           .update(ShoutoutMemberPoints)
           .set({ currentBalance: () => 'current_balance + :pointsCost' })
-          .setParameters({ pointsCost })
-          .where('tenant_id = :tenantId AND member_id = :memberId', { tenantId, memberId })
+          .where('tenant_id = :tenantId AND member_id = :memberId', {
+            tenantId,
+            memberId,
+            pointsCost,
+          })
           .execute();
 
         const txRepo = manager.getRepository(ShoutoutPointTransaction);

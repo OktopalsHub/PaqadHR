@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
+import { hasPlanFeaturesAccess } from '../../../../../../../constants/feature-access-resolver';
 import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -52,12 +53,7 @@ export class SubscriptionsService {
     }
 
     const planFeatures = subscription.plan?.features ?? {};
-    return features.every((feature) => {
-      if (feature === FeatureAccess.PAYROLL) {
-        return true;
-      }
-      return planFeatures[feature] === true;
-    });
+    return hasPlanFeaturesAccess(planFeatures, features);
   }
 
   isSubscriptionEntitled(subscription: TenantSubscription): boolean {

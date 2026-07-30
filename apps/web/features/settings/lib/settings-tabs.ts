@@ -38,12 +38,44 @@ export const ADMIN_SETTINGS_TABS: SettingsTab[] = [
   'integrations',
 ];
 
+export type SettingsTabAvailability = {
+  canAccessAttendance: boolean;
+  canAccessIntegrations: boolean;
+};
+
+const DEFAULT_SETTINGS_TAB_AVAILABILITY: SettingsTabAvailability = {
+  canAccessAttendance: true,
+  canAccessIntegrations: true,
+};
+
 export function isSettingsTab(value: string | null | undefined): value is SettingsTab {
   return SETTINGS_TABS.includes(value as SettingsTab);
 }
 
 export function getVisibleSettingsTabs(isAdmin: boolean): SettingsTab[] {
   return isAdmin ? [...SETTINGS_TABS] : ['profile'];
+}
+
+function canAccessSettingsTab(
+  tab: SettingsTab,
+  availability: SettingsTabAvailability = DEFAULT_SETTINGS_TAB_AVAILABILITY,
+) {
+  if (tab === 'attendance') {
+    return availability.canAccessAttendance;
+  }
+
+  if (tab === 'shoutouts' || tab === 'rewards' || tab === 'integrations') {
+    return availability.canAccessIntegrations;
+  }
+
+  return true;
+}
+
+export function getAccessibleSettingsTabs(
+  isAdmin: boolean,
+  availability: SettingsTabAvailability = DEFAULT_SETTINGS_TAB_AVAILABILITY,
+): SettingsTab[] {
+  return getVisibleSettingsTabs(isAdmin).filter((tab) => canAccessSettingsTab(tab, availability));
 }
 
 export function resolveSettingsTab(
@@ -58,6 +90,19 @@ export function resolveSettingsTab(
   }
 
   return 'profile';
+}
+
+export function resolveAccessibleSettingsTab(
+  requestedTab: string | null | undefined,
+  isAdmin: boolean,
+  availability: SettingsTabAvailability = DEFAULT_SETTINGS_TAB_AVAILABILITY,
+): SettingsTab {
+  const visibleTab = resolveSettingsTab(requestedTab, isAdmin);
+  if (canAccessSettingsTab(visibleTab, availability)) {
+    return visibleTab;
+  }
+
+  return getAccessibleSettingsTabs(isAdmin, availability)[0] ?? 'profile';
 }
 
 export function shouldUseSettingsSidebar(pathname: string, settingsHref: string): boolean {
