@@ -10,7 +10,10 @@ test('api client reports a friendly message for network-level failures', () => {
 });
 
 test('api client prefers payload messages when the server provides one', () => {
-  assert.equal(resolveApiErrorMessage(422, { message: 'Invalid credentials' }), 'Invalid credentials');
+  assert.equal(
+    resolveApiErrorMessage(422, { message: 'Invalid credentials' }),
+    'Invalid credentials',
+  );
   assert.equal(
     resolveApiErrorMessage(422, { message: ['Email is required', 'Password is required'] }),
     'Email is required, Password is required',

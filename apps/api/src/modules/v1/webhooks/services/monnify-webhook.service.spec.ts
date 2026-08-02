@@ -77,7 +77,10 @@ describe('MonnifyWebhookService', () => {
   });
 
   it('ignores unrelated events', async () => {
-    const result = await service.dispatch(JSON.stringify({ eventType: 'FAILED_TRANSACTION' }), 'sig');
+    const result = await service.dispatch(
+      JSON.stringify({ eventType: 'FAILED_TRANSACTION' }),
+      'sig',
+    );
 
     expect(result).toEqual({ received: true });
     expect(walletVirtualAccountService.completeVirtualAccountDeposit).not.toHaveBeenCalled();

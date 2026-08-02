@@ -22,9 +22,9 @@ import {
   paymentProviderLabel,
   resolvePaymentProvider,
 } from 'src/common/utils/resolve-payment-provider.util';
-import { rewardsWalletCheckoutLive } from '../config/rewards-wallet-provider.config';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { rewardsWalletCheckoutLive } from '../config/rewards-wallet-provider.config';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { WalletTopupDto } from '../dto/wallet-topup.dto';

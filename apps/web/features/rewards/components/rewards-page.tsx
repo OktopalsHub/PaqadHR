@@ -77,9 +77,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
 
-  const catalogCountries = (settings?.catalogCountries?.length
-    ? settings.catalogCountries
-    : [defaultCatalogCountry]) as string[];
+  const catalogCountries = (
+    settings?.catalogCountries?.length ? settings.catalogCountries : [defaultCatalogCountry]
+  ) as string[];
 
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
   const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog();

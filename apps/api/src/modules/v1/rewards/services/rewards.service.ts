@@ -3,17 +3,17 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { formatNombaSenderName } from 'src/common/config/nomba.config';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
-import {
-  normalizeRewardsCatalogCountries,
-  resolveDefaultRewardsCatalogCountry,
-  resolveDefaultRewardsCurrency,
-} from 'src/common/utils/rewards-defaults.util';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
+import {
+  normalizeRewardsCatalogCountries,
+  resolveDefaultRewardsCatalogCountry,
+  resolveDefaultRewardsCurrency,
+} from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';

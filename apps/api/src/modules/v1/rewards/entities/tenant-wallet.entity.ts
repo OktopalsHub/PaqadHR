@@ -1,5 +1,5 @@
-import { Column, Entity, Index } from 'typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { Column, Entity, Index } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 
 @Entity('tenant_wallets')

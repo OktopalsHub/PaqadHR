@@ -102,10 +102,9 @@ export class TenantWalletVirtualAccountService {
       accountNumber: providerMismatch ? null : currentWallet.virtualAccountNumber,
       bankName: providerMismatch ? null : currentWallet.virtualAccountBank,
       reference: providerMismatch ? null : currentWallet.virtualAccountReference,
-      error:
-        providerMismatch
-          ? `Stored account uses ${currentWallet.virtualAccountProvider}; create a new account for the active provider.`
-          : currentWallet.virtualAccountError,
+      error: providerMismatch
+        ? `Stored account uses ${currentWallet.virtualAccountProvider}; create a new account for the active provider.`
+        : currentWallet.virtualAccountError,
       requirements,
       provisionedAt: providerMismatch ? null : currentWallet.virtualAccountProvisionedAt,
     };
@@ -177,7 +176,10 @@ export class TenantWalletVirtualAccountService {
       wallet.virtualAccountProvider = provider;
       wallet.virtualAccountStatus = 'ERROR';
       wallet.virtualAccountError = error instanceof Error ? error.message : String(error);
-      await this.dataSource.getRepository(TenantWallet).save(wallet).catch(() => undefined);
+      await this.dataSource
+        .getRepository(TenantWallet)
+        .save(wallet)
+        .catch(() => undefined);
       throw error;
     }
   }

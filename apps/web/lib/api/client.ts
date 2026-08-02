@@ -7,8 +7,8 @@ import axios, {
 } from 'axios';
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
-import { resolveApiErrorMessage } from './client-error-message';
 import { prepareApiRequestHeaders } from './api-request-headers';
+import { resolveApiErrorMessage } from './client-error-message';
 import {
   executeFetchWithCsrf,
   type FetchWithCsrfOptions,

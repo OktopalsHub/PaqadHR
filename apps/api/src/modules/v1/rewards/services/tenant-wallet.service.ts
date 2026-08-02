@@ -65,10 +65,7 @@ export class TenantWalletService {
   private async syncWalletCurrencyIfSafe(
     tenantId: string,
     wallet: TenantWallet,
-    walletRepo: Pick<
-      ReturnType<DataSource['getRepository']>,
-      'save'
-    >,
+    walletRepo: Pick<ReturnType<DataSource['getRepository']>, 'save'>,
   ): Promise<TenantWallet> {
     const desiredCurrency = await this.resolveTenantWalletCurrency(tenantId);
     if (!desiredCurrency || desiredCurrency === wallet.currencyCode) {

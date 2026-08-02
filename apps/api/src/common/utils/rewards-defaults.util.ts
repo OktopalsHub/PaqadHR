@@ -17,9 +17,7 @@ export function resolveDefaultRewardsCatalogCountry(options: {
   tenantCountryCode?: string | null;
   creatorCountryCode?: string | null;
 }): string {
-  return (
-    GeoLocationHelper.toStoredCountryCode(options.creatorCountryCode) ?? 'US'
-  );
+  return GeoLocationHelper.toStoredCountryCode(options.creatorCountryCode) ?? 'US';
 }
 
 export function normalizeRewardsCatalogCountries(

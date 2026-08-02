@@ -91,7 +91,8 @@ export class MonnifyApiService {
     this.cachedToken = {
       token,
       expiresAt:
-        Date.now() + (Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+        Date.now() +
+        (Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
           ? Math.max(30, expiresInSeconds - 60) * 1000
           : 25 * 60 * 1000),
     };
@@ -141,7 +142,8 @@ export class MonnifyApiService {
     const account = payload.responseBody?.accounts?.[0];
     const accountNumber = account?.accountNumber ?? payload.responseBody?.accountNumber;
     const bankName = account?.bankName ?? payload.responseBody?.bankName;
-    const accountName = account?.accountName ?? payload.responseBody?.accountName ?? input.accountName;
+    const accountName =
+      account?.accountName ?? payload.responseBody?.accountName ?? input.accountName;
     const accountReference = payload.responseBody?.accountReference ?? input.accountReference;
 
     if (!accountNumber || !bankName) {

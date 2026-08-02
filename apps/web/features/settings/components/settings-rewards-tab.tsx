@@ -162,8 +162,9 @@ export function SettingsRewardsTab() {
       toast.error('Exchange rate must be greater than 0');
       return;
     }
-    const prevCountries =
-      rewards?.catalogCountries?.length ? rewards.catalogCountries : [defaultCatalogCountry];
+    const prevCountries = rewards?.catalogCountries?.length
+      ? rewards.catalogCountries
+      : [defaultCatalogCountry];
     const countriesChanged =
       prevCountries.length !== selectedCountries.length ||
       [...prevCountries].sort().some((c, i) => c !== [...selectedCountries].sort()[i]);
@@ -298,8 +299,7 @@ export function SettingsRewardsTab() {
               </div>
               <div>
                 <p className="text-3xl font-extrabold tracking-tight tabular-nums text-foreground">
-                  {walletCurrency}{' '}
-                  {Number(wallet?.balanceAmount ?? 0).toLocaleString()}
+                  {walletCurrency} {Number(wallet?.balanceAmount ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-0.5">
                   Available Balance
@@ -708,11 +708,7 @@ export function SettingsRewardsTab() {
                         {filteredReloadlyCountries
                           .filter((country) => !selectedCountries.includes(country.code))
                           .map((country) => (
-                            <SelectItem
-                              key={country.code}
-                              value={country.code}
-                              className="text-xs"
-                            >
+                            <SelectItem key={country.code} value={country.code} className="text-xs">
                               {country.name} ({country.code})
                             </SelectItem>
                           ))}

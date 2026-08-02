@@ -6,9 +6,7 @@ import { extractMonnifyVirtualAccountDeposit } from '../webhook-request.util';
 
 @Injectable()
 export class MonnifyWebhookService {
-  constructor(
-    private readonly walletVirtualAccountService: TenantWalletVirtualAccountService,
-  ) {}
+  constructor(private readonly walletVirtualAccountService: TenantWalletVirtualAccountService) {}
 
   async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
     if (!signature?.trim()) {

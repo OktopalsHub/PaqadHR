@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import type { FeatureAccess } from '@/lib/constants/feature-access';
-import { isPlanSlug, type PlanSlug } from '@/lib/constants/plan-catalog';
 import { hasPlanFeatureAccess } from '@/lib/constants/feature-access-resolver';
+import { isPlanSlug, type PlanSlug } from '@/lib/constants/plan-catalog';
 
 type FeatureAccessOverviewQuery = Pick<
   ReturnType<typeof useBillingOverview>,

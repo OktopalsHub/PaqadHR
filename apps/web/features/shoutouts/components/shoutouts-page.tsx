@@ -66,14 +66,18 @@ function ShoutoutsPageContent() {
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const activeTab: ShoutoutsTab = urlTab === 'rewards' ? 'redeem' : urlTab;
-  const { canAccessShoutouts, feedQueriesEnabled, rewardsCatalogPrefetchEnabled, showRewardsContent } =
-    getShoutoutsRewardsAccessState({
-      activeTab,
-      featureAccessLoading,
-      featureGatingEnabled,
-      hasFeature,
-      integrationsFeature: FeatureAccess.INTEGRATIONS,
-    });
+  const {
+    canAccessShoutouts,
+    feedQueriesEnabled,
+    rewardsCatalogPrefetchEnabled,
+    showRewardsContent,
+  } = getShoutoutsRewardsAccessState({
+    activeTab,
+    featureAccessLoading,
+    featureGatingEnabled,
+    hasFeature,
+    integrationsFeature: FeatureAccess.INTEGRATIONS,
+  });
 
   // Prefetch rewards catalog when component mounts
   useEffect(() => {

@@ -75,10 +75,7 @@ export class WebhooksController {
   @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Monnify payment webhook (rewards virtual account funding)' })
-  handleMonnifyWebhook(
-    @Req() req: RawBodyRequestType,
-    @Headers() headers: Record<string, string>,
-  ) {
+  handleMonnifyWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
     const rawBody = getNombaRawBody(req);
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');

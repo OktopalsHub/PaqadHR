@@ -2,7 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { DataSource } from 'typeorm';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantSettingRepository } from './tenant-setting.repository';
 import { TenantSettingsService } from './tenant-settings.service';
 

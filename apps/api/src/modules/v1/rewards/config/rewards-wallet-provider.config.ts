@@ -1,7 +1,7 @@
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { isMonnifyConfigured } from 'src/common/config/monnify.config';
-import { isNombaConfigured, isNombaLive } from 'src/common/config/nomba.config';
 import { getNoahEnvironment } from 'src/common/config/noah.config';
+import { isNombaConfigured, isNombaLive } from 'src/common/config/nomba.config';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 
 export function resolveRewardsWalletVirtualAccountProvider(
   currencyCode: string,
@@ -38,7 +38,9 @@ export function rewardsWalletVirtualAccountProviderLabel(
   return null;
 }
 
-export function isRewardsWalletVirtualAccountLive(provider: PaymentProvider | null): boolean | null {
+export function isRewardsWalletVirtualAccountLive(
+  provider: PaymentProvider | null,
+): boolean | null {
   if (provider === PaymentProvider.NOMBA) {
     return isNombaLive();
   }
@@ -49,7 +51,5 @@ export function isRewardsWalletVirtualAccountLive(provider: PaymentProvider | nu
 }
 
 export function rewardsWalletCheckoutLive(provider: PaymentProvider): boolean {
-  return provider === PaymentProvider.NOMBA
-    ? isNombaLive()
-    : getNoahEnvironment() === 'production';
+  return provider === PaymentProvider.NOMBA ? isNombaLive() : getNoahEnvironment() === 'production';
 }

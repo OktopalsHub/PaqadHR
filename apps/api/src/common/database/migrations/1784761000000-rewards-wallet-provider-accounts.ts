@@ -48,7 +48,9 @@ export class RewardsWalletProviderAccounts1784761000000 implements MigrationInte
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_tenant_wallets_virtual_account_number_unique;`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_tenant_wallets_virtual_account_number_unique;`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS idx_tenant_wallets_virtual_account_reference;`);
     await queryRunner.query(`
       ALTER TABLE tenant_wallets
