@@ -30,7 +30,9 @@ export class TenantWalletService {
       : this.dataSource.getRepository(TenantWallet);
 
     let wallet = await repo.findOne({ where: { tenantId } });
-    if (wallet) return wallet;
+    if (wallet) {
+      return this.syncWalletCurrencyIfSafe(tenantId, wallet, repo);
+    }
 
     let currencyCode = 'NGN';
     try {
@@ -58,6 +60,49 @@ export class TenantWalletService {
 
   async getWallet(tenantId: string): Promise<TenantWallet> {
     return this.ensureWallet(tenantId);
+  }
+
+  private async syncWalletCurrencyIfSafe(
+    tenantId: string,
+    wallet: TenantWallet,
+    walletRepo: Pick<
+      ReturnType<DataSource['getRepository']>,
+      'save'
+    >,
+  ): Promise<TenantWallet> {
+    const desiredCurrency = await this.resolveTenantWalletCurrency(tenantId);
+    if (!desiredCurrency || desiredCurrency === wallet.currencyCode) {
+      return wallet;
+    }
+
+    if (Number(wallet.balanceAmount) !== 0) {
+      return wallet;
+    }
+    if (wallet.virtualAccountNumber || wallet.virtualAccountReference) {
+      return wallet;
+    }
+
+    const transactionCount = await this.dataSource.getRepository(TenantWalletTransaction).count({
+      where: { tenantWalletId: wallet.id },
+    });
+    if (transactionCount > 0) {
+      return wallet;
+    }
+
+    wallet.currencyCode = desiredCurrency;
+    return walletRepo.save(wallet);
+  }
+
+  private async resolveTenantWalletCurrency(tenantId: string): Promise<string | null> {
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      return (tenant.preferredCurrency || 'NGN').toUpperCase();
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve tenant currency for wallet ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
   }
 
   async debit(

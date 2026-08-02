@@ -6,4 +6,8 @@ export interface BillingSettings {
   addressLine2?: string;
   city?: string;
   country?: string;
+  monnifyBvn?: string;
+  monnifyNin?: string;
+  hasMonnifyBvn?: boolean;
+  hasMonnifyNin?: boolean;
 }

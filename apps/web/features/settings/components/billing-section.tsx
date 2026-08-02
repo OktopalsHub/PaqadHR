@@ -48,6 +48,8 @@ function BillingContactForm({
   const [addressLine2, setAddressLine2] = useState(initial.addressLine2 ?? '');
   const [city, setCity] = useState(initial.city ?? '');
   const [country, setCountry] = useState(initial.country ?? '');
+  const [monnifyBvn, setMonnifyBvn] = useState('');
+  const [monnifyNin, setMonnifyNin] = useState('');
 
   useEffect(() => {
     setContactName(initial.contactName ?? '');
@@ -57,6 +59,8 @@ function BillingContactForm({
     setAddressLine2(initial.addressLine2 ?? '');
     setCity(initial.city ?? '');
     setCountry(initial.country ?? '');
+    setMonnifyBvn('');
+    setMonnifyNin('');
   }, [initial, ownerEmail]);
 
   const save = async () => {
@@ -74,6 +78,8 @@ function BillingContactForm({
           addressLine2: addressLine2.trim() || undefined,
           city: city.trim() || undefined,
           country: country.trim() || undefined,
+          monnifyBvn: monnifyBvn.trim() || undefined,
+          monnifyNin: monnifyNin.trim() || undefined,
         },
       });
       toast.success('Billing contact saved');
@@ -127,6 +133,37 @@ function BillingContactForm({
       <SettingsFieldHint label="City">
         <Input value={city} onChange={(e) => setCity(e.target.value)} />
       </SettingsFieldHint>
+      <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/20 p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm font-semibold text-foreground">Monnify virtual-account KYC</p>
+          {initial.hasMonnifyBvn ? <Badge variant="secondary">BVN stored</Badge> : null}
+          {initial.hasMonnifyNin ? <Badge variant="secondary">NIN stored</Badge> : null}
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Needed only when Monnify is the active rewards virtual-account provider. Leave blank to
+          keep existing values.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <SettingsFieldHint label="Monnify BVN">
+            <Input
+              inputMode="numeric"
+              maxLength={11}
+              placeholder={initial.hasMonnifyBvn ? 'Stored securely' : '11-digit BVN'}
+              value={monnifyBvn}
+              onChange={(e) => setMonnifyBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            />
+          </SettingsFieldHint>
+          <SettingsFieldHint label="Monnify NIN">
+            <Input
+              inputMode="numeric"
+              maxLength={11}
+              placeholder={initial.hasMonnifyNin ? 'Stored securely' : '11-digit NIN'}
+              value={monnifyNin}
+              onChange={(e) => setMonnifyNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            />
+          </SettingsFieldHint>
+        </div>
+      </div>
       <div className="sm:col-span-2">
         <SettingsFormActions onSave={save} isPending={patchSettings.isPending} />
       </div>

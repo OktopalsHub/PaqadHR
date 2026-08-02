@@ -34,7 +34,9 @@ export class TenantSettingsController {
   ) {}
   @Get()
   async getTenantSettings(@TenantId() tenantId: string) {
-    return this.tenantSettingsService.getTenantSettings(tenantId);
+    return this.serializeTenantSettings(
+      await this.tenantSettingsService.getTenantSettingsForDisplay(tenantId),
+    );
   }
   @Patch()
   @UseGuards(TenantRoleGuard)
@@ -45,7 +47,10 @@ export class TenantSettingsController {
     @Body() updateDto: UpdateTenantSettingsDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.tenantSettingsService.updateTenantSettings(tenantId, updateDto, member.id);
+    await this.tenantSettingsService.updateTenantSettings(tenantId, updateDto, member.id);
+    return this.serializeTenantSettings(
+      await this.tenantSettingsService.getTenantSettingsForDisplay(tenantId),
+    );
   }
   @Post('assign-points')
   @UseGuards(TenantRoleGuard)
@@ -176,11 +181,20 @@ export class TenantSettingsController {
 
   @Get('holidays')
   async getHolidaySettings(@TenantId() tenantId: string, @Req() req: Request) {
-    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+    const [settings, tenant] = await Promise.all([
+      this.tenantSettingsService.getTenantSettings(tenantId),
+      this.tenantsService.getTenant(tenantId),
+    ]);
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, req.ip);
     const suggestedCountryCode = await GeoLocationHelper.getCountryCode(ip);
+    const effectiveCountryCode =
+      settings.settings.holidays?.countryCode ||
+      tenant.countryCode ||
+      (suggestedCountryCode !== 'GLOBAL' ? suggestedCountryCode : undefined);
+
     return {
       ...settings.settings.holidays,
+      countryCode: effectiveCountryCode,
       suggestedCountryCode: suggestedCountryCode || undefined,
     };
   }
@@ -200,7 +214,11 @@ export class TenantSettingsController {
       ...defaultHolidaySettings(),
       ...settings.settings.holidays,
     };
-    const countryCode = holidaySettings.countryCode || tenant.countryCode || '';
+    const countryCode =
+      holidaySettings.countryCode ||
+      tenant.countryCode ||
+      GeoLocationHelper.toStoredCountryCode(tenant.createdBy?.countryCode) ||
+      '';
     return await this.holidayService.getHolidaysForYear(
       parseInt(year, 10),
       countryCode,
@@ -260,5 +278,26 @@ export class TenantSettingsController {
         customHolidays: updatedHolidays,
       },
     });
+  }
+
+  private serializeTenantSettings<T extends { settings: TenantSettingsData }>(payload: T): T {
+    if (!payload.settings.billing) {
+      return payload;
+    }
+
+    const billing = payload.settings.billing;
+    return {
+      ...payload,
+      settings: {
+        ...payload.settings,
+        billing: {
+          ...billing,
+          monnifyBvn: undefined,
+          monnifyNin: undefined,
+          hasMonnifyBvn: Boolean(billing.monnifyBvn),
+          hasMonnifyNin: Boolean(billing.monnifyNin),
+        },
+      },
+    };
   }
 }

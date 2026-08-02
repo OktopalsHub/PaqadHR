@@ -29,6 +29,7 @@ describe('TenantWalletService', () => {
       create: jest.fn((data) => data),
       save: jest.fn(async (tx) => tx),
       findOne: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
     };
 
     const walletRepo = {
@@ -63,8 +64,10 @@ describe('TenantWalletService', () => {
       manager,
     };
 
+    const tenantRecord = { id: tenantId, preferredCurrency: 'NGN' };
     const tenantsService = {
-      findOne: jest.fn().mockResolvedValue({ id: tenantId, preferredCurrency: 'NGN' }),
+      findOne: jest.fn().mockResolvedValue(tenantRecord),
+      getTenant: jest.fn().mockResolvedValue(tenantRecord),
     };
 
     const walletService = new TenantWalletService(

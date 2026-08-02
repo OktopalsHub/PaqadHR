@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
+import { Copy, Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -30,15 +30,16 @@ import { SettingsFormActions } from '@/features/settings/components/settings-for
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import {
   useCreateCustomReward,
+  useCreateWalletVirtualAccount,
   useCustomRewards,
   useDeleteCustomReward,
+  useReloadlyCountries,
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useWalletTopupCheckout,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { syncRewardsCatalog } from '@/lib/api/rewards';
-import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
@@ -51,45 +52,27 @@ const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'noah', string> = {
 
 const SANDBOX_DOC_URL = 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing';
 
-const ALL_COUNTRIES = [
-  { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
-  { code: 'US', name: 'United States', flag: '🇺🇸' },
-  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
-  { code: 'GH', name: 'Ghana', flag: '🇬🇭' },
-  { code: 'KE', name: 'Kenya', flag: '🇰🇪' },
-  { code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
-  { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪' },
-  { code: 'FR', name: 'France', flag: '🇫🇷' },
-  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
-  { code: 'ES', name: 'Spain', flag: '🇪🇸' },
-  { code: 'IN', name: 'India', flag: '🇮🇳' },
-  { code: 'SG', name: 'Singapore', flag: '🇸🇬' },
-  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
-  { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
-  { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
-  { code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
-];
-
 export function SettingsRewardsTab() {
   const { tenant } = useTenant();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
+  const { data: reloadlyCountries = [] } = useReloadlyCountries();
   const { data: billingOverview } = useBillingOverview();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
   const createReward = useCreateCustomReward();
+  const createVirtualAccount = useCreateWalletVirtualAccount();
   const deleteReward = useDeleteCustomReward();
 
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
   const topupCheckout = useWalletTopupCheckout();
 
   const rewards = settings?.settings?.rewards;
+  const defaultCatalogCountry = (tenant?.countryCode ?? 'US').toUpperCase();
   const [exchangeRate, setExchangeRate] = useState('1');
-  const [currency, setCurrency] = useState('NGN');
-  const [selectedCountries, setSelectedCountries] = useState<string[]>(['NG']);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([defaultCatalogCountry]);
   const [selectValue, setSelectValue] = useState('');
   const [countrySearch, setCountrySearch] = useState('');
 
@@ -118,9 +101,17 @@ export function SettingsRewardsTab() {
 
   const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
   const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
-  const walletCurrency = wallet?.currencyCode ?? 'NGN';
+  const workspaceCurrency = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
+  const walletCurrency = (wallet?.currencyCode ?? workspaceCurrency).toUpperCase();
+  const virtualAccount = wallet?.virtualAccount;
   const topupAmountValue = Number(topupAmount);
   const topupAmountValid = Number.isFinite(topupAmountValue) && topupAmountValue > 0;
+  const exchangeRateValue = Number(exchangeRate);
+  const exampleRewardCost = 1000;
+  const examplePointsCost =
+    Number.isFinite(exchangeRateValue) && exchangeRateValue > 0
+      ? Math.ceil(exampleRewardCost * exchangeRateValue)
+      : null;
 
   useEffect(() => {
     if (searchParams.get('wallet_topup') === 'done') {
@@ -133,16 +124,19 @@ export function SettingsRewardsTab() {
   useEffect(() => {
     if (rewards) {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 1));
-      setCurrency(rewards.rewardsCurrency ?? 'NGN');
-      setSelectedCountries(rewards.catalogCountries ?? ['NG']);
+      setSelectedCountries(
+        rewards.catalogCountries?.length ? rewards.catalogCountries : [defaultCatalogCountry],
+      );
       setAirtimeEnabled(rewards.airtimeEnabled ?? true);
       setGiftCardsEnabled(rewards.giftCardsEnabled ?? true);
       setGiftCardCategories(
         rewards.giftCardCategories ?? ['Gift Cards', 'Gaming Cards', 'Money Cards'],
       );
       setUtilityPaymentsEnabled(rewards.utilityPaymentsEnabled ?? true);
+      return;
     }
-  }, [rewards]);
+    setSelectedCountries([defaultCatalogCountry]);
+  }, [rewards, defaultCatalogCountry]);
 
   useEffect(() => {
     if (wallet) {
@@ -164,11 +158,12 @@ export function SettingsRewardsTab() {
 
   const saveRewardsSettings = async () => {
     const rate = Number(exchangeRate);
-    if (!Number.isFinite(rate) || rate < 1) {
-      toast.error('Exchange rate must be at least 1');
+    if (!Number.isFinite(rate) || rate <= 0) {
+      toast.error('Exchange rate must be greater than 0');
       return;
     }
-    const prevCountries = rewards?.catalogCountries ?? ['NG'];
+    const prevCountries =
+      rewards?.catalogCountries?.length ? rewards.catalogCountries : [defaultCatalogCountry];
     const countriesChanged =
       prevCountries.length !== selectedCountries.length ||
       [...prevCountries].sort().some((c, i) => c !== [...selectedCountries].sort()[i]);
@@ -178,7 +173,7 @@ export function SettingsRewardsTab() {
         rewards: {
           enabled: true,
           pointsExchangeRate: rate,
-          rewardsCurrency: currency || 'NGN',
+          rewardsCurrency: workspaceCurrency,
           catalogCountries: selectedCountries,
           airtimeEnabled,
           giftCardsEnabled,
@@ -256,10 +251,36 @@ export function SettingsRewardsTab() {
     }
   };
 
-  const filteredCountries = ALL_COUNTRIES.filter(
-    (c) =>
-      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      c.code.toLowerCase().includes(countrySearch.toLowerCase()),
+  const handleProvisionVirtualAccount = async () => {
+    try {
+      await createVirtualAccount.mutateAsync();
+      toast.success('Virtual account is ready');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create virtual account');
+    }
+  };
+
+  const handleCopy = async (value: string | null | undefined, label: string) => {
+    if (!value) return;
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error(`Failed to copy ${label.toLowerCase()}`);
+    }
+  };
+
+  const allCountries = reloadlyCountries.length
+    ? reloadlyCountries
+    : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
+        code,
+        name: code,
+      }));
+
+  const filteredReloadlyCountries = allCountries.filter(
+    (country) =>
+      country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+      country.code.toLowerCase().includes(countrySearch.toLowerCase()),
   );
 
   return (
@@ -277,7 +298,7 @@ export function SettingsRewardsTab() {
               </div>
               <div>
                 <p className="text-3xl font-extrabold tracking-tight tabular-nums text-foreground">
-                  {wallet?.currencyCode ?? 'NGN'}{' '}
+                  {walletCurrency}{' '}
                   {Number(wallet?.balanceAmount ?? 0).toLocaleString()}
                 </p>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-0.5">
@@ -293,6 +314,141 @@ export function SettingsRewardsTab() {
                 Top up
               </Button>
             </div>
+          </div>
+
+          <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-foreground">Virtual account funding</h4>
+                <p className="text-xs text-muted-foreground">
+                  {virtualAccount?.supported
+                    ? 'Accept direct transfers into your rewards wallet when the active provider supports it.'
+                    : 'Virtual accounts are only available for NGN rewards wallets.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {virtualAccount?.providerLabel ? (
+                  <Badge variant="secondary">{virtualAccount.providerLabel}</Badge>
+                ) : null}
+                {virtualAccount?.supported ? (
+                  <Badge variant={virtualAccount.ready ? 'default' : 'outline'}>
+                    {virtualAccount.ready ? 'Ready' : 'Setup required'}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Checkout only</Badge>
+                )}
+                {virtualAccount?.live === false ? <Badge variant="outline">Sandbox</Badge> : null}
+              </div>
+            </div>
+
+            {virtualAccount?.ready ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border bg-background px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Account number
+                  </p>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="text-base font-semibold tracking-wide text-foreground">
+                      {virtualAccount.accountNumber}
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() =>
+                        void handleCopy(virtualAccount.accountNumber, 'Account number')
+                      }
+                    >
+                      <Copy className="mr-1 size-3.5" />
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-xl border bg-background px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Bank
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    {virtualAccount.bankName}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {virtualAccount.accountName || 'Rewards wallet'}
+                  </p>
+                </div>
+                <div className="rounded-xl border bg-background px-4 py-3 sm:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Account reference
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-xs font-medium text-foreground">
+                      {virtualAccount.reference || '—'}
+                    </p>
+                    {virtualAccount.reference ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => void handleCopy(virtualAccount.reference, 'Reference')}
+                      >
+                        <Copy className="mr-1 size-3.5" />
+                        Copy
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Alert>
+                <AlertTitle>Virtual account not ready</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>
+                    {virtualAccount?.error ||
+                      'Create a virtual account to allow direct bank transfers into the rewards wallet.'}
+                  </p>
+                  {virtualAccount?.requirements?.length ? (
+                    <p className="text-xs">
+                      {virtualAccount.requirements.join(' ')}
+                      {billingSettingsHref ? (
+                        <>
+                          {' '}
+                          <Link
+                            href={billingSettingsHref}
+                            className="font-medium underline underline-offset-2"
+                          >
+                            Open Billing settings
+                          </Link>
+                          .
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {virtualAccount?.supported ? (
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={createVirtualAccount.isPending}
+                  onClick={() => void handleProvisionVirtualAccount()}
+                  className="rounded-xl font-semibold"
+                >
+                  {createVirtualAccount.isPending ? (
+                    <>
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                      Provisioning…
+                    </>
+                  ) : virtualAccount.ready ? (
+                    'Refresh virtual account'
+                  ) : (
+                    'Create virtual account'
+                  )}
+                </Button>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
@@ -338,7 +494,7 @@ export function SettingsRewardsTab() {
                     htmlFor="auto-topup-threshold"
                     className="text-xs font-semibold text-muted-foreground"
                   >
-                    When below ({currency})
+                    When below ({walletCurrency})
                   </label>
                   <Input
                     id="auto-topup-threshold"
@@ -355,7 +511,7 @@ export function SettingsRewardsTab() {
                     htmlFor="auto-topup-amount"
                     className="text-xs font-semibold text-muted-foreground"
                   >
-                    Top up amount ({currency})
+                    Top up amount ({walletCurrency})
                   </label>
                   <Input
                     id="auto-topup-amount"
@@ -394,34 +550,38 @@ export function SettingsRewardsTab() {
           <div className="grid gap-5 sm:grid-cols-2">
             <SettingsFieldHint
               label="Points Exchange Rate"
-              hint={`Points per 1 ${currency} of cost after fees. Rate 1 → ${currency} 1,000 costs 1,000 ${PAQ_POINTS_NAME}. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
+              hint={`Points per 1 ${workspaceCurrency} of cost after fees. Rates below 1 are allowed. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
             >
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                value={exchangeRate}
-                onChange={(e) => setExchangeRate(e.target.value)}
-                className="rounded-xl h-11"
-              />
+              <div className="space-y-3">
+                <Input
+                  type="number"
+                  min={0.01}
+                  step={0.01}
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
+                  className="rounded-xl h-11"
+                />
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                  {examplePointsCost == null ? (
+                    'Enter a positive rate to preview the conversion.'
+                  ) : (
+                    <>
+                      Preview: {workspaceCurrency} {exampleRewardCost.toLocaleString()} costs{' '}
+                      <span className="font-semibold text-foreground">
+                        {examplePointsCost.toLocaleString()} {PAQ_POINTS_NAME}
+                      </span>{' '}
+                      at a rate of {exchangeRateValue}.
+                    </>
+                  )}
+                </div>
+              </div>
             </SettingsFieldHint>
 
             <SettingsFieldHint
               label="Rewards Currency"
-              hint="The currency used for reward pricing and billing conversion."
+              hint="Rewards pricing follows the workspace account currency and cannot be changed separately."
             >
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="rounded-xl h-11">
-                  <SelectValue placeholder="Select Currency..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {SUPPORTED_FIAT_CURRENCIES.map((cur) => (
-                    <SelectItem key={cur} value={cur}>
-                      {cur}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input value={workspaceCurrency} readOnly className="rounded-xl h-11 bg-muted/30" />
             </SettingsFieldHint>
 
             <div className="sm:col-span-2 space-y-4 pt-4 border-t border-border/40">
@@ -491,7 +651,7 @@ export function SettingsRewardsTab() {
 
             <SettingsFieldHint
               label="Catalog Countries"
-              hint="Select allowed countries for Reloadly catalog products. You can choose and enable multiple countries concurrently."
+              hint="Select allowed countries for Reloadly catalog products. Default comes from the workspace country, then falls back to US."
               className="sm:col-span-2"
             >
               <div className="space-y-4 p-5 rounded-2xl border bg-muted/10">
@@ -502,9 +662,8 @@ export function SettingsRewardsTab() {
                     </span>
                   ) : (
                     selectedCountries.map((code) => {
-                      const info = ALL_COUNTRIES.find((p) => p.code === code) ?? {
+                      const info = allCountries.find((country) => country.code === code) ?? {
                         name: code,
-                        flag: '🌐',
                       };
                       return (
                         <Badge
@@ -512,7 +671,6 @@ export function SettingsRewardsTab() {
                           variant="secondary"
                           className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-indigo-100 dark:border-indigo-950 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 rounded-full"
                         >
-                          <span>{info.flag}</span>
                           <span>
                             {info.name} ({code})
                           </span>
@@ -547,14 +705,18 @@ export function SettingsRewardsTab() {
                             className="h-8 text-xs rounded-lg"
                           />
                         </div>
-                        {filteredCountries
-                          .filter((c) => !selectedCountries.includes(c.code))
-                          .map((c) => (
-                            <SelectItem key={c.code} value={c.code} className="text-xs">
-                              <span className="mr-2">{c.flag}</span> {c.name} ({c.code})
+                        {filteredReloadlyCountries
+                          .filter((country) => !selectedCountries.includes(country.code))
+                          .map((country) => (
+                            <SelectItem
+                              key={country.code}
+                              value={country.code}
+                              className="text-xs"
+                            >
+                              {country.name} ({country.code})
                             </SelectItem>
                           ))}
-                        {filteredCountries.length === 0 && (
+                        {filteredReloadlyCountries.length === 0 && (
                           <div className="p-2 text-center text-xs text-muted-foreground">
                             No countries found
                           </div>

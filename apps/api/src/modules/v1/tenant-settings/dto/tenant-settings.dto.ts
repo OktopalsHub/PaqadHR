@@ -10,6 +10,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -246,6 +247,24 @@ export class BillingSettingsDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @ApiProperty({
+    description: 'BVN used when Monnify virtual-account creation is active',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/, { message: 'Monnify BVN must be 11 digits' })
+  monnifyBvn?: string;
+
+  @ApiProperty({
+    description: 'NIN used when Monnify virtual-account creation is active',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/, { message: 'Monnify NIN must be 11 digits' })
+  monnifyNin?: string;
 }
 export class GeneralSettingsDto {
   @ApiProperty({
@@ -499,13 +518,21 @@ export class RewardsSettingsDto {
   @IsBoolean()
   enabled?: boolean;
 
-  @ApiProperty({ description: 'Points-to-currency exchange rate', example: 1, required: false })
+  @ApiProperty({
+    description: 'Points-to-currency exchange rate',
+    example: 0.75,
+    required: false,
+  })
   @IsOptional()
   @IsNumber()
-  @Min(1)
+  @Min(0.01)
   pointsExchangeRate?: number;
 
-  @ApiProperty({ description: 'The currency code for rewards', example: 'NGN', required: false })
+  @ApiProperty({
+    description: 'Workspace currency used for rewards pricing',
+    example: 'USD',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   @IsIn([...SUPPORTED_FIAT_CURRENCIES])

@@ -49,6 +49,23 @@ interface NombaVerifyResponse {
   };
 }
 
+interface NombaVirtualAccountResponse {
+  data?: {
+    accountRef?: string;
+    aliasAccountReference?: string;
+    accountNumber?: string;
+    bankName?: string;
+    accountName?: string;
+    virtualAccount?: {
+      accountRef?: string;
+      aliasAccountReference?: string;
+      accountNumber?: string;
+      bankName?: string;
+      accountName?: string;
+    };
+  };
+}
+
 export interface NombaCheckoutOrderInput {
   orderReference: string;
   customerEmail: string;
@@ -67,6 +84,13 @@ export interface NombaTokenizedChargeInput {
   callbackUrl: string;
   tokenKey: string;
   meta?: Record<string, string | number | boolean | undefined>;
+}
+
+export interface NombaVirtualAccountInput {
+  accountRef: string;
+  accountName: string;
+  customerName: string;
+  customerEmail: string;
 }
 
 @Injectable()
@@ -202,6 +226,43 @@ export class NombaApiService {
 
     return {
       orderReference: payload.data?.orderReference || input.orderReference,
+    };
+  }
+
+  async createVirtualAccount(input: NombaVirtualAccountInput): Promise<{
+    accountRef: string;
+    accountNumber: string;
+    bankName: string;
+    accountName: string;
+  }> {
+    const payload = await this.request<NombaVirtualAccountResponse>('/v1/virtual-account', {
+      accountRef: input.accountRef,
+      accountName: input.accountName,
+      customerName: input.customerName,
+      customerEmail: input.customerEmail,
+    });
+
+    const data = payload.data;
+    const virtualAccount = data?.virtualAccount;
+    const accountNumber = virtualAccount?.accountNumber ?? data?.accountNumber;
+    const bankName = virtualAccount?.bankName ?? data?.bankName;
+    const accountName = virtualAccount?.accountName ?? data?.accountName ?? input.accountName;
+    const accountRef =
+      virtualAccount?.accountRef ??
+      virtualAccount?.aliasAccountReference ??
+      data?.accountRef ??
+      data?.aliasAccountReference ??
+      input.accountRef;
+
+    if (!accountNumber || !bankName) {
+      throw new BadRequestException('Nomba did not return a virtual account number');
+    }
+
+    return {
+      accountRef,
+      accountNumber,
+      bankName,
+      accountName,
     };
   }
 

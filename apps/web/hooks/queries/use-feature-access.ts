@@ -4,10 +4,25 @@ import { useMemo } from 'react';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import type { FeatureAccess } from '@/lib/constants/feature-access';
 import { isPlanSlug, type PlanSlug } from '@/lib/constants/plan-catalog';
-import { hasPlanFeatureAccess } from '../../../../constants/feature-access-resolver';
+import { hasPlanFeatureAccess } from '@/lib/constants/feature-access-resolver';
 
-export function useFeatureAccess() {
-  const overviewQuery = useBillingOverview();
+type FeatureAccessOverviewQuery = Pick<
+  ReturnType<typeof useBillingOverview>,
+  'data' | 'isLoading' | 'isPending'
+>;
+
+type FeatureAccessDependencies = {
+  useBillingOverview: () => FeatureAccessOverviewQuery;
+};
+
+const defaultFeatureAccessDependencies: FeatureAccessDependencies = {
+  useBillingOverview,
+};
+
+export function useFeatureAccess(
+  dependencies: FeatureAccessDependencies = defaultFeatureAccessDependencies,
+) {
+  const overviewQuery = dependencies.useBillingOverview();
   const { data: overview } = overviewQuery;
   const featureGatingEnabled = overview?.featureGatingEnabled ?? false;
   const isLoading = overviewQuery.isLoading || overviewQuery.isPending;

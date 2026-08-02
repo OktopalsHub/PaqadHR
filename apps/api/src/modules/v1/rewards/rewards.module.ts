@@ -29,6 +29,7 @@ import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
 import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
+import { TenantWalletVirtualAccountService } from './services/tenant-wallet-virtual-account.service';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     RewardsService,
     TenantWalletService,
     TenantWalletTopupService,
+    TenantWalletVirtualAccountService,
     CustomRewardsService,
     ReloadlyWebhookService,
     ReloadlyApiService,
@@ -66,6 +68,12 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     RewardsListener,
     RewardsCatalogSyncCronService,
   ],
-  exports: [RewardsService, TenantWalletService, TenantWalletTopupService, ReloadlyWebhookService],
+  exports: [
+    RewardsService,
+    TenantWalletService,
+    TenantWalletTopupService,
+    TenantWalletVirtualAccountService,
+    ReloadlyWebhookService,
+  ],
 })
 export class RewardsModule {}

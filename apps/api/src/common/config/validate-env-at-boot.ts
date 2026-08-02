@@ -57,6 +57,22 @@ export function validateEnvAtBoot(): void {
     if (!process.env.NOAH_API_KEY?.trim()) {
       warnings.push('NOAH_API_KEY is not set — non-NGN payments will be unavailable');
     }
+    const rewardsNgProvider = (process.env.REWARDS_NG_PROVIDER || 'nomba').trim().toLowerCase();
+    if (
+      rewardsNgProvider === 'monnify' &&
+      (!process.env.MONNIFY_API_KEY?.trim() ||
+        !process.env.MONNIFY_SECRET_KEY?.trim() ||
+        !process.env.MONNIFY_CONTRACT_CODE?.trim())
+    ) {
+      warnings.push(
+        'REWARDS_NG_PROVIDER=monnify but MONNIFY_API_KEY/SECRET_KEY/CONTRACT_CODE is incomplete',
+      );
+    }
+    if (process.env.MONNIFY_API_KEY?.trim() && !process.env.MONNIFY_WEBHOOK_SECRET?.trim()) {
+      warnings.push(
+        'MONNIFY_WEBHOOK_SECRET is not set — Monnify webhooks will fall back to the secret key',
+      );
+    }
     if (
       process.env.NOAH_ENVIRONMENT === 'production' &&
       !process.env.NOAH_SIGNING_PRIVATE_KEY?.trim()

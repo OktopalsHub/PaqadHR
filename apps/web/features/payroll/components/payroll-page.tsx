@@ -500,24 +500,28 @@ export function PayrollPage() {
               value={activeEmployees.length}
               hint="Eligible for payroll"
               icon={Wallet}
+              iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
             />
             <StatCard
               label="Total runs"
               value={runs.length}
               hint="All payroll cycles"
               icon={FileText}
+              iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
             />
             <StatCard
               label="Completed"
               value={completedRuns}
               hint="Paid out runs"
               icon={CalendarDays}
+              iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
             />
             <StatCard
               label="In progress"
               value={pendingRuns}
               hint="Draft or awaiting action"
               icon={Wallet}
+              iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
             />
           </div>
 

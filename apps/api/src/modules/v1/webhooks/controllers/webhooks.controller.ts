@@ -26,11 +26,13 @@ import type {
 import { ReloadlyWebhookService } from '../../rewards/services/reloadly-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
+import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
 import { PolarWebhookService } from '../services/polar-webhook.service';
 import {
   getNombaRawBody,
+  resolveMonnifySignature,
   resolveNoahSignature,
   resolveNombaSignature,
   resolveNombaTimestamp,
@@ -45,6 +47,7 @@ export class WebhooksController {
 
   constructor(
     private readonly nombaWebhookService: NombaWebhookService,
+    private readonly monnifyWebhookService: MonnifyWebhookService,
     private readonly noahWebhookService: NoahWebhookService,
     private readonly bachsWebhookService: BachsWebhookService,
     private readonly polarWebhookService: PolarWebhookService,
@@ -66,6 +69,21 @@ export class WebhooksController {
       resolveNombaSignature(headers),
       resolveNombaTimestamp(headers),
     );
+  }
+
+  @Post('monnify')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Monnify payment webhook (rewards virtual account funding)' })
+  handleMonnifyWebhook(
+    @Req() req: RawBodyRequestType,
+    @Headers() headers: Record<string, string>,
+  ) {
+    const rawBody = getNombaRawBody(req);
+    if (!rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    return this.monnifyWebhookService.dispatch(rawBody, resolveMonnifySignature(headers));
   }
 
   @Post('noah')

@@ -86,11 +86,11 @@ export function SettingsHolidaysTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard title="Public holidays" description="Country used for the schedule calendar">
+      <ContentCard title="Public holidays" description="Country used for the team calendar">
         <div className="space-y-3">
           <SettingsFieldHint
             label="Country"
-            hint="Public holidays for this country appear on the team schedule."
+            hint="Public holidays for this country appear on the team calendar."
           >
             <SearchSelect
               options={countryOptions}

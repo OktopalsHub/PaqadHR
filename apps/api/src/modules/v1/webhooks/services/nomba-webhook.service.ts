@@ -1,10 +1,13 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
+import { TenantWalletVirtualAccountService } from '../../rewards/services/tenant-wallet-virtual-account.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
   extractNombaEventType,
+  extractNombaVirtualAccountDeposit,
   extractPayrollMerchantRef,
   extractWalletTopupCheckout,
   isSubscriptionPaymentEvent,
@@ -20,6 +23,7 @@ export class NombaWebhookService {
     private readonly subscriptionBillingService: SubscriptionBillingService,
     private readonly payrollPayoutService: PayrollPayoutService,
     private readonly walletTopupService: TenantWalletTopupService,
+    private readonly walletVirtualAccountService: TenantWalletVirtualAccountService,
   ) {}
 
   async dispatch(
@@ -42,12 +46,20 @@ export class NombaWebhookService {
     }
 
     const eventType = extractNombaEventType(payload);
+    const walletTopup = extractWalletTopupCheckout(payload);
+    if (walletTopup) {
+      return this.walletTopupService.completeCheckoutTopup(walletTopup);
+    }
+
+    const virtualAccountDeposit = extractNombaVirtualAccountDeposit(payload);
+    if (virtualAccountDeposit) {
+      return this.walletVirtualAccountService.completeVirtualAccountDeposit({
+        provider: PaymentProvider.NOMBA,
+        ...virtualAccountDeposit,
+      });
+    }
 
     if (isSubscriptionPaymentEvent(eventType)) {
-      const walletTopup = extractWalletTopupCheckout(payload);
-      if (walletTopup) {
-        return this.walletTopupService.completeCheckoutTopup(walletTopup);
-      }
       return this.subscriptionBillingService.processNombaPayload(payload);
     }
 

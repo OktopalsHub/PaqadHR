@@ -75,6 +75,21 @@ export interface TenantWallet {
   checkoutProviderLabel?: string;
   /** True when checkout runs in live mode for the wallet currency provider. */
   checkoutLive?: boolean;
+  virtualAccount?: {
+    supported: boolean;
+    provider: 'nomba' | 'monnify' | null;
+    providerLabel: string | null;
+    live: boolean | null;
+    ready: boolean;
+    status: string | null;
+    accountName: string | null;
+    accountNumber: string | null;
+    bankName: string | null;
+    reference: string | null;
+    error: string | null;
+    requirements: string[];
+    provisionedAt: string | null;
+  };
   /** @deprecated use checkoutLive */
   nombaLive?: boolean;
 }
@@ -297,6 +312,12 @@ export async function createWalletTopupCheckout(
       body: JSON.stringify({ amount }),
     },
   );
+}
+
+export async function createWalletVirtualAccount(tenantId: string): Promise<TenantWallet> {
+  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/virtual-account'), {
+    method: 'POST',
+  });
 }
 
 export async function updateAutoTopupConfig(params: {

@@ -11,6 +11,7 @@ test('country fallback resolves the expected default payroll currency', () => {
   assert.equal(getDefaultPayrollCurrencyForCountry('  '), 'USD');
   assert.equal(getDefaultPayrollCurrencyForCountry('NG'), 'NGN');
   assert.equal(getDefaultPayrollCurrencyForCountry('gb'), 'GBP');
+  assert.equal(getDefaultPayrollCurrencyForCountry('bg'), 'EUR');
   assert.equal(getDefaultPayrollCurrencyForCountry('DE'), 'EUR');
   assert.equal(getDefaultPayrollCurrencyForCountry('CA'), 'USD');
 });

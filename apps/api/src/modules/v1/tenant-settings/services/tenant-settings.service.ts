@@ -1,10 +1,20 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { EncryptionService } from 'src/common/services/encryption.service';
+import { Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
+import type { BillingSettings } from '../../../../common/interfaces/billing-settings.interface';
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
+import {
+  normalizeRewardsCatalogCountries,
+  resolveDefaultRewardsCatalogCountry,
+  resolveDefaultRewardsCurrency,
+} from '../../../../common/utils/rewards-defaults.util';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { Tenant } from '../../tenants/entities/tenant.entity';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
 import { TenantSettingRepository } from './tenant-setting.repository';
@@ -16,6 +26,9 @@ export class TenantSettingsService {
     readonly _dataSource: DataSource,
     private readonly eventEmitter: EventEmitter2,
     private readonly activitiesService: ActivitiesService,
+    @InjectRepository(Tenant)
+    private readonly tenantRepository: Repository<Tenant>,
+    private readonly encryptionService: EncryptionService,
   ) {}
   async getTenantSettings(tenantId: string): Promise<TenantSettings> {
     const settings = await this.tenantSettingsRepository.findOne({
@@ -26,6 +39,18 @@ export class TenantSettingsService {
         `Tenant settings not found for tenant: ${tenantId}. Please initialize tenant settings first using TenantSettingsInitializationService.`,
       );
     }
+    settings.settings = this.hydrateTenantSettings(settings.settings);
+    return settings;
+  }
+
+  async getTenantSettingsForDisplay(tenantId: string): Promise<TenantSettings> {
+    const settings = await this.getTenantSettings(tenantId);
+    const rewardsDefaults = await this.resolveRewardsDefaults(tenantId);
+
+    settings.settings = {
+      ...settings.settings,
+      rewards: this.buildRewardsResponseSettings(settings.settings.rewards, rewardsDefaults),
+    };
     return settings;
   }
   async updateTenantSettings(
@@ -34,6 +59,8 @@ export class TenantSettingsService {
     actorMemberId?: string,
   ): Promise<TenantSettings> {
     const existingSettings = await this.getTenantSettings(tenantId);
+    const rewardsDefaults =
+      updateDto.rewards !== undefined ? await this.resolveRewardsDefaults(tenantId) : null;
     const prevCatalogCountries = existingSettings.settings.rewards?.catalogCountries ?? [];
     const updatedSettings: TenantSettingsData = {
       ...existingSettings.settings,
@@ -127,11 +154,15 @@ export class TenantSettingsService {
             existingSettings.settings.rewards?.pointsExchangeRate ??
             1,
           rewardsCurrency:
-            updateDto.rewards.rewardsCurrency ??
+            rewardsDefaults?.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
-            'NGN',
-          catalogCountries: updateDto.rewards.catalogCountries ??
-            existingSettings.settings.rewards?.catalogCountries ?? ['NG'],
+            'USD',
+          catalogCountries: normalizeRewardsCatalogCountries(
+            updateDto.rewards.catalogCountries ??
+              existingSettings.settings.rewards?.catalogCountries ??
+              rewardsDefaults?.catalogCountries,
+            rewardsDefaults?.catalogCountries[0] ?? 'US',
+          ),
           airtimeEnabled:
             updateDto.rewards.airtimeEnabled ??
             existingSettings.settings.rewards?.airtimeEnabled ??
@@ -167,8 +198,9 @@ export class TenantSettingsService {
     if (updateDto.rewards) {
       this.validateRewardsSettings(updatedSettings.rewards);
     }
-    existingSettings.settings = updatedSettings;
+    existingSettings.settings = this.prepareSettingsForPersistence(updatedSettings);
     const result = await this.tenantSettingsRepository.save(existingSettings);
+    result.settings = this.hydrateTenantSettings(result.settings);
 
     const newCatalogCountries = updatedSettings.rewards?.catalogCountries ?? [];
     const catalogCountriesChanged =
@@ -201,10 +233,63 @@ export class TenantSettingsService {
       return;
     }
     const rate = rewardsSettings.pointsExchangeRate;
-    if (rate !== undefined && rate < 1) {
-      throw new BadRequestException('Points exchange rate must be at least 1');
+    if (rate !== undefined && rate <= 0) {
+      throw new BadRequestException('Points exchange rate must be greater than 0');
     }
   }
+
+  private async resolveRewardsDefaults(tenantId: string): Promise<{
+    rewardsCurrency: string;
+    catalogCountries: string[];
+  }> {
+    const tenant = await this.tenantRepository.findOne({
+      where: { id: tenantId },
+      relations: ['createdBy'],
+    });
+
+    const rewardsCurrency = resolveDefaultRewardsCurrency(
+      tenant?.countryCode,
+      tenant?.preferredCurrency,
+    );
+    const defaultCountry = resolveDefaultRewardsCatalogCountry({
+      tenantCountryCode: tenant?.countryCode,
+      creatorCountryCode: tenant?.createdBy?.countryCode,
+    });
+
+    return {
+      rewardsCurrency,
+      catalogCountries: [defaultCountry],
+    };
+  }
+
+  private buildRewardsResponseSettings(
+    rewards: RewardsSettings | undefined,
+    defaults: {
+      rewardsCurrency: string;
+      catalogCountries: string[];
+    },
+  ): RewardsSettings {
+    return {
+      enabled: rewards?.enabled ?? true,
+      pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
+      rewardsCurrency: defaults.rewardsCurrency,
+      catalogCountries: normalizeRewardsCatalogCountries(
+        rewards?.catalogCountries ?? defaults.catalogCountries,
+        defaults.catalogCountries[0] ?? 'US',
+      ),
+      airtimeEnabled: rewards?.airtimeEnabled ?? true,
+      customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
+      giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
+      giftCardCategories: rewards?.giftCardCategories ?? [
+        'Gift Cards',
+        'Gaming Cards',
+        'Money Cards',
+      ],
+      utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
+      reloadlyProducts: rewards?.reloadlyProducts ?? [],
+    };
+  }
+
   private validatePointsSettings(pointsSettings: PointsSettings): void {
     if (pointsSettings.minPointsPerShoutout > pointsSettings.maxPointsPerShoutout) {
       throw new BadRequestException(
@@ -216,6 +301,68 @@ export class TenantSettingsService {
         'Auto-assign amount must be greater than 0 when auto-assign is enabled',
       );
     }
+  }
+
+  private hydrateTenantSettings(settings: TenantSettingsData): TenantSettingsData {
+    if (!settings.billing) {
+      return settings;
+    }
+
+    return {
+      ...settings,
+      billing: this.hydrateBillingSettings(settings.billing),
+    };
+  }
+
+  private hydrateBillingSettings(billing: BillingSettings): BillingSettings {
+    return {
+      ...billing,
+      monnifyBvn: this.decryptIfNeeded(billing.monnifyBvn),
+      monnifyNin: this.decryptIfNeeded(billing.monnifyNin),
+    };
+  }
+
+  private prepareSettingsForPersistence(settings: TenantSettingsData): TenantSettingsData {
+    if (!settings.billing) {
+      return settings;
+    }
+
+    return {
+      ...settings,
+      billing: this.prepareBillingSettingsForPersistence(settings.billing),
+    };
+  }
+
+  private prepareBillingSettingsForPersistence(billing: BillingSettings): BillingSettings {
+    return {
+      ...billing,
+      monnifyBvn: this.encryptIfNeeded(billing.monnifyBvn),
+      monnifyNin: this.encryptIfNeeded(billing.monnifyNin),
+      hasMonnifyBvn: undefined,
+      hasMonnifyNin: undefined,
+    };
+  }
+
+  private encryptIfNeeded(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    if (this.encryptionService.isEncrypted(trimmed)) {
+      return trimmed;
+    }
+    return this.encryptionService.encrypt(trimmed);
+  }
+
+  private decryptIfNeeded(value: string | undefined): string | undefined {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+    if (!this.encryptionService.isEncrypted(trimmed)) {
+      return trimmed;
+    }
+    return this.encryptionService.decrypt(trimmed);
   }
 }
 

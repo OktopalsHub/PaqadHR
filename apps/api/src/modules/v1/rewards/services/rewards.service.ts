@@ -3,6 +3,11 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { formatNombaSenderName } from 'src/common/config/nomba.config';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
+import {
+  normalizeRewardsCatalogCountries,
+  resolveDefaultRewardsCatalogCountry,
+  resolveDefaultRewardsCurrency,
+} from 'src/common/utils/rewards-defaults.util';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
@@ -227,14 +232,31 @@ export class RewardsService {
     const repo = this.dataSource.getRepository(
       (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
     );
-    const row = await repo.findOne({ where: { tenantId } });
+    const [row, tenant] = await Promise.all([
+      repo.findOne({ where: { tenantId } }),
+      this.dataSource.getRepository(Tenant).findOne({
+        where: { id: tenantId },
+        relations: ['createdBy'],
+      }),
+    ]);
     const rewards = row?.settings?.rewards;
+    const rewardsCurrency = resolveDefaultRewardsCurrency(
+      tenant?.countryCode,
+      tenant?.preferredCurrency,
+    );
+    const defaultCatalogCountry = resolveDefaultRewardsCatalogCountry({
+      tenantCountryCode: tenant?.countryCode,
+      creatorCountryCode: tenant?.createdBy?.countryCode,
+    });
 
     return {
       enabled: rewards?.enabled ?? true,
       pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
-      rewardsCurrency: rewards?.rewardsCurrency ?? 'NGN',
-      catalogCountries: rewards?.catalogCountries ?? ['NG'],
+      rewardsCurrency,
+      catalogCountries: normalizeRewardsCatalogCountries(
+        rewards?.catalogCountries,
+        defaultCatalogCountry,
+      ),
       airtimeEnabled: rewards?.airtimeEnabled ?? true,
       giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
       giftCardCategories: rewards?.giftCardCategories ?? [

@@ -9,7 +9,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CurrentTenantMember, RequireFeatures, TenantId } from 'src/common/decorators';
+import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';

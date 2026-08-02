@@ -66,12 +66,14 @@ function ShoutoutsPageContent() {
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const activeTab: ShoutoutsTab = urlTab === 'rewards' ? 'redeem' : urlTab;
-  const { rewardsCatalogPrefetchEnabled, showRewardsContent } = getShoutoutsRewardsAccessState({
-    featureAccessLoading,
-    featureGatingEnabled,
-    hasFeature,
-    integrationsFeature: FeatureAccess.INTEGRATIONS,
-  });
+  const { canAccessShoutouts, feedQueriesEnabled, rewardsCatalogPrefetchEnabled, showRewardsContent } =
+    getShoutoutsRewardsAccessState({
+      activeTab,
+      featureAccessLoading,
+      featureGatingEnabled,
+      hasFeature,
+      integrationsFeature: FeatureAccess.INTEGRATIONS,
+    });
 
   // Prefetch rewards catalog when component mounts
   useEffect(() => {
@@ -84,17 +86,19 @@ function ShoutoutsPageContent() {
     }
   }, [queryClient, rewardsCatalogPrefetchEnabled, tenantId]);
 
-  const { data: employees = [] } = useEmployees();
-  const { data: categories = [] } = useShoutoutCategories();
-  const { data: pointsBalance } = useMyPointsBalance();
-  const { data, isLoading, isError, error } = useShoutouts();
+  const { data: employees = [] } = useEmployees({
+    enabled: canAccessShoutouts && activeTab === 'feed',
+  });
+  const { data: categories = [] } = useShoutoutCategories({ enabled: feedQueriesEnabled });
+  const { data: pointsBalance } = useMyPointsBalance({ enabled: canAccessShoutouts });
+  const { data, isLoading, isError, error } = useShoutouts({ enabled: feedQueriesEnabled });
   const createShoutout = useCreateShoutout();
 
   const { data: tasks = [] } = useQuery<{ id: string; status: string }[]>({
     queryKey: ['shoutout-tasks', tenant?.id],
     queryFn: () =>
       apiClient<{ id: string; status: string }[]>(tenantPath(tenant?.id ?? '', 'rewards/tasks')),
-    enabled: Boolean(tenant?.id),
+    enabled: canAccessShoutouts && Boolean(tenant?.id),
     staleTime: 30_000,
   });
 

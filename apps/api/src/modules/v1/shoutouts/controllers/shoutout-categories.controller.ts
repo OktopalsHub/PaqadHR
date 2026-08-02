@@ -12,7 +12,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { RequireFeatures, TenantId } from 'src/common/decorators';
+import { TenantId } from 'src/common/decorators';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';

@@ -22,6 +22,10 @@ export function resolveNoahSignature(headers: Record<string, string | undefined>
   );
 }
 
+export function resolveMonnifySignature(headers: Record<string, string | undefined>): string {
+  return headers['x-monnify-signature'] ?? headers['monnify-signature'] ?? '';
+}
+
 export function extractNombaEventType(payload: unknown): string {
   const body = payload as { event_type?: string; eventType?: string; event?: string };
   return String(body.event_type || body.eventType || body.event || '').toLowerCase();
@@ -111,5 +115,137 @@ export function extractWalletTopupCheckout(payload: unknown): {
     orderReference: String(orderReference),
     amount: Number.isFinite(expectedAmount) ? expectedAmount : amountFromOrder || undefined,
     initiatedByMemberId,
+  };
+}
+
+export function extractNombaVirtualAccountDeposit(payload: unknown): {
+  tenantId?: string;
+  amount: number;
+  transactionReference: string;
+  accountReference?: string;
+  accountNumber?: string;
+  paymentReference?: string;
+  payerName?: string;
+  rawPayload: Record<string, unknown>;
+} | null {
+  const body = payload as {
+    event_type?: string;
+    eventType?: string;
+    data?: {
+      amount?: number | string;
+      paymentReference?: string;
+      transactionReference?: string;
+      transactionId?: string;
+      accountRef?: string;
+      aliasAccountReference?: string;
+      accountNumber?: string;
+      payerName?: string;
+      source?: {
+        accountRef?: string;
+        aliasAccountReference?: string;
+        accountNumber?: string;
+        accountName?: string;
+      };
+      virtualAccount?: {
+        accountRef?: string;
+        aliasAccountReference?: string;
+        accountNumber?: string;
+      };
+      transaction?: {
+        transactionId?: string;
+        amount?: number | string;
+      };
+    };
+  };
+
+  const eventType = extractNombaEventType(payload);
+  if (!['payment_success', 'deposit.success', 'transfer.success'].includes(eventType)) {
+    return null;
+  }
+
+  const data = body.data ?? {};
+  const accountReference =
+    data.aliasAccountReference ??
+    data.accountRef ??
+    data.virtualAccount?.aliasAccountReference ??
+    data.virtualAccount?.accountRef ??
+    data.source?.aliasAccountReference ??
+    data.source?.accountRef;
+  const accountNumber =
+    data.accountNumber ?? data.virtualAccount?.accountNumber ?? data.source?.accountNumber;
+  if (!accountReference && !accountNumber) {
+    return null;
+  }
+
+  const transactionReference =
+    data.transactionReference ??
+    data.paymentReference ??
+    data.transactionId ??
+    data.transaction?.transactionId ??
+    '';
+  const amount = Number(data.amount ?? data.transaction?.amount ?? 0);
+  if (!transactionReference || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  return {
+    amount,
+    transactionReference: String(transactionReference),
+    accountReference: accountReference ? String(accountReference) : undefined,
+    accountNumber: accountNumber ? String(accountNumber) : undefined,
+    paymentReference: data.paymentReference ? String(data.paymentReference) : undefined,
+    payerName: data.payerName ?? data.source?.accountName,
+    rawPayload: body as Record<string, unknown>,
+  };
+}
+
+export function extractMonnifyVirtualAccountDeposit(payload: unknown): {
+  amount: number;
+  transactionReference: string;
+  accountReference?: string;
+  accountNumber?: string;
+  paymentReference?: string;
+  payerName?: string;
+  rawPayload: Record<string, unknown>;
+} | null {
+  const body = payload as {
+    eventType?: string;
+    event_type?: string;
+    eventData?: {
+      amountPaid?: number | string;
+      paymentReference?: string;
+      transactionReference?: string;
+      product?: { reference?: string };
+      destinationAccountInformation?: { accountNumber?: string };
+      destinationAccountNumber?: string;
+      payerName?: string;
+      payer?: { name?: string };
+    };
+  };
+
+  const eventType = String(body.eventType || body.event_type || '').toLowerCase();
+  if (!eventType.includes('successful')) {
+    return null;
+  }
+
+  const data = body.eventData ?? {};
+  const transactionReference = data.paymentReference ?? data.transactionReference ?? '';
+  const amount = Number(data.amountPaid ?? 0);
+  if (!transactionReference || !Number.isFinite(amount) || amount <= 0) {
+    return null;
+  }
+
+  const accountReference = data.product?.reference;
+  const accountNumber =
+    data.destinationAccountInformation?.accountNumber ?? data.destinationAccountNumber;
+
+  return {
+    amount,
+    transactionReference: String(transactionReference),
+    accountReference: accountReference ? String(accountReference) : undefined,
+    accountNumber: accountNumber ? String(accountNumber) : undefined,
+    paymentReference: data.paymentReference ? String(data.paymentReference) : undefined,
+    payerName: data.payerName ?? data.payer?.name,
+    rawPayload: body as Record<string, unknown>,
   };
 }

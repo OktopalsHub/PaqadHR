@@ -6,14 +6,14 @@ import { ForceLightTheme } from '@/providers/force-light-theme';
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <ForceLightTheme>
-      <div className="relative min-h-screen overflow-hidden bg-[linear-gradient(135deg,#edf8f3_0%,#f8fbfa_46%,#ebf7f1_100%)]">
+      <div className="relative min-h-svh overflow-x-hidden overflow-y-auto bg-white sm:bg-[linear-gradient(135deg,#edf8f3_0%,#f8fbfa_46%,#ebf7f1_100%)]">
         <div
           aria-hidden="true"
-          className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(0,160,112,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,143,101,0.08),transparent_24%)]"
+          className="absolute inset-0 hidden sm:block bg-[radial-gradient(circle_at_top_left,rgba(0,160,112,0.12),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(0,143,101,0.08),transparent_24%)]"
         />
 
-        <div className="relative mx-auto grid min-h-screen w-full max-w-[1720px] gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5 lg:grid-cols-[minmax(0,1.04fr)_minmax(470px,0.96fr)] lg:gap-6 lg:px-6 lg:py-6 xl:px-8 xl:py-8">
-          <div className="hidden lg:flex">
+        <div className="relative mx-auto grid min-h-svh w-full max-w-[1720px] gap-4 px-4 py-4 sm:gap-5 sm:px-5 sm:py-5 xl:grid-cols-[minmax(0,1.02fr)_minmax(0,32rem)] xl:gap-6 xl:px-6 xl:py-6 2xl:grid-cols-[minmax(0,1.04fr)_minmax(29rem,0.96fr)] 2xl:px-8 2xl:py-8">
+          <div className="hidden xl:flex">
             <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[34px] border border-white/15 bg-[linear-gradient(150deg,#072823_0%,#0a5446_48%,#00a070_100%)] px-10 py-9 text-white shadow-[0_50px_140px_-72px_rgba(6,24,24,0.92)] xl:px-14 xl:py-12">
               <div
                 aria-hidden="true"
@@ -54,8 +54,17 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <div className="flex flex-col justify-center py-2 sm:py-4 lg:py-0">
-            <div className="mx-auto w-full max-w-xl lg:hidden">
+          <div className="flex flex-col justify-center py-2 sm:py-4 xl:py-0">
+            <div className="mx-auto mb-2 w-full max-w-[34rem] px-1 sm:hidden">
+              <Link href="/" aria-label="Paqad home" className="inline-flex items-center gap-2.5">
+                <PaqadLogo showWordmark={false} className="size-8" />
+                <span className="text-base font-semibold tracking-[-0.03em] text-slate-950">
+                  Paqad HR
+                </span>
+              </Link>
+            </div>
+
+            <div className="mx-auto hidden w-full max-w-[34rem] sm:block xl:hidden">
               <div className="relative mb-5 overflow-hidden rounded-[26px] border border-white/70 bg-[linear-gradient(140deg,rgba(7,40,35,0.98)_0%,rgba(0,143,101,0.92)_100%)] px-5 py-5 text-white shadow-[0_28px_76px_-52px_rgba(8,42,40,0.8)]">
                 <div
                   aria-hidden="true"
@@ -82,12 +91,12 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
 
-            <div className="relative mx-auto w-full max-w-[31.5rem]">
+            <div className="relative mx-auto w-full max-w-[34rem] xl:max-w-[31.5rem]">
               <div
                 aria-hidden="true"
-                className="absolute inset-x-8 top-6 -z-10 h-24 rounded-full bg-[#00a070]/22 blur-3xl"
+                className="absolute inset-x-8 top-6 -z-10 hidden h-24 rounded-full bg-[#00a070]/22 blur-3xl sm:block"
               />
-              <div className="rounded-[28px] border border-white/75 bg-white/90 p-5 shadow-[0_26px_72px_-46px_rgba(15,23,42,0.3)] backdrop-blur-xl sm:p-6 lg:p-7">
+              <div className="rounded-[28px] border border-white/75 bg-white/90 p-4 shadow-[0_26px_72px_-46px_rgba(15,23,42,0.3)] backdrop-blur-xl sm:p-6 xl:p-7">
                 {children}
               </div>
             </div>

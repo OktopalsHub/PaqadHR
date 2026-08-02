@@ -8,6 +8,7 @@ import {
   claimReward,
   createCustomReward,
   createWalletTopupCheckout,
+  createWalletVirtualAccount,
   deleteCustomReward,
   fetchAllClaims,
   fetchCustomRewards,
@@ -232,6 +233,21 @@ export function useWalletTopupCheckout() {
       if (result.checkoutUrl) {
         window.location.assign(result.checkoutUrl);
       }
+    },
+  });
+}
+
+export function useCreateWalletVirtualAccount() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: () => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return createWalletVirtualAccount(tenantId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
     },
   });
 }
