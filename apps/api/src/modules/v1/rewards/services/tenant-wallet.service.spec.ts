@@ -212,6 +212,7 @@ describe('TenantWalletTopupService', () => {
       dataSource as any,
       walletService as any,
       nombaApi as any,
+      { initializeTransaction: jest.fn(), verifyTransaction: jest.fn() } as any,
       noahApi as any,
       subscriptionsService as any,
       tenantSettingsService as any,

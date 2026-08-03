@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
 import { brandFaviconUrls } from '@/lib/brand';
+import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CsrfBootstrap } from '@/providers/csrf-bootstrap';
 import { QueryProvider } from '@/providers/query-provider';
@@ -22,13 +24,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get(CSP_NONCE_HEADER) ?? undefined;
+
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning nonce={nonce}>
       <body className="antialiased font-sans">
         <QueryProvider>
           <ThemeProvider

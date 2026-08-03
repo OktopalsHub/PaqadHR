@@ -32,6 +32,7 @@ import { NombaTransferApiService } from '../../../../common/services/nomba-trans
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { AuthService } from '../../auth/auth.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {
@@ -58,6 +59,8 @@ export class PaymentMethodService {
     private readonly paymentMethodRepository: Repository<PaymentMethod>,
     @InjectRepository(PaymentMethodPasscodeHistory)
     private readonly passcodeHistoryRepository: Repository<PaymentMethodPasscodeHistory>,
+    @InjectRepository(TenantMember)
+    private readonly tenantMemberRepository: Repository<TenantMember>,
     readonly _paymentProviderFactory: PaymentProviderFactoryService,
     private readonly nombaTransferApi: NombaTransferApiService,
     private readonly encryptionService: EncryptionService,
@@ -492,6 +495,16 @@ export class PaymentMethodService {
       issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
     }
 
+    const employeeSettings = await this.tenantConfigService.requireIdentityForPayroll(tenantId);
+    if (employeeSettings) {
+      const member = await this.tenantMemberRepository.findOne({
+        where: { id: memberId, tenantId },
+      });
+      if (!member?.identityBvn?.trim() && !member?.identityNin?.trim()) {
+        issues.push(PayrollPaymentIssue.MISSING_IDENTITY);
+      }
+    }
+
     const ready = issues.length === 0 && method.canReceivePayments;
     const message = ready
       ? 'Ready for payroll disbursement.'
@@ -565,6 +578,9 @@ export class PaymentMethodService {
     }
     if (issues.includes(PayrollPaymentIssue.UNSUPPORTED_CURRENCY)) {
       return 'This payroll currency is not supported for automated payouts.';
+    }
+    if (issues.includes(PayrollPaymentIssue.MISSING_IDENTITY)) {
+      return 'BVN or NIN is required on this employee profile before payroll. Add identity details in their profile.';
     }
     return 'Employee is not ready to receive payroll.';
   }

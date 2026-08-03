@@ -45,8 +45,9 @@ import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'noah', string> = {
+const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'monnify' | 'noah', string> = {
   nomba: 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing',
+  monnify: 'https://developers.monnify.com/docs/test-cards',
   noah: 'https://docs.noah.com/',
 };
 
@@ -319,20 +320,29 @@ export function SettingsRewardsTab() {
           <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="space-y-1">
-                <h4 className="text-sm font-semibold text-foreground">Virtual account funding</h4>
+                <h4 className="text-sm font-semibold text-foreground">Rewards wallet funding</h4>
                 <p className="text-xs text-muted-foreground">
                   {virtualAccount?.supported
-                    ? 'Accept direct transfers into your rewards wallet when the active provider supports it.'
-                    : 'Virtual accounts are only available for NGN rewards wallets.'}
+                    ? 'Bank transfer account for topping up your rewards wallet.'
+                    : 'Bank transfer accounts are only available for NGN rewards wallets.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {virtualAccount?.providerLabel ? (
-                  <Badge variant="secondary">{virtualAccount.providerLabel}</Badge>
-                ) : null}
                 {virtualAccount?.supported ? (
-                  <Badge variant={virtualAccount.ready ? 'default' : 'outline'}>
-                    {virtualAccount.ready ? 'Ready' : 'Setup required'}
+                  <Badge
+                    variant={
+                      virtualAccount.providerMismatch
+                        ? 'destructive'
+                        : virtualAccount.ready
+                          ? 'default'
+                          : 'outline'
+                    }
+                  >
+                    {virtualAccount.providerMismatch
+                      ? 'Update required'
+                      : virtualAccount.ready
+                        ? 'Ready'
+                        : 'Setup required'}
                   </Badge>
                 ) : (
                   <Badge variant="outline">Checkout only</Badge>
@@ -398,13 +408,20 @@ export function SettingsRewardsTab() {
                 </div>
               </div>
             ) : (
-              <Alert>
-                <AlertTitle>Virtual account not ready</AlertTitle>
+              <Alert variant={virtualAccount?.providerMismatch ? 'destructive' : 'default'}>
+                <AlertTitle>
+                  {virtualAccount?.providerMismatch ? 'Update required' : 'Bank account not ready'}
+                </AlertTitle>
                 <AlertDescription className="space-y-2">
                   <p>
                     {virtualAccount?.error ||
-                      'Create a virtual account to allow direct bank transfers into the rewards wallet.'}
+                      'Create a bank account to allow direct transfers into the rewards wallet.'}
                   </p>
+                  {virtualAccount?.providerMismatch ? (
+                    <p className="text-xs">
+                      Transfers to your previous account number may no longer credit this wallet.
+                    </p>
+                  ) : null}
                   {virtualAccount?.requirements?.length ? (
                     <p className="text-xs">
                       {virtualAccount.requirements.join(' ')}
@@ -415,7 +432,7 @@ export function SettingsRewardsTab() {
                             href={billingSettingsHref}
                             className="font-medium underline underline-offset-2"
                           >
-                            Open Billing settings
+                            Open Identity settings
                           </Link>
                           .
                         </>
@@ -426,7 +443,8 @@ export function SettingsRewardsTab() {
               </Alert>
             )}
 
-            {virtualAccount?.supported ? (
+            {virtualAccount?.supported &&
+            (!virtualAccount.ready || virtualAccount.providerMismatch) ? (
               <div className="flex justify-end">
                 <Button
                   type="button"
@@ -439,12 +457,12 @@ export function SettingsRewardsTab() {
                   {createVirtualAccount.isPending ? (
                     <>
                       <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                      Provisioning…
+                      Creating…
                     </>
-                  ) : virtualAccount.ready ? (
-                    'Refresh virtual account'
+                  ) : virtualAccount.providerMismatch ? (
+                    'Create new bank account'
                   ) : (
-                    'Create virtual account'
+                    'Create bank account'
                   )}
                 </Button>
               </div>

@@ -39,7 +39,11 @@ export function EmployeeDetailTabs({
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
-        <PersonalInfoTab form={form} canEdit={canEditPersonal} />
+        <PersonalInfoTab
+          form={form}
+          canEdit={canEditPersonal}
+          canEditIdentity={canEditPersonal || isAdmin}
+        />
         <EmergencyContactsTab form={form} canEdit={canEditPersonal} />
         <EmploymentTab
           form={form}

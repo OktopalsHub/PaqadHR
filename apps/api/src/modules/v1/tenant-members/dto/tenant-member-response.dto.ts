@@ -53,6 +53,10 @@ export class TenantMemberResponseDto {
   isActive: boolean;
   @ApiProperty({ description: 'Avatar storage key', required: false })
   avatarKey?: string;
+  @ApiProperty({ description: 'Whether BVN is stored', required: false })
+  hasIdentityBvn?: boolean;
+  @ApiProperty({ description: 'Whether NIN is stored', required: false })
+  hasIdentityNin?: boolean;
   @ApiProperty({
     description: 'Avatar URL (constructed from avatarKey)',
     example: 'https://custom-domain.com/tenants/123/employees-avatar/avatar_1731668445123.jpg',
@@ -106,6 +110,8 @@ export class TenantMemberMapper {
       role: member.role,
       isActive: member.isActive,
       avatarKey: member.avatarKey ?? undefined,
+      hasIdentityBvn: Boolean(member.identityBvn?.trim()),
+      hasIdentityNin: Boolean(member.identityNin?.trim()),
       joinDate: member.joinDate,
       leaveDate: member.leaveDate,
       tenantId: member.tenantId,

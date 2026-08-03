@@ -68,10 +68,17 @@ export interface BillingSettings {
   addressLine2?: string;
   city?: string;
   country?: string;
-  monnifyBvn?: string;
-  monnifyNin?: string;
-  hasMonnifyBvn?: boolean;
-  hasMonnifyNin?: boolean;
+  identityBvn?: string;
+  identityNin?: string;
+  hasIdentityBvn?: boolean;
+  hasIdentityNin?: boolean;
+  requireWorkspaceKycForVirtualAccounts?: boolean;
+}
+
+export interface EmployeeSettings {
+  numberPrefix?: string;
+  numberPadding?: number;
+  requireIdentityForPayroll?: boolean;
 }
 
 export interface RewardsSettings {
@@ -107,6 +114,7 @@ export interface TenantSettingsData {
   notifications?: NotificationSettings;
   attendance?: AttendanceSettings;
   billing?: BillingSettings;
+  employee?: EmployeeSettings;
   general?: GeneralSettings;
   rewards?: RewardsSettings;
 }

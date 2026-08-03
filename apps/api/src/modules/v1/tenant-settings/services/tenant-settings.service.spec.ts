@@ -128,29 +128,29 @@ describe('TenantSettingsService rewards validation', () => {
     expect(eventEmitter.emit).not.toHaveBeenCalled();
   });
 
-  it('encrypts Monnify identifiers before saving and decrypts on read', async () => {
+  it('encrypts workspace identity before saving and decrypts on read', async () => {
     repository.findOne.mockResolvedValueOnce({
       tenantId: baseSettings.tenantId,
       settings: {
-        billing: { monnifyBvn: 'enc:12345678901', monnifyNin: 'enc:10987654321' },
+        billing: { identityBvn: 'enc:12345678901', identityNin: 'enc:10987654321' },
         rewards: { ...baseSettings.settings.rewards },
       },
     });
 
     const settings = await service.getTenantSettings('tenant-1');
-    expect(settings.settings.billing?.monnifyBvn).toBe('12345678901');
-    expect(settings.settings.billing?.monnifyNin).toBe('10987654321');
+    expect(settings.settings.billing?.identityBvn).toBe('12345678901');
+    expect(settings.settings.billing?.identityNin).toBe('10987654321');
 
     await service.updateTenantSettings('tenant-1', {
-      billing: { monnifyBvn: '12345678901', monnifyNin: '10987654321' },
+      billing: { identityBvn: '12345678901', identityNin: '10987654321' },
     });
 
     expect(repository.save).toHaveBeenCalledWith(
       expect.objectContaining({
         settings: expect.objectContaining({
           billing: expect.objectContaining({
-            monnifyBvn: 'enc:12345678901',
-            monnifyNin: 'enc:10987654321',
+            identityBvn: 'enc:12345678901',
+            identityNin: 'enc:10987654321',
           }),
         }),
       }),

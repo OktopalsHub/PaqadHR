@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
+import { resolveNgPaymentProvider } from 'src/common/utils/ng-money-provider.util';
 import { DataSource, Repository } from 'typeorm';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
@@ -22,6 +23,7 @@ export interface RewardsVirtualAccountDetails {
   providerLabel: string | null;
   live: boolean | null;
   ready: boolean;
+  providerMismatch: boolean;
   status: string | null;
   accountName: string | null;
   accountNumber: string | null;
@@ -71,6 +73,7 @@ export class TenantWalletVirtualAccountService {
         providerLabel: null,
         live: null,
         ready: false,
+        providerMismatch: false,
         status: 'unsupported',
         accountName: null,
         accountNumber: null,
@@ -84,8 +87,8 @@ export class TenantWalletVirtualAccountService {
 
     const requirements = await this.resolveProvisioningRequirements(tenantId, provider);
     const providerMismatch =
-      currentWallet.virtualAccountProvider &&
-      provider &&
+      Boolean(currentWallet.virtualAccountProvider) &&
+      Boolean(provider) &&
       currentWallet.virtualAccountProvider !== provider;
 
     return {
@@ -97,13 +100,16 @@ export class TenantWalletVirtualAccountService {
         !providerMismatch &&
         currentWallet.virtualAccountProvider === provider &&
         Boolean(currentWallet.virtualAccountNumber),
-      status: currentWallet.virtualAccountStatus ?? (provider ? 'PENDING' : 'UNAVAILABLE'),
+      providerMismatch,
+      status: providerMismatch
+        ? 'update_required'
+        : (currentWallet.virtualAccountStatus ?? (provider ? 'PENDING' : 'UNAVAILABLE')),
       accountName: providerMismatch ? null : currentWallet.virtualAccountName,
       accountNumber: providerMismatch ? null : currentWallet.virtualAccountNumber,
       bankName: providerMismatch ? null : currentWallet.virtualAccountBank,
       reference: providerMismatch ? null : currentWallet.virtualAccountReference,
       error: providerMismatch
-        ? `Stored account uses ${currentWallet.virtualAccountProvider}; create a new account for the active provider.`
+        ? 'Payment provider was updated. Create a new bank account to receive transfers.'
         : currentWallet.virtualAccountError,
       requirements,
       provisionedAt: providerMismatch ? null : currentWallet.virtualAccountProvisionedAt,
@@ -121,7 +127,7 @@ export class TenantWalletVirtualAccountService {
       throw new BadRequestException('Virtual account funding is not configured');
     }
 
-    const { tenant, billingContactEmail, billingContactName, monnifyBvn, monnifyNin } =
+    const { tenant, billingContactEmail, billingContactName, identityBvn, identityNin } =
       await this.resolveTenantFundingProfile(tenantId);
     const requirements = await this.resolveProvisioningRequirements(tenantId, provider);
     if (requirements.length > 0) {
@@ -142,8 +148,8 @@ export class TenantWalletVirtualAccountService {
           accountName,
           customerName: billingContactName,
           customerEmail: billingContactEmail,
-          customerBvn: monnifyBvn,
-          customerNin: monnifyNin,
+          customerBvn: identityBvn,
+          customerNin: identityNin,
         });
         resolvedReference = provisioned.accountReference;
         accountNumber = provisioned.accountNumber;
@@ -155,6 +161,7 @@ export class TenantWalletVirtualAccountService {
           accountName,
           customerName: billingContactName,
           customerEmail: billingContactEmail,
+          bvn: identityBvn,
         });
         resolvedReference = provisioned.accountRef;
         accountNumber = provisioned.accountNumber;
@@ -219,6 +226,13 @@ export class TenantWalletVirtualAccountService {
       return { received: true, credited: false };
     }
 
+    if (wallet.virtualAccountProvider && wallet.virtualAccountProvider !== input.provider) {
+      this.logger.warn(
+        `Ignored deposit ${input.transactionReference} for wallet ${wallet.id}: provider ${input.provider} != stored ${wallet.virtualAccountProvider}`,
+      );
+      return { received: true, credited: false };
+    }
+
     return this.dataSource.transaction(async (manager) => {
       await manager
         .getRepository(TenantWallet)
@@ -239,7 +253,7 @@ export class TenantWalletVirtualAccountService {
         input.amount,
         'DEPOSIT',
         input.transactionReference,
-        `Rewards wallet top-up via ${rewardsWalletVirtualAccountProviderLabel(input.provider) ?? 'virtual account'}`,
+        'Rewards wallet top-up via bank transfer',
         manager,
         {
           rawAmount: input.amount,
@@ -279,29 +293,44 @@ export class TenantWalletVirtualAccountService {
     provider: PaymentProvider | null,
   ): Promise<string[]> {
     if (!provider) {
-      return ['Configure a rewards virtual-account provider first.'];
+      return ['Configure an NGN payment provider first.'];
     }
 
-    const { billingContactEmail, monnifyBvn, monnifyNin } =
+    const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+    const billing = settings.settings.billing ?? {};
+    const { billingContactEmail, identityBvn, identityNin } =
       await this.resolveTenantFundingProfile(tenantId);
     const requirements: string[] = [];
 
     if (!billingContactEmail) {
       requirements.push('Billing contact email is required. Add it in Settings → Billing.');
     }
-    if (provider === PaymentProvider.MONNIFY && !monnifyBvn && !monnifyNin) {
-      requirements.push('Monnify requires a BVN or NIN in Settings → Billing.');
+
+    const requireKyc = billing.requireWorkspaceKycForVirtualAccounts === true;
+    const monnifyActive = resolveNgPaymentProvider() === PaymentProvider.MONNIFY;
+    const needsIdentity = monnifyActive || requireKyc;
+
+    if (needsIdentity && !identityBvn && !identityNin) {
+      requirements.push(
+        'Add a workspace BVN or NIN in Settings → Billing → Identity verification.',
+      );
     }
 
-    return requirements;
+    if (provider === PaymentProvider.MONNIFY && !identityBvn && !identityNin) {
+      requirements.push(
+        'Add a workspace BVN or NIN in Settings → Billing → Identity verification.',
+      );
+    }
+
+    return [...new Set(requirements)];
   }
 
   private async resolveTenantFundingProfile(tenantId: string): Promise<{
     tenant: Tenant;
     billingContactEmail: string;
     billingContactName: string;
-    monnifyBvn?: string;
-    monnifyNin?: string;
+    identityBvn?: string;
+    identityNin?: string;
   }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
@@ -316,13 +345,15 @@ export class TenantWalletVirtualAccountService {
     const billingContactEmail =
       billing.contactEmail?.trim() || tenant.createdBy?.email?.trim() || '';
     const billingContactName = billing.contactName?.trim() || tenant.name.trim();
+    const identityBvn = (billing.identityBvn ?? billing.monnifyBvn)?.trim();
+    const identityNin = (billing.identityNin ?? billing.monnifyNin)?.trim();
 
     return {
       tenant,
       billingContactEmail,
       billingContactName,
-      monnifyBvn: billing.monnifyBvn?.trim(),
-      monnifyNin: billing.monnifyNin?.trim(),
+      identityBvn,
+      identityNin,
     };
   }
 }

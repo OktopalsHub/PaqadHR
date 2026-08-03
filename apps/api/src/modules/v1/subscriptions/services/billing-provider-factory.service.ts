@@ -5,6 +5,7 @@ import {
 } from '../config/billing-provider-resolver';
 import { BillingProvider } from '../constants/billing-provider.enum';
 import { BachsSubscriptionProvider } from '../providers/bachs-subscription.provider';
+import { MonnifySubscriptionProvider } from '../providers/monnify-subscription.provider';
 import { NombaSubscriptionProvider } from '../providers/nomba-subscription.provider';
 import { PolarSubscriptionProvider } from '../providers/polar-subscription.provider';
 import type { ISubscriptionBillingProvider } from '../providers/subscription-billing-provider.interface';
@@ -13,6 +14,7 @@ import type { ISubscriptionBillingProvider } from '../providers/subscription-bil
 export class BillingProviderFactoryService {
   constructor(
     private readonly nombaProvider: NombaSubscriptionProvider,
+    private readonly monnifyProvider: MonnifySubscriptionProvider,
     private readonly bachsProvider: BachsSubscriptionProvider,
     private readonly polarProvider: PolarSubscriptionProvider,
   ) {}
@@ -29,6 +31,8 @@ export class BillingProviderFactoryService {
     switch (provider) {
       case BillingProvider.NOMBA:
         return this.nombaProvider;
+      case BillingProvider.MONNIFY:
+        return this.monnifyProvider;
       case BillingProvider.BACHS:
         return this.bachsProvider;
       case BillingProvider.POLAR:

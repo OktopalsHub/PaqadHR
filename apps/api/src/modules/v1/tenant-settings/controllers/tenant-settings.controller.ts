@@ -292,10 +292,12 @@ export class TenantSettingsController {
         ...payload.settings,
         billing: {
           ...billing,
+          identityBvn: undefined,
+          identityNin: undefined,
           monnifyBvn: undefined,
           monnifyNin: undefined,
-          hasMonnifyBvn: Boolean(billing.monnifyBvn),
-          hasMonnifyNin: Boolean(billing.monnifyNin),
+          hasIdentityBvn: Boolean(billing.identityBvn ?? billing.monnifyBvn),
+          hasIdentityNin: Boolean(billing.identityNin ?? billing.monnifyNin),
         },
       },
     };

@@ -7,6 +7,7 @@ export const PayrollPaymentIssue = {
   PAYMENT_RAIL_MISMATCH: 'payment_rail_mismatch',
   CURRENCY_MISMATCH: 'currency_mismatch',
   UNSUPPORTED_CURRENCY: 'unsupported_currency',
+  MISSING_IDENTITY: 'missing_identity',
   EXCLUDED_FROM_RUN: 'excluded_from_run',
 } as const;
 

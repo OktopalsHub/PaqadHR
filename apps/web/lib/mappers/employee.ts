@@ -16,6 +16,8 @@ export type ApiTenantMember = {
   joinDate?: string;
   avatarUrl?: string;
   reportsToId?: string;
+  hasIdentityBvn?: boolean;
+  hasIdentityNin?: boolean;
   user: { email: string };
   position?: { id: string; title: string; color?: string };
   department?: { id: string; name: string; role?: string; color?: string };

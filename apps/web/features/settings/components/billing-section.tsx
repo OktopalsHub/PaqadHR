@@ -48,8 +48,11 @@ function BillingContactForm({
   const [addressLine2, setAddressLine2] = useState(initial.addressLine2 ?? '');
   const [city, setCity] = useState(initial.city ?? '');
   const [country, setCountry] = useState(initial.country ?? '');
-  const [monnifyBvn, setMonnifyBvn] = useState('');
-  const [monnifyNin, setMonnifyNin] = useState('');
+  const [identityBvn, setIdentityBvn] = useState('');
+  const [identityNin, setIdentityNin] = useState('');
+  const [requireWorkspaceKyc, setRequireWorkspaceKyc] = useState(
+    initial.requireWorkspaceKycForVirtualAccounts ?? false,
+  );
 
   useEffect(() => {
     setContactName(initial.contactName ?? '');
@@ -59,8 +62,9 @@ function BillingContactForm({
     setAddressLine2(initial.addressLine2 ?? '');
     setCity(initial.city ?? '');
     setCountry(initial.country ?? '');
-    setMonnifyBvn('');
-    setMonnifyNin('');
+    setIdentityBvn('');
+    setIdentityNin('');
+    setRequireWorkspaceKyc(initial.requireWorkspaceKycForVirtualAccounts ?? false);
   }, [initial, ownerEmail]);
 
   const save = async () => {
@@ -78,8 +82,9 @@ function BillingContactForm({
           addressLine2: addressLine2.trim() || undefined,
           city: city.trim() || undefined,
           country: country.trim() || undefined,
-          monnifyBvn: monnifyBvn.trim() || undefined,
-          monnifyNin: monnifyNin.trim() || undefined,
+          identityBvn: identityBvn.trim() || undefined,
+          identityNin: identityNin.trim() || undefined,
+          requireWorkspaceKycForVirtualAccounts: requireWorkspaceKyc,
         },
       });
       toast.success('Billing contact saved');
@@ -135,34 +140,43 @@ function BillingContactForm({
       </SettingsFieldHint>
       <div className="sm:col-span-2 rounded-2xl border border-border/60 bg-muted/20 p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-foreground">Monnify virtual-account KYC</p>
-          {initial.hasMonnifyBvn ? <Badge variant="secondary">BVN stored</Badge> : null}
-          {initial.hasMonnifyNin ? <Badge variant="secondary">NIN stored</Badge> : null}
+          <p className="text-sm font-semibold text-foreground">Identity verification (BVN / NIN)</p>
+          {initial.hasIdentityBvn ? <Badge variant="secondary">BVN stored</Badge> : null}
+          {initial.hasIdentityNin ? <Badge variant="secondary">NIN stored</Badge> : null}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Needed only when Monnify is the active rewards virtual-account provider. Leave blank to
-          keep existing values.
+          Used for rewards bank accounts and payroll compliance. Leave blank to keep existing
+          values.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <SettingsFieldHint label="Monnify BVN">
+          <SettingsFieldHint label="BVN">
             <Input
               inputMode="numeric"
               maxLength={11}
-              placeholder={initial.hasMonnifyBvn ? 'Stored securely' : '11-digit BVN'}
-              value={monnifyBvn}
-              onChange={(e) => setMonnifyBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              placeholder={initial.hasIdentityBvn ? 'Stored securely' : '11-digit BVN'}
+              value={identityBvn}
+              onChange={(e) => setIdentityBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
             />
           </SettingsFieldHint>
-          <SettingsFieldHint label="Monnify NIN">
+          <SettingsFieldHint label="NIN">
             <Input
               inputMode="numeric"
               maxLength={11}
-              placeholder={initial.hasMonnifyNin ? 'Stored securely' : '11-digit NIN'}
-              value={monnifyNin}
-              onChange={(e) => setMonnifyNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              placeholder={initial.hasIdentityNin ? 'Stored securely' : '11-digit NIN'}
+              value={identityNin}
+              onChange={(e) => setIdentityNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
             />
           </SettingsFieldHint>
         </div>
+        <label className="mt-4 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={requireWorkspaceKyc}
+            onChange={(e) => setRequireWorkspaceKyc(e.target.checked)}
+            className="rounded border-border"
+          />
+          Require BVN or NIN before creating rewards bank account
+        </label>
       </div>
       <div className="sm:col-span-2">
         <SettingsFormActions onSave={save} isPending={patchSettings.isPending} />

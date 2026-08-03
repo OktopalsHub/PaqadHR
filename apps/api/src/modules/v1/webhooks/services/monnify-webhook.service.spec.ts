@@ -1,5 +1,7 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { TenantWalletVirtualAccountService } from '../../rewards/services/tenant-wallet-virtual-account.service';
+import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { MonnifyWebhookService } from './monnify-webhook.service';
 
 jest.mock('src/common/config/monnify-webhook.util', () => ({
@@ -13,6 +15,10 @@ describe('MonnifyWebhookService', () => {
   let walletVirtualAccountService: jest.Mocked<
     Pick<TenantWalletVirtualAccountService, 'completeVirtualAccountDeposit'>
   >;
+  let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
+  let subscriptionBillingService: jest.Mocked<
+    Pick<SubscriptionBillingService, 'processMonnifyPayload'>
+  >;
 
   beforeEach(() => {
     walletVirtualAccountService = {
@@ -21,9 +27,17 @@ describe('MonnifyWebhookService', () => {
         credited: true,
       }),
     };
+    walletTopupService = {
+      completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true }),
+    };
+    subscriptionBillingService = {
+      processMonnifyPayload: jest.fn().mockResolvedValue({ received: true }),
+    };
 
     service = new MonnifyWebhookService(
       walletVirtualAccountService as unknown as TenantWalletVirtualAccountService,
+      walletTopupService as unknown as TenantWalletTopupService,
+      subscriptionBillingService as unknown as SubscriptionBillingService,
     );
     (verifyMonnifyWebhookSignature as jest.Mock).mockReturnValue(true);
   });

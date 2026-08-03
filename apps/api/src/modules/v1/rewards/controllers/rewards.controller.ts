@@ -24,7 +24,7 @@ import {
 } from 'src/common/utils/resolve-payment-provider.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { rewardsWalletCheckoutLive } from '../config/rewards-wallet-provider.config';
+import { isRewardsWalletCheckoutLive } from '../config/rewards-wallet-provider.config';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { WalletTopupDto } from '../dto/wallet-topup.dto';
@@ -47,7 +47,7 @@ async function withWalletResponse(
   virtualAccount: Awaited<ReturnType<TenantWalletVirtualAccountService['describeVirtualAccount']>>,
 ) {
   const checkoutProvider = resolvePaymentProvider(wallet.currencyCode);
-  const checkoutLive = rewardsWalletCheckoutLive(checkoutProvider);
+  const checkoutLive = isRewardsWalletCheckoutLive(checkoutProvider);
 
   return {
     id: wallet.id,
@@ -60,7 +60,12 @@ async function withWalletResponse(
     autoTopupAmount: wallet.autoTopupAmount,
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
-    checkoutProvider: checkoutProvider === PaymentProvider.NOMBA ? 'nomba' : 'noah',
+    checkoutProvider:
+      checkoutProvider === PaymentProvider.NOMBA
+        ? 'nomba'
+        : checkoutProvider === PaymentProvider.MONNIFY
+          ? 'monnify'
+          : 'noah',
     checkoutProviderLabel: paymentProviderLabel(checkoutProvider),
     checkoutLive,
     virtualAccount: {

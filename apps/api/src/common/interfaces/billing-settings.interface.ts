@@ -6,8 +6,16 @@ export interface BillingSettings {
   addressLine2?: string;
   city?: string;
   country?: string;
+  /** Workspace BVN — used for virtual accounts (Nomba/Monnify). Encrypted at rest. */
+  identityBvn?: string;
+  /** Workspace NIN — used for virtual accounts (Nomba/Monnify). Encrypted at rest. */
+  identityNin?: string;
+  /** @deprecated migrated to identityBvn */
   monnifyBvn?: string;
+  /** @deprecated migrated to identityNin */
   monnifyNin?: string;
-  hasMonnifyBvn?: boolean;
-  hasMonnifyNin?: boolean;
+  hasIdentityBvn?: boolean;
+  hasIdentityNin?: boolean;
+  /** Admin requires workspace BVN/NIN before rewards bank account creation. */
+  requireWorkspaceKycForVirtualAccounts?: boolean;
 }

@@ -6,11 +6,12 @@ function getR2PublicOrigin(): string | undefined {
   return process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.replace(/\/$/, '');
 }
 
-export function buildContentSecurityPolicy(requestHost?: string): string {
+export function buildContentSecurityPolicy(requestHost?: string, scriptNonce?: string): string {
   return buildContentSecurityPolicyFromSources({
     apiOrigin: apiOriginFromBase(resolveApiBaseUrl({ requestHost })),
     brandOrigin: BRAND_ORIGIN,
     isDevelopment: process.env.NODE_ENV === 'development',
     r2PublicOrigin: getR2PublicOrigin(),
+    scriptNonce,
   });
 }

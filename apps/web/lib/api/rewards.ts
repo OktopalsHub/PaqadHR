@@ -70,8 +70,8 @@ export interface TenantWallet {
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
-  /** Checkout provider for wallet currency (`nomba` | `noah`). */
-  checkoutProvider?: 'nomba' | 'noah';
+  /** Checkout provider for wallet currency (`nomba` | `monnify` | `noah`). */
+  checkoutProvider?: 'nomba' | 'monnify' | 'noah';
   checkoutProviderLabel?: string;
   /** True when checkout runs in live mode for the wallet currency provider. */
   checkoutLive?: boolean;
@@ -81,6 +81,7 @@ export interface TenantWallet {
     providerLabel: string | null;
     live: boolean | null;
     ready: boolean;
+    providerMismatch?: boolean;
     status: string | null;
     accountName: string | null;
     accountNumber: string | null;

@@ -19,6 +19,7 @@ import { TenantSubscription } from './entities/tenant-subscription.entity';
 import { BillingGatewayGuard } from './guards/billing-gateway.guard';
 import { SubscriptionBillingListener } from './listeners/subscription-billing.listener';
 import { BachsSubscriptionProvider } from './providers/bachs-subscription.provider';
+import { MonnifySubscriptionProvider } from './providers/monnify-subscription.provider';
 import { NombaSubscriptionProvider } from './providers/nomba-subscription.provider';
 import { PolarSubscriptionProvider } from './providers/polar-subscription.provider';
 import { BillingCronService } from './services/billing-cron.service';
@@ -58,6 +59,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
     SubscriptionBillingListener,
     NombaApiService,
     NombaSubscriptionProvider,
+    MonnifySubscriptionProvider,
     BachsSubscriptionProvider,
     PolarSubscriptionProvider,
     BillingProviderFactoryService,
@@ -69,6 +71,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
     SubscriptionBillingService,
     BillingProductSyncService,
     NombaSubscriptionProvider,
+    MonnifySubscriptionProvider,
     BachsSubscriptionProvider,
     PolarSubscriptionProvider,
     BillingProviderFactoryService,

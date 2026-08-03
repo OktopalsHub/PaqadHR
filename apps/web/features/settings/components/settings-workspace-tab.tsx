@@ -49,6 +49,7 @@ export function SettingsWorkspaceTab() {
   const [employeeCode, setEmployeeCode] = useState('');
   const [payrollCurrencies, setPayrollCurrencies] = useState<string[]>(['USD']);
   const [emailPayslipOnPublish, setEmailPayslipOnPublish] = useState(false);
+  const [requireIdentityForPayroll, setRequireIdentityForPayroll] = useState(false);
 
   const countryOptions = useMemo(
     () =>
@@ -70,6 +71,7 @@ export function SettingsWorkspaceTab() {
 
     const general = settings?.settings?.general;
     setEmailPayslipOnPublish(general?.emailPayslipOnPublish ?? false);
+    setRequireIdentityForPayroll(settings?.settings?.employee?.requireIdentityForPayroll ?? false);
     setPayrollCurrencies(
       resolveInitialPayrollCurrencies({
         countryCode: workspaceCountry,
@@ -167,6 +169,21 @@ export function SettingsWorkspaceTab() {
       toast.success('Email settings saved');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save email settings');
+    }
+  };
+
+  const savePayrollIdentitySettings = async () => {
+    try {
+      const existingEmployee = settings?.settings?.employee;
+      await patchSettings.mutateAsync({
+        employee: {
+          ...existingEmployee,
+          requireIdentityForPayroll,
+        },
+      });
+      toast.success('Payroll identity settings saved');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save payroll identity settings');
     }
   };
 
@@ -314,6 +331,32 @@ export function SettingsWorkspaceTab() {
             />
           </div>
         </div>
+      </ContentCard>
+
+      <ContentCard
+        title="Payroll identity"
+        description="Require employee BVN or NIN before they can receive payroll."
+      >
+        <SettingsFieldHint
+          label="Require BVN or NIN for payroll"
+          hint="When enabled, employees without identity details on their profile are blocked from payroll readiness."
+        >
+          <div className="flex items-center gap-3">
+            <Switch
+              id="require-identity-for-payroll"
+              checked={requireIdentityForPayroll}
+              onCheckedChange={setRequireIdentityForPayroll}
+              disabled={!isAdmin}
+            />
+            <label htmlFor="require-identity-for-payroll" className="text-sm text-muted-foreground">
+              {requireIdentityForPayroll ? 'Required' : 'Optional'}
+            </label>
+          </div>
+        </SettingsFieldHint>
+        <SettingsFormActions
+          onSave={savePayrollIdentitySettings}
+          isPending={patchSettings.isPending}
+        />
       </ContentCard>
 
       <ContentCard

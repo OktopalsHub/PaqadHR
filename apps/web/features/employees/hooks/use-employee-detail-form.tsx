@@ -128,6 +128,14 @@ export function useEmployeeDetailForm(
           phone: employee.phone || undefined,
           dateOfBirth: employee.dateOfBirth || undefined,
           gender: employee.personalInfo.gender || undefined,
+          identityBvn: employee.identityBvn.trim() || undefined,
+          identityNin: employee.identityNin.trim() || undefined,
+        });
+      } else if (options?.isAdmin && (employee.identityBvn.trim() || employee.identityNin.trim())) {
+        const { updateMemberProfileById } = await import('@/lib/api/member-profile');
+        await updateMemberProfileById(employee.id, {
+          identityBvn: employee.identityBvn.trim() || undefined,
+          identityNin: employee.identityNin.trim() || undefined,
         });
       }
 

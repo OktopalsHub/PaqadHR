@@ -38,6 +38,45 @@ interface MonnifyReservedAccountResponse {
   };
 }
 
+interface MonnifyInitTransactionResponse {
+  requestSuccessful?: boolean;
+  responseMessage?: string;
+  responseBody?: {
+    transactionReference?: string;
+    paymentReference?: string;
+    checkoutUrl?: string;
+    redirectUrl?: string;
+  };
+}
+
+interface MonnifyTransactionStatusResponse {
+  requestSuccessful?: boolean;
+  responseMessage?: string;
+  responseBody?: {
+    paymentReference?: string;
+    transactionReference?: string;
+    amountPaid?: string | number;
+    totalPayable?: string | number;
+    paidOn?: string;
+    paymentStatus?: string;
+    currency?: string;
+    customer?: { email?: string; name?: string };
+    metaData?: Record<string, unknown>;
+  };
+}
+
+interface MonnifyDisbursementResponse {
+  requestSuccessful?: boolean;
+  responseMessage?: string;
+  responseBody?: {
+    amount?: number;
+    reference?: string;
+    status?: string;
+    totalFee?: number;
+    transactionDescription?: string;
+  };
+}
+
 export interface MonnifyReservedAccountInput {
   accountReference: string;
   accountName: string;
@@ -46,6 +85,27 @@ export interface MonnifyReservedAccountInput {
   currencyCode?: string;
   customerBvn?: string;
   customerNin?: string;
+}
+
+export interface MonnifyInitCheckoutInput {
+  amount: number;
+  customerName: string;
+  customerEmail: string;
+  paymentReference: string;
+  paymentDescription: string;
+  redirectUrl: string;
+  currencyCode?: string;
+  metaData?: Record<string, unknown>;
+}
+
+export interface MonnifySingleTransferInput {
+  amount: number;
+  reference: string;
+  narration: string;
+  destinationBankCode: string;
+  destinationAccountNumber: string;
+  destinationAccountName: string;
+  currencyCode?: string;
 }
 
 @Injectable()
@@ -57,7 +117,7 @@ export class MonnifyApiService {
     return isMonnifyConfigured();
   }
 
-  private ensureConfigured(): void {
+  ensureConfigured(): void {
     if (!this.isConfigured()) {
       throw new BadRequestException('Monnify is not configured');
     }
@@ -108,7 +168,7 @@ export class MonnifyApiService {
     this.ensureConfigured();
 
     if (!input.customerBvn && !input.customerNin) {
-      throw new BadRequestException('Monnify reserved accounts require a BVN or NIN');
+      throw new BadRequestException('A workspace BVN or NIN is required to create a bank account');
     }
 
     const token = await this.getAccessToken();
@@ -155,6 +215,132 @@ export class MonnifyApiService {
       accountNumber,
       bankName,
       accountName,
+    };
+  }
+
+  async initializeTransaction(input: MonnifyInitCheckoutInput): Promise<{
+    checkoutUrl: string;
+    transactionReference: string;
+    paymentReference: string;
+  }> {
+    this.ensureConfigured();
+    const token = await this.getAccessToken();
+    const response = await fetch(
+      `${getMonnifyBaseUrl()}/api/v1/merchant/transactions/init-transaction`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: input.amount,
+          customerName: input.customerName,
+          customerEmail: input.customerEmail,
+          paymentReference: input.paymentReference,
+          paymentDescription: input.paymentDescription,
+          currencyCode: (input.currencyCode || 'NGN').toUpperCase(),
+          contractCode: getMonnifyContractCode(),
+          redirectUrl: input.redirectUrl,
+          paymentMethods: ['CARD', 'ACCOUNT_TRANSFER'],
+          metaData: input.metaData ?? {},
+        }),
+      },
+    );
+
+    const payload = (await response.json().catch(() => ({}))) as MonnifyInitTransactionResponse;
+    const body = payload.responseBody;
+    const checkoutUrl = body?.checkoutUrl;
+    const paymentReference = body?.paymentReference ?? input.paymentReference;
+    const transactionReference = body?.transactionReference ?? paymentReference;
+
+    if (!response.ok || payload.requestSuccessful === false || !checkoutUrl) {
+      throw new BadRequestException(
+        payload.responseMessage || `Failed to initialize Monnify checkout (${response.status})`,
+      );
+    }
+
+    return { checkoutUrl, transactionReference, paymentReference };
+  }
+
+  async verifyTransaction(paymentReference: string): Promise<{
+    paid: boolean;
+    amount: number;
+    currency: string;
+    customerEmail?: string;
+    metaData?: Record<string, unknown>;
+  } | null> {
+    this.ensureConfigured();
+    const token = await this.getAccessToken();
+    const response = await fetch(
+      `${getMonnifyBaseUrl()}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    );
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as MonnifyTransactionStatusResponse;
+    const body = payload.responseBody;
+    if (!response.ok || payload.requestSuccessful === false || !body) {
+      return null;
+    }
+
+    const status = String(body.paymentStatus ?? '').toUpperCase();
+    const paid = status === 'PAID' || status === 'SUCCESS' || status === 'SUCCESSFUL';
+    const amount = Number(body.amountPaid ?? body.totalPayable ?? 0);
+
+    return {
+      paid,
+      amount: Number.isFinite(amount) ? amount : 0,
+      currency: (body.currency || 'NGN').toUpperCase(),
+      customerEmail: body.customer?.email,
+      metaData: body.metaData,
+    };
+  }
+
+  async singleTransfer(input: MonnifySingleTransferInput): Promise<{
+    success: boolean;
+    reference: string;
+    status?: string;
+    message?: string;
+  }> {
+    this.ensureConfigured();
+    const token = await this.getAccessToken();
+    const response = await fetch(`${getMonnifyBaseUrl()}/api/v2/disbursements/single`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amount: input.amount,
+        reference: input.reference,
+        narration: input.narration,
+        destinationBankCode: input.destinationBankCode,
+        destinationAccountNumber: input.destinationAccountNumber,
+        destinationAccountName: input.destinationAccountName,
+        currency: (input.currencyCode || 'NGN').toUpperCase(),
+        sourceAccountNumber: getMonnifyContractCode(),
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as MonnifyDisbursementResponse;
+    const body = payload.responseBody;
+    const status = body?.status?.toUpperCase();
+    const success =
+      response.ok &&
+      payload.requestSuccessful !== false &&
+      (!status || ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING'].includes(status));
+
+    return {
+      success,
+      reference: body?.reference ?? input.reference,
+      status,
+      message: payload.responseMessage,
     };
   }
 }

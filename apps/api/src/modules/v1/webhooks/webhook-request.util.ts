@@ -215,6 +215,7 @@ export function extractMonnifyVirtualAccountDeposit(payload: unknown): {
       amountPaid?: number | string;
       paymentReference?: string;
       transactionReference?: string;
+      metaData?: unknown;
       product?: { reference?: string };
       destinationAccountInformation?: { accountNumber?: string };
       destinationAccountNumber?: string;
@@ -225,6 +226,11 @@ export function extractMonnifyVirtualAccountDeposit(payload: unknown): {
 
   const eventType = String(body.eventType || body.event_type || '').toLowerCase();
   if (!eventType.includes('successful')) {
+    return null;
+  }
+
+  const meta = parseMonnifyMeta(body.eventData?.metaData);
+  if (meta.billingType === 'subscription' || meta.billingType === 'wallet_topup') {
     return null;
   }
 
@@ -248,4 +254,77 @@ export function extractMonnifyVirtualAccountDeposit(payload: unknown): {
     payerName: data.payerName ?? data.payer?.name,
     rawPayload: body as Record<string, unknown>,
   };
+}
+
+function parseMonnifyMeta(raw: unknown): Record<string, string> {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.entries(parsed).map(([key, value]) => [key, String(value ?? '')]),
+      );
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === 'object') {
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).map(([key, value]) => [
+        key,
+        String(value ?? ''),
+      ]),
+    );
+  }
+  return {};
+}
+
+export function extractMonnifyWalletTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+} | null {
+  const body = payload as {
+    eventType?: string;
+    eventData?: {
+      paymentReference?: string;
+      amountPaid?: number | string;
+      metaData?: unknown;
+    };
+  };
+  const eventType = String(body.eventType ?? '').toUpperCase();
+  if (eventType !== 'SUCCESSFUL_TRANSACTION' && eventType !== 'OVERPAID_TRANSACTION') {
+    return null;
+  }
+  const data = body.eventData ?? {};
+  const meta = parseMonnifyMeta(data.metaData);
+  if (meta.billingType !== 'wallet_topup') {
+    return null;
+  }
+  const tenantId = meta.tenantId;
+  const orderReference = data.paymentReference;
+  if (!tenantId || !orderReference) {
+    return null;
+  }
+  const amount = Number(meta.expectedAmount ?? data.amountPaid ?? 0);
+  return {
+    tenantId,
+    orderReference: String(orderReference),
+    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    initiatedByMemberId: meta.initiatedByMemberId || undefined,
+  };
+}
+
+export function extractMonnifySubscriptionPayment(payload: unknown): boolean {
+  const body = payload as {
+    eventType?: string;
+    eventData?: { metaData?: unknown; product?: { reference?: string } };
+  };
+  const eventType = String(body.eventType ?? '').toUpperCase();
+  if (eventType !== 'SUCCESSFUL_TRANSACTION' && eventType !== 'OVERPAID_TRANSACTION') {
+    return false;
+  }
+  const meta = parseMonnifyMeta(body.eventData?.metaData);
+  return meta.billingType === 'subscription' && Boolean(meta.tenantId);
 }

@@ -57,15 +57,15 @@ export function validateEnvAtBoot(): void {
     if (!process.env.NOAH_API_KEY?.trim()) {
       warnings.push('NOAH_API_KEY is not set — non-NGN payments will be unavailable');
     }
-    const rewardsNgProvider = (process.env.REWARDS_NG_PROVIDER || 'nomba').trim().toLowerCase();
+    const ngPaymentsProvider = (process.env.NG_PAYMENTS_PROVIDER || 'nomba').trim().toLowerCase();
     if (
-      rewardsNgProvider === 'monnify' &&
+      ngPaymentsProvider === 'monnify' &&
       (!process.env.MONNIFY_API_KEY?.trim() ||
         !process.env.MONNIFY_SECRET_KEY?.trim() ||
         !process.env.MONNIFY_CONTRACT_CODE?.trim())
     ) {
       warnings.push(
-        'REWARDS_NG_PROVIDER=monnify but MONNIFY_API_KEY/SECRET_KEY/CONTRACT_CODE is incomplete',
+        'NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY/SECRET_KEY/CONTRACT_CODE is incomplete',
       );
     }
     if (process.env.MONNIFY_API_KEY?.trim() && !process.env.MONNIFY_WEBHOOK_SECRET?.trim()) {
@@ -120,6 +120,12 @@ export function validateEnvAtBoot(): void {
   }
   if (process.env.BILLING_GLOBAL_PROVIDER === 'polar' && !polarToken) {
     warnings.push('BILLING_GLOBAL_PROVIDER=polar but POLAR_ACCESS_TOKEN is empty');
+  }
+  if (process.env.BILLING_NG_PROVIDER === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
+    warnings.push('BILLING_NG_PROVIDER=monnify but MONNIFY_API_KEY is empty');
+  }
+  if (process.env.NG_PAYMENTS_PROVIDER === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
+    warnings.push('NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
 
   for (const warning of warnings) {

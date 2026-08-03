@@ -314,10 +314,30 @@ export class TenantSettingsService {
   }
 
   private hydrateBillingSettings(billing: BillingSettings): BillingSettings {
+    const identityBvn =
+      this.decryptIfNeeded(billing.identityBvn) ?? this.decryptIfNeeded(billing.monnifyBvn);
+    const identityNin =
+      this.decryptIfNeeded(billing.identityNin) ?? this.decryptIfNeeded(billing.monnifyNin);
     return {
       ...billing,
-      monnifyBvn: this.decryptIfNeeded(billing.monnifyBvn),
-      monnifyNin: this.decryptIfNeeded(billing.monnifyNin),
+      identityBvn,
+      identityNin,
+      monnifyBvn: undefined,
+      monnifyNin: undefined,
+    };
+  }
+
+  private prepareBillingSettingsForPersistence(billing: BillingSettings): BillingSettings {
+    const identityBvn = billing.identityBvn ?? billing.monnifyBvn;
+    const identityNin = billing.identityNin ?? billing.monnifyNin;
+    return {
+      ...billing,
+      identityBvn: this.encryptIfNeeded(identityBvn),
+      identityNin: this.encryptIfNeeded(identityNin),
+      monnifyBvn: undefined,
+      monnifyNin: undefined,
+      hasIdentityBvn: undefined,
+      hasIdentityNin: undefined,
     };
   }
 
@@ -329,16 +349,6 @@ export class TenantSettingsService {
     return {
       ...settings,
       billing: this.prepareBillingSettingsForPersistence(settings.billing),
-    };
-  }
-
-  private prepareBillingSettingsForPersistence(billing: BillingSettings): BillingSettings {
-    return {
-      ...billing,
-      monnifyBvn: this.encryptIfNeeded(billing.monnifyBvn),
-      monnifyNin: this.encryptIfNeeded(billing.monnifyNin),
-      hasMonnifyBvn: undefined,
-      hasMonnifyNin: undefined,
     };
   }
 

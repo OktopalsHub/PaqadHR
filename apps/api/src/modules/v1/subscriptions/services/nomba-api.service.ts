@@ -91,6 +91,7 @@ export interface NombaVirtualAccountInput {
   accountName: string;
   customerName: string;
   customerEmail: string;
+  bvn?: string;
 }
 
 @Injectable()
@@ -240,6 +241,7 @@ export class NombaApiService {
       accountName: input.accountName,
       customerName: input.customerName,
       customerEmail: input.customerEmail,
+      ...(input.bvn ? { bvn: input.bvn } : {}),
     });
 
     const data = payload.data;

@@ -4,6 +4,7 @@ import { MonnifyApiService } from '../services/monnify-api.service';
 import { NoahApiService } from '../services/noah-api.service';
 import { NombaTransferApiService } from '../services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../services/payment-provider-factory.service';
+import { MonnifyProvider } from './monnify.provider';
 import { NoahProvider } from './noah.provider';
 import { NombaProvider } from './nomba.provider';
 
@@ -11,6 +12,7 @@ import { NombaProvider } from './nomba.provider';
   providers: [
     NombaTransferApiService,
     NombaProvider,
+    MonnifyProvider,
     BachsApiService,
     MonnifyApiService,
     NoahApiService,
@@ -20,6 +22,7 @@ import { NombaProvider } from './nomba.provider';
   exports: [
     NombaTransferApiService,
     NombaProvider,
+    MonnifyProvider,
     BachsApiService,
     MonnifyApiService,
     NoahApiService,

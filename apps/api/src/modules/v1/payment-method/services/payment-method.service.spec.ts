@@ -11,10 +11,11 @@ describe('PaymentMethodService encryption and masking', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       encryptionService,
       { log: jest.fn() } as never,
       {} as never,
-      { getPayrollCurrencies: jest.fn() } as never,
+      { getPayrollCurrencies: jest.fn(), requireIdentityForPayroll: jest.fn() } as never,
       { getTenant: jest.fn() } as never,
       {} as never,
     );

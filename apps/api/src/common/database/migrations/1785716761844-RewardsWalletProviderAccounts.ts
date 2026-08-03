@@ -1,6 +1,8 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class RewardsWalletProviderAccounts1784761000000 implements MigrationInterface {
+export class RewardsWalletProviderAccounts1785716761844 implements MigrationInterface {
+  name = 'RewardsWalletProviderAccounts1785716761844';
+
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE tenant_wallets
@@ -12,26 +14,6 @@ export class RewardsWalletProviderAccounts1784761000000 implements MigrationInte
         ADD COLUMN IF NOT EXISTS virtual_account_status VARCHAR,
         ADD COLUMN IF NOT EXISTS virtual_account_provisioned_at TIMESTAMP,
         ADD COLUMN IF NOT EXISTS virtual_account_error TEXT;
-    `);
-
-    await queryRunner.query(`
-      DO $$
-      BEGIN
-        IF EXISTS (
-          SELECT 1
-          FROM information_schema.columns
-          WHERE table_name = 'tenant_wallets'
-            AND column_name = 'nomba_account_ref'
-        ) THEN
-          EXECUTE '
-            UPDATE tenant_wallets
-            SET virtual_account_reference = COALESCE(virtual_account_reference, nomba_account_ref),
-                virtual_account_provider = COALESCE(virtual_account_provider, ''nomba'')
-            WHERE nomba_account_ref IS NOT NULL
-          ';
-        END IF;
-      END
-      $$;
     `);
 
     await queryRunner.query(`
@@ -59,7 +41,9 @@ export class RewardsWalletProviderAccounts1784761000000 implements MigrationInte
         DROP COLUMN IF EXISTS virtual_account_status,
         DROP COLUMN IF EXISTS virtual_account_provider,
         DROP COLUMN IF EXISTS virtual_account_reference,
-        DROP COLUMN IF EXISTS virtual_account_name;
+        DROP COLUMN IF EXISTS virtual_account_name,
+        DROP COLUMN IF EXISTS virtual_account_bank,
+        DROP COLUMN IF EXISTS virtual_account_number;
     `);
   }
 }

@@ -112,6 +112,23 @@ export class TenantMembersController {
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }
+  @Patch('/members/:memberId/profile')
+  @ApiOperation({ summary: 'Update tenant member profile (admin or self)' })
+  async updateTenantMemberProfileById(
+    @Param('tenantId') tenantId: string,
+    @Param('memberId') memberId: string,
+    @Body() updateDto: UpdateMemberProfileDto,
+    @CurrentTenantMember() actor: MemberContext,
+  ): Promise<ITenantMemberResponseDto> {
+    await this.managerAccessService.assertAdminOrSelfOrManagerOf(actor, memberId, tenantId);
+    const updated = await this.tenantMembersService.updateTenantMemberProfileById(
+      memberId,
+      tenantId,
+      updateDto,
+    );
+    return TenantMemberMapper.toResponse(updated, this.fileUrlService);
+  }
+
   @Patch('/members/:memberId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)

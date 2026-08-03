@@ -249,22 +249,29 @@ export class BillingSettingsDto {
   country?: string;
 
   @ApiProperty({
-    description: 'BVN used when Monnify virtual-account creation is active',
+    description: 'Workspace BVN for virtual accounts and compliance',
     required: false,
   })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{11}$/, { message: 'Monnify BVN must be 11 digits' })
-  monnifyBvn?: string;
+  @Matches(/^\d{11}$/, { message: 'BVN must be 11 digits' })
+  identityBvn?: string;
 
   @ApiProperty({
-    description: 'NIN used when Monnify virtual-account creation is active',
+    description: 'Workspace NIN for virtual accounts and compliance',
     required: false,
   })
   @IsOptional()
   @IsString()
-  @Matches(/^\d{11}$/, { message: 'Monnify NIN must be 11 digits' })
-  monnifyNin?: string;
+  @Matches(/^\d{11}$/, { message: 'NIN must be 11 digits' })
+  identityNin?: string;
+
+  @ApiProperty({
+    description: 'Require workspace BVN/NIN before creating rewards bank account',
+    required: false,
+  })
+  @IsOptional()
+  requireWorkspaceKycForVirtualAccounts?: boolean;
 }
 export class GeneralSettingsDto {
   @ApiProperty({
@@ -356,6 +363,13 @@ export class EmployeeSettingsDto {
   @Min(1)
   @Max(10)
   numberPadding?: number;
+
+  @ApiProperty({
+    description: 'Require employee BVN or NIN before payroll payout',
+    required: false,
+  })
+  @IsOptional()
+  requireIdentityForPayroll?: boolean;
 }
 export class HolidayDto {
   @ApiProperty({

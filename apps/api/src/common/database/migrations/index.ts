@@ -74,4 +74,5 @@ export * from './1783369099246-TenantSubscriptionBillingProvider';
 export * from './1784546774315-TenantSubscriptionExternalSubscription';
 export * from './1784548594725-PlanPriceExternalProductIds';
 export * from './1784756934802-PayrollPayoutModeAndEmploymentCurrency';
-export * from './1784761000000-rewards-wallet-provider-accounts';
+export * from './1785716078366-tenant-member-identity';
+export * from './1785716761844-RewardsWalletProviderAccounts';

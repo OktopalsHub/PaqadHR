@@ -6,6 +6,8 @@ node_modules
 *.md
 !README.md
 !AGENTS.md
+!SECURITY.md
+!PERFORMANCE.md
 !apps/api/README.md
 !apps/web/README.md
 
