@@ -9,8 +9,8 @@ type RecruitmentSectionTabsProps = {
 };
 
 const TABS = [
-  { id: 'pipeline', label: 'Candidate', href: 'recruitment' },
   { id: 'roles', label: 'Roles', href: 'recruitment/roles' },
+  { id: 'pipeline', label: 'Candidate', href: 'recruitment' },
   { id: 'analytics', label: 'Analytics', href: 'recruitment/analytics' },
 ] as const;
 
