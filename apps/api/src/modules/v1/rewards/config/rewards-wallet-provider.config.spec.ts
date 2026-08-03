@@ -2,19 +2,24 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { resolveRewardsWalletPaymentProvider } from './rewards-wallet-provider.config';
 
 describe('resolveRewardsWalletPaymentProvider', () => {
-  const originalMonnify = process.env.REWARDS_WALLET_NG_PROVIDER;
+  const originalNgProvider = process.env.NG_PAYMENTS_PROVIDER;
 
   afterEach(() => {
-    if (originalMonnify === undefined) {
-      delete process.env.REWARDS_WALLET_NG_PROVIDER;
+    if (originalNgProvider === undefined) {
+      delete process.env.NG_PAYMENTS_PROVIDER;
     } else {
-      process.env.REWARDS_WALLET_NG_PROVIDER = originalMonnify;
+      process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
     }
   });
 
-  it('uses Nomba/Monnify when tenant country is NG regardless of wallet currency', () => {
-    process.env.REWARDS_WALLET_NG_PROVIDER = 'nomba';
+  it('uses Nomba when tenant country is NG and NG_PAYMENTS_PROVIDER=nomba', () => {
+    process.env.NG_PAYMENTS_PROVIDER = 'nomba';
     expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.NOMBA);
+  });
+
+  it('uses Monnify when tenant country is NG and NG_PAYMENTS_PROVIDER=monnify', () => {
+    process.env.NG_PAYMENTS_PROVIDER = 'monnify';
+    expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.MONNIFY);
   });
 
   it('uses Noah for non-NG tenant countries regardless of wallet currency', () => {

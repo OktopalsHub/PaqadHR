@@ -40,7 +40,7 @@ export class TenantWalletService {
 
     let wallet = await repo.findOne({ where: { tenantId } });
     if (wallet) {
-      return this.syncWalletCurrencyIfSafe(tenantId, wallet, repo);
+      return this.syncWalletCurrencyIfSafe(tenantId, wallet, manager);
     }
 
     let currencyCode = 'USD';
@@ -83,9 +83,16 @@ export class TenantWalletService {
   private async syncWalletCurrencyIfSafe(
     tenantId: string,
     wallet: TenantWallet,
-    walletRepo: Pick<ReturnType<DataSource['getRepository']>, 'save'>,
+    manager?: EntityManager,
   ): Promise<TenantWallet> {
-    const transactionCount = await this.dataSource.getRepository(TenantWalletTransaction).count({
+    const walletRepo = manager
+      ? manager.getRepository(TenantWallet)
+      : this.dataSource.getRepository(TenantWallet);
+    const txRepo = manager
+      ? manager.getRepository(TenantWalletTransaction)
+      : this.dataSource.getRepository(TenantWalletTransaction);
+
+    const transactionCount = await txRepo.count({
       where: { tenantWalletId: wallet.id },
     });
     if (isWalletCurrencyLocked(wallet, transactionCount)) {

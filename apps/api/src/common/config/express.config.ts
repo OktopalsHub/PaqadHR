@@ -12,7 +12,7 @@ import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
 
-function isWalletMoneyPath(path: string): boolean {
+export function isWalletMoneyPath(path: string): boolean {
   return /\/api\/v1\/tenants\/[^/]+\/rewards\/wallet\/topup(\/checkout)?\/?$/.test(path);
 }
 
