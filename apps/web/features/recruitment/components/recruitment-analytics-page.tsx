@@ -36,7 +36,7 @@ export function RecruitmentAnalyticsPage() {
   }
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <RecruitmentSectionTabs active="analytics" />
 
       <RecruitmentKpiRow kpis={overview.kpis} />

@@ -147,7 +147,7 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
       .join(' • ') || 'Applications for this role appear here as candidates progress.';
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <PageActions>
         <ViewCareersPageLink />
       </PageActions>

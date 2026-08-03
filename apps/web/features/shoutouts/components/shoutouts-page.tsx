@@ -420,7 +420,7 @@ function ShoutoutsPageContent() {
 
 export function ShoutoutsPage() {
   return (
-    <AppPage className="mx-auto w-full max-w-7xl">
+    <AppPage>
       <ShoutoutsPageContent />
     </AppPage>
   );

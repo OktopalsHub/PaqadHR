@@ -49,7 +49,7 @@ export function RecruitmentPage() {
   }
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <RecruitmentSectionTabs active="roles" />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center lg:flex-nowrap lg:justify-end">

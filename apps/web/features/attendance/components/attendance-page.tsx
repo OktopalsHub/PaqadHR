@@ -33,7 +33,7 @@ export function AttendancePage() {
   }
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <Tabs defaultValue="mine" className="w-full gap-5">
         <div className="overflow-x-auto pb-1">
           <TabsList className="app-segmented-control">

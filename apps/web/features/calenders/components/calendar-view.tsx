@@ -490,7 +490,7 @@ export const CalendarView = () => {
   };
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl">
+    <AppPage>
       <div className="dashboard-panel overflow-hidden rounded-[8px]">
         <CalendarToolbar
           selectedTypes={selectedTypes}

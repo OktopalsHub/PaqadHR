@@ -353,7 +353,7 @@ export function PayrollPage() {
 
   if (isLoading) {
     return (
-      <AppPage className="mx-auto w-full max-w-7xl">
+      <AppPage>
         <LoadingBlock />
       </AppPage>
     );
@@ -361,7 +361,7 @@ export function PayrollPage() {
 
   if (isError) {
     return (
-      <AppPage className="mx-auto w-full max-w-7xl">
+      <AppPage>
         <Alert variant="destructive">
           <AlertTitle>Unable to load payroll</AlertTitle>
           <AlertDescription>
@@ -385,7 +385,7 @@ export function PayrollPage() {
   const canManagePayroll = canViewTeamPayroll(viewerMemberId, employees, role);
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="overflow-x-auto pb-1">

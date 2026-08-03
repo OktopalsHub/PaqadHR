@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SettingsLoading() {
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <div className="space-y-2">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-9 w-40" />

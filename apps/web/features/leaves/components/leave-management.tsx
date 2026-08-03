@@ -47,7 +47,7 @@ const LeaveManagement = () => {
   }
 
   return (
-    <AppPage className="mx-auto w-full max-w-7xl space-y-6">
+    <AppPage className="space-y-6">
       <PageActions>
         <LeaveRequestDialog open={isRequestLeaveOpen} onOpenChange={setIsRequestLeaveOpen} />
       </PageActions>

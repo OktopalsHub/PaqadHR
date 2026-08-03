@@ -111,7 +111,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
   if (showTrialWelcome) {
     return pageShell(
-      <div className="mx-auto max-w-5xl space-y-8 py-4">
+      <div className="w-full space-y-8 py-4">
         <div className="space-y-2 text-center">
           {isMarketing ? (
             <p className="text-sm font-medium text-primary">Pricing</p>
@@ -220,7 +220,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   }
 
   return pageShell(
-    <div className="mx-auto max-w-5xl space-y-8 py-4">
+    <div className="w-full space-y-8 py-4">
       <div className="space-y-2 text-center">
         {isMarketing ? <p className="text-sm font-medium text-primary">Pricing</p> : null}
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
