@@ -76,7 +76,7 @@ jobs:
          # DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
 
   build-and-publish:
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     needs: lint-and-test
     runs-on: ubuntu-latest
     permissions:
@@ -108,7 +108,6 @@ jobs:
           tags: |
             type=ref,event=branch
             type=sha,format=short
-            latest
 
       - name: Build and push API image
         uses: docker/build-push-action@v5

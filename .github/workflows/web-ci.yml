@@ -1,10 +1,11 @@
-name: Web — Check and Build
+name: Web — Check, Build and Publish
 
 on:
   push:
     branches: [main, dev]
     paths:
       - 'apps/web/**'
+      - 'constants/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -14,6 +15,7 @@ on:
     branches: [main, dev]
     paths:
       - 'apps/web/**'
+      - 'constants/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -35,6 +37,18 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
+      - name: Resolve public env for target branch
+        id: env
+        run: |
+          TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          if [ "$TARGET" = "main" ]; then
+            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -46,6 +60,11 @@ jobs:
 
       - name: Build web
         run: pnpm --filter web build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
+          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
+          NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
 
   cf-build:
     runs-on: ubuntu-latest
@@ -61,10 +80,106 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
 
+      - name: Resolve public env for target branch
+        id: env
+        run: |
+          TARGET="${GITHUB_BASE_REF:-$GITHUB_REF_NAME}"
+          if [ "$TARGET" = "main" ]; then
+            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: OpenNext Cloudflare build
         run: pnpm --filter web cf:build
         env:
-          NEXT_PUBLIC_API_URL: https://api-dev.paqadhr.com
+          NEXT_PUBLIC_API_URL: ${{ steps.env.outputs.api_url }}
+          NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
+          NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
+          NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+
+  build-and-publish:
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+    needs: check-and-build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Lowercase repository name
+        run: |
+          REPO_LC=${GITHUB_REPOSITORY,,}
+          echo "REPO=${REPO_LC}" >> $GITHUB_ENV
+          echo "PACKAGE_NAME=${REPO_LC##*/}-web" >> $GITHUB_ENV
+
+      - name: Resolve public env for branch
+        id: env
+        run: |
+          if [ "${GITHUB_REF_NAME}" = "main" ]; then
+            echo "api_url=https://api.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://paqadhr.com" >> "$GITHUB_OUTPUT"
+          else
+            echo "api_url=https://api-dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+            echo "app_url=https://dev.paqadhr.com" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ env.REPO }}-web
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ steps.env.outputs.api_url }}
+            NEXT_PUBLIC_APP_URL=${{ steps.env.outputs.app_url }}
+            NEXT_PUBLIC_APP_DOMAIN=paqadhr.com
+            NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS=true
+            NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
+            NEXT_PUBLIC_R2_PUBLIC_URL=${{ secrets.NEXT_PUBLIC_R2_PUBLIC_URL }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Prune untagged GHCR manifests
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ env.PACKAGE_NAME }}
+          package-type: container
+          delete-only-untagged-versions: true
+          min-versions-to-keep: 5
+
+      - name: Trigger Dokploy webhook
+        env:
+          DOKPLOY_WEB_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEB_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DOKPLOY_WEB_WEBHOOK_URL" ]; then
+            curl -fsS -X POST "$DOKPLOY_WEB_WEBHOOK_URL"
+          else
+            echo "DOKPLOY_WEB_WEBHOOK_URL not set — skipping deploy trigger"
+          fi
