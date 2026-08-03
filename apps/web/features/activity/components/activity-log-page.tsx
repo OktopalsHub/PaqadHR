@@ -6,6 +6,7 @@ import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
+import { LeavePagination } from '@/features/leaves/components/leave-pagination';
 import { useTenantActivities } from '@/hooks/queries/use-activities';
 import type { TenantActivity } from '@/lib/api/activities';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
@@ -16,7 +17,10 @@ import {
   getActivityCategory,
   groupActivitiesByDay,
 } from '../lib/activity-format';
+import { ActivityDetailDialog } from './activity-detail-dialog';
 import { ActivityLogItem } from './activity-log-item';
+
+const PAGE_SIZE = 20;
 
 const FILTERS: Array<{ value: ActivityCategory; label: string }> = [
   { value: 'all', label: 'All' },
@@ -28,24 +32,42 @@ const FILTERS: Array<{ value: ActivityCategory; label: string }> = [
   { value: 'org', label: 'People & org' },
 ];
 
+const CATEGORY_RESOURCE_TYPE: Partial<Record<ActivityCategory, string>> = {
+  leave: 'leave',
+  payroll: 'payroll',
+  settings: 'settings',
+  shoutouts: 'shoutout',
+};
+
 function filterActivities(items: TenantActivity[], category: ActivityCategory): TenantActivity[] {
   if (category === 'all') return items;
+  if (CATEGORY_RESOURCE_TYPE[category]) return items;
   return items.filter((item) => getActivityCategory(item) === category);
 }
 
 export function ActivityLogPage() {
   const { tenant } = useTenant();
   const [filter, setFilter] = useState<ActivityCategory>('all');
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<TenantActivity | null>(null);
   const isAdmin = isTenantAdmin(tenant?.member?.role);
 
+  const resourceType = CATEGORY_RESOURCE_TYPE[filter];
   const { data, isLoading, isError, refetch, isFetching } = useTenantActivities({
     enabled: isAdmin,
-    limit: 100,
+    page,
+    limit: PAGE_SIZE,
+    resourceType,
   });
 
   const items = useMemo(() => filterActivities(data?.items ?? [], filter), [data?.items, filter]);
-
   const groups = useMemo(() => groupActivitiesByDay(items), [items]);
+  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
+
+  const handleFilterChange = (next: ActivityCategory) => {
+    setFilter(next);
+    setPage(1);
+  };
 
   if (!isAdmin) {
     return (
@@ -92,7 +114,7 @@ export function ActivityLogPage() {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setFilter(option.value)}
+                    onClick={() => handleFilterChange(option.value)}
                     className={cn(
                       'rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors',
                       filter === option.value
@@ -162,18 +184,26 @@ export function ActivityLogPage() {
                 </div>
                 <div className="space-y-2">
                   {group.items.map((activity) => (
-                    <ActivityLogItem
-                      key={activity.id}
-                      activity={activity}
-                      tenantSlug={tenant?.slug ?? ''}
-                    />
+                    <ActivityLogItem key={activity.id} activity={activity} onSelect={setSelected} />
                   ))}
                 </div>
               </section>
             ))
           )}
         </div>
+
+        {(data?.total ?? 0) > PAGE_SIZE ? (
+          <LeavePagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        ) : null}
       </ContentCard>
+
+      <ActivityDetailDialog
+        activity={selected}
+        open={Boolean(selected)}
+        onOpenChange={(open) => {
+          if (!open) setSelected(null);
+        }}
+      />
     </AppPage>
   );
 }
