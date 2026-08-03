@@ -1,5 +1,6 @@
 export enum BillingProvider {
   NOMBA = 'nomba',
+  MONNIFY = 'monnify',
   BACHS = 'bachs',
   POLAR = 'polar',
 }

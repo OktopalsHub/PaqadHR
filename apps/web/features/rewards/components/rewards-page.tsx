@@ -71,12 +71,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const settings = tenantSettings?.settings?.rewards;
+  const defaultCatalogCountry = tenant?.countryCode?.toUpperCase() || 'US';
 
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
 
-  const catalogCountries = (settings?.catalogCountries ?? ['NG']) as string[];
+  const catalogCountries = (
+    settings?.catalogCountries?.length ? settings.catalogCountries : [defaultCatalogCountry]
+  ) as string[];
 
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
   const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog();
@@ -88,9 +91,11 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const deleteCustomReward = useDeleteCustomReward();
 
   // Top-up (Airtime/Data) States
-  const [selectedCountryCode, setSelectedCountryCode] = useState(catalogCountries[0] || 'NG');
+  const [selectedCountryCode, setSelectedCountryCode] = useState(
+    catalogCountries[0] || defaultCatalogCountry,
+  );
   const [digitalCardsCountryCode, setDigitalCardsCountryCode] = useState(
-    catalogCountries[0] || 'NG',
+    catalogCountries[0] || defaultCatalogCountry,
   );
   const [airtimePhone, setAirtimePhone] = useState('');
   const [airtimeNetwork, setAirtimeNetwork] = useState<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE'>('MTN');
@@ -218,7 +223,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   }, [airtimeAmount, selectedReloadlyOperator, selectedCountryCode]);
 
   // Utility Bill States
-  const [utilityCountryCode, setUtilityCountryCode] = useState(catalogCountries[0] || 'NG');
+  const [utilityCountryCode, setUtilityCountryCode] = useState(
+    catalogCountries[0] || defaultCatalogCountry,
+  );
   const [selectedUtilityBillerNg, setSelectedUtilityBillerNg] = useState('EKEDC');
   const [selectedUtilityBillerReloadlyId, setSelectedUtilityBillerReloadlyId] =
     useState<string>('');

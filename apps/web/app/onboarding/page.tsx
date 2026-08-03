@@ -15,15 +15,15 @@ export default function OnboardingPage() {
     <OnboardingGate>
       <div
         className={cn(
-          'grid h-full w-full gap-3 xl:items-stretch',
+          'grid h-full w-full min-w-0 gap-4 lg:gap-5 xl:items-stretch',
           isExpandedStep
-            ? 'xl:grid-cols-[minmax(16rem,0.88fr)_52rem] xl:gap-9 2xl:grid-cols-[minmax(16rem,0.92fr)_56rem] 2xl:gap-10'
-            : 'xl:grid-cols-[minmax(18rem,1fr)_43rem] xl:gap-12 2xl:grid-cols-[minmax(18rem,1fr)_45rem] 2xl:gap-14',
+            ? 'xl:grid-cols-[minmax(16rem,0.84fr)_minmax(0,1.16fr)] xl:gap-6 2xl:grid-cols-[minmax(17rem,0.9fr)_minmax(0,56rem)] 2xl:gap-8'
+            : 'xl:grid-cols-[minmax(18rem,0.95fr)_minmax(0,1.05fr)] xl:gap-8 2xl:grid-cols-[minmax(18rem,1fr)_minmax(0,45rem)] 2xl:gap-10',
         )}
       >
         <section
           className={cn(
-            'relative h-full overflow-hidden rounded-[28px] border border-white/16 bg-[linear-gradient(155deg,#062723_0%,#0b4b40_42%,#00a070_100%)] text-white shadow-[0_48px_140px_-80px_rgba(6,24,24,0.92)]',
+            'relative hidden h-full min-w-0 overflow-hidden rounded-[28px] border border-white/16 bg-[linear-gradient(155deg,#062723_0%,#0b4b40_42%,#00a070_100%)] text-white shadow-[0_48px_140px_-80px_rgba(6,24,24,0.92)] sm:block',
             isExpandedStep ? 'p-4 sm:p-5' : 'p-5 sm:p-6',
           )}
         >
@@ -69,7 +69,7 @@ export default function OnboardingPage() {
 
             <div
               className={cn(
-                'grid sm:grid-cols-2 xl:grid-cols-2',
+                'grid sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2',
                 isExpandedStep ? 'mt-auto gap-2 pt-6' : 'mt-auto gap-2.5',
               )}
             >
@@ -140,8 +140,10 @@ export default function OnboardingPage() {
 
         <div
           className={cn(
-            'w-full xl:justify-self-end',
-            isExpandedStep ? 'xl:w-[52rem] 2xl:w-[56rem]' : 'xl:w-[43rem] 2xl:w-[45rem]',
+            'min-w-0 w-full xl:justify-self-end',
+            isExpandedStep
+              ? 'xl:max-w-[52rem] 2xl:max-w-[56rem]'
+              : 'xl:max-w-[43rem] 2xl:max-w-[45rem]',
           )}
         >
           <OnboardingWizard step={step} onStepChange={setStep} />

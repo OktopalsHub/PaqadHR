@@ -2,6 +2,7 @@ const EURO_COUNTRY_CODES = new Set([
   'AD',
   'AT',
   'BE',
+  'BG',
   'CY',
   'DE',
   'EE',

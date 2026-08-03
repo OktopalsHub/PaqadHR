@@ -11,15 +11,37 @@ import {
   tenantUrl,
 } from '@/lib/navigation/tenant-routes';
 import { buildContentSecurityPolicy } from './lib/security/content-security-policy';
+import { CSP_NONCE_HEADER } from './lib/security/csp-nonce';
 
-function applySecurityHeaders(response: NextResponse, requestHost?: string): void {
-  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost));
+function createNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function createRenderRequestHeaders(
+  request: NextRequest,
+  requestHost: string,
+  nonce: string,
+): Headers {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(CSP_NONCE_HEADER, nonce);
+  requestHeaders.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost, nonce));
+  return requestHeaders;
+}
+
+function applySecurityHeaders(response: NextResponse, requestHost: string, nonce: string): void {
+  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost, nonce));
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 }
 
 export function middleware(request: NextRequest) {
+  const nonce = createNonce();
   const requestHost = request.nextUrl.hostname;
   const hostHeader = request.headers.get('host') ?? requestHost;
   const pathname = request.nextUrl.pathname;
@@ -29,7 +51,7 @@ export function middleware(request: NextRequest) {
     const destination = rewriteLegacyAppPath(pathname, slug);
     if (destination !== pathname) {
       const redirect = NextResponse.redirect(new URL(destination, request.url));
-      applySecurityHeaders(redirect, requestHost);
+      applySecurityHeaders(redirect, requestHost, nonce);
       return redirect;
     }
   }
@@ -42,7 +64,7 @@ export function middleware(request: NextRequest) {
         const apexOrigin = marketingOriginFromHost(hostHeader);
         const destination = new URL(`${pathname}${request.nextUrl.search}`, apexOrigin);
         const redirect = NextResponse.redirect(destination);
-        applySecurityHeaders(redirect, requestHost);
+        applySecurityHeaders(redirect, requestHost, nonce);
         return redirect;
       }
 
@@ -50,8 +72,11 @@ export function middleware(request: NextRequest) {
         pathname === `/${slugFromHost}` || pathname.startsWith(`/${slugFromHost}/`);
       if (!alreadyPrefixed) {
         const internalPath = pathname === '/' ? `/${slugFromHost}` : `/${slugFromHost}${pathname}`;
-        const rewrite = NextResponse.rewrite(new URL(internalPath, request.url));
-        applySecurityHeaders(rewrite, requestHost);
+        const rewriteHeaders = createRenderRequestHeaders(request, requestHost, nonce);
+        const rewrite = NextResponse.rewrite(new URL(internalPath, request.url), {
+          request: { headers: rewriteHeaders },
+        });
+        applySecurityHeaders(rewrite, requestHost, nonce);
         return rewrite;
       }
     } else if (isApexHost(hostHeader)) {
@@ -60,14 +85,16 @@ export function middleware(request: NextRequest) {
         const rest = pathname.slice(`/${legacySlug}`.length) || '/';
         const destination = tenantUrl(legacySlug, rest);
         const redirect = NextResponse.redirect(destination, 301);
-        applySecurityHeaders(redirect, requestHost);
+        applySecurityHeaders(redirect, requestHost, nonce);
         return redirect;
       }
     }
   }
 
-  const response = NextResponse.next();
-  applySecurityHeaders(response, requestHost);
+  const response = NextResponse.next({
+    request: { headers: createRenderRequestHeaders(request, requestHost, nonce) },
+  });
+  applySecurityHeaders(response, requestHost, nonce);
   return response;
 }
 

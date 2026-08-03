@@ -10,13 +10,16 @@ function createSearchParams(tab: string | null) {
   };
 }
 
-test('shoutouts feed and tasks stay accessible without integrations gating', () => {
-  assert.equal(getFeatureForRoute('/pikolob/shoutouts', createSearchParams('feed')), null);
-  assert.equal(getFeatureForRoute('/pikolob/shoutouts', createSearchParams('tasks')), null);
-  assert.equal(getFeatureForRoute('/pikolob/shoutouts', createSearchParams(null)), null);
-});
-
-test('shoutouts rewards tabs still require integrations access', () => {
+test('shoutouts route stays gated behind integrations access', () => {
+  assert.equal(
+    getFeatureForRoute('/pikolob/shoutouts', createSearchParams('feed')),
+    'INTEGRATIONS',
+  );
+  assert.equal(
+    getFeatureForRoute('/pikolob/shoutouts', createSearchParams('tasks')),
+    'INTEGRATIONS',
+  );
+  assert.equal(getFeatureForRoute('/pikolob/shoutouts', createSearchParams(null)), 'INTEGRATIONS');
   assert.equal(
     getFeatureForRoute('/pikolob/shoutouts', createSearchParams('redeem')),
     'INTEGRATIONS',

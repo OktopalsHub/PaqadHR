@@ -128,6 +128,11 @@ export class TenantConfigService {
     }
   }
 
+  async requireIdentityForPayroll(tenantId: string): Promise<boolean> {
+    const settings = await this.getSettingsRecord(tenantId);
+    return settings?.settings.employee?.requireIdentityForPayroll === true;
+  }
+
   getGloballySupportedFiatCurrencies(): readonly string[] {
     return [...NOMBA_FIAT_CURRENCIES, ...NOAH_FIAT_CURRENCIES];
   }

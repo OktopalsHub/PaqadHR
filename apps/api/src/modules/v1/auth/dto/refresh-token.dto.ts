@@ -2,7 +2,9 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 
 export class RefreshTokenDto {
-  @ApiPropertyOptional({ description: 'Optional when refresh_token httpOnly cookie is set' })
+  @ApiPropertyOptional({
+    description: 'Development only; production requires refresh_token httpOnly cookie',
+  })
   @IsOptional()
   @IsString()
   refreshToken?: string;

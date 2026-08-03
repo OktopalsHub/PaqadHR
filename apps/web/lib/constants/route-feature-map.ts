@@ -4,8 +4,6 @@ type SearchParamsLike = {
   get(name: string): string | null;
 };
 
-const NO_ROUTE_FEATURE_REQUIRED = Symbol('NO_ROUTE_FEATURE_REQUIRED');
-
 const ROUTE_FEATURES = {
   advancedReporting: 'ADVANCED_REPORTING' as FeatureAccess,
   attendance: 'ATTENDANCE' as FeatureAccess,
@@ -17,6 +15,7 @@ const ROUTE_FEATURES = {
 export const ROUTE_FEATURE_MAP: Partial<Record<string, FeatureAccess>> = {
   analytics: ROUTE_FEATURES.advancedReporting,
   integrations: ROUTE_FEATURES.integrations,
+  shoutouts: ROUTE_FEATURES.integrations,
   attendance: ROUTE_FEATURES.attendance,
   schedule: ROUTE_FEATURES.attendance,
   calendar: ROUTE_FEATURES.attendance,
@@ -39,7 +38,7 @@ const SHOUTOUT_TAB_FEATURE_MAP: Partial<Record<string, FeatureAccess>> = {
 function getScopedTabFeature(
   pathname: string,
   searchParams?: SearchParamsLike | null,
-): FeatureAccess | typeof NO_ROUTE_FEATURE_REQUIRED | null {
+): FeatureAccess | null {
   const tab = searchParams?.get('tab');
 
   const segments = pathname.split('/').filter(Boolean);
@@ -51,10 +50,10 @@ function getScopedTabFeature(
 
   if (segments.includes('shoutouts')) {
     if (!tab) {
-      return NO_ROUTE_FEATURE_REQUIRED;
+      return null;
     }
 
-    return SHOUTOUT_TAB_FEATURE_MAP[tab] ?? NO_ROUTE_FEATURE_REQUIRED;
+    return SHOUTOUT_TAB_FEATURE_MAP[tab] ?? null;
   }
 
   return null;
@@ -65,10 +64,6 @@ export function getFeatureForRoute(
   searchParams?: SearchParamsLike | null,
 ): FeatureAccess | null {
   const scopedFeature = getScopedTabFeature(pathname, searchParams);
-  if (scopedFeature === NO_ROUTE_FEATURE_REQUIRED) {
-    return null;
-  }
-
   if (scopedFeature) {
     return scopedFeature;
   }

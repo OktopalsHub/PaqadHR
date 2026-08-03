@@ -5,6 +5,9 @@ PaqadHR is an all-in-one HR platform for growing companies. One workspace to man
 ## Documentation
 * **Product docs**: [https://hackmd.io/@mbazudaniel/paqadhr](https://hackmd.io/@mbazudaniel/paqadhr)
 * **Architecture**: [https://hackmd.io/@mbazudaniel/paqadhr-architecture](https://hackmd.io/@mbazudaniel/paqadhr-architecture)
+* **AI agents start here**: [AGENTS.md](./AGENTS.md)
+* **Security mandate (mandatory)**: [SECURITY.md](./SECURITY.md)
+* **Performance rules (mandatory)**: [PERFORMANCE.md](./PERFORMANCE.md)
 
 **Live demo**: [https://dev.paqadhr.com](https://dev.paqadhr.com)  
 

@@ -506,7 +506,7 @@ export const CalendarView = () => {
         ) : isError ? (
           <div className="p-5">
             <Alert variant="destructive">
-              <AlertTitle>Unable to load schedule</AlertTitle>
+              <AlertTitle>Unable to load calendar</AlertTitle>
               <AlertDescription>
                 {error instanceof Error ? error.message : 'Something went wrong'}
               </AlertDescription>

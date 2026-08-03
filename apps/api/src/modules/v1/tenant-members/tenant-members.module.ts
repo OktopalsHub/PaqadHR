@@ -1,5 +1,6 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { EncryptionModule } from '../../../common/modules/encryption.module';
 import { FileModule } from '../../../common/modules/file.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { Department } from '../departments/entities/department.entity';
@@ -29,6 +30,7 @@ import { TenantMembersService } from './tenant-members.service';
       Department,
     ]),
     FileModule,
+    EncryptionModule,
     forwardRef(() => ActivitiesModule),
   ],
   controllers: [TenantMembersController, PublicTenantMembersController],

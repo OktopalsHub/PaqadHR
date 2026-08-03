@@ -8,8 +8,10 @@ import {
   IsIn,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUrl,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -246,6 +248,24 @@ export class BillingSettingsDto {
   @IsOptional()
   @IsString()
   country?: string;
+
+  @ApiProperty({
+    description: 'Workspace BVN for virtual accounts and compliance',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/, { message: 'BVN must be 11 digits' })
+  identityBvn?: string;
+
+  @ApiProperty({
+    description: 'Workspace NIN for compliance',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{11}$/, { message: 'NIN must be 11 digits' })
+  identityNin?: string;
 }
 export class GeneralSettingsDto {
   @ApiProperty({
@@ -337,6 +357,13 @@ export class EmployeeSettingsDto {
   @Min(1)
   @Max(10)
   numberPadding?: number;
+
+  @ApiProperty({
+    description: 'Require employee BVN or NIN before payroll payout',
+    required: false,
+  })
+  @IsOptional()
+  requireIdentityForPayroll?: boolean;
 }
 export class HolidayDto {
   @ApiProperty({
@@ -499,13 +526,21 @@ export class RewardsSettingsDto {
   @IsBoolean()
   enabled?: boolean;
 
-  @ApiProperty({ description: 'Points-to-currency exchange rate', example: 1, required: false })
+  @ApiProperty({
+    description: 'Points-to-currency exchange rate',
+    example: 0.75,
+    required: false,
+  })
   @IsOptional()
   @IsNumber()
-  @Min(1)
+  @IsPositive()
   pointsExchangeRate?: number;
 
-  @ApiProperty({ description: 'The currency code for rewards', example: 'NGN', required: false })
+  @ApiProperty({
+    description: 'Workspace currency used for rewards pricing',
+    example: 'USD',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   @IsIn([...SUPPORTED_FIAT_CURRENCIES])

@@ -5,13 +5,13 @@ import { fetchEmployeeById, fetchEmployees, updateEmployeeMemberStatus } from '@
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function useEmployees() {
+export function useEmployees(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.employees.all, tenantId],
     queryFn: fetchEmployees,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     staleTime: 60_000,
   });
 }

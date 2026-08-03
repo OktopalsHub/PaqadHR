@@ -3,6 +3,7 @@ type ContentSecurityPolicyOptions = {
   brandOrigin: string;
   isDevelopment: boolean;
   r2PublicOrigin?: string;
+  scriptNonce?: string;
 };
 
 export function buildContentSecurityPolicyFromSources(
@@ -37,10 +38,15 @@ export function buildContentSecurityPolicyFromSources(
 
   const scriptSources = [
     "'self'",
-    "'unsafe-inline'",
     'https://challenges.cloudflare.com',
     'https://static.cloudflareinsights.com',
   ];
+
+  if (options.scriptNonce) {
+    scriptSources.push(`'nonce-${options.scriptNonce}'`);
+  } else if (options.isDevelopment) {
+    scriptSources.push("'unsafe-inline'");
+  }
 
   if (options.isDevelopment) {
     scriptSources.push("'unsafe-eval'");

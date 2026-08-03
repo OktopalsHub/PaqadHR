@@ -53,24 +53,33 @@ const LeaveManagement = () => {
       </PageActions>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Pending" value={pendingCount} hint="Awaiting review" icon={Clock} />
+        <StatCard
+          label="Pending"
+          value={pendingCount}
+          hint="Awaiting review"
+          icon={Clock}
+          iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
+        />
         <StatCard
           label="Approved"
           value={approvedCount}
           hint="Confirmed requests"
           icon={CheckCircle2}
+          iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
         />
         <StatCard
           label="Rejected / cancelled"
           value={closedCount}
           hint="Closed requests"
           icon={XCircle}
+          iconClassName="bg-rose-500/12 text-rose-700 dark:bg-rose-500/18 dark:text-rose-200"
         />
         <StatCard
           label="Total requests"
           value={leaveRequests.length}
           hint="All time"
           icon={CalendarClock}
+          iconClassName="bg-sky-500/12 text-sky-700 dark:bg-sky-500/18 dark:text-sky-200"
         />
       </div>
 

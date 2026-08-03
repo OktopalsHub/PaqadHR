@@ -11,9 +11,12 @@ import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import { isWalletCurrencyLocked } from 'src/common/utils/rewards-defaults.util';
 import { IsNull, Repository } from 'typeorm';
 import { Employment } from '../employment/entities/employment.entity';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
+import { TenantWallet } from '../rewards/entities/tenant-wallet.entity';
+import { TenantWalletTransaction } from '../rewards/entities/tenant-wallet-transaction.entity';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { UsersService } from '../users/users.service';
 import type { CreateTenantDto } from './dto/create-tenant.dto';
@@ -31,6 +34,10 @@ export class TenantsService {
     readonly _fileUrlService: FileUrlService,
     @InjectRepository(Employment)
     private readonly employmentRepository: Repository<Employment>,
+    @InjectRepository(TenantWallet)
+    private readonly walletRepository: Repository<TenantWallet>,
+    @InjectRepository(TenantWalletTransaction)
+    private readonly walletTransactionRepository: Repository<TenantWalletTransaction>,
   ) {}
   async createTenant(creatorId: string, data: CreateTenantDto): Promise<Tenant> {
     try {
@@ -175,6 +182,11 @@ export class TenantsService {
       }
       updateTenantDto.countryCode = normalizedCountry;
     }
+    await this.assertRewardsWalletAllowsTenantProfileChange(
+      tenantId,
+      existingTenant,
+      updateTenantDto,
+    );
     if (updateTenantDto.preferredCurrency) {
       const next = updateTenantDto.preferredCurrency.toUpperCase();
       updateTenantDto.preferredCurrency = next;
@@ -243,6 +255,42 @@ export class TenantsService {
   async getTenantByInviteCode(inviteCode: string): Promise<Tenant | null> {
     return this.tenantRepository.findByInviteCode(inviteCode);
   }
+
+  private async assertRewardsWalletAllowsTenantProfileChange(
+    tenantId: string,
+    existingTenant: Tenant,
+    updateTenantDto: UpdateTenantDto,
+  ): Promise<void> {
+    const wallet = await this.walletRepository.findOne({ where: { tenantId } });
+    if (!wallet) {
+      return;
+    }
+
+    const transactionCount = await this.walletTransactionRepository.count({
+      where: { tenantWalletId: wallet.id },
+    });
+    if (!isWalletCurrencyLocked(wallet, transactionCount)) {
+      return;
+    }
+
+    const currentCurrency = (existingTenant.preferredCurrency || 'USD').toUpperCase();
+    const nextCurrency = updateTenantDto.preferredCurrency?.toUpperCase();
+    const currencyChanging = Boolean(nextCurrency && nextCurrency !== currentCurrency);
+
+    const currentCountry = GeoLocationHelper.toStoredCountryCode(existingTenant.countryCode) ?? '';
+    const nextCountry =
+      updateTenantDto.countryCode !== undefined
+        ? GeoLocationHelper.toStoredCountryCode(updateTenantDto.countryCode)
+        : currentCountry;
+    const countryChanging = nextCountry !== currentCountry;
+
+    if (currencyChanging || countryChanging) {
+      throw new BadRequestException(
+        `Rewards wallet has activity in ${wallet.currencyCode.toUpperCase()}. Spend the balance before changing workspace country or currency.`,
+      );
+    }
+  }
+
   private async resolveSlug(rawSlug: string | undefined, name: string): Promise<string> {
     if (rawSlug?.trim()) {
       const slug = StringUtility.slugify(rawSlug.trim());

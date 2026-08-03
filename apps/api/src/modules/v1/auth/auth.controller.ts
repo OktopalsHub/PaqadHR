@@ -126,7 +126,10 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ message: string }> {
-    const refreshToken = body.refreshToken || req.cookies.refresh_token;
+    const isProduction = (process.env.NODE_ENV || 'development') === 'production';
+    const refreshToken = isProduction
+      ? req.cookies.refresh_token
+      : body.refreshToken || req.cookies.refresh_token;
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }

@@ -31,6 +31,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     resumeExternalSubscription: jest.fn().mockResolvedValue(undefined),
   };
   const nombaApi = { verifyTransaction: jest.fn() };
+  const monnifyApi = { verifyTransaction: jest.fn() };
   const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
   const tenantSettingsService = { getTenantSettings: jest.fn() };
   const plansService = { getPlanPriceById: jest.fn() };
@@ -53,6 +54,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   const service = new SubscriptionBillingService(
     billingProviderFactory as never,
     nombaApi as never,
+    monnifyApi as never,
     subscriptionsService as never,
     tenantSettingsService as never,
     plansService as never,

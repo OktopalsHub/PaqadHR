@@ -146,7 +146,7 @@ export function AddCalendarEventDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add schedule event</DialogTitle>
+          <DialogTitle>Add calendar event</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">

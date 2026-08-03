@@ -9,24 +9,24 @@ import type { CreateShoutoutInput, Shoutout, ShoutoutFeed } from '@/lib/schemas/
 import { useAuth } from '@/providers/auth-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function useShoutouts() {
+export function useShoutouts(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.shoutouts.all, tenantId],
     queryFn: () => fetchShoutouts({ limit: 50 }),
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     staleTime: 30_000,
   });
 }
 
-export function useShoutoutCategories() {
+export function useShoutoutCategories(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: [...queryKeys.shoutouts.categories, tenantId],
     queryFn: fetchShoutoutCategories,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     staleTime: 60_000,
   });
 }
@@ -114,13 +114,13 @@ export function useCreateShoutout() {
   });
 }
 
-export function useMyPointsBalance() {
+export function useMyPointsBalance(options?: { enabled?: boolean }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
     queryKey: queryKeys.shoutouts.points(tenantId ?? ''),
     queryFn: fetchMyPointsBalance,
-    enabled: !tenantLoading && Boolean(tenantId),
+    enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     staleTime: 30_000,
   });
 }

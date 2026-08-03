@@ -9,6 +9,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
   isAllowedTenantFrontendOrigin,
@@ -75,6 +76,7 @@ export class SubscriptionBillingService {
   constructor(
     private readonly billingProviderFactory: BillingProviderFactoryService,
     private readonly nombaApi: NombaApiService,
+    private readonly monnifyApi: MonnifyApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly plansService: PlansService,
@@ -98,6 +100,12 @@ export class SubscriptionBillingService {
   }
 
   private async verifyPaymentReference(reference: string, provider: BillingProvider) {
+    if (provider === BillingProvider.MONNIFY) {
+      const verified = await this.monnifyApi.verifyTransaction(reference);
+      return verified
+        ? { status: verified.paid ? 'success' : 'pending', amount: verified.amount }
+        : { status: 'pending', amount: 0 };
+    }
     if (provider !== BillingProvider.NOMBA) {
       return { status: 'success', amount: 0 };
     }
@@ -105,7 +113,7 @@ export class SubscriptionBillingService {
   }
 
   private requiresProviderVerification(provider: BillingProvider): boolean {
-    return provider === BillingProvider.NOMBA;
+    return provider === BillingProvider.NOMBA || provider === BillingProvider.MONNIFY;
   }
 
   private requiresCardToken(provider: BillingProvider): boolean {
@@ -285,9 +293,10 @@ export class SubscriptionBillingService {
     }
 
     const providerStatus = event.providerStatus?.toLowerCase();
+    const hasPlanMetadata = !!event.planId && !!event.planPriceId;
     // Checkout with plan metadata = customer subscribed (card on file). Do not map
     // provider "trialing" to our free-app TRIAL — that made Scale look unpaid.
-    if (event.planId && event.planPriceId) {
+    if (hasPlanMetadata) {
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.trialEndsAt = null;
     } else if (providerStatus === 'trialing' || providerStatus === 'trial') {
@@ -305,16 +314,28 @@ export class SubscriptionBillingService {
 
     if (event.currentPeriodStart) {
       const start = new Date(event.currentPeriodStart);
-      if (!Number.isNaN(start.getTime())) subscription.currentPeriodStart = start;
+      if (!Number.isNaN(start.getTime())) {
+        subscription.currentPeriodStart = start;
+        // For a paid subscription that the provider reports as trialing,
+        // the provider's period dates reflect the trial boundary (e.g.
+        // 14 days), not the actual subscription period. Recalculate
+        // currentPeriodEnd as start + 1 month so the active window is
+        // monthly, not the trial length.
+        if (hasPlanMetadata && providerStatus === 'trialing') {
+          const correctEnd = new Date(start);
+          correctEnd.setMonth(correctEnd.getMonth() + 1);
+          subscription.currentPeriodEnd = correctEnd;
+        }
+      }
     }
-    if (event.currentPeriodEnd) {
+    if (event.currentPeriodEnd && !(hasPlanMetadata && providerStatus === 'trialing')) {
       const end = new Date(event.currentPeriodEnd);
       if (!Number.isNaN(end.getTime())) subscription.currentPeriodEnd = end;
     }
-    if (event.nextBillingDate) {
+    if (event.nextBillingDate && !(hasPlanMetadata && providerStatus === 'trialing')) {
       const next = new Date(event.nextBillingDate);
       if (!Number.isNaN(next.getTime())) subscription.nextBillingDate = next;
-    } else if (event.trialEndsAt) {
+    } else if (!hasPlanMetadata && event.trialEndsAt) {
       const trialEnd = new Date(event.trialEndsAt);
       if (!Number.isNaN(trialEnd.getTime())) subscription.nextBillingDate = trialEnd;
     }
@@ -722,6 +743,10 @@ export class SubscriptionBillingService {
 
   async processPolarPayload(payload: unknown): Promise<{ received: boolean }> {
     return this.processBillingPayload(payload, BillingProvider.POLAR);
+  }
+
+  async processMonnifyPayload(payload: unknown): Promise<{ received: boolean }> {
+    return this.processBillingPayload(payload, BillingProvider.MONNIFY);
   }
 
   async syncSubscriptionQuantity(tenantId: string): Promise<void> {

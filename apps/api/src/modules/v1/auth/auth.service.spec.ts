@@ -85,6 +85,10 @@ describe('AuthService', () => {
     const mockRateLimitService = {
       checkRateLimit: jest.fn().mockResolvedValue({ allowed: true, remaining: 3, resetTime: 0 }),
       clearRateLimit: jest.fn(),
+      getLockout: jest.fn().mockResolvedValue(undefined),
+      recordLockoutFailure: jest.fn(),
+      clearLockout: jest.fn(),
+      isLocked: jest.fn().mockReturnValue(false),
     };
     const mockZeptomailEmailService = {
       sendTemplateEmail: jest.fn().mockResolvedValue({ success: true }),
@@ -347,7 +351,7 @@ describe('AuthService', () => {
       expect(jwtService.sign).toHaveBeenCalled();
     });
 
-    it('rejects stale refresh tokens without revoking unrelated sessions', async () => {
+    it('revokes all sessions when a stale refresh token is reused', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'stale-session' });
       userRepository.findUser.mockResolvedValue(mockUser);
       sessionRepository.findOne.mockResolvedValue(null);
@@ -355,10 +359,10 @@ describe('AuthService', () => {
       await expect(authService.refreshToken('stale-refresh')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(sessionRepository.delete).not.toHaveBeenCalled();
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
     });
 
-    it('rejects a repeated refresh attempt after rotation without clearing the active session', async () => {
+    it('revokes all sessions on a repeated refresh attempt after rotation', async () => {
       jwtService.verify.mockReturnValue({ sub: 'user-1', sid: 'old-session' });
       userRepository.findUser.mockResolvedValue(mockUser);
 
@@ -389,7 +393,7 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
       expect(activeSession.token).not.toBe('old-session');
-      expect(sessionRepository.delete).not.toHaveBeenCalled();
+      expect(sessionRepository.delete).toHaveBeenCalledWith({ userId: 'user-1' });
     });
   });
 

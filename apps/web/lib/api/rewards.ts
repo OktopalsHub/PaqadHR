@@ -1,6 +1,9 @@
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
 
+/** Maximum wallet top-up amount per checkout or auto-topup request (mirrors API DTO). */
+export const WALLET_TOPUP_MAX_AMOUNT = 10_000_000;
+
 export type RewardType =
   | 'RELOADLY'
   | 'NOMBA_AIRTIME'
@@ -63,6 +66,8 @@ export interface TenantWallet {
   id: string;
   tenantId: string;
   currencyCode: string;
+  /** True once the wallet has balance or transaction history; currency cannot change. */
+  currencyLocked?: boolean;
   balanceAmount: number;
   pointsExchangeRate: number;
   feePercentage?: number;
@@ -70,11 +75,13 @@ export interface TenantWallet {
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
-  /** Checkout provider for wallet currency (`nomba` | `noah`). */
-  checkoutProvider?: 'nomba' | 'noah';
+  /** Checkout provider for wallet currency (`nomba` | `monnify` | `noah`). */
+  checkoutProvider?: 'nomba' | 'monnify' | 'noah';
   checkoutProviderLabel?: string;
   /** True when checkout runs in live mode for the wallet currency provider. */
   checkoutLive?: boolean;
+  /** False when saved-card top-up / auto-topup is unavailable (e.g. Monnify). */
+  savedCardTopupSupported?: boolean;
   /** @deprecated use checkoutLive */
   nombaLive?: boolean;
 }

@@ -1,7 +1,9 @@
 import { Controller, Get, HttpStatus, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, TenantId } from 'src/common/decorators';
+import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { PaginationUtil } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
@@ -13,6 +15,7 @@ import { MemberPointsService } from '../services/member-points.service';
 
 @ApiTags('Shoutouts')
 @UseGuards(TenantMemberGuard)
+@RequireFeatures(FeatureAccess.INTEGRATIONS)
 @Controller('tenants/:tenantId/member-points')
 export class MemberPointsController {
   constructor(private readonly memberPointsService: MemberPointsService) {}

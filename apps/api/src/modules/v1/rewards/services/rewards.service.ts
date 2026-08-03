@@ -9,6 +9,11 @@ import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
+import {
+  normalizeRewardsCatalogCountries,
+  resolveDefaultRewardsCatalogCountry,
+  resolveInitialWalletCurrency,
+} from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';
@@ -28,6 +33,7 @@ import {
 } from '../entities/reward-redemption.entity';
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
@@ -227,14 +233,31 @@ export class RewardsService {
     const repo = this.dataSource.getRepository(
       (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
     );
-    const row = await repo.findOne({ where: { tenantId } });
+    const [row, tenant, wallet] = await Promise.all([
+      repo.findOne({ where: { tenantId } }),
+      this.dataSource.getRepository(Tenant).findOne({
+        where: { id: tenantId },
+        relations: ['createdBy'],
+      }),
+      this.dataSource.getRepository(TenantWallet).findOne({ where: { tenantId } }),
+    ]);
     const rewards = row?.settings?.rewards;
+    const rewardsCurrency = wallet
+      ? wallet.currencyCode.toUpperCase()
+      : resolveInitialWalletCurrency(tenant?.countryCode, tenant?.preferredCurrency);
+    const defaultCatalogCountry = resolveDefaultRewardsCatalogCountry({
+      tenantCountryCode: tenant?.countryCode,
+      creatorCountryCode: tenant?.createdBy?.countryCode,
+    });
 
     return {
       enabled: rewards?.enabled ?? true,
       pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
-      rewardsCurrency: rewards?.rewardsCurrency ?? 'NGN',
-      catalogCountries: rewards?.catalogCountries ?? ['NG'],
+      rewardsCurrency,
+      catalogCountries: normalizeRewardsCatalogCountries(
+        rewards?.catalogCountries,
+        defaultCatalogCountry,
+      ),
       airtimeEnabled: rewards?.airtimeEnabled ?? true,
       giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
       giftCardCategories: rewards?.giftCardCategories ?? [

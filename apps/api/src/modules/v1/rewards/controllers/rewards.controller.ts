@@ -10,7 +10,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { getNoahEnvironment } from 'src/common/config/noah.config';
 import { isNombaLive } from 'src/common/config/nomba.config';
 import { CurrentTenantMember } from 'src/common/decorators';
 import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
@@ -19,12 +18,13 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
-import {
-  paymentProviderLabel,
-  resolvePaymentProvider,
-} from 'src/common/utils/resolve-payment-provider.util';
+import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import {
+  isRewardsWalletCheckoutLive,
+  resolveRewardsWalletPaymentProvider,
+} from '../config/rewards-wallet-provider.config';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { WalletTopupDto } from '../dto/wallet-topup.dto';
@@ -40,20 +40,20 @@ const ALL_ROLES = [
 ] as const;
 const ADMIN_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN] as const;
 
-function withWalletResponse(
+async function withWalletResponse(
   wallet: Awaited<ReturnType<TenantWalletService['getWallet']>>,
   fees: { feePercentage: number; flatFee: number },
+  tenantCountryCode?: string | null,
+  currencyLocked?: boolean,
 ) {
-  const checkoutProvider = resolvePaymentProvider(wallet.currencyCode);
-  const checkoutLive =
-    checkoutProvider === PaymentProvider.NOMBA
-      ? isNombaLive()
-      : getNoahEnvironment() === 'production';
+  const checkoutProvider = resolveRewardsWalletPaymentProvider(tenantCountryCode);
+  const checkoutLive = isRewardsWalletCheckoutLive(checkoutProvider);
 
   return {
     id: wallet.id,
     tenantId: wallet.tenantId,
     currencyCode: wallet.currencyCode,
+    currencyLocked: currencyLocked ?? false,
     balanceAmount: wallet.balanceAmount,
     pointsExchangeRate: wallet.pointsExchangeRate,
     autoTopupEnabled: wallet.autoTopupEnabled,
@@ -61,9 +61,15 @@ function withWalletResponse(
     autoTopupAmount: wallet.autoTopupAmount,
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
-    checkoutProvider: checkoutProvider === PaymentProvider.NOMBA ? 'nomba' : 'noah',
+    checkoutProvider:
+      checkoutProvider === PaymentProvider.NOMBA
+        ? 'nomba'
+        : checkoutProvider === PaymentProvider.MONNIFY
+          ? 'monnify'
+          : 'noah',
     checkoutProviderLabel: paymentProviderLabel(checkoutProvider),
     checkoutLive,
+    savedCardTopupSupported: checkoutProvider !== PaymentProvider.MONNIFY,
     /** @deprecated use checkoutLive */
     nombaLive: isNombaLive(),
   };
@@ -72,7 +78,6 @@ function withWalletResponse(
 @ApiTags('Rewards')
 @Controller('tenants/:tenantId/rewards')
 @UseGuards(TenantMemberGuard)
-@RequireFeatures(FeatureAccess.INTEGRATIONS)
 export class RewardsController {
   constructor(
     private readonly rewardsService: RewardsService,
@@ -83,6 +88,7 @@ export class RewardsController {
   ) {}
 
   @Get('catalog')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async getCatalog(
@@ -95,6 +101,7 @@ export class RewardsController {
   }
 
   @Post('catalog/sync')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   @ApiOperation({ summary: 'Force sync Reloadly gift catalog into tenant settings' })
@@ -104,6 +111,7 @@ export class RewardsController {
   }
 
   @Get('countries')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async getCountries(@Param('tenantId') tenantId: string) {
@@ -111,6 +119,7 @@ export class RewardsController {
   }
 
   @Post('claim')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async claim(
@@ -122,6 +131,7 @@ export class RewardsController {
   }
 
   @Get('claims/me')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async getMyClaims(
@@ -132,6 +142,7 @@ export class RewardsController {
   }
 
   @Get('claims')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async getAllClaims(@Param('tenantId') tenantId: string) {
@@ -139,15 +150,21 @@ export class RewardsController {
   }
 
   @Get('wallet')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async getWallet(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.getWallet(tenantId);
+    const [tenantCountryCode, currencyLocked] = await Promise.all([
+      this.walletService.getTenantCountryCode(tenantId),
+      this.walletService.isWalletCurrencyLockedForTenant(tenantId),
+    ]);
     const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    return withWalletResponse(wallet, fees);
+    return withWalletResponse(wallet, fees, tenantCountryCode, currencyLocked);
   }
 
   @Get('wallet/transactions')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async getWalletTransactions(@Param('tenantId') tenantId: string) {
@@ -155,6 +172,7 @@ export class RewardsController {
   }
 
   @Post('wallet/topup')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async manualTopup(
@@ -166,6 +184,7 @@ export class RewardsController {
   }
 
   @Post('wallet/topup/checkout')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   @ApiOperation({ summary: 'Create checkout link to fund rewards wallet' })
@@ -178,6 +197,7 @@ export class RewardsController {
   }
 
   @Post('wallet/auto-topup')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async updateAutoTopup(
@@ -213,6 +233,7 @@ export class RewardsController {
   }
 
   @Get('custom')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async listCustomRewards(@Param('tenantId') tenantId: string) {
@@ -220,6 +241,7 @@ export class RewardsController {
   }
 
   @Post('custom')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async createCustomReward(
@@ -238,6 +260,7 @@ export class RewardsController {
   }
 
   @Patch('custom/:rewardId')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async updateCustomReward(
@@ -258,6 +281,7 @@ export class RewardsController {
   }
 
   @Delete('custom/:rewardId')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
   async deleteCustomReward(
@@ -352,6 +376,7 @@ export class RewardsController {
   }
 
   @Get('operators/:countryCode')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async listTopupOperators(@Param('countryCode') countryCode: string) {
@@ -359,6 +384,7 @@ export class RewardsController {
   }
 
   @Get('data-plans/:network')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async listNombaDataPlans(@Param('network') network: string) {
@@ -366,6 +392,7 @@ export class RewardsController {
   }
 
   @Get('utilities/billers/:countryCode')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async listUtilityBillers(@Param('countryCode') countryCode: string) {
@@ -373,6 +400,7 @@ export class RewardsController {
   }
 
   @Post('utilities/lookup')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async lookupUtilityMeter(
@@ -392,6 +420,7 @@ export class RewardsController {
   }
 
   @Get('calculate-points')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async calculatePointsCost(

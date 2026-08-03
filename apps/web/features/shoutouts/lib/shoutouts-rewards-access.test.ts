@@ -4,6 +4,7 @@ import { getShoutoutsRewardsAccessState } from './shoutouts-rewards-access.ts';
 
 test('rewards stay closed while feature access is still loading', () => {
   const state = getShoutoutsRewardsAccessState({
+    activeTab: 'redeem',
     featureAccessLoading: true,
     featureGatingEnabled: false,
     hasFeature: () => {
@@ -12,26 +13,48 @@ test('rewards stay closed while feature access is still loading', () => {
     integrationsFeature: 'INTEGRATIONS',
   });
 
+  assert.equal(state.canAccessShoutouts, false);
   assert.equal(state.canAccessRewards, false);
+  assert.equal(state.feedQueriesEnabled, false);
+  assert.equal(state.rewardsCatalogPrefetchEnabled, false);
+  assert.equal(state.showRewardsContent, false);
+});
+
+test('feed queries stay closed on the feed tab when shoutouts access is denied', () => {
+  const state = getShoutoutsRewardsAccessState({
+    activeTab: 'feed',
+    featureAccessLoading: false,
+    featureGatingEnabled: true,
+    hasFeature: () => false,
+    integrationsFeature: 'INTEGRATIONS',
+  });
+
+  assert.equal(state.canAccessShoutouts, false);
+  assert.equal(state.canAccessRewards, false);
+  assert.equal(state.feedQueriesEnabled, false);
   assert.equal(state.rewardsCatalogPrefetchEnabled, false);
   assert.equal(state.showRewardsContent, false);
 });
 
 test('rewards open when gating is disabled after feature access resolves', () => {
   const state = getShoutoutsRewardsAccessState({
+    activeTab: 'redeem',
     featureAccessLoading: false,
     featureGatingEnabled: false,
     hasFeature: () => false,
     integrationsFeature: 'INTEGRATIONS',
   });
 
+  assert.equal(state.canAccessShoutouts, true);
   assert.equal(state.canAccessRewards, true);
+  assert.equal(state.feedQueriesEnabled, false);
   assert.equal(state.rewardsCatalogPrefetchEnabled, true);
   assert.equal(state.showRewardsContent, true);
 });
 
 test('rewards remain closed when integrations access is denied', () => {
   const state = getShoutoutsRewardsAccessState({
+    activeTab: 'redeem',
     featureAccessLoading: false,
     featureGatingEnabled: true,
     hasFeature: (feature) => {
@@ -41,7 +64,9 @@ test('rewards remain closed when integrations access is denied', () => {
     integrationsFeature: 'INTEGRATIONS',
   });
 
+  assert.equal(state.canAccessShoutouts, false);
   assert.equal(state.canAccessRewards, false);
+  assert.equal(state.feedQueriesEnabled, false);
   assert.equal(state.rewardsCatalogPrefetchEnabled, false);
   assert.equal(state.showRewardsContent, false);
 });

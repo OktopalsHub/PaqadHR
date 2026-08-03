@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { type SignupInput, signupSchema } from '@/lib/schemas/auth';
+import { submitHandledAuthAction } from '../lib/submit-handled-auth-action';
 import { SocialAuthButtons } from './buttons/social-auth-buttons';
 import { PasswordInput } from './form-fields/password-input';
 
@@ -32,8 +33,12 @@ const Register = () => {
     },
   });
 
+  const handleSignupSubmit = form.handleSubmit(async (values) => {
+    await submitHandledAuthAction(() => register(values));
+  });
+
   return (
-    <div className="space-y-6 sm:min-h-[33.5rem]">
+    <div className="space-y-5 sm:space-y-6 xl:min-h-[33.5rem]">
       <div className="space-y-2">
         <h1 className="text-[clamp(1.8rem,2.5vw,2.25rem)] font-semibold tracking-[-0.05em] text-slate-950">
           Create your account
@@ -50,14 +55,14 @@ const Register = () => {
           <Separator className="w-full" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white/90 px-3 text-[10px] font-semibold tracking-[0.18em] text-slate-400">
+          <span className="bg-white/90 px-2.5 text-[10px] font-semibold tracking-[0.18em] text-slate-400 sm:px-3">
             Or continue with email
           </span>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((values) => register(values))} className="space-y-4.5">
+        <form onSubmit={handleSignupSubmit} className="space-y-4.5">
           <FormField
             control={form.control}
             name="email"

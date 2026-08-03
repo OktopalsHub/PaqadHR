@@ -8,6 +8,7 @@ import axios, {
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { prepareApiRequestHeaders } from './api-request-headers';
+import { resolveApiErrorMessage } from './client-error-message';
 import {
   executeFetchWithCsrf,
   type FetchWithCsrfOptions,
@@ -225,9 +226,7 @@ http.interceptors.response.use(
     }
 
     const payload = error.response ? await parseAxiosErrorPayload(error.response) : null;
-    const message =
-      (Array.isArray(payload?.message) ? payload.message.join(', ') : payload?.message) ??
-      `Request failed (${status})`;
+    const message = resolveApiErrorMessage(status, payload);
 
     throw new ApiError(message, status, payload?.code);
   },

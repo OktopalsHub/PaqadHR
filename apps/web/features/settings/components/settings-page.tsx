@@ -15,12 +15,11 @@ import { SettingsRewardsTab } from '@/features/settings/components/settings-rewa
 import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
 import {
-  getAccessibleSettingsTabs,
+  getVisibleSettingsTabs,
   isSettingsTab,
-  resolveAccessibleSettingsTab,
+  resolveSettingsTab,
   SETTINGS_TAB_LABELS,
 } from '@/features/settings/lib/settings-tabs';
-import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { useUrlTab } from '@/hooks/use-url-tab';
 import { FeatureAccess } from '@/lib/constants/feature-access';
 import { useBreadcrumbTail } from '@/providers/breadcrumb-provider';
@@ -28,16 +27,11 @@ import { useTenant } from '@/providers/tenant-provider';
 
 export function SettingsPage() {
   const { tenant } = useTenant();
-  const { hasFeature, featureGatingEnabled } = useFeatureAccess();
   const [activeTab, setTab] = useUrlTab(isSettingsTab, 'profile');
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
-  const availability = {
-    canAccessAttendance: !featureGatingEnabled || hasFeature(FeatureAccess.ATTENDANCE),
-    canAccessIntegrations: !featureGatingEnabled || hasFeature(FeatureAccess.INTEGRATIONS),
-  };
-  const visibleTab = resolveAccessibleSettingsTab(activeTab, isAdmin, availability);
+  const visibleTab = resolveSettingsTab(activeTab, isAdmin);
 
   useEffect(() => {
     if (activeTab !== visibleTab) {
@@ -45,7 +39,7 @@ export function SettingsPage() {
     }
   }, [activeTab, setTab, visibleTab]);
 
-  const visibleTabs = getAccessibleSettingsTabs(isAdmin, availability);
+  const visibleTabs = getVisibleSettingsTabs(isAdmin);
   useBreadcrumbTail(SETTINGS_TAB_LABELS[visibleTab]);
 
   return (
@@ -75,7 +69,9 @@ export function SettingsPage() {
         ) : null}
         {visibleTabs.includes('shoutouts') ? (
           <TabsContent value="shoutouts" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsShoutoutsTab />
+            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+              <SettingsShoutoutsTab />
+            </FeatureGate>
           </TabsContent>
         ) : null}
         {visibleTabs.includes('rewards') ? (

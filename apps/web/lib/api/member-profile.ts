@@ -37,7 +37,18 @@ export type UpdateMemberProfileInput = {
   dateOfBirth?: string;
   gender?: string;
   avatarKey?: string;
+  identityBvn?: string;
+  identityNin?: string;
 };
+
+export async function updateMemberProfileById(memberId: string, input: UpdateMemberProfileInput) {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, `members/${memberId}/profile`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  return memberProfileSchema.parse(formatMemberProfile(data as object));
+}
 
 export async function updateMemberProfile(input: UpdateMemberProfileInput) {
   const tenantId = await resolveTenantId();

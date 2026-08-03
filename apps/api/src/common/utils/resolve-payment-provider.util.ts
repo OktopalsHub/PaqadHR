@@ -1,6 +1,7 @@
 import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { PaymentMethodType } from '../enums/payment-type.enum';
+import { resolveNgPaymentProvider } from './ng-money-provider.util';
 
 export function resolvePaymentProvider(
   currency: string,
@@ -13,12 +14,19 @@ export function resolvePaymentProvider(
   }
 
   if (code === 'NGN') {
-    return PaymentProvider.NOMBA;
+    return resolveNgPaymentProvider();
   }
 
   return PaymentProvider.NOAH;
 }
 
 export function paymentProviderLabel(provider: PaymentProvider): string {
-  return provider === PaymentProvider.NOMBA ? 'Local bank (NGN)' : 'International / crypto (Noah)';
+  switch (provider) {
+    case PaymentProvider.NOMBA:
+      return 'Local bank (NGN)';
+    case PaymentProvider.MONNIFY:
+      return 'Local bank (Monnify)';
+    default:
+      return 'International / crypto (Noah)';
+  }
 }

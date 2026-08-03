@@ -22,6 +22,10 @@ export function resolveNoahSignature(headers: Record<string, string | undefined>
   );
 }
 
+export function resolveMonnifySignature(headers: Record<string, string | undefined>): string {
+  return headers['x-monnify-signature'] ?? headers['monnify-signature'] ?? '';
+}
+
 export function extractNombaEventType(payload: unknown): string {
   const body = payload as { event_type?: string; eventType?: string; event?: string };
   return String(body.event_type || body.eventType || body.event || '').toLowerCase();
@@ -112,4 +116,77 @@ export function extractWalletTopupCheckout(payload: unknown): {
     amount: Number.isFinite(expectedAmount) ? expectedAmount : amountFromOrder || undefined,
     initiatedByMemberId,
   };
+}
+
+function parseMonnifyMeta(raw: unknown): Record<string, string> {
+  if (!raw) return {};
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      return Object.fromEntries(
+        Object.entries(parsed).map(([key, value]) => [key, String(value ?? '')]),
+      );
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === 'object') {
+    return Object.fromEntries(
+      Object.entries(raw as Record<string, unknown>).map(([key, value]) => [
+        key,
+        String(value ?? ''),
+      ]),
+    );
+  }
+  return {};
+}
+
+export function extractMonnifyWalletTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+} | null {
+  const body = payload as {
+    eventType?: string;
+    eventData?: {
+      paymentReference?: string;
+      amountPaid?: number | string;
+      metaData?: unknown;
+    };
+  };
+  const eventType = String(body.eventType ?? '').toUpperCase();
+  if (eventType !== 'SUCCESSFUL_TRANSACTION' && eventType !== 'OVERPAID_TRANSACTION') {
+    return null;
+  }
+  const data = body.eventData ?? {};
+  const meta = parseMonnifyMeta(data.metaData);
+  if (meta.billingType !== 'wallet_topup') {
+    return null;
+  }
+  const tenantId = meta.tenantId;
+  const orderReference = data.paymentReference;
+  if (!tenantId || !orderReference) {
+    return null;
+  }
+  const amount = Number(meta.expectedAmount ?? data.amountPaid ?? 0);
+  return {
+    tenantId,
+    orderReference: String(orderReference),
+    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    initiatedByMemberId: meta.initiatedByMemberId || undefined,
+  };
+}
+
+export function extractMonnifySubscriptionPayment(payload: unknown): boolean {
+  const body = payload as {
+    eventType?: string;
+    eventData?: { metaData?: unknown; product?: { reference?: string } };
+  };
+  const eventType = String(body.eventType ?? '').toUpperCase();
+  if (eventType !== 'SUCCESSFUL_TRANSACTION' && eventType !== 'OVERPAID_TRANSACTION') {
+    return false;
+  }
+  const meta = parseMonnifyMeta(body.eventData?.metaData);
+  return meta.billingType === 'subscription' && Boolean(meta.tenantId);
 }

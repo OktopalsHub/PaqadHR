@@ -9,6 +9,7 @@ import {
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EmploymentStatus, TenantMemberRole } from 'src/common/enums';
+import { EncryptionService } from 'src/common/services/encryption.service';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import type { QueryDeepPartialEntity } from 'typeorm';
 import { In, IsNull, Repository } from 'typeorm';
@@ -52,6 +53,7 @@ export class TenantMembersService {
     @InjectRepository(Department)
     private readonly departmentRepository: Repository<Department>,
     private readonly fileUrlService: FileUrlService,
+    private readonly encryptionService: EncryptionService,
     private readonly activitiesService: ActivitiesService,
     @Optional() private readonly emailQueueService?: EmailQueueService,
   ) {}
@@ -170,6 +172,15 @@ export class TenantMembersService {
     await this.applyProfileUpdates(member, updateDto);
     return this.getTenantMember(member.id, tenantId);
   }
+  async updateTenantMemberProfileById(
+    memberId: string,
+    tenantId: string,
+    updateDto: UpdateMemberProfileDto,
+  ): Promise<TenantMember> {
+    const member = await this.getTenantMember(memberId, tenantId);
+    await this.applyProfileUpdates(member, updateDto);
+    return this.getTenantMember(memberId, tenantId);
+  }
   async updateTenantMemberById(
     memberId: string,
     tenantId: string,
@@ -209,6 +220,16 @@ export class TenantMembersService {
     }
     if (updateDto.gender !== undefined) updateData.gender = updateDto.gender;
     if (updateDto.avatarKey !== undefined) updateData.avatarKey = updateDto.avatarKey;
+    if (updateDto.identityBvn !== undefined) {
+      updateData.identityBvn = updateDto.identityBvn.trim()
+        ? this.encryptionService.encrypt(updateDto.identityBvn.trim())
+        : null;
+    }
+    if (updateDto.identityNin !== undefined) {
+      updateData.identityNin = updateDto.identityNin.trim()
+        ? this.encryptionService.encrypt(updateDto.identityNin.trim())
+        : null;
+    }
 
     if (Object.keys(updateData).length > 0) {
       await this.tenantMemberRepository.update(

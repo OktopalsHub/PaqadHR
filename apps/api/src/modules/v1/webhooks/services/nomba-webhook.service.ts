@@ -42,12 +42,12 @@ export class NombaWebhookService {
     }
 
     const eventType = extractNombaEventType(payload);
+    const walletTopup = extractWalletTopupCheckout(payload);
+    if (walletTopup) {
+      return this.walletTopupService.completeCheckoutTopup(walletTopup);
+    }
 
     if (isSubscriptionPaymentEvent(eventType)) {
-      const walletTopup = extractWalletTopupCheckout(payload);
-      if (walletTopup) {
-        return this.walletTopupService.completeCheckoutTopup(walletTopup);
-      }
       return this.subscriptionBillingService.processNombaPayload(payload);
     }
 

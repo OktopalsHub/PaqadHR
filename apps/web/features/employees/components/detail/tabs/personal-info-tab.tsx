@@ -16,9 +16,14 @@ import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form
 interface PersonalInfoTabProps {
   form: EmployeeDetailForm;
   canEdit?: boolean;
+  canEditIdentity?: boolean;
 }
 
-export function PersonalInfoTab({ form, canEdit = false }: PersonalInfoTabProps) {
+export function PersonalInfoTab({
+  form,
+  canEdit = false,
+  canEditIdentity = false,
+}: PersonalInfoTabProps) {
   const { employee, handleInputChange, handleNestedInputChange } = form;
   const readOnlyProps = canEdit ? {} : { readOnly: true as const, className: 'bg-muted/50' };
 
@@ -106,6 +111,49 @@ export function PersonalInfoTab({ form, canEdit = false }: PersonalInfoTabProps)
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h4 className="font-medium">Identity (BVN / NIN)</h4>
+            <p className="text-xs text-muted-foreground">
+              Optional employee identity for payroll compliance when required by workspace settings.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="identity-bvn">BVN</Label>
+                <Input
+                  id="identity-bvn"
+                  inputMode="numeric"
+                  maxLength={11}
+                  placeholder={
+                    employee.hasIdentityBvn ? 'Stored securely — enter to replace' : '11-digit BVN'
+                  }
+                  value={employee.identityBvn}
+                  onChange={(e) =>
+                    handleInputChange('identityBvn', e.target.value.replace(/\D/g, '').slice(0, 11))
+                  }
+                  {...(canEditIdentity ? {} : { readOnly: true, className: 'bg-muted/50' })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="identity-nin">NIN</Label>
+                <Input
+                  id="identity-nin"
+                  inputMode="numeric"
+                  maxLength={11}
+                  placeholder={
+                    employee.hasIdentityNin ? 'Stored securely — enter to replace' : '11-digit NIN'
+                  }
+                  value={employee.identityNin}
+                  onChange={(e) =>
+                    handleInputChange('identityNin', e.target.value.replace(/\D/g, '').slice(0, 11))
+                  }
+                  {...(canEditIdentity ? {} : { readOnly: true, className: 'bg-muted/50' })}
+                />
+              </div>
             </div>
           </div>
 

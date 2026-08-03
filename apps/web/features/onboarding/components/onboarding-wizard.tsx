@@ -262,7 +262,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
   };
 
   return (
-    <div className="w-full xl:h-full">
+    <div className="min-w-0 w-full xl:h-full">
       <div className="relative overflow-hidden rounded-[28px] border border-white/70 bg-white/76 p-3 shadow-[0_40px_120px_-72px_rgba(15,23,42,0.42)] backdrop-blur-xl sm:p-3.5 lg:h-full lg:p-4">
         <div
           aria-hidden="true"
@@ -273,7 +273,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
           className="absolute -right-24 top-24 h-56 w-56 rounded-full border border-white/30 bg-white/30 blur-3xl"
         />
 
-        <div className="relative flex flex-col gap-3 lg:h-full">
+        <div className="relative flex min-w-0 flex-col gap-3 lg:h-full">
           <div className="relative overflow-hidden rounded-[22px] border border-emerald-100/80 bg-[linear-gradient(135deg,rgba(236,249,242,0.98)_0%,rgba(255,255,255,0.96)_48%,rgba(239,252,247,0.98)_100%)] p-3.5 sm:p-4">
             <div
               aria-hidden="true"
@@ -284,8 +284,8 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
               className="absolute bottom-0 left-10 h-28 w-28 rounded-full bg-white/70 blur-3xl"
             />
 
-            <div className="relative flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-2">
+            <div className="relative flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 space-y-2">
                 <span className="inline-flex rounded-full border border-emerald-200/80 bg-white/72 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-[0_16px_36px_-30px_rgba(15,23,42,0.25)]">
                   Step {normalizedStep + 1} of {ONBOARDING_STEP_DETAILS.length}
                 </span>
@@ -299,11 +299,11 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 rounded-[16px] border border-white/85 bg-white/78 px-3 py-2 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.28)]">
+              <div className="flex w-full items-center gap-2.5 rounded-[16px] border border-white/85 bg-white/78 px-3 py-2 shadow-[0_20px_45px_-34px_rgba(15,23,42,0.28)] sm:w-auto sm:self-start">
                 <div className="flex size-9 items-center justify-center rounded-[12px] bg-[#00a070]/10 text-primary">
                   <CurrentStepIcon className="size-4" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                     Current section
                   </p>
@@ -333,26 +333,28 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                   <Label htmlFor="workspace-slug" className={fieldLabelClass}>
                     Workspace slug
                   </Label>
-                  <div className="flex overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-within:ring-[3px] focus-within:ring-emerald-500/18">
-                    <span className="flex max-w-[55%] shrink-0 items-center border-r border-slate-200 bg-slate-50/90 px-4 text-xs text-slate-500 sm:max-w-none sm:text-sm">
-                      {appBaseUrl || '…/'}
-                    </span>
-                    <Input
-                      id="workspace-slug"
-                      value={slug}
-                      onChange={(e) => {
-                        slugTouchedRef.current = true;
-                        setSlug(slugifyInput(e.target.value));
-                      }}
-                      placeholder="acme-inc"
-                      className="h-10 border-0 bg-transparent px-4 text-[15px] text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0"
-                      aria-describedby="workspace-slug-hint"
-                    />
-                    {appUrlSuffix ? (
-                      <span className="flex shrink-0 items-center border-l border-slate-200 bg-slate-50/90 px-4 text-xs text-slate-500 sm:max-w-none sm:text-sm">
-                        {appUrlSuffix}
+                  <div className="overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_10px_30px_-28px_rgba(15,23,42,0.45)] focus-within:ring-[3px] focus-within:ring-emerald-500/18">
+                    <div className="flex min-w-0 flex-col sm:flex-row">
+                      <span className="flex min-w-0 items-center border-b border-slate-200 bg-slate-50/90 px-4 py-2.5 text-xs leading-5 text-slate-500 break-all sm:border-b-0 sm:border-r sm:py-0 sm:text-sm">
+                        {appBaseUrl || '…/'}
                       </span>
-                    ) : null}
+                      <Input
+                        id="workspace-slug"
+                        value={slug}
+                        onChange={(e) => {
+                          slugTouchedRef.current = true;
+                          setSlug(slugifyInput(e.target.value));
+                        }}
+                        placeholder="acme-inc"
+                        className="h-10 min-w-0 flex-1 border-0 bg-transparent px-4 text-[15px] text-slate-900 shadow-none placeholder:text-slate-400 focus-visible:ring-0"
+                        aria-describedby="workspace-slug-hint"
+                      />
+                      {appUrlSuffix ? (
+                        <span className="flex min-w-0 items-center border-t border-slate-200 bg-slate-50/90 px-4 py-2.5 text-xs leading-5 text-slate-500 break-all sm:border-l sm:border-t-0 sm:py-0 sm:text-sm">
+                          {appUrlSuffix}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                   <p
                     id="workspace-slug-hint"
@@ -528,7 +530,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                       : 'Unable to load plans. Refresh and try again.'}
                   </p>
                 ) : (
-                  <div className="grid gap-3.5 xl:grid-cols-3">
+                  <div className="grid gap-3.5 md:grid-cols-2 2xl:grid-cols-3">
                     {sortedPlans.map((plan) => {
                       const isSelected = selectedPlan === plan.plan.slug;
                       const compactHighlights =
@@ -567,7 +569,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
 
             {normalizedStep === 3 ? (
               <div className="space-y-3.5">
-                <dl className="grid gap-2 text-sm md:grid-cols-2 xl:grid-cols-3">
+                <dl className="grid gap-2 text-sm sm:grid-cols-2 2xl:grid-cols-3">
                   <ReviewRow label="Workspace name" value={name.trim() || '—'} />
                   <ReviewRow
                     label="Workspace URL"
@@ -621,7 +623,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                 disabled={!canContinue || completeMutation.isPending}
                 onClick={handleNext}
                 variant="brandSolid"
-                className="h-10 rounded-[16px] px-5 text-sm font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
+                className="min-h-10 rounded-[16px] px-5 py-2 text-center text-sm font-semibold whitespace-normal shadow-[0_22px_40px_-28px_var(--brand-shadow)] sm:h-10 sm:py-0 sm:whitespace-nowrap"
               >
                 {normalizedStep === ONBOARDING_STEPS.length - 1
                   ? completeMutation.isPending

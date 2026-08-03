@@ -2,6 +2,7 @@ import { type ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { FeatureAccessGuard } from 'src/common/guards/feature-access.guard';
+import { MemberPointsController } from './member-points.controller';
 import { ShoutoutCategoriesController } from './shoutout-categories.controller';
 import { ShoutoutsController } from './shoutouts.controller';
 
@@ -27,6 +28,7 @@ describe('Shoutout controller feature access', () => {
   };
   const guard = new FeatureAccessGuard(new Reflector(), subscriptionsService as never);
   const categoriesController = new ShoutoutCategoriesController({} as never);
+  const memberPointsController = new MemberPointsController({} as never);
   const shoutoutsController = new ShoutoutsController({} as never);
 
   beforeEach(() => {
@@ -38,30 +40,15 @@ describe('Shoutout controller feature access', () => {
     ['categories:create', ShoutoutCategoriesController, categoriesController.createCategory],
     ['categories:update', ShoutoutCategoriesController, categoriesController.updateCategory],
     ['categories:delete', ShoutoutCategoriesController, categoriesController.deleteCategory],
+    ['member-points:balance', MemberPointsController, memberPointsController.getMyBalance],
+    [
+      'member-points:transactions',
+      MemberPointsController,
+      memberPointsController.listMyTransactions,
+    ],
     ['shoutouts:create', ShoutoutsController, shoutoutsController.createShoutout],
     ['shoutouts:list', ShoutoutsController, shoutoutsController.listShoutouts],
-  ])('allows %s when the tenant plan includes integrations', async (_, controllerClass, handler) => {
-    subscriptionsService.hasFeatureAccess.mockResolvedValue(true);
-
-    await expect(
-      guard.canActivate(
-        createContext({
-          controllerClass,
-          handler,
-          tenantId: 'tenant-1',
-        }),
-      ),
-    ).resolves.toBe(true);
-
-    expect(subscriptionsService.hasFeatureAccess).toHaveBeenCalledWith('tenant-1', [
-      FeatureAccess.INTEGRATIONS,
-    ]);
-  });
-
-  it.each([
-    ['categories:list', ShoutoutCategoriesController, categoriesController.listCategories],
-    ['shoutouts:create', ShoutoutsController, shoutoutsController.createShoutout],
-  ])('denies %s when the tenant plan lacks integrations', async (_, controllerClass, handler) => {
+  ])('requires integrations access for %s', async (_, controllerClass, handler) => {
     subscriptionsService.hasFeatureAccess.mockResolvedValue(false);
 
     try {

@@ -37,7 +37,7 @@ export function CalendarToolbar({
     <div className="flex flex-col gap-4 border-b border-[#d7e3f6] px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
       <div className="min-w-0">
         <h2 className="text-[17px] font-semibold tracking-tight text-slate-950 dark:text-slate-100">
-          Schedule
+          Calendar
         </h2>
         {canAddEvent ? (
           <p className="text-sm text-slate-600 dark:text-slate-400">

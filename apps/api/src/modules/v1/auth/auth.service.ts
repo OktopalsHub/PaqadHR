@@ -37,7 +37,6 @@ interface AuthAuditContext {
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-  private readonly otpFailedAttempts = new Map<string, { count: number; lockedUntil?: number }>();
   private readonly maxOtpFailedAttempts = 5;
   private readonly otpLockDurationMinutes = 30;
 
@@ -425,6 +424,7 @@ export class AuthService {
     });
 
     if (!session) {
+      await this.sessionRepository.delete({ userId: user.id });
       throw new UnauthorizedException('Invalid or expired session');
     }
 
@@ -576,8 +576,8 @@ export class AuthService {
     }
 
     const lockKey = `${userId}:${purpose}`;
-    const lock = this.otpFailedAttempts.get(lockKey);
-    if (lock?.lockedUntil && lock.lockedUntil > Date.now()) {
+    const lock = await this.rateLimitService.getLockout(lockKey);
+    if (this.rateLimitService.isLocked(lock)) {
       throw new UnauthorizedException('Too many failed attempts. Try again later.');
     }
 
@@ -603,8 +603,8 @@ export class AuthService {
 
   async verifyOtp(userId: string, purpose: OtpPurpose, code: string) {
     const lockKey = `${userId}:${purpose}`;
-    const lock = this.otpFailedAttempts.get(lockKey);
-    if (lock?.lockedUntil && lock.lockedUntil > Date.now()) {
+    const lock = await this.rateLimitService.getLockout(lockKey);
+    if (this.rateLimitService.isLocked(lock)) {
       throw new UnauthorizedException('Too many failed attempts. Try again later.');
     }
 
@@ -617,17 +617,16 @@ export class AuthService {
       verification.expiresAt >= new Date() &&
       (await PasswordService.verifyPassword(verification.token, code));
     if (!codeValid) {
-      const entry = this.otpFailedAttempts.get(lockKey) ?? { count: 0 };
-      entry.count += 1;
-      if (entry.count >= this.maxOtpFailedAttempts) {
-        entry.lockedUntil = Date.now() + this.otpLockDurationMinutes * 60 * 1000;
-      }
-      this.otpFailedAttempts.set(lockKey, entry);
+      await this.rateLimitService.recordLockoutFailure(
+        lockKey,
+        this.maxOtpFailedAttempts,
+        this.otpLockDurationMinutes * 60 * 1000,
+      );
       throw new BadRequestException('Invalid or expired verification code');
     }
 
     await this.verificationRepository.delete(verification.id);
-    this.otpFailedAttempts.delete(lockKey);
+    await this.rateLimitService.clearLockout(lockKey);
 
     const otpProof = this.jwtService.sign(
       { sub: userId, purpose, type: 'otp_proof' },

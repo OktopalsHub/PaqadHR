@@ -120,7 +120,7 @@ describe('NombaWebhookService', () => {
     expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
   });
 
-  it('routes payroll merchant ref before ignoring VA deposits', async () => {
+  it('routes payroll merchant ref', async () => {
     const runId = '11111111-1111-4111-8111-111111111111';
     const itemId = '22222222-2222-4222-8222-222222222222';
     const body = JSON.stringify({
@@ -134,10 +134,14 @@ describe('NombaWebhookService', () => {
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
   });
 
-  it('ignores VA deposit events (checkout-only wallet funding)', async () => {
+  it('ignores deposit.success without wallet_topup meta', async () => {
     const body = JSON.stringify({
       event_type: 'deposit.success',
-      data: { virtualAccount: '123', amount: 100, transactionReference: 'ref-1' },
+      data: {
+        virtualAccount: { accountNumber: '1234567890', accountRef: 'rw_nom_t1_1234' },
+        amount: 100,
+        transactionReference: 'ref-1',
+      },
     });
 
     const result = await service.dispatch(body, 'sig');

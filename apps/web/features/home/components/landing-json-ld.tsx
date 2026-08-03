@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { getCspNonce } from '@/lib/security/csp-nonce';
 
 const structuredData = {
   '@context': 'https://schema.org',
@@ -16,11 +17,14 @@ const structuredData = {
   },
 };
 
-export function LandingJsonLd({ children }: { children: ReactNode }) {
+export async function LandingJsonLd({ children }: { children: ReactNode }) {
+  const nonce = await getCspNonce();
+
   return (
     <>
       <script
         type="application/ld+json"
+        nonce={nonce}
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requires inline script
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />

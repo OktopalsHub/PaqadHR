@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  hasPlanFeatureAccess,
-  hasPlanFeaturesAccess,
-} from '../../../../constants/feature-access-resolver.ts';
+import { hasPlanFeatureAccess, hasPlanFeaturesAccess } from './feature-access-resolver';
 
 test('entitlement parity: payroll is denied when the key is absent', () => {
   assert.equal(hasPlanFeatureAccess({ BASIC_HR: true }, 'PAYROLL'), false);

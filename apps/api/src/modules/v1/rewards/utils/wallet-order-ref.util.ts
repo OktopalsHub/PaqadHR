@@ -1,6 +1,15 @@
 import { randomBytes } from 'node:crypto';
 
 /** Nomba orderReference max is 50 chars. */
+export function buildMonnifyWalletTopupOrderRef(tenantId: string): string {
+  return `wm_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}${randomBytes(2).toString('hex').slice(0, 3)}`;
+}
+
+export function isMonnifyWalletTopupOrderRef(orderReference: string, tenantId: string): boolean {
+  const tenantKey = tenantId.replace(/-/g, '');
+  return orderReference.startsWith(`wm_${tenantKey}_`);
+}
+
 export function buildNombaWalletTopupOrderRef(tenantId: string): string {
   return `wt_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}${randomBytes(2).toString('hex').slice(0, 3)}`;
 }

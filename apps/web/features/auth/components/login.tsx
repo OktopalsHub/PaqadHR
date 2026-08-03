@@ -24,6 +24,7 @@ import { resolveAuthDestination } from '@/lib/navigation/resolve-auth-destinatio
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { type LoginInput, loginSchema } from '@/lib/schemas/auth';
 import { useTenant } from '@/providers/tenant-provider';
+import { submitHandledAuthAction } from '../lib/submit-handled-auth-action';
 import { SocialAuthButtons } from './buttons/social-auth-buttons';
 import { ForgotPasswordForm } from './forgot-password.form';
 import { PasswordInput } from './form-fields/password-input';
@@ -75,6 +76,10 @@ export const Login = () => {
     },
   });
 
+  const handleLoginSubmit = form.handleSubmit(async (values) => {
+    await submitHandledAuthAction(() => login(values));
+  });
+
   if (isResolvingSession || showRedirectSpinner) {
     return (
       <div className="flex min-h-[280px] items-center justify-center">
@@ -88,7 +93,7 @@ export const Login = () => {
   }
 
   return (
-    <div className="space-y-6 sm:min-h-[33.5rem]">
+    <div className="space-y-5 sm:space-y-6 xl:min-h-[33.5rem]">
       <div className="space-y-2">
         <h1 className="text-[clamp(1.8rem,2.5vw,2.25rem)] font-semibold tracking-[-0.05em] text-slate-950">
           Sign in
@@ -117,14 +122,14 @@ export const Login = () => {
           <Separator className="w-full" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white/90 px-3 text-[10px] font-semibold tracking-[0.18em] text-slate-400">
+          <span className="bg-white/90 px-2.5 text-[10px] font-semibold tracking-[0.18em] text-slate-400 sm:px-3">
             Or continue with email
           </span>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit((values) => login(values))} className="space-y-4.5">
+        <form onSubmit={handleLoginSubmit} className="space-y-4.5">
           <FormField
             control={form.control}
             name="email"
@@ -183,7 +188,7 @@ export const Login = () => {
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="text-sm font-semibold text-primary hover:text-primary/90"
+              className="self-start text-sm font-semibold text-primary hover:text-primary/90 sm:self-auto"
             >
               Forgot password?
             </button>

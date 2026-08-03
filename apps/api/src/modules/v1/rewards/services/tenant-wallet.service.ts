@@ -1,14 +1,23 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import {
+  isWalletCurrencyLocked,
+  resolveInitialWalletCurrency,
+} from 'src/common/utils/rewards-defaults.util';
 import { DataSource, EntityManager } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { TenantsService } from '../../tenants/tenants.service';
-import { WALLET_UNAVAILABLE_MEMBER } from '../constants/wallet-error-messages';
+import { resolveRewardsWalletPaymentProvider } from '../config/rewards-wallet-provider.config';
+import {
+  WALLET_SAVED_CARD_UNSUPPORTED,
+  WALLET_UNAVAILABLE_MEMBER,
+} from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 
 export interface WalletCreditOptions {
   rawAmount?: number;
-  nombaEventId?: string;
+  providerEventId?: string;
   metadata?: Record<string, unknown>;
   status?: TenantWalletTransaction['status'];
   actorMemberId?: string | null;
@@ -30,15 +39,17 @@ export class TenantWalletService {
       : this.dataSource.getRepository(TenantWallet);
 
     let wallet = await repo.findOne({ where: { tenantId } });
-    if (wallet) return wallet;
+    if (wallet) {
+      return this.syncWalletCurrencyIfSafe(tenantId, wallet, manager);
+    }
 
-    let currencyCode = 'NGN';
+    let currencyCode = 'USD';
     try {
       const tenant = await this.tenantsService.getTenant(tenantId);
-      currencyCode = (tenant.preferredCurrency || 'NGN').toUpperCase();
+      currencyCode = resolveInitialWalletCurrency(tenant.countryCode, tenant.preferredCurrency);
     } catch (error) {
       this.logger.warn(
-        `Failed to resolve tenant currency for wallet ${tenantId}, defaulting to NGN: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to resolve tenant currency for wallet ${tenantId}, defaulting to USD: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 
@@ -58,6 +69,73 @@ export class TenantWalletService {
 
   async getWallet(tenantId: string): Promise<TenantWallet> {
     return this.ensureWallet(tenantId);
+  }
+
+  async getTenantCountryCode(tenantId: string): Promise<string | null> {
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      return tenant.countryCode ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async syncWalletCurrencyIfSafe(
+    tenantId: string,
+    wallet: TenantWallet,
+    manager?: EntityManager,
+  ): Promise<TenantWallet> {
+    const walletRepo = manager
+      ? manager.getRepository(TenantWallet)
+      : this.dataSource.getRepository(TenantWallet);
+    const txRepo = manager
+      ? manager.getRepository(TenantWalletTransaction)
+      : this.dataSource.getRepository(TenantWalletTransaction);
+
+    const transactionCount = await txRepo.count({
+      where: { tenantWalletId: wallet.id },
+    });
+    if (isWalletCurrencyLocked(wallet, transactionCount)) {
+      return wallet;
+    }
+
+    const desiredCurrency = await this.resolveTenantWalletCurrency(tenantId);
+    if (!desiredCurrency || desiredCurrency === wallet.currencyCode) {
+      return wallet;
+    }
+
+    wallet.currencyCode = desiredCurrency;
+    return walletRepo.save(wallet);
+  }
+
+  async isWalletCurrencyLockedForTenant(tenantId: string): Promise<boolean> {
+    const wallet = await this.dataSource
+      .getRepository(TenantWallet)
+      .findOne({ where: { tenantId } });
+    if (!wallet) {
+      return false;
+    }
+    const transactionCount = await this.dataSource.getRepository(TenantWalletTransaction).count({
+      where: { tenantWalletId: wallet.id },
+    });
+    return isWalletCurrencyLocked(wallet, transactionCount);
+  }
+
+  async getWalletCurrencyCode(tenantId: string): Promise<string> {
+    const wallet = await this.ensureWallet(tenantId);
+    return wallet.currencyCode.toUpperCase();
+  }
+
+  private async resolveTenantWalletCurrency(tenantId: string): Promise<string | null> {
+    try {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      return resolveInitialWalletCurrency(tenant.countryCode, tenant.preferredCurrency);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to resolve tenant currency for wallet ${tenantId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
   }
 
   async debit(
@@ -134,7 +212,7 @@ export class TenantWalletService {
       description,
       status: options?.status ?? 'COMPLETED',
       rawAmount: options?.rawAmount ?? amount,
-      nombaEventId: options?.nombaEventId ?? null,
+      providerEventId: options?.providerEventId ?? null,
       metadata: options?.metadata ?? null,
     });
     await txRepo.save(tx);
@@ -178,6 +256,12 @@ export class TenantWalletService {
   ): Promise<TenantWallet> {
     const repo = this.dataSource.getRepository(TenantWallet);
     const wallet = await this.ensureWallet(tenantId);
+    if (enabled) {
+      const tenant = await this.tenantsService.getTenant(tenantId);
+      if (resolveRewardsWalletPaymentProvider(tenant.countryCode) === PaymentProvider.MONNIFY) {
+        throw new BadRequestException(WALLET_SAVED_CARD_UNSUPPORTED);
+      }
+    }
     wallet.autoTopupEnabled = enabled;
     wallet.autoTopupThreshold = threshold;
     wallet.autoTopupAmount = amount;

@@ -12,6 +12,10 @@ import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
 
+export function isWalletMoneyPath(path: string): boolean {
+  return /\/api\/v1\/tenants\/[^/]+\/rewards\/wallet\/topup(\/checkout)?\/?$/.test(path);
+}
+
 export const ExpressSetup = (app: NestExpressApplication) => {
   app.use(cookieParser());
   if (process.env.NODE_ENV !== 'production') {
@@ -249,11 +253,38 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   app.use('/api/v1/webhooks', webhookLimiter);
   app.use('/api/v1/subscriptions/webhooks', webhookLimiter);
   app.use('/api/v1/payroll/webhooks', webhookLimiter);
+  const walletMoneyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
+    message: {
+      error: 'Too Many Wallet Requests',
+      message: 'Too many wallet funding requests from this IP, please try again later.',
+      statusCode: 429,
+    },
+  });
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const path = req.path || req.url || '';
+    if (isWalletMoneyPath(path)) {
+      return walletMoneyLimiter(req, res, next);
+    }
+    next();
+  });
   const APPROVED_CLIENTS = (process.env.APPROVED_CLIENTS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
   app.use((req: Request, res: Response, next: NextFunction) => {
+    const path = req.path || req.url || '';
+    if (
+      path.startsWith('/api/v1/webhooks') ||
+      path.startsWith('/api/v1/subscriptions/webhooks') ||
+      path.startsWith('/api/v1/payroll/webhooks')
+    ) {
+      return next();
+    }
     const ip = req.ip || '';
     if (APPROVED_CLIENTS.length && !APPROVED_CLIENTS.includes(ip)) {
       return res.status(403).json({ message: 'Client not approved' });

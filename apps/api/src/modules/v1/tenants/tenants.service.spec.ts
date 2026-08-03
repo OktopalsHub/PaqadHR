@@ -12,6 +12,12 @@ describe('TenantsService', () => {
   let employmentRepository: {
     count: jest.Mock;
   };
+  let walletRepository: {
+    findOne: jest.Mock;
+  };
+  let walletTransactionRepository: {
+    count: jest.Mock;
+  };
 
   beforeEach(() => {
     tenantRepository = {
@@ -23,6 +29,12 @@ describe('TenantsService', () => {
     employmentRepository = {
       count: jest.fn(),
     };
+    walletRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    walletTransactionRepository = {
+      count: jest.fn().mockResolvedValue(0),
+    };
 
     service = new TenantsService(
       tenantRepository as never,
@@ -31,6 +43,8 @@ describe('TenantsService', () => {
       {} as never,
       {} as never,
       employmentRepository as never,
+      walletRepository as never,
+      walletTransactionRepository as never,
     );
   });
 
@@ -40,6 +54,7 @@ describe('TenantsService', () => {
         id: 'tenant-1',
         slug: 'acme',
         preferredCurrency: 'USD',
+        countryCode: 'US',
       });
       tenantRepository.findOne.mockResolvedValue({
         id: 'tenant-1',
@@ -92,6 +107,30 @@ describe('TenantsService', () => {
       await expect(service.updateTenant('tenant-1', { countryCode: 'NG' })).rejects.toThrow(
         new NotFoundException('Tenant does not exist'),
       );
+    });
+
+    it('blocks preferredCurrency change when rewards wallet is funded', async () => {
+      tenantRepository.findById.mockResolvedValue({
+        id: 'tenant-1',
+        slug: 'acme',
+        preferredCurrency: 'USD',
+        countryCode: 'US',
+      });
+      employmentRepository.count.mockResolvedValue(0);
+      walletRepository.findOne.mockResolvedValue({
+        id: 'wallet-1',
+        currencyCode: 'USD',
+        balanceAmount: 2500,
+      });
+      walletTransactionRepository.count.mockResolvedValue(0);
+
+      await expect(service.updateTenant('tenant-1', { preferredCurrency: 'EUR' })).rejects.toThrow(
+        new BadRequestException(
+          'Rewards wallet has activity in USD. Spend the balance before changing workspace country or currency.',
+        ),
+      );
+
+      expect(tenantRepository.update).not.toHaveBeenCalled();
     });
   });
 });

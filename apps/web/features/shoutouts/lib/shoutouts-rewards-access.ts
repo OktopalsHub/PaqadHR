@@ -1,4 +1,5 @@
 export function getShoutoutsRewardsAccessState<TFeature extends string>(params: {
+  activeTab: 'feed' | 'tasks' | 'redeem';
   featureAccessLoading: boolean;
   featureGatingEnabled: boolean;
   hasFeature: (feature: TFeature) => boolean;
@@ -6,18 +7,23 @@ export function getShoutoutsRewardsAccessState<TFeature extends string>(params: 
 }) {
   if (params.featureAccessLoading) {
     return {
+      canAccessShoutouts: false,
       canAccessRewards: false,
+      feedQueriesEnabled: false,
       rewardsCatalogPrefetchEnabled: false,
       showRewardsContent: false,
     };
   }
 
-  const canAccessRewards =
+  const canAccessShoutouts =
     !params.featureGatingEnabled || params.hasFeature(params.integrationsFeature);
+  const feedQueriesEnabled = canAccessShoutouts && params.activeTab === 'feed';
 
   return {
-    canAccessRewards,
-    rewardsCatalogPrefetchEnabled: canAccessRewards,
-    showRewardsContent: canAccessRewards,
+    canAccessShoutouts,
+    canAccessRewards: canAccessShoutouts,
+    feedQueriesEnabled,
+    rewardsCatalogPrefetchEnabled: canAccessShoutouts,
+    showRewardsContent: canAccessShoutouts,
   };
 }

@@ -32,44 +32,26 @@ import {
   useCreateCustomReward,
   useCustomRewards,
   useDeleteCustomReward,
+  useReloadlyCountries,
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useWalletTopupCheckout,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
-import { syncRewardsCatalog } from '@/lib/api/rewards';
-import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
+import { syncRewardsCatalog, WALLET_TOPUP_MAX_AMOUNT } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { formatPlanMoney } from '@/lib/format-plan-money';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'noah', string> = {
+const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'monnify' | 'noah', string> = {
   nomba: 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing',
+  monnify: 'https://developers.monnify.com/docs/test-cards',
   noah: 'https://docs.noah.com/',
 };
 
 const SANDBOX_DOC_URL = 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing';
-
-const ALL_COUNTRIES = [
-  { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
-  { code: 'US', name: 'United States', flag: '🇺🇸' },
-  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
-  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
-  { code: 'GH', name: 'Ghana', flag: '🇬🇭' },
-  { code: 'KE', name: 'Kenya', flag: '🇰🇪' },
-  { code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
-  { code: 'AE', name: 'United Arab Emirates', flag: '🇦🇪' },
-  { code: 'FR', name: 'France', flag: '🇫🇷' },
-  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
-  { code: 'ES', name: 'Spain', flag: '🇪🇸' },
-  { code: 'IN', name: 'India', flag: '🇮🇳' },
-  { code: 'SG', name: 'Singapore', flag: '🇸🇬' },
-  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
-  { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
-  { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
-  { code: 'ZA', name: 'South Africa', flag: '🇿🇦' },
-];
 
 export function SettingsRewardsTab() {
   const { tenant } = useTenant();
@@ -77,6 +59,7 @@ export function SettingsRewardsTab() {
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
+  const { data: reloadlyCountries = [] } = useReloadlyCountries();
   const { data: billingOverview } = useBillingOverview();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
@@ -87,9 +70,9 @@ export function SettingsRewardsTab() {
   const topupCheckout = useWalletTopupCheckout();
 
   const rewards = settings?.settings?.rewards;
+  const defaultCatalogCountry = (tenant?.countryCode ?? 'US').toUpperCase();
   const [exchangeRate, setExchangeRate] = useState('1');
-  const [currency, setCurrency] = useState('NGN');
-  const [selectedCountries, setSelectedCountries] = useState<string[]>(['NG']);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([defaultCatalogCountry]);
   const [selectValue, setSelectValue] = useState('');
   const [countrySearch, setCountrySearch] = useState('');
 
@@ -117,10 +100,23 @@ export function SettingsRewardsTab() {
   const [autoTopupAmount, setAutoTopupAmount] = useState('5000');
 
   const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
+  const savedCardTopupSupported = wallet?.savedCardTopupSupported ?? true;
   const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
-  const walletCurrency = wallet?.currencyCode ?? 'NGN';
+  const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
+  const rewardsCurrency = (wallet?.currencyCode ?? 'USD').toUpperCase();
+  const currencyLocked = wallet?.currencyLocked ?? Number(wallet?.balanceAmount ?? 0) !== 0;
+  const isNgTenant = tenantCountry === 'NG';
   const topupAmountValue = Number(topupAmount);
-  const topupAmountValid = Number.isFinite(topupAmountValue) && topupAmountValue > 0;
+  const topupAmountValid =
+    Number.isFinite(topupAmountValue) &&
+    topupAmountValue > 0 &&
+    topupAmountValue <= WALLET_TOPUP_MAX_AMOUNT;
+  const exchangeRateValue = Number(exchangeRate);
+  const exampleRewardCost = 1000;
+  const examplePointsCost =
+    Number.isFinite(exchangeRateValue) && exchangeRateValue > 0
+      ? Math.ceil(exampleRewardCost * exchangeRateValue)
+      : null;
 
   useEffect(() => {
     if (searchParams.get('wallet_topup') === 'done') {
@@ -133,16 +129,19 @@ export function SettingsRewardsTab() {
   useEffect(() => {
     if (rewards) {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 1));
-      setCurrency(rewards.rewardsCurrency ?? 'NGN');
-      setSelectedCountries(rewards.catalogCountries ?? ['NG']);
+      setSelectedCountries(
+        rewards.catalogCountries?.length ? rewards.catalogCountries : [defaultCatalogCountry],
+      );
       setAirtimeEnabled(rewards.airtimeEnabled ?? true);
       setGiftCardsEnabled(rewards.giftCardsEnabled ?? true);
       setGiftCardCategories(
         rewards.giftCardCategories ?? ['Gift Cards', 'Gaming Cards', 'Money Cards'],
       );
       setUtilityPaymentsEnabled(rewards.utilityPaymentsEnabled ?? true);
+      return;
     }
-  }, [rewards]);
+    setSelectedCountries([defaultCatalogCountry]);
+  }, [rewards, defaultCatalogCountry]);
 
   useEffect(() => {
     if (wallet) {
@@ -164,11 +163,13 @@ export function SettingsRewardsTab() {
 
   const saveRewardsSettings = async () => {
     const rate = Number(exchangeRate);
-    if (!Number.isFinite(rate) || rate < 1) {
-      toast.error('Exchange rate must be at least 1');
+    if (!Number.isFinite(rate) || rate <= 0) {
+      toast.error('Exchange rate must be greater than 0');
       return;
     }
-    const prevCountries = rewards?.catalogCountries ?? ['NG'];
+    const prevCountries = rewards?.catalogCountries?.length
+      ? rewards.catalogCountries
+      : [defaultCatalogCountry];
     const countriesChanged =
       prevCountries.length !== selectedCountries.length ||
       [...prevCountries].sort().some((c, i) => c !== [...selectedCountries].sort()[i]);
@@ -178,7 +179,7 @@ export function SettingsRewardsTab() {
         rewards: {
           enabled: true,
           pointsExchangeRate: rate,
-          rewardsCurrency: currency || 'NGN',
+          rewardsCurrency: rewardsCurrency,
           catalogCountries: selectedCountries,
           airtimeEnabled,
           giftCardsEnabled,
@@ -232,11 +233,21 @@ export function SettingsRewardsTab() {
   };
 
   const handleSaveAutoTopup = async () => {
+    const threshold = Number(autoTopupThreshold) || 0;
+    const amount = Number(autoTopupAmount) || 0;
+    if (threshold > WALLET_TOPUP_MAX_AMOUNT || amount > WALLET_TOPUP_MAX_AMOUNT) {
+      toast.error(`Amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT.toLocaleString()}`);
+      return;
+    }
+    if (autoTopupEnabled && amount <= 0) {
+      toast.error('Enter a valid auto top-up amount');
+      return;
+    }
     try {
       await updateAutoTopupMutation.mutateAsync({
         enabled: autoTopupEnabled,
-        threshold: Number(autoTopupThreshold) || 0,
-        amount: Number(autoTopupAmount) || 0,
+        threshold,
+        amount,
       });
       toast.success('Auto topup enabled');
     } catch (err) {
@@ -245,6 +256,14 @@ export function SettingsRewardsTab() {
   };
 
   const handleTopup = async () => {
+    if (!Number.isFinite(topupAmountValue) || topupAmountValue <= 0) {
+      toast.error('Enter a valid amount');
+      return;
+    }
+    if (topupAmountValue > WALLET_TOPUP_MAX_AMOUNT) {
+      toast.error(`Amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT.toLocaleString()}`);
+      return;
+    }
     if (!topupAmountValid) {
       toast.error('Enter a valid amount');
       return;
@@ -256,10 +275,17 @@ export function SettingsRewardsTab() {
     }
   };
 
-  const filteredCountries = ALL_COUNTRIES.filter(
-    (c) =>
-      c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      c.code.toLowerCase().includes(countrySearch.toLowerCase()),
+  const allCountries = reloadlyCountries.length
+    ? reloadlyCountries
+    : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
+        code,
+        name: code,
+      }));
+
+  const filteredReloadlyCountries = allCountries.filter(
+    (country) =>
+      country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
+      country.code.toLowerCase().includes(countrySearch.toLowerCase()),
   );
 
   return (
@@ -277,8 +303,7 @@ export function SettingsRewardsTab() {
               </div>
               <div>
                 <p className="text-3xl font-extrabold tracking-tight tabular-nums text-foreground">
-                  {wallet?.currencyCode ?? 'NGN'}{' '}
-                  {Number(wallet?.balanceAmount ?? 0).toLocaleString()}
+                  {formatPlanMoney(Number(wallet?.balanceAmount ?? 0), rewardsCurrency)}
                 </p>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-0.5">
                   Available Balance
@@ -295,92 +320,132 @@ export function SettingsRewardsTab() {
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
-                  Auto-topup
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Charge your billing card when balance is low
-                </p>
-              </div>
-              <Switch
-                checked={autoTopupEnabled}
-                onCheckedChange={setAutoTopupEnabled}
-                className="data-[state=checked]:bg-indigo-600"
-              />
-            </div>
+          <p className="text-xs text-muted-foreground">
+            Fund via Top up — card or bank transfer in checkout
+            {isNgTenant
+              ? ` (${wallet?.checkoutProviderLabel ?? 'Nomba/Monnify'}, ${rewardsCurrency}).`
+              : ` (Noah, ${rewardsCurrency} wallet — you can pay in GBP or EUR at checkout).`}
+            {!wallet?.checkoutLive ? (
+              <>
+                {' '}
+                <a
+                  href={
+                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ?? SANDBOX_DOC_URL
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline underline-offset-2"
+                >
+                  Test payments
+                </a>{' '}
+                in sandbox mode.
+              </>
+            ) : null}
+          </p>
 
-            {autoTopupEnabled && !hasBillingCard ? (
+          <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
+            {savedCardTopupSupported ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                      <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
+                      Auto-topup
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Charge your billing card when balance is low
+                    </p>
+                  </div>
+                  <Switch
+                    checked={autoTopupEnabled}
+                    onCheckedChange={setAutoTopupEnabled}
+                    className="data-[state=checked]:bg-indigo-600"
+                  />
+                </div>
+
+                {autoTopupEnabled && !hasBillingCard ? (
+                  <Alert>
+                    <AlertTitle>Billing card required</AlertTitle>
+                    <AlertDescription>
+                      {billingSettingsHref ? (
+                        <Link
+                          href={billingSettingsHref}
+                          className="font-medium underline underline-offset-2"
+                        >
+                          Add a card in Billing
+                        </Link>
+                      ) : (
+                        'Add a card in Settings → Billing.'
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {autoTopupEnabled && (
+                  <div className="grid gap-4 sm:grid-cols-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="auto-topup-threshold"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        When below ({rewardsCurrency})
+                      </label>
+                      <Input
+                        id="auto-topup-threshold"
+                        type="number"
+                        min={0}
+                        max={WALLET_TOPUP_MAX_AMOUNT}
+                        placeholder="e.g. 1000"
+                        value={autoTopupThreshold}
+                        onChange={(e) => setAutoTopupThreshold(e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="auto-topup-amount"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        Top up amount ({rewardsCurrency})
+                      </label>
+                      <Input
+                        id="auto-topup-amount"
+                        type="number"
+                        min={1}
+                        max={WALLET_TOPUP_MAX_AMOUNT}
+                        placeholder="e.g. 5000"
+                        value={autoTopupAmount}
+                        onChange={(e) => setAutoTopupAmount(e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveAutoTopup}
+                    disabled={updateAutoTopupMutation.isPending}
+                    className="rounded-xl font-semibold border-indigo-100 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/40 dark:border-indigo-950 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
+                  >
+                    <Save className="size-3.5 mr-1.5" />
+                    Save
+                  </Button>
+                </div>
+              </>
+            ) : (
               <Alert>
-                <AlertTitle>Billing card required</AlertTitle>
+                <AlertTitle>Auto-topup unavailable</AlertTitle>
                 <AlertDescription>
-                  {billingSettingsHref ? (
-                    <Link
-                      href={billingSettingsHref}
-                      className="font-medium underline underline-offset-2"
-                    >
-                      Add a card in Billing
-                    </Link>
-                  ) : (
-                    'Add a card in Settings → Billing.'
-                  )}
+                  Saved-card auto-topup is not supported with{' '}
+                  {wallet?.checkoutProviderLabel ?? 'your payment provider'}. Use checkout or bank
+                  transfer to fund the wallet.
                 </AlertDescription>
               </Alert>
-            ) : null}
-
-            {autoTopupEnabled && (
-              <div className="grid gap-4 sm:grid-cols-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="auto-topup-threshold"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    When below ({currency})
-                  </label>
-                  <Input
-                    id="auto-topup-threshold"
-                    type="number"
-                    placeholder="e.g. 1000"
-                    value={autoTopupThreshold}
-                    onChange={(e) => setAutoTopupThreshold(e.target.value)}
-                    className="rounded-xl h-10"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="auto-topup-amount"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    Top up amount ({currency})
-                  </label>
-                  <Input
-                    id="auto-topup-amount"
-                    type="number"
-                    placeholder="e.g. 5000"
-                    value={autoTopupAmount}
-                    onChange={(e) => setAutoTopupAmount(e.target.value)}
-                    className="rounded-xl h-10"
-                  />
-                </div>
-              </div>
             )}
-
-            <div className="flex justify-end pt-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSaveAutoTopup}
-                disabled={updateAutoTopupMutation.isPending}
-                className="rounded-xl font-semibold border-indigo-100 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/40 dark:border-indigo-950 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
-              >
-                <Save className="size-3.5 mr-1.5" />
-                Save
-              </Button>
-            </div>
           </div>
         </div>
       </ContentCard>
@@ -394,34 +459,43 @@ export function SettingsRewardsTab() {
           <div className="grid gap-5 sm:grid-cols-2">
             <SettingsFieldHint
               label="Points Exchange Rate"
-              hint={`Points per 1 ${currency} of cost after fees. Rate 1 → ${currency} 1,000 costs 1,000 ${PAQ_POINTS_NAME}. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
+              hint={`Points per 1 ${rewardsCurrency} of cost after fees. Rates below 1 are allowed. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
             >
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                value={exchangeRate}
-                onChange={(e) => setExchangeRate(e.target.value)}
-                className="rounded-xl h-11"
-              />
+              <div className="space-y-3">
+                <Input
+                  type="number"
+                  step={0.01}
+                  value={exchangeRate}
+                  onChange={(e) => setExchangeRate(e.target.value)}
+                  className="rounded-xl h-11"
+                />
+                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                  {examplePointsCost == null ? (
+                    'Enter a positive rate to preview the conversion.'
+                  ) : (
+                    <>
+                      Preview: {formatPlanMoney(exampleRewardCost, rewardsCurrency)} costs{' '}
+                      <span className="font-semibold text-foreground">
+                        {examplePointsCost.toLocaleString()} {PAQ_POINTS_NAME}
+                      </span>{' '}
+                      at a rate of {exchangeRateValue}.
+                    </>
+                  )}
+                </div>
+              </div>
             </SettingsFieldHint>
 
             <SettingsFieldHint
               label="Rewards Currency"
-              hint="The currency used for reward pricing and billing conversion."
+              hint={
+                currencyLocked
+                  ? `Locked after wallet activity. Balance stays in ${rewardsCurrency}.`
+                  : isNgTenant
+                    ? 'Nigeria workspaces use NGN and Nomba/Monnify. Updates if you change workspace settings before first top-up.'
+                    : 'Set from workspace country and currency. Updates before first top-up if you change them in Workspace settings.'
+              }
             >
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="rounded-xl h-11">
-                  <SelectValue placeholder="Select Currency..." />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {SUPPORTED_FIAT_CURRENCIES.map((cur) => (
-                    <SelectItem key={cur} value={cur}>
-                      {cur}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input value={rewardsCurrency} readOnly className="rounded-xl h-11 bg-muted/30" />
             </SettingsFieldHint>
 
             <div className="sm:col-span-2 space-y-4 pt-4 border-t border-border/40">
@@ -491,7 +565,7 @@ export function SettingsRewardsTab() {
 
             <SettingsFieldHint
               label="Catalog Countries"
-              hint="Select allowed countries for Reloadly catalog products. You can choose and enable multiple countries concurrently."
+              hint="Select allowed countries for Reloadly catalog products. Default comes from the workspace country, then falls back to US."
               className="sm:col-span-2"
             >
               <div className="space-y-4 p-5 rounded-2xl border bg-muted/10">
@@ -502,9 +576,8 @@ export function SettingsRewardsTab() {
                     </span>
                   ) : (
                     selectedCountries.map((code) => {
-                      const info = ALL_COUNTRIES.find((p) => p.code === code) ?? {
+                      const info = allCountries.find((country) => country.code === code) ?? {
                         name: code,
-                        flag: '🌐',
                       };
                       return (
                         <Badge
@@ -512,7 +585,6 @@ export function SettingsRewardsTab() {
                           variant="secondary"
                           className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-indigo-100 dark:border-indigo-950 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 rounded-full"
                         >
-                          <span>{info.flag}</span>
                           <span>
                             {info.name} ({code})
                           </span>
@@ -547,14 +619,14 @@ export function SettingsRewardsTab() {
                             className="h-8 text-xs rounded-lg"
                           />
                         </div>
-                        {filteredCountries
-                          .filter((c) => !selectedCountries.includes(c.code))
-                          .map((c) => (
-                            <SelectItem key={c.code} value={c.code} className="text-xs">
-                              <span className="mr-2">{c.flag}</span> {c.name} ({c.code})
+                        {filteredReloadlyCountries
+                          .filter((country) => !selectedCountries.includes(country.code))
+                          .map((country) => (
+                            <SelectItem key={country.code} value={country.code} className="text-xs">
+                              {country.name} ({country.code})
                             </SelectItem>
                           ))}
-                        {filteredCountries.length === 0 && (
+                        {filteredReloadlyCountries.length === 0 && (
                           <div className="p-2 text-center text-xs text-muted-foreground">
                             No countries found
                           </div>
@@ -668,12 +740,13 @@ export function SettingsRewardsTab() {
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <label htmlFor="topup-amount" className="text-sm font-medium">
-                Amount ({walletCurrency})
+                Amount ({rewardsCurrency})
               </label>
               <Input
                 id="topup-amount"
                 type="number"
                 min={1}
+                max={WALLET_TOPUP_MAX_AMOUNT}
                 step="1"
                 placeholder="e.g. 5000"
                 value={topupAmount}
