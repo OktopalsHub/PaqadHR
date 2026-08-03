@@ -178,8 +178,24 @@ jobs:
         env:
           DOKPLOY_WEB_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEB_WEBHOOK_URL }}
         run: |
-          if [ -n "$DOKPLOY_WEB_WEBHOOK_URL" ]; then
-            curl -fsS -X POST "$DOKPLOY_WEB_WEBHOOK_URL"
-          else
+          if [ -z "$DOKPLOY_WEB_WEBHOOK_URL" ]; then
             echo "DOKPLOY_WEB_WEBHOOK_URL not set — skipping deploy trigger"
+            exit 0
+          fi
+          # Dokploy expects a GitHub-style push payload (bare POST returns 400).
+          # Also requires Auto Deploy enabled on the Dokploy application.
+          BODY=$(jq -nc \
+            --arg ref "refs/heads/${GITHUB_REF_NAME}" \
+            --arg id "${GITHUB_SHA}" \
+            --arg msg "CI deploy ${GITHUB_SHA:0:7} (${GITHUB_REF_NAME})" \
+            '{ref:$ref,head_commit:{id:$id,message:$msg}}')
+          RESP=$(curl -sS -w "\n%{http_code}" -X POST "$DOKPLOY_WEB_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -d "$BODY")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY_OUT=$(echo "$RESP" | sed '$d')
+          echo "Dokploy response ($CODE): $BODY_OUT"
+          if [ "$CODE" -lt 200 ] || [ "$CODE" -ge 300 ]; then
+            exit 22
           fi
