@@ -3,7 +3,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   ArrowLeft,
-  Bell,
   Building2,
   CalendarClock,
   CalendarDays,
@@ -13,6 +12,8 @@ import {
   PlugZap,
   UserRound,
 } from 'lucide-react';
+// Bell removed while notifications tab is commented out
+// import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -39,7 +40,7 @@ const SETTINGS_TAB_ICONS: Record<SettingsTab, LucideIcon> = {
   shoutouts: Heart,
   rewards: Gift,
   holidays: CalendarDays,
-  notifications: Bell,
+  // notifications: Bell,
   attendance: CalendarClock,
   billing: CreditCard,
   integrations: PlugZap,

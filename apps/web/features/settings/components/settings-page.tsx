@@ -9,11 +9,11 @@ import { SettingsBillingTab } from '@/features/settings/components/settings-bill
 import { SettingsHolidaysTab } from '@/features/settings/components/settings-holidays-tab';
 import { SettingsIntegrationsTab } from '@/features/settings/components/settings-integrations-tab';
 import { SettingsLeaveTab } from '@/features/settings/components/settings-leave-tab';
-import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import { SettingsProfileTab } from '@/features/settings/components/settings-profile-tab';
 import { SettingsRewardsTab } from '@/features/settings/components/settings-rewards-tab';
 import { SettingsShoutoutsTab } from '@/features/settings/components/settings-shoutouts-tab';
 import { SettingsWorkspaceTab } from '@/features/settings/components/settings-workspace-tab';
+// import { SettingsNotificationsTab } from '@/features/settings/components/settings-notifications-tab';
 import {
   getVisibleSettingsTabs,
   isSettingsTab,
@@ -86,11 +86,13 @@ export function SettingsPage() {
             <SettingsHolidaysTab />
           </TabsContent>
         ) : null}
+        {/* Notifications tab temporarily hidden from settings
         {visibleTabs.includes('notifications') ? (
           <TabsContent value="notifications" className="mt-0 data-[state=inactive]:hidden">
             <SettingsNotificationsTab />
           </TabsContent>
         ) : null}
+        */}
         {visibleTabs.includes('attendance') ? (
           <TabsContent value="attendance" className="mt-0 data-[state=inactive]:hidden">
             <FeatureGate feature={FeatureAccess.ATTENDANCE}>

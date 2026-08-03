@@ -458,7 +458,7 @@ export function BillingSection() {
                 ) : null}
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="destructive"
                   disabled={cancelSub.isPending}
                   onClick={() =>
                     cancelSub.mutate(

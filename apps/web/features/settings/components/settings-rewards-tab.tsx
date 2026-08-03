@@ -70,10 +70,10 @@ export function SettingsRewardsTab() {
   const topupCheckout = useWalletTopupCheckout();
 
   const rewards = settings?.settings?.rewards;
-  const defaultCatalogCountry = (tenant?.countryCode ?? 'US').toUpperCase();
+  const defaultCatalogCountry = (tenant?.countryCode?.trim() || 'US').toUpperCase();
   const [exchangeRate, setExchangeRate] = useState('1');
   const [selectedCountries, setSelectedCountries] = useState<string[]>([defaultCatalogCountry]);
-  const [selectValue, setSelectValue] = useState('');
+  const [selectValue, setSelectValue] = useState<string | undefined>(undefined);
   const [countrySearch, setCountrySearch] = useState('');
 
   const [airtimeEnabled, setAirtimeEnabled] = useState(true);
@@ -129,9 +129,10 @@ export function SettingsRewardsTab() {
   useEffect(() => {
     if (rewards) {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 1));
-      setSelectedCountries(
-        rewards.catalogCountries?.length ? rewards.catalogCountries : [defaultCatalogCountry],
-      );
+      const countries = (rewards.catalogCountries ?? [])
+        .map((code) => code?.trim().toUpperCase())
+        .filter((code): code is string => Boolean(code));
+      setSelectedCountries(countries.length ? countries : [defaultCatalogCountry]);
       setAirtimeEnabled(rewards.airtimeEnabled ?? true);
       setGiftCardsEnabled(rewards.giftCardsEnabled ?? true);
       setGiftCardCategories(
@@ -226,7 +227,7 @@ export function SettingsRewardsTab() {
   };
 
   const handleAddCountry = (code: string) => {
-    setSelectValue('');
+    setSelectValue(undefined);
     if (code && !selectedCountries.includes(code)) {
       setSelectedCountries([...selectedCountries, code]);
     }
@@ -275,12 +276,14 @@ export function SettingsRewardsTab() {
     }
   };
 
-  const allCountries = reloadlyCountries.length
-    ? reloadlyCountries
-    : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
-        code,
-        name: code,
-      }));
+  const allCountries = (
+    reloadlyCountries.length
+      ? reloadlyCountries
+      : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
+          code,
+          name: code,
+        }))
+  ).filter((country) => Boolean(country.code?.trim()));
 
   const filteredReloadlyCountries = allCountries.filter(
     (country) =>
@@ -575,29 +578,31 @@ export function SettingsRewardsTab() {
                       No countries selected. Catalog will be empty.
                     </span>
                   ) : (
-                    selectedCountries.map((code) => {
-                      const info = allCountries.find((country) => country.code === code) ?? {
-                        name: code,
-                      };
-                      return (
-                        <Badge
-                          key={code}
-                          variant="secondary"
-                          className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-indigo-100 dark:border-indigo-950 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 rounded-full"
-                        >
-                          <span>
-                            {info.name} ({code})
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveCountry(code)}
-                            className="rounded-full p-0.5 hover:bg-muted-foreground/20 text-indigo-500/80 hover:text-indigo-600 transition-colors"
+                    selectedCountries
+                      .filter((code) => Boolean(code?.trim()))
+                      .map((code) => {
+                        const info = allCountries.find((country) => country.code === code) ?? {
+                          name: code,
+                        };
+                        return (
+                          <Badge
+                            key={code}
+                            variant="secondary"
+                            className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-indigo-100 dark:border-indigo-950 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 rounded-full"
                           >
-                            <X className="size-3" />
-                          </button>
-                        </Badge>
-                      );
-                    })
+                            <span>
+                              {info.name} ({code})
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCountry(code)}
+                              className="rounded-full p-0.5 hover:bg-muted-foreground/20 text-indigo-500/80 hover:text-indigo-600 transition-colors"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </Badge>
+                        );
+                      })
                   )}
                 </div>
 
@@ -620,7 +625,11 @@ export function SettingsRewardsTab() {
                           />
                         </div>
                         {filteredReloadlyCountries
-                          .filter((country) => !selectedCountries.includes(country.code))
+                          .filter(
+                            (country) =>
+                              Boolean(country.code?.trim()) &&
+                              !selectedCountries.includes(country.code),
+                          )
                           .map((country) => (
                             <SelectItem key={country.code} value={country.code} className="text-xs">
                               {country.name} ({country.code})
