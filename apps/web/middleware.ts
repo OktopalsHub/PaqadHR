@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import {
@@ -14,6 +13,15 @@ import {
 import { buildContentSecurityPolicy } from './lib/security/content-security-policy';
 import { CSP_NONCE_HEADER } from './lib/security/csp-nonce';
 
+function createNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let binary = '';
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
 function createRequestWithNonce(request: NextRequest, nonce: string): Headers {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CSP_NONCE_HEADER, nonce);
@@ -28,7 +36,7 @@ function applySecurityHeaders(response: NextResponse, requestHost: string, nonce
 }
 
 export function middleware(request: NextRequest) {
-  const nonce = randomBytes(16).toString('base64');
+  const nonce = createNonce();
   const requestHeaders = createRequestWithNonce(request, nonce);
   const requestHost = request.nextUrl.hostname;
   const hostHeader = request.headers.get('host') ?? requestHost;
