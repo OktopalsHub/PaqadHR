@@ -49,10 +49,14 @@ export function validateEnvAtBoot(): void {
   }
 
   if (nombaLive && !isProduction) {
-    errors.push('NOMBA_LIVE=true requires NODE_ENV=production');
+    warnings.push(
+      'NOMBA_LIVE=true while NODE_ENV is not production — real Nomba charges may run outside production app mode',
+    );
   }
   if (monnifyLive && !isProduction) {
-    errors.push('MONNIFY_LIVE=true requires NODE_ENV=production');
+    warnings.push(
+      'MONNIFY_LIVE=true while NODE_ENV is not production — real Monnify charges may run outside production app mode',
+    );
   }
 
   if (nombaLive && !process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim()) {

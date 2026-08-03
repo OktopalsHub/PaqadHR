@@ -50,13 +50,26 @@ describe('validateEnvAtBoot', () => {
     expect(() => validateEnvAtBoot()).toThrow(/NOMBA_WEBHOOK_SIGNATURE_KEY/);
   });
 
-  it('fails when NOMBA_LIVE=true outside production NODE_ENV', () => {
+  it('warns when NOMBA_LIVE=true outside production NODE_ENV but still boots', () => {
     withEnv({
       NOMBA_LIVE: 'true',
       NOMBA_WEBHOOK_SIGNATURE_KEY: 'sig',
       NODE_ENV: 'development',
     });
-    expect(() => validateEnvAtBoot()).toThrow(/NODE_ENV=production/);
+    expect(() => validateEnvAtBoot()).not.toThrow();
+  });
+
+  it('warns when MONNIFY_LIVE=true outside production NODE_ENV but still boots', () => {
+    withEnv({
+      MONNIFY_LIVE: 'true',
+      MONNIFY_WEBHOOK_SECRET: 'wh',
+      NG_PAYMENTS_PROVIDER: 'monnify',
+      MONNIFY_API_KEY: 'key',
+      MONNIFY_SECRET_KEY: 'secret',
+      MONNIFY_CONTRACT_CODE: 'contract',
+      NODE_ENV: 'development',
+    });
+    expect(() => validateEnvAtBoot()).not.toThrow();
   });
 
   it('fails when MONNIFY_LIVE=true without webhook secret', () => {
