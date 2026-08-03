@@ -10,9 +10,10 @@ import type { TenantSettingsData } from '../../../../common/interfaces/tenant-se
 import {
   normalizeRewardsCatalogCountries,
   resolveDefaultRewardsCatalogCountry,
-  resolveDefaultRewardsCurrency,
+  resolveInitialWalletCurrency,
 } from '../../../../common/utils/rewards-defaults.util';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { TenantWallet } from '../../rewards/entities/tenant-wallet.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import type { UpdateTenantSettingsDto } from '../dto/tenant-settings.dto';
 import type { TenantSettings } from '../entities/tenant-settings.entity';
@@ -255,10 +256,7 @@ export class TenantSettingsService {
       relations: ['createdBy'],
     });
 
-    const rewardsCurrency = resolveDefaultRewardsCurrency(
-      tenant?.countryCode,
-      tenant?.preferredCurrency,
-    );
+    const rewardsCurrency = await this.resolveWalletRewardsCurrency(tenantId, tenant);
     const defaultCountry = resolveDefaultRewardsCatalogCountry({
       tenantCountryCode: tenant?.countryCode,
       creatorCountryCode: tenant?.createdBy?.countryCode,
@@ -268,6 +266,19 @@ export class TenantSettingsService {
       rewardsCurrency,
       catalogCountries: [defaultCountry],
     };
+  }
+
+  private async resolveWalletRewardsCurrency(
+    tenantId: string,
+    tenant?: Tenant | null,
+  ): Promise<string> {
+    const wallet = await this._dataSource
+      .getRepository(TenantWallet)
+      .findOne({ where: { tenantId } });
+    if (wallet) {
+      return wallet.currencyCode.toUpperCase();
+    }
+    return resolveInitialWalletCurrency(tenant?.countryCode, tenant?.preferredCurrency);
   }
 
   private buildRewardsResponseSettings(

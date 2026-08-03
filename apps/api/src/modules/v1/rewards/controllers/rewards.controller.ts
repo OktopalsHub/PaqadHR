@@ -18,13 +18,13 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
-import {
-  paymentProviderLabel,
-  resolvePaymentProvider,
-} from 'src/common/utils/resolve-payment-provider.util';
+import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
-import { isRewardsWalletCheckoutLive } from '../config/rewards-wallet-provider.config';
+import {
+  isRewardsWalletCheckoutLive,
+  resolveRewardsWalletPaymentProvider,
+} from '../config/rewards-wallet-provider.config';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { WalletTopupDto } from '../dto/wallet-topup.dto';
@@ -32,7 +32,6 @@ import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
-import { TenantWalletVirtualAccountService } from '../services/tenant-wallet-virtual-account.service';
 
 const ALL_ROLES = [
   TenantMemberRole.OWNER,
@@ -44,15 +43,17 @@ const ADMIN_ROLES = [TenantMemberRole.OWNER, TenantMemberRole.ADMIN] as const;
 async function withWalletResponse(
   wallet: Awaited<ReturnType<TenantWalletService['getWallet']>>,
   fees: { feePercentage: number; flatFee: number },
-  virtualAccount: Awaited<ReturnType<TenantWalletVirtualAccountService['describeVirtualAccount']>>,
+  tenantCountryCode?: string | null,
+  currencyLocked?: boolean,
 ) {
-  const checkoutProvider = resolvePaymentProvider(wallet.currencyCode);
+  const checkoutProvider = resolveRewardsWalletPaymentProvider(tenantCountryCode);
   const checkoutLive = isRewardsWalletCheckoutLive(checkoutProvider);
 
   return {
     id: wallet.id,
     tenantId: wallet.tenantId,
     currencyCode: wallet.currencyCode,
+    currencyLocked: currencyLocked ?? false,
     balanceAmount: wallet.balanceAmount,
     pointsExchangeRate: wallet.pointsExchangeRate,
     autoTopupEnabled: wallet.autoTopupEnabled,
@@ -68,10 +69,7 @@ async function withWalletResponse(
           : 'noah',
     checkoutProviderLabel: paymentProviderLabel(checkoutProvider),
     checkoutLive,
-    virtualAccount: {
-      ...virtualAccount,
-      provisionedAt: virtualAccount.provisionedAt,
-    },
+    savedCardTopupSupported: checkoutProvider !== PaymentProvider.MONNIFY,
     /** @deprecated use checkoutLive */
     nombaLive: isNombaLive(),
   };
@@ -85,7 +83,6 @@ export class RewardsController {
     private readonly rewardsService: RewardsService,
     private readonly walletService: TenantWalletService,
     private readonly walletTopupService: TenantWalletTopupService,
-    private readonly walletVirtualAccountService: TenantWalletVirtualAccountService,
     private readonly customRewardsService: CustomRewardsService,
     private readonly memberPointsService: MemberPointsService,
   ) {}
@@ -158,27 +155,12 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   async getWallet(@Param('tenantId') tenantId: string) {
     const wallet = await this.walletService.getWallet(tenantId);
+    const [tenantCountryCode, currencyLocked] = await Promise.all([
+      this.walletService.getTenantCountryCode(tenantId),
+      this.walletService.isWalletCurrencyLockedForTenant(tenantId),
+    ]);
     const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    const virtualAccount = await this.walletVirtualAccountService.describeVirtualAccount(
-      tenantId,
-      wallet,
-    );
-    return withWalletResponse(wallet, fees, virtualAccount);
-  }
-
-  @Post('wallet/virtual-account')
-  @RequireFeatures(FeatureAccess.INTEGRATIONS)
-  @UseGuards(TenantRoleGuard)
-  @Roles(...ADMIN_ROLES)
-  @ApiOperation({ summary: 'Create or refresh rewards wallet virtual account' })
-  async provisionVirtualAccount(@Param('tenantId') tenantId: string) {
-    const wallet = await this.walletVirtualAccountService.provisionVirtualAccount(tenantId);
-    const fees = await this.rewardsService.getRedemptionFees(tenantId, wallet.currencyCode);
-    const virtualAccount = await this.walletVirtualAccountService.describeVirtualAccount(
-      tenantId,
-      wallet,
-    );
-    return withWalletResponse(wallet, fees, virtualAccount);
+    return withWalletResponse(wallet, fees, tenantCountryCode, currencyLocked);
   }
 
   @Get('wallet/transactions')

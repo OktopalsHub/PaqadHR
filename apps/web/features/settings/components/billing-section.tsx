@@ -50,9 +50,6 @@ function BillingContactForm({
   const [country, setCountry] = useState(initial.country ?? '');
   const [identityBvn, setIdentityBvn] = useState('');
   const [identityNin, setIdentityNin] = useState('');
-  const [requireWorkspaceKyc, setRequireWorkspaceKyc] = useState(
-    initial.requireWorkspaceKycForVirtualAccounts ?? false,
-  );
 
   useEffect(() => {
     setContactName(initial.contactName ?? '');
@@ -64,7 +61,6 @@ function BillingContactForm({
     setCountry(initial.country ?? '');
     setIdentityBvn('');
     setIdentityNin('');
-    setRequireWorkspaceKyc(initial.requireWorkspaceKycForVirtualAccounts ?? false);
   }, [initial, ownerEmail]);
 
   const save = async () => {
@@ -84,7 +80,6 @@ function BillingContactForm({
           country: country.trim() || undefined,
           identityBvn: identityBvn.trim() || undefined,
           identityNin: identityNin.trim() || undefined,
-          requireWorkspaceKycForVirtualAccounts: requireWorkspaceKyc,
         },
       });
       toast.success('Billing contact saved');
@@ -145,8 +140,7 @@ function BillingContactForm({
           {initial.hasIdentityNin ? <Badge variant="secondary">NIN stored</Badge> : null}
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Used for rewards bank accounts and payroll compliance. Leave blank to keep existing
-          values.
+          Used for payroll compliance. Leave blank to keep existing values.
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <SettingsFieldHint label="BVN">
@@ -168,15 +162,6 @@ function BillingContactForm({
             />
           </SettingsFieldHint>
         </div>
-        <label className="mt-4 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={requireWorkspaceKyc}
-            onChange={(e) => setRequireWorkspaceKyc(e.target.checked)}
-            className="rounded border-border"
-          />
-          Require BVN or NIN before creating rewards bank account
-        </label>
       </div>
       <div className="sm:col-span-2">
         <SettingsFormActions onSave={save} isPending={patchSettings.isPending} />

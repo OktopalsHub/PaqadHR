@@ -1,6 +1,9 @@
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { resolveTenantId } from '@/lib/api/tenants';
 
+/** Maximum wallet top-up amount per checkout or auto-topup request (mirrors API DTO). */
+export const WALLET_TOPUP_MAX_AMOUNT = 10_000_000;
+
 export type RewardType =
   | 'RELOADLY'
   | 'NOMBA_AIRTIME'
@@ -63,6 +66,8 @@ export interface TenantWallet {
   id: string;
   tenantId: string;
   currencyCode: string;
+  /** True once the wallet has balance or transaction history; currency cannot change. */
+  currencyLocked?: boolean;
   balanceAmount: number;
   pointsExchangeRate: number;
   feePercentage?: number;
@@ -75,22 +80,8 @@ export interface TenantWallet {
   checkoutProviderLabel?: string;
   /** True when checkout runs in live mode for the wallet currency provider. */
   checkoutLive?: boolean;
-  virtualAccount?: {
-    supported: boolean;
-    provider: 'nomba' | 'monnify' | null;
-    providerLabel: string | null;
-    live: boolean | null;
-    ready: boolean;
-    providerMismatch?: boolean;
-    status: string | null;
-    accountName: string | null;
-    accountNumber: string | null;
-    bankName: string | null;
-    reference: string | null;
-    error: string | null;
-    requirements: string[];
-    provisionedAt: string | null;
-  };
+  /** False when saved-card top-up / auto-topup is unavailable (e.g. Monnify). */
+  savedCardTopupSupported?: boolean;
   /** @deprecated use checkoutLive */
   nombaLive?: boolean;
 }
@@ -313,12 +304,6 @@ export async function createWalletTopupCheckout(
       body: JSON.stringify({ amount }),
     },
   );
-}
-
-export async function createWalletVirtualAccount(tenantId: string): Promise<TenantWallet> {
-  return apiClient<TenantWallet>(tenantPath(tenantId, 'rewards/wallet/virtual-account'), {
-    method: 'POST',
-  });
 }
 
 export async function updateAutoTopupConfig(params: {

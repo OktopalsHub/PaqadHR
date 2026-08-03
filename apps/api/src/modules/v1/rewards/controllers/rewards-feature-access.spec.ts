@@ -31,7 +31,6 @@ describe('Rewards controller feature access', () => {
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
   );
 
   beforeEach(() => {

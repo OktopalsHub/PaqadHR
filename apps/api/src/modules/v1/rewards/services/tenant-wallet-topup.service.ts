@@ -7,7 +7,6 @@ import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
-import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -19,10 +18,13 @@ import {
 } from '../../subscriptions/utils/per-seat-pricing.util';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { resolveRewardsWalletPaymentProvider } from '../config/rewards-wallet-provider.config';
+import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
   WALLET_CREDIT_FAILED,
   WALLET_NO_BILLING_CARD,
+  WALLET_SAVED_CARD_UNSUPPORTED,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
@@ -77,9 +79,7 @@ export class TenantWalletTopupService {
     amount: number,
     initiatedByMemberId?: string,
   ): Promise<{ checkoutUrl: string; orderReference: string; provider: string }> {
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new BadRequestException('Top up amount must be greater than 0');
-    }
+    this.assertTopupAmount(amount);
 
     const customerEmail = await this.resolveBillingEmail(tenantId);
     if (!customerEmail) {
@@ -89,8 +89,9 @@ export class TenantWalletTopupService {
     }
 
     const wallet = await this.walletService.ensureWallet(tenantId);
-    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
-    const provider = resolvePaymentProvider(currency);
+    const currency = (wallet.currencyCode || 'USD').toUpperCase();
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode);
 
     if (provider === PaymentProvider.NOMBA && !this.nombaApi.isConfigured()) {
       throw new BadRequestException('Nomba checkout is not configured');
@@ -102,7 +103,6 @@ export class TenantWalletTopupService {
       throw new BadRequestException('Noah checkout is not configured');
     }
 
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const callbackUrl = tenant?.slug
       ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards&wallet_topup=done')
       : tenantFrontendUrl('', '/settings?tab=rewards&wallet_topup=done');
@@ -227,9 +227,7 @@ export class TenantWalletTopupService {
       this.logger.warn(
         `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
       );
-      throw new BadRequestException(
-        `Wallet checkout top-up not yet successful: ${status || 'unknown'}`,
-      );
+      return { received: true, credited: false };
     }
 
     const expected = input.amount ?? Number(verified?.amount ?? 0);
@@ -250,7 +248,7 @@ export class TenantWalletTopupService {
       return { received: true, credited: false };
     }
 
-    const providerLabel = billingProvider === PaymentProvider.NOAH ? 'Noah' : 'Nomba';
+    const providerLabel = this.checkoutProviderLabel(billingProvider);
 
     return this.dataSource.transaction(async (manager) => {
       await manager
@@ -274,7 +272,7 @@ export class TenantWalletTopupService {
         input.orderReference,
         `Rewards wallet top-up via ${providerLabel} checkout`,
         manager,
-        { nombaEventId: input.orderReference },
+        { providerEventId: input.orderReference },
       );
       this.logger.log(
         `Credited wallet ${input.tenantId} for ${providerLabel} checkout top-up ${input.orderReference}`,
@@ -292,6 +290,14 @@ export class TenantWalletTopupService {
       Number(wallet.autoTopupAmount) <= 0 ||
       Number(wallet.balanceAmount) > Number(wallet.autoTopupThreshold)
     ) {
+      return;
+    }
+
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (resolveRewardsWalletPaymentProvider(tenant?.countryCode) === PaymentProvider.MONNIFY) {
+      this.logger.debug(
+        `Skipping auto-topup for tenant ${tenantId}: saved-card top-up is unavailable on Monnify`,
+      );
       return;
     }
 
@@ -313,9 +319,7 @@ export class TenantWalletTopupService {
     manager?: EntityManager,
     audience: ChargeAudience = 'admin',
   ): Promise<TenantWallet> {
-    if (!Number.isFinite(amount) || amount <= 0) {
-      throw new BadRequestException('Top up amount must be greater than 0');
-    }
+    this.assertTopupAmount(amount);
 
     const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
     const tokenKey = subscription?.paymentMethodId?.trim();
@@ -341,9 +345,15 @@ export class TenantWalletTopupService {
     }
 
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
-    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
-    const provider = resolvePaymentProvider(currency);
+    const currency = (wallet.currencyCode || 'USD').toUpperCase();
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode);
 
+    if (provider === PaymentProvider.MONNIFY) {
+      throw new BadRequestException(
+        audience === 'admin' ? WALLET_SAVED_CARD_UNSUPPORTED : WALLET_UNAVAILABLE_MEMBER,
+      );
+    }
     if (provider === PaymentProvider.NOMBA && !isNombaConfigured()) {
       throw new BadRequestException('Nomba checkout is not configured');
     }
@@ -407,7 +417,7 @@ export class TenantWalletTopupService {
         description,
         manager,
         {
-          nombaEventId: chargeReference,
+          providerEventId: chargeReference,
         },
       );
     } catch (error) {
@@ -416,6 +426,17 @@ export class TenantWalletTopupService {
         error instanceof Error ? error.stack : undefined,
       );
       throw new BadRequestException(WALLET_CREDIT_FAILED);
+    }
+  }
+
+  private checkoutProviderLabel(provider: PaymentProvider): string {
+    switch (provider) {
+      case PaymentProvider.MONNIFY:
+        return 'Monnify';
+      case PaymentProvider.NOAH:
+        return 'Noah';
+      default:
+        return 'Nomba';
     }
   }
 
@@ -474,5 +495,14 @@ export class TenantWalletTopupService {
 <p>Reason: ${reason}</p>
 <p><a href="${settingsUrl}">Open Rewards settings</a></p>`,
     });
+  }
+
+  private assertTopupAmount(amount: number): void {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Top up amount must be greater than 0');
+    }
+    if (amount > WALLET_TOPUP_MAX_AMOUNT) {
+      throw new BadRequestException(`Top up amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT}`);
+    }
   }
 }

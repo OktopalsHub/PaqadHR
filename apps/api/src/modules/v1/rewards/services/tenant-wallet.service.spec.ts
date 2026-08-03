@@ -1,7 +1,10 @@
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
   WALLET_CREDIT_FAILED,
   WALLET_NO_BILLING_CARD,
+  WALLET_SAVED_CARD_UNSUPPORTED,
   WALLET_UNAVAILABLE_MEMBER,
 } from '../constants/wallet-error-messages';
 import { TenantWalletService } from './tenant-wallet.service';
@@ -64,7 +67,7 @@ describe('TenantWalletService', () => {
       manager,
     };
 
-    const tenantRecord = { id: tenantId, preferredCurrency: 'NGN' };
+    const tenantRecord = { id: tenantId, countryCode: 'NG', preferredCurrency: 'NGN' };
     const tenantsService = {
       findOne: jest.fn().mockResolvedValue(tenantRecord),
       getTenant: jest.fn().mockResolvedValue(tenantRecord),
@@ -86,6 +89,59 @@ describe('TenantWalletService', () => {
       await expect(
         walletService.debit(tenantId, 100, 'ref-1', 'test', manager as any),
       ).rejects.toThrow(WALLET_UNAVAILABLE_MEMBER);
+    });
+  });
+
+  describe('currency lock', () => {
+    it('does not sync currency when wallet is funded', async () => {
+      const { walletService, walletRepo } = createWalletService({
+        wallet: { currencyCode: 'NGN', balanceAmount: 5000 },
+      });
+      const tenantsService = (walletService as any).tenantsService;
+      tenantsService.getTenant.mockResolvedValue({
+        id: tenantId,
+        countryCode: 'US',
+        preferredCurrency: 'USD',
+      });
+
+      const wallet = await walletService.getWallet(tenantId);
+
+      expect(wallet.currencyCode).toBe('NGN');
+      expect(walletRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('keeps NGN for funded NG tenant when preferredCurrency becomes USD', async () => {
+      const { walletService, walletRepo } = createWalletService({
+        wallet: { currencyCode: 'NGN', balanceAmount: 5000 },
+      });
+      const tenantsService = (walletService as any).tenantsService;
+      tenantsService.getTenant.mockResolvedValue({
+        id: tenantId,
+        countryCode: 'NG',
+        preferredCurrency: 'USD',
+      });
+
+      const wallet = await walletService.getWallet(tenantId);
+
+      expect(wallet.currencyCode).toBe('NGN');
+      expect(walletRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('syncs currency for unfunded wallet when workspace currency changes', async () => {
+      const { walletService, walletRepo } = createWalletService({
+        wallet: { currencyCode: 'USD', balanceAmount: 0 },
+      });
+      const tenantsService = (walletService as any).tenantsService;
+      tenantsService.getTenant.mockResolvedValue({
+        id: tenantId,
+        countryCode: 'US',
+        preferredCurrency: 'EUR',
+      });
+
+      const wallet = await walletService.getWallet(tenantId);
+
+      expect(wallet.currencyCode).toBe('EUR');
+      expect(walletRepo.save).toHaveBeenCalled();
     });
   });
 });
@@ -113,7 +169,9 @@ describe('TenantWalletTopupService', () => {
     wallet?: Record<string, unknown>;
     nombaCharge?: jest.Mock;
     nombaVerify?: jest.Mock;
+    monnifyVerify?: jest.Mock;
     paymentMethodId?: string | null;
+    tenantCountryCode?: string;
   }) {
     const wallet = {
       id: 'wallet-1',
@@ -178,6 +236,7 @@ describe('TenantWalletTopupService', () => {
     };
 
     const noahApi = {
+      isConfigured: jest.fn().mockReturnValue(true),
       createPayinCheckout: jest.fn().mockResolvedValue({
         checkoutLink: 'https://checkout.noah.com/test',
         orderReference: 'nw_wallet-topup-ref',
@@ -200,7 +259,12 @@ describe('TenantWalletTopupService', () => {
 
     const emailService = { sendEmail: jest.fn().mockResolvedValue(undefined) };
     const tenantRepository = {
-      findOne: jest.fn().mockResolvedValue({ id: tenantId, name: 'Acme Corp', slug: 'acme' }),
+      findOne: jest.fn().mockResolvedValue({
+        id: tenantId,
+        name: 'Acme Corp',
+        slug: 'acme',
+        countryCode: overrides?.tenantCountryCode ?? 'NG',
+      }),
     };
 
     const walletService = {
@@ -208,11 +272,19 @@ describe('TenantWalletTopupService', () => {
       credit: jest.fn().mockResolvedValue(wallet),
     };
 
+    const monnifyApi = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      initializeTransaction: jest.fn(),
+      verifyTransaction:
+        overrides?.monnifyVerify ??
+        jest.fn().mockResolvedValue({ paid: true, amount: 2500, currency: 'NGN' }),
+    };
+
     const topupService = new TenantWalletTopupService(
       dataSource as any,
       walletService as any,
       nombaApi as any,
-      { initializeTransaction: jest.fn(), verifyTransaction: jest.fn() } as any,
+      monnifyApi as any,
       noahApi as any,
       subscriptionsService as any,
       tenantSettingsService as any,
@@ -226,6 +298,7 @@ describe('TenantWalletTopupService', () => {
       txRepo,
       nombaApi,
       noahApi,
+      monnifyApi,
       emailService,
       manager,
       walletRepo,
@@ -326,6 +399,15 @@ describe('TenantWalletTopupService', () => {
       );
       expect(nombaApi.createCheckoutOrder).not.toHaveBeenCalled();
     });
+
+    it('rejects amounts above the configured max', async () => {
+      const { topupService, nombaApi } = createTopupService();
+
+      await expect(
+        topupService.createTopupCheckout(tenantId, WALLET_TOPUP_MAX_AMOUNT + 1),
+      ).rejects.toThrow(`Top up amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT}`);
+      expect(nombaApi.createCheckoutOrder).not.toHaveBeenCalled();
+    });
   });
 
   describe('completeCheckoutTopup', () => {
@@ -372,6 +454,79 @@ describe('TenantWalletTopupService', () => {
       expect(result).toEqual({ received: true, credited: false });
       expect(nombaApi.verifyTransaction).not.toHaveBeenCalled();
       expect(walletService.credit).not.toHaveBeenCalled();
+    });
+
+    it('returns credited false for pending checkout without throwing', async () => {
+      const { topupService, walletService, nombaApi } = createTopupService({
+        nombaVerify: jest.fn().mockResolvedValue({ status: 'pending', amount: 2500 }),
+      });
+
+      const result = await topupService.completeCheckoutTopup({
+        tenantId,
+        orderReference: walletTopupRef,
+        amount: 2500,
+      });
+
+      expect(result).toEqual({ received: true, credited: false });
+      expect(nombaApi.verifyTransaction).toHaveBeenCalledWith(walletTopupRef);
+      expect(walletService.credit).not.toHaveBeenCalled();
+    });
+
+    it('returns credited false for pending Monnify checkout', async () => {
+      const monnifyRef = `wm_${tenantId.replace(/-/g, '')}_abc123`;
+      const { topupService, walletService, monnifyApi } = createTopupService({
+        monnifyVerify: jest.fn().mockResolvedValue({ paid: false, amount: 2500, currency: 'NGN' }),
+      });
+
+      const result = await topupService.completeCheckoutTopup(
+        { tenantId, orderReference: monnifyRef, amount: 2500 },
+        PaymentProvider.MONNIFY,
+      );
+
+      expect(result).toEqual({ received: true, credited: false });
+      expect(monnifyApi.verifyTransaction).toHaveBeenCalledWith(monnifyRef);
+      expect(walletService.credit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Monnify saved-card paths', () => {
+    const originalNgProvider = process.env.NG_PAYMENTS_PROVIDER;
+
+    beforeEach(() => {
+      process.env.NG_PAYMENTS_PROVIDER = 'monnify';
+      process.env.MONNIFY_API_KEY = 'key';
+      process.env.MONNIFY_SECRET_KEY = 'secret';
+      process.env.MONNIFY_CONTRACT_CODE = 'contract';
+    });
+
+    afterEach(() => {
+      process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
+    });
+
+    it('rejects manual top-up when provider is Monnify', async () => {
+      const { topupService, nombaApi, noahApi } = createTopupService();
+
+      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+        WALLET_SAVED_CARD_UNSUPPORTED,
+      );
+
+      expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
+      expect(noahApi.verifyTransaction).not.toHaveBeenCalled();
+    });
+
+    it('skips auto-topup when provider is Monnify', async () => {
+      const { topupService, nombaApi } = createTopupService({
+        wallet: {
+          autoTopupEnabled: true,
+          autoTopupThreshold: 1000,
+          autoTopupAmount: 5000,
+          balanceAmount: 500,
+        },
+      });
+
+      await topupService.maybeAutoTopupAfterDebit(tenantId);
+
+      expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
     });
   });
 });

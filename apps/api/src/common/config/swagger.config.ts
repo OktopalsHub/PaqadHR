@@ -12,7 +12,6 @@ export function setupSwagger(app: INestApplication): void {
     )
     .setVersion('1.0')
     .addServer('http://localhost:9001', 'Local Server')
-    .addServer('https://paqad.dev.oktopals.com', 'Dev Server')
     .addBearerAuth(
       {
         type: 'http',

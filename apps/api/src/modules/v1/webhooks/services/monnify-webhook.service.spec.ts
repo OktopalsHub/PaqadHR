@@ -1,6 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
-import { TenantWalletVirtualAccountService } from '../../rewards/services/tenant-wallet-virtual-account.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { MonnifyWebhookService } from './monnify-webhook.service';
 
@@ -12,21 +11,12 @@ import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook
 
 describe('MonnifyWebhookService', () => {
   let service: MonnifyWebhookService;
-  let walletVirtualAccountService: jest.Mocked<
-    Pick<TenantWalletVirtualAccountService, 'completeVirtualAccountDeposit'>
-  >;
   let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
   let subscriptionBillingService: jest.Mocked<
     Pick<SubscriptionBillingService, 'processMonnifyPayload'>
   >;
 
   beforeEach(() => {
-    walletVirtualAccountService = {
-      completeVirtualAccountDeposit: jest.fn().mockResolvedValue({
-        received: true,
-        credited: true,
-      }),
-    };
     walletTopupService = {
       completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true }),
     };
@@ -35,7 +25,6 @@ describe('MonnifyWebhookService', () => {
     };
 
     service = new MonnifyWebhookService(
-      walletVirtualAccountService as unknown as TenantWalletVirtualAccountService,
       walletTopupService as unknown as TenantWalletTopupService,
       subscriptionBillingService as unknown as SubscriptionBillingService,
     );
@@ -55,39 +44,31 @@ describe('MonnifyWebhookService', () => {
     await expect(service.dispatch('{bad', 'sig')).rejects.toThrow(BadRequestException);
   });
 
-  it('routes successful transaction events to wallet credit', async () => {
+  it('routes wallet_topup checkout to wallet credit', async () => {
     const body = JSON.stringify({
       eventType: 'SUCCESSFUL_TRANSACTION',
       eventData: {
         amountPaid: 2500,
-        paymentReference: 'pay-ref-1',
-        product: { reference: 'rw_mon_t1_1234' },
-        destinationAccountInformation: { accountNumber: '1234567890' },
-        payer: { name: 'Ada Lovelace' },
+        paymentReference: 'wallet-topup-t1-abc',
+        metaData: {
+          tenantId: 't1',
+          billingType: 'wallet_topup',
+          expectedAmount: '2500',
+        },
       },
     });
 
     await service.dispatch(body, 'sig');
 
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).toHaveBeenCalledWith({
-      provider: 'monnify',
-      amount: 2500,
-      transactionReference: 'pay-ref-1',
-      accountReference: 'rw_mon_t1_1234',
-      accountNumber: '1234567890',
-      paymentReference: 'pay-ref-1',
-      payerName: 'Ada Lovelace',
-      rawPayload: {
-        eventType: 'SUCCESSFUL_TRANSACTION',
-        eventData: {
-          amountPaid: 2500,
-          paymentReference: 'pay-ref-1',
-          product: { reference: 'rw_mon_t1_1234' },
-          destinationAccountInformation: { accountNumber: '1234567890' },
-          payer: { name: 'Ada Lovelace' },
-        },
+    expect(walletTopupService.completeCheckoutTopup).toHaveBeenCalledWith(
+      {
+        tenantId: 't1',
+        orderReference: 'wallet-topup-t1-abc',
+        amount: 2500,
       },
-    });
+      'monnify',
+    );
+    expect(subscriptionBillingService.processMonnifyPayload).not.toHaveBeenCalled();
   });
 
   it('ignores unrelated events', async () => {
@@ -97,6 +78,7 @@ describe('MonnifyWebhookService', () => {
     );
 
     expect(result).toEqual({ received: true });
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).not.toHaveBeenCalled();
+    expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
+    expect(subscriptionBillingService.processMonnifyPayload).not.toHaveBeenCalled();
   });
 });

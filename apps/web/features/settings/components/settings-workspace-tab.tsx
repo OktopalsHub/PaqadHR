@@ -123,7 +123,7 @@ export function SettingsWorkspaceTab() {
     const previousPrimary = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
     if (primaryCurrency && primaryCurrency !== previousPrimary) {
       const confirmed = window.confirm(
-        `Change workspace default from ${previousPrimary} to ${primaryCurrency}? Employees still paid in ${previousPrimary} must have their salary currency updated first — the save will be blocked until then.`,
+        `Change workspace default from ${previousPrimary} to ${primaryCurrency}? Employees still paid in ${previousPrimary} must have their salary currency updated first. If your rewards wallet already has a balance, the change will be blocked until the balance is spent.`,
       );
       if (!confirmed) return;
     }

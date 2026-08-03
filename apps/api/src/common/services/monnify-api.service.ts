@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   getMonnifyApiKey,
   getMonnifyBaseUrl,
@@ -15,27 +15,6 @@ interface MonnifyAuthResponse {
   responseBody?: {
     accessToken?: string;
     expiresIn?: number;
-  };
-}
-
-interface MonnifyAccountEntry {
-  accountNumber?: string;
-  bankName?: string;
-  accountName?: string;
-}
-
-interface MonnifyReservedAccountResponse {
-  requestSuccessful?: boolean;
-  responseMessage?: string;
-  responseBody?: {
-    accountReference?: string;
-    accountName?: string;
-    currencyCode?: string;
-    customerEmail?: string;
-    customerName?: string;
-    accounts?: MonnifyAccountEntry[];
-    accountNumber?: string;
-    bankName?: string;
   };
 }
 
@@ -78,16 +57,6 @@ interface MonnifyDisbursementResponse {
   };
 }
 
-export interface MonnifyReservedAccountInput {
-  accountReference: string;
-  accountName: string;
-  customerName: string;
-  customerEmail: string;
-  currencyCode?: string;
-  customerBvn?: string;
-  customerNin?: string;
-}
-
 export interface MonnifyInitCheckoutInput {
   amount: number;
   customerName: string;
@@ -111,7 +80,6 @@ export interface MonnifySingleTransferInput {
 
 @Injectable()
 export class MonnifyApiService {
-  private readonly logger = new Logger(MonnifyApiService.name);
   private cachedToken?: { token: string; expiresAt: number };
   private static readonly REQUEST_TIMEOUT_MS = 30_000;
 
@@ -166,65 +134,6 @@ export class MonnifyApiService {
           : 25 * 60 * 1000),
     };
     return token;
-  }
-
-  async createReservedAccount(input: MonnifyReservedAccountInput): Promise<{
-    accountReference: string;
-    accountNumber: string;
-    bankName: string;
-    accountName: string;
-  }> {
-    this.ensureConfigured();
-
-    if (!input.customerBvn && !input.customerNin) {
-      throw new BadRequestException('A workspace BVN or NIN is required to create a bank account');
-    }
-
-    const token = await this.getAccessToken();
-    const response = await this.monnifyFetch(`${getMonnifyBaseUrl()}/api/v2/bank-transfer/reserved-accounts`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        accountReference: input.accountReference,
-        accountName: input.accountName,
-        currencyCode: (input.currencyCode || 'NGN').toUpperCase(),
-        contractCode: getMonnifyContractCode(),
-        customerName: input.customerName,
-        customerEmail: input.customerEmail,
-        getAllAvailableBanks: false,
-        customerBVN: input.customerBvn,
-        customerNIN: input.customerNin,
-      }),
-    });
-
-    const payload = (await response.json().catch(() => ({}))) as MonnifyReservedAccountResponse;
-    if (!response.ok || payload.requestSuccessful === false) {
-      const message =
-        payload.responseMessage || `Failed to create Monnify reserved account (${response.status})`;
-      this.logger.error(`Monnify reserved account failed: ${message}`);
-      throw new BadRequestException(message);
-    }
-
-    const account = payload.responseBody?.accounts?.[0];
-    const accountNumber = account?.accountNumber ?? payload.responseBody?.accountNumber;
-    const bankName = account?.bankName ?? payload.responseBody?.bankName;
-    const accountName =
-      account?.accountName ?? payload.responseBody?.accountName ?? input.accountName;
-    const accountReference = payload.responseBody?.accountReference ?? input.accountReference;
-
-    if (!accountNumber || !bankName) {
-      throw new BadRequestException('Monnify did not return a reserved account number');
-    }
-
-    return {
-      accountReference,
-      accountNumber,
-      bankName,
-      accountName,
-    };
   }
 
   async initializeTransaction(input: MonnifyInitCheckoutInput): Promise<{
@@ -351,7 +260,7 @@ export class MonnifyApiService {
       response.ok &&
       payload.requestSuccessful === true &&
       Boolean(body?.reference) &&
-      Boolean(status) &&
+      status != null &&
       ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING'].includes(status);
 
     return {

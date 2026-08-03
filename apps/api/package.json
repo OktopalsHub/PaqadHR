@@ -26,6 +26,8 @@
     "migration:revert": "typeorm migration:revert -d dist/common/database/config/data-source.js",
     "migration:generate": "typeorm migration:generate -d dist/common/database/config/data-source.js",
     "seed:plans": "ts-node -r tsconfig-paths/register src/scripts/seed-plans.ts",
+    "audit:wallet-currency": "ts-node -r tsconfig-paths/register src/scripts/audit-wallet-currency.ts",
+    "smoke:wallet": "ts-node -r tsconfig-paths/register src/scripts/wallet-smoke-checklist.ts",
     "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
     "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts",
     "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts"

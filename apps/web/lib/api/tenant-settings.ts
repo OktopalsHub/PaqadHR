@@ -72,7 +72,6 @@ export interface BillingSettings {
   identityNin?: string;
   hasIdentityBvn?: boolean;
   hasIdentityNin?: boolean;
-  requireWorkspaceKycForVirtualAccounts?: boolean;
 }
 
 export interface EmployeeSettings {

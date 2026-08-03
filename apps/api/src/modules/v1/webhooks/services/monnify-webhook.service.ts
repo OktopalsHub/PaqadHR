@@ -2,18 +2,15 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
-import { TenantWalletVirtualAccountService } from '../../rewards/services/tenant-wallet-virtual-account.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
   extractMonnifySubscriptionPayment,
-  extractMonnifyVirtualAccountDeposit,
   extractMonnifyWalletTopupCheckout,
 } from '../webhook-request.util';
 
 @Injectable()
 export class MonnifyWebhookService {
   constructor(
-    private readonly walletVirtualAccountService: TenantWalletVirtualAccountService,
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly subscriptionBillingService: SubscriptionBillingService,
   ) {}
@@ -41,14 +38,6 @@ export class MonnifyWebhookService {
     const subscriptionPayment = extractMonnifySubscriptionPayment(payload);
     if (subscriptionPayment) {
       return this.subscriptionBillingService.processMonnifyPayload(payload);
-    }
-
-    const deposit = extractMonnifyVirtualAccountDeposit(payload);
-    if (deposit) {
-      return this.walletVirtualAccountService.completeVirtualAccountDeposit({
-        provider: PaymentProvider.MONNIFY,
-        ...deposit,
-      });
     }
 
     return { received: true };

@@ -12,7 +12,7 @@ import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilit
 import {
   normalizeRewardsCatalogCountries,
   resolveDefaultRewardsCatalogCountry,
-  resolveDefaultRewardsCurrency,
+  resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
@@ -33,6 +33,7 @@ import {
 } from '../entities/reward-redemption.entity';
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
@@ -232,18 +233,18 @@ export class RewardsService {
     const repo = this.dataSource.getRepository(
       (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
     );
-    const [row, tenant] = await Promise.all([
+    const [row, tenant, wallet] = await Promise.all([
       repo.findOne({ where: { tenantId } }),
       this.dataSource.getRepository(Tenant).findOne({
         where: { id: tenantId },
         relations: ['createdBy'],
       }),
+      this.dataSource.getRepository(TenantWallet).findOne({ where: { tenantId } }),
     ]);
     const rewards = row?.settings?.rewards;
-    const rewardsCurrency = resolveDefaultRewardsCurrency(
-      tenant?.countryCode,
-      tenant?.preferredCurrency,
-    );
+    const rewardsCurrency = wallet
+      ? wallet.currencyCode.toUpperCase()
+      : resolveInitialWalletCurrency(tenant?.countryCode, tenant?.preferredCurrency);
     const defaultCatalogCountry = resolveDefaultRewardsCatalogCountry({
       tenantCountryCode: tenant?.countryCode,
       creatorCountryCode: tenant?.createdBy?.countryCode,

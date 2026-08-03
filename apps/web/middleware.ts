@@ -29,10 +29,7 @@ function createRenderRequestHeaders(
 ): Headers {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CSP_NONCE_HEADER, nonce);
-  requestHeaders.set(
-    'Content-Security-Policy',
-    buildContentSecurityPolicy(requestHost, nonce),
-  );
+  requestHeaders.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost, nonce));
   return requestHeaders;
 }
 

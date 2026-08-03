@@ -10,6 +10,8 @@ describe('TenantSettingsService rewards validation', () => {
   let repository: { findOne: jest.Mock; save: jest.Mock };
   let eventEmitter: { emit: jest.Mock };
   let tenantRepository: { findOne: jest.Mock };
+  let walletRepository: { findOne: jest.Mock };
+  let dataSource: { getRepository: jest.Mock };
   let encryptionService: { encrypt: jest.Mock; decrypt: jest.Mock; isEncrypted: jest.Mock };
 
   const baseSettings = {
@@ -43,6 +45,17 @@ describe('TenantSettingsService rewards validation', () => {
         createdBy: { countryCode: 'US' },
       }),
     };
+    walletRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    dataSource = {
+      getRepository: jest.fn((entity: { name: string }) => {
+        if (entity.name === 'TenantWallet') {
+          return walletRepository;
+        }
+        return {};
+      }),
+    };
     encryptionService = {
       encrypt: jest.fn((value: string) => `enc:${value}`),
       decrypt: jest.fn((value: string) => value.replace(/^enc:/, '')),
@@ -51,7 +64,7 @@ describe('TenantSettingsService rewards validation', () => {
 
     service = new TenantSettingsService(
       repository as unknown as TenantSettingRepository,
-      {} as DataSource,
+      dataSource as unknown as DataSource,
       eventEmitter as unknown as EventEmitter2,
       {} as never,
       tenantRepository as never,
@@ -81,11 +94,31 @@ describe('TenantSettingsService rewards validation', () => {
     expect(result.settings.rewards?.pointsExchangeRate).toBe(0.5);
   });
 
-  it('forces rewards currency to follow workspace currency', async () => {
+  it('accepts small positive exchange rates', async () => {
+    const result = await service.updateTenantSettings('tenant-1', {
+      rewards: { pointsExchangeRate: 0.001 },
+    });
+    expect(result.settings.rewards?.pointsExchangeRate).toBe(0.001);
+  });
+
+  it('uses initial workspace currency when no wallet exists yet', async () => {
     const result = await service.updateTenantSettings('tenant-1', {
       rewards: { rewardsCurrency: 'NGN' },
     });
     expect(result.settings.rewards?.rewardsCurrency).toBe('USD');
+  });
+
+  it('mirrors funded wallet currency instead of tenant defaults', async () => {
+    walletRepository.findOne.mockResolvedValue({
+      currencyCode: 'NGN',
+      balanceAmount: 5000,
+    });
+
+    const result = await service.updateTenantSettings('tenant-1', {
+      rewards: { rewardsCurrency: 'USD' },
+    });
+
+    expect(result.settings.rewards?.rewardsCurrency).toBe('NGN');
   });
 
   it('uses the tenant country as the default rewards catalog country', async () => {
@@ -104,7 +137,7 @@ describe('TenantSettingsService rewards validation', () => {
 
     expect(result.settings.rewards).toEqual(
       expect.objectContaining({
-        rewardsCurrency: 'USD',
+        rewardsCurrency: 'NGN',
         catalogCountries: ['NG'],
         pointsExchangeRate: 1,
         enabled: true,

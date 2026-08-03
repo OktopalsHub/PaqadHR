@@ -8,6 +8,7 @@ import {
   IsIn,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
   IsUrl,
   Matches,
@@ -258,20 +259,13 @@ export class BillingSettingsDto {
   identityBvn?: string;
 
   @ApiProperty({
-    description: 'Workspace NIN for virtual accounts and compliance',
+    description: 'Workspace NIN for compliance',
     required: false,
   })
   @IsOptional()
   @IsString()
   @Matches(/^\d{11}$/, { message: 'NIN must be 11 digits' })
   identityNin?: string;
-
-  @ApiProperty({
-    description: 'Require workspace BVN/NIN before creating rewards bank account',
-    required: false,
-  })
-  @IsOptional()
-  requireWorkspaceKycForVirtualAccounts?: boolean;
 }
 export class GeneralSettingsDto {
   @ApiProperty({
@@ -539,7 +533,7 @@ export class RewardsSettingsDto {
   })
   @IsOptional()
   @IsNumber()
-  @Min(0.01)
+  @IsPositive()
   pointsExchangeRate?: number;
 
   @ApiProperty({

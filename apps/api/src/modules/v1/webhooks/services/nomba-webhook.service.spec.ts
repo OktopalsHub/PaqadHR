@@ -1,7 +1,6 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
-import { TenantWalletVirtualAccountService } from '../../rewards/services/tenant-wallet-virtual-account.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { extractWalletTopupCheckout, NombaWebhookService } from './nomba-webhook.service';
 
@@ -55,9 +54,6 @@ describe('NombaWebhookService', () => {
   let subscriptionBilling: jest.Mocked<Pick<SubscriptionBillingService, 'processNombaPayload'>>;
   let payrollPayout: jest.Mocked<Pick<PayrollPayoutService, 'processNombaPayload'>>;
   let walletTopupService: jest.Mocked<Pick<TenantWalletTopupService, 'completeCheckoutTopup'>>;
-  let walletVirtualAccountService: jest.Mocked<
-    Pick<TenantWalletVirtualAccountService, 'completeVirtualAccountDeposit'>
-  >;
 
   beforeEach(() => {
     subscriptionBilling = { processNombaPayload: jest.fn().mockResolvedValue({ received: true }) };
@@ -65,18 +61,11 @@ describe('NombaWebhookService', () => {
     walletTopupService = {
       completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
     };
-    walletVirtualAccountService = {
-      completeVirtualAccountDeposit: jest.fn().mockResolvedValue({
-        received: true,
-        credited: true,
-      }),
-    };
 
     service = new NombaWebhookService(
       subscriptionBilling as unknown as SubscriptionBillingService,
       payrollPayout as unknown as PayrollPayoutService,
       walletTopupService as unknown as TenantWalletTopupService,
-      walletVirtualAccountService as unknown as TenantWalletVirtualAccountService,
     );
 
     (verifyNombaWebhookSignature as jest.Mock).mockReturnValue(true);
@@ -102,7 +91,6 @@ describe('NombaWebhookService', () => {
 
     expect(subscriptionBilling.processNombaPayload).toHaveBeenCalled();
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).not.toHaveBeenCalled();
     expect(payrollPayout.processNombaPayload).not.toHaveBeenCalled();
   });
 
@@ -129,11 +117,10 @@ describe('NombaWebhookService', () => {
       orderReference: 'wallet-topup-t1-abc',
       amount: 2500,
     });
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).not.toHaveBeenCalled();
     expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
   });
 
-  it('routes payroll merchant ref before ignoring VA deposits', async () => {
+  it('routes payroll merchant ref', async () => {
     const runId = '11111111-1111-4111-8111-111111111111';
     const itemId = '22222222-2222-4222-8222-222222222222';
     const body = JSON.stringify({
@@ -145,10 +132,9 @@ describe('NombaWebhookService', () => {
 
     expect(payrollPayout.processNombaPayload).toHaveBeenCalled();
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).not.toHaveBeenCalled();
   });
 
-  it('routes VA deposit events to wallet credit', async () => {
+  it('ignores deposit.success without wallet_topup meta', async () => {
     const body = JSON.stringify({
       event_type: 'deposit.success',
       data: {
@@ -158,25 +144,9 @@ describe('NombaWebhookService', () => {
       },
     });
 
-    await service.dispatch(body, 'sig');
+    const result = await service.dispatch(body, 'sig');
 
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).toHaveBeenCalledWith({
-      provider: 'nomba',
-      amount: 100,
-      transactionReference: 'ref-1',
-      accountReference: 'rw_nom_t1_1234',
-      accountNumber: '1234567890',
-      paymentReference: undefined,
-      payerName: undefined,
-      rawPayload: {
-        event_type: 'deposit.success',
-        data: {
-          virtualAccount: { accountNumber: '1234567890', accountRef: 'rw_nom_t1_1234' },
-          amount: 100,
-          transactionReference: 'ref-1',
-        },
-      },
-    });
+    expect(result).toEqual({ received: true });
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
     expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
     expect(payrollPayout.processNombaPayload).not.toHaveBeenCalled();
@@ -189,6 +159,5 @@ describe('NombaWebhookService', () => {
     expect(subscriptionBilling.processNombaPayload).not.toHaveBeenCalled();
     expect(payrollPayout.processNombaPayload).not.toHaveBeenCalled();
     expect(walletTopupService.completeCheckoutTopup).not.toHaveBeenCalled();
-    expect(walletVirtualAccountService.completeVirtualAccountDeposit).not.toHaveBeenCalled();
   });
 });

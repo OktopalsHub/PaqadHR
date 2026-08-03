@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Copy, Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -30,7 +30,6 @@ import { SettingsFormActions } from '@/features/settings/components/settings-for
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import {
   useCreateCustomReward,
-  useCreateWalletVirtualAccount,
   useCustomRewards,
   useDeleteCustomReward,
   useReloadlyCountries,
@@ -39,8 +38,9 @@ import {
   useWalletTopupCheckout,
 } from '@/hooks/queries/use-rewards';
 import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
-import { syncRewardsCatalog } from '@/lib/api/rewards';
+import { syncRewardsCatalog, WALLET_TOPUP_MAX_AMOUNT } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { formatPlanMoney } from '@/lib/format-plan-money';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -64,7 +64,6 @@ export function SettingsRewardsTab() {
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
   const createReward = useCreateCustomReward();
-  const createVirtualAccount = useCreateWalletVirtualAccount();
   const deleteReward = useDeleteCustomReward();
 
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
@@ -101,12 +100,17 @@ export function SettingsRewardsTab() {
   const [autoTopupAmount, setAutoTopupAmount] = useState('5000');
 
   const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
+  const savedCardTopupSupported = wallet?.savedCardTopupSupported ?? true;
   const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
-  const workspaceCurrency = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
-  const walletCurrency = (wallet?.currencyCode ?? workspaceCurrency).toUpperCase();
-  const virtualAccount = wallet?.virtualAccount;
+  const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
+  const rewardsCurrency = (wallet?.currencyCode ?? 'USD').toUpperCase();
+  const currencyLocked = wallet?.currencyLocked ?? Number(wallet?.balanceAmount ?? 0) !== 0;
+  const isNgTenant = tenantCountry === 'NG';
   const topupAmountValue = Number(topupAmount);
-  const topupAmountValid = Number.isFinite(topupAmountValue) && topupAmountValue > 0;
+  const topupAmountValid =
+    Number.isFinite(topupAmountValue) &&
+    topupAmountValue > 0 &&
+    topupAmountValue <= WALLET_TOPUP_MAX_AMOUNT;
   const exchangeRateValue = Number(exchangeRate);
   const exampleRewardCost = 1000;
   const examplePointsCost =
@@ -175,7 +179,7 @@ export function SettingsRewardsTab() {
         rewards: {
           enabled: true,
           pointsExchangeRate: rate,
-          rewardsCurrency: workspaceCurrency,
+          rewardsCurrency: rewardsCurrency,
           catalogCountries: selectedCountries,
           airtimeEnabled,
           giftCardsEnabled,
@@ -229,11 +233,21 @@ export function SettingsRewardsTab() {
   };
 
   const handleSaveAutoTopup = async () => {
+    const threshold = Number(autoTopupThreshold) || 0;
+    const amount = Number(autoTopupAmount) || 0;
+    if (threshold > WALLET_TOPUP_MAX_AMOUNT || amount > WALLET_TOPUP_MAX_AMOUNT) {
+      toast.error(`Amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT.toLocaleString()}`);
+      return;
+    }
+    if (autoTopupEnabled && amount <= 0) {
+      toast.error('Enter a valid auto top-up amount');
+      return;
+    }
     try {
       await updateAutoTopupMutation.mutateAsync({
         enabled: autoTopupEnabled,
-        threshold: Number(autoTopupThreshold) || 0,
-        amount: Number(autoTopupAmount) || 0,
+        threshold,
+        amount,
       });
       toast.success('Auto topup enabled');
     } catch (err) {
@@ -242,6 +256,14 @@ export function SettingsRewardsTab() {
   };
 
   const handleTopup = async () => {
+    if (!Number.isFinite(topupAmountValue) || topupAmountValue <= 0) {
+      toast.error('Enter a valid amount');
+      return;
+    }
+    if (topupAmountValue > WALLET_TOPUP_MAX_AMOUNT) {
+      toast.error(`Amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT.toLocaleString()}`);
+      return;
+    }
     if (!topupAmountValid) {
       toast.error('Enter a valid amount');
       return;
@@ -250,25 +272,6 @@ export function SettingsRewardsTab() {
       await topupCheckout.mutateAsync(topupAmountValue);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Top up failed');
-    }
-  };
-
-  const handleProvisionVirtualAccount = async () => {
-    try {
-      await createVirtualAccount.mutateAsync();
-      toast.success('Virtual account is ready');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create virtual account');
-    }
-  };
-
-  const handleCopy = async (value: string | null | undefined, label: string) => {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
-    } catch {
-      toast.error(`Failed to copy ${label.toLowerCase()}`);
     }
   };
 
@@ -300,7 +303,7 @@ export function SettingsRewardsTab() {
               </div>
               <div>
                 <p className="text-3xl font-extrabold tracking-tight tabular-nums text-foreground">
-                  {walletCurrency} {Number(wallet?.balanceAmount ?? 0).toLocaleString()}
+                  {formatPlanMoney(Number(wallet?.balanceAmount ?? 0), rewardsCurrency)}
                 </p>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-0.5">
                   Available Balance
@@ -317,244 +320,132 @@ export function SettingsRewardsTab() {
             </div>
           </div>
 
-          <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="space-y-1">
-                <h4 className="text-sm font-semibold text-foreground">Rewards wallet funding</h4>
-                <p className="text-xs text-muted-foreground">
-                  {virtualAccount?.supported
-                    ? 'Bank transfer account for topping up your rewards wallet.'
-                    : 'Bank transfer accounts are only available for NGN rewards wallets.'}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {virtualAccount?.supported ? (
-                  <Badge
-                    variant={
-                      virtualAccount.providerMismatch
-                        ? 'destructive'
-                        : virtualAccount.ready
-                          ? 'default'
-                          : 'outline'
-                    }
-                  >
-                    {virtualAccount.providerMismatch
-                      ? 'Update required'
-                      : virtualAccount.ready
-                        ? 'Ready'
-                        : 'Setup required'}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">Checkout only</Badge>
-                )}
-                {virtualAccount?.live === false ? <Badge variant="outline">Sandbox</Badge> : null}
-              </div>
-            </div>
-
-            {virtualAccount?.ready ? (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border bg-background px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Account number
-                  </p>
-                  <div className="mt-1 flex items-center justify-between gap-3">
-                    <p className="text-base font-semibold tracking-wide text-foreground">
-                      {virtualAccount.accountNumber}
-                    </p>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        void handleCopy(virtualAccount.accountNumber, 'Account number')
-                      }
-                    >
-                      <Copy className="mr-1 size-3.5" />
-                      Copy
-                    </Button>
-                  </div>
-                </div>
-                <div className="rounded-xl border bg-background px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Bank
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">
-                    {virtualAccount.bankName}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {virtualAccount.accountName || 'Rewards wallet'}
-                  </p>
-                </div>
-                <div className="rounded-xl border bg-background px-4 py-3 sm:col-span-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Account reference
-                  </p>
-                  <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-xs font-medium text-foreground">
-                      {virtualAccount.reference || '—'}
-                    </p>
-                    {virtualAccount.reference ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void handleCopy(virtualAccount.reference, 'Reference')}
-                      >
-                        <Copy className="mr-1 size-3.5" />
-                        Copy
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <Alert variant={virtualAccount?.providerMismatch ? 'destructive' : 'default'}>
-                <AlertTitle>
-                  {virtualAccount?.providerMismatch ? 'Update required' : 'Bank account not ready'}
-                </AlertTitle>
-                <AlertDescription className="space-y-2">
-                  <p>
-                    {virtualAccount?.error ||
-                      'Create a bank account to allow direct transfers into the rewards wallet.'}
-                  </p>
-                  {virtualAccount?.providerMismatch ? (
-                    <p className="text-xs">
-                      Transfers to your previous account number may no longer credit this wallet.
-                    </p>
-                  ) : null}
-                  {virtualAccount?.requirements?.length ? (
-                    <p className="text-xs">
-                      {virtualAccount.requirements.join(' ')}
-                      {billingSettingsHref ? (
-                        <>
-                          {' '}
-                          <Link
-                            href={billingSettingsHref}
-                            className="font-medium underline underline-offset-2"
-                          >
-                            Open Identity settings
-                          </Link>
-                          .
-                        </>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {virtualAccount?.supported &&
-            (!virtualAccount.ready || virtualAccount.providerMismatch) ? (
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={createVirtualAccount.isPending}
-                  onClick={() => void handleProvisionVirtualAccount()}
-                  className="rounded-xl font-semibold"
+          <p className="text-xs text-muted-foreground">
+            Fund via Top up — card or bank transfer in checkout
+            {isNgTenant
+              ? ` (${wallet?.checkoutProviderLabel ?? 'Nomba/Monnify'}, ${rewardsCurrency}).`
+              : ` (Noah, ${rewardsCurrency} wallet — you can pay in GBP or EUR at checkout).`}
+            {!wallet?.checkoutLive ? (
+              <>
+                {' '}
+                <a
+                  href={
+                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ?? SANDBOX_DOC_URL
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline underline-offset-2"
                 >
-                  {createVirtualAccount.isPending ? (
-                    <>
-                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                      Creating…
-                    </>
-                  ) : virtualAccount.providerMismatch ? (
-                    'Create new bank account'
-                  ) : (
-                    'Create bank account'
-                  )}
-                </Button>
-              </div>
+                  Test payments
+                </a>{' '}
+                in sandbox mode.
+              </>
             ) : null}
-          </div>
+          </p>
 
           <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                  <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
-                  Auto-topup
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  Charge your billing card when balance is low
-                </p>
-              </div>
-              <Switch
-                checked={autoTopupEnabled}
-                onCheckedChange={setAutoTopupEnabled}
-                className="data-[state=checked]:bg-indigo-600"
-              />
-            </div>
+            {savedCardTopupSupported ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                      <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
+                      Auto-topup
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      Charge your billing card when balance is low
+                    </p>
+                  </div>
+                  <Switch
+                    checked={autoTopupEnabled}
+                    onCheckedChange={setAutoTopupEnabled}
+                    className="data-[state=checked]:bg-indigo-600"
+                  />
+                </div>
 
-            {autoTopupEnabled && !hasBillingCard ? (
+                {autoTopupEnabled && !hasBillingCard ? (
+                  <Alert>
+                    <AlertTitle>Billing card required</AlertTitle>
+                    <AlertDescription>
+                      {billingSettingsHref ? (
+                        <Link
+                          href={billingSettingsHref}
+                          className="font-medium underline underline-offset-2"
+                        >
+                          Add a card in Billing
+                        </Link>
+                      ) : (
+                        'Add a card in Settings → Billing.'
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {autoTopupEnabled && (
+                  <div className="grid gap-4 sm:grid-cols-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="auto-topup-threshold"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        When below ({rewardsCurrency})
+                      </label>
+                      <Input
+                        id="auto-topup-threshold"
+                        type="number"
+                        min={0}
+                        max={WALLET_TOPUP_MAX_AMOUNT}
+                        placeholder="e.g. 1000"
+                        value={autoTopupThreshold}
+                        onChange={(e) => setAutoTopupThreshold(e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="auto-topup-amount"
+                        className="text-xs font-semibold text-muted-foreground"
+                      >
+                        Top up amount ({rewardsCurrency})
+                      </label>
+                      <Input
+                        id="auto-topup-amount"
+                        type="number"
+                        min={1}
+                        max={WALLET_TOPUP_MAX_AMOUNT}
+                        placeholder="e.g. 5000"
+                        value={autoTopupAmount}
+                        onChange={(e) => setAutoTopupAmount(e.target.value)}
+                        className="rounded-xl h-10"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSaveAutoTopup}
+                    disabled={updateAutoTopupMutation.isPending}
+                    className="rounded-xl font-semibold border-indigo-100 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/40 dark:border-indigo-950 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
+                  >
+                    <Save className="size-3.5 mr-1.5" />
+                    Save
+                  </Button>
+                </div>
+              </>
+            ) : (
               <Alert>
-                <AlertTitle>Billing card required</AlertTitle>
+                <AlertTitle>Auto-topup unavailable</AlertTitle>
                 <AlertDescription>
-                  {billingSettingsHref ? (
-                    <Link
-                      href={billingSettingsHref}
-                      className="font-medium underline underline-offset-2"
-                    >
-                      Add a card in Billing
-                    </Link>
-                  ) : (
-                    'Add a card in Settings → Billing.'
-                  )}
+                  Saved-card auto-topup is not supported with{' '}
+                  {wallet?.checkoutProviderLabel ?? 'your payment provider'}. Use checkout or bank
+                  transfer to fund the wallet.
                 </AlertDescription>
               </Alert>
-            ) : null}
-
-            {autoTopupEnabled && (
-              <div className="grid gap-4 sm:grid-cols-2 pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="auto-topup-threshold"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    When below ({walletCurrency})
-                  </label>
-                  <Input
-                    id="auto-topup-threshold"
-                    type="number"
-                    placeholder="e.g. 1000"
-                    value={autoTopupThreshold}
-                    onChange={(e) => setAutoTopupThreshold(e.target.value)}
-                    className="rounded-xl h-10"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="auto-topup-amount"
-                    className="text-xs font-semibold text-muted-foreground"
-                  >
-                    Top up amount ({walletCurrency})
-                  </label>
-                  <Input
-                    id="auto-topup-amount"
-                    type="number"
-                    placeholder="e.g. 5000"
-                    value={autoTopupAmount}
-                    onChange={(e) => setAutoTopupAmount(e.target.value)}
-                    className="rounded-xl h-10"
-                  />
-                </div>
-              </div>
             )}
-
-            <div className="flex justify-end pt-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleSaveAutoTopup}
-                disabled={updateAutoTopupMutation.isPending}
-                className="rounded-xl font-semibold border-indigo-100 hover:border-indigo-200 text-indigo-600 hover:bg-indigo-50/40 dark:border-indigo-950 dark:text-indigo-400 dark:hover:bg-indigo-950/20"
-              >
-                <Save className="size-3.5 mr-1.5" />
-                Save
-              </Button>
-            </div>
           </div>
         </div>
       </ContentCard>
@@ -568,12 +459,11 @@ export function SettingsRewardsTab() {
           <div className="grid gap-5 sm:grid-cols-2">
             <SettingsFieldHint
               label="Points Exchange Rate"
-              hint={`Points per 1 ${workspaceCurrency} of cost after fees. Rates below 1 are allowed. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
+              hint={`Points per 1 ${rewardsCurrency} of cost after fees. Rates below 1 are allowed. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
             >
               <div className="space-y-3">
                 <Input
                   type="number"
-                  min={0.01}
                   step={0.01}
                   value={exchangeRate}
                   onChange={(e) => setExchangeRate(e.target.value)}
@@ -584,7 +474,7 @@ export function SettingsRewardsTab() {
                     'Enter a positive rate to preview the conversion.'
                   ) : (
                     <>
-                      Preview: {workspaceCurrency} {exampleRewardCost.toLocaleString()} costs{' '}
+                      Preview: {formatPlanMoney(exampleRewardCost, rewardsCurrency)} costs{' '}
                       <span className="font-semibold text-foreground">
                         {examplePointsCost.toLocaleString()} {PAQ_POINTS_NAME}
                       </span>{' '}
@@ -597,9 +487,15 @@ export function SettingsRewardsTab() {
 
             <SettingsFieldHint
               label="Rewards Currency"
-              hint="Rewards pricing follows the workspace account currency and cannot be changed separately."
+              hint={
+                currencyLocked
+                  ? `Locked after wallet activity. Balance stays in ${rewardsCurrency}.`
+                  : isNgTenant
+                    ? 'Nigeria workspaces use NGN and Nomba/Monnify. Updates if you change workspace settings before first top-up.'
+                    : 'Set from workspace country and currency. Updates before first top-up if you change them in Workspace settings.'
+              }
             >
-              <Input value={workspaceCurrency} readOnly className="rounded-xl h-11 bg-muted/30" />
+              <Input value={rewardsCurrency} readOnly className="rounded-xl h-11 bg-muted/30" />
             </SettingsFieldHint>
 
             <div className="sm:col-span-2 space-y-4 pt-4 border-t border-border/40">
@@ -844,12 +740,13 @@ export function SettingsRewardsTab() {
           <div className="grid gap-4 py-2">
             <div className="space-y-2">
               <label htmlFor="topup-amount" className="text-sm font-medium">
-                Amount ({walletCurrency})
+                Amount ({rewardsCurrency})
               </label>
               <Input
                 id="topup-amount"
                 type="number"
                 min={1}
+                max={WALLET_TOPUP_MAX_AMOUNT}
                 step="1"
                 placeholder="e.g. 5000"
                 value={topupAmount}
