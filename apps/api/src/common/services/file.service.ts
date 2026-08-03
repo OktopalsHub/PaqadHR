@@ -13,6 +13,14 @@ const PUBLIC_UPLOAD_LOCATIONS = new Set<FileUploadLocation>([
   FileUploadLocation.AVATARS,
 ]);
 
+const IMAGE_UPLOAD_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+]);
+
 const CANDIDATE_DOCUMENT_LOCATIONS = new Set<FileUploadLocation>([
   FileUploadLocation.RESUMES,
   FileUploadLocation.COVER_LETTERS,
@@ -26,6 +34,18 @@ const CANDIDATE_DOCUMENT_MIME_TYPES = new Set([
 
 export function isPublicUploadLocation(location: FileUploadLocation): boolean {
   return PUBLIC_UPLOAD_LOCATIONS.has(location);
+}
+
+export function assertImageUploadContentType(
+  location: FileUploadLocation,
+  contentType: string,
+): void {
+  if (!PUBLIC_UPLOAD_LOCATIONS.has(location)) return;
+  if (!IMAGE_UPLOAD_MIME_TYPES.has(contentType.toLowerCase())) {
+    throw new BadRequestException(
+      'This upload only accepts images (JPEG, PNG, WebP, GIF, or SVG). PDF, Word, Excel, and other documents are not allowed here.',
+    );
+  }
 }
 
 export function assertCandidateDocumentContentType(
@@ -74,6 +94,7 @@ export class FileService {
     const baseName = path.basename(sanitizedOriginalName, fileExtension);
     const fileName = `${baseName}_${timestamp}${fileExtension}`;
     const finalContentType = contentType || this.getContentType(sanitizedOriginalName);
+    assertImageUploadContentType(location, finalContentType);
     assertCandidateDocumentContentType(location, finalContentType);
     const expires = expiresIn || this.defaultExpiresIn;
     try {

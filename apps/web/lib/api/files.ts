@@ -22,8 +22,19 @@ export type PresignedUploadLocation =
 
 export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif,image/svg+xml';
 
+const ACCEPTED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/svg+xml',
+]);
+
+export const IMAGE_UPLOAD_ERROR =
+  'Choose an image file only (JPEG, PNG, WebP, GIF, or SVG). PDF, Word, Excel, and other documents are not allowed.';
+
 export function isAcceptedImageFile(file: File): boolean {
-  if (file.type.startsWith('image/')) return true;
+  if (file.type && ACCEPTED_IMAGE_TYPES.has(file.type.toLowerCase())) return true;
   return /\.(jpe?g|png|webp|gif|svg)$/i.test(file.name);
 }
 
@@ -75,14 +86,14 @@ export async function requestDocumentUploadUrl(
 
 export async function uploadMemberAvatar(file: File) {
   if (!isAcceptedImageFile(file)) {
-    throw new Error('Choose a JPEG, PNG, WebP, or GIF image');
+    throw new Error(IMAGE_UPLOAD_ERROR);
   }
   return uploadViaPresignedUrl(file, 'employees-avatar');
 }
 
 export async function uploadWorkspaceLogo(file: File) {
   if (!isAcceptedImageFile(file)) {
-    throw new Error('Choose a JPEG, PNG, WebP, or GIF image');
+    throw new Error(IMAGE_UPLOAD_ERROR);
   }
   return uploadViaPresignedUrl(file, 'logo');
 }

@@ -4,7 +4,7 @@ import { Camera, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { OrgAvatar } from '@/components/org-avatar';
 import { Button } from '@/components/ui/button';
-import { IMAGE_ACCEPT, isAcceptedImageFile } from '@/lib/api/files';
+import { IMAGE_ACCEPT, IMAGE_UPLOAD_ERROR, isAcceptedImageFile } from '@/lib/api/files';
 import { cn } from '@/lib/utils';
 
 type LogoUploadProps = {
@@ -34,7 +34,7 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
     if (!file) return;
 
     if (!isAcceptedImageFile(file)) {
-      onError?.('Choose a JPEG, PNG, WebP, or GIF image');
+      onError?.(IMAGE_UPLOAD_ERROR);
       return;
     }
 
