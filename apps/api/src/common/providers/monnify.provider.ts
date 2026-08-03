@@ -75,7 +75,9 @@ export class MonnifyProvider extends BasePaymentProvider {
         reference: merchantTxRef,
         providerStatus: response.status,
         error: response.success ? undefined : response.message,
-        retryable: !response.success,
+        retryable:
+          !response.success &&
+          ['PENDING', 'PROCESSING'].includes((response.status ?? '').toUpperCase()),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

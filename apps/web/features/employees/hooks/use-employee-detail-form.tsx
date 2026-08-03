@@ -120,7 +120,7 @@ export function useEmployeeDetailForm(
     setIsSaving(true);
     try {
       if (options?.canEditPersonal) {
-        await updateMemberProfile({
+        const profileUpdate = {
           firstName: employee.firstName.trim(),
           lastName: employee.lastName.trim(),
           middleName: employee.middleName.trim() || undefined,
@@ -130,7 +130,13 @@ export function useEmployeeDetailForm(
           gender: employee.personalInfo.gender || undefined,
           identityBvn: employee.identityBvn.trim() || undefined,
           identityNin: employee.identityNin.trim() || undefined,
-        });
+        };
+        if (options.isSelf) {
+          await updateMemberProfile(profileUpdate);
+        } else {
+          const { updateMemberProfileById } = await import('@/lib/api/member-profile');
+          await updateMemberProfileById(employee.id, profileUpdate);
+        }
       } else if (options?.isAdmin && (employee.identityBvn.trim() || employee.identityNin.trim())) {
         const { updateMemberProfileById } = await import('@/lib/api/member-profile');
         await updateMemberProfileById(employee.id, {

@@ -240,9 +240,11 @@ export class TenantSettingsController {
     @TenantId() tenantId: string,
     @Body() holidaySettings: HolidaySettingsDto,
   ) {
-    return this.tenantSettingsService.updateTenantSettings(tenantId, {
-      holidays: holidaySettings,
-    });
+    return this.serializeTenantSettings(
+      await this.tenantSettingsService.updateTenantSettings(tenantId, {
+        holidays: holidaySettings,
+      }),
+    );
   }
   @Post('holidays/custom')
   @UseGuards(TenantRoleGuard)
@@ -258,12 +260,14 @@ export class TenantSettingsController {
       id: `custom-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     };
     const updatedHolidays: HolidayDto[] = [...currentHolidays, newHoliday];
-    return this.tenantSettingsService.updateTenantSettings(tenantId, {
-      holidays: {
-        ...settings.settings.holidays,
-        customHolidays: updatedHolidays,
-      },
-    });
+    return this.serializeTenantSettings(
+      await this.tenantSettingsService.updateTenantSettings(tenantId, {
+        holidays: {
+          ...settings.settings.holidays,
+          customHolidays: updatedHolidays,
+        },
+      }),
+    );
   }
   @Delete('holidays/custom/:holidayId')
   @UseGuards(TenantRoleGuard)
@@ -272,12 +276,14 @@ export class TenantSettingsController {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];
     const updatedHolidays = currentHolidays.filter((h) => h.id !== holidayId);
-    return this.tenantSettingsService.updateTenantSettings(tenantId, {
-      holidays: {
-        ...settings.settings.holidays,
-        customHolidays: updatedHolidays,
-      },
-    });
+    return this.serializeTenantSettings(
+      await this.tenantSettingsService.updateTenantSettings(tenantId, {
+        holidays: {
+          ...settings.settings.holidays,
+          customHolidays: updatedHolidays,
+        },
+      }),
+    );
   }
 
   private serializeTenantSettings<T extends { settings: TenantSettingsData }>(payload: T): T {

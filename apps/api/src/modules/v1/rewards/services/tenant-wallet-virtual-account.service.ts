@@ -117,78 +117,95 @@ export class TenantWalletVirtualAccountService {
   }
 
   async provisionVirtualAccount(tenantId: string): Promise<TenantWallet> {
-    const wallet = await this.walletService.ensureWallet(tenantId);
-    const provider = resolveRewardsWalletVirtualAccountProvider(wallet.currencyCode);
+    await this.walletService.ensureWallet(tenantId);
 
-    if (wallet.currencyCode.toUpperCase() !== 'NGN') {
-      throw new BadRequestException('Virtual accounts are available only for NGN rewards wallets');
-    }
-    if (!provider) {
-      throw new BadRequestException('Virtual account funding is not configured');
-    }
-
-    const { tenant, billingContactEmail, billingContactName, identityBvn, identityNin } =
-      await this.resolveTenantFundingProfile(tenantId);
-    const requirements = await this.resolveProvisioningRequirements(tenantId, provider);
-    if (requirements.length > 0) {
-      throw new BadRequestException(requirements[0]);
-    }
-
-    try {
-      const accountReference = this.resolveAccountReference(wallet, provider);
-      const accountName = this.formatAccountName(tenant.name);
-      let resolvedReference = accountReference;
-      let accountNumber = '';
-      let bankName = '';
-      let resolvedAccountName = accountName;
-
-      if (provider === PaymentProvider.MONNIFY) {
-        const provisioned = await this.monnifyApi.createReservedAccount({
-          accountReference,
-          accountName,
-          customerName: billingContactName,
-          customerEmail: billingContactEmail,
-          customerBvn: identityBvn,
-          customerNin: identityNin,
-        });
-        resolvedReference = provisioned.accountReference;
-        accountNumber = provisioned.accountNumber;
-        bankName = provisioned.bankName;
-        resolvedAccountName = provisioned.accountName;
-      } else {
-        const provisioned = await this.nombaApi.createVirtualAccount({
-          accountRef: accountReference,
-          accountName,
-          customerName: billingContactName,
-          customerEmail: billingContactEmail,
-          bvn: identityBvn,
-        });
-        resolvedReference = provisioned.accountRef;
-        accountNumber = provisioned.accountNumber;
-        bankName = provisioned.bankName;
-        resolvedAccountName = provisioned.accountName;
+    return this.dataSource.transaction(async (manager) => {
+      const walletRepo = manager.getRepository(TenantWallet);
+      const wallet = await walletRepo.findOne({
+        where: { tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!wallet) {
+        throw new BadRequestException('Rewards wallet not found');
       }
 
-      wallet.virtualAccountProvider = provider;
-      wallet.virtualAccountReference = resolvedReference;
-      wallet.virtualAccountNumber = accountNumber;
-      wallet.virtualAccountBank = bankName;
-      wallet.virtualAccountName = resolvedAccountName;
-      wallet.virtualAccountStatus = 'ACTIVE';
-      wallet.virtualAccountError = null;
-      wallet.virtualAccountProvisionedAt = new Date();
+      const provider = resolveRewardsWalletVirtualAccountProvider(wallet.currencyCode);
 
-      return this.dataSource.getRepository(TenantWallet).save(wallet);
-    } catch (error) {
-      wallet.virtualAccountProvider = provider;
-      wallet.virtualAccountStatus = 'ERROR';
-      wallet.virtualAccountError = error instanceof Error ? error.message : String(error);
-      await this.dataSource
-        .getRepository(TenantWallet)
-        .save(wallet)
-        .catch(() => undefined);
-      throw error;
-    }
+      if (wallet.currencyCode.toUpperCase() !== 'NGN') {
+        throw new BadRequestException('Virtual accounts are available only for NGN rewards wallets');
+      }
+      if (!provider) {
+        throw new BadRequestException('Virtual account funding is not configured');
+      }
+
+      if (
+        wallet.virtualAccountProvider === provider &&
+        wallet.virtualAccountNumber &&
+        wallet.virtualAccountStatus === 'ACTIVE'
+      ) {
+        return wallet;
+      }
+
+      const { tenant, billingContactEmail, billingContactName, identityBvn, identityNin } =
+        await this.resolveTenantFundingProfile(tenantId);
+      const requirements = await this.resolveProvisioningRequirements(tenantId, provider);
+      if (requirements.length > 0) {
+        throw new BadRequestException(requirements[0]);
+      }
+
+      try {
+        const accountReference = this.resolveAccountReference(wallet, provider);
+        const accountName = this.formatAccountName(tenant.name);
+        let resolvedReference = accountReference;
+        let accountNumber: string;
+        let bankName: string;
+        let resolvedAccountName: string;
+
+        if (provider === PaymentProvider.MONNIFY) {
+          const provisioned = await this.monnifyApi.createReservedAccount({
+            accountReference,
+            accountName,
+            customerName: billingContactName,
+            customerEmail: billingContactEmail,
+            customerBvn: identityBvn,
+            customerNin: identityNin,
+          });
+          resolvedReference = provisioned.accountReference;
+          accountNumber = provisioned.accountNumber;
+          bankName = provisioned.bankName;
+          resolvedAccountName = provisioned.accountName;
+        } else {
+          const provisioned = await this.nombaApi.createVirtualAccount({
+            accountRef: accountReference,
+            accountName,
+            customerName: billingContactName,
+            customerEmail: billingContactEmail,
+            bvn: identityBvn,
+          });
+          resolvedReference = provisioned.accountRef;
+          accountNumber = provisioned.accountNumber;
+          bankName = provisioned.bankName;
+          resolvedAccountName = provisioned.accountName;
+        }
+
+        wallet.virtualAccountProvider = provider;
+        wallet.virtualAccountReference = resolvedReference;
+        wallet.virtualAccountNumber = accountNumber;
+        wallet.virtualAccountBank = bankName;
+        wallet.virtualAccountName = resolvedAccountName;
+        wallet.virtualAccountStatus = 'ACTIVE';
+        wallet.virtualAccountError = null;
+        wallet.virtualAccountProvisionedAt = new Date();
+
+        return walletRepo.save(wallet);
+      } catch (error) {
+        wallet.virtualAccountProvider = provider;
+        wallet.virtualAccountStatus = 'ERROR';
+        wallet.virtualAccountError = error instanceof Error ? error.message : String(error);
+        await walletRepo.save(wallet).catch(() => undefined);
+        throw error;
+      }
+    });
   }
 
   async completeVirtualAccountDeposit(

@@ -5,6 +5,7 @@ import {
   getMonnifyBaseUrl,
   getMonnifyContractCode,
   getMonnifySecretKey,
+  getMonnifyWalletAccountNumber,
   isMonnifyConfigured,
 } from '../config/monnify.config';
 
@@ -112,6 +113,7 @@ export interface MonnifySingleTransferInput {
 export class MonnifyApiService {
   private readonly logger = new Logger(MonnifyApiService.name);
   private cachedToken?: { token: string; expiresAt: number };
+  private static readonly REQUEST_TIMEOUT_MS = 30_000;
 
   isConfigured(): boolean {
     return isMonnifyConfigured();
@@ -123,6 +125,13 @@ export class MonnifyApiService {
     }
   }
 
+  private monnifyFetch(url: string, init?: RequestInit): Promise<Response> {
+    return fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(MonnifyApiService.REQUEST_TIMEOUT_MS),
+    });
+  }
+
   private async getAccessToken(): Promise<string> {
     this.ensureConfigured();
 
@@ -131,7 +140,7 @@ export class MonnifyApiService {
     }
 
     const auth = Buffer.from(`${getMonnifyApiKey()}:${getMonnifySecretKey()}`).toString('base64');
-    const response = await fetch(`${getMonnifyBaseUrl()}/api/v1/auth/login`, {
+    const response = await this.monnifyFetch(`${getMonnifyBaseUrl()}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         Authorization: `Basic ${auth}`,
@@ -172,7 +181,7 @@ export class MonnifyApiService {
     }
 
     const token = await this.getAccessToken();
-    const response = await fetch(`${getMonnifyBaseUrl()}/api/v2/bank-transfer/reserved-accounts`, {
+    const response = await this.monnifyFetch(`${getMonnifyBaseUrl()}/api/v2/bank-transfer/reserved-accounts`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -225,7 +234,7 @@ export class MonnifyApiService {
   }> {
     this.ensureConfigured();
     const token = await this.getAccessToken();
-    const response = await fetch(
+    const response = await this.monnifyFetch(
       `${getMonnifyBaseUrl()}/api/v1/merchant/transactions/init-transaction`,
       {
         method: 'POST',
@@ -272,7 +281,7 @@ export class MonnifyApiService {
   } | null> {
     this.ensureConfigured();
     const token = await this.getAccessToken();
-    const response = await fetch(
+    const response = await this.monnifyFetch(
       `${getMonnifyBaseUrl()}/api/v2/transactions/${encodeURIComponent(paymentReference)}`,
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -286,7 +295,9 @@ export class MonnifyApiService {
     const payload = (await response.json().catch(() => ({}))) as MonnifyTransactionStatusResponse;
     const body = payload.responseBody;
     if (!response.ok || payload.requestSuccessful === false || !body) {
-      return null;
+      throw new BadRequestException(
+        payload.responseMessage || `Monnify transaction lookup failed (${response.status})`,
+      );
     }
 
     const status = String(body.paymentStatus ?? '').toUpperCase();
@@ -309,8 +320,13 @@ export class MonnifyApiService {
     message?: string;
   }> {
     this.ensureConfigured();
+    const sourceAccountNumber = getMonnifyWalletAccountNumber();
+    if (!sourceAccountNumber) {
+      throw new BadRequestException('MONNIFY_WALLET_ACCOUNT_NUMBER is not configured');
+    }
+
     const token = await this.getAccessToken();
-    const response = await fetch(`${getMonnifyBaseUrl()}/api/v2/disbursements/single`, {
+    const response = await this.monnifyFetch(`${getMonnifyBaseUrl()}/api/v2/disbursements/single`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -324,7 +340,7 @@ export class MonnifyApiService {
         destinationAccountNumber: input.destinationAccountNumber,
         destinationAccountName: input.destinationAccountName,
         currency: (input.currencyCode || 'NGN').toUpperCase(),
-        sourceAccountNumber: getMonnifyContractCode(),
+        sourceAccountNumber,
       }),
     });
 
@@ -333,8 +349,10 @@ export class MonnifyApiService {
     const status = body?.status?.toUpperCase();
     const success =
       response.ok &&
-      payload.requestSuccessful !== false &&
-      (!status || ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING'].includes(status));
+      payload.requestSuccessful === true &&
+      Boolean(body?.reference) &&
+      Boolean(status) &&
+      ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING'].includes(status);
 
     return {
       success,

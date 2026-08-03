@@ -22,9 +22,17 @@ function createNonce(): string {
   return btoa(binary);
 }
 
-function createRequestWithNonce(request: NextRequest, nonce: string): Headers {
+function createRenderRequestHeaders(
+  request: NextRequest,
+  requestHost: string,
+  nonce: string,
+): Headers {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(CSP_NONCE_HEADER, nonce);
+  requestHeaders.set(
+    'Content-Security-Policy',
+    buildContentSecurityPolicy(requestHost, nonce),
+  );
   return requestHeaders;
 }
 
@@ -37,7 +45,6 @@ function applySecurityHeaders(response: NextResponse, requestHost: string, nonce
 
 export function middleware(request: NextRequest) {
   const nonce = createNonce();
-  const requestHeaders = createRequestWithNonce(request, nonce);
   const requestHost = request.nextUrl.hostname;
   const hostHeader = request.headers.get('host') ?? requestHost;
   const pathname = request.nextUrl.pathname;
@@ -68,8 +75,9 @@ export function middleware(request: NextRequest) {
         pathname === `/${slugFromHost}` || pathname.startsWith(`/${slugFromHost}/`);
       if (!alreadyPrefixed) {
         const internalPath = pathname === '/' ? `/${slugFromHost}` : `/${slugFromHost}${pathname}`;
+        const rewriteHeaders = createRenderRequestHeaders(request, requestHost, nonce);
         const rewrite = NextResponse.rewrite(new URL(internalPath, request.url), {
-          request: { headers: requestHeaders },
+          request: { headers: rewriteHeaders },
         });
         applySecurityHeaders(rewrite, requestHost, nonce);
         return rewrite;
@@ -86,7 +94,9 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  const response = NextResponse.next({
+    request: { headers: createRenderRequestHeaders(request, requestHost, nonce) },
+  });
   applySecurityHeaders(response, requestHost, nonce);
   return response;
 }

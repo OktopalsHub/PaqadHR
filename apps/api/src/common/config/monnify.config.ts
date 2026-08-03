@@ -32,6 +32,10 @@ export function getMonnifyContractCode(): string {
   return (process.env.MONNIFY_CONTRACT_CODE || '').trim();
 }
 
+export function getMonnifyWalletAccountNumber(): string {
+  return (process.env.MONNIFY_WALLET_ACCOUNT_NUMBER || '').trim();
+}
+
 export function isMonnifyConfigured(): boolean {
   return !!(getMonnifyApiKey() && getMonnifySecretKey() && getMonnifyContractCode());
 }

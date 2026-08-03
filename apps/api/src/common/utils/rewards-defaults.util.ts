@@ -17,12 +17,17 @@ export function resolveDefaultRewardsCatalogCountry(options: {
   tenantCountryCode?: string | null;
   creatorCountryCode?: string | null;
 }): string {
-  return GeoLocationHelper.toStoredCountryCode(options.creatorCountryCode) ?? 'US';
+  return (
+    GeoLocationHelper.toStoredCountryCode(options.tenantCountryCode) ??
+    GeoLocationHelper.toStoredCountryCode(options.creatorCountryCode) ??
+    'US'
+  );
 }
 
 export function normalizeRewardsCatalogCountries(
   countries: readonly string[] | null | undefined,
   fallbackCountry: string,
+  options?: { allowEmpty?: boolean },
 ): string[] {
   const normalized = Array.from(
     new Set(
@@ -34,6 +39,10 @@ export function normalizeRewardsCatalogCountries(
 
   if (normalized.length > 0) {
     return normalized;
+  }
+
+  if (options?.allowEmpty && countries !== undefined && countries !== null && countries.length === 0) {
+    return [];
   }
 
   return [fallbackCountry];

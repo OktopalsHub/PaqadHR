@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EncryptionService } from 'src/common/services/encryption.service';
@@ -20,6 +20,8 @@ import { TenantSettingRepository } from './tenant-setting.repository';
 
 @Injectable()
 export class TenantSettingsService {
+  private readonly logger = new Logger(TenantSettingsService.name);
+
   constructor(
     private readonly tenantSettingsRepository: TenantSettingRepository,
     readonly _dataSource: DataSource,
@@ -38,8 +40,8 @@ export class TenantSettingsService {
         `Tenant settings not found for tenant: ${tenantId}. Please initialize tenant settings first using TenantSettingsInitializationService.`,
       );
     }
-    settings.settings = this.hydrateTenantSettings(settings.settings);
-    return settings;
+    const hydratedSettings = this.hydrateTenantSettings({ ...settings.settings });
+    return Object.assign(settings, { settings: hydratedSettings });
   }
 
   async getTenantSettingsForDisplay(tenantId: string): Promise<TenantSettings> {
@@ -147,7 +149,7 @@ export class TenantSettingsService {
         rewards: {
           ...existingSettings.settings.rewards,
           ...updateDto.rewards,
-          enabled: updateDto.rewards.enabled ?? existingSettings.settings.rewards?.enabled ?? false,
+          enabled: updateDto.rewards.enabled ?? existingSettings.settings.rewards?.enabled ?? true,
           pointsExchangeRate:
             updateDto.rewards.pointsExchangeRate ??
             existingSettings.settings.rewards?.pointsExchangeRate ??
@@ -156,12 +158,18 @@ export class TenantSettingsService {
             rewardsDefaults?.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
             'USD',
-          catalogCountries: normalizeRewardsCatalogCountries(
-            updateDto.rewards.catalogCountries ??
-              existingSettings.settings.rewards?.catalogCountries ??
-              rewardsDefaults?.catalogCountries,
-            rewardsDefaults?.catalogCountries[0] ?? 'US',
-          ),
+          catalogCountries:
+            updateDto.rewards.catalogCountries !== undefined
+              ? normalizeRewardsCatalogCountries(
+                  updateDto.rewards.catalogCountries,
+                  rewardsDefaults?.catalogCountries[0] ?? 'US',
+                  { allowEmpty: true },
+                )
+              : normalizeRewardsCatalogCountries(
+                  existingSettings.settings.rewards?.catalogCountries ??
+                    rewardsDefaults?.catalogCountries,
+                  rewardsDefaults?.catalogCountries[0] ?? 'US',
+                ),
           airtimeEnabled:
             updateDto.rewards.airtimeEnabled ??
             existingSettings.settings.rewards?.airtimeEnabled ??
@@ -199,7 +207,6 @@ export class TenantSettingsService {
     }
     existingSettings.settings = this.prepareSettingsForPersistence(updatedSettings);
     const result = await this.tenantSettingsRepository.save(existingSettings);
-    result.settings = this.hydrateTenantSettings(result.settings);
 
     const newCatalogCountries = updatedSettings.rewards?.catalogCountries ?? [];
     const catalogCountriesChanged =
@@ -225,7 +232,9 @@ export class TenantSettingsService {
         .catch(() => {});
     }
 
-    return result;
+    return Object.assign(result, {
+      settings: this.hydrateTenantSettings({ ...updatedSettings }),
+    });
   }
   private validateRewardsSettings(rewardsSettings: RewardsSettings | undefined): void {
     if (!rewardsSettings) {
@@ -371,7 +380,13 @@ export class TenantSettingsService {
     if (!this.encryptionService.isEncrypted(trimmed)) {
       return trimmed;
     }
-    return this.encryptionService.decrypt(trimmed);
+    try {
+      return this.encryptionService.decrypt(trimmed);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to decrypt tenant settings field: ${message}`);
+      return undefined;
+    }
   }
 }
 

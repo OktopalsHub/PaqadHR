@@ -9,8 +9,9 @@ test('development CSP keeps eval and websocket sources for local tooling', () =>
     isDevelopment: true,
   });
 
-  assert.equal(csp.includes("'unsafe-inline'"), true);
   assert.equal(csp.includes("'unsafe-eval'"), true);
+  const devScriptSrc = csp.split('; ').find((part) => part.startsWith('script-src')) ?? '';
+  assert.equal(devScriptSrc.includes("'unsafe-inline'"), true);
   assert.equal(csp.includes(' ws:'), true);
   assert.equal(csp.includes(' wss:'), true);
 });

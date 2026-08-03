@@ -88,7 +88,7 @@ describe('TenantSettingsService rewards validation', () => {
     expect(result.settings.rewards?.rewardsCurrency).toBe('USD');
   });
 
-  it('uses the tenant creator country as the default rewards catalog country', async () => {
+  it('uses the tenant country as the default rewards catalog country', async () => {
     repository.findOne.mockResolvedValueOnce({
       tenantId: baseSettings.tenantId,
       settings: {},
@@ -105,7 +105,7 @@ describe('TenantSettingsService rewards validation', () => {
     expect(result.settings.rewards).toEqual(
       expect.objectContaining({
         rewardsCurrency: 'USD',
-        catalogCountries: ['GB'],
+        catalogCountries: ['NG'],
         pointsExchangeRate: 1,
         enabled: true,
       }),
