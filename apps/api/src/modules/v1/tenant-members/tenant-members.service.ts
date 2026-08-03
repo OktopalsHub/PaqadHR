@@ -11,6 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EmploymentStatus, TenantMemberRole } from 'src/common/enums';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { FileUrlService } from 'src/common/services/file-url.service';
+import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
 import type { QueryDeepPartialEntity } from 'typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import type { ICelebrationResponseDto } from '../../../common/interfaces/icelebration-response-dto.interface';
@@ -27,6 +28,7 @@ import type { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import type { TenantMember } from './entities/tenant-member.entity';
 import { TenantCounterRepository } from './repositories/tenant-counter.repository';
 import { TenantMemberRepository } from './repositories/tenant-members.repository';
+import { describeChangedFields, pickChangedFields } from './utils/member-activity-diff.util';
 
 interface EmailQueueService {
   sendInvitationEmail(
@@ -59,11 +61,81 @@ export class TenantMembersService {
   ) {}
 
   private memberDisplayName(
-    member: Pick<TenantMember, 'firstName' | 'lastName' | 'preferredName'>,
+    member: Pick<TenantMember, 'firstName' | 'lastName' | 'middleName' | 'preferredName'>,
   ): string {
-    const preferred = member.preferredName?.trim();
-    if (preferred) return preferred;
-    return [member.firstName, member.lastName].filter(Boolean).join(' ').trim() || 'Member';
+    return formatMemberDisplayName(member) ?? 'Member';
+  }
+
+  private activeDepartmentName(member: TenantMember): string {
+    const membership = member.departmentMemberships?.find((dm) => dm.isActive);
+    return membership?.department?.name?.trim() || 'None';
+  }
+
+  private activeReportsToId(member: TenantMember): string | null {
+    const employment = member.employments?.find((e) => e.status === EmploymentStatus.ACTIVE);
+    return employment?.reportsToId ?? null;
+  }
+
+  private async resolveMemberLabel(memberId: string | null, tenantId: string): Promise<string> {
+    if (!memberId) return 'None';
+    const manager = await this.tenantMemberRepository.findOne({
+      where: { id: memberId, tenantId },
+      select: ['id', 'firstName', 'lastName', 'middleName', 'preferredName'],
+    });
+    return this.memberDisplayName(manager ?? { firstName: null, lastName: null });
+  }
+
+  private async snapshotOrgFields(
+    member: TenantMember,
+    tenantId: string,
+  ): Promise<Record<string, string>> {
+    return {
+      role: member.role,
+      department: this.activeDepartmentName(member),
+      reportsTo: await this.resolveMemberLabel(this.activeReportsToId(member), tenantId),
+    };
+  }
+
+  private snapshotProfileFields(member: TenantMember): Record<string, string> {
+    return {
+      firstName: member.firstName?.trim() || '—',
+      lastName: member.lastName?.trim() || '—',
+      middleName: member.middleName?.trim() || '—',
+      preferredName: member.preferredName?.trim() || '—',
+      phone: member.phone?.trim() || '—',
+      dateOfBirth: member.dateOfBirth
+        ? new Date(member.dateOfBirth).toISOString().slice(0, 10)
+        : '—',
+      gender: member.gender ? String(member.gender) : '—',
+      avatar: member.avatarKey?.trim() ? 'Set' : 'None',
+      identityDocuments:
+        member.identityBvn?.trim() || member.identityNin?.trim() ? 'On file' : 'None',
+    };
+  }
+
+  private queueMemberActivity(payload: {
+    tenantId: string;
+    actorMemberId: string;
+    action: string;
+    resourceId: string;
+    description: string;
+    beforeData: Record<string, string>;
+    afterData: Record<string, string>;
+  }): void {
+    void this.activitiesService
+      .queueActivity({
+        tenantId: payload.tenantId,
+        actorMemberId: payload.actorMemberId,
+        action: payload.action,
+        resourceType: 'member',
+        resourceId: payload.resourceId,
+        description: payload.description,
+        metadata: {
+          beforeData: payload.beforeData,
+          afterData: payload.afterData,
+        },
+      })
+      .catch(() => {});
   }
   async createTenantMember(
     userId: string,
@@ -176,10 +248,30 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     updateDto: UpdateMemberProfileDto,
+    actorMemberId?: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
+    const before = this.snapshotProfileFields(member);
     await this.applyProfileUpdates(member, updateDto);
-    return this.getTenantMember(memberId, tenantId);
+    const updated = await this.getTenantMember(memberId, tenantId);
+    if (actorMemberId) {
+      const after = this.snapshotProfileFields(updated);
+      const { beforeData, afterData } = pickChangedFields(before, after);
+      const changedKeys = Object.keys(afterData);
+      if (changedKeys.length > 0) {
+        const name = this.memberDisplayName(updated);
+        this.queueMemberActivity({
+          tenantId,
+          actorMemberId,
+          action: 'member.profile_updated',
+          resourceId: memberId,
+          description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
+          beforeData,
+          afterData,
+        });
+      }
+    }
+    return updated;
   }
   async updateTenantMemberById(
     memberId: string,
@@ -188,20 +280,27 @@ export class TenantMembersService {
     actorMemberId?: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
+    const before = await this.snapshotOrgFields(member, tenantId);
     await this.applyOrgUpdates(member, tenantId, updateDto);
+    const updated = await this.getTenantMember(memberId, tenantId);
     if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
+      const after = await this.snapshotOrgFields(updated, tenantId);
+      const { beforeData, afterData } = pickChangedFields(before, after);
+      const changedKeys = Object.keys(afterData);
+      if (changedKeys.length > 0) {
+        const name = this.memberDisplayName(updated);
+        this.queueMemberActivity({
           tenantId,
           actorMemberId,
           action: 'member.updated',
-          resourceType: 'member',
           resourceId: memberId,
-          description: `Updated ${this.memberDisplayName(member)}'s profile`,
-        })
-        .catch(() => {});
+          description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
+          beforeData,
+          afterData,
+        });
+      }
     }
-    return this.getTenantMember(memberId, tenantId);
+    return updated;
   }
   private async applyProfileUpdates(
     member: TenantMember,
@@ -440,6 +539,10 @@ export class TenantMembersService {
           description: isActive
             ? `Reactivated ${this.memberDisplayName(member)}`
             : `Deactivated ${this.memberDisplayName(member)}`,
+          metadata: {
+            beforeData: { status: isActive ? 'Inactive' : 'Active' },
+            afterData: { status: isActive ? 'Active' : 'Inactive' },
+          },
         })
         .catch(() => {});
     }

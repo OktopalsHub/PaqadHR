@@ -125,6 +125,7 @@ export class TenantMembersController {
       memberId,
       tenantId,
       updateDto,
+      actor.id,
     );
     return TenantMemberMapper.toResponse(updated, this.fileUrlService);
   }

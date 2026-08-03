@@ -62,7 +62,8 @@ export function ActivityLogPage() {
 
   const items = useMemo(() => filterActivities(data?.items ?? [], filter), [data?.items, filter]);
   const groups = useMemo(() => groupActivitiesByDay(items), [items]);
-  const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE));
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   const handleFilterChange = (next: ActivityCategory) => {
     setFilter(next);
@@ -192,8 +193,14 @@ export function ActivityLogPage() {
           )}
         </div>
 
-        {(data?.total ?? 0) > PAGE_SIZE ? (
-          <LeavePagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+        {!isLoading && !isError && total > 0 ? (
+          totalPages > 1 ? (
+            <LeavePagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
+          ) : (
+            <p className="border-t border-border/70 pt-4 text-sm text-slate-500 dark:text-slate-400">
+              Showing {total} event{total === 1 ? '' : 's'}
+            </p>
+          )
         ) : null}
       </ContentCard>
 

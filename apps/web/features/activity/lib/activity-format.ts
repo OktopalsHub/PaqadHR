@@ -85,6 +85,12 @@ export function formatActivityTitle(activity: TenantActivity): string {
       }
       return description;
     }
+    case 'member.updated':
+    case 'member.profile_updated':
+    case 'member.removed':
+    case 'member.reactivated':
+    case 'member.deactivated':
+      return description;
     default:
       return description;
   }
@@ -199,6 +205,89 @@ export function formatActivityActor(
   if (trimmed) return trimmed;
   if (actorMemberId) return 'Member';
   return 'System';
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Display-friendly field values for activity diffs and details. */
+export function formatActivityFieldValue(value: unknown): string {
+  if (value == null) return '—';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return '—';
+    if (trimmed === '—' || trimmed === 'None' || trimmed === 'On file' || trimmed === 'Set') {
+      return trimmed;
+    }
+    // Roles / status-like tokens: member → Member
+    if (/^[a-z][a-z0-9_]*$/i.test(trimmed) && !trimmed.includes(' ')) {
+      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).replace(/_/g, ' ');
+    }
+    return trimmed;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => formatActivityFieldValue(item)).join(', ') || '—';
+  }
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+export function humanizeActivityFieldKey(key: string): string {
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/^\w/, (c) => c.toUpperCase());
+}
+
+export function getActivityChangeEntries(
+  activity: TenantActivity,
+): Array<{ field: string; from: string; to: string }> {
+  const metadata = activity.metadata ?? {};
+  const before = isPlainRecord(metadata.beforeData) ? metadata.beforeData : null;
+  const after = isPlainRecord(metadata.afterData) ? metadata.afterData : null;
+  if (!before && !after) return [];
+
+  const keys = Array.from(new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})]));
+  return keys.map((key) => ({
+    field: humanizeActivityFieldKey(key),
+    from: formatActivityFieldValue(before?.[key]),
+    to: formatActivityFieldValue(after?.[key]),
+  }));
+}
+
+/** One-line preview for compact contexts. Prefer rendering Before/After in the UI. */
+export function formatActivityChangePreview(activity: TenantActivity): string | null {
+  const entries = getActivityChangeEntries(activity);
+  if (entries.length === 0) return null;
+  if (entries.length === 1) {
+    const [entry] = entries;
+    return `${entry.field}: before ${entry.from}, after ${entry.to}`;
+  }
+  return `${entries.length} fields changed`;
+}
+
+/** Extra metadata shown in the detail panel (hides ids and diff blobs). */
+export function getActivityDetailEntries(
+  activity: TenantActivity,
+): Array<{ label: string; value: string }> {
+  const metadata = activity.metadata ?? {};
+  const hidden = new Set(['beforeData', 'afterData', 'provider', 'paymentProvider']);
+  return Object.entries(metadata)
+    .filter(([key]) => {
+      if (hidden.has(key)) return false;
+      if (/Id$/i.test(key) || key === 'id') return false;
+      return true;
+    })
+    .map(([key, value]) => ({
+      label: humanizeActivityFieldKey(key),
+      value: formatActivityFieldValue(value),
+    }));
 }
 
 export function groupActivitiesByDay(
