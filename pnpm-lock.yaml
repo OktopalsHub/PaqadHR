@@ -10,6 +10,7 @@ overrides:
   postcss: '>=8.5.18'
   picomatch: '>=4.0.4'
   js-yaml: '>=4.3.1 <5'
+  nanoid@<3.3.17: '>=3.3.17 <4'
   axios: '>=1.18.0 <2'
   form-data: '>=4.0.6 <5'
   undici: '>=7.29.0 <8'
@@ -165,7 +166,7 @@ importers:
         specifier: ^7.8.2
         version: 7.8.2
       typeorm:
-        specifier: ^0.3.30
+        specifier: ^0.3.31
         version: 0.3.31(ioredis@5.11.1)(pg@8.21.0)(redis@5.12.1(@opentelemetry/api@1.9.1))(ts-node@10.9.2(@swc/core@1.15.40)(@types/node@25.9.2)(typescript@5.9.3))
       typeorm-naming-strategies:
         specifier: ^4.1.0
@@ -7056,8 +7057,8 @@ packages:
     resolution: {integrity: sha512-WWdIxpyjEn+FhQJQQv9aQAYlHoNVdzIzUySNV1gHUPDSdZJ3yZn7pAAbQcV7B56Mvu881q9FZV+0Vx2xC44VWA==}
     engines: {node: ^18.17.0 || >=20.5.0}
 
-  nanoid@3.3.16:
-    resolution: {integrity: sha512-bzlKTyNJ7+LdGIIwy8ijFpIqEQIvafahV7eYykJ8Cvh42EdJeODoJ6gUJXpQJvej1BddH8OqTXZNE/KfbWAu8Q==}
+  nanoid@3.3.18:
+    resolution: {integrity: sha512-DTg4MJbGMWkfi6VZFdNt2/caMbQy4Ou+Op/hJQvGEWcnVfoA1QA+xzRKAzw9jD6+GVOOeYr/mIcuDSdug6F6+w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
 
@@ -16280,7 +16281,7 @@ snapshots:
 
   mute-stream@2.0.0: {}
 
-  nanoid@3.3.16: {}
+  nanoid@3.3.18: {}
 
   napi-postinstall@0.3.4: {}
 
@@ -16654,7 +16655,7 @@ snapshots:
 
   postcss@8.5.25:
     dependencies:
-      nanoid: 3.3.16
+      nanoid: 3.3.18
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
