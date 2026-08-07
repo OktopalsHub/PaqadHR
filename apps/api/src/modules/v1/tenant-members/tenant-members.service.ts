@@ -61,10 +61,7 @@ export class TenantMembersService {
   ) {}
 
   private memberDisplayName(
-    member: Pick<
-      TenantMember,
-      'firstName' | 'lastName' | 'middleName' | 'preferredName'
-    > | null,
+    member: Pick<TenantMember, 'firstName' | 'lastName' | 'middleName' | 'preferredName'> | null,
   ): string {
     return formatMemberDisplayName(member) ?? 'Member';
   }
