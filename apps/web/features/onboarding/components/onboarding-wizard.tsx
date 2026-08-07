@@ -530,7 +530,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                       : 'Unable to load plans. Refresh and try again.'}
                   </p>
                 ) : (
-                  <div className="grid gap-3.5 md:grid-cols-2 2xl:grid-cols-3">
+                  <div className="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
                     {sortedPlans.map((plan) => {
                       const isSelected = selectedPlan === plan.plan.slug;
                       const compactHighlights =

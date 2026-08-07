@@ -12,6 +12,9 @@ export function skipsSessionBootstrap(pathname: string): boolean {
     pathname === '/terms' ||
     pathname === '/privacy' ||
     pathname === '/google/complete' ||
+    pathname === '/signin' ||
+    pathname === '/signup' ||
+    pathname === '/reset-password' ||
     /^\/[^/]+\/careers\/?$/.test(pathname)
   );
 }

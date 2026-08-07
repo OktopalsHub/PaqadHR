@@ -61,7 +61,10 @@ export class TenantMembersService {
   ) {}
 
   private memberDisplayName(
-    member: Pick<TenantMember, 'firstName' | 'lastName' | 'middleName' | 'preferredName'>,
+    member: Pick<
+      TenantMember,
+      'firstName' | 'lastName' | 'middleName' | 'preferredName'
+    > | null,
   ): string {
     return formatMemberDisplayName(member) ?? 'Member';
   }
@@ -82,7 +85,7 @@ export class TenantMembersService {
       where: { id: memberId, tenantId },
       select: ['id', 'firstName', 'lastName', 'middleName', 'preferredName'],
     });
-    return this.memberDisplayName(manager ?? { firstName: null, lastName: null });
+    return this.memberDisplayName(manager);
   }
 
   private async snapshotOrgFields(
