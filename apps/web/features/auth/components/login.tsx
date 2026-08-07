@@ -1,11 +1,11 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -65,8 +65,13 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
 
   if (showRedirectSpinner) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center">
-        <LoadingBlock />
+      <div
+        className="flex min-h-[280px] flex-col items-center justify-center gap-3"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="size-9 animate-spin text-primary" aria-hidden="true" />
+        <span className="text-sm font-medium text-slate-500">Signing you in…</span>
       </div>
     );
   }
@@ -183,6 +188,7 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
             className="h-11.5 w-full rounded-[16px] text-base font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
             disabled={isLoading}
           >
+            {isLoading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>

@@ -25,6 +25,9 @@ export async function LandingJsonLd({ children }: { children: ReactNode }) {
       <script
         type="application/ld+json"
         nonce={nonce}
+        // Browsers intentionally hide nonce attributes from client-side DOM reads.
+        // The server-rendered nonce remains required by the CSP.
+        suppressHydrationWarning
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD requires inline script
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
