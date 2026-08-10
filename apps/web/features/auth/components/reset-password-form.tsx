@@ -3,7 +3,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
@@ -20,10 +20,12 @@ import { resetPassword } from '@/lib/api/auth';
 import { type ResetPasswordInput, resetPasswordSchema } from '@/lib/schemas/auth';
 import { PasswordInput } from './form-fields/password-input';
 
-export function ResetPasswordForm() {
+interface ResetPasswordFormProps {
+  token: string;
+}
+
+export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get('token') ?? '';
 
   const form = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),

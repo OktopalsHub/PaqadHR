@@ -1,11 +1,11 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,7 +20,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
-import { resolveAuthDestination } from '@/lib/navigation/resolve-auth-destination';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { type LoginInput, loginSchema } from '@/lib/schemas/auth';
 import { useTenant } from '@/providers/tenant-provider';
@@ -29,43 +28,27 @@ import { SocialAuthButtons } from './buttons/social-auth-buttons';
 import { ForgotPasswordForm } from './forgot-password.form';
 import { PasswordInput } from './form-fields/password-input';
 
-export const Login = () => {
+interface LoginProps {
+  googleSignInFailed: boolean;
+  redirect?: string;
+}
+
+export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const googleSignInFailed = searchParams.get('error') === 'google';
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { login, isLoading, isAuthenticated, isLoading: authLoading } = useAuth();
   const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
-  const redirectParam =
-    typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('redirect')
-      : null;
-
-  const resolvedDestination = resolveAuthDestination({
-    isAuthenticated,
-    tenants: isAuthenticated && hasResolvedTenants ? tenants : [],
-    redirect: redirectParam,
-  });
-
-  const isResolvingSession =
-    authLoading || (isAuthenticated && (!hasResolvedTenants || tenantLoading));
-
-  const showRedirectSpinner =
-    isAuthenticated &&
-    hasResolvedTenants &&
-    !tenantLoading &&
-    resolvedDestination.type !== 'signin';
+  const showRedirectSpinner = isAuthenticated && hasResolvedTenants && !tenantLoading;
 
   useEffect(() => {
     if (!isAuthenticated || !hasResolvedTenants || tenantLoading || authLoading) return;
 
-    const redirect = new URLSearchParams(window.location.search).get('redirect');
     void (async () => {
       const href = await resolvePostAuthHref({ tenants, redirect });
       goToHref(href, router.replace);
     })();
-  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router]);
+  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router, redirect]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -80,10 +63,15 @@ export const Login = () => {
     await submitHandledAuthAction(() => login(values));
   });
 
-  if (isResolvingSession || showRedirectSpinner) {
+  if (showRedirectSpinner) {
     return (
-      <div className="flex min-h-[280px] items-center justify-center">
-        <LoadingBlock />
+      <div
+        className="flex min-h-[280px] flex-col items-center justify-center gap-3"
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="size-9 animate-spin text-primary" aria-hidden="true" />
+        <span className="text-sm font-medium text-slate-500">Signing you in…</span>
       </div>
     );
   }
@@ -200,6 +188,7 @@ export const Login = () => {
             className="h-11.5 w-full rounded-[16px] text-base font-semibold shadow-[0_22px_40px_-28px_var(--brand-shadow)]"
             disabled={isLoading}
           >
+            {isLoading ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : null}
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>

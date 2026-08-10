@@ -42,7 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
-  const sessionBootstrapEnabled = !skipsSessionBootstrap(pathname);
+  // Read the browser path for the first client render. During hydration,
+  // Next's pathname state can briefly lag behind the URL; starting the session
+  // query in that window sends an unnecessary profile request on auth pages.
+  const currentPathname = typeof window === 'undefined' ? pathname : window.location.pathname;
+  const sessionBootstrapEnabled = !skipsSessionBootstrap(currentPathname);
 
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,

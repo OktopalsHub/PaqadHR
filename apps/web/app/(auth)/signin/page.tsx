@@ -1,17 +1,20 @@
-import { Suspense } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
 import { Login } from '@/features/auth/components/login';
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{ error?: string | string[]; redirect?: string | string[] }>;
+};
+
+function readSearchParam(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
+
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[280px] items-center justify-center">
-          <LoadingBlock />
-        </div>
-      }
-    >
-      <Login />
-    </Suspense>
+    <Login
+      googleSignInFailed={readSearchParam(params.error) === 'google'}
+      redirect={readSearchParam(params.redirect)}
+    />
   );
 }
