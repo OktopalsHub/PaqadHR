@@ -23,6 +23,13 @@ type PolarWebhookPayload = {
     status?: string;
     subscription_id?: string;
     billing_reason?: string;
+    current_period_start?: string;
+    current_period_end?: string;
+    subscription?: {
+      id?: string;
+      current_period_start?: string;
+      current_period_end?: string;
+    };
   };
 };
 
@@ -116,6 +123,13 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
     const eventType = (body.type || '').toLowerCase();
     const data = body.data ?? {};
     const metadata = (data.metadata ?? {}) as Record<string, string>;
+    const nestedSubscription = data.subscription as
+      | {
+          id?: string;
+          current_period_start?: string;
+          current_period_end?: string;
+        }
+      | undefined;
 
     if (eventType.includes('subscription.created')) {
       const tenantId = metadata.tenantId;
@@ -133,20 +147,27 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
       eventType.includes('subscription.canceled') ||
       eventType.includes('subscription.cancelled')
     ) {
-      const tenantId = metadata.tenantId;
-      if (!tenantId) return null;
+      const externalSubscriptionId = String(
+        data.subscription_id ?? nestedSubscription?.id ?? data.id ?? '',
+      ).trim();
+      const tenantId = String(metadata.tenantId ?? '');
+      if (!tenantId && !externalSubscriptionId) return null;
       return {
         kind: 'subscription.cancelled',
         tenantId,
-        externalSubscriptionId: data.subscription_id ? String(data.subscription_id) : undefined,
-        eventId: String(data.id ?? `polar_cancel_${tenantId}`),
+        externalSubscriptionId: externalSubscriptionId || undefined,
+        eventId: String(data.id ?? `polar_cancel_${externalSubscriptionId || tenantId}`),
       };
     }
 
     if (eventType.includes('checkout.updated') || eventType.includes('order.paid')) {
-      const tenantId = metadata.tenantId;
+      const tenantId = String(metadata.tenantId ?? '');
       const reference = String(data.id ?? '').trim();
-      if (!tenantId || !reference) return null;
+      const externalSubscriptionId = String(
+        data.subscription_id ?? nestedSubscription?.id ?? '',
+      ).trim();
+      // Cycle renewals often omit checkout metadata; allow parse via subscription_id.
+      if (!reference || (!tenantId && !externalSubscriptionId)) return null;
 
       const status = String(data.status ?? 'paid').toLowerCase();
       const billingReason = String(data.billing_reason ?? '').toLowerCase();
@@ -154,6 +175,14 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         billingReason === 'subscription_cycle'
           ? BillingChargeType.SUBSCRIPTION_RENEWAL
           : (parseBillingChargeType(metadata.billingType) ?? BillingChargeType.SUBSCRIPTION);
+
+      const periodStart = String(
+        nestedSubscription?.current_period_start ?? data.current_period_start ?? '',
+      ).trim();
+      const periodEnd = String(
+        nestedSubscription?.current_period_end ?? data.current_period_end ?? '',
+      ).trim();
+
       const payment = {
         eventId: reference,
         reference,
@@ -165,7 +194,10 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         currency: String(data.currency ?? 'USD').toUpperCase(),
         status: status.includes('succeed') ? 'success' : status,
         billingType,
-        externalSubscriptionId: data.subscription_id ? String(data.subscription_id) : undefined,
+        externalSubscriptionId: externalSubscriptionId || undefined,
+        currentPeriodStart: periodStart || undefined,
+        currentPeriodEnd: periodEnd || undefined,
+        nextBillingDate: periodEnd || undefined,
       };
 
       if (status.includes('succeed') || status === 'paid' || status === 'success') {

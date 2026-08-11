@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
+import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
@@ -12,16 +13,18 @@ import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
 const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
+const PAYROLL_AMOUNT_TOLERANCE = 1;
 
 const SUCCESS_STATUSES = new Set([
   'SUCCESS',
+  'SUCCESSFUL',
   'COMPLETED',
   'PAYMENT_SUCCESSFUL',
   'SUCCEEDED',
   'PAID',
   'SETTLED',
 ]);
-const PENDING_STATUSES = new Set(['PENDING', 'PENDING_BILLING', 'PROCESSING']);
+const PENDING_STATUSES = new Set(['PENDING', 'PENDING_BILLING', 'PROCESSING', 'IN_PROGRESS']);
 const FAILED_STATUSES = new Set([
   'FAILED',
   'REFUND',
@@ -38,6 +41,7 @@ export class PayrollPayoutService {
   constructor(
     private readonly nombaTransferApi: NombaTransferApiService,
     private readonly noahApi: NoahApiService,
+    private readonly monnifyApi: MonnifyApiService,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem)
@@ -133,6 +137,28 @@ export class PayrollPayoutService {
     return { received: true, matched: true };
   }
 
+  async processMonnifyPayload(payload: {
+    merchantRef: string;
+    transactionId: string;
+    status: string;
+    amount?: number;
+  }): Promise<{ received: boolean; matched: boolean }> {
+    const changed = await this.applyTransferStatus(
+      payload.merchantRef,
+      payload.status,
+      payload.transactionId,
+      PaymentProvider.MONNIFY,
+      payload.amount,
+    );
+    if (changed) {
+      const parsed = PAYROLL_REF_PATTERN.exec(payload.merchantRef);
+      if (parsed) {
+        await this.reconcilePayrollRunStatus(parsed[1]);
+      }
+    }
+    return { received: true, matched: changed };
+  }
+
   async requeryStuckPayouts(): Promise<{ checked: number; updated: number }> {
     const cutoff = new Date(Date.now() - 15 * 60 * 1000);
     const stuckItems = await this.payrollItemRepo.find({
@@ -149,12 +175,20 @@ export class PayrollPayoutService {
       if (!reference) continue;
 
       const merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
-      const provider = item.paymentProvider?.toLowerCase();
+      const provider = this.resolveStoredProvider(item.paymentProvider);
       let status: string | null = null;
+      let amount: number | undefined;
 
       if (provider === PaymentProvider.NOAH) {
         const verified = await this.noahApi.verifyTransaction(reference);
         status = verified?.status?.toUpperCase() ?? null;
+        if (verified?.amount != null) {
+          amount = Number(verified.amount);
+        }
+      } else if (provider === PaymentProvider.MONNIFY) {
+        const verified = await this.monnifyApi.getDisbursementStatus(reference);
+        status = verified.status;
+        amount = verified.amount;
       } else {
         status = await this.nombaTransferApi.getTransactionStatus(reference);
       }
@@ -165,7 +199,8 @@ export class PayrollPayoutService {
         merchantRef,
         status,
         reference,
-        provider === PaymentProvider.NOAH ? PaymentProvider.NOAH : PaymentProvider.NOMBA,
+        provider,
+        amount,
       );
       if (changed) {
         updated += 1;
@@ -176,11 +211,24 @@ export class PayrollPayoutService {
     return { checked: stuckItems.length, updated };
   }
 
+  /** Labels are human-readable; match loosely to enum for requery branching. */
+  private resolveStoredProvider(stored: string | null | undefined): PaymentProvider {
+    const value = (stored ?? '').toLowerCase();
+    if (value.includes('noah') || value.includes('international') || value.includes('crypto')) {
+      return PaymentProvider.NOAH;
+    }
+    if (value.includes('monnify')) {
+      return PaymentProvider.MONNIFY;
+    }
+    return PaymentProvider.NOMBA;
+  }
+
   async applyTransferStatus(
     merchantRef: string,
     rawStatus: string,
     transactionId: string,
     provider: PaymentProvider = PaymentProvider.NOMBA,
+    amount?: number,
   ): Promise<boolean> {
     const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
     if (!parsed) {
@@ -200,6 +248,23 @@ export class PayrollPayoutService {
 
     if (SUCCESS_STATUSES.has(status)) {
       if (item.status === PayrollItemStatus.PAID) return false;
+      if (
+        amount != null &&
+        Number.isFinite(amount) &&
+        Math.abs(Number(amount) - Number(item.paymentAmount)) > PAYROLL_AMOUNT_TOLERANCE
+      ) {
+        this.logger.error(
+          `Payroll amount mismatch for item ${itemId}: expected ${item.paymentAmount}, got ${amount}; leaving PROCESSING`,
+        );
+        if (item.status === PayrollItemStatus.PENDING) {
+          item.status = PayrollItemStatus.PROCESSING;
+          item.transactionId = transactionId;
+          item.paymentProvider = providerName;
+          await this.payrollItemRepository.save(item);
+          return true;
+        }
+        return false;
+      }
       item.status = PayrollItemStatus.PAID;
       item.transactionId = transactionId;
       item.paymentProvider = providerName;

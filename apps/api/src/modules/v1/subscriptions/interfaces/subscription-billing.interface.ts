@@ -12,6 +12,8 @@ export interface SubscriptionBillingMetadata
   extraSeats?: number;
   targetSeatCount?: number;
   billingType?: BillingChargeType;
+  /** Period-scoped Nomba order reference for renewal charge retries. */
+  orderReference?: string;
 }
 
 export interface SubscriptionCheckoutResponse {
@@ -39,6 +41,9 @@ export interface SubscriptionWebhookPayment {
   cardBrand?: string;
   cardLastFour?: string;
   externalSubscriptionId?: string;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  nextBillingDate?: string;
 }
 
 export type SubscriptionWebhookEvent =

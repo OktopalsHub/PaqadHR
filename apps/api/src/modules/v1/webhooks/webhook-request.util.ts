@@ -190,3 +190,58 @@ export function extractMonnifySubscriptionPayment(payload: unknown): boolean {
   const meta = parseMonnifyMeta(body.eventData?.metaData);
   return meta.billingType === 'subscription' && Boolean(meta.tenantId);
 }
+
+/** Payroll NGN disbursements use stable payroll_{runId}_{itemId} references. */
+export function extractMonnifyPayrollTransfer(payload: unknown): {
+  merchantRef: string;
+  transactionId: string;
+  status: string;
+  amount?: number;
+} | null {
+  const body = payload as {
+    eventType?: string;
+    eventData?: {
+      paymentReference?: string;
+      transactionReference?: string;
+      reference?: string;
+      amountPaid?: number | string;
+      amount?: number | string;
+      paymentStatus?: string;
+      status?: string;
+      metaData?: unknown;
+    };
+  };
+  const eventType = String(body.eventType ?? '').toUpperCase();
+  const data = body.eventData ?? {};
+  const meta = parseMonnifyMeta(data.metaData);
+  const candidates = [
+    meta.merchantTxRef,
+    meta.reference,
+    data.paymentReference,
+    data.reference,
+    data.transactionReference,
+  ]
+    .filter(Boolean)
+    .map(String);
+  const merchantRef = candidates.find((ref) => PAYROLL_REF_PATTERN.test(ref));
+  if (!merchantRef) {
+    return null;
+  }
+
+  let status = String(data.status ?? data.paymentStatus ?? 'PENDING').toUpperCase();
+  if (eventType.includes('SUCCESS')) {
+    status = 'SUCCESS';
+  } else if (eventType.includes('FAIL') || eventType.includes('REVERS')) {
+    status = 'FAILED';
+  }
+
+  const amountRaw = Number(data.amount ?? data.amountPaid ?? meta.amount ?? NaN);
+  return {
+    merchantRef,
+    transactionId: String(
+      data.transactionReference ?? data.reference ?? data.paymentReference ?? merchantRef,
+    ),
+    status,
+    amount: Number.isFinite(amountRaw) ? amountRaw : undefined,
+  };
+}

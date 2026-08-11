@@ -10,6 +10,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     parseWebhook: jest.fn(),
     createCardUpdateCheckout: jest.fn(),
     chargeSeatAddition: jest.fn().mockResolvedValue({ orderReference: 'sub_qty_1' }),
+    chargeRenewal: jest.fn().mockResolvedValue({ orderReference: 'sub_ren_mock' }),
     ...nombaProviderOverrides,
   };
   const bachsProvider = {
@@ -18,13 +19,18 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   const polarProvider = {
     parseWebhook: jest.fn(),
   };
+  const monnifyProvider = {
+    parseWebhook: jest.fn(),
+  };
   const billingProviderFactory = {
     getNombaProvider: () => nombaProvider,
     getProviderByEnum: jest.fn((provider: BillingProvider) => {
       if (provider === BillingProvider.BACHS) return bachsProvider;
       if (provider === BillingProvider.POLAR) return polarProvider;
+      if (provider === BillingProvider.MONNIFY) return monnifyProvider;
       return nombaProvider;
     }),
+    getProviderForCountry: jest.fn(() => nombaProvider),
     resolveBillingProvider: jest.fn(() => BillingProvider.NOMBA),
     ensureConfigured: jest.fn(),
     cancelExternalSubscription: jest.fn().mockResolvedValue(undefined),
@@ -32,15 +38,25 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   };
   const nombaApi = { verifyTransaction: jest.fn() };
   const monnifyApi = { verifyTransaction: jest.fn() };
-  const subscriptionsService = { getBillingStatus: jest.fn(), getTenantSubscription: jest.fn() };
+  const subscriptionsService = {
+    getBillingStatus: jest.fn(),
+    getTenantSubscription: jest.fn(),
+    computeNeedsPayment: jest.fn().mockReturnValue(false),
+  };
   const tenantSettingsService = { getTenantSettings: jest.fn() };
-  const plansService = { getPlanPriceById: jest.fn() };
+  const plansService = {
+    getPlanPriceById: jest.fn(),
+    findPlanBySlug: jest.fn(),
+    getPlanPrice: jest.fn(),
+    getPricesForCountry: jest.fn().mockResolvedValue([]),
+  };
   const subscriptionRepo = {
     createQueryBuilder: jest.fn(),
     save: jest.fn(async (s) => s),
     findOne: jest.fn(),
+    find: jest.fn(),
   };
-  const tenantRepo = { findOne: jest.fn() };
+  const tenantRepo = { findOne: jest.fn(), save: jest.fn(async (t) => t) };
   const userRepo = { findOne: jest.fn() };
   const tenantMemberRepo = { count: jest.fn(), findOne: jest.fn() };
   const billingEventRepo = {
@@ -49,7 +65,19 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     save: jest.fn(),
     create: jest.fn((x) => x),
   };
-  const dataSource = { transaction: jest.fn() };
+  const dataSource = {
+    transaction: jest.fn(async (fn: (manager: unknown) => Promise<unknown>) =>
+      fn({
+        getRepository: (entity: { name?: string }) => {
+          const name = typeof entity === 'function' ? (entity as { name: string }).name : '';
+          if (name === 'BillingEvent') {
+            return billingEventRepo;
+          }
+          return subscriptionRepo;
+        },
+      }),
+    ),
+  };
 
   const service = new SubscriptionBillingService(
     billingProviderFactory as never,
@@ -71,14 +99,19 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     nombaProvider,
     bachsProvider,
     polarProvider,
+    monnifyProvider,
     billingProviderFactory,
     subscriptionsService,
     subscriptionRepo,
     billingEventRepo,
     tenantMemberRepo,
     tenantSettingsService,
+    tenantRepo,
+    userRepo,
     plansService,
     nombaApi,
+    monnifyApi,
+    dataSource,
   };
 }
 
@@ -139,7 +172,7 @@ describe('SubscriptionBillingService renewal jobs', () => {
     expect(result).toEqual({ charged: 1, failed: 1, skipped: 1, suspended: 2 });
   });
 
-  it('skips renewal charge when renewal attempt was already processed', async () => {
+  it('skips renewal charge when billing period was already renewed', async () => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
@@ -154,13 +187,188 @@ describe('SubscriptionBillingService renewal jobs', () => {
       nombaSubscriptionId: 'nomba_ref_1',
       status: SubscriptionStatus.ACTIVE,
       dunningAttemptCount: 0,
+      billingProvider: BillingProvider.NOMBA,
     };
 
-    jest.spyOn(service as any, 'hasProcessedEvent').mockResolvedValue(true);
+    jest.spyOn(service as any, 'healRenewalFromExistingPeriodCharge').mockResolvedValue('skip');
 
     const outcome = await (service as any).chargeSubscriptionRenewal(subscription);
 
     expect(outcome).toBe('skipped');
+  });
+
+  it('does not charge again on dunning retry when prior period charge succeeded at provider', async () => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+    const { service, nombaProvider } = createService();
+    const nextBillingDate = new Date('2026-06-01T00:00:00.000Z');
+    const subscription = {
+      id: 'sub-retry',
+      nextBillingDate,
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      planPriceId: 'price-1',
+      planId: 'plan-1',
+      paymentMethodId: 'tok_123',
+      nombaSubscriptionId: 'nomba_ref_1',
+      status: SubscriptionStatus.PAST_DUE,
+      dunningAttemptCount: 1,
+      billingProvider: BillingProvider.NOMBA,
+    };
+
+    const healSpy = jest
+      .spyOn(service as any, 'healRenewalFromExistingPeriodCharge')
+      .mockResolvedValue('charged');
+    const claimSpy = jest.spyOn(service as any, 'claimRenewalPeriodCharge');
+
+    const outcome = await (service as any).chargeSubscriptionRenewal(subscription);
+
+    expect(outcome).toBe('charged');
+    expect(healSpy).toHaveBeenCalled();
+    expect(claimSpy).not.toHaveBeenCalled();
+    expect(nombaProvider.chargeRenewal).not.toHaveBeenCalled();
+  });
+
+  it('persists deterministic orderReference before Nomba charge and heals without recharging', async () => {
+    process.env.NOMBA_CLIENT_ID = 'client-id';
+    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+    const { service, nombaProvider, nombaApi, plansService, billingEventRepo } = createService();
+    const nextBillingDate = new Date('2026-06-01T00:00:00.000Z');
+    const subscriptionId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    const expectedRef = (service as any).buildNombaRenewalOrderReference(
+      subscriptionId,
+      nextBillingDate,
+    );
+    const subscription = {
+      id: subscriptionId,
+      nextBillingDate,
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      planPriceId: 'price-1',
+      planId: 'plan-1',
+      paymentMethodId: 'tok_123',
+      nombaSubscriptionId: 'nomba_checkout_1',
+      status: SubscriptionStatus.ACTIVE,
+      dunningAttemptCount: 0,
+      billingProvider: BillingProvider.NOMBA,
+      tenant: { createdBy: { email: 'owner@example.com' } },
+    };
+
+    jest.spyOn(service as any, 'healRenewalFromExistingPeriodCharge').mockResolvedValue('none');
+    jest.spyOn(service as any, 'claimRenewalPeriodCharge').mockResolvedValue('proceed');
+    jest.spyOn(service as any, 'resolveBillingEmail').mockResolvedValue('owner@example.com');
+    jest.spyOn(service as any, 'getTenantSeatCount').mockResolvedValue(1);
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-1',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'NGN',
+      monthlyPrice: 100,
+      calculateMonthlyPrice: () => ({ totalPrice: 100 }),
+    });
+    jest.spyOn(service as any, 'applyRenewalSuccess').mockResolvedValue(undefined);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    nombaProvider.chargeRenewal.mockResolvedValue({ orderReference: expectedRef });
+    nombaApi.verifyTransaction.mockResolvedValue({ status: 'success', amount: 100 });
+
+    const outcome = await (service as any).chargeSubscriptionRenewal(subscription);
+
+    expect(outcome).toBe('charged');
+    expect(nombaProvider.chargeRenewal).toHaveBeenCalledWith(
+      'nomba_checkout_1',
+      expect.anything(),
+      1,
+      'tok_123',
+      'owner@example.com',
+      expect.objectContaining({ orderReference: expectedRef }),
+    );
+  });
+
+  it('buildNombaRenewalOrderReference is deterministic and within Nomba length limit', () => {
+    const { service } = createService();
+    const id = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    const date = new Date('2026-06-01T00:00:00.000Z');
+    const a = (service as any).buildNombaRenewalOrderReference(id, date);
+    const b = (service as any).buildNombaRenewalOrderReference(id, date);
+    expect(a).toBe(b);
+    expect(a.length).toBeLessThanOrEqual(50);
+    expect(a).toMatch(/^sub_ren_/);
+  });
+
+  it('does not overwrite nombaSubscriptionId on renewal success', async () => {
+    const { service, subscriptionRepo, billingEventRepo, plansService } = createService();
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const locked = {
+      id: 'sub-1',
+      tenantId,
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.NOMBA,
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      nextBillingDate: new Date('2026-06-01T00:00:00.000Z'),
+      currentUsers: 1,
+      nombaSubscriptionId: 'original_checkout_ref',
+      cancelAtPeriodEnd: false,
+      billingHistory: [],
+    };
+    subscriptionRepo.findOne.mockResolvedValue(locked);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-1',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'NGN',
+      monthlyPrice: 100,
+      calculateMonthlyPrice: () => ({ totalPrice: 100 }),
+    });
+
+    await (service as any).applyRenewalSuccess(
+      tenantId,
+      {
+        eventId: 'evt-ren-1',
+        reference: 'sub_ren_period_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        amount: 100,
+        currency: 'NGN',
+        status: 'success',
+        billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
+      },
+      BillingProvider.NOMBA,
+      locked.nextBillingDate,
+    );
+
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({ nombaSubscriptionId: 'original_checkout_ref' }),
+    );
+  });
+
+  it('lapses stale Polar and Monnify subscriptions past grace', async () => {
+    const { service, subscriptionRepo } = createService();
+    const staleDate = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const polarSub = {
+      id: 'polar-1',
+      tenantId: 't1',
+      billingProvider: BillingProvider.POLAR,
+      status: SubscriptionStatus.ACTIVE,
+      externalSubscriptionId: 'pol_1',
+      nextBillingDate: staleDate,
+    };
+    const monnifySub = {
+      id: 'mon-1',
+      tenantId: 't2',
+      billingProvider: BillingProvider.MONNIFY,
+      status: SubscriptionStatus.ACTIVE,
+      nextBillingDate: staleDate,
+    };
+    subscriptionRepo.find.mockResolvedValue([polarSub, monnifySub]);
+
+    const result = await service.lapseStaleSubscriptions();
+
+    expect(result.lapsed).toBe(2);
+    expect(polarSub.status).toBe(SubscriptionStatus.PAST_DUE);
+    expect(monnifySub.status).toBe(SubscriptionStatus.PAST_DUE);
   });
 });
 
@@ -283,6 +491,85 @@ describe('SubscriptionBillingService webhooks', () => {
     expect(renewalSpy).not.toHaveBeenCalled();
   });
 
+  it('routes Bachs invoice.paid to renewal handler for due cycle invoices', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, bachsProvider, subscriptionRepo } = createService();
+    (bachsProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-bachs-cycle',
+        reference: 'inv_cycle_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        billingType: BillingChargeType.SUBSCRIPTION,
+        amount: 100,
+        currency: 'USD',
+        externalSubscriptionId: 'sub_ext_1',
+        nextBillingDate: '2026-09-01T00:00:00.000Z',
+        currentPeriodEnd: '2026-08-01T00:00:00.000Z',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.BACHS,
+      status: SubscriptionStatus.ACTIVE,
+      externalSubscriptionId: 'sub_ext_1',
+      nextBillingDate: new Date('2026-07-01T00:00:00.000Z'),
+      billingHistory: [{ date: new Date(), amount: 100, currency: 'USD', status: 'paid' }],
+    });
+    const renewalSpy = jest
+      .spyOn(service as any, 'processRenewalPaymentSuccess')
+      .mockResolvedValue(undefined);
+    const initialSpy = jest
+      .spyOn(service as any, 'processInitialPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processBachsPayload({ type: 'invoice.paid', data: {} });
+
+    expect(renewalSpy).toHaveBeenCalled();
+    expect(initialSpy).not.toHaveBeenCalled();
+  });
+
+  it('keeps first Bachs invoice.paid on initial handler before any billing history', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, bachsProvider, subscriptionRepo } = createService();
+    (bachsProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-bachs-first',
+        reference: 'inv_first_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        billingType: BillingChargeType.SUBSCRIPTION,
+        amount: 100,
+        currency: 'USD',
+        externalSubscriptionId: 'sub_ext_1',
+        nextBillingDate: '2026-09-01T00:00:00.000Z',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.BACHS,
+      status: SubscriptionStatus.ACTIVE,
+      externalSubscriptionId: 'sub_ext_1',
+      nextBillingDate: new Date('2026-09-01T00:00:00.000Z'),
+      billingHistory: [],
+    });
+    const renewalSpy = jest
+      .spyOn(service as any, 'processRenewalPaymentSuccess')
+      .mockResolvedValue(undefined);
+    const initialSpy = jest
+      .spyOn(service as any, 'processInitialPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processBachsPayload({ type: 'invoice.paid', data: {} });
+
+    expect(initialSpy).toHaveBeenCalled();
+    expect(renewalSpy).not.toHaveBeenCalled();
+  });
+
   it('processes Polar payment webhooks after Nomba→Polar provider switch at checkout', async () => {
     const tenantId = '11111111-1111-4111-8111-111111111111';
     const { service, polarProvider, subscriptionRepo } = createService();
@@ -311,6 +598,149 @@ describe('SubscriptionBillingService webhooks', () => {
     await service.processPolarPayload({ type: 'order.paid', data: {} });
 
     expect(initialSpy).toHaveBeenCalled();
+  });
+
+  it('routes Polar cycle order.paid to renewal when history exists and period is due', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, polarProvider, subscriptionRepo } = createService();
+    (polarProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-polar-cycle',
+        reference: 'ord_cycle_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        billingType: BillingChargeType.SUBSCRIPTION,
+        amount: 99,
+        currency: 'USD',
+        externalSubscriptionId: 'pol_sub_1',
+        nextBillingDate: '2026-09-01T00:00:00.000Z',
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      billingProvider: BillingProvider.POLAR,
+      status: SubscriptionStatus.ACTIVE,
+      externalSubscriptionId: 'pol_sub_1',
+      nextBillingDate: new Date('2026-07-01T00:00:00.000Z'),
+      billingHistory: [{ date: new Date(), amount: 99, currency: 'USD', status: 'paid' }],
+    });
+    const renewalSpy = jest
+      .spyOn(service as any, 'processRenewalPaymentSuccess')
+      .mockResolvedValue(undefined);
+    const initialSpy = jest
+      .spyOn(service as any, 'processInitialPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processPolarPayload({ type: 'order.paid', data: {} });
+
+    expect(renewalSpy).toHaveBeenCalled();
+    expect(initialSpy).not.toHaveBeenCalled();
+  });
+
+  it('routes overdue Monnify checkout payment to renewal recovery', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const {
+      service,
+      monnifyProvider,
+      subscriptionRepo,
+      monnifyApi,
+      plansService,
+      billingEventRepo,
+      tenantRepo,
+    } = createService();
+    (monnifyProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-mon-ren',
+        reference: 'mon_ref_ren',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        amount: 100,
+        currency: 'NGN',
+        billingType: BillingChargeType.SUBSCRIPTION,
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.MONNIFY,
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      nextBillingDate: new Date('2026-06-01T00:00:00.000Z'),
+    });
+    tenantRepo.findOne.mockResolvedValue({ id: tenantId });
+    billingEventRepo.exists.mockResolvedValue(false);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    monnifyApi.verifyTransaction.mockResolvedValue({ paid: true, amount: 100 });
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-1',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'NGN',
+      monthlyPrice: 100,
+      calculateMonthlyPrice: () => ({ totalPrice: 100 }),
+    });
+    jest.spyOn(service as any, 'getTenantSeatCount').mockResolvedValue(1);
+    const renewalSpy = jest
+      .spyOn(service as any, 'applyRenewalSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processMonnifyPayload({ eventType: 'SUCCESSFUL_TRANSACTION', eventData: {} });
+
+    expect(renewalSpy).toHaveBeenCalledWith(
+      tenantId,
+      expect.objectContaining({
+        reference: 'mon_ref_ren',
+        billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
+      }),
+      BillingProvider.MONNIFY,
+      expect.any(Date),
+    );
+  });
+
+  it('skips duplicate Monnify initial payment when already paid this period', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, monnifyProvider, subscriptionRepo, billingEventRepo } = createService();
+    const futureBilling = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
+    (monnifyProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-mon-dup',
+        reference: 'mon_dup',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        amount: 100,
+        currency: 'NGN',
+        billingType: BillingChargeType.SUBSCRIPTION,
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.MONNIFY,
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      nextBillingDate: futureBilling,
+    });
+    billingEventRepo.exists.mockResolvedValue(false);
+    const renewalSpy = jest
+      .spyOn(service as any, 'applyRenewalSuccess')
+      .mockResolvedValue(undefined);
+    const recordSpy = jest.spyOn(service as any, 'recordBillingEvent').mockResolvedValue(undefined);
+
+    await service.processMonnifyPayload({ eventType: 'SUCCESSFUL_TRANSACTION', eventData: {} });
+
+    expect(renewalSpy).not.toHaveBeenCalled();
+    expect(recordSpy).toHaveBeenCalledWith(
+      'evt-mon-dup',
+      'payment_success_skipped',
+      expect.objectContaining({ reason: 'already_paid_current_period' }),
+      BillingProvider.MONNIFY,
+    );
   });
 
   it('allows trial subscription checkout webhooks from the provider taking over', async () => {
@@ -370,6 +800,288 @@ describe('SubscriptionBillingService webhooks', () => {
     await service.processPolarPayload({ type: 'order.updated', data: {} });
 
     expect(cardUpdateSpy).not.toHaveBeenCalled();
+  });
+
+  it('skips duplicate initial payment when subscription is already paid this period', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, nombaProvider, subscriptionRepo, billingEventRepo, plansService } =
+      createService();
+    const futureBilling = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
+    (nombaProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment: {
+        eventId: 'evt-dup',
+        reference: 'ref-dup',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        amount: 100,
+        currency: 'NGN',
+        tokenKey: 'tok_1',
+        billingType: BillingChargeType.SUBSCRIPTION,
+      },
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.NOMBA,
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      nextBillingDate: futureBilling,
+    });
+    billingEventRepo.exists.mockResolvedValue(false);
+    plansService.getPlanPriceById.mockResolvedValue({
+      isActive: true,
+      planId: 'plan-1',
+      currency: 'NGN',
+      calculateMonthlyPrice: () => [],
+    });
+    const renewalSpy = jest
+      .spyOn(service as any, 'applyRenewalSuccess')
+      .mockResolvedValue(undefined);
+    const recordSpy = jest.spyOn(service as any, 'recordBillingEvent').mockResolvedValue(undefined);
+
+    await service.processNombaPayload({ event_type: 'payment_success', data: {} });
+
+    expect(renewalSpy).not.toHaveBeenCalled();
+    expect(recordSpy).toHaveBeenCalledWith(
+      'evt-dup',
+      'payment_success_skipped',
+      expect.objectContaining({ reason: 'already_paid_current_period' }),
+      BillingProvider.NOMBA,
+    );
+  });
+
+  it('enriches Bachs cycle invoice missing metadata from externalSubscriptionId', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, bachsProvider, subscriptionRepo } = createService();
+    const payment: {
+      eventId: string;
+      reference: string;
+      tenantId: string;
+      planId?: string;
+      planPriceId?: string;
+      billingType: BillingChargeType;
+      amount: number;
+      currency: string;
+      externalSubscriptionId: string;
+      nextBillingDate: string;
+    } = {
+      eventId: 'evt-bachs-empty-meta',
+      reference: 'inv_empty_1',
+      tenantId: '',
+      billingType: BillingChargeType.SUBSCRIPTION,
+      amount: 100,
+      currency: 'USD',
+      externalSubscriptionId: 'sub_ext_meta',
+      nextBillingDate: '2026-09-01T00:00:00.000Z',
+    };
+    (bachsProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'payment.success',
+      payment,
+    });
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      billingProvider: BillingProvider.BACHS,
+      status: SubscriptionStatus.ACTIVE,
+      externalSubscriptionId: 'sub_ext_meta',
+      nextBillingDate: new Date('2026-07-01T00:00:00.000Z'),
+      currentUsers: 2,
+      billingHistory: [{ date: new Date(), amount: 100, currency: 'USD', status: 'paid' }],
+    });
+    const renewalSpy = jest
+      .spyOn(service as any, 'processRenewalPaymentSuccess')
+      .mockResolvedValue(undefined);
+
+    await service.processBachsPayload({ type: 'invoice.paid', data: {} });
+
+    expect(payment.tenantId).toBe(tenantId);
+    expect(payment.planId).toBe('plan-1');
+    expect(payment.planPriceId).toBe('price-1');
+    expect(renewalSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId, planId: 'plan-1', planPriceId: 'price-1' }),
+      BillingProvider.BACHS,
+    );
+  });
+
+  it('ignores renewal when cancelAtPeriodEnd is scheduled', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, subscriptionRepo, billingEventRepo, plansService } = createService();
+    subscriptionRepo.findOne.mockResolvedValue({
+      id: 'sub-1',
+      tenantId,
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      billingProvider: BillingProvider.BACHS,
+      status: SubscriptionStatus.ACTIVE,
+      cancelAtPeriodEnd: true,
+      nextBillingDate: new Date('2026-07-01T00:00:00.000Z'),
+      currentUsers: 1,
+    });
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-1',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'USD',
+      monthlyPrice: 100,
+      calculateMonthlyPrice: () => ({ totalPrice: 100 }),
+    });
+    billingEventRepo.findOne.mockResolvedValue(null);
+
+    await (service as any).applyRenewalSuccess(
+      tenantId,
+      {
+        eventId: 'evt-cancel-renewal',
+        reference: 'inv_cancel',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+        amount: 100,
+        currency: 'USD',
+        status: 'success',
+        billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
+      },
+      BillingProvider.BACHS,
+    );
+
+    expect(billingEventRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'evt-cancel-renewal',
+        eventType: 'renewal_ignored_cancel_scheduled',
+      }),
+    );
+    expect(subscriptionRepo.save).not.toHaveBeenCalled();
+  });
+});
+
+describe('SubscriptionBillingService checkout guards', () => {
+  const createService = () => buildSubscriptionBillingService();
+  const tenantId = '11111111-1111-4111-8111-111111111111';
+  const userId = '22222222-2222-4222-8222-222222222222';
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const setupCheckoutBase = (deps: ReturnType<typeof createService>) => {
+    deps.plansService.findPlanBySlug.mockResolvedValue({ slug: 'scale', isActive: true });
+    deps.tenantRepo.findOne.mockResolvedValue({
+      id: tenantId,
+      slug: 'acme',
+      countryCode: 'NG',
+      preferredCurrency: 'NGN',
+    });
+    deps.userRepo.findOne.mockResolvedValue({ id: userId, email: 'owner@example.com' });
+    deps.billingProviderFactory.resolveBillingProvider.mockReturnValue(BillingProvider.BACHS);
+    deps.plansService.getPlanPrice.mockResolvedValue({
+      id: 'price-1',
+      planId: 'plan-1',
+      currency: 'USD',
+      isActive: true,
+      monthlyPrice: 100,
+      calculateMonthlyPrice: () => ({ totalPrice: 100 }),
+    });
+    deps.tenantMemberRepo.count.mockResolvedValue(1);
+    deps.tenantMemberRepo.findOne.mockResolvedValue({ id: 'member-1' });
+    (deps.bachsProvider as any).createCheckout = jest.fn().mockResolvedValue({
+      id: 'chk_1',
+      checkoutUrl: 'https://checkout.example',
+      reference: 'ref_1',
+    });
+    deps.billingProviderFactory.getProviderForCountry.mockReturnValue(deps.bachsProvider as never);
+  };
+
+  it('allows TRIAL same-plan checkout', async () => {
+    process.env.BACHS_SECRET_KEY = 'bachs-secret';
+    const deps = createService();
+    setupCheckoutBase(deps);
+    deps.subscriptionsService.getTenantSubscription.mockResolvedValue({
+      status: SubscriptionStatus.TRIAL,
+      plan: { slug: 'scale' },
+      billingProvider: BillingProvider.BACHS,
+    });
+
+    const result = await deps.service.createSubscriptionCheckout(tenantId, 'scale', userId);
+
+    expect(result.reference).toBe('ref_1');
+    expect((deps.bachsProvider as any).createCheckout).toHaveBeenCalled();
+  });
+
+  it('blocks ACTIVE same-plan checkout', async () => {
+    const deps = createService();
+    setupCheckoutBase(deps);
+    deps.subscriptionsService.getTenantSubscription.mockResolvedValue({
+      status: SubscriptionStatus.ACTIVE,
+      plan: { slug: 'scale' },
+      billingProvider: BillingProvider.BACHS,
+      nextBillingDate: new Date(Date.now() + 86400000),
+    });
+
+    await expect(
+      deps.service.createSubscriptionCheckout(tenantId, 'scale', userId),
+    ).rejects.toThrow('already has an active subscription');
+  });
+
+  it('blocks PAST_DUE managed checkout when externalSubscriptionId exists', async () => {
+    const deps = createService();
+    setupCheckoutBase(deps);
+    deps.subscriptionsService.getTenantSubscription.mockResolvedValue({
+      status: SubscriptionStatus.PAST_DUE,
+      plan: { slug: 'starter' },
+      billingProvider: BillingProvider.BACHS,
+      externalSubscriptionId: 'sub_bachs_past_due',
+      paymentMethodId: 'sub_bachs_past_due',
+    });
+
+    await expect(
+      deps.service.createSubscriptionCheckout(tenantId, 'scale', userId),
+    ).rejects.toThrow('past due with an active provider subscription');
+  });
+});
+
+describe('SubscriptionBillingService billing overview privacy', () => {
+  const createService = () => buildSubscriptionBillingService();
+
+  it('hides ownerEmail and billingContact from non-managers', async () => {
+    const { service, tenantRepo, subscriptionsService, tenantSettingsService, tenantMemberRepo } =
+      createService();
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    tenantRepo.findOne.mockResolvedValue({
+      id: tenantId,
+      name: 'Acme',
+      countryCode: 'US',
+      preferredCurrency: 'USD',
+      createdBy: { email: 'owner@example.com' },
+    });
+    subscriptionsService.getBillingStatus.mockResolvedValue({
+      paymentsEnabled: true,
+      entitled: true,
+      needsPayment: false,
+      subscription: {
+        status: SubscriptionStatus.ACTIVE,
+        plan: 'scale',
+        trialEndsAt: null,
+        isOnTrial: false,
+        daysRemaining: null,
+        currentPeriodEnd: new Date(),
+      },
+    });
+    subscriptionsService.getTenantSubscription.mockResolvedValue({
+      nextBillingDate: new Date(),
+      billingHistory: [],
+      billingProvider: BillingProvider.BACHS,
+    });
+    tenantSettingsService.getTenantSettings.mockResolvedValue({
+      settings: { billing: { contactEmail: 'billing@example.com' } },
+    });
+    tenantMemberRepo.count.mockResolvedValue(1);
+
+    const overview = await service.getBillingOverview(tenantId, false);
+
+    expect(overview.ownerEmail).toBeNull();
+    expect(overview.billingContact).toEqual({});
   });
 });
 

@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
+  extractMonnifyPayrollTransfer,
   extractMonnifySubscriptionPayment,
   extractMonnifyWalletTopupCheckout,
 } from '../webhook-request.util';
@@ -13,6 +15,7 @@ export class MonnifyWebhookService {
   constructor(
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly subscriptionBillingService: SubscriptionBillingService,
+    private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
 
   async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
@@ -33,6 +36,12 @@ export class MonnifyWebhookService {
     const walletTopup = extractMonnifyWalletTopupCheckout(payload);
     if (walletTopup) {
       return this.walletTopupService.completeCheckoutTopup(walletTopup, PaymentProvider.MONNIFY);
+    }
+
+    const payrollTransfer = extractMonnifyPayrollTransfer(payload);
+    if (payrollTransfer) {
+      await this.payrollPayoutService.processMonnifyPayload(payrollTransfer);
+      return { received: true };
     }
 
     const subscriptionPayment = extractMonnifySubscriptionPayment(payload);

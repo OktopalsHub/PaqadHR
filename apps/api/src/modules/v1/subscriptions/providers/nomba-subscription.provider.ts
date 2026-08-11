@@ -131,8 +131,11 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     const seats = resolveSeatCount(quantity);
     const amount = calculatePerSeatTotal(planPrice, seats);
     const currency = planPrice.currency.toUpperCase();
-    // Keep under Nomba's 50-char reference limit (see createCheckout).
-    const orderReference = `sub_ren_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
+    // Prefer caller-supplied period-scoped reference (≤50 chars) so retries dedupe at Nomba.
+    const fromMeta =
+      typeof metadata.orderReference === 'string' ? metadata.orderReference.trim() : '';
+    const orderReference =
+      fromMeta || `sub_ren_${metadata.tenantId.replace(/-/g, '')}_${Date.now().toString(36)}`;
 
     return this.nombaApi.chargeTokenizedCard({
       orderReference,
@@ -146,6 +149,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
         previousReference: subscriptionReference,
+        orderReference,
       },
     });
   }

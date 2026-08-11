@@ -24,6 +24,10 @@ describe('PayrollPayoutService', () => {
       verifyTransaction: jest.fn(),
     } as unknown as NoahApiService;
 
+    const monnifyApi = {
+      getDisbursementStatus: jest.fn(),
+    };
+
     const payrollItemRepository = {
       findOne: jest.fn(),
       find: jest.fn().mockResolvedValue([]),
@@ -42,6 +46,7 @@ describe('PayrollPayoutService', () => {
     const service = new PayrollPayoutService(
       nombaTransferApi,
       noahApi,
+      monnifyApi as never,
       payrollItemRepository,
       payrollRunRepository as never,
       payrollItemRepo,
@@ -51,6 +56,7 @@ describe('PayrollPayoutService', () => {
       service,
       nombaTransferApi,
       noahApi,
+      monnifyApi,
       payrollItemRepository,
       payrollItemRepo,
       payrollRunRepository,
@@ -62,6 +68,7 @@ describe('PayrollPayoutService', () => {
       id: ITEM_ID,
       payrollRunId: RUN_ID,
       status: PayrollItemStatus.PROCESSING,
+      paymentAmount: 1000,
       transactionId: null,
       paymentProvider: null,
       paidAt: null,
@@ -264,7 +271,35 @@ describe('PayrollPayoutService', () => {
       const result = await service.requeryStuckPayouts();
 
       expect(result).toEqual({ checked: 1, updated: 1 });
-      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-stuck', 'nomba');
+      expect(applySpy).toHaveBeenCalledWith(
+        MERCHANT_REF,
+        'SUCCESS',
+        'txn-stuck',
+        'nomba',
+        undefined,
+      );
+    });
+
+    it('requeries Monnify stuck items via disbursement status', async () => {
+      const { service, monnifyApi, payrollItemRepo } = createService();
+      const stuckItem = {
+        ...baseItem(),
+        transactionId: 'mon-txn-1',
+        paymentProvider: 'Local bank (Monnify)',
+        updatedAt: new Date(Date.now() - 20 * 60 * 1000),
+      };
+      (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
+      (monnifyApi.getDisbursementStatus as jest.Mock).mockResolvedValue({
+        status: 'SUCCESS',
+        amount: 1000,
+      });
+      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+
+      const result = await service.requeryStuckPayouts();
+
+      expect(result.updated).toBe(1);
+      expect(monnifyApi.getDisbursementStatus).toHaveBeenCalledWith('mon-txn-1');
+      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'mon-txn-1', 'monnify', 1000);
     });
 
     it('skips items without a transaction id', async () => {
@@ -277,6 +312,51 @@ describe('PayrollPayoutService', () => {
 
       expect(result).toEqual({ checked: 1, updated: 0 });
       expect(nombaTransferApi.getTransactionStatus).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('amount mismatch', () => {
+    it('does not mark paid when webhook amount mismatches item paymentAmount', async () => {
+      const { service, payrollItemRepository } = createService();
+      const item = baseItem();
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+      (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
+
+      const changed = await service.applyTransferStatus(
+        MERCHANT_REF,
+        'SUCCESS',
+        'txn-1',
+        'nomba' as never,
+        5000,
+      );
+
+      expect(changed).toBe(false);
+      expect(item.status).toBe(PayrollItemStatus.PROCESSING);
+      expect(payrollItemRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('unknown provider status', () => {
+    it('leaves PROCESSING items alone for unrecognized statuses', async () => {
+      const { service, payrollItemRepository } = createService();
+      const item = baseItem();
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+
+      const changed = await service.applyTransferStatus(
+        MERCHANT_REF,
+        'SOMETHING_WEIRD',
+        'txn-unknown',
+      );
+
+      expect(changed).toBe(false);
+      expect(item.status).toBe(PayrollItemStatus.PROCESSING);
+      expect(payrollItemRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('classifies blank/unknown createPayment statuses as processing (not failed)', () => {
+      const { service } = createService();
+      expect(service.classifyPaymentResultStatus(undefined)).toBe('processing');
+      expect(service.classifyPaymentResultStatus('UNKNOWN_RAIL_STATE')).toBe('processing');
     });
   });
 });

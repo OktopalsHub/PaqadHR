@@ -34,7 +34,11 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
 import { isBillingGatewayEnabled } from '../config/billing.config';
-import { BillingChargeType, RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
+import {
+  BillingChargeType,
+  CARD_UPDATE_VERIFY_AMOUNT,
+  RENEWAL_GRACE_PERIOD_DAYS,
+} from '../constants/billing.constants';
 import { BillingProvider, isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
 import type { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { BillingEvent } from '../entities/billing-event.entity';
@@ -215,9 +219,16 @@ export class SubscriptionBillingService {
       return { received: true };
     }
 
+    let subscription = await this.resolveWebhookSubscription(event);
+    if ((event.kind === 'payment.success' || event.kind === 'payment.failed') && subscription) {
+      this.enrichPaymentFromSubscription(event.payment, subscription);
+    }
+
     const tenantId = this.resolveWebhookTenantId(event);
+    if (tenantId && UUID_PATTERN.test(tenantId) && !subscription) {
+      subscription = await this.subscriptionRepository.findOne({ where: { tenantId } });
+    }
     if (tenantId && UUID_PATTERN.test(tenantId)) {
-      const subscription = await this.subscriptionRepository.findOne({ where: { tenantId } });
       if (this.isStaleProviderWebhook(event, subscription, provider)) {
         this.logger.warn(
           `Ignoring ${event.kind} webhook from ${provider} for tenant ${tenantId}; active provider is ${subscription?.billingProvider}`,
@@ -227,7 +238,21 @@ export class SubscriptionBillingService {
     }
 
     if (event.kind === 'payment.success') {
-      const billingType = event.payment.billingType;
+      let billingType = event.payment.billingType;
+      // Bachs/Polar bill via provider subscriptions (webhooks only — no app cron charges).
+      // Cycle invoices omit checkout metadata; route those to renewal handling once the
+      // tenant already has paid billing history and the current period is due.
+      const hasPaidBillingHistory = (subscription?.billingHistory?.length ?? 0) > 0;
+      if (
+        billingType === BillingChargeType.SUBSCRIPTION &&
+        subscription?.status === SubscriptionStatus.ACTIVE &&
+        subscription.externalSubscriptionId?.trim() &&
+        isManagedSubscriptionProvider(provider) &&
+        hasPaidBillingHistory &&
+        subscription.nextBillingDate <= new Date()
+      ) {
+        billingType = BillingChargeType.SUBSCRIPTION_RENEWAL;
+      }
       if (billingType === BillingChargeType.SUBSCRIPTION_RENEWAL) {
         await this.processRenewalPaymentSuccess(event.payment, provider);
       } else if (billingType === BillingChargeType.SUBSCRIPTION_QUANTITY_UPDATE) {
@@ -252,6 +277,50 @@ export class SubscriptionBillingService {
     }
 
     return { received: true };
+  }
+
+  private async resolveWebhookSubscription(
+    event: SubscriptionWebhookEvent,
+  ): Promise<TenantSubscription | null> {
+    const tenantId = this.resolveWebhookTenantId(event);
+    if (tenantId && UUID_PATTERN.test(tenantId)) {
+      return this.subscriptionRepository.findOne({ where: { tenantId } });
+    }
+
+    const externalSubscriptionId =
+      event.kind === 'payment.success' || event.kind === 'payment.failed'
+        ? event.payment.externalSubscriptionId?.trim()
+        : event.kind === 'subscription.created' || event.kind === 'subscription.cancelled'
+          ? event.externalSubscriptionId?.trim()
+          : undefined;
+    if (!externalSubscriptionId) {
+      return null;
+    }
+
+    return this.subscriptionRepository.findOne({
+      where: { externalSubscriptionId },
+    });
+  }
+
+  private enrichPaymentFromSubscription(
+    payment: SubscriptionWebhookPayment,
+    subscription: TenantSubscription,
+  ): void {
+    if (!payment.tenantId?.trim() || !UUID_PATTERN.test(payment.tenantId)) {
+      payment.tenantId = subscription.tenantId;
+    }
+    if (!payment.planId?.trim()) {
+      payment.planId = subscription.planId;
+    }
+    if (!payment.planPriceId?.trim()) {
+      payment.planPriceId = subscription.planPriceId;
+    }
+    if (payment.quantity == null && subscription.currentUsers != null) {
+      payment.quantity = subscription.currentUsers;
+    }
+    if (!payment.externalSubscriptionId?.trim() && subscription.externalSubscriptionId) {
+      payment.externalSubscriptionId = subscription.externalSubscriptionId;
+    }
   }
 
   private async processExternalSubscriptionCreated(
@@ -363,9 +432,17 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const subscription = await this.subscriptionRepository.findOne({
-      where: { tenantId: event.tenantId },
-    });
+    let subscription: TenantSubscription | null = null;
+    if (event.tenantId && UUID_PATTERN.test(event.tenantId)) {
+      subscription = await this.subscriptionRepository.findOne({
+        where: { tenantId: event.tenantId },
+      });
+    }
+    if (!subscription && event.externalSubscriptionId?.trim()) {
+      subscription = await this.subscriptionRepository.findOne({
+        where: { externalSubscriptionId: event.externalSubscriptionId.trim() },
+      });
+    }
     if (!subscription || subscription.billingProvider !== provider) {
       return;
     }
@@ -378,7 +455,7 @@ export class SubscriptionBillingService {
       event.eventId,
       'subscription_cancelled',
       {
-        tenantId: event.tenantId,
+        tenantId: subscription.tenantId,
         externalSubscriptionId: event.externalSubscriptionId,
       },
       provider,
@@ -453,8 +530,8 @@ export class SubscriptionBillingService {
       lastPaymentFailureCode: subscription?.lastPaymentFailureReason ?? null,
       billingHistory,
       needsPayment,
-      billingContact: tenantSettings?.settings.billing ?? {},
-      ownerEmail: tenant.createdBy?.email ?? null,
+      billingContact: canManageBilling ? (tenantSettings?.settings.billing ?? {}) : {},
+      ownerEmail: canManageBilling ? (tenant.createdBy?.email ?? null) : null,
       billingProvider: subscription?.billingProvider ?? this.providerForCountry(countryCode),
       supportsPause: !subscription || !isManagedSubscriptionProvider(subscription.billingProvider),
       supportsCardUpdate: !subscription || subscription.billingProvider === BillingProvider.NOMBA,
@@ -515,10 +592,41 @@ export class SubscriptionBillingService {
       existing &&
       currentPlanSlug === normalizedSlug &&
       existing.billingProvider === billingProvider &&
-      (existing.status === SubscriptionStatus.ACTIVE ||
-        existing.status === SubscriptionStatus.TRIAL)
+      existing.status === SubscriptionStatus.ACTIVE
     ) {
       throw new BadRequestException('Organization already has an active subscription on this plan');
+    }
+
+    if (
+      existing?.status === SubscriptionStatus.ACTIVE &&
+      existing.nextBillingDate > new Date() &&
+      currentPlanSlug === normalizedSlug &&
+      existing.billingProvider === billingProvider
+    ) {
+      throw new BadRequestException(
+        'Subscription is already paid through the current billing period',
+      );
+    }
+
+    if (
+      existing?.status === SubscriptionStatus.PAST_DUE &&
+      existing.paymentMethodId?.trim() &&
+      existing.billingProvider === billingProvider &&
+      !isManagedSubscriptionProvider(billingProvider)
+    ) {
+      throw new BadRequestException(
+        'Your saved payment method will be retried automatically. Update your card in billing settings instead of checking out again.',
+      );
+    }
+
+    if (
+      existing?.status === SubscriptionStatus.PAST_DUE &&
+      existing.externalSubscriptionId?.trim() &&
+      isManagedSubscriptionProvider(billingProvider)
+    ) {
+      throw new BadRequestException(
+        'Your subscription payment is past due with an active provider subscription. Update your payment method or wait for the provider retry instead of starting a new checkout.',
+      );
     }
 
     if (existing && existing.billingProvider !== billingProvider) {
@@ -908,12 +1016,38 @@ export class SubscriptionBillingService {
     subscription: TenantSubscription,
   ): Promise<'charged' | 'failed' | 'skipped'> {
     const attemptCount = subscription.dunningAttemptCount ?? 0;
-    const attemptEventId = this.renewalAttemptEventId(
-      subscription.id,
-      subscription.nextBillingDate,
+    const billingProviderEnum =
+      subscription.billingProvider ?? this.providerForCountry(subscription.tenant?.countryCode);
+    const periodEventId = this.renewalPeriodEventId(subscription.id, subscription.nextBillingDate);
+
+    if (isManagedSubscriptionProvider(billingProviderEnum)) {
+      return 'skipped';
+    }
+
+    if (subscription.nextBillingDate > new Date()) {
+      return 'skipped';
+    }
+
+    const healed = await this.healRenewalFromExistingPeriodCharge(
+      subscription,
+      periodEventId,
+      billingProviderEnum,
       attemptCount,
     );
-    if (await this.hasProcessedEvent(attemptEventId)) {
+    if (healed === 'charged') {
+      return 'charged';
+    }
+    if (healed === 'skip') {
+      return 'skipped';
+    }
+
+    const claim = await this.claimRenewalPeriodCharge(
+      subscription.id,
+      periodEventId,
+      subscription.tenantId,
+      billingProviderEnum,
+    );
+    if (claim === 'skip') {
       return 'skipped';
     }
 
@@ -939,21 +1073,26 @@ export class SubscriptionBillingService {
     }
 
     const seatCount = await this.getTenantSeatCount(subscription.tenantId);
+    const orderReference = this.buildNombaRenewalOrderReference(
+      subscription.id,
+      subscription.nextBillingDate,
+    );
     const metadata: SubscriptionBillingMetadata = {
       tenantId: subscription.tenantId,
       planId: subscription.planId,
       planPriceId: subscription.planPriceId,
       quantity: seatCount,
+      orderReference,
     };
 
+    // Persist reference before calling Nomba so a crash mid-charge can heal without re-charging.
+    await this.updateRenewalPeriodClaim(
+      periodEventId,
+      { status: 'pending', orderReference },
+      billingProviderEnum,
+    );
+
     try {
-      const billingProviderEnum =
-        subscription.billingProvider ?? this.providerForCountry(subscription.tenant?.countryCode);
-
-      if (isManagedSubscriptionProvider(billingProviderEnum)) {
-        return 'skipped';
-      }
-
       const billingProvider = this.billingProviderFactory.getProviderByEnum(billingProviderEnum);
       const charge = await billingProvider.chargeRenewal(
         nombaReference,
@@ -962,6 +1101,12 @@ export class SubscriptionBillingService {
         tokenKey,
         billingEmail,
         metadata,
+      );
+
+      await this.updateRenewalPeriodClaim(
+        periodEventId,
+        { status: 'charged', orderReference: charge.orderReference || orderReference },
+        billingProviderEnum,
       );
 
       const verified = await this.verifyPaymentReference(
@@ -973,13 +1118,17 @@ export class SubscriptionBillingService {
         (this.requiresProviderVerification(billingProviderEnum) &&
           !isNoahPaymentVerified(verified.status))
       ) {
+        await this.updateRenewalPeriodClaim(
+          periodEventId,
+          {
+            status: 'failed',
+            orderReference: charge.orderReference,
+            failed: true,
+            attemptCount,
+          },
+          billingProviderEnum,
+        );
         await this.markRenewalFailed(subscription, charge.orderReference, 'verification_failed');
-        await this.recordBillingEvent(attemptEventId, 'renewal_attempt', {
-          tenantId: subscription.tenantId,
-          subscriptionId: subscription.id,
-          attemptCount,
-          failed: true,
-        });
         return 'failed';
       }
 
@@ -1010,17 +1159,22 @@ export class SubscriptionBillingService {
         attemptCount,
       );
 
+      await this.updateRenewalPeriodClaim(
+        periodEventId,
+        { status: 'success', orderReference: charge.orderReference },
+        billingProviderEnum,
+      );
+
       return 'charged';
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Renewal charge failed for tenant ${subscription.tenantId}: ${message}`);
-      await this.markRenewalFailed(subscription, attemptEventId, message);
-      await this.recordBillingEvent(attemptEventId, 'renewal_attempt', {
-        tenantId: subscription.tenantId,
-        subscriptionId: subscription.id,
-        attemptCount,
-        failed: true,
-      });
+      await this.updateRenewalPeriodClaim(
+        periodEventId,
+        { status: 'failed', failed: true, attemptCount, detail: message },
+        billingProviderEnum,
+      );
+      await this.markRenewalFailed(subscription, periodEventId, message);
       return 'failed';
     }
   }
@@ -1063,31 +1217,49 @@ export class SubscriptionBillingService {
   }
 
   /**
-   * Bachs renewals are webhook-only. After a 3-day grace past nextBillingDate with no
-   * renewal, mark PAST_DUE so entitlements stop instead of staying ACTIVE forever.
+   * Bachs/Polar renewals are webhook-only; Monnify requires manual checkout.
+   * After a 3-day grace past nextBillingDate with no renewal, mark PAST_DUE
+   * so entitlements stop instead of staying ACTIVE forever.
    */
-  async lapseStaleBachsSubscriptions(): Promise<{ lapsed: number }> {
+  async lapseStaleSubscriptions(): Promise<{ lapsed: number }> {
     const graceMs = 3 * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - graceMs);
 
     const stale = await this.subscriptionRepository.find({
       where: {
-        billingProvider: BillingProvider.BACHS,
+        billingProvider: In([
+          BillingProvider.BACHS,
+          BillingProvider.POLAR,
+          BillingProvider.MONNIFY,
+        ]),
         status: SubscriptionStatus.ACTIVE,
-        externalSubscriptionId: Not(IsNull()),
         nextBillingDate: LessThanOrEqual(cutoff),
       },
     });
 
+    let lapsed = 0;
     for (const subscription of stale) {
+      // Managed providers must have an external id; Monnify is checkout-only.
+      if (
+        isManagedSubscriptionProvider(subscription.billingProvider) &&
+        !subscription.externalSubscriptionId
+      ) {
+        continue;
+      }
       subscription.status = SubscriptionStatus.PAST_DUE;
       await this.subscriptionRepository.save(subscription);
+      lapsed += 1;
       this.logger.warn(
-        `Lapsed stale Bachs subscription ${subscription.id} for tenant ${subscription.tenantId}`,
+        `Lapsed stale ${subscription.billingProvider} subscription ${subscription.id} for tenant ${subscription.tenantId}`,
       );
     }
 
-    return { lapsed: stale.length };
+    return { lapsed };
+  }
+
+  /** @deprecated Prefer lapseStaleSubscriptions — kept for callers/tests. */
+  async lapseStaleBachsSubscriptions(): Promise<{ lapsed: number }> {
+    return this.lapseStaleSubscriptions();
   }
 
   async syncExternalSubscription(subscription: TenantSubscription): Promise<TenantSubscription> {
@@ -1103,6 +1275,10 @@ export class SubscriptionBillingService {
       string,
       unknown
     >;
+
+    const priorPeriodEnd = subscription.currentPeriodEnd
+      ? new Date(subscription.currentPeriodEnd)
+      : null;
 
     const remoteStatus = String(remote.status ?? '').toLowerCase();
     if (remoteStatus) {
@@ -1132,6 +1308,37 @@ export class SubscriptionBillingService {
       subscription.status = SubscriptionStatus.CANCELLED;
       subscription.cancelAtPeriodEnd = false;
       subscription.cancelledAt = subscription.cancelledAt ?? new Date();
+    }
+
+    if (
+      periodEnd &&
+      priorPeriodEnd &&
+      periodEnd.getTime() > priorPeriodEnd.getTime() &&
+      subscription.status === SubscriptionStatus.ACTIVE
+    ) {
+      const syncRef = `sync_${subscription.externalSubscriptionId}_${periodEnd.toISOString()}`;
+      if (!(await this.hasProcessedEvent(syncRef, subscription.billingProvider))) {
+        subscription.billingHistory = [
+          ...(subscription.billingHistory ?? []),
+          {
+            date: new Date(),
+            amount: 0,
+            currency: subscription.planPrice?.currency ?? 'USD',
+            status: 'paid' as const,
+            invoiceId: syncRef,
+          },
+        ];
+        await this.recordBillingEvent(
+          syncRef,
+          'subscription_period_synced',
+          {
+            tenantId: subscription.tenantId,
+            externalSubscriptionId: subscription.externalSubscriptionId,
+            periodEnd: periodEnd.toISOString(),
+          },
+          subscription.billingProvider,
+        );
+      }
     }
 
     return this.subscriptionRepository.save(subscription);
@@ -1288,12 +1495,199 @@ export class SubscriptionBillingService {
     }
   }
 
-  private renewalAttemptEventId(
-    subscriptionId: string,
-    billingDate: Date,
+  /** One idempotency key per subscription billing period — never keyed by dunning attempt. */
+  private renewalPeriodEventId(subscriptionId: string, billingDate: Date): string {
+    return `renewal_period_${subscriptionId}_${billingDate.toISOString()}`;
+  }
+
+  /** Deterministic Nomba order reference for a billing period (≤50 chars). */
+  private buildNombaRenewalOrderReference(subscriptionId: string, billingDate: Date): string {
+    const id = subscriptionId.replace(/-/g, '').slice(0, 24);
+    const day = billingDate.toISOString().slice(0, 10).replace(/-/g, '');
+    return `sub_ren_${id}_${day}`;
+  }
+
+  private advanceBillingPeriod(anchor: Date): { periodStart: Date; periodEnd: Date } {
+    const periodStart = new Date(anchor);
+    const periodEnd = new Date(periodStart);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    return { periodStart, periodEnd };
+  }
+
+  /** Prefer Bachs/Polar period dates from webhooks over local month arithmetic. */
+  private resolveBillingPeriod(
+    payment: SubscriptionWebhookPayment,
+    subscription: TenantSubscription,
+    billingPeriodAnchor?: Date,
+  ): { periodStart: Date; periodEnd: Date; nextBillingDate: Date } {
+    const nextFromProvider = payment.nextBillingDate ? new Date(payment.nextBillingDate) : null;
+    const endFromProvider = payment.currentPeriodEnd ? new Date(payment.currentPeriodEnd) : null;
+    const startFromProvider = payment.currentPeriodStart
+      ? new Date(payment.currentPeriodStart)
+      : null;
+
+    if (nextFromProvider && !Number.isNaN(nextFromProvider.getTime())) {
+      const periodStart =
+        startFromProvider && !Number.isNaN(startFromProvider.getTime())
+          ? startFromProvider
+          : new Date(billingPeriodAnchor ?? subscription.nextBillingDate);
+      const periodEnd =
+        endFromProvider && !Number.isNaN(endFromProvider.getTime())
+          ? endFromProvider
+          : nextFromProvider;
+      return { periodStart, periodEnd, nextBillingDate: nextFromProvider };
+    }
+
+    const periodStart = new Date(billingPeriodAnchor ?? subscription.nextBillingDate);
+    const { periodEnd } = this.advanceBillingPeriod(periodStart);
+    return { periodStart, periodEnd, nextBillingDate: periodEnd };
+  }
+
+  private async updateRenewalPeriodClaim(
+    periodEventId: string,
+    patch: Record<string, unknown>,
+    provider: BillingProvider = BillingProvider.NOMBA,
+  ): Promise<void> {
+    const existing = await this.billingEventRepository.findOne({
+      where: { eventId: periodEventId, provider },
+    });
+    if (existing) {
+      existing.payload = { ...(existing.payload ?? {}), ...patch };
+      await this.billingEventRepository.save(existing);
+      return;
+    }
+    await this.recordBillingEvent(periodEventId, 'renewal_period', patch, provider);
+  }
+
+  private async healRenewalFromExistingPeriodCharge(
+    subscription: TenantSubscription,
+    periodEventId: string,
+    provider: BillingProvider,
     attemptCount: number,
-  ): string {
-    return `renewal_attempt_${subscriptionId}_${billingDate.toISOString()}_${attemptCount}`;
+  ): Promise<'charged' | 'skip' | 'none'> {
+    const existing = await this.billingEventRepository.findOne({
+      where: { eventId: periodEventId, provider },
+    });
+    if (!existing?.payload || typeof existing.payload !== 'object') {
+      return 'none';
+    }
+
+    const payload = existing.payload as Record<string, unknown>;
+    if (payload.status === 'success') {
+      return 'skip';
+    }
+
+    const orderReference =
+      typeof payload.orderReference === 'string' ? payload.orderReference.trim() : '';
+    if (!orderReference) {
+      return 'none';
+    }
+
+    const verified = await this.verifyPaymentReference(orderReference, provider);
+    if (
+      !verified ||
+      (this.requiresProviderVerification(provider) && !isNoahPaymentVerified(verified.status))
+    ) {
+      const status = String(verified?.status ?? 'missing').toLowerCase();
+      if (status === 'pending' || status === 'processing') {
+        return 'skip';
+      }
+      return 'none';
+    }
+
+    const planPrice =
+      subscription.planPrice ??
+      (await this.plansService.getPlanPriceById(subscription.planPriceId));
+    if (!planPrice?.isActive) {
+      return 'none';
+    }
+
+    const seatCount = await this.getTenantSeatCount(subscription.tenantId);
+    const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
+    const normalizedPaid = normalizeWebhookAmount(
+      Number(verified.amount ?? 0),
+      expectedAmount,
+      planPrice.currency,
+    );
+
+    await this.applyRenewalSuccess(
+      subscription.tenantId,
+      {
+        eventId: orderReference,
+        reference: orderReference,
+        tenantId: subscription.tenantId,
+        planId: subscription.planId,
+        planPriceId: subscription.planPriceId,
+        quantity: seatCount,
+        amount: normalizedPaid,
+        currency: planPrice.currency.toUpperCase(),
+        tokenKey: subscription.paymentMethodId ?? undefined,
+        status: 'success',
+        billingType: BillingChargeType.SUBSCRIPTION_RENEWAL,
+      },
+      provider,
+      subscription.nextBillingDate,
+      attemptCount,
+    );
+    await this.updateRenewalPeriodClaim(
+      periodEventId,
+      { status: 'success', orderReference },
+      provider,
+    );
+    return 'charged';
+  }
+
+  private async claimRenewalPeriodCharge(
+    subscriptionId: string,
+    periodEventId: string,
+    tenantId: string,
+    provider: BillingProvider,
+  ): Promise<'proceed' | 'skip'> {
+    return this.dataSource.transaction(async (manager) => {
+      const subscriptionRepo = manager.getRepository(TenantSubscription);
+      const billingEventRepo = manager.getRepository(BillingEvent);
+
+      const locked = await subscriptionRepo.findOne({
+        where: { id: subscriptionId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked || locked.nextBillingDate > new Date()) {
+        return 'skip';
+      }
+
+      const existing = await billingEventRepo.findOne({
+        where: { eventId: periodEventId, provider },
+      });
+      if (existing?.payload && typeof existing.payload === 'object') {
+        const status = (existing.payload as Record<string, unknown>).status;
+        if (status === 'success') {
+          return 'skip';
+        }
+        if (status === 'pending') {
+          const ageMs = Date.now() - existing.createdAt.getTime();
+          if (ageMs < 5 * 60 * 1000) {
+            return 'skip';
+          }
+        }
+        existing.payload = {
+          ...(existing.payload as Record<string, unknown>),
+          status: 'pending',
+          retryAt: new Date().toISOString(),
+        };
+        await billingEventRepo.save(existing);
+        return 'proceed';
+      }
+
+      await billingEventRepo.save(
+        billingEventRepo.create({
+          eventId: periodEventId,
+          provider,
+          eventType: 'renewal_period',
+          payload: { status: 'pending', tenantId, subscriptionId },
+        }),
+      );
+      return 'proceed';
+    });
   }
 
   private async recordBillingEvent(
@@ -1375,16 +1769,34 @@ export class SubscriptionBillingService {
       return;
     }
 
+    if (!payment.planPriceId || !payment.planId) {
+      throw new BadRequestException('Webhook missing plan metadata');
+    }
+
+    const existingSubscription = await this.subscriptionRepository.findOne({
+      where: { tenantId: payment.tenantId },
+    });
+    if (
+      existingSubscription?.status === SubscriptionStatus.ACTIVE &&
+      existingSubscription.nextBillingDate > new Date() &&
+      existingSubscription.planId === payment.planId &&
+      existingSubscription.planPriceId === payment.planPriceId
+    ) {
+      await this.recordBillingEvent(
+        payment.eventId,
+        'payment_success_skipped',
+        { tenantId: payment.tenantId, reason: 'already_paid_current_period' },
+        provider,
+      );
+      return;
+    }
+
     const verified = await this.verifyPaymentReference(payment.reference, provider);
     if (
       this.requiresProviderVerification(provider) &&
       (!verified || !isNoahPaymentVerified(verified.status))
     ) {
       throw new BadRequestException('Payment could not be verified with billing provider');
-    }
-
-    if (!payment.planPriceId || !payment.planId) {
-      throw new BadRequestException('Webhook missing plan metadata');
     }
 
     const planPrice = await this.plansService.getPlanPriceById(payment.planPriceId);
@@ -1417,9 +1829,30 @@ export class SubscriptionBillingService {
       throw new BadRequestException('Missing card token for subscription billing');
     }
 
-    const existingSubscription = await this.subscriptionRepository.findOne({
-      where: { tenantId: payment.tenantId },
-    });
+    if (
+      existingSubscription &&
+      [SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE].includes(
+        existingSubscription.status,
+      ) &&
+      existingSubscription.nextBillingDate <= new Date() &&
+      existingSubscription.planId === planPrice.planId &&
+      existingSubscription.planPriceId === planPrice.id
+    ) {
+      await this.applyRenewalSuccess(
+        payment.tenantId,
+        { ...payment, billingType: BillingChargeType.SUBSCRIPTION_RENEWAL },
+        provider,
+        existingSubscription.nextBillingDate,
+      );
+      await this.recordBillingEvent(
+        payment.eventId,
+        'payment_success',
+        { tenantId: payment.tenantId, routedAs: 'renewal_recovery' },
+        provider,
+      );
+      return;
+    }
+
     if (
       existingSubscription &&
       isManagedSubscriptionProvider(existingSubscription.billingProvider) &&
@@ -1458,8 +1891,34 @@ export class SubscriptionBillingService {
       }
 
       const now = new Date();
-      const periodEnd = new Date(now);
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      const isFirstPaidActivation =
+        !subscription ||
+        subscription.status === SubscriptionStatus.TRIAL ||
+        subscription.status === SubscriptionStatus.INACTIVE ||
+        subscription.status === SubscriptionStatus.EXPIRED;
+
+      let periodStart: Date;
+      let periodEnd: Date;
+      let nextBillingDate: Date;
+
+      if (isManagedSubscriptionProvider(provider) && payment.nextBillingDate) {
+        const resolved = this.resolveBillingPeriod(
+          payment,
+          subscription ?? ({ nextBillingDate: now } as TenantSubscription),
+        );
+        periodStart = resolved.periodStart;
+        periodEnd = resolved.periodEnd;
+        nextBillingDate = resolved.nextBillingDate;
+      } else {
+        const advanced = isFirstPaidActivation
+          ? this.advanceBillingPeriod(now)
+          : this.advanceBillingPeriod(
+              subscription!.nextBillingDate <= now ? subscription!.nextBillingDate : now,
+            );
+        periodStart = advanced.periodStart;
+        periodEnd = advanced.periodEnd;
+        nextBillingDate = periodEnd;
+      }
 
       if (!subscription) {
         subscription = subscriptionRepo.create({
@@ -1469,9 +1928,9 @@ export class SubscriptionBillingService {
           status: SubscriptionStatus.ACTIVE,
           currentUsers: seatCount,
           trialEndsAt: null,
-          currentPeriodStart: now,
+          currentPeriodStart: periodStart,
           currentPeriodEnd: periodEnd,
-          nextBillingDate: periodEnd,
+          nextBillingDate,
           nombaSubscriptionId: provider === BillingProvider.NOMBA ? payment.reference : null,
           billingProvider: provider,
           externalSubscriptionId: payment.externalSubscriptionId ?? null,
@@ -1487,9 +1946,9 @@ export class SubscriptionBillingService {
         subscription.status = SubscriptionStatus.ACTIVE;
         subscription.currentUsers = seatCount;
         subscription.trialEndsAt = null;
-        subscription.currentPeriodStart = now;
+        subscription.currentPeriodStart = periodStart;
         subscription.currentPeriodEnd = periodEnd;
-        subscription.nextBillingDate = periodEnd;
+        subscription.nextBillingDate = nextBillingDate;
         subscription.nombaSubscriptionId =
           provider === BillingProvider.NOMBA ? payment.reference : subscription.nombaSubscriptionId;
         subscription.billingProvider = provider;
@@ -1545,6 +2004,13 @@ export class SubscriptionBillingService {
 
     if (!payment.tokenKey?.trim()) {
       throw new BadRequestException('Missing card token from card update webhook');
+    }
+
+    if (
+      !Number.isFinite(payment.amount) ||
+      !isAmountWithinTolerance(payment.amount, CARD_UPDATE_VERIFY_AMOUNT)
+    ) {
+      throw new BadRequestException('Card update amount does not match verification charge');
     }
 
     const subscription = await this.subscriptionRepository.findOne({
@@ -1754,15 +2220,6 @@ export class SubscriptionBillingService {
     billingPeriodAnchor?: Date,
     attemptCount = 0,
   ): Promise<void> {
-    if (!payment.planPriceId || !payment.planId) {
-      throw new BadRequestException('Renewal webhook missing plan metadata');
-    }
-
-    const planPrice = await this.plansService.getPlanPriceById(payment.planPriceId);
-    if (!planPrice?.isActive || planPrice.planId !== payment.planId) {
-      throw new BadRequestException('Renewal plan metadata does not match records');
-    }
-
     const subscription = await this.subscriptionRepository.findOne({ where: { tenantId } });
     if (
       !subscription ||
@@ -1777,9 +2234,21 @@ export class SubscriptionBillingService {
       return;
     }
 
-    const seatCount = resolveSeatCount(
-      payment.quantity ?? subscription.currentUsers ?? (await this.getTenantSeatCount(tenantId)),
-    );
+    const planId = payment.planId?.trim() || subscription.planId;
+    const planPriceId = payment.planPriceId?.trim() || subscription.planPriceId;
+    if (!planId || !planPriceId) {
+      throw new BadRequestException('Renewal webhook missing plan metadata');
+    }
+
+    const planPrice = await this.plansService.getPlanPriceById(planPriceId);
+    if (!planPrice?.isActive || planPrice.planId !== planId) {
+      throw new BadRequestException('Renewal plan metadata does not match records');
+    }
+
+    payment.planId = planId;
+    payment.planPriceId = planPriceId;
+
+    const seatCount = this.resolveRenewalSeatCount(payment, subscription);
     const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
     const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
 
@@ -1787,11 +2256,26 @@ export class SubscriptionBillingService {
       !Number.isFinite(normalizedPaid) ||
       !isAmountWithinTolerance(normalizedPaid, expectedAmount)
     ) {
-      this.logger.error(
-        `Nomba renewal amount mismatch for tenant ${tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
-      );
-      throw new BadRequestException('Renewal amount does not match server quote');
+      if (
+        (provider === BillingProvider.BACHS || provider === BillingProvider.POLAR) &&
+        Number.isFinite(payment.amount) &&
+        payment.amount > 0
+      ) {
+        this.logger.warn(
+          `${provider} renewal amount drift for tenant ${tenantId}: expected ${expectedAmount}, got ${payment.amount}; accepting provider invoice`,
+        );
+      } else {
+        this.logger.error(
+          `Renewal amount mismatch for tenant ${tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
+        );
+        throw new BadRequestException('Renewal amount does not match server quote');
+      }
     }
+
+    const paidAmount =
+      Number.isFinite(normalizedPaid) && isAmountWithinTolerance(normalizedPaid, expectedAmount)
+        ? normalizedPaid
+        : Number(payment.amount);
 
     await this.dataSource.transaction(async (manager) => {
       const billingEventRepo = manager.getRepository(BillingEvent);
@@ -1801,54 +2285,72 @@ export class SubscriptionBillingService {
       if (existing) return;
 
       const subscriptionRepo = manager.getRepository(TenantSubscription);
-      const locked = await subscriptionRepo.findOne({ where: { tenantId } });
+      const locked = await subscriptionRepo.findOne({
+        where: { tenantId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!locked) {
         throw new BadRequestException('Subscription not found during renewal');
       }
 
-      const attemptEventId = this.renewalAttemptEventId(
-        locked.id,
-        billingPeriodAnchor ?? locked.nextBillingDate,
-        attemptCount,
-      );
-      const attemptExists = await billingEventRepo.findOne({
-        where: { eventId: attemptEventId, provider },
-      });
-
-      if (locked.nextBillingDate > new Date()) {
-        if (!existing) {
-          await billingEventRepo.save(
-            billingEventRepo.create({
-              eventId: payment.eventId,
-              provider,
-              eventType: 'subscription_renewal',
-              payload: payment as unknown as Record<string, unknown>,
-            }),
-          );
-        }
+      if (locked.cancelAtPeriodEnd) {
+        await billingEventRepo.save(
+          billingEventRepo.create({
+            eventId: payment.eventId,
+            provider,
+            eventType: 'renewal_ignored_cancel_scheduled',
+            payload: payment as unknown as Record<string, unknown>,
+          }),
+        );
         return;
       }
 
-      if (attemptExists) {
-        const attemptFailed =
-          attemptExists.payload &&
-          typeof attemptExists.payload === 'object' &&
-          (attemptExists.payload as Record<string, unknown>).failed === true;
-        if (!attemptFailed) {
+      const periodEventId = this.renewalPeriodEventId(
+        locked.id,
+        billingPeriodAnchor ?? locked.nextBillingDate,
+      );
+      const periodClaim = await billingEventRepo.findOne({
+        where: { eventId: periodEventId, provider },
+      });
+
+      if (locked.nextBillingDate > new Date()) {
+        await billingEventRepo.save(
+          billingEventRepo.create({
+            eventId: payment.eventId,
+            provider,
+            eventType: 'subscription_renewal',
+            payload: payment as unknown as Record<string, unknown>,
+          }),
+        );
+        return;
+      }
+
+      if (periodClaim?.payload && typeof periodClaim.payload === 'object') {
+        const claimStatus = (periodClaim.payload as Record<string, unknown>).status;
+        if (claimStatus === 'success') {
           return;
         }
       }
 
       const periodStart = new Date(billingPeriodAnchor ?? locked.nextBillingDate);
-      const periodEnd = new Date(periodStart);
-      periodEnd.setMonth(periodEnd.getMonth() + 1);
+      const advanced = this.advanceBillingPeriod(periodStart);
+      const billingPeriod = isManagedSubscriptionProvider(provider)
+        ? this.resolveBillingPeriod(payment, locked, billingPeriodAnchor)
+        : { ...advanced, nextBillingDate: advanced.periodEnd };
 
       locked.status = SubscriptionStatus.ACTIVE;
       locked.currentUsers = seatCount;
-      locked.currentPeriodStart = periodStart;
-      locked.currentPeriodEnd = periodEnd;
-      locked.nextBillingDate = periodEnd;
-      locked.nombaSubscriptionId = payment.reference;
+      locked.currentPeriodStart = billingPeriod.periodStart;
+      locked.currentPeriodEnd = billingPeriod.periodEnd;
+      locked.nextBillingDate = billingPeriod.nextBillingDate;
+      // Keep the original Nomba checkout reference; renewal refs are per-period charges.
+      if (
+        provider === BillingProvider.NOMBA &&
+        payment.billingType !== BillingChargeType.SUBSCRIPTION_RENEWAL &&
+        !locked.nombaSubscriptionId
+      ) {
+        locked.nombaSubscriptionId = payment.reference;
+      }
       locked.billingProvider = provider;
       this.applyPaymentMethodFromWebhook(locked, payment);
       this.resetDunningFields(locked);
@@ -1857,7 +2359,7 @@ export class SubscriptionBillingService {
         ...(locked.billingHistory ?? []),
         {
           date: new Date(),
-          amount: normalizedPaid,
+          amount: paidAmount,
           currency: payment.currency,
           status: 'paid' as const,
           invoiceId: payment.reference,
@@ -1873,20 +2375,46 @@ export class SubscriptionBillingService {
           payload: payment as unknown as Record<string, unknown>,
         }),
       );
-      await billingEventRepo.save(
-        billingEventRepo.create({
-          eventId: attemptEventId,
-          provider,
-          eventType: 'renewal_attempt',
-          payload: {
-            tenantId,
-            subscriptionId: locked.id,
-            orderReference: payment.reference,
-            billingPeriodStart: periodStart,
-          },
-        }),
-      );
+      const periodPayload = {
+        status: 'success',
+        tenantId,
+        subscriptionId: locked.id,
+        orderReference: payment.reference,
+        billingPeriodStart: billingPeriod.periodStart,
+      };
+      if (periodClaim) {
+        periodClaim.payload = { ...(periodClaim.payload ?? {}), ...periodPayload };
+        await billingEventRepo.save(periodClaim);
+      } else {
+        await billingEventRepo.save(
+          billingEventRepo.create({
+            eventId: periodEventId,
+            provider,
+            eventType: 'renewal_period',
+            payload: periodPayload,
+          }),
+        );
+      }
     });
+  }
+
+  private resolveRenewalSeatCount(
+    payment: SubscriptionWebhookPayment,
+    subscription: TenantSubscription,
+  ): number {
+    if (payment.quantity != null && Number.isFinite(payment.quantity)) {
+      const fromPayment = resolveSeatCount(payment.quantity);
+      if (
+        subscription.currentUsers != null &&
+        fromPayment !== resolveSeatCount(subscription.currentUsers)
+      ) {
+        this.logger.warn(
+          `Seat count drift on renewal for tenant ${subscription.tenantId}: local=${subscription.currentUsers}, webhook=${payment.quantity}`,
+        );
+      }
+      return fromPayment;
+    }
+    return resolveSeatCount(subscription.currentUsers ?? 1);
   }
 
   private hasProcessedEvent(eventId: string, provider?: BillingProvider): Promise<boolean> {

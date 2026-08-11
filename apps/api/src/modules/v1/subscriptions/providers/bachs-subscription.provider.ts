@@ -219,7 +219,9 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
     const reference = String(
       data.reference ?? data.charge_id ?? data.checkout_id ?? data.invoice_id ?? body.id ?? '',
     ).trim();
-    if (!tenantId || !reference) {
+    // Cycle invoices often omit checkout metadata. Allow parse when subscription_id
+    // is present so the billing service can resolve tenantId from DB.
+    if (!reference || (!tenantId && !externalSubscriptionId)) {
       return null;
     }
 
@@ -237,7 +239,7 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
     const payment = {
       eventId: body.id ?? reference,
       reference,
-      tenantId: String(tenantId),
+      tenantId: tenantId ? String(tenantId) : '',
       planId: metadata.planId ? String(metadata.planId) : undefined,
       planPriceId: metadata.planPriceId ? String(metadata.planPriceId) : undefined,
       quantity: metadata.quantity ? Number(metadata.quantity) : undefined,
@@ -247,6 +249,9 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       status: outcome,
       billingType,
       externalSubscriptionId: externalSubscriptionId || undefined,
+      currentPeriodStart: data.current_period_start ? String(data.current_period_start) : undefined,
+      currentPeriodEnd: data.current_period_end ? String(data.current_period_end) : undefined,
+      nextBillingDate: data.next_billed_at ? String(data.next_billed_at) : undefined,
     };
 
     return outcome === 'success'

@@ -6,7 +6,6 @@ import {
   paymentProviderLabel,
   resolvePaymentProvider,
 } from 'src/common/utils/resolve-payment-provider.util';
-import { DataSource } from 'typeorm';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
@@ -14,6 +13,7 @@ import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.i
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
+import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
@@ -36,7 +36,6 @@ export class MultiPaymentService {
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly paymentMethodService: PaymentMethodService,
-    readonly _dataSource: DataSource,
     private readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
@@ -47,7 +46,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify (NGN) and/or Noah credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -64,6 +63,11 @@ export class MultiPaymentService {
       throw new BadRequestException(
         `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
       );
+    }
+    // Pull run off the scheduled cron queue before disbursing.
+    if (payrollRun.payoutMode === 'scheduled') {
+      payrollRun.payoutMode = 'immediate';
+      await this.payrollRunRepository.save(payrollRun);
     }
     const paymentBatch = await this.categorizePayments(
       payrollRun.items,
@@ -96,7 +100,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Configure Nomba (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Configure Nomba/Monnify (NGN) and/or Noah credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -138,6 +142,13 @@ export class MultiPaymentService {
     };
   }
   async getPaymentStatusSummary(payrollRunId: string, tenantId: string) {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      select: ['id'],
+    });
+    if (!payrollRun) {
+      throw new NotFoundException('Payroll run not found');
+    }
     const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId);
     const statusCounts = items.reduce(
       (acc, item) => {
@@ -207,20 +218,59 @@ export class MultiPaymentService {
 
     return { bankPayments, cryptoPayments };
   }
+
+  /** Atomically claim PENDING items so concurrent pay-now/cron cannot double-disburse. */
+  private async claimItemsForPayout(itemIds: string[]): Promise<Set<string>> {
+    if (itemIds.length === 0) {
+      return new Set();
+    }
+    const result = await this.payrollItemRepository
+      .createQueryBuilder()
+      .update()
+      .set({ status: PayrollItemStatus.PROCESSING })
+      .where('id IN (:...ids)', { ids: itemIds })
+      .andWhere('status = :pending', { pending: PayrollItemStatus.PENDING })
+      .returning('id')
+      .execute();
+    const rows = result.raw as Array<{ id: string }>;
+    return new Set(rows.map((row) => row.id));
+  }
+
   private async processPayouts(
     items: PayrollItem[],
-    auditContext: AuditContext,
+    _auditContext: AuditContext,
     tenantId: string,
     tenantName?: string,
     payrollRunTitle?: string,
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
+    const claimedIds = await this.claimItemsForPayout(items.map((item) => item.id));
+
     for (const item of items) {
       const rail: 'bank' | 'crypto' = isCryptoCurrency(item.paymentCurrency) ? 'crypto' : 'bank';
-      try {
-        await this.payrollItemRepository.update(item.id, {
-          status: PayrollItemStatus.PROCESSING,
+      if (!claimedIds.has(item.id)) {
+        results.push({
+          success: false,
+          error: 'Item already claimed or not pending',
+          rail,
         });
+        continue;
+      }
+      try {
+        if (
+          !item.paymentAmount ||
+          item.paymentAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT
+        ) {
+          throw new BadRequestException(
+            `Invalid payment amount: ${item.paymentAmount} for employee ${item.memberId}`,
+          );
+        }
+        if (item.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
+          throw new BadRequestException(
+            `Payment amount exceeds maximum limit of ${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT} for employee ${item.memberId}`,
+          );
+        }
+
         const readiness = await this.paymentMethodService.assessPayrollReadiness(
           tenantId,
           item.memberId,
@@ -288,13 +338,14 @@ export class MultiPaymentService {
           throw new BadRequestException(result.error || 'Payment failed');
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         await this.payrollItemRepository.update(item.id, {
           status: PayrollItemStatus.FAILED,
-          failureReason: error.message,
+          failureReason: message,
         });
         results.push({
           success: false,
-          error: error.message,
+          error: message,
           rail,
         });
       }

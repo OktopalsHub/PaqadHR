@@ -270,4 +270,34 @@ export class MonnifyApiService {
       message: payload.responseMessage,
     };
   }
+
+  async getDisbursementStatus(
+    reference: string,
+  ): Promise<{ status: string | null; amount?: number; reference?: string }> {
+    this.ensureConfigured();
+    const token = await this.getAccessToken();
+    const url = `${getMonnifyBaseUrl()}/api/v2/disbursements/single/summary?reference=${encodeURIComponent(reference)}`;
+    const response = await this.monnifyFetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = (await response.json().catch(() => ({}))) as MonnifyDisbursementResponse & {
+      responseBody?: {
+        status?: string;
+        amount?: number;
+        reference?: string;
+        transactionStatus?: string;
+      };
+    };
+    if (!response.ok || payload.requestSuccessful === false) {
+      return { status: null };
+    }
+    const body = payload.responseBody;
+    const status = String(body?.status ?? body?.transactionStatus ?? '').toUpperCase();
+    return {
+      status: status || null,
+      amount: body?.amount != null ? Number(body.amount) : undefined,
+      reference: body?.reference ?? reference,
+    };
+  }
 }

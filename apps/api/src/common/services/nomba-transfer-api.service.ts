@@ -378,7 +378,12 @@ export class NombaTransferApiService {
     };
 
     const eventType = (body.event_type || body.eventType || '').toLowerCase();
-    if (!eventType.includes('transfer') && !eventType.includes('payment')) {
+    // Nomba bank transfers emit payout_success / payout_failed (not payment_*).
+    if (
+      !eventType.includes('payout') &&
+      !eventType.includes('transfer') &&
+      !eventType.includes('payment')
+    ) {
       return null;
     }
 

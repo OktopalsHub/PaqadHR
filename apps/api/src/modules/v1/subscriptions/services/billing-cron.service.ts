@@ -44,18 +44,23 @@ export class BillingCronService {
   }
 
   /**
-   * Bachs renewals are webhook-driven. If a renewal webhook is lost and the
-   * period end drifts past a 3-day grace window, mark PAST_DUE so the gate kicks in.
+   * Managed (Bachs/Polar) and checkout-only (Monnify) renewals are not cron-charged.
+   * If nextBillingDate drifts past a 3-day grace window, mark PAST_DUE so the gate kicks in.
    */
   @Cron(CronExpression.EVERY_DAY_AT_NOON)
-  async lapseStaleBachsSubscriptions(): Promise<void> {
+  async lapseStaleSubscriptions(): Promise<void> {
     if (!isBillingGatewayEnabled()) {
       return;
     }
 
-    await runCronJob(this.logger, 'bachs-grace-lapse', async () => {
-      return this.billingService.lapseStaleBachsSubscriptions();
+    await runCronJob(this.logger, 'subscription-grace-lapse', async () => {
+      return this.billingService.lapseStaleSubscriptions();
     });
+  }
+
+  /** @deprecated Prefer lapseStaleSubscriptions. */
+  async lapseStaleBachsSubscriptions(): Promise<void> {
+    return this.lapseStaleSubscriptions();
   }
 
   /** Create provider products for any plan_prices still missing IDs. */

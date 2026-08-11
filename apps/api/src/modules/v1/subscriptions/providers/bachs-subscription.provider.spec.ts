@@ -15,6 +15,7 @@ describe('BachsSubscriptionProvider.parseWebhook', () => {
         total: '99.00',
         currency: 'USD',
         subscription: { subscription_id: 'sub_1' },
+        next_billed_at: '2026-09-01T00:00:00.000Z',
         metadata: {
           tenantId: '11111111-1111-1111-1111-111111111111',
           planId: 'plan_1',
@@ -30,7 +31,46 @@ describe('BachsSubscriptionProvider.parseWebhook', () => {
       expect(event.payment.billingType).toBe(BillingChargeType.SUBSCRIPTION);
       expect(event.payment.externalSubscriptionId).toBe('sub_1');
       expect(event.payment.reference).toBe('inv_1');
+      expect(event.payment.nextBillingDate).toBe('2026-09-01T00:00:00.000Z');
     }
+  });
+
+  it('parses cycle invoice without tenant metadata when subscription_id is present', () => {
+    const event = provider.parseWebhook({
+      id: 'evt_cycle_no_meta',
+      type: 'invoice.paid',
+      data: {
+        invoice_id: 'inv_cycle',
+        amount_paid: '49.00',
+        currency: 'USD',
+        subscription_id: 'sub_remote_1',
+        next_billed_at: '2026-10-01T00:00:00.000Z',
+        metadata: {},
+      },
+    });
+
+    expect(event?.kind).toBe('payment.success');
+    if (event?.kind === 'payment.success') {
+      expect(event.payment.tenantId).toBe('');
+      expect(event.payment.externalSubscriptionId).toBe('sub_remote_1');
+      expect(event.payment.reference).toBe('inv_cycle');
+      expect(event.payment.nextBillingDate).toBe('2026-10-01T00:00:00.000Z');
+    }
+  });
+
+  it('returns null when cycle invoice has neither tenantId nor subscription_id', () => {
+    const event = provider.parseWebhook({
+      id: 'evt_orphan',
+      type: 'invoice.paid',
+      data: {
+        invoice_id: 'inv_orphan',
+        amount_paid: '49.00',
+        currency: 'USD',
+        metadata: {},
+      },
+    });
+
+    expect(event).toBeNull();
   });
 
   it('parses subscription.created with plan metadata for Scale trial', () => {

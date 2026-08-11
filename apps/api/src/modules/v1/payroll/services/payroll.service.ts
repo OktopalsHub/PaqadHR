@@ -7,17 +7,16 @@ import {
 } from '@nestjs/common';
 import { DataSource, In } from 'typeorm';
 import { TenantMemberRole } from '../../../../common/enums';
+import type { PayrollFrequency } from '../../../../common/enums/payroll-frequency.enum';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
+import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
-import type { PaymentProviderInterface } from '../../../../common/interfaces/payment-provider-interface.interface';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
+import type { SimplePayrollInput } from '../../../../common/interfaces/simple-payroll-input.interface';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
-import {
-  paymentProviderLabel,
-  resolvePaymentProvider,
-} from '../../../../common/utils/resolve-payment-provider.util';
 import { tenantFrontendUrl } from '../../../../common/utils/tenant-frontend-url.util';
 import { EmploymentService } from '../../employment/employment.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -25,8 +24,19 @@ import { PaymentMethodService } from '../../payment-method/services/payment-meth
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
+import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
+import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
+import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
+import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
+import { PayrollItemRepository } from '../repositories/payroll-item.repository';
+import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import {
+  aggregatePayrollAdjustments,
+  collectAdjustmentsForEmployee,
+} from '../utils/payroll-adjustment.util';
+import { assertPayrollRunMutable } from '../utils/payroll-mutability.util';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
@@ -52,23 +62,6 @@ export interface PayrollPreviewResult {
   adjustments: PayrollAdjustmentDto[];
 }
 
-import type { PayrollFrequency } from '../../../../common/enums/payroll-frequency.enum';
-import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
-import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
-import type { SimplePayrollInput } from '../../../../common/interfaces/simple-payroll-input.interface';
-import type { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
-import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
-import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
-import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
-import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
-import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import {
-  aggregatePayrollAdjustments,
-  collectAdjustmentsForEmployee,
-} from '../utils/payroll-adjustment.util';
-import { assertPayrollRunMutable } from '../utils/payroll-mutability.util';
-import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
 @Injectable()
 export class PayrollService {
   private readonly logger = new Logger(PayrollService.name);
@@ -86,7 +79,7 @@ export class PayrollService {
     private readonly payrollExportService: PayrollExportService,
     private readonly managerAccessService: ManagerAccessService,
     private readonly multiPaymentService: MultiPaymentService,
-    @Optional() private readonly paymentProviderFactory?: PaymentProviderFactoryService,
+    @Optional() readonly _paymentProviderFactory?: PaymentProviderFactoryService,
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
   async createPayrollRun(
@@ -725,15 +718,11 @@ export class PayrollService {
   async processPayroll(dto: ProcessPayrollWithAudit): Promise<void> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify (NGN) and/or Noah credentials.',
       );
-    }
-    if (!this.paymentProviderFactory) {
-      throw new BadRequestException('Payroll payment gateway is not configured.');
     }
     const payrollRun = await this.payrollRunRepository.findOne({
       where: { id: dto.payrollRunId, tenantId: dto.tenantId },
-      relations: ['items', 'items.employee', 'tenant'],
     });
     if (!payrollRun) {
       throw new BadRequestException('Payroll run not found');
@@ -747,159 +736,32 @@ export class PayrollService {
         'Cannot process a failed payroll run. Please create a new run or reset this one.',
       );
     }
-    if (
-      payrollRun.status !== PayrollStatus.APPROVED &&
-      payrollRun.status !== PayrollStatus.PROCESSING
-    ) {
-      throw new BadRequestException(
-        `Payroll run must be approved before payout. Current status: ${payrollRun.status}`,
-      );
+    if (payrollRun.status === PayrollStatus.APPROVED) {
+      payrollRun.payoutMode = 'immediate';
+      await this.payrollRunRepository.save(payrollRun);
     }
     const startTime = Date.now();
-    for (const item of payrollRun.items) {
-      try {
-        await this.processEmployeePayment(item, dto.auditContext, payrollRun);
-      } catch (error) {
-        this.logger.error(`Failed to process payment for employee ${item.memberId}:`, error);
-        item.status = PayrollItemStatus.FAILED;
-        item.failureReason = error.message;
-        await this.payrollItemRepository.save(item);
-        await this.auditService.logPaymentFailed(
-          { ...dto.auditContext, memberId: item.memberId },
-          {
-            paymentAmount: item.paymentAmount,
-            paymentCurrency: item.paymentCurrency,
-            paymentProvider: item.paymentProvider,
-          },
-          error.message,
-        );
-      }
-    }
-    payrollRun.status = PayrollStatus.COMPLETED;
-    payrollRun.processedAt = new Date();
-    await this.payrollRunRepository.save(payrollRun);
-    const processingDuration = Date.now() - startTime;
-    await this.auditService.logPayrollProcessed(
+    await this.multiPaymentService.processMultiPaymentPayroll(
+      dto.payrollRunId,
+      dto.tenantId,
       dto.auditContext,
-      {
-        title: payrollRun.title,
-        totalGrossAmount: payrollRun.totalGrossAmount,
-        totalNetAmount: payrollRun.totalNetAmount,
-        employeeCount: payrollRun.employeeCount,
-      },
-      { processingDuration },
     );
-  }
-  private async processEmployeePayment(
-    payrollItem: PayrollItem,
-    auditContext: AuditContext,
-    payrollRun: PayrollRun,
-  ): Promise<void> {
-    if (payrollItem.status === PayrollItemStatus.CANCELLED) {
-      return;
-    }
-
-    const readiness = await this.paymentMethodService.assessPayrollReadiness(
-      payrollRun.tenantId,
-      payrollItem.memberId,
-      payrollItem.paymentCurrency,
-      Boolean(payrollItem.metadata?.excludedFromRun),
-    );
-    if (!readiness.ready || !readiness.paymentMethodId) {
-      throw new BadRequestException(readiness.message);
-    }
-
-    const paymentMethod = await this.paymentMethodService.findById(readiness.paymentMethodId);
-    if (!paymentMethod) {
-      throw new BadRequestException('Payment method not found');
-    }
-    if (!payrollItem.paymentAmount || payrollItem.paymentAmount <= 0) {
-      throw new BadRequestException(
-        `Invalid payment amount: ${payrollItem.paymentAmount} for employee ${payrollItem.memberId}`,
-      );
-    }
-    if (payrollItem.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
-      throw new BadRequestException(
-        `Payment amount $${payrollItem.paymentAmount.toLocaleString()} exceeds maximum limit of $${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT.toLocaleString()} for employee ${payrollItem.memberId}`,
-      );
-    }
-    if (payrollItem.paymentAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
-      throw new BadRequestException(
-        `Payment amount $${payrollItem.paymentAmount} is below minimum threshold of $${PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT} for employee ${payrollItem.memberId}`,
-      );
-    }
-    if (payrollItem.paymentAmount >= PAYROLL_SECURITY_CONFIG.LARGE_PAYMENT_THRESHOLD) {
-      await this.auditService.logLargePaymentDetected(
-        { ...auditContext, memberId: payrollItem.memberId },
+    const processingDuration = Date.now() - startTime;
+    const refreshed = await this.payrollRunRepository.findOne({
+      where: { id: dto.payrollRunId, tenantId: dto.tenantId },
+    });
+    if (refreshed) {
+      await this.auditService.logPayrollProcessed(
+        dto.auditContext,
         {
-          paymentAmount: payrollItem.paymentAmount,
-          paymentCurrency: payrollItem.paymentCurrency,
-          threshold: PAYROLL_SECURITY_CONFIG.LARGE_PAYMENT_THRESHOLD,
+          title: refreshed.title,
+          totalGrossAmount: refreshed.totalGrossAmount,
+          totalNetAmount: refreshed.totalNetAmount,
+          employeeCount: refreshed.employeeCount,
         },
+        { processingDuration },
       );
     }
-    await this.auditService.logPaymentAttempt(
-      { ...auditContext, memberId: payrollItem.memberId },
-      {
-        paymentAmount: payrollItem.paymentAmount,
-        paymentCurrency: payrollItem.paymentCurrency,
-        paymentMethodType: paymentMethod.type,
-      },
-    );
-    const provider = this.getPaymentProvider(paymentMethod);
-    const employeeName = payrollItem.employee
-      ? `${payrollItem.employee.firstName ?? ''} ${payrollItem.employee.lastName ?? ''}`.trim()
-      : payrollItem.memberId;
-    const paymentData = buildPayrollPaymentData(
-      payrollItem,
-      paymentMethod,
-      employeeName,
-      payrollRun.tenant?.name,
-    );
-    const result = await provider.createPayment(paymentData);
-    if (result.success) {
-      payrollItem.status = PayrollItemStatus.PAID;
-      payrollItem.transactionId = result.transactionId ?? null;
-      payrollItem.paymentProvider = paymentProviderLabel(
-        resolvePaymentProvider(payrollItem.paymentCurrency, paymentMethod.type),
-      );
-      payrollItem.paymentMethodId = paymentMethod.id;
-      payrollItem.paidAt = new Date();
-      await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
-      await this.auditService.logPaymentSent(
-        { ...auditContext, memberId: payrollItem.memberId },
-        {
-          paymentAmount: payrollItem.paymentAmount,
-          paymentCurrency: payrollItem.paymentCurrency,
-          paymentProvider: payrollItem.paymentProvider,
-          transactionId: payrollItem.transactionId,
-        },
-      );
-      if (payrollItem.employee?.id && this.notificationHelper) {
-        await this.notificationHelper.sendPayrollNotification(
-          payrollItem.employee.id,
-          payrollRun.tenantId,
-          {
-            employeeName,
-            payrollPeriod: this.formatPayrollPeriod(payrollRun.periodStart, payrollRun.periodEnd),
-            amount: Number(payrollItem.paymentAmount),
-            currency: payrollItem.paymentCurrency,
-          },
-        );
-      }
-    } else {
-      throw new BadRequestException(result.error || 'Payment failed');
-    }
-    await this.payrollItemRepository.save(payrollItem);
-  }
-  private getPaymentProvider(paymentMethod: PaymentMethod): PaymentProviderInterface {
-    if (!this.paymentProviderFactory) {
-      throw new BadRequestException('Payment gateway is not configured');
-    }
-    return this.paymentProviderFactory.getFiatProvider(
-      paymentMethod.currency ?? 'NGN',
-      paymentMethod.type,
-    );
   }
   private async acquireProcessingLock(
     payrollRunId: string,

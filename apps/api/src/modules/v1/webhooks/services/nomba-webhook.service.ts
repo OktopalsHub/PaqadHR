@@ -51,7 +51,8 @@ export class NombaWebhookService {
       return this.subscriptionBillingService.processNombaPayload(payload);
     }
 
-    if (extractPayrollMerchantRef(payload)) {
+    // Bank transfers use payout_success / payout_failed (not payment_*).
+    if (eventType.includes('payout') || extractPayrollMerchantRef(payload)) {
       return this.payrollPayoutService.processNombaPayload(payload);
     }
 
