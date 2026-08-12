@@ -11,4 +11,7 @@ export const WALLET_CREDIT_FAILED =
   'Payment succeeded but wallet credit failed. Please contact support.';
 
 export const WALLET_SAVED_CARD_UNSUPPORTED =
-  'Saved-card top-up is not available with Monnify. Use checkout or bank transfer instead.';
+  'Saved-card top-up is not available for this workspace. Use checkout or bank transfer instead.';
+
+export const WALLET_CHECKOUT_UNAVAILABLE =
+  'Wallet top-up is temporarily unavailable. Please try again later or contact support.';

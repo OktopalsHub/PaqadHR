@@ -1,5 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { isMonnifyLive } from './monnify.config';
+import {
+  isMonnifyLive,
+  MONNIFY_PRODUCTION_BASE_URL,
+  MONNIFY_SANDBOX_BASE_URL,
+} from './monnify.config';
 import { getNoahSigningPrivateKeyValidationWarning } from './noah.config';
 import { resolveTrustedOrigins } from './trusted-origins';
 
@@ -172,6 +176,25 @@ export function validateEnvAtBoot(): void {
   }
   if (ngPaymentsProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
     warnings.push('NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY is empty');
+  }
+
+  const monnifyBase = process.env.MONNIFY_BASE_URL?.trim().replace(/\/$/, '');
+  if (monnifyLive && monnifyBase?.includes('sandbox.monnify.com')) {
+    warnings.push(
+      'MONNIFY_LIVE=true but MONNIFY_BASE_URL points at sandbox — credentials/host mismatch risk',
+    );
+  }
+  if (!monnifyLive && monnifyBase === MONNIFY_PRODUCTION_BASE_URL) {
+    warnings.push(
+      'MONNIFY_LIVE is not true but MONNIFY_BASE_URL is production — pair sandbox credentials with sandbox.monnify.com',
+    );
+  }
+  if (ngPaymentsProvider === 'monnify' && process.env.MONNIFY_API_KEY?.trim()) {
+    logger.log(
+      monnifyLive
+        ? `Monnify live mode (MONNIFY_LIVE=true → ${MONNIFY_PRODUCTION_BASE_URL} unless MONNIFY_BASE_URL overrides)`
+        : `Monnify sandbox mode (MONNIFY_LIVE≠true → ${MONNIFY_SANDBOX_BASE_URL} unless MONNIFY_BASE_URL overrides)`,
+    );
   }
 
   const noahSigningWarning = getNoahSigningPrivateKeyValidationWarning();

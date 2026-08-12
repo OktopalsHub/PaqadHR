@@ -23,6 +23,7 @@ import { resolveRewardsWalletPaymentProvider } from '../config/rewards-wallet-pr
 import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import {
   WALLET_CHARGE_FAILED_ADMIN,
+  WALLET_CHECKOUT_UNAVAILABLE,
   WALLET_CREDIT_FAILED,
   WALLET_NO_BILLING_CARD,
   WALLET_SAVED_CARD_UNSUPPORTED,
@@ -79,7 +80,7 @@ export class TenantWalletTopupService {
     tenantId: string,
     amount: number,
     initiatedByMemberId?: string,
-  ): Promise<{ checkoutUrl: string; orderReference: string; provider: string }> {
+  ): Promise<{ checkoutUrl: string; orderReference: string }> {
     this.assertTopupAmount(amount);
 
     const customerEmail = await this.resolveBillingEmail(tenantId);
@@ -95,13 +96,13 @@ export class TenantWalletTopupService {
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
 
     if (provider === PaymentProvider.NOMBA && !this.nombaApi.isConfigured()) {
-      throw new BadRequestException('Nomba checkout is not configured');
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
     if (provider === PaymentProvider.MONNIFY && !this.monnifyApi.isConfigured()) {
-      throw new BadRequestException('Monnify checkout is not configured');
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
     if (provider === PaymentProvider.NOAH && !this.noahApi.isConfigured()) {
-      throw new BadRequestException('Noah checkout is not configured');
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
 
     const callbackUrl = tenant?.slug
@@ -163,12 +164,6 @@ export class TenantWalletTopupService {
     return {
       checkoutUrl: result.checkoutLink,
       orderReference: result.orderReference,
-      provider:
-        provider === PaymentProvider.NOMBA
-          ? 'Nomba'
-          : provider === PaymentProvider.MONNIFY
-            ? 'Monnify'
-            : 'Noah',
     };
   }
 
@@ -249,8 +244,6 @@ export class TenantWalletTopupService {
       return { received: true, credited: false };
     }
 
-    const providerLabel = this.checkoutProviderLabel(billingProvider);
-
     return this.dataSource.transaction(async (manager) => {
       await manager
         .getRepository(TenantWallet)
@@ -271,12 +264,12 @@ export class TenantWalletTopupService {
         paid,
         'DEPOSIT',
         input.orderReference,
-        `Rewards wallet top-up via ${providerLabel} checkout`,
+        `Rewards wallet top-up via checkout`,
         manager,
         { providerEventId: input.orderReference },
       );
       this.logger.log(
-        `Credited wallet ${input.tenantId} for ${providerLabel} checkout top-up ${input.orderReference}`,
+        `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
       );
       return { received: true, credited: true };
     });
@@ -359,10 +352,10 @@ export class TenantWalletTopupService {
       );
     }
     if (provider === PaymentProvider.NOMBA && !isNombaConfigured()) {
-      throw new BadRequestException('Nomba checkout is not configured');
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
     if (provider === PaymentProvider.NOAH && !isNoahConfigured()) {
-      throw new BadRequestException('Noah checkout is not configured');
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
 
     let chargeReference = reference;
@@ -430,17 +423,6 @@ export class TenantWalletTopupService {
         error instanceof Error ? error.stack : undefined,
       );
       throw new BadRequestException(WALLET_CREDIT_FAILED);
-    }
-  }
-
-  private checkoutProviderLabel(provider: PaymentProvider): string {
-    switch (provider) {
-      case PaymentProvider.MONNIFY:
-        return 'Monnify';
-      case PaymentProvider.NOAH:
-        return 'Noah';
-      default:
-        return 'Nomba';
     }
   }
 

@@ -75,12 +75,9 @@ export interface TenantWallet {
   autoTopupEnabled: boolean;
   autoTopupThreshold: number;
   autoTopupAmount: number;
-  /** Checkout provider for wallet currency (`nomba` | `monnify` | `noah`). */
-  checkoutProvider?: 'nomba' | 'monnify' | 'noah';
-  checkoutProviderLabel?: string;
-  /** True when checkout runs in live mode for the wallet currency provider. */
+  /** True when checkout runs in live mode for the wallet currency. */
   checkoutLive?: boolean;
-  /** False when saved-card top-up / auto-topup is unavailable (e.g. Monnify). */
+  /** False when saved-card top-up / auto-topup is unavailable for this workspace. */
   savedCardTopupSupported?: boolean;
   /** @deprecated use checkoutLive */
   nombaLive?: boolean;

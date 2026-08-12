@@ -136,7 +136,7 @@ export class RewardsService {
 
     if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
       if (!this.nombaBillApi.isConfigured()) {
-        throw new BadRequestException('Nomba billing is not configured for Nigeria redemptions');
+        throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
       }
       return;
     }
@@ -146,14 +146,14 @@ export class RewardsService {
       (input.rewardType === 'RELOADLY_AIRTIME' || input.rewardType === 'RELOADLY_UTILITY')
     ) {
       throw new BadRequestException(
-        'Nigeria airtime and utilities must use Nomba. Select Nigeria as the country.',
+        'Nigeria airtime and utilities require Nigeria as the redemption country.',
       );
     }
   }
 
   async listNombaDataPlans(network: string) {
     if (!this.nombaBillApi.isConfigured()) {
-      throw new BadRequestException('Nomba billing is not configured');
+      throw new BadRequestException('Data plans are temporarily unavailable.');
     }
     return this.nombaBillApi.listDataPlans(network);
   }

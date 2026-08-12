@@ -6,21 +6,23 @@ import {
 } from './noah-api.util';
 
 describe('noah-api.util', () => {
-  it('maps Noah 401 to an auth configuration message', () => {
+  it('maps Noah 401 to a generic checkout message', () => {
     const message = formatNoahHttpError(401, 'Noah request failed (401)');
-    expect(message).toContain('authentication failed');
-    expect(message).toContain('NOAH_API_KEY');
-    expect(message).not.toContain('Noah Error:');
+    expect(message).toContain('temporarily unavailable');
+    expect(message).not.toContain('Noah');
+    expect(message).not.toContain('NOAH_');
   });
 
-  it('maps Noah 401 signature errors to signing setup guidance', () => {
+  it('maps Noah 401 signature errors without vendor details', () => {
     const message = formatNoahHttpError(401, 'signature not provided');
-    expect(message).toContain('NOAH_SIGNING_PRIVATE_KEY');
-    expect(message).not.toContain('Noah Error:');
+    expect(message).not.toContain('Noah');
+    expect(message).not.toContain('NOAH_');
   });
 
-  it('keeps non-auth Noah failures prefixed', () => {
-    expect(formatNoahHttpError(400, 'invalid currency')).toBe('Noah Error: invalid currency');
+  it('maps non-auth Noah failures generically', () => {
+    expect(formatNoahHttpError(400, 'invalid currency')).toBe(
+      'Checkout could not be completed. Please try again or contact support.',
+    );
   });
 
   it('treats Settled as a successful operation status', () => {

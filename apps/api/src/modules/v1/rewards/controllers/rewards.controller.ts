@@ -18,7 +18,6 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
-import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
 import { MemberPointsService } from '../../shoutouts/services/member-points.service';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import {
@@ -64,13 +63,6 @@ async function withWalletResponse(
     autoTopupAmount: wallet.autoTopupAmount,
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
-    checkoutProvider:
-      checkoutProvider === PaymentProvider.NOMBA
-        ? 'nomba'
-        : checkoutProvider === PaymentProvider.MONNIFY
-          ? 'monnify'
-          : 'noah',
-    checkoutProviderLabel: paymentProviderLabel(checkoutProvider),
     checkoutLive,
     savedCardTopupSupported: checkoutProvider !== PaymentProvider.MONNIFY,
     /** @deprecated use checkoutLive */

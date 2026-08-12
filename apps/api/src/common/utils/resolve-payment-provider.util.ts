@@ -23,10 +23,9 @@ export function resolvePaymentProvider(
 export function paymentProviderLabel(provider: PaymentProvider): string {
   switch (provider) {
     case PaymentProvider.NOMBA:
-      return 'Local bank (NGN)';
     case PaymentProvider.MONNIFY:
-      return 'Local bank (Monnify)';
+      return 'Local bank transfer';
     default:
-      return 'International / crypto (Noah)';
+      return 'International transfer';
   }
 }

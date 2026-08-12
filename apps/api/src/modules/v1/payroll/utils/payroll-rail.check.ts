@@ -27,6 +27,6 @@ assert(railOk('NGN', PaymentMethodType.BANK), 'NGN bank ok');
 assert(!railOk('NGN', PaymentMethodType.CRYPTO), 'NGN crypto not ok');
 assert(railOk('USDC', PaymentMethodType.CRYPTO), 'USDC crypto ok');
 assert(!railOk('USD', PaymentMethodType.CRYPTO), 'USD crypto not ok');
-assert(paymentProviderLabel(PaymentProvider.NOMBA).includes('NGN'), 'Nomba label');
-assert(paymentProviderLabel(PaymentProvider.NOAH).includes('Noah'), 'Noah label');
+assert(paymentProviderLabel(PaymentProvider.NOMBA).includes('Local bank'), 'Nomba label');
+assert(paymentProviderLabel(PaymentProvider.NOAH).includes('International'), 'Noah label');
 assert(!isCryptoCurrency('SOL'), 'SOL dropped from supported crypto');

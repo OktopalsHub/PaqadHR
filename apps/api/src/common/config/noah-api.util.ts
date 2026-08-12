@@ -1,13 +1,12 @@
-/** Map Noah HTTP failures to operator-facing API errors (never include secrets). */
+/** Map Noah HTTP failures to user-safe API errors (never include secrets or vendor names). */
 export function formatNoahHttpError(status: number, upstreamMessage: string): string {
   if (status === 401) {
-    const detail = upstreamMessage.toLowerCase();
-    if (detail.includes('signature not provided') || detail.includes('signature')) {
-      return 'Noah checkout requires request signing for this API key. Set NOAH_SIGNING_PRIVATE_KEY to the ES384 private key registered in the Noah dashboard for this key, or create a sandbox API key without an associated signing public key.';
-    }
-    return 'Noah checkout authentication failed. Verify NOAH_API_KEY, NOAH_ENVIRONMENT (sandbox vs production), and NOAH_SIGNING_PRIVATE_KEY if set.';
+    return 'Checkout is temporarily unavailable. Please try again later or contact support.';
   }
-  return `Noah Error: ${upstreamMessage}`;
+  if (status >= 500) {
+    return 'Checkout is temporarily unavailable. Please try again later.';
+  }
+  return 'Checkout could not be completed. Please try again or contact support.';
 }
 
 /** Noah success statuses for payouts and checkout. */

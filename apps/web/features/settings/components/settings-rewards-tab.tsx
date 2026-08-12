@@ -454,9 +454,8 @@ export function SettingsRewardsTab() {
               <Alert>
                 <AlertTitle>Auto-topup unavailable</AlertTitle>
                 <AlertDescription>
-                  Saved-card auto-topup is not supported with{' '}
-                  {wallet?.checkoutProviderLabel ?? 'your payment provider'}. Use checkout or bank
-                  transfer to fund the wallet.
+                  Saved-card auto-topup is not available for this workspace. Use Top up to fund the
+                  wallet via checkout or bank transfer.
                 </AlertDescription>
               </Alert>
             )}

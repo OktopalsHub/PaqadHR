@@ -1,5 +1,10 @@
 import { Buffer } from 'node:buffer';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import {
   getMonnifyApiKey,
   getMonnifyBaseUrl,
@@ -80,8 +85,11 @@ export interface MonnifySingleTransferInput {
 
 @Injectable()
 export class MonnifyApiService {
+  private readonly logger = new Logger(MonnifyApiService.name);
   private cachedToken?: { token: string; expiresAt: number };
-  private static readonly REQUEST_TIMEOUT_MS = 30_000;
+  private static readonly REQUEST_TIMEOUT_MS = 90_000;
+  private static readonly CHECKOUT_UNAVAILABLE =
+    'Checkout is temporarily unavailable. Please try again later or contact support.';
 
   isConfigured(): boolean {
     return isMonnifyConfigured();
@@ -89,15 +97,42 @@ export class MonnifyApiService {
 
   ensureConfigured(): void {
     if (!this.isConfigured()) {
-      throw new BadRequestException('Monnify is not configured');
+      throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
     }
   }
 
-  private monnifyFetch(url: string, init?: RequestInit): Promise<Response> {
-    return fetch(url, {
-      ...init,
-      signal: AbortSignal.timeout(MonnifyApiService.REQUEST_TIMEOUT_MS),
-    });
+  private isFetchTimeout(error: unknown): boolean {
+    return (
+      error instanceof Error &&
+      (error.name === 'TimeoutError' ||
+        error.name === 'AbortError' ||
+        error.message.includes('timeout'))
+    );
+  }
+
+  private async monnifyFetch(url: string, init?: RequestInit): Promise<Response> {
+    const path = (() => {
+      try {
+        return new URL(url).pathname;
+      } catch {
+        return url;
+      }
+    })();
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(MonnifyApiService.REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      if (this.isFetchTimeout(error)) {
+        this.logger.error(`Payment provider request timed out (${path})`);
+        throw new ServiceUnavailableException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
+      }
+      this.logger.error(
+        `Payment provider request failed (${path}): ${error instanceof Error ? error.message : error}`,
+      );
+      throw new ServiceUnavailableException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
+    }
   }
 
   private async getAccessToken(): Promise<string> {
@@ -119,9 +154,10 @@ export class MonnifyApiService {
     const payload = (await response.json().catch(() => ({}))) as MonnifyAuthResponse;
     const token = payload.responseBody?.accessToken;
     if (!response.ok || payload.requestSuccessful === false || !token) {
-      throw new BadRequestException(
-        payload.responseMessage || `Failed to authenticate with Monnify (${response.status})`,
+      this.logger.warn(
+        `Payment provider auth failed (${response.status}): ${payload.responseMessage ?? 'no message'}`,
       );
+      throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
     }
 
     const expiresInSeconds = Number(payload.responseBody?.expiresIn ?? 0);
@@ -173,9 +209,10 @@ export class MonnifyApiService {
     const transactionReference = body?.transactionReference ?? paymentReference;
 
     if (!response.ok || payload.requestSuccessful === false || !checkoutUrl) {
-      throw new BadRequestException(
-        payload.responseMessage || `Failed to initialize Monnify checkout (${response.status})`,
+      this.logger.warn(
+        `Payment provider checkout init failed (${response.status}): ${payload.responseMessage ?? 'no checkout URL'}`,
       );
+      throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
     }
 
     return { checkoutUrl, transactionReference, paymentReference };
@@ -204,9 +241,7 @@ export class MonnifyApiService {
     const payload = (await response.json().catch(() => ({}))) as MonnifyTransactionStatusResponse;
     const body = payload.responseBody;
     if (!response.ok || payload.requestSuccessful === false || !body) {
-      throw new BadRequestException(
-        payload.responseMessage || `Monnify transaction lookup failed (${response.status})`,
-      );
+      throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
     }
 
     const status = String(body.paymentStatus ?? '').toUpperCase();
