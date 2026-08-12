@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
+import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
@@ -63,6 +64,7 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     FiatExchangeService,
     ReloadlyUtilitiesApiService,
     NombaBillApiService,
+    MonnifyBillApiService,
     RewardsListener,
     RewardsCatalogSyncCronService,
   ],

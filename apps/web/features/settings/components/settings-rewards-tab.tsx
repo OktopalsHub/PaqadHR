@@ -37,13 +37,18 @@ import {
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useWalletTopupCheckout,
+  WALLET_TOPUP_PENDING_KEY,
 } from '@/hooks/queries/use-rewards';
 import {
   usePatchTenantSettings,
   useSupportedHolidayCountries,
   useTenantSettings,
 } from '@/hooks/queries/use-tenant-settings';
-import { syncRewardsCatalog, WALLET_TOPUP_MAX_AMOUNT } from '@/lib/api/rewards';
+import {
+  completeWalletTopupCheckout,
+  syncRewardsCatalog,
+  WALLET_TOPUP_MAX_AMOUNT,
+} from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { formatPlanMoney } from '@/lib/format-plan-money';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
@@ -60,7 +65,7 @@ function walletAmountExamples(currency: string) {
 }
 
 export function SettingsRewardsTab() {
-  const { tenant } = useTenant();
+  const { tenant, tenantId } = useTenant();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useTenantSettings();
@@ -135,12 +140,60 @@ export function SettingsRewardsTab() {
       : null;
 
   useEffect(() => {
-    if (searchParams.get('wallet_topup') === 'done') {
-      toast.success('Wallet will update shortly');
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
-      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
-    }
-  }, [searchParams, queryClient]);
+    if (searchParams.get('wallet_topup') !== 'done' || !tenantId) return;
+
+    let cancelled = false;
+    const run = async () => {
+      let orderReference =
+        searchParams.get('paymentReference') || searchParams.get('paymentreference') || '';
+      try {
+        const raw = sessionStorage.getItem(WALLET_TOPUP_PENDING_KEY);
+        if (raw) {
+          const pending = JSON.parse(raw) as { tenantId?: string; orderReference?: string };
+          if (pending.orderReference && (!pending.tenantId || pending.tenantId === tenantId)) {
+            orderReference = orderReference || pending.orderReference;
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!orderReference) {
+        toast.message('If you completed payment, your wallet will update shortly.');
+        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+        return;
+      }
+
+      try {
+        const result = await completeWalletTopupCheckout(tenantId, orderReference);
+        if (cancelled) return;
+        try {
+          sessionStorage.removeItem(WALLET_TOPUP_PENDING_KEY);
+        } catch {
+          // ignore
+        }
+        if (result.credited) {
+          toast.success('Wallet topped up');
+          void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+        } else {
+          toast.message('Payment is still processing. Your wallet will update shortly.');
+          void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+        }
+      } catch {
+        if (cancelled) return;
+        toast.message('Payment is still processing. Your wallet will update shortly.');
+        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, queryClient, tenantId]);
 
   useEffect(() => {
     if (rewards) {

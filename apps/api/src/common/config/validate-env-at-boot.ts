@@ -18,8 +18,20 @@ const CRITICAL = [
   'R2_BUCKET_NAME',
 ] as const;
 
-function resolveNgPaymentsProvider(): string {
-  return (process.env.NG_PAYMENTS_PROVIDER || 'nomba').trim().toLowerCase();
+function resolveNgPayrollProvider(): string {
+  return (process.env.NG_PAYROLL_PROVIDER || process.env.NG_PAYMENTS_PROVIDER || 'nomba')
+    .trim()
+    .toLowerCase();
+}
+
+function resolveNgRewardsDepositProvider(): string {
+  return (process.env.NG_REWARDS_DEPOSIT_PROVIDER || process.env.NG_WALLET_PAYMENTS_PROVIDER || '')
+    .trim()
+    .toLowerCase();
+}
+
+function resolveNgRewardsAirtimeProvider(): string {
+  return (process.env.NG_REWARDS_AIRTIME_PROVIDER || 'nomba').trim().toLowerCase();
 }
 
 export function validateEnvAtBoot(): void {
@@ -30,7 +42,9 @@ export function validateEnvAtBoot(): void {
   const nombaLive = process.env.NOMBA_LIVE === 'true';
   const monnifyLive = isMonnifyLive();
   const noahProduction = process.env.NOAH_ENVIRONMENT === 'production';
-  const ngPaymentsProvider = resolveNgPaymentsProvider();
+  const ngPayrollProvider = resolveNgPayrollProvider();
+  const ngRewardsDepositProvider = resolveNgRewardsDepositProvider();
+  const ngRewardsAirtimeProvider = resolveNgRewardsAirtimeProvider();
 
   for (const key of CRITICAL) {
     if (!process.env[key]?.trim()) {
@@ -73,13 +87,13 @@ export function validateEnvAtBoot(): void {
       errors.push('MONNIFY_WEBHOOK_SECRET is required when MONNIFY_LIVE=true');
     }
     if (
-      ngPaymentsProvider === 'monnify' &&
+      ngPayrollProvider === 'monnify' &&
       (!process.env.MONNIFY_API_KEY?.trim() ||
         !process.env.MONNIFY_SECRET_KEY?.trim() ||
         !process.env.MONNIFY_CONTRACT_CODE?.trim())
     ) {
       errors.push(
-        'MONNIFY_LIVE=true with NG_PAYMENTS_PROVIDER=monnify requires MONNIFY_API_KEY, MONNIFY_SECRET_KEY, and MONNIFY_CONTRACT_CODE',
+        'MONNIFY_LIVE=true with NG_PAYROLL_PROVIDER=monnify requires MONNIFY_API_KEY, MONNIFY_SECRET_KEY, and MONNIFY_CONTRACT_CODE',
       );
     }
   }
@@ -93,7 +107,23 @@ export function validateEnvAtBoot(): void {
     }
   }
 
-  logger.log(`Rewards NG payments provider: ${ngPaymentsProvider}`);
+  logger.log(
+    `NG rails: payroll=${ngPayrollProvider} deposits=${ngRewardsDepositProvider || `(follow payroll:${ngPayrollProvider})`} airtime=${ngRewardsAirtimeProvider}`,
+  );
+
+  if (!process.env.NG_PAYROLL_PROVIDER?.trim() && process.env.NG_PAYMENTS_PROVIDER?.trim()) {
+    warnings.push(
+      'NG_PAYMENTS_PROVIDER is deprecated — set NG_PAYROLL_PROVIDER (legacy name still works)',
+    );
+  }
+  if (
+    !process.env.NG_REWARDS_DEPOSIT_PROVIDER?.trim() &&
+    process.env.NG_WALLET_PAYMENTS_PROVIDER?.trim()
+  ) {
+    warnings.push(
+      'NG_WALLET_PAYMENTS_PROVIDER is deprecated — set NG_REWARDS_DEPOSIT_PROVIDER (legacy name still works)',
+    );
+  }
 
   if (isProduction) {
     const nombaOk =
@@ -114,13 +144,13 @@ export function validateEnvAtBoot(): void {
       warnings.push('NOAH_API_KEY is not set — non-NGN payments will be unavailable');
     }
     if (
-      ngPaymentsProvider === 'monnify' &&
+      ngPayrollProvider === 'monnify' &&
       (!process.env.MONNIFY_API_KEY?.trim() ||
         !process.env.MONNIFY_SECRET_KEY?.trim() ||
         !process.env.MONNIFY_CONTRACT_CODE?.trim())
     ) {
       warnings.push(
-        'NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY/SECRET_KEY/CONTRACT_CODE is incomplete',
+        'NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY/SECRET_KEY/CONTRACT_CODE is incomplete',
       );
     }
     if (process.env.MONNIFY_API_KEY?.trim() && !process.env.MONNIFY_WEBHOOK_SECRET?.trim()) {
@@ -174,19 +204,24 @@ export function validateEnvAtBoot(): void {
   if (process.env.BILLING_NG_PROVIDER === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
     warnings.push('BILLING_NG_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
-  if (ngPaymentsProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
-    warnings.push('NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY is empty');
+  if (ngPayrollProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
+    warnings.push('NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
-  if (ngPaymentsProvider === 'bachs') {
+  if (ngPayrollProvider === 'bachs') {
     warnings.push(
-      'NG_PAYMENTS_PROVIDER must be nomba or monnify — use NG_WALLET_PAYMENTS_PROVIDER=bachs for Bachs wallet deposits only',
+      'NG_PAYROLL_PROVIDER must be nomba or monnify — use NG_REWARDS_DEPOSIT_PROVIDER=bachs for Bachs wallet deposits only',
     );
   }
-  const ngWalletProvider = (process.env.NG_WALLET_PAYMENTS_PROVIDER || '').trim().toLowerCase();
-  if (ngWalletProvider === 'bachs' && !process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN?.trim()) {
+  if (ngRewardsDepositProvider === 'bachs' && !process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN?.trim()) {
     warnings.push(
-      'NG_WALLET_PAYMENTS_PROVIDER=bachs but BACHS_WALLET_TOPUP_PRODUCT_NGN is empty — run sync:bachs-wallet-products',
+      'NG_REWARDS_DEPOSIT_PROVIDER=bachs but BACHS_WALLET_TOPUP_PRODUCT_NGN is empty — run sync:bachs-wallet-products',
     );
+  }
+  if (ngRewardsAirtimeProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
+    warnings.push('NG_REWARDS_AIRTIME_PROVIDER=monnify but MONNIFY_API_KEY is empty');
+  }
+  if (ngRewardsAirtimeProvider !== 'nomba' && ngRewardsAirtimeProvider !== 'monnify') {
+    warnings.push('NG_REWARDS_AIRTIME_PROVIDER must be nomba or monnify');
   }
 
   const monnifyBase = process.env.MONNIFY_BASE_URL?.trim().replace(/\/$/, '');
@@ -200,7 +235,10 @@ export function validateEnvAtBoot(): void {
       'MONNIFY_LIVE is not true but MONNIFY_BASE_URL is production — pair sandbox credentials with sandbox.monnify.com',
     );
   }
-  if (ngPaymentsProvider === 'monnify' && process.env.MONNIFY_API_KEY?.trim()) {
+  if (
+    (ngPayrollProvider === 'monnify' || ngRewardsAirtimeProvider === 'monnify') &&
+    process.env.MONNIFY_API_KEY?.trim()
+  ) {
     logger.log(
       monnifyLive
         ? `Monnify live mode (MONNIFY_LIVE=true → ${MONNIFY_PRODUCTION_BASE_URL} unless MONNIFY_BASE_URL overrides)`

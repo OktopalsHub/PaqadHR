@@ -6,6 +6,7 @@ import {
   type ClaimInput,
   type CustomRewardInput,
   claimReward,
+  completeWalletTopupCheckout,
   createCustomReward,
   createWalletTopupCheckout,
   deleteCustomReward,
@@ -221,6 +222,8 @@ export function useManualTopupWallet() {
   });
 }
 
+const WALLET_TOPUP_PENDING_KEY = 'paqad.walletTopupPending';
+
 export function useWalletTopupCheckout() {
   const { tenantId } = useTenant();
   return useMutation({
@@ -229,12 +232,39 @@ export function useWalletTopupCheckout() {
       return createWalletTopupCheckout(tenantId, amount);
     },
     onSuccess: (result) => {
-      if (result.checkoutUrl) {
+      if (result.checkoutUrl && tenantId) {
+        try {
+          sessionStorage.setItem(
+            WALLET_TOPUP_PENDING_KEY,
+            JSON.stringify({ tenantId, orderReference: result.orderReference }),
+          );
+        } catch {
+          // ignore storage failures — webhook may still credit
+        }
         window.location.assign(result.checkoutUrl);
       }
     },
   });
 }
+
+export function useCompleteWalletTopupCheckout() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: (params: { orderReference: string; amount?: number }) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return completeWalletTopupCheckout(tenantId, params.orderReference, params.amount);
+    },
+    onSuccess: (result) => {
+      if (result.credited) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+      }
+    },
+  });
+}
+
+export { WALLET_TOPUP_PENDING_KEY };
 
 export function useUpdateAutoTopupConfig() {
   const queryClient = useQueryClient();

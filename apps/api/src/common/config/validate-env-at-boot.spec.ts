@@ -63,7 +63,7 @@ describe('validateEnvAtBoot', () => {
     withEnv({
       MONNIFY_LIVE: 'true',
       MONNIFY_WEBHOOK_SECRET: 'wh',
-      NG_PAYMENTS_PROVIDER: 'monnify',
+      NG_PAYROLL_PROVIDER: 'monnify',
       MONNIFY_API_KEY: 'key',
       MONNIFY_SECRET_KEY: 'secret',
       MONNIFY_CONTRACT_CODE: 'contract',
@@ -75,7 +75,7 @@ describe('validateEnvAtBoot', () => {
   it('fails when MONNIFY_LIVE=true without webhook secret', () => {
     withEnv({
       MONNIFY_LIVE: 'true',
-      NG_PAYMENTS_PROVIDER: 'monnify',
+      NG_PAYROLL_PROVIDER: 'monnify',
       MONNIFY_API_KEY: 'key',
       MONNIFY_SECRET_KEY: 'secret',
       MONNIFY_CONTRACT_CODE: 'contract',
@@ -86,10 +86,15 @@ describe('validateEnvAtBoot', () => {
   it('fails when MONNIFY_LIVE=true with monnify NG rail but incomplete keys', () => {
     withEnv({
       MONNIFY_LIVE: 'true',
-      NG_PAYMENTS_PROVIDER: 'monnify',
+      NG_PAYROLL_PROVIDER: 'monnify',
       MONNIFY_WEBHOOK_SECRET: 'wh',
     });
     expect(() => validateEnvAtBoot()).toThrow(/MONNIFY_API_KEY/);
+  });
+
+  it('boots when only legacy NG_PAYMENTS_PROVIDER is set', () => {
+    withEnv({ NG_PAYMENTS_PROVIDER: 'nomba' });
+    expect(() => validateEnvAtBoot()).not.toThrow();
   });
 
   it('fails when NOAH_ENVIRONMENT=production without API key and signing key', () => {

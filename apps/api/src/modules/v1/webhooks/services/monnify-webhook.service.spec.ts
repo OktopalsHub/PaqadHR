@@ -1,4 +1,8 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import { MonnifyWebhookService } from './monnify-webhook.service';
@@ -7,6 +11,11 @@ jest.mock('src/common/config/monnify-webhook.util', () => ({
   verifyMonnifyWebhookSignature: jest.fn(),
 }));
 
+jest.mock('src/common/config/monnify.config', () => ({
+  isMonnifyLive: jest.fn(),
+}));
+
+import { isMonnifyLive } from 'src/common/config/monnify.config';
 import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook.util';
 
 describe('MonnifyWebhookService', () => {
@@ -19,7 +28,7 @@ describe('MonnifyWebhookService', () => {
 
   beforeEach(() => {
     walletTopupService = {
-      completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true }),
+      completeCheckoutTopup: jest.fn().mockResolvedValue({ received: true, credited: true }),
     };
     subscriptionBillingService = {
       processMonnifyPayload: jest.fn().mockResolvedValue({ received: true }),
@@ -34,10 +43,27 @@ describe('MonnifyWebhookService', () => {
       payrollPayoutService as never,
     );
     (verifyMonnifyWebhookSignature as jest.Mock).mockReturnValue(true);
+    (isMonnifyLive as jest.Mock).mockReturnValue(false);
   });
 
-  it('rejects missing signature', async () => {
+  it('rejects missing signature in live mode', async () => {
+    (isMonnifyLive as jest.Mock).mockReturnValue(true);
     await expect(service.dispatch('{}', '')).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('accepts missing signature in sandbox and processes wallet top-up', async () => {
+    const body = JSON.stringify({
+      eventType: 'SUCCESSFUL_TRANSACTION',
+      eventData: {
+        amountPaid: 2500,
+        paymentReference: 'wm_11111111111141118111111111111111_abc',
+        metaData: { tenantId: '11111111-1111-4111-8111-111111111111', billingType: 'wallet_topup' },
+      },
+    });
+
+    await service.dispatch(body, '');
+
+    expect(walletTopupService.completeCheckoutTopup).toHaveBeenCalled();
   });
 
   it('rejects invalid signature', async () => {
@@ -75,6 +101,24 @@ describe('MonnifyWebhookService', () => {
     );
     expect(subscriptionBillingService.processMonnifyPayload).not.toHaveBeenCalled();
     expect(payrollPayoutService.processMonnifyPayload).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when wallet verify is still pending', async () => {
+    walletTopupService.completeCheckoutTopup.mockResolvedValue({
+      received: true,
+      credited: false,
+      retryable: true,
+    });
+    const body = JSON.stringify({
+      eventType: 'SUCCESSFUL_TRANSACTION',
+      eventData: {
+        amountPaid: 2500,
+        paymentReference: 'wm_11111111111141118111111111111111_abc',
+        metaData: { billingType: 'wallet_topup', tenantId: '11111111-1111-4111-8111-111111111111' },
+      },
+    });
+
+    await expect(service.dispatch(body, 'sig')).rejects.toThrow(ServiceUnavailableException);
   });
 
   it('routes wm_ wallet refs even when meta billingType is missing', async () => {

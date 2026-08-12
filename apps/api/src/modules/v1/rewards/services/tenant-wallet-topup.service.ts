@@ -113,6 +113,9 @@ export class TenantWalletTopupService {
     if (provider === PaymentProvider.MONNIFY && !this.monnifyApi.isConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
+    if (provider === PaymentProvider.MONNIFY && currency !== 'NGN') {
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
+    }
     if (provider === PaymentProvider.NOAH && !this.noahApi.isConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
@@ -144,9 +147,11 @@ export class TenantWalletTopupService {
     const meta = {
       tenantId,
       billingType: 'wallet_topup',
-      expectedAmount: amount,
+      expectedAmount: String(amount),
       ...(initiatedByMemberId ? { initiatedByMemberId } : {}),
     };
+
+    const checkoutCurrency = provider === PaymentProvider.MONNIFY ? 'NGN' : currency;
 
     const result =
       provider === PaymentProvider.NOMBA
@@ -168,7 +173,7 @@ export class TenantWalletTopupService {
                 paymentReference: orderReference,
                 paymentDescription: 'Rewards wallet top-up',
                 redirectUrl: callbackUrl,
-                currencyCode: currency,
+                currencyCode: checkoutCurrency,
                 metaData: meta,
               })
               .then((init) => ({
@@ -214,7 +219,7 @@ export class TenantWalletTopupService {
       amount?: number;
     },
     billingProvider: PaymentProvider = PaymentProvider.NOMBA,
-  ): Promise<{ received: boolean; credited: boolean }> {
+  ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
     const isNombaRef = isNombaWalletTopupOrderRef(input.orderReference, input.tenantId);
     const isMonnifyRef = isMonnifyWalletTopupOrderRef(input.orderReference, input.tenantId);
     const isNoahRef = isNoahWalletTopupOrderRef(input.orderReference, input.tenantId);
@@ -289,11 +294,20 @@ export class TenantWalletTopupService {
       this.logger.warn(
         `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
       );
-      return { received: true, credited: false };
+      // Pending / not-yet-paid — Monnify should retry the webhook.
+      return { received: true, credited: false, retryable: true };
     }
 
     const expected = input.amount ?? Number(verified?.amount ?? 0);
-    const paid = normalizeWebhookAmount(Number(verified?.amount ?? 0), expected, currency);
+    const verifiedAmount = Number(verified?.amount ?? 0);
+    // Bachs list summaries sometimes omit amount_paid; webhook/meta expectedAmount is trusted after status verify.
+    const rawPaid =
+      Number.isFinite(verifiedAmount) && verifiedAmount > 0
+        ? verifiedAmount
+        : Number.isFinite(expected) && expected > 0
+          ? expected
+          : verifiedAmount;
+    const paid = normalizeWebhookAmount(rawPaid, expected, currency);
     if (!Number.isFinite(paid) || paid <= 0) {
       this.logger.warn(`Wallet checkout top-up invalid amount for ${input.orderReference}`);
       return { received: true, credited: false };

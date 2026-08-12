@@ -170,7 +170,8 @@ export function extractBachsWalletTopupCheckout(payload: unknown): {
   if (!tenantId || !orderReference) return null;
 
   const expectedRaw = meta.expectedAmount;
-  const amount = Number(expectedRaw ?? data.amount_paid ?? data.amount ?? 0);
+  // collection.succeeded uses data.amount (not amount_paid).
+  const amount = Number(expectedRaw ?? data.amount ?? data.amount_paid ?? 0);
   return {
     tenantId,
     orderReference,

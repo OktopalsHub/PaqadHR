@@ -49,7 +49,7 @@ describe('BachsWebhookService', () => {
       type: 'collection.succeeded',
       data: {
         reference: 'wb_tenant_ref',
-        amount_paid: '2500.00',
+        amount: '2500.00',
         metadata: {
           tenantId: 't1',
           billingType: 'wallet_topup',

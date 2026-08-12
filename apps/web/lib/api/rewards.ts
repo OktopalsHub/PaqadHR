@@ -303,6 +303,20 @@ export async function createWalletTopupCheckout(
   );
 }
 
+export async function completeWalletTopupCheckout(
+  tenantId: string,
+  orderReference: string,
+  amount?: number,
+): Promise<{ received: boolean; credited: boolean }> {
+  return apiClient<{ received: boolean; credited: boolean }>(
+    tenantPath(tenantId, 'rewards/wallet/topup/checkout/complete'),
+    {
+      method: 'POST',
+      body: JSON.stringify({ orderReference, ...(amount != null ? { amount } : {}) }),
+    },
+  );
+}
+
 export async function updateAutoTopupConfig(params: {
   enabled: boolean;
   threshold: number;

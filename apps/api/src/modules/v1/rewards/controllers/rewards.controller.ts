@@ -26,7 +26,7 @@ import {
 } from '../config/rewards-wallet-provider.config';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
-import { WalletTopupDto } from '../dto/wallet-topup.dto';
+import { WalletTopupCompleteDto, WalletTopupDto } from '../dto/wallet-topup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
@@ -189,6 +189,31 @@ export class RewardsController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.walletTopupService.createTopupCheckout(tenantId, Number(body.amount), member.id);
+  }
+
+  @Post('wallet/topup/checkout/complete')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  @ApiOperation({ summary: 'Verify and credit wallet after checkout redirect' })
+  async completeTopupCheckout(
+    @Param('tenantId') tenantId: string,
+    @Body() body: WalletTopupCompleteDto,
+  ) {
+    const wallet = await this.walletService.getWallet(tenantId);
+    const tenantCountryCode = await this.walletService.getTenantCountryCode(tenantId);
+    const checkoutProvider = resolveRewardsWalletPaymentProvider(
+      tenantCountryCode,
+      wallet.currencyCode,
+    );
+    return this.walletTopupService.completeCheckoutTopup(
+      {
+        tenantId,
+        orderReference: body.orderReference.trim(),
+        amount: body.amount,
+      },
+      checkoutProvider,
+    );
   }
 
   @Post('wallet/auto-topup')

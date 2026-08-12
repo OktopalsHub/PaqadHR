@@ -9,6 +9,7 @@ describe('RewardsService Nomba topup', () => {
   let listDataPlans: jest.Mock;
 
   beforeEach(() => {
+    delete process.env.NG_REWARDS_AIRTIME_PROVIDER;
     purchaseAirtime = jest.fn().mockResolvedValue({
       success: true,
       transactionId: 'tx-airtime',
@@ -44,6 +45,12 @@ describe('RewardsService Nomba topup', () => {
         purchaseAirtime,
         purchaseDataBundle,
         listDataPlans,
+      } as any,
+      {
+        isConfigured: jest.fn().mockReturnValue(false),
+        purchaseAirtime: jest.fn(),
+        purchaseDataBundle: jest.fn(),
+        listDataPlans: jest.fn(),
       } as any,
       {} as any,
       {} as any,

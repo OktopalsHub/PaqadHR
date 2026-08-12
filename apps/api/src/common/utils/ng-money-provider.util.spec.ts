@@ -1,8 +1,12 @@
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import {
   getNgPaymentsProviderPreference,
+  getNgPayrollProviderPreference,
+  getNgRewardsAirtimeProviderPreference,
+  getNgRewardsDepositProviderPreference,
   getNgWalletPaymentsProviderPreference,
   resolveNgPaymentProvider,
+  resolveNgRewardsAirtimeProvider,
   resolveNgWalletPaymentProvider,
 } from './ng-money-provider.util';
 
@@ -11,8 +15,11 @@ describe('ng-money-provider.util', () => {
 
   beforeEach(() => {
     process.env = { ...env };
+    delete process.env.NG_PAYROLL_PROVIDER;
     delete process.env.NG_PAYMENTS_PROVIDER;
+    delete process.env.NG_REWARDS_DEPOSIT_PROVIDER;
     delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+    delete process.env.NG_REWARDS_AIRTIME_PROVIDER;
     delete process.env.BILLING_NG_PROVIDER;
     delete process.env.MONNIFY_API_KEY;
     delete process.env.MONNIFY_SECRET_KEY;
@@ -29,42 +36,27 @@ describe('ng-money-provider.util', () => {
   });
 
   it('defaults NG money rails to nomba', () => {
+    expect(getNgPayrollProviderPreference()).toBe('nomba');
     expect(getNgPaymentsProviderPreference()).toBe('nomba');
     expect(resolveNgPaymentProvider()).toBe(PaymentProvider.NOMBA);
     expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.NOMBA);
+    expect(getNgRewardsAirtimeProviderPreference()).toBe('nomba');
+    expect(resolveNgRewardsAirtimeProvider()).toBe(PaymentProvider.NOMBA);
   });
 
-  it('uses one NG_PAYMENTS_PROVIDER switch for payroll and wallet deposits', () => {
-    process.env.NG_PAYMENTS_PROVIDER = 'monnify';
+  it('uses NG_PAYROLL_PROVIDER for payroll and empty deposit follows payroll', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'monnify';
     process.env.MONNIFY_API_KEY = 'key';
     process.env.MONNIFY_SECRET_KEY = 'secret';
     process.env.MONNIFY_CONTRACT_CODE = 'contract';
 
-    expect(getNgPaymentsProviderPreference()).toBe('monnify');
+    expect(getNgPayrollProviderPreference()).toBe('monnify');
     expect(resolveNgPaymentProvider()).toBe(PaymentProvider.MONNIFY);
+    expect(getNgRewardsDepositProviderPreference()).toBe('monnify');
     expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.MONNIFY);
   });
 
-  it('falls back to nomba when monnify is preferred but not configured', () => {
-    process.env.NG_PAYMENTS_PROVIDER = 'monnify';
-    process.env.NOMBA_CLIENT_ID = 'id';
-    process.env.NOMBA_CLIENT_SECRET = 'secret';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent';
-
-    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.NOMBA);
-    expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.NOMBA);
-  });
-
-  it('never routes NGN payroll to Bachs even if NG_PAYMENTS_PROVIDER=bachs', () => {
-    process.env.NG_PAYMENTS_PROVIDER = 'bachs';
-    process.env.NOMBA_CLIENT_ID = 'id';
-    process.env.NOMBA_CLIENT_SECRET = 'secret';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent';
-
-    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.NOMBA);
-  });
-
-  it('overrides wallet deposits to Bachs without changing payroll rail', () => {
+  it('falls back to legacy NG_PAYMENTS_PROVIDER / NG_WALLET_PAYMENTS_PROVIDER', () => {
     process.env.NG_PAYMENTS_PROVIDER = 'monnify';
     process.env.NG_WALLET_PAYMENTS_PROVIDER = 'bachs';
     process.env.MONNIFY_API_KEY = 'key';
@@ -73,8 +65,59 @@ describe('ng-money-provider.util', () => {
     process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
     process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn';
 
+    expect(getNgPayrollProviderPreference()).toBe('monnify');
     expect(getNgWalletPaymentsProviderPreference()).toBe('bachs');
     expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.BACHS);
+  });
+
+  it('falls back to nomba when monnify is preferred but not configured', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'monnify';
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent';
+
+    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.NOMBA);
+    expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.NOMBA);
+  });
+
+  it('never routes NGN payroll to Bachs even if NG_PAYROLL_PROVIDER=bachs', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'bachs';
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent';
+
+    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.NOMBA);
+  });
+
+  it('overrides wallet deposits to Bachs without changing payroll rail', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'monnify';
+    process.env.NG_REWARDS_DEPOSIT_PROVIDER = 'bachs';
+    process.env.MONNIFY_API_KEY = 'key';
+    process.env.MONNIFY_SECRET_KEY = 'secret';
+    process.env.MONNIFY_CONTRACT_CODE = 'contract';
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn';
+
+    expect(getNgRewardsDepositProviderPreference()).toBe('bachs');
+    expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.BACHS);
     expect(resolveNgPaymentProvider()).toBe(PaymentProvider.MONNIFY);
+  });
+
+  it('routes airtime via NG_REWARDS_AIRTIME_PROVIDER independently of payroll', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'monnify';
+    process.env.NG_REWARDS_AIRTIME_PROVIDER = 'nomba';
+    process.env.MONNIFY_API_KEY = 'key';
+    process.env.MONNIFY_SECRET_KEY = 'secret';
+    process.env.MONNIFY_CONTRACT_CODE = 'contract';
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent';
+
+    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.MONNIFY);
+    expect(getNgRewardsAirtimeProviderPreference()).toBe('nomba');
+    expect(resolveNgRewardsAirtimeProvider()).toBe(PaymentProvider.NOMBA);
+
+    process.env.NG_REWARDS_AIRTIME_PROVIDER = 'monnify';
+    expect(resolveNgRewardsAirtimeProvider()).toBe(PaymentProvider.MONNIFY);
   });
 });

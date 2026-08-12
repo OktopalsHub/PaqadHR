@@ -147,14 +147,33 @@ export class BachsApiService {
   async findPaymentByReference(
     reference: string,
   ): Promise<{ status: string; amount: number } | null> {
+    const encoded = encodeURIComponent(reference);
+    // Prefer filtered lookup when supported; fall back to paging.
+    try {
+      const filtered = await this.request<{
+        items?: Array<{
+          reference?: string | null;
+          status?: string;
+          amount_paid?: string | null;
+          amount?: string | null;
+        }>;
+      }>(`/v1/payments?limit=20&reference=${encoded}`);
+      const match = (filtered.items ?? []).find((item) => item.reference === reference);
+      if (match) {
+        return this.mapPaymentSummary(match);
+      }
+    } catch {
+      // Older API builds may not accept reference filter — continue with scan.
+    }
+
     let offset = 0;
     for (;;) {
       const payload = await this.request<{
         items?: Array<{
           reference?: string | null;
           status?: string;
-          amount_paid?: string;
-          amount?: string;
+          amount_paid?: string | null;
+          amount?: string | null;
         }>;
         pagination?: { has_more?: boolean };
       }>(`/v1/payments?limit=100&offset=${offset}`);
@@ -162,9 +181,7 @@ export class BachsApiService {
       const items = payload.items ?? [];
       const match = items.find((item) => item.reference === reference);
       if (match) {
-        const status = String(match.status ?? '').toLowerCase();
-        const amount = Number(match.amount_paid ?? match.amount ?? 0);
-        return { status, amount };
+        return this.mapPaymentSummary(match);
       }
 
       if (!payload.pagination?.has_more || items.length === 0) {
@@ -172,6 +189,19 @@ export class BachsApiService {
       }
       offset += items.length;
     }
+  }
+
+  private mapPaymentSummary(match: {
+    status?: string;
+    amount_paid?: string | null;
+    amount?: string | null;
+  }): { status: string; amount: number } {
+    const status = String(match.status ?? '').toLowerCase();
+    const amount = Number(match.amount_paid ?? match.amount ?? 0);
+    return {
+      status,
+      amount: Number.isFinite(amount) ? amount : 0,
+    };
   }
 
   async getCheckoutSession(checkoutId: string): Promise<Record<string, unknown>> {

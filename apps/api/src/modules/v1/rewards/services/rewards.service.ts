@@ -4,11 +4,13 @@ import { formatNombaSenderName } from 'src/common/config/nomba.config';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
+import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
+import { getNgRewardsAirtimeProviderPreference } from 'src/common/utils/ng-money-provider.util';
 import {
   normalizeRewardsCatalogCountries,
   resolveDefaultRewardsCatalogCountry,
@@ -93,6 +95,7 @@ export class RewardsService {
     private readonly fiatExchange: FiatExchangeService,
     private readonly reloadlyUtilitiesApi: ReloadlyUtilitiesApiService,
     private readonly nombaBillApi: NombaBillApiService,
+    private readonly monnifyBillApi: MonnifyBillApiService,
     readonly _nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly activitiesService: ActivitiesService,
@@ -135,7 +138,18 @@ export class RewardsService {
       settings.rewardsCurrency.toUpperCase() === 'NGN';
 
     if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
-      if (!this.nombaBillApi.isConfigured()) {
+      // Utility catalog remains Nomba-shaped; require Nomba when utility is claimed.
+      if (input.rewardType === 'NOMBA_UTILITY') {
+        if (!this.nombaBillApi.isConfigured()) {
+          throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
+        }
+        return;
+      }
+      const preferMonnify = getNgRewardsAirtimeProviderPreference() === 'monnify';
+      const configured = preferMonnify
+        ? this.monnifyBillApi.isConfigured()
+        : this.nombaBillApi.isConfigured();
+      if (!configured) {
         throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
       }
       return;
@@ -152,6 +166,13 @@ export class RewardsService {
   }
 
   async listNombaDataPlans(network: string) {
+    if (getNgRewardsAirtimeProviderPreference() === 'monnify') {
+      if (!this.monnifyBillApi.isConfigured()) {
+        throw new BadRequestException('Data plans are temporarily unavailable.');
+      }
+      const plans = await this.monnifyBillApi.listDataPlans(network);
+      return plans.map(({ amount, plan }) => ({ amount, plan }));
+    }
     if (!this.nombaBillApi.isConfigured()) {
       throw new BadRequestException('Data plans are temporarily unavailable.');
     }
@@ -832,19 +853,33 @@ export class RewardsService {
       throw new Error('Phone number and network are required for mobile top-up');
     }
 
-    const senderName = await this.resolveSenderName(redemption.tenantId);
-    const purchaseInput = {
-      amount: redemption.currencyValue,
-      phoneNumber: input.recipientPhone,
-      network: input.airtimeNetwork,
-      merchantTxRef: redemption.id,
-      senderName,
-    };
-
     const isData = input.topupKind === 'data';
-    const result = isData
-      ? await this.nombaBillApi.purchaseDataBundle(purchaseInput)
-      : await this.nombaBillApi.purchaseAirtime(purchaseInput);
+    const useMonnify = getNgRewardsAirtimeProviderPreference() === 'monnify';
+
+    let result: { success: boolean; transactionId: string | null; status: string };
+    if (useMonnify) {
+      const purchaseInput = {
+        amount: redemption.currencyValue,
+        phoneNumber: input.recipientPhone,
+        network: input.airtimeNetwork,
+        merchantTxRef: redemption.id,
+      };
+      result = isData
+        ? await this.monnifyBillApi.purchaseDataBundle(purchaseInput)
+        : await this.monnifyBillApi.purchaseAirtime(purchaseInput);
+    } else {
+      const senderName = await this.resolveSenderName(redemption.tenantId);
+      const purchaseInput = {
+        amount: redemption.currencyValue,
+        phoneNumber: input.recipientPhone,
+        network: input.airtimeNetwork,
+        merchantTxRef: redemption.id,
+        senderName,
+      };
+      result = isData
+        ? await this.nombaBillApi.purchaseDataBundle(purchaseInput)
+        : await this.nombaBillApi.purchaseAirtime(purchaseInput);
+    }
 
     if (!result.success) {
       throw new Error(

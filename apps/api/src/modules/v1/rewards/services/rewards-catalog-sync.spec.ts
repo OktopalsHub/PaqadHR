@@ -78,6 +78,7 @@ describe('RewardsService catalog sync', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
       {
         getRedemptionFees: jest.fn().mockResolvedValue({ feePercentage: 2, flatFee: 0 }),
       } as any,

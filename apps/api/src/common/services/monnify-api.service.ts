@@ -185,7 +185,7 @@ export class MonnifyApiService {
     }
   }
 
-  private async getAccessToken(): Promise<string> {
+  async getAccessToken(): Promise<string> {
     this.ensureConfigured();
 
     if (this.cachedToken && this.cachedToken.expiresAt > Date.now()) {

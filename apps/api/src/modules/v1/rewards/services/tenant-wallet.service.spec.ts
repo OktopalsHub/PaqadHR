@@ -147,10 +147,10 @@ describe('TenantWalletService', () => {
 
   describe('updateAutoTopupConfig', () => {
     it('rejects enabling auto-topup when wallet provider is Bachs', async () => {
-      const originalWalletPref = process.env.NG_WALLET_PAYMENTS_PROVIDER;
+      const originalWalletPref = process.env.NG_REWARDS_DEPOSIT_PROVIDER;
       const originalBachsKey = process.env.BACHS_SECRET_KEY;
       const originalBachsNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
-      process.env.NG_WALLET_PAYMENTS_PROVIDER = 'bachs';
+      process.env.NG_REWARDS_DEPOSIT_PROVIDER = 'bachs';
       process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
       process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn_wallet';
 
@@ -161,9 +161,9 @@ describe('TenantWalletService', () => {
         ).rejects.toThrow(WALLET_SAVED_CARD_UNSUPPORTED);
       } finally {
         if (originalWalletPref === undefined) {
-          delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+          delete process.env.NG_REWARDS_DEPOSIT_PROVIDER;
         } else {
-          process.env.NG_WALLET_PAYMENTS_PROVIDER = originalWalletPref;
+          process.env.NG_REWARDS_DEPOSIT_PROVIDER = originalWalletPref;
         }
         if (originalBachsKey === undefined) {
           delete process.env.BACHS_SECRET_KEY;
@@ -187,8 +187,8 @@ describe('TenantWalletTopupService', () => {
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
   const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
-  const originalNgProvider = process.env.NG_PAYMENTS_PROVIDER;
-  const originalNgWalletProvider = process.env.NG_WALLET_PAYMENTS_PROVIDER;
+  const originalNgProvider = process.env.NG_PAYROLL_PROVIDER;
+  const originalNgWalletProvider = process.env.NG_REWARDS_DEPOSIT_PROVIDER;
   const originalBachsWalletNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
   const originalBachsWalletUsd = process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
 
@@ -196,7 +196,9 @@ describe('TenantWalletTopupService', () => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
-    process.env.NG_PAYMENTS_PROVIDER = 'nomba';
+    process.env.NG_PAYROLL_PROVIDER = 'nomba';
+    delete process.env.NG_REWARDS_DEPOSIT_PROVIDER;
+    delete process.env.NG_PAYMENTS_PROVIDER;
     delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
     delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
     delete process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
@@ -207,14 +209,14 @@ describe('TenantWalletTopupService', () => {
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
     process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
     if (originalNgProvider === undefined) {
-      delete process.env.NG_PAYMENTS_PROVIDER;
+      delete process.env.NG_PAYROLL_PROVIDER;
     } else {
-      process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
+      process.env.NG_PAYROLL_PROVIDER = originalNgProvider;
     }
     if (originalNgWalletProvider === undefined) {
-      delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+      delete process.env.NG_REWARDS_DEPOSIT_PROVIDER;
     } else {
-      process.env.NG_WALLET_PAYMENTS_PROVIDER = originalNgWalletProvider;
+      process.env.NG_REWARDS_DEPOSIT_PROVIDER = originalNgWalletProvider;
     }
     if (originalBachsWalletNgn === undefined) {
       delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
@@ -474,7 +476,7 @@ describe('TenantWalletTopupService', () => {
           meta: expect.objectContaining({
             tenantId,
             billingType: 'wallet_topup',
-            expectedAmount: 2500,
+            expectedAmount: '2500',
           }),
         }),
       );
@@ -562,7 +564,7 @@ describe('TenantWalletTopupService', () => {
         amount: 2500,
       });
 
-      expect(result).toEqual({ received: true, credited: false });
+      expect(result).toEqual({ received: true, credited: false, retryable: true });
       expect(nombaApi.verifyTransaction).toHaveBeenCalledWith(walletTopupRef);
       expect(walletService.credit).not.toHaveBeenCalled();
     });
@@ -578,7 +580,7 @@ describe('TenantWalletTopupService', () => {
         PaymentProvider.MONNIFY,
       );
 
-      expect(result).toEqual({ received: true, credited: false });
+      expect(result).toEqual({ received: true, credited: false, retryable: true });
       expect(monnifyApi.verifyTransaction).toHaveBeenCalledWith(monnifyRef);
       expect(walletService.credit).not.toHaveBeenCalled();
     });
@@ -613,9 +615,9 @@ describe('TenantWalletTopupService', () => {
       );
     });
 
-    it('credits wallet once for a successful Bachs checkout payment', async () => {
+    it('credits Bachs top-up using webhook amount when payment summary omits amount', async () => {
       const { topupService, walletService, bachsApi } = createTopupService({
-        bachsFindPayment: jest.fn().mockResolvedValue({ status: 'succeeded', amount: 2500 }),
+        bachsFindPayment: jest.fn().mockResolvedValue({ status: 'succeeded', amount: 0 }),
       });
 
       const result = await topupService.completeCheckoutTopup(
@@ -625,7 +627,15 @@ describe('TenantWalletTopupService', () => {
 
       expect(result).toEqual({ received: true, credited: true });
       expect(bachsApi.findPaymentByReference).toHaveBeenCalledWith(bachsWalletTopupRef);
-      expect(walletService.credit).toHaveBeenCalled();
+      expect(walletService.credit).toHaveBeenCalledWith(
+        tenantId,
+        2500,
+        'DEPOSIT',
+        bachsWalletTopupRef,
+        expect.any(String),
+        expect.anything(),
+        expect.anything(),
+      );
     });
   });
 
@@ -633,7 +643,7 @@ describe('TenantWalletTopupService', () => {
     const originalBachsKey = process.env.BACHS_SECRET_KEY;
 
     beforeEach(() => {
-      process.env.NG_WALLET_PAYMENTS_PROVIDER = 'bachs';
+      process.env.NG_REWARDS_DEPOSIT_PROVIDER = 'bachs';
       process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
       process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn_wallet';
     });
@@ -660,7 +670,7 @@ describe('TenantWalletTopupService', () => {
           metadata: expect.objectContaining({
             tenantId,
             billingType: 'wallet_topup',
-            expectedAmount: 2500,
+            expectedAmount: '2500',
           }),
         }),
       );
@@ -680,17 +690,17 @@ describe('TenantWalletTopupService', () => {
   });
 
   describe('Monnify saved-card paths', () => {
-    const originalNgProvider = process.env.NG_PAYMENTS_PROVIDER;
+    const originalNgProvider = process.env.NG_PAYROLL_PROVIDER;
 
     beforeEach(() => {
-      process.env.NG_PAYMENTS_PROVIDER = 'monnify';
+      process.env.NG_PAYROLL_PROVIDER = 'monnify';
       process.env.MONNIFY_API_KEY = 'key';
       process.env.MONNIFY_SECRET_KEY = 'secret';
       process.env.MONNIFY_CONTRACT_CODE = 'contract';
     });
 
     afterEach(() => {
-      process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
+      process.env.NG_PAYROLL_PROVIDER = originalNgProvider;
     });
 
     it('charges Monnify card token for manual top-up when token is on file', async () => {
