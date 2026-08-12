@@ -207,6 +207,17 @@ export class BachsApiService {
     });
   }
 
+  /**
+   * End a Bachs trial immediately (past/now trial_end → active + first charge).
+   * Paqad free trial is in-app only; Bachs catalog products must not leave customers trialing after checkout.
+   */
+  async endSubscriptionTrial(subscriptionId: string): Promise<Record<string, unknown>> {
+    return this.request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, {
+      method: 'PATCH',
+      body: { trial_end: new Date().toISOString() },
+    });
+  }
+
   private async request<T>(
     path: string,
     options?: { method?: string; body?: unknown },

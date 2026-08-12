@@ -144,6 +144,40 @@ describe('TenantWalletService', () => {
       expect(walletRepo.save).toHaveBeenCalled();
     });
   });
+
+  describe('updateAutoTopupConfig', () => {
+    it('rejects enabling auto-topup when wallet provider is Bachs', async () => {
+      const originalWalletPref = process.env.NG_WALLET_PAYMENTS_PROVIDER;
+      const originalBachsKey = process.env.BACHS_SECRET_KEY;
+      const originalBachsNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+      process.env.NG_WALLET_PAYMENTS_PROVIDER = 'bachs';
+      process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn_wallet';
+
+      try {
+        const { walletService } = createWalletService();
+        await expect(
+          walletService.updateAutoTopupConfig(tenantId, true, 1000, 5000),
+        ).rejects.toThrow(WALLET_SAVED_CARD_UNSUPPORTED);
+      } finally {
+        if (originalWalletPref === undefined) {
+          delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+        } else {
+          process.env.NG_WALLET_PAYMENTS_PROVIDER = originalWalletPref;
+        }
+        if (originalBachsKey === undefined) {
+          delete process.env.BACHS_SECRET_KEY;
+        } else {
+          process.env.BACHS_SECRET_KEY = originalBachsKey;
+        }
+        if (originalBachsNgn === undefined) {
+          delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+        } else {
+          process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = originalBachsNgn;
+        }
+      }
+    });
+  });
 });
 
 describe('TenantWalletTopupService', () => {
@@ -199,8 +233,10 @@ describe('TenantWalletTopupService', () => {
     nombaCharge?: jest.Mock;
     nombaVerify?: jest.Mock;
     monnifyVerify?: jest.Mock;
+    monnifyCharge?: jest.Mock;
     bachsFindPayment?: jest.Mock;
     paymentMethodId?: string | null;
+    usageMetrics?: Record<string, unknown>;
     tenantCountryCode?: string;
     walletCurrency?: string;
   }) {
@@ -244,10 +280,22 @@ describe('TenantWalletTopupService', () => {
       }),
     };
 
+    const subscription = {
+      paymentMethodId:
+        overrides?.paymentMethodId !== undefined ? overrides.paymentMethodId : 'tok-1',
+      usageMetrics: overrides?.usageMetrics ?? null,
+      paymentMethodLastFour: null as string | null,
+      paymentMethodBrand: null as string | null,
+    };
+    const subscriptionRepo = {
+      save: jest.fn(async (row) => row),
+    };
+
     const dataSource = {
       getRepository: jest.fn((entity) => {
         if (entity.name === 'TenantWallet') return walletRepo;
         if (entity.name === 'TenantWalletTransaction') return txRepo;
+        if (entity.name === 'TenantSubscription') return subscriptionRepo;
         return {};
       }),
       manager,
@@ -276,10 +324,7 @@ describe('TenantWalletTopupService', () => {
     };
 
     const subscriptionsService = {
-      getTenantSubscription: jest.fn().mockResolvedValue({
-        paymentMethodId:
-          overrides?.paymentMethodId !== undefined ? overrides.paymentMethodId : 'tok-1',
-      }),
+      getTenantSubscription: jest.fn().mockResolvedValue(subscription),
     };
 
     const tenantSettingsService = {
@@ -306,6 +351,9 @@ describe('TenantWalletTopupService', () => {
     const monnifyApi = {
       isConfigured: jest.fn().mockReturnValue(true),
       initializeTransaction: jest.fn(),
+      chargeCardToken:
+        overrides?.monnifyCharge ??
+        jest.fn().mockResolvedValue({ paymentReference: 'wm_charge_1', paid: true, amount: 5000 }),
       verifyTransaction:
         overrides?.monnifyVerify ??
         jest.fn().mockResolvedValue({ paid: true, amount: 2500, currency: 'NGN' }),
@@ -347,6 +395,8 @@ describe('TenantWalletTopupService', () => {
       emailService,
       manager,
       walletRepo,
+      subscriptionRepo,
+      subscription,
     };
   }
 
@@ -533,6 +583,36 @@ describe('TenantWalletTopupService', () => {
       expect(walletService.credit).not.toHaveBeenCalled();
     });
 
+    it('persists Monnify card token after successful card wallet credit', async () => {
+      const monnifyRef = `wm_${tenantId.replace(/-/g, '')}_abc123`;
+      const { topupService, walletService, subscriptionRepo, subscription } = createTopupService({
+        monnifyVerify: jest.fn().mockResolvedValue({
+          paid: true,
+          amount: 2500,
+          currency: 'NGN',
+          cardToken: 'MNFY_STORED',
+          customerEmail: 'card@test.com',
+          cardLastFour: '4242',
+          cardBrand: 'visa',
+        }),
+      });
+
+      const result = await topupService.completeCheckoutTopup(
+        { tenantId, orderReference: monnifyRef, amount: 2500 },
+        PaymentProvider.MONNIFY,
+      );
+
+      expect(result).toEqual({ received: true, credited: true });
+      expect(walletService.credit).toHaveBeenCalled();
+      expect(subscriptionRepo.save).toHaveBeenCalled();
+      expect(subscription.usageMetrics).toEqual(
+        expect.objectContaining({
+          monnifyWalletCardToken: 'MNFY_STORED',
+          monnifyWalletCardEmail: 'card@test.com',
+        }),
+      );
+    });
+
     it('credits wallet once for a successful Bachs checkout payment', async () => {
       const { topupService, walletService, bachsApi } = createTopupService({
         bachsFindPayment: jest.fn().mockResolvedValue({ status: 'succeeded', amount: 2500 }),
@@ -613,29 +693,57 @@ describe('TenantWalletTopupService', () => {
       process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
     });
 
-    it('rejects manual top-up when provider is Monnify', async () => {
-      const { topupService, nombaApi, noahApi } = createTopupService();
+    it('charges Monnify card token for manual top-up when token is on file', async () => {
+      const { topupService, monnifyApi, walletService, nombaApi } = createTopupService({
+        usageMetrics: {
+          monnifyWalletCardToken: 'MNFY_TOKEN_1',
+          monnifyWalletCardEmail: 'billing@test.com',
+        },
+        monnifyVerify: jest.fn().mockResolvedValue({ paid: true, amount: 5000, currency: 'NGN' }),
+      });
 
-      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
-        WALLET_SAVED_CARD_UNSUPPORTED,
+      await topupService.manualTopup(tenantId, 5000);
+
+      expect(monnifyApi.chargeCardToken).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cardToken: 'MNFY_TOKEN_1',
+          amount: 5000,
+          customerEmail: 'billing@test.com',
+        }),
       );
-
       expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
-      expect(noahApi.verifyTransaction).not.toHaveBeenCalled();
+      expect(walletService.credit).toHaveBeenCalled();
     });
 
-    it('skips auto-topup when provider is Monnify', async () => {
-      const { topupService, nombaApi } = createTopupService({
+    it('rejects Monnify manual top-up when no card token is stored', async () => {
+      const { topupService, monnifyApi } = createTopupService({
+        paymentMethodId: 'tok-1',
+      });
+
+      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+        WALLET_NO_BILLING_CARD,
+      );
+      expect(monnifyApi.chargeCardToken).not.toHaveBeenCalled();
+    });
+
+    it('runs auto-topup via Monnify when card token is on file', async () => {
+      const { topupService, monnifyApi, nombaApi } = createTopupService({
         wallet: {
           autoTopupEnabled: true,
           autoTopupThreshold: 1000,
           autoTopupAmount: 5000,
           balanceAmount: 500,
         },
+        usageMetrics: {
+          monnifyWalletCardToken: 'MNFY_TOKEN_1',
+          monnifyWalletCardEmail: 'billing@test.com',
+        },
+        monnifyVerify: jest.fn().mockResolvedValue({ paid: true, amount: 5000, currency: 'NGN' }),
       });
 
       await topupService.maybeAutoTopupAfterDebit(tenantId);
 
+      expect(monnifyApi.chargeCardToken).toHaveBeenCalled();
       expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
     });
   });

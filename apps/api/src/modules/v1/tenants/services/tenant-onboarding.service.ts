@@ -46,6 +46,10 @@ export class TenantOnboardingService {
   async completeTenantOnboarding(
     data: OnboardingData,
     userIpAddress: string,
+    options?: {
+      headers?: Record<string, string | string[] | undefined>;
+      timezone?: string | null;
+    },
   ): Promise<OnboardingResult> {
     const tenant = await this.createTenant(data);
     const user = await this.usersService.getUser(data.createdBy!);
@@ -67,6 +71,10 @@ export class TenantOnboardingService {
       tenant.id,
       userIpAddress,
       data.businessCountry,
+      {
+        headers: options?.headers,
+        timezone: options?.timezone ?? data.timezone,
+      },
     );
 
     const planSlug = data.planSlug?.trim().toLowerCase() || 'growth';

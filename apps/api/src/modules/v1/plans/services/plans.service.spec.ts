@@ -66,6 +66,68 @@ describe('PlansService', () => {
     });
   });
 
+  describe('getPricesForCountry / getPlanPrice', () => {
+    it('does not fall back to GLOBAL for NG when no NG rows exist', async () => {
+      planPriceRepository.find.mockResolvedValueOnce([]);
+
+      const prices = await service.getPricesForCountry('NG');
+
+      expect(prices).toEqual([]);
+      expect(planPriceRepository.find).toHaveBeenCalledTimes(1);
+      expect(planPriceRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { countryCode: 'NG', isActive: true } }),
+      );
+    });
+
+    it('falls back to GLOBAL for non-NG countries when country rows are missing', async () => {
+      const globalPrices = [{ id: 'g1', countryCode: 'GLOBAL', currency: 'USD' }];
+      planPriceRepository.find.mockResolvedValueOnce([]).mockResolvedValueOnce(globalPrices);
+
+      const prices = await service.getPricesForCountry('GH');
+
+      expect(prices).toEqual(globalPrices);
+      expect(planPriceRepository.find).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ where: { countryCode: 'GLOBAL', isActive: true } }),
+      );
+    });
+
+    it('getPlanPrice does not fall back to GLOBAL for NG misses', async () => {
+      planRepository.findOne.mockResolvedValue({ id: 'plan-1', slug: 'growth', isActive: true });
+      planPriceRepository.findOne.mockResolvedValue(null);
+
+      const price = await service.getPlanPrice('growth', 'NG', 'NGN');
+
+      expect(price).toBeNull();
+      expect(planPriceRepository.findOne).toHaveBeenCalledTimes(1);
+      expect(planPriceRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            planId: 'plan-1',
+            countryCode: 'NG',
+            currency: 'NGN',
+          }),
+        }),
+      );
+    });
+
+    it('getPlanPrice falls back to GLOBAL for GH misses', async () => {
+      planRepository.findOne.mockResolvedValue({ id: 'plan-1', slug: 'growth', isActive: true });
+      const globalPrice = { id: 'g1', countryCode: 'GLOBAL', currency: 'USD' };
+      planPriceRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(globalPrice);
+
+      const price = await service.getPlanPrice('growth', 'GH', 'USD');
+
+      expect(price).toEqual(globalPrice);
+      expect(planPriceRepository.findOne).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: { planId: 'plan-1', countryCode: 'GLOBAL', isActive: true },
+        }),
+      );
+    });
+  });
+
   describe('upsertPlanWithPrice', () => {
     const regionalConfig = {
       includedUsers: 25,

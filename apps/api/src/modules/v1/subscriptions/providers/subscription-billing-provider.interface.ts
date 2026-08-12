@@ -61,4 +61,10 @@ export interface ISubscriptionBillingProvider {
 
   /** Undo a scheduled cancel_at_period_end (Polar / Bachs when supported). */
   resumeExternalSubscription?(externalSubscriptionId: string): Promise<void>;
+
+  /**
+   * End provider-side trial immediately (Bachs). Paqad free trial is in-app only;
+   * paid checkout must not leave the external subscription in `trialing`.
+   */
+  endExternalTrial?(externalSubscriptionId: string): Promise<void>;
 }

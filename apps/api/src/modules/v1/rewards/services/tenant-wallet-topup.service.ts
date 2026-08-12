@@ -13,6 +13,7 @@ import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defau
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
+import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 import {
@@ -70,7 +71,13 @@ export class TenantWalletTopupService {
     amount: number,
     _initiatedByMemberId?: string,
   ): Promise<TenantWallet> {
-    const reference = `manual-topup-${randomUUID()}`;
+    const wallet = await this.walletService.ensureWallet(tenantId);
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, wallet.currencyCode);
+    const reference =
+      provider === PaymentProvider.MONNIFY
+        ? buildMonnifyWalletTopupOrderRef(tenantId)
+        : `manual-topup-${randomUUID()}`;
     return this.chargeAndCredit(
       tenantId,
       amount,
@@ -251,6 +258,10 @@ export class TenantWalletTopupService {
                 ? {
                     status: result.paid ? 'success' : 'pending',
                     amount: result.amount,
+                    cardToken: result.cardToken,
+                    customerEmail: result.customerEmail,
+                    cardLastFour: result.cardLastFour,
+                    cardBrand: result.cardBrand,
                   }
                 : null,
             )
@@ -299,7 +310,7 @@ export class TenantWalletTopupService {
       return { received: true, credited: false };
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    const creditResult = await this.dataSource.transaction(async (manager) => {
       await manager
         .getRepository(TenantWallet)
         .createQueryBuilder('w')
@@ -328,6 +339,61 @@ export class TenantWalletTopupService {
       );
       return { received: true, credited: true };
     });
+
+    if (
+      creditResult.credited &&
+      billingProvider === PaymentProvider.MONNIFY &&
+      verified &&
+      'cardToken' in verified &&
+      typeof verified.cardToken === 'string' &&
+      verified.cardToken
+    ) {
+      const monnifyVerified = verified as {
+        cardToken: string;
+        customerEmail?: string;
+        cardLastFour?: string;
+        cardBrand?: string;
+      };
+      await this.persistMonnifyWalletCardToken(input.tenantId, {
+        cardToken: monnifyVerified.cardToken,
+        customerEmail: monnifyVerified.customerEmail,
+        cardLastFour: monnifyVerified.cardLastFour,
+        cardBrand: monnifyVerified.cardBrand,
+      });
+    }
+
+    return creditResult;
+  }
+
+  private async persistMonnifyWalletCardToken(
+    tenantId: string,
+    input: {
+      cardToken: string;
+      customerEmail?: string;
+      cardLastFour?: string;
+      cardBrand?: string;
+    },
+  ): Promise<void> {
+    const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
+    if (!subscription) {
+      return;
+    }
+    subscription.usageMetrics = {
+      ...(subscription.usageMetrics ?? {}),
+      monnifyWalletCardToken: input.cardToken,
+      monnifyWalletCardEmail: input.customerEmail?.trim() || undefined,
+    };
+    if (!subscription.paymentMethodId) {
+      subscription.paymentMethodId = input.cardToken;
+    }
+    if (input.cardLastFour) {
+      subscription.paymentMethodLastFour = input.cardLastFour.slice(-4);
+    }
+    if (input.cardBrand) {
+      subscription.paymentMethodBrand = input.cardBrand;
+    }
+    await this.dataSource.getRepository(TenantSubscription).save(subscription);
+    this.logger.log(`Stored Monnify wallet card token for tenant ${tenantId}`);
   }
 
   async maybeAutoTopupAfterDebit(tenantId: string): Promise<void> {
@@ -347,17 +413,22 @@ export class TenantWalletTopupService {
       tenant?.countryCode,
       wallet.currencyCode,
     );
-    if (walletProvider === PaymentProvider.MONNIFY || walletProvider === PaymentProvider.BACHS) {
+    if (walletProvider === PaymentProvider.BACHS) {
       this.logger.debug(
         `Skipping auto-topup for tenant ${tenantId}: saved-card top-up is unavailable on ${walletProvider}`,
       );
       return;
     }
 
+    const chargeReference =
+      walletProvider === PaymentProvider.MONNIFY
+        ? buildMonnifyWalletTopupOrderRef(tenantId)
+        : `auto-topup-${randomUUID()}`;
+
     await this.chargeAndCredit(
       tenantId,
       Number(wallet.autoTopupAmount),
-      `auto-topup-${randomUUID()}`,
+      chargeReference,
       `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
       undefined,
       'member',
@@ -375,7 +446,10 @@ export class TenantWalletTopupService {
     this.assertTopupAmount(amount);
 
     const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
-    const tokenKey = subscription?.paymentMethodId?.trim();
+    const metrics = subscription?.usageMetrics;
+    const monnifyCardToken = metrics?.monnifyWalletCardToken?.trim();
+    const monnifyCardEmail = metrics?.monnifyWalletCardEmail?.trim();
+    const tokenKey = (monnifyCardToken || subscription?.paymentMethodId)?.trim();
     if (!tokenKey) {
       throw new BadRequestException(
         audience === 'admin' ? WALLET_NO_BILLING_CARD : WALLET_UNAVAILABLE_MEMBER,
@@ -384,7 +458,7 @@ export class TenantWalletTopupService {
 
     let customerEmail: string;
     try {
-      const resolved = await this.resolveBillingEmail(tenantId);
+      const resolved = monnifyCardEmail || (await this.resolveBillingEmail(tenantId));
       if (!resolved) {
         throw new Error('Billing contact email is not configured');
       }
@@ -402,7 +476,7 @@ export class TenantWalletTopupService {
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
 
-    if (provider === PaymentProvider.MONNIFY || provider === PaymentProvider.BACHS) {
+    if (provider === PaymentProvider.BACHS) {
       throw new BadRequestException(
         audience === 'admin' ? WALLET_SAVED_CARD_UNSUPPORTED : WALLET_UNAVAILABLE_MEMBER,
       );
@@ -410,48 +484,95 @@ export class TenantWalletTopupService {
     if (provider === PaymentProvider.NOMBA && !isNombaConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
+    if (provider === PaymentProvider.MONNIFY && !this.monnifyApi.isConfigured()) {
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
+    }
     if (provider === PaymentProvider.NOAH && !isNoahConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
+    }
+    if (provider === PaymentProvider.MONNIFY) {
+      const monnifyToken = monnifyCardToken || (tokenKey.startsWith('MNFY_') ? tokenKey : null);
+      if (!monnifyToken) {
+        throw new BadRequestException(
+          audience === 'admin' ? WALLET_NO_BILLING_CARD : WALLET_UNAVAILABLE_MEMBER,
+        );
+      }
     }
 
     let chargeReference = reference;
     try {
-      const charge =
-        provider === PaymentProvider.NOMBA
-          ? await this.nombaApi.chargeTokenizedCard({
-              orderReference: reference,
-              customerEmail,
-              amount,
-              currency,
-              callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-              tokenKey,
-              meta: { tenantId, billingType: 'wallet_topup' },
-            })
-          : await this.noahApi.chargeSavedPaymentMethod({
-              orderReference: reference,
-              customerEmail,
-              amount,
-              currency,
-              callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
-              paymentMethodId: tokenKey,
-              meta: { tenantId, billingType: 'wallet_topup' },
-            });
-
-      chargeReference = charge.orderReference;
-      const verified =
-        provider === PaymentProvider.NOMBA
-          ? await this.nombaApi.verifyTransaction(chargeReference)
-          : await this.noahApi.verifyTransaction(chargeReference);
-
-      if (!verified || !isNoahPaymentVerified(verified.status)) {
-        throw new Error('Payment verification failed');
-      }
-
-      const normalizedPaid = normalizeWebhookAmount(Number(verified.amount ?? 0), amount, currency);
-      if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, amount)) {
-        throw new Error(
-          `Payment amount mismatch (expected ${amount}, got ${verified.amount ?? 'unknown'})`,
+      if (provider === PaymentProvider.MONNIFY) {
+        const cardToken = monnifyCardToken || tokenKey;
+        const paymentReference = isMonnifyWalletTopupOrderRef(reference, tenantId)
+          ? reference
+          : buildMonnifyWalletTopupOrderRef(tenantId);
+        const charge = await this.monnifyApi.chargeCardToken({
+          cardToken,
+          amount,
+          customerName: customerEmail.split('@')[0] || 'Customer',
+          customerEmail,
+          paymentReference,
+          paymentDescription: description,
+          currencyCode: currency,
+          metaData: { tenantId, billingType: 'wallet_topup' },
+        });
+        chargeReference = charge.paymentReference;
+        const verified = await this.monnifyApi.verifyTransaction(chargeReference);
+        if (!verified?.paid) {
+          throw new Error('Payment verification failed');
+        }
+        const normalizedPaid = normalizeWebhookAmount(
+          Number(verified.amount ?? 0),
+          amount,
+          currency,
         );
+        if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, amount)) {
+          throw new Error(
+            `Payment amount mismatch (expected ${amount}, got ${verified.amount ?? 'unknown'})`,
+          );
+        }
+      } else {
+        const charge =
+          provider === PaymentProvider.NOMBA
+            ? await this.nombaApi.chargeTokenizedCard({
+                orderReference: reference,
+                customerEmail,
+                amount,
+                currency,
+                callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+                tokenKey,
+                meta: { tenantId, billingType: 'wallet_topup' },
+              })
+            : await this.noahApi.chargeSavedPaymentMethod({
+                orderReference: reference,
+                customerEmail,
+                amount,
+                currency,
+                callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
+                paymentMethodId: tokenKey,
+                meta: { tenantId, billingType: 'wallet_topup' },
+              });
+
+        chargeReference = charge.orderReference;
+        const verified =
+          provider === PaymentProvider.NOMBA
+            ? await this.nombaApi.verifyTransaction(chargeReference)
+            : await this.noahApi.verifyTransaction(chargeReference);
+
+        if (!verified || !isNoahPaymentVerified(verified.status)) {
+          throw new Error('Payment verification failed');
+        }
+
+        const normalizedPaid = normalizeWebhookAmount(
+          Number(verified.amount ?? 0),
+          amount,
+          currency,
+        );
+        if (!Number.isFinite(normalizedPaid) || !isAmountWithinTolerance(normalizedPaid, amount)) {
+          throw new Error(
+            `Payment amount mismatch (expected ${amount}, got ${verified.amount ?? 'unknown'})`,
+          );
+        }
       }
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);

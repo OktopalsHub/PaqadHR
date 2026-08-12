@@ -282,9 +282,15 @@ export class SubscriptionsService {
     const normalizedCountry = data.countryCode === 'GLOBAL' ? null : data.countryCode;
     const pricingRegion = normalizedCountry ?? 'GLOBAL';
     const defaults = GeoLocationHelper.getCountryDefaults(pricingRegion);
-    tenant.countryCode = GeoLocationHelper.toStoredCountryCode(normalizedCountry);
+    const storedCountry = GeoLocationHelper.toStoredCountryCode(normalizedCountry);
+    tenant.countryCode = storedCountry;
     tenant.timezone = data.timezone ?? defaults.timezone;
-    tenant.preferredCurrency = data.preferredCurrency ?? defaults.currency;
+    // NG workspaces always lock preferred currency to NGN (billing + wallet).
+    if (storedCountry === 'NG') {
+      tenant.preferredCurrency = 'NGN';
+    } else {
+      tenant.preferredCurrency = data.preferredCurrency ?? defaults.currency;
+    }
     tenant.pricingLocked = true;
     return this.tenantRepository.save(tenant);
   }
@@ -293,9 +299,13 @@ export class SubscriptionsService {
     tenantId: string,
     ipAddress: string,
     userSelectedCountry?: string,
+    options?: {
+      headers?: Record<string, string | string[] | undefined>;
+      timezone?: string | null;
+    },
   ): Promise<{
     tenant: Tenant;
-    detectionMethod: 'user_selected' | 'ip_detected' | 'default';
+    detectionMethod: string;
     lockedRegion: string;
   }> {
     const tenant = await this.tenantRepository.findOne({
@@ -311,19 +321,21 @@ export class SubscriptionsService {
     }
 
     let countryCode: string;
-    let detectionMethod: 'user_selected' | 'ip_detected' | 'default';
+    let detectionMethod: string;
 
-    if (userSelectedCountry) {
-      countryCode = userSelectedCountry.toUpperCase();
+    const selected = userSelectedCountry?.trim().toUpperCase();
+    if (selected && selected !== 'GLOBAL' && GeoLocationHelper.toStoredCountryCode(selected)) {
+      countryCode = selected;
       detectionMethod = 'user_selected';
     } else {
-      countryCode = await GeoLocationHelper.getCountryCode(ipAddress);
-      if (countryCode === 'GLOBAL') {
-        detectionMethod = 'default';
-        countryCode = 'GLOBAL';
-      } else {
-        detectionMethod = 'ip_detected';
-      }
+      // Same path as pricing-preview: headers → IP → timezone (e.g. Africa/Lagos → NG).
+      const detected = await GeoLocationHelper.resolveDetectedCountry({
+        ip: ipAddress,
+        headers: options?.headers,
+        timezone: options?.timezone,
+      });
+      countryCode = detected.countryCode;
+      detectionMethod = detected.detectionMethod;
     }
 
     const updatedTenant = await this.setTenantRegion(tenantId, { countryCode });
@@ -460,6 +472,97 @@ export class SubscriptionsService {
       relations: ['plan', 'planPrice', 'planPrice.plan'],
     });
     return loaded ?? saved;
+  }
+
+  /**
+   * NG tenants must use NGN plan_prices. Rebind trial/unpaid USD/GLOBAL rows;
+   * for paid ACTIVE on USD, report mismatch (do not change charged product).
+   */
+  async healNgSubscriptionPlanPrice(
+    tenantCountryCode: string | null | undefined,
+    subscription: TenantSubscription | null,
+  ): Promise<{
+    subscription: TenantSubscription | null;
+    pricingMismatch: {
+      expectedCurrency: 'NGN';
+      actualCurrency: string;
+      message: string;
+    } | null;
+  }> {
+    if (!subscription || GeoLocationHelper.toStoredCountryCode(tenantCountryCode) !== 'NG') {
+      return { subscription, pricingMismatch: null };
+    }
+
+    let planPrice = subscription.planPrice;
+    if (!planPrice && subscription.planPriceId) {
+      const loadedPrice = await this.plansService.getPlanPriceById(subscription.planPriceId);
+      if (loadedPrice) {
+        planPrice = loadedPrice;
+        subscription.planPrice = loadedPrice;
+      }
+    }
+    if (!planPrice) {
+      return { subscription, pricingMismatch: null };
+    }
+
+    const priceCountry = (planPrice.countryCode ?? '').toUpperCase();
+    const priceCurrency = (planPrice.currency ?? '').toUpperCase();
+    const needsNgPrice = priceCountry !== 'NG' || priceCurrency !== 'NGN';
+    if (!needsNgPrice) {
+      return { subscription, pricingMismatch: null };
+    }
+
+    const planSlug = (subscription.plan?.slug ?? planPrice.plan?.slug ?? '').trim().toLowerCase();
+    if (!planSlug) {
+      return { subscription, pricingMismatch: null };
+    }
+
+    const ngPrice = await this.plansService.getPlanPrice(planSlug, 'NG', 'NGN');
+    if (!ngPrice) {
+      return {
+        subscription,
+        pricingMismatch: {
+          expectedCurrency: 'NGN',
+          actualCurrency: priceCurrency || 'USD',
+          message:
+            'Nigerian workspace pricing requires NGN plan prices, but none are seeded for this plan.',
+        },
+      };
+    }
+
+    if (subscription.status === SubscriptionStatus.TRIAL) {
+      subscription.planId = ngPrice.planId;
+      subscription.planPriceId = ngPrice.id;
+      subscription.planPrice = ngPrice;
+      if (ngPrice.plan) {
+        subscription.plan = ngPrice.plan;
+      }
+      const saved = await this.subscriptionRepository.save(subscription);
+      const loaded = await this.subscriptionRepository.findOne({
+        where: { id: saved.id },
+        relations: ['plan', 'planPrice', 'planPrice.plan'],
+      });
+      return { subscription: loaded ?? saved, pricingMismatch: null };
+    }
+
+    // Paid / non-trial: do not silently change the charged product.
+    if (
+      subscription.status === SubscriptionStatus.ACTIVE ||
+      subscription.status === SubscriptionStatus.PAST_DUE ||
+      subscription.status === SubscriptionStatus.PAUSED
+    ) {
+      return {
+        subscription,
+        pricingMismatch: {
+          expectedCurrency: 'NGN',
+          actualCurrency: priceCurrency || 'USD',
+          message:
+            'This Nigerian workspace is on a USD subscription. Cancel and re-subscribe to switch to NGN billing.',
+        },
+      };
+    }
+
+    return { subscription, pricingMismatch: null };
   }
 
   async startTrial(

@@ -33,6 +33,7 @@ export const onboardingCompleteInputSchema = z.object({
   industry: z.string().optional(),
   companySize: z.string().optional(),
   businessCountry: z.string().optional(),
+  timezone: z.string().optional(),
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
   preferredName: z.string().optional(),

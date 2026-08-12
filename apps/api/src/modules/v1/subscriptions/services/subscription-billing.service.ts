@@ -400,6 +400,7 @@ export class SubscriptionBillingService {
           const correctEnd = new Date(start);
           correctEnd.setMonth(correctEnd.getMonth() + 1);
           subscription.currentPeriodEnd = correctEnd;
+          subscription.nextBillingDate = correctEnd;
         }
       }
     }
@@ -428,6 +429,33 @@ export class SubscriptionBillingService {
       },
       provider,
     );
+
+    // Bachs catalog trial must not survive a paid Paqad checkout — end it so Bachs shows active.
+    if (
+      hasPlanMetadata &&
+      (providerStatus === 'trialing' || providerStatus === 'trial') &&
+      event.externalSubscriptionId
+    ) {
+      await this.endProviderTrialBestEffort(provider, event.externalSubscriptionId, event.tenantId);
+    }
+  }
+
+  private async endProviderTrialBestEffort(
+    provider: BillingProvider,
+    externalSubscriptionId: string,
+    tenantId: string,
+  ): Promise<void> {
+    try {
+      await this.billingProviderFactory.endExternalTrial(provider, externalSubscriptionId);
+      this.logger.log(
+        `Ended ${provider} trial on ${externalSubscriptionId} for tenant ${tenantId} after paid checkout`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(
+        `Could not end ${provider} trial on ${externalSubscriptionId} for tenant ${tenantId}: ${message}`,
+      );
+    }
   }
 
   private async processExternalSubscriptionCancelled(
@@ -476,7 +504,7 @@ export class SubscriptionBillingService {
   }
 
   async getBillingOverview(tenantId: string, canManageBilling: boolean) {
-    const [tenant, billingStatus, seatCount, subscription, tenantSettings] = await Promise.all([
+    const [tenant, billingStatus, seatCount, rawSubscription, tenantSettings] = await Promise.all([
       this.tenantRepository.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
       this.subscriptionsService.getBillingStatus(tenantId),
       this.getTenantSeatCount(tenantId),
@@ -487,6 +515,13 @@ export class SubscriptionBillingService {
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
+
+    const subscription = rawSubscription
+      ? await this.healBachsTrialingPaidSubscription(rawSubscription)
+      : null;
+
+    const { subscription: alignedSubscription, pricingMismatch } =
+      await this.subscriptionsService.healNgSubscriptionPlanPrice(tenant.countryCode, subscription);
 
     const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
       tenant.countryCode,
@@ -503,7 +538,7 @@ export class SubscriptionBillingService {
     const sub = billingStatus.subscription;
     const needsPayment = this.subscriptionsService.computeNeedsPayment(sub);
 
-    const billingHistory = (subscription?.billingHistory ?? []).map((entry) => ({
+    const billingHistory = (alignedSubscription?.billingHistory ?? []).map((entry) => ({
       date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
       amount: entry.amount,
       currency: entry.currency,
@@ -520,26 +555,30 @@ export class SubscriptionBillingService {
       canManageBilling: canManageBilling,
       plans,
       companyName: tenant.name,
-      nextBillingDate: subscription?.nextBillingDate?.toISOString() ?? null,
+      nextBillingDate: alignedSubscription?.nextBillingDate?.toISOString() ?? null,
       hasPaymentMethodOnFile: Boolean(
-        subscription?.nombaSubscriptionId ||
-          subscription?.externalSubscriptionId ||
-          subscription?.paymentMethodId,
+        alignedSubscription?.nombaSubscriptionId ||
+          alignedSubscription?.externalSubscriptionId ||
+          alignedSubscription?.paymentMethodId,
       ),
-      paymentMethodBrand: subscription?.paymentMethodBrand ?? null,
-      paymentMethodLastFour: subscription?.paymentMethodLastFour ?? null,
-      cancelAtPeriodEnd: subscription?.cancelAtPeriodEnd ?? false,
-      cancelledAt: subscription?.cancelledAt?.toISOString() ?? null,
-      pausedAt: subscription?.pausedAt?.toISOString() ?? null,
-      dunningNextRetryAt: subscription?.dunningNextRetryAt?.toISOString() ?? null,
-      lastPaymentFailureReason: getBillingFailureMessage(subscription?.lastPaymentFailureReason),
-      lastPaymentFailureCode: subscription?.lastPaymentFailureReason ?? null,
+      paymentMethodBrand: alignedSubscription?.paymentMethodBrand ?? null,
+      paymentMethodLastFour: alignedSubscription?.paymentMethodLastFour ?? null,
+      cancelAtPeriodEnd: alignedSubscription?.cancelAtPeriodEnd ?? false,
+      cancelledAt: alignedSubscription?.cancelledAt?.toISOString() ?? null,
+      pausedAt: alignedSubscription?.pausedAt?.toISOString() ?? null,
+      dunningNextRetryAt: alignedSubscription?.dunningNextRetryAt?.toISOString() ?? null,
+      lastPaymentFailureReason: getBillingFailureMessage(
+        alignedSubscription?.lastPaymentFailureReason,
+      ),
+      lastPaymentFailureCode: alignedSubscription?.lastPaymentFailureReason ?? null,
       billingHistory,
       needsPayment,
       billingContact: canManageBilling ? (tenantSettings?.settings.billing ?? {}) : {},
       ownerEmail: canManageBilling ? (tenant.createdBy?.email ?? null) : null,
-      billingProvider: subscription?.billingProvider ?? this.providerForCountry(countryCode),
-      supportsCardUpdate: !subscription || subscription.billingProvider === BillingProvider.NOMBA,
+      billingProvider: alignedSubscription?.billingProvider ?? this.providerForCountry(countryCode),
+      supportsCardUpdate:
+        !alignedSubscription || alignedSubscription.billingProvider === BillingProvider.NOMBA,
+      pricingMismatch,
     };
   }
 
@@ -1333,17 +1372,46 @@ export class SubscriptionBillingService {
     }
 
     const provider = this.billingProviderFactory.getProviderByEnum(subscription.billingProvider);
-    const remote = (await provider.getSubscription(subscription.externalSubscriptionId)) as Record<
+    let remote = (await provider.getSubscription(subscription.externalSubscriptionId)) as Record<
       string,
       unknown
     >;
+
+    let remoteStatus = String(remote.status ?? '').toLowerCase();
+
+    // Paid Paqad checkout must not stay `trialing` on Bachs (catalog trial_period).
+    // End the trial so Bachs next_billed_at matches a real billing cycle, not trial end.
+    if (
+      subscription.billingProvider === BillingProvider.BACHS &&
+      (remoteStatus === 'trialing' || remoteStatus === 'trial') &&
+      this.hasPaidSubscriptionEvidence(subscription)
+    ) {
+      await this.endProviderTrialBestEffort(
+        BillingProvider.BACHS,
+        subscription.externalSubscriptionId,
+        subscription.tenantId,
+      );
+      remote = (await provider.getSubscription(subscription.externalSubscriptionId)) as Record<
+        string,
+        unknown
+      >;
+      remoteStatus = String(remote.status ?? '').toLowerCase();
+    }
 
     const priorPeriodEnd = subscription.currentPeriodEnd
       ? new Date(subscription.currentPeriodEnd)
       : null;
 
-    const remoteStatus = String(remote.status ?? '').toLowerCase();
-    if (remoteStatus) {
+    const remoteIsTrialing = remoteStatus === 'trialing' || remoteStatus === 'trial';
+    const preservePaidLocalPeriod =
+      remoteIsTrialing && this.hasPaidSubscriptionEvidence(subscription);
+
+    if (remoteIsTrialing) {
+      // Genuine provider trial (should be rare) — do not clobber a local ACTIVE paid period.
+      if (subscription.status !== SubscriptionStatus.ACTIVE) {
+        subscription.status = SubscriptionStatus.TRIAL;
+      }
+    } else if (remoteStatus) {
       subscription.status = provider.mapStatus(remoteStatus);
     }
 
@@ -1352,18 +1420,23 @@ export class SubscriptionBillingService {
       subscription.cancelAtPeriodEnd = cancelAtPeriodEnd;
     }
 
-    const periodEnd = this.parseRemoteDate(
-      remote.current_period_end ?? remote.currentPeriodEnd ?? remote.ends_at,
-    );
+    // Never replace a paid cycle with Bachs catalog-trial dates (e.g. Aug 26 vs Sept 12).
+    const periodEnd = preservePaidLocalPeriod
+      ? null
+      : this.parseRemoteDate(
+          remote.current_period_end ?? remote.currentPeriodEnd ?? remote.ends_at,
+        );
     if (periodEnd) {
       subscription.currentPeriodEnd = periodEnd;
     }
 
-    const nextBilling = this.parseRemoteDate(
-      remote.next_billed_at ?? remote.nextBillingDate ?? remote.current_period_end,
-    );
-    if (nextBilling) {
-      subscription.nextBillingDate = nextBilling;
+    if (!preservePaidLocalPeriod) {
+      const nextBilling = this.parseRemoteDate(
+        remote.next_billed_at ?? remote.nextBillingDate ?? remote.current_period_end,
+      );
+      if (nextBilling) {
+        subscription.nextBillingDate = nextBilling;
+      }
     }
 
     if (remoteStatus === 'canceled' || remoteStatus === 'cancelled' || remoteStatus === 'revoked') {
@@ -1404,6 +1477,36 @@ export class SubscriptionBillingService {
     }
 
     return this.subscriptionRepository.save(subscription);
+  }
+
+  private hasPaidSubscriptionEvidence(subscription: TenantSubscription): boolean {
+    if (subscription.status === SubscriptionStatus.ACTIVE) {
+      return true;
+    }
+    return (subscription.billingHistory ?? []).some(
+      (entry) => entry.status === 'paid' && Number(entry.amount) > 0,
+    );
+  }
+
+  /** When Bachs still shows trialing after a paid checkout, end trial and refresh dates. */
+  private async healBachsTrialingPaidSubscription(
+    subscription: TenantSubscription,
+  ): Promise<TenantSubscription> {
+    if (
+      subscription.billingProvider !== BillingProvider.BACHS ||
+      !subscription.externalSubscriptionId ||
+      !this.hasPaidSubscriptionEvidence(subscription)
+    ) {
+      return subscription;
+    }
+
+    try {
+      return await this.syncExternalSubscription(subscription);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Bachs trial heal skipped for tenant ${subscription.tenantId}: ${message}`);
+      return subscription;
+    }
   }
 
   private parseRemoteDate(value: unknown): Date | null {
@@ -2054,6 +2157,14 @@ export class SubscriptionBillingService {
         }),
       );
     });
+
+    const externalId =
+      payment.externalSubscriptionId?.trim() ||
+      existingSubscription?.externalSubscriptionId?.trim() ||
+      '';
+    if (provider === BillingProvider.BACHS && externalId) {
+      await this.endProviderTrialBestEffort(provider, externalId, payment.tenantId);
+    }
   }
 
   private async processCardUpdateSuccess(

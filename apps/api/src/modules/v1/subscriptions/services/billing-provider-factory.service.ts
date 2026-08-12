@@ -81,4 +81,12 @@ export class BillingProviderFactoryService {
     }
     await billingProvider.resumeExternalSubscription(externalSubscriptionId);
   }
+
+  async endExternalTrial(provider: BillingProvider, externalSubscriptionId: string): Promise<void> {
+    const billingProvider = this.getProviderByEnum(provider);
+    if (!billingProvider.endExternalTrial) {
+      return;
+    }
+    await billingProvider.endExternalTrial(externalSubscriptionId);
+  }
 }

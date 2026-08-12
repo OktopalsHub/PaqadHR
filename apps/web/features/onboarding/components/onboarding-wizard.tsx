@@ -25,6 +25,7 @@ import { loadUserTenantsWithRetry, waitForAuthenticatedProfile } from '@/lib/api
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
 import { fetchBillingStatus } from '@/lib/api/subscriptions';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
+import { getBrowserTimezone } from '@/lib/geo/browser-region';
 import { subscribePageUrl, tenantUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantSlug } from '@/lib/session';
@@ -247,11 +248,17 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
       onStepChange(normalizedStep + 1);
       return;
     }
+    const detectedCountry = pricingPreview.data?.detectedCountry?.trim().toUpperCase();
     completeMutation.mutate({
       name: name.trim(),
       slug: slugifyInput(slug.trim()),
       industry: industry || undefined,
       companySize: companySize || undefined,
+      // Lock the same country the pricing preview used (NG, GH, CA, …). Skip GLOBAL so
+      // the API can still fall back to headers/timezone detection.
+      businessCountry:
+        detectedCountry && detectedCountry !== 'GLOBAL' ? detectedCountry : undefined,
+      timezone: getBrowserTimezone() || undefined,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       preferredName: preferredName.trim() || undefined,

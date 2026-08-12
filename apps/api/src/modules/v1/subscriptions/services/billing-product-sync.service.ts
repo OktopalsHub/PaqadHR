@@ -36,15 +36,27 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
     const preferred = new Set([getBillingNgProvider(), getBillingGlobalProvider()]);
 
     if (preferred.has(BillingProvider.BACHS) && isBachsConfigured()) {
-      const missing = await this.priceRepo.count({
-        where: [
-          { currency: 'NGN', bachsProductId: IsNull(), isActive: true },
-          { currency: 'USD', bachsProductId: IsNull(), isActive: true },
-        ],
+      const missingNgn = await this.priceRepo.count({
+        where: { currency: 'NGN', bachsProductId: IsNull(), isActive: true },
       });
-      if (missing > 0) {
+      const missingUsd = await this.priceRepo.count({
+        where: { currency: 'USD', bachsProductId: IsNull(), isActive: true },
+      });
+
+      // NG billing on Bachs requires NGN product IDs — treat as a hard operational gap.
+      if (getBillingNgProvider() === BillingProvider.BACHS && missingNgn > 0) {
+        this.logger.error(
+          `${missingNgn} active NGN plan_prices row(s) missing bachs_product_id while BILLING_NG_PROVIDER=bachs. Run: pnpm --filter api sync:bachs-products`,
+        );
+      } else if (missingNgn > 0) {
         this.logger.warn(
-          `${missing} active plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`,
+          `${missingNgn} active NGN plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`,
+        );
+      }
+
+      if (missingUsd > 0) {
+        this.logger.warn(
+          `${missingUsd} active USD plan_prices row(s) missing bachs_product_id. Run: pnpm --filter api sync:bachs-products`,
         );
       }
     }
@@ -118,6 +130,7 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
               amount: formatAmount(amount),
             },
             billing_cycle: { interval: 'month', frequency: 1 },
+            trial_period: null,
             metadata: {
               paqad: 'true',
               plan_slug: slug,
@@ -128,18 +141,66 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
         productId = created.id;
         this.logger.log(`Created Bachs ${slug} ${currency}: ${productId}`);
       } else if (match?.trial_period) {
-        // Existing products were synced with a free trial; strip it so checkout bills immediately.
+        // Paqad free trial is in-app only. Bachs product trials make checkout `trialing`
+        // (often without charging). Clear trial_period; if the API won't clear it, recreate.
+        let cleared = false;
         try {
           await this.bachsRequest(`/v1/products/${productId}`, {
             method: 'PATCH',
             body: JSON.stringify({ trial_period: null }),
           });
-          this.logger.log(`Cleared Bachs trial_period on ${slug} ${currency}: ${productId}`);
+          const refreshed = await this.bachsRequest<{ trial_period?: unknown }>(
+            `/v1/products/${productId}`,
+          );
+          cleared = !refreshed.trial_period;
+          if (cleared) {
+            this.logger.log(`Cleared Bachs trial_period on ${slug} ${currency}: ${productId}`);
+          }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.logger.warn(
             `Could not clear trial_period on Bachs product ${productId}: ${message}`,
           );
+        }
+
+        if (!cleared) {
+          const oldProductId = productId;
+          try {
+            await this.bachsRequest(`/v1/products/${oldProductId}/archive`, { method: 'POST' });
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            this.logger.warn(`Could not archive Bachs product ${oldProductId}: ${message}`);
+          }
+          const created = await this.bachsRequest<{ id: string }>('/v1/products', {
+            method: 'POST',
+            body: JSON.stringify({
+              name,
+              description: `PaqadHR ${slug} plan — per seat / month`,
+              price: {
+                price_type: 'fixed',
+                currency,
+                amount: formatAmount(amount),
+              },
+              billing_cycle: { interval: 'month', frequency: 1 },
+              trial_period: null,
+              metadata: {
+                paqad: 'true',
+                plan_slug: slug,
+                currency,
+                replaces_product_id: oldProductId,
+              },
+            }),
+          });
+          this.logger.warn(
+            `Recreated Bachs ${slug} ${currency} without trial_period: ${oldProductId} → ${created.id}`,
+          );
+          productId = created.id;
+          const idx = paqadProducts.findIndex((item) => item.id === match?.id);
+          if (idx >= 0) paqadProducts.splice(idx, 1);
+          paqadProducts.push({
+            id: productId,
+            metadata: { paqad: 'true', plan_slug: slug, currency },
+          });
         }
       }
 

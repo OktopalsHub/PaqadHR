@@ -69,6 +69,7 @@ export class SubscriptionsController {
       tenantId,
       this.getClientIP(req),
       dto.userSelectedCountry,
+      { headers: req.headers },
     );
   }
   @Get('tenant/:tenantId')

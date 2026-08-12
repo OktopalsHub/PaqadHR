@@ -15,12 +15,21 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   };
   const bachsProvider = {
     parseWebhook: jest.fn(),
+    mapStatus: jest.fn((status: string) =>
+      status === 'active' ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INACTIVE,
+    ),
   };
   const polarProvider = {
     parseWebhook: jest.fn(),
+    mapStatus: jest.fn((status: string) =>
+      status === 'active' ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INACTIVE,
+    ),
   };
   const monnifyProvider = {
     parseWebhook: jest.fn(),
+    mapStatus: jest.fn((status: string) =>
+      status === 'active' ? SubscriptionStatus.ACTIVE : SubscriptionStatus.INACTIVE,
+    ),
   };
   const billingProviderFactory = {
     getNombaProvider: () => nombaProvider,
@@ -35,6 +44,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     ensureConfigured: jest.fn(),
     cancelExternalSubscription: jest.fn().mockResolvedValue(undefined),
     resumeExternalSubscription: jest.fn().mockResolvedValue(undefined),
+    endExternalTrial: jest.fn().mockResolvedValue(undefined),
   };
   const nombaApi = { verifyTransaction: jest.fn() };
   const monnifyApi = { verifyTransaction: jest.fn() };
@@ -42,6 +52,10 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     getBillingStatus: jest.fn(),
     getTenantSubscription: jest.fn(),
     computeNeedsPayment: jest.fn().mockReturnValue(false),
+    healNgSubscriptionPlanPrice: jest.fn(async (_country: string, subscription: unknown) => ({
+      subscription,
+      pricingMismatch: null,
+    })),
   };
   const tenantSettingsService = { getTenantSettings: jest.fn() };
   const plansService = {
@@ -135,7 +149,13 @@ describe('SubscriptionBillingService renewal jobs', () => {
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
     delete process.env.BACHS_SECRET_KEY;
     delete process.env.POLAR_ACCESS_TOKEN;
+    delete process.env.MONNIFY_API_KEY;
+    delete process.env.MONNIFY_SECRET_KEY;
+    delete process.env.MONNIFY_CONTRACT_CODE;
     const { service, billingProviderFactory } = createService();
+    jest
+      .spyOn(require('../config/billing.config'), 'isBillingGatewayEnabled')
+      .mockReturnValue(false);
 
     const result = await service.processDueRenewals();
 
@@ -904,6 +924,87 @@ describe('SubscriptionBillingService webhooks', () => {
       expect.objectContaining({ tenantId, planId: 'plan-1', planPriceId: 'price-1' }),
       BillingProvider.BACHS,
     );
+  });
+
+  it('ends Bachs trial and marks ACTIVE when subscription.created has plan metadata but status trialing', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const { service, bachsProvider, subscriptionRepo, billingProviderFactory, billingEventRepo } =
+      createService();
+    billingEventRepo.exists.mockResolvedValue(false);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    (bachsProvider.parseWebhook as jest.Mock).mockReturnValue({
+      kind: 'subscription.created',
+      tenantId,
+      externalSubscriptionId: 'sub_trialing_1',
+      eventId: 'evt_sub_trialing',
+      planId: 'plan-1',
+      planPriceId: 'price-1',
+      providerStatus: 'trialing',
+      trialEndsAt: '2026-08-26T00:00:00.000Z',
+      currentPeriodStart: '2026-08-12T00:00:00.000Z',
+      currentPeriodEnd: '2026-08-26T00:00:00.000Z',
+    });
+    const subscription = {
+      tenantId,
+      billingProvider: BillingProvider.BACHS,
+      status: SubscriptionStatus.CANCELLED,
+      trialEndsAt: null,
+      cancelAtPeriodEnd: true,
+      cancelledAt: new Date(),
+    };
+    subscriptionRepo.findOne.mockResolvedValue(subscription);
+
+    await service.processBachsPayload({ type: 'customer.subscription.created', data: {} });
+
+    expect(subscription.status).toBe(SubscriptionStatus.ACTIVE);
+    expect(subscription.trialEndsAt).toBeNull();
+    expect(subscription.cancelAtPeriodEnd).toBe(false);
+    expect(billingProviderFactory.endExternalTrial).toHaveBeenCalledWith(
+      BillingProvider.BACHS,
+      'sub_trialing_1',
+    );
+  });
+
+  it('heals ACTIVE Bachs subscription still trialing remotely during sync', async () => {
+    const { service, bachsProvider, subscriptionRepo, billingProviderFactory, billingEventRepo } =
+      createService();
+    billingEventRepo.exists.mockResolvedValue(false);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    const subscription = {
+      tenantId: '11111111-1111-4111-8111-111111111111',
+      billingProvider: BillingProvider.BACHS,
+      status: SubscriptionStatus.ACTIVE,
+      externalSubscriptionId: 'sub_stuck_trial',
+      currentPeriodEnd: new Date('2026-09-12T00:00:00.000Z'),
+      nextBillingDate: new Date('2026-09-12T00:00:00.000Z'),
+      billingHistory: [{ date: new Date(), amount: 49, currency: 'USD', status: 'paid' as const }],
+      planPrice: { currency: 'USD' },
+    };
+    (bachsProvider as any).getSubscription = jest
+      .fn()
+      .mockResolvedValueOnce({
+        status: 'trialing',
+        trial_end: '2026-08-26T00:00:00.000Z',
+        next_billed_at: '2026-08-26T00:00:00.000Z',
+        current_period_end: '2026-08-26T00:00:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        status: 'active',
+        trial_end: null,
+        next_billed_at: '2026-09-12T00:00:00.000Z',
+        current_period_end: '2026-09-12T00:00:00.000Z',
+        cancel_at_period_end: false,
+      });
+
+    const saved = await service.syncExternalSubscription(subscription as never);
+
+    expect(billingProviderFactory.endExternalTrial).toHaveBeenCalledWith(
+      BillingProvider.BACHS,
+      'sub_stuck_trial',
+    );
+    expect(saved.status).toBe(SubscriptionStatus.ACTIVE);
+    expect(saved.nextBillingDate?.toISOString()).toBe('2026-09-12T00:00:00.000Z');
+    expect(subscriptionRepo.save).toHaveBeenCalled();
   });
 
   it('ignores renewal when cancelAtPeriodEnd is scheduled', async () => {

@@ -80,6 +80,14 @@ export const billingOverviewSchema = billingStatusSchema.extend({
   lastPaymentFailureCode: z.string().nullable().optional(),
   billingProvider: z.enum(['nomba', 'bachs', 'polar']).optional(),
   supportsCardUpdate: z.boolean().optional(),
+  pricingMismatch: z
+    .object({
+      expectedCurrency: z.literal('NGN'),
+      actualCurrency: z.string(),
+      message: z.string(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const checkoutResponseSchema = z.object({

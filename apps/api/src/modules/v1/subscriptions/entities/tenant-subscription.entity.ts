@@ -85,6 +85,8 @@ export class TenantSubscription extends BaseEntity {
     pendingExtraSeats?: number;
     pendingChargeAmount?: number;
     pendingSeatChargedAt?: string;
+    monnifyWalletCardToken?: string;
+    monnifyWalletCardEmail?: string;
   } | null;
   @Column({ name: 'billing_history', type: 'jsonb', nullable: true })
   billingHistory: Array<{

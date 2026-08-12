@@ -1,8 +1,11 @@
+import { Logger } from '@nestjs/common';
 import type { Request } from 'express';
+import { parseTenantIdFromMonnifyWalletTopupOrderRef } from '../rewards/utils/wallet-order-ref.util';
 
 type RawBodyRequest = Request & { rawBody?: Buffer };
 
 const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
+const monnifyWalletWebhookLogger = new Logger('MonnifyWalletWebhook');
 
 export function getNombaRawBody(req: RawBodyRequest): string {
   return req.rawBody?.toString('utf8') ?? '';
@@ -194,19 +197,37 @@ export function extractMonnifyWalletTopupCheckout(payload: unknown): {
     return null;
   }
   const data = body.eventData ?? {};
+  const orderReference = String(data.paymentReference ?? '').trim();
+  if (!orderReference) {
+    return null;
+  }
+
   const meta = parseMonnifyMeta(data.metaData);
-  if (meta.billingType !== 'wallet_topup') {
+  const fromMeta = meta.billingType === 'wallet_topup';
+  const looksLikeWalletRef = /^wm_[0-9a-f]{32}_/i.test(orderReference);
+  if (!fromMeta && !looksLikeWalletRef) {
     return null;
   }
-  const tenantId = meta.tenantId;
-  const orderReference = data.paymentReference;
-  if (!tenantId || !orderReference) {
+
+  const tenantId =
+    (meta.tenantId || '').trim() ||
+    (looksLikeWalletRef ? parseTenantIdFromMonnifyWalletTopupOrderRef(orderReference) : null) ||
+    '';
+
+  if (!tenantId) {
     return null;
   }
+
+  if (!fromMeta && looksLikeWalletRef) {
+    monnifyWalletWebhookLogger.warn(
+      `Monnify wallet top-up inferred from wm_ ref (meta billingType missing): ${orderReference}`,
+    );
+  }
+
   const amount = Number(meta.expectedAmount ?? data.amountPaid ?? 0);
   return {
     tenantId,
-    orderReference: String(orderReference),
+    orderReference,
     amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
     initiatedByMemberId: meta.initiatedByMemberId || undefined,
   };

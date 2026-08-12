@@ -31,13 +31,19 @@ export class PlansService {
     });
   }
   async getPricesForCountry(countryCode: string): Promise<PlanPrice[]> {
+    const normalized = (countryCode || 'GLOBAL').toUpperCase();
     const prices = await this.planPriceRepository.find({
-      where: { countryCode, isActive: true },
+      where: { countryCode: normalized, isActive: true },
       relations: ['plan'],
       order: { plan: { sortOrder: 'ASC' } },
     });
     if (prices.length > 0) {
       return prices;
+    }
+    // NG must never silently fall back to GLOBAL/USD — missing NGN seed is a hard miss.
+    if (normalized === 'NG') {
+      this.logger.warn('No active NG plan_prices rows found; refusing GLOBAL/USD fallback');
+      return [];
     }
     return this.planPriceRepository.find({
       where: { countryCode: 'GLOBAL', isActive: true },
@@ -100,10 +106,18 @@ export class PlansService {
     });
 
     if (!price) {
-      price = await this.planPriceRepository.findOne({
-        where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
-        relations: ['plan'],
-      });
+      // Non-NG countries may fall back to GLOBAL/USD until regional prices exist.
+      // NG must not — that caused USD subscription + NGN wallet drift.
+      if (normalizedCountry !== 'NG') {
+        price = await this.planPriceRepository.findOne({
+          where: { planId: plan.id, countryCode: 'GLOBAL', isActive: true },
+          relations: ['plan'],
+        });
+      } else {
+        this.logger.warn(
+          `NG plan price missing for slug=${planSlug}, currency=${currency ?? 'NGN'}; no USD fallback`,
+        );
+      }
     }
 
     if (!price) {

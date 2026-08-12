@@ -80,6 +80,7 @@ export class TenantOnboardingController {
       industry: dto.industry,
       companySize: dto.companySize,
       businessCountry: dto.businessCountry,
+      timezone: dto.timezone,
       firstName: dto.firstName,
       lastName: dto.lastName,
       preferredName: dto.preferredName,
@@ -88,7 +89,10 @@ export class TenantOnboardingController {
       createdBy: req.auth.principalId,
       employeeCode: dto.employeeCode,
     };
-    return this.onboardingService.completeTenantOnboarding(onboardingData, clientIp);
+    return this.onboardingService.completeTenantOnboarding(onboardingData, clientIp, {
+      headers: httpReq.headers,
+      timezone: dto.timezone,
+    });
   }
   @Get('tenant/:tenantId/pricing-info')
   @ApiOperation({

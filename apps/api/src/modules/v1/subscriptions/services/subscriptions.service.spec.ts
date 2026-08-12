@@ -8,10 +8,20 @@ import { SubscriptionsService } from './subscriptions.service';
 
 describe('SubscriptionsService', () => {
   let service: SubscriptionsService;
-  let subscriptionRepo: { findOne: jest.Mock };
+  let subscriptionRepo: { findOne: jest.Mock; save: jest.Mock };
+  let plansService: {
+    getPlanPrice: jest.Mock;
+    getPricesForCountry: jest.Mock;
+    getPlanPriceById: jest.Mock;
+  };
 
   beforeEach(async () => {
-    subscriptionRepo = { findOne: jest.fn() };
+    subscriptionRepo = { findOne: jest.fn(), save: jest.fn(async (s) => s) };
+    plansService = {
+      getPlanPrice: jest.fn(),
+      getPricesForCountry: jest.fn(),
+      getPlanPriceById: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -26,7 +36,7 @@ describe('SubscriptionsService', () => {
         },
         {
           provide: PlansService,
-          useValue: { getPlanPrice: jest.fn(), getPricesForCountry: jest.fn() },
+          useValue: plansService,
         },
       ],
     }).compile();
@@ -157,6 +167,89 @@ describe('SubscriptionsService', () => {
           nextBillingDate: new Date(Date.now() + 86_400_000),
         }),
       ).toBe(false);
+    });
+  });
+
+  describe('healNgSubscriptionPlanPrice', () => {
+    it('rebinds NG trial from GLOBAL/USD to NGN plan price', async () => {
+      const ngPrice = {
+        id: 'ng-price',
+        planId: 'plan-1',
+        countryCode: 'NG',
+        currency: 'NGN',
+        plan: { slug: 'growth' },
+      };
+      plansService.getPlanPrice.mockResolvedValue(ngPrice);
+      const subscription = {
+        id: 'sub-1',
+        status: SubscriptionStatus.TRIAL,
+        planId: 'plan-1',
+        planPriceId: 'usd-price',
+        plan: { slug: 'growth' },
+        planPrice: {
+          id: 'usd-price',
+          countryCode: 'GLOBAL',
+          currency: 'USD',
+          plan: { slug: 'growth' },
+        },
+      } as unknown as TenantSubscription;
+      subscriptionRepo.findOne.mockResolvedValue({
+        ...subscription,
+        ...ngPrice,
+        planPrice: ngPrice,
+      });
+
+      const result = await service.healNgSubscriptionPlanPrice('NG', subscription);
+
+      expect(plansService.getPlanPrice).toHaveBeenCalledWith('growth', 'NG', 'NGN');
+      expect(subscriptionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ planPriceId: 'ng-price', planId: 'plan-1' }),
+      );
+      expect(result.pricingMismatch).toBeNull();
+    });
+
+    it('surfaces mismatch for paid ACTIVE NG workspace still on USD', async () => {
+      const subscription = {
+        id: 'sub-1',
+        status: SubscriptionStatus.ACTIVE,
+        planId: 'plan-1',
+        planPriceId: 'usd-price',
+        plan: { slug: 'growth' },
+        planPrice: {
+          id: 'usd-price',
+          countryCode: 'GLOBAL',
+          currency: 'USD',
+          plan: { slug: 'growth' },
+        },
+      } as unknown as TenantSubscription;
+      plansService.getPlanPrice.mockResolvedValue({
+        id: 'ng-price',
+        countryCode: 'NG',
+        currency: 'NGN',
+      });
+
+      const result = await service.healNgSubscriptionPlanPrice('NG', subscription);
+
+      expect(subscriptionRepo.save).not.toHaveBeenCalled();
+      expect(result.pricingMismatch).toEqual(
+        expect.objectContaining({
+          expectedCurrency: 'NGN',
+          actualCurrency: 'USD',
+        }),
+      );
+    });
+
+    it('leaves non-NG tenants unchanged', async () => {
+      const subscription = {
+        status: SubscriptionStatus.TRIAL,
+        planPrice: { countryCode: 'GLOBAL', currency: 'USD' },
+      } as unknown as TenantSubscription;
+
+      const result = await service.healNgSubscriptionPlanPrice('GH', subscription);
+
+      expect(plansService.getPlanPrice).not.toHaveBeenCalled();
+      expect(result.pricingMismatch).toBeNull();
+      expect(result.subscription).toBe(subscription);
     });
   });
 });

@@ -204,6 +204,10 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
     }
   }
 
+  async endExternalTrial(externalSubscriptionId: string): Promise<void> {
+    await this.bachsApi.endSubscriptionTrial(externalSubscriptionId);
+  }
+
   private parsePaymentEvent(
     body: BachsWebhookPayload,
     outcome: 'success' | 'failed',

@@ -10,6 +10,14 @@ export function isMonnifyWalletTopupOrderRef(orderReference: string, tenantId: s
   return orderReference.startsWith(`wm_${tenantKey}_`);
 }
 
+/** Recover tenant UUID from `wm_{uuidNoHyphens}_…` when webhook meta is missing. */
+export function parseTenantIdFromMonnifyWalletTopupOrderRef(orderReference: string): string | null {
+  const match = /^wm_([0-9a-f]{32})_/i.exec(orderReference.trim());
+  if (!match) return null;
+  const hex = match[1].toLowerCase();
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function buildNombaWalletTopupOrderRef(tenantId: string): string {
   return `wt_${tenantId.replace(/-/g, '')}_${Date.now().toString(36)}${randomBytes(2).toString('hex').slice(0, 3)}`;
 }

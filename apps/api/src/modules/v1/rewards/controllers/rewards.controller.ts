@@ -64,8 +64,7 @@ async function withWalletResponse(
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
     checkoutLive,
-    savedCardTopupSupported:
-      checkoutProvider !== PaymentProvider.MONNIFY && checkoutProvider !== PaymentProvider.BACHS,
+    savedCardTopupSupported: checkoutProvider !== PaymentProvider.BACHS,
     /** @deprecated use checkoutLive */
     nombaLive: isNombaLive(),
   };

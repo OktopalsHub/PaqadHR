@@ -259,10 +259,11 @@ export class TenantWalletService {
     const wallet = await this.ensureWallet(tenantId);
     if (enabled) {
       const tenant = await this.tenantsService.getTenant(tenantId);
-      if (
-        resolveRewardsWalletPaymentProvider(tenant.countryCode, wallet.currencyCode) ===
-        PaymentProvider.MONNIFY
-      ) {
+      const walletProvider = resolveRewardsWalletPaymentProvider(
+        tenant.countryCode,
+        wallet.currencyCode,
+      );
+      if (walletProvider === PaymentProvider.BACHS) {
         throw new BadRequestException(WALLET_SAVED_CARD_UNSUPPORTED);
       }
     }

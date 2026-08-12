@@ -263,6 +263,14 @@ export function BillingSection() {
         </Alert>
       ) : null}
 
+      {overview.pricingMismatch ? (
+        <Alert variant="destructive">
+          <AlertTriangle className="size-4" />
+          <AlertTitle>Billing currency mismatch</AlertTitle>
+          <AlertDescription>{overview.pricingMismatch.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
       {isPastDue && overview.lastPaymentFailureReason ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />

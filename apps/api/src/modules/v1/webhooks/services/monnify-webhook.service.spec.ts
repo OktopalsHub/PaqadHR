@@ -77,6 +77,30 @@ describe('MonnifyWebhookService', () => {
     expect(payrollPayoutService.processMonnifyPayload).not.toHaveBeenCalled();
   });
 
+  it('routes wm_ wallet refs even when meta billingType is missing', async () => {
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const paymentReference = `wm_${tenantId.replace(/-/g, '')}_abc123`;
+    const body = JSON.stringify({
+      eventType: 'SUCCESSFUL_TRANSACTION',
+      eventData: {
+        amountPaid: 2500,
+        paymentReference,
+        metaData: {},
+      },
+    });
+
+    await service.dispatch(body, 'sig');
+
+    expect(walletTopupService.completeCheckoutTopup).toHaveBeenCalledWith(
+      {
+        tenantId,
+        orderReference: paymentReference,
+        amount: 2500,
+      },
+      'monnify',
+    );
+  });
+
   it('routes payroll disbursement references to payroll payout service', async () => {
     const runId = '11111111-1111-4111-8111-111111111111';
     const itemId = '22222222-2222-4222-8222-222222222222';
