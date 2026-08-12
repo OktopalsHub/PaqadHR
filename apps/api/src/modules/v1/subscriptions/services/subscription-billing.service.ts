@@ -37,7 +37,9 @@ import { isBillingGatewayEnabled } from '../config/billing.config';
 import {
   BillingChargeType,
   CARD_UPDATE_VERIFY_AMOUNT,
+  PENDING_SEAT_CHARGE_TTL_HOURS,
   RENEWAL_GRACE_PERIOD_DAYS,
+  RENEWAL_PENDING_CLAIM_TTL_MS,
 } from '../constants/billing.constants';
 import { BillingProvider, isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
 import type { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
@@ -368,6 +370,8 @@ export class SubscriptionBillingService {
     if (hasPlanMetadata) {
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.trialEndsAt = null;
+      subscription.cancelAtPeriodEnd = false;
+      subscription.cancelledAt = null;
     } else if (providerStatus === 'trialing' || providerStatus === 'trial') {
       subscription.status = SubscriptionStatus.TRIAL;
       if (event.trialEndsAt) {
@@ -379,6 +383,8 @@ export class SubscriptionBillingService {
     } else if (providerStatus === 'active' || providerStatus === 'paid') {
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.trialEndsAt = null;
+      subscription.cancelAtPeriodEnd = false;
+      subscription.cancelledAt = null;
     }
 
     if (event.currentPeriodStart) {
@@ -533,7 +539,6 @@ export class SubscriptionBillingService {
       billingContact: canManageBilling ? (tenantSettings?.settings.billing ?? {}) : {},
       ownerEmail: canManageBilling ? (tenant.createdBy?.email ?? null) : null,
       billingProvider: subscription?.billingProvider ?? this.providerForCountry(countryCode),
-      supportsPause: !subscription || !isManagedSubscriptionProvider(subscription.billingProvider),
       supportsCardUpdate: !subscription || subscription.billingProvider === BillingProvider.NOMBA,
     };
   }
@@ -765,46 +770,33 @@ export class SubscriptionBillingService {
     return this.subscriptionRepository.save(subscription);
   }
 
-  async pauseSubscription(tenantId: string) {
-    const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
-    if (!subscription) {
-      throw new NotFoundException('Subscription not found');
-    }
-    if (isManagedSubscriptionProvider(subscription.billingProvider)) {
-      throw new BadRequestException(
-        'Pause is not supported for Polar/Bachs subscriptions. Cancel at period end instead.',
-      );
-    }
-    if (
-      subscription.status !== SubscriptionStatus.ACTIVE &&
-      subscription.status !== SubscriptionStatus.PAST_DUE
-    ) {
-      throw new BadRequestException('Only active subscriptions can be paused');
-    }
-
-    subscription.status = SubscriptionStatus.PAUSED;
-    subscription.pausedAt = new Date();
-    subscription.cancelAtPeriodEnd = false;
-    return this.subscriptionRepository.save(subscription);
-  }
-
+  /** Undo a scheduled cancellation (`cancelAtPeriodEnd`). Pause is not supported. */
   async resumeSubscription(tenantId: string) {
     const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
-    if (subscription.status !== SubscriptionStatus.PAUSED && !subscription.cancelAtPeriodEnd) {
-      throw new BadRequestException('Subscription is not paused or scheduled for cancellation');
+    if (
+      subscription.status === SubscriptionStatus.CANCELLED ||
+      subscription.status === SubscriptionStatus.EXPIRED ||
+      subscription.status === SubscriptionStatus.SUSPENDED ||
+      subscription.status === SubscriptionStatus.INACTIVE
+    ) {
+      throw new BadRequestException(
+        'Cannot undo cancellation on a cancelled, expired, or inactive subscription',
+      );
+    }
+    if (!subscription.cancelAtPeriodEnd) {
+      throw new BadRequestException('No scheduled cancellation to undo');
     }
     if (!subscription.paymentMethodId && !subscription.externalSubscriptionId) {
-      throw new BadRequestException('Add a payment method before resuming');
+      throw new BadRequestException('Add a payment method before undoing cancellation');
     }
     if (new Date() >= subscription.currentPeriodEnd) {
       throw new BadRequestException('Subscription period has ended');
     }
 
     if (
-      subscription.cancelAtPeriodEnd &&
       isManagedSubscriptionProvider(subscription.billingProvider) &&
       subscription.externalSubscriptionId
     ) {
@@ -814,8 +806,10 @@ export class SubscriptionBillingService {
       );
     }
 
-    subscription.status = SubscriptionStatus.ACTIVE;
-    subscription.pausedAt = null;
+    if (subscription.status === SubscriptionStatus.PAUSED) {
+      subscription.status = SubscriptionStatus.ACTIVE;
+      subscription.pausedAt = null;
+    }
     subscription.cancelAtPeriodEnd = false;
     subscription.cancellationReason = null;
     return this.subscriptionRepository.save(subscription);
@@ -874,12 +868,36 @@ export class SubscriptionBillingService {
       return;
     }
 
-    if (subscription.usageMetrics?.pendingSeatCount != null) {
-      return;
-    }
-
     const liveSeats = await this.getTenantSeatCount(tenantId);
     const billedSeats = subscription.currentUsers;
+    const pendingSeatCount = subscription.usageMetrics?.pendingSeatCount;
+
+    if (pendingSeatCount != null) {
+      const pendingStale = this.isPendingSeatChargeStale(subscription);
+      const seatsDecreased = liveSeats < billedSeats;
+      const pendingTargetDrifted = liveSeats !== pendingSeatCount;
+
+      if (!pendingStale && !seatsDecreased && !pendingTargetDrifted) {
+        return;
+      }
+
+      this.logger.warn(
+        `Clearing stuck/stale pending seat charge for tenant ${tenantId} (stale=${pendingStale}, decreased=${seatsDecreased}, drifted=${pendingTargetDrifted})`,
+      );
+      subscription.usageMetrics = {
+        ...(subscription.usageMetrics ?? {}),
+        pendingSeatCount: undefined,
+        pendingExtraSeats: undefined,
+        pendingChargeAmount: undefined,
+        pendingSeatChargedAt: undefined,
+      };
+      if (seatsDecreased) {
+        subscription.currentUsers = liveSeats;
+        await this.subscriptionRepository.save(subscription);
+        return;
+      }
+      await this.subscriptionRepository.save(subscription);
+    }
 
     if (liveSeats === billedSeats) {
       return;
@@ -892,6 +910,7 @@ export class SubscriptionBillingService {
         pendingSeatCount: undefined,
         pendingExtraSeats: undefined,
         pendingChargeAmount: undefined,
+        pendingSeatChargedAt: undefined,
       };
       await this.subscriptionRepository.save(subscription);
       return;
@@ -954,8 +973,50 @@ export class SubscriptionBillingService {
       pendingSeatCount: liveSeats,
       pendingExtraSeats: extraSeats,
       pendingChargeAmount: amount,
+      pendingSeatChargedAt: new Date().toISOString(),
     };
     await this.subscriptionRepository.save(subscription);
+  }
+
+  /** Clear stale seat-addition locks and retry quantity sync during the daily renewal pass. */
+  async reclaimStuckPendingSeatCharges(): Promise<number> {
+    if (!isBillingGatewayEnabled()) {
+      return 0;
+    }
+
+    const stuck = await this.subscriptionRepository
+      .createQueryBuilder('sub')
+      .where('sub.status = :active', { active: SubscriptionStatus.ACTIVE })
+      .andWhere('sub.billing_provider = :nomba', { nomba: BillingProvider.NOMBA })
+      .andWhere(`sub.usage_metrics ? 'pendingSeatCount'`)
+      .getMany();
+
+    let reclaimed = 0;
+    for (const subscription of stuck) {
+      if (!this.isPendingSeatChargeStale(subscription)) {
+        continue;
+      }
+      await this.syncSubscriptionQuantity(subscription.tenantId);
+      reclaimed += 1;
+    }
+    return reclaimed;
+  }
+
+  private isPendingSeatChargeStale(subscription: TenantSubscription, now = new Date()): boolean {
+    if (subscription.usageMetrics?.pendingSeatCount == null) {
+      return false;
+    }
+    const chargedAtRaw = subscription.usageMetrics.pendingSeatChargedAt;
+    if (!chargedAtRaw) {
+      // Legacy rows without a timestamp are treated as stuck and cleared.
+      return true;
+    }
+    const chargedAt = new Date(chargedAtRaw);
+    if (Number.isNaN(chargedAt.getTime())) {
+      return true;
+    }
+    const ageMs = now.getTime() - chargedAt.getTime();
+    return ageMs >= PENDING_SEAT_CHARGE_TTL_HOURS * 60 * 60 * 1000;
   }
 
   async processDueRenewals(): Promise<RenewalJobResult> {
@@ -965,6 +1026,7 @@ export class SubscriptionBillingService {
     }
 
     const now = new Date();
+    await this.reclaimStuckPendingSeatCharges();
     result.suspended = await this.suspendPastGraceSubscriptions(now);
     await this.finalizeScheduledCancellations(now);
 
@@ -1088,7 +1150,7 @@ export class SubscriptionBillingService {
     // Persist reference before calling Nomba so a crash mid-charge can heal without re-charging.
     await this.updateRenewalPeriodClaim(
       periodEventId,
-      { status: 'pending', orderReference },
+      { status: 'pending', orderReference, claimedAt: new Date().toISOString() },
       billingProviderEnum,
     );
 
@@ -1665,13 +1727,14 @@ export class SubscriptionBillingService {
         }
         if (status === 'pending') {
           const ageMs = Date.now() - existing.createdAt.getTime();
-          if (ageMs < 5 * 60 * 1000) {
+          if (ageMs < RENEWAL_PENDING_CLAIM_TTL_MS) {
             return 'skip';
           }
         }
         existing.payload = {
           ...(existing.payload as Record<string, unknown>),
           status: 'pending',
+          claimedAt: new Date().toISOString(),
           retryAt: new Date().toISOString(),
         };
         await billingEventRepo.save(existing);
@@ -1683,7 +1746,12 @@ export class SubscriptionBillingService {
           eventId: periodEventId,
           provider,
           eventType: 'renewal_period',
-          payload: { status: 'pending', tenantId, subscriptionId },
+          payload: {
+            status: 'pending',
+            tenantId,
+            subscriptionId,
+            claimedAt: new Date().toISOString(),
+          },
         }),
       );
       return 'proceed';
@@ -1935,6 +2003,8 @@ export class SubscriptionBillingService {
           billingProvider: provider,
           externalSubscriptionId: payment.externalSubscriptionId ?? null,
           paymentMethodId: payment.tokenKey ?? payment.externalSubscriptionId ?? null,
+          cancelAtPeriodEnd: false,
+          cancelledAt: null,
           usageMetrics: {},
           billingHistory: [],
         });
@@ -1956,6 +2026,9 @@ export class SubscriptionBillingService {
           payment.externalSubscriptionId ?? subscription.externalSubscriptionId;
         subscription.paymentMethodId =
           payment.tokenKey ?? payment.externalSubscriptionId ?? subscription.paymentMethodId;
+        subscription.cancelAtPeriodEnd = false;
+        subscription.cancelledAt = null;
+        subscription.cancellationReason = null;
         this.applyPaymentMethodFromWebhook(subscription, payment);
         this.resetDunningFields(subscription);
       }
@@ -2132,6 +2205,7 @@ export class SubscriptionBillingService {
       pendingSeatCount: undefined,
       pendingExtraSeats: undefined,
       pendingChargeAmount: undefined,
+      pendingSeatChargedAt: undefined,
     };
 
     await this.subscriptionRepository.save(subscription);
@@ -2172,6 +2246,7 @@ export class SubscriptionBillingService {
         pendingSeatCount: undefined,
         pendingExtraSeats: undefined,
         pendingChargeAmount: undefined,
+        pendingSeatChargedAt: undefined,
       };
       await this.subscriptionRepository.save(subscription);
       await this.recordBillingEvent(
@@ -2248,8 +2323,9 @@ export class SubscriptionBillingService {
     payment.planId = planId;
     payment.planPriceId = planPriceId;
 
-    const seatCount = this.resolveRenewalSeatCount(payment, subscription);
-    const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
+    const liveSeatCount = await this.getTenantSeatCount(tenantId);
+    const chargedSeatCount = this.resolveChargedRenewalSeatCount(payment, subscription);
+    const expectedAmount = calculatePerSeatTotal(planPrice, chargedSeatCount);
     const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
 
     if (
@@ -2272,10 +2348,18 @@ export class SubscriptionBillingService {
       }
     }
 
+    if (liveSeatCount !== chargedSeatCount) {
+      this.logger.warn(
+        `Seat count drift on renewal for tenant ${tenantId}: live=${liveSeatCount}, charged=${chargedSeatCount}`,
+      );
+    }
+
     const paidAmount =
       Number.isFinite(normalizedPaid) && isAmountWithinTolerance(normalizedPaid, expectedAmount)
         ? normalizedPaid
         : Number(payment.amount);
+
+    let shouldSyncSeatsAfter = false;
 
     await this.dataSource.transaction(async (manager) => {
       const billingEventRepo = manager.getRepository(BillingEvent);
@@ -2326,9 +2410,34 @@ export class SubscriptionBillingService {
       }
 
       if (periodClaim?.payload && typeof periodClaim.payload === 'object') {
-        const claimStatus = (periodClaim.payload as Record<string, unknown>).status;
+        const claimPayload = periodClaim.payload as Record<string, unknown>;
+        const claimStatus = claimPayload.status;
         if (claimStatus === 'success') {
           return;
+        }
+        if (claimStatus === 'pending' || claimStatus === 'charged') {
+          const claimRef =
+            typeof claimPayload.orderReference === 'string' ? claimPayload.orderReference : '';
+          const sameCharge = Boolean(claimRef && claimRef === payment.reference);
+          if (!sameCharge) {
+            const claimedAtRaw =
+              claimPayload.claimedAt ?? periodClaim.updatedAt ?? periodClaim.createdAt;
+            const claimedAt = new Date(String(claimedAtRaw));
+            const ageMs = Number.isNaN(claimedAt.getTime())
+              ? Number.POSITIVE_INFINITY
+              : Date.now() - claimedAt.getTime();
+            if (ageMs < RENEWAL_PENDING_CLAIM_TTL_MS) {
+              await billingEventRepo.save(
+                billingEventRepo.create({
+                  eventId: payment.eventId,
+                  provider,
+                  eventType: 'renewal_deferred_inflight_claim',
+                  payload: payment as unknown as Record<string, unknown>,
+                }),
+              );
+              return;
+            }
+          }
         }
       }
 
@@ -2339,7 +2448,7 @@ export class SubscriptionBillingService {
         : { ...advanced, nextBillingDate: advanced.periodEnd };
 
       locked.status = SubscriptionStatus.ACTIVE;
-      locked.currentUsers = seatCount;
+      locked.currentUsers = liveSeatCount;
       locked.currentPeriodStart = billingPeriod.periodStart;
       locked.currentPeriodEnd = billingPeriod.periodEnd;
       locked.nextBillingDate = billingPeriod.nextBillingDate;
@@ -2395,24 +2504,25 @@ export class SubscriptionBillingService {
           }),
         );
       }
+
+      shouldSyncSeatsAfter = liveSeatCount > chargedSeatCount;
     });
+
+    if (shouldSyncSeatsAfter) {
+      await this.syncSubscriptionQuantity(tenantId).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Post-renewal seat sync failed for tenant ${tenantId}: ${message}`);
+      });
+    }
   }
 
-  private resolveRenewalSeatCount(
+  /** Seat count used to verify the paid renewal amount (webhook/cron charge metadata). */
+  private resolveChargedRenewalSeatCount(
     payment: SubscriptionWebhookPayment,
     subscription: TenantSubscription,
   ): number {
     if (payment.quantity != null && Number.isFinite(payment.quantity)) {
-      const fromPayment = resolveSeatCount(payment.quantity);
-      if (
-        subscription.currentUsers != null &&
-        fromPayment !== resolveSeatCount(subscription.currentUsers)
-      ) {
-        this.logger.warn(
-          `Seat count drift on renewal for tenant ${subscription.tenantId}: local=${subscription.currentUsers}, webhook=${payment.quantity}`,
-        );
-      }
-      return fromPayment;
+      return resolveSeatCount(payment.quantity);
     }
     return resolveSeatCount(subscription.currentUsers ?? 1);
   }

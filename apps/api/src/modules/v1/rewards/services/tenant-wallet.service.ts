@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import {
+  DEFAULT_WALLET_CURRENCY_FALLBACK,
   isWalletCurrencyLocked,
   resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
@@ -43,13 +44,13 @@ export class TenantWalletService {
       return this.syncWalletCurrencyIfSafe(tenantId, wallet, manager);
     }
 
-    let currencyCode = 'USD';
+    let currencyCode = DEFAULT_WALLET_CURRENCY_FALLBACK;
     try {
       const tenant = await this.tenantsService.getTenant(tenantId);
       currencyCode = resolveInitialWalletCurrency(tenant.countryCode, tenant.preferredCurrency);
     } catch (error) {
       this.logger.warn(
-        `Failed to resolve tenant currency for wallet ${tenantId}, defaulting to USD: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to resolve tenant currency for wallet ${tenantId}, defaulting to ${DEFAULT_WALLET_CURRENCY_FALLBACK}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
 

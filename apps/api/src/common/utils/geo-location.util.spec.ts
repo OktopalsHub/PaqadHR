@@ -1,4 +1,4 @@
-import { GeoLocationHelper } from './geo-location.util';
+import { GeoLocationHelper, getDefaultFiatCurrencyForCountry } from './geo-location.util';
 
 describe('GeoLocationHelper', () => {
   it('maps Africa/Lagos timezone to Nigeria', () => {
@@ -38,5 +38,32 @@ describe('GeoLocationHelper', () => {
 
   it('resolveUserCountryCode never returns GLOBAL', async () => {
     await expect(GeoLocationHelper.resolveUserCountryCode({ ip: '127.0.0.1' })).resolves.toBeNull();
+  });
+
+  it('getCountryDefaults maps country to fiat currency', () => {
+    expect(GeoLocationHelper.getCountryDefaults('NG')).toEqual({
+      currency: 'NGN',
+      timezone: 'Africa/Lagos',
+    });
+    expect(GeoLocationHelper.getCountryDefaults('GB')).toEqual({
+      currency: 'GBP',
+      timezone: 'UTC',
+    });
+    expect(GeoLocationHelper.getCountryDefaults('DE')).toEqual({
+      currency: 'EUR',
+      timezone: 'UTC',
+    });
+    expect(GeoLocationHelper.getCountryDefaults('US')).toEqual({
+      currency: 'USD',
+      timezone: 'UTC',
+    });
+  });
+
+  it('getDefaultFiatCurrencyForCountry matches payroll defaults', () => {
+    expect(getDefaultFiatCurrencyForCountry('NG')).toBe('NGN');
+    expect(getDefaultFiatCurrencyForCountry('gb')).toBe('GBP');
+    expect(getDefaultFiatCurrencyForCountry('DE')).toBe('EUR');
+    expect(getDefaultFiatCurrencyForCountry('CA')).toBe('USD');
+    expect(getDefaultFiatCurrencyForCountry(null)).toBe('USD');
   });
 });

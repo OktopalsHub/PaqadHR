@@ -35,12 +35,22 @@ describe('SubscriptionsService', () => {
   });
 
   describe('isSubscriptionEntitled', () => {
-    it('allows active subscriptions', () => {
+    it('allows active subscriptions within the billing period', () => {
       const sub = {
         status: SubscriptionStatus.ACTIVE,
         trialEndsAt: null,
+        nextBillingDate: new Date(Date.now() + 86_400_000),
       } as TenantSubscription;
       expect(service.isSubscriptionEntitled(sub)).toBe(true);
+    });
+
+    it('denies active subscriptions past renewal grace', () => {
+      const sub = {
+        status: SubscriptionStatus.ACTIVE,
+        trialEndsAt: null,
+        nextBillingDate: new Date(Date.now() - 8 * 86_400_000),
+      } as TenantSubscription;
+      expect(service.isSubscriptionEntitled(sub)).toBe(false);
     });
 
     it('allows non-expired trials', () => {
@@ -110,7 +120,17 @@ describe('SubscriptionsService', () => {
   });
 
   describe('computeNeedsPayment', () => {
-    it('requires payment when trial days are zero', () => {
+    it('requires payment when trial has ended by date', () => {
+      expect(
+        service.computeNeedsPayment({
+          status: SubscriptionStatus.TRIAL,
+          daysRemaining: 1,
+          trialEndsAt: new Date(Date.now() - 1000),
+        }),
+      ).toBe(true);
+    });
+
+    it('requires payment when trial days are zero without a date', () => {
       expect(
         service.computeNeedsPayment({
           status: SubscriptionStatus.TRIAL,
@@ -119,11 +139,22 @@ describe('SubscriptionsService', () => {
       ).toBe(true);
     });
 
-    it('does not require payment for active subscription', () => {
+    it('requires payment for active subscription past nextBillingDate', () => {
       expect(
         service.computeNeedsPayment({
           status: SubscriptionStatus.ACTIVE,
           daysRemaining: null,
+          nextBillingDate: new Date(Date.now() - 1000),
+        }),
+      ).toBe(true);
+    });
+
+    it('does not require payment for active subscription in period', () => {
+      expect(
+        service.computeNeedsPayment({
+          status: SubscriptionStatus.ACTIVE,
+          daysRemaining: null,
+          nextBillingDate: new Date(Date.now() + 86_400_000),
         }),
       ).toBe(false);
     });

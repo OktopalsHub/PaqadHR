@@ -9,7 +9,14 @@ export enum BillingChargeType {
 
 export const RENEWAL_GRACE_PERIOD_DAYS = 7;
 
-export const DUNNING_RETRY_INTERVALS_DAYS = [0, 2, 4, 6];
+/** Absolute day offsets from billingAnchor for retries after failure 1..N (no same-day re-hammer). */
+export const DUNNING_RETRY_INTERVALS_DAYS = [2, 4, 6];
+
+/** Drop stuck seat-addition pending flags after this many hours and retry. */
+export const PENDING_SEAT_CHARGE_TTL_HOURS = 48;
+
+/** Cron owns an in-flight renewal claim for this long before webhooks may take over. */
+export const RENEWAL_PENDING_CLAIM_TTL_MS = 5 * 60 * 1000;
 
 export const CARD_UPDATE_VERIFY_AMOUNT = 100;
 

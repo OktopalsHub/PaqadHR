@@ -27,6 +27,7 @@ import {
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
+import { getDefaultPayrollCurrencyForCountry } from '@/features/settings/lib/workspace-payroll-currencies';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import {
   useCreateCustomReward,
@@ -45,13 +46,14 @@ import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
-const CHECKOUT_SANDBOX_DOCS: Record<'nomba' | 'monnify' | 'noah', string> = {
-  nomba: 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing',
-  monnify: 'https://developers.monnify.com/docs/test-cards',
-  noah: 'https://docs.noah.com/',
-};
-
-const SANDBOX_DOC_URL = 'https://developer.nomba.com/docs/products/accept-payment/sandbox-testing';
+function walletAmountExamples(currency: string) {
+  const isNgn = currency.toUpperCase() === 'NGN';
+  return {
+    thresholdPlaceholder: isNgn ? 'e.g. 1000' : 'e.g. 50',
+    amountPlaceholder: isNgn ? 'e.g. 5000' : 'e.g. 100',
+    exampleRewardCost: isNgn ? 1000 : 10,
+  };
+}
 
 export function SettingsRewardsTab() {
   const { tenant } = useTenant();
@@ -103,16 +105,21 @@ export function SettingsRewardsTab() {
   const savedCardTopupSupported = wallet?.savedCardTopupSupported ?? true;
   const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
   const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
-  const rewardsCurrency = (wallet?.currencyCode ?? 'USD').toUpperCase();
-  const currencyLocked = wallet?.currencyLocked ?? Number(wallet?.balanceAmount ?? 0) !== 0;
   const isNgTenant = tenantCountry === 'NG';
+  const rewardsCurrency = (
+    wallet?.currencyCode ??
+    tenant?.preferredCurrency ??
+    getDefaultPayrollCurrencyForCountry(tenant?.countryCode)
+  ).toUpperCase();
+  const currencyLocked = wallet?.currencyLocked ?? Number(wallet?.balanceAmount ?? 0) !== 0;
+  const { thresholdPlaceholder, amountPlaceholder, exampleRewardCost } =
+    walletAmountExamples(rewardsCurrency);
   const topupAmountValue = Number(topupAmount);
   const topupAmountValid =
     Number.isFinite(topupAmountValue) &&
     topupAmountValue > 0 &&
     topupAmountValue <= WALLET_TOPUP_MAX_AMOUNT;
   const exchangeRateValue = Number(exchangeRate);
-  const exampleRewardCost = 1000;
   const examplePointsCost =
     Number.isFinite(exchangeRateValue) && exchangeRateValue > 0
       ? Math.ceil(exampleRewardCost * exchangeRateValue)
@@ -323,29 +330,6 @@ export function SettingsRewardsTab() {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Fund via Top up — card or bank transfer in checkout
-            {isNgTenant
-              ? ` (${wallet?.checkoutProviderLabel ?? 'Nomba/Monnify'}, ${rewardsCurrency}).`
-              : ` (Noah, ${rewardsCurrency} wallet — you can pay in GBP or EUR at checkout).`}
-            {!wallet?.checkoutLive ? (
-              <>
-                {' '}
-                <a
-                  href={
-                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ?? SANDBOX_DOC_URL
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium underline underline-offset-2"
-                >
-                  Test payments
-                </a>{' '}
-                in sandbox mode.
-              </>
-            ) : null}
-          </p>
-
           <div className="rounded-2xl border bg-background/50 p-5 space-y-4">
             {savedCardTopupSupported ? (
               <>
@@ -398,7 +382,7 @@ export function SettingsRewardsTab() {
                         type="number"
                         min={0}
                         max={WALLET_TOPUP_MAX_AMOUNT}
-                        placeholder="e.g. 1000"
+                        placeholder={thresholdPlaceholder}
                         value={autoTopupThreshold}
                         onChange={(e) => setAutoTopupThreshold(e.target.value)}
                         className="rounded-xl h-10"
@@ -417,7 +401,7 @@ export function SettingsRewardsTab() {
                         type="number"
                         min={1}
                         max={WALLET_TOPUP_MAX_AMOUNT}
-                        placeholder="e.g. 5000"
+                        placeholder={amountPlaceholder}
                         value={autoTopupAmount}
                         onChange={(e) => setAutoTopupAmount(e.target.value)}
                         className="rounded-xl h-10"
@@ -494,7 +478,7 @@ export function SettingsRewardsTab() {
                 currencyLocked
                   ? `Locked after wallet activity. Balance stays in ${rewardsCurrency}.`
                   : isNgTenant
-                    ? 'Nigeria workspaces use NGN and Nomba/Monnify. Updates if you change workspace settings before first top-up.'
+                    ? 'Nigeria workspaces use NGN. Updates if you change workspace settings before first top-up.'
                     : 'Set from workspace country and currency. Updates before first top-up if you change them in Workspace settings.'
               }
             >
@@ -520,7 +504,7 @@ export function SettingsRewardsTab() {
                   <SettingsSwitchRow
                     id="giftCardsEnabled"
                     label="Gift Cards & Prepaid Vouchers"
-                    hint="Reloadly vouchers. Points = wholesale cost converted to your workspace currency, plus plan fee, then × exchange rate. Members pay more for higher amounts."
+                    hint="Reloadly vouchers. Points = wholesale cost converted to your rewards wallet currency, plus plan fee, then × exchange rate. Members pay more for higher amounts."
                     checked={giftCardsEnabled}
                     onCheckedChange={setGiftCardsEnabled}
                   />
@@ -528,8 +512,8 @@ export function SettingsRewardsTab() {
                     <div className="pl-6 pt-2 space-y-2 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         Points on each card are a starting price (lowest amount). Your wallet is
-                        charged the Reloadly wholesale cost (converted to your workspace currency)
-                        plus plan fee when someone redeems.
+                        charged the Reloadly wholesale cost (converted to {rewardsCurrency}) plus
+                        plan fee when someone redeems.
                       </p>
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:
@@ -757,7 +741,7 @@ export function SettingsRewardsTab() {
                 min={1}
                 max={WALLET_TOPUP_MAX_AMOUNT}
                 step="1"
-                placeholder="e.g. 5000"
+                placeholder={amountPlaceholder}
                 value={topupAmount}
                 onChange={(e) => setTopupAmount(e.target.value)}
                 className="rounded-xl h-10"
@@ -779,22 +763,6 @@ export function SettingsRewardsTab() {
                 'Top up'
               )}
             </Button>
-
-            {!wallet?.checkoutLive ? (
-              <p className="text-xs text-muted-foreground">
-                <a
-                  href={
-                    CHECKOUT_SANDBOX_DOCS[wallet?.checkoutProvider ?? 'nomba'] ?? SANDBOX_DOC_URL
-                  }
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium underline underline-offset-2"
-                >
-                  Test payments
-                </a>{' '}
-                in sandbox mode
-              </p>
-            ) : null}
           </div>
         </DialogContent>
       </Dialog>

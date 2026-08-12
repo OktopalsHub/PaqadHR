@@ -79,7 +79,6 @@ export const billingOverviewSchema = billingStatusSchema.extend({
   lastPaymentFailureReason: z.string().nullable().optional(),
   lastPaymentFailureCode: z.string().nullable().optional(),
   billingProvider: z.enum(['nomba', 'bachs', 'polar']).optional(),
-  supportsPause: z.boolean().optional(),
   supportsCardUpdate: z.boolean().optional(),
 });
 

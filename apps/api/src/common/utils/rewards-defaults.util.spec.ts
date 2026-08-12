@@ -17,6 +17,11 @@ describe('resolveInitialWalletCurrency', () => {
   it('returns USD for non-Nigeria when preferred currency is unset', () => {
     expect(resolveInitialWalletCurrency('US', null)).toBe('USD');
   });
+
+  it('returns country default when preferred currency is unset', () => {
+    expect(resolveInitialWalletCurrency('GB', null)).toBe('GBP');
+    expect(resolveInitialWalletCurrency('DE', null)).toBe('EUR');
+  });
 });
 
 describe('isWalletCurrencyLocked', () => {

@@ -1,10 +1,22 @@
 import {
+  formatNoahHttpError,
   isNoahOperationSuccessful,
   isNoahPaymentVerified,
   normalizeNoahWebhookPayload,
 } from './noah-api.util';
 
 describe('noah-api.util', () => {
+  it('maps Noah 401 to an auth configuration message', () => {
+    const message = formatNoahHttpError(401, 'Noah request failed (401)');
+    expect(message).toContain('authentication failed');
+    expect(message).toContain('NOAH_API_KEY');
+    expect(message).not.toContain('Noah Error:');
+  });
+
+  it('keeps non-auth Noah failures prefixed', () => {
+    expect(formatNoahHttpError(400, 'invalid currency')).toBe('Noah Error: invalid currency');
+  });
+
   it('treats Settled as a successful operation status', () => {
     expect(isNoahOperationSuccessful('Settled')).toBe(true);
     expect(isNoahPaymentVerified('Settled')).toBe(true);

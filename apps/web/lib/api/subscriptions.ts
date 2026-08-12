@@ -54,10 +54,7 @@ export async function cancelSubscription(
   });
 }
 
-export async function pauseSubscription(tenantId: string) {
-  return apiClient(`/subscriptions/tenant/${tenantId}/pause`, { method: 'POST' });
-}
-
+/** Undo a scheduled cancellation (`cancelAtPeriodEnd`). */
 export async function resumeSubscription(tenantId: string) {
   return apiClient(`/subscriptions/tenant/${tenantId}/resume`, { method: 'POST' });
 }

@@ -1,4 +1,7 @@
-import { GeoLocationHelper } from './geo-location.util';
+import { GeoLocationHelper, getDefaultFiatCurrencyForCountry } from './geo-location.util';
+
+/** Fallback when wallet.currencyCode is missing; matches ensureWallet resolution-failure default. */
+export const DEFAULT_WALLET_CURRENCY_FALLBACK = 'USD';
 
 /** Currency for a new or unfunded wallet before any activity. */
 export function resolveInitialWalletCurrency(
@@ -13,7 +16,7 @@ export function resolveInitialWalletCurrency(
   if (preferred) {
     return preferred;
   }
-  return 'USD';
+  return getDefaultFiatCurrencyForCountry(country) || DEFAULT_WALLET_CURRENCY_FALLBACK;
 }
 
 /** @deprecated Use resolveInitialWalletCurrency for new wallets; funded wallets use tenant_wallets.currency_code. */

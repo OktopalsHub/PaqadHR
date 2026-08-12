@@ -15,7 +15,6 @@ import {
   useBillingOverview,
   useCancelSubscription,
   useCreateSubscriptionCheckout,
-  usePauseSubscription,
   useResumeSubscription,
   useUpdatePaymentMethod,
 } from '@/hooks/queries/use-billing';
@@ -177,7 +176,6 @@ export function BillingSection() {
   const checkout = useCreateSubscriptionCheckout();
   const updateCard = useUpdatePaymentMethod();
   const cancelSub = useCancelSubscription();
-  const pauseSub = usePauseSubscription();
   const resumeSub = useResumeSubscription();
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -217,12 +215,12 @@ export function BillingSection() {
   const payNowPlanSlug = currentPlanSlug ?? sortedPlans[0]?.slug ?? 'starter';
   const subStatus = overview.subscription?.status;
   const isPastDue = subStatus === 'PAST_DUE';
-  const isPaused = subStatus === 'PAUSED';
   const isActive =
-    subStatus === 'ACTIVE' || (subStatus === 'TRIAL' && Boolean(overview.hasPaymentMethodOnFile));
+    subStatus === 'ACTIVE' ||
+    subStatus === 'PAUSED' ||
+    (subStatus === 'TRIAL' && Boolean(overview.hasPaymentMethodOnFile));
   const isCancelledOrExpired =
     subStatus === 'CANCELLED' || subStatus === 'EXPIRED' || subStatus === 'SUSPENDED';
-  const supportsPause = overview.supportsPause !== false;
   const supportsCardUpdate = overview.supportsCardUpdate !== false;
   const canManageSub =
     overview.canManageBilling &&
@@ -440,22 +438,6 @@ export function BillingSection() {
                     )}
                   </Button>
                 ) : null}
-                {supportsPause ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pauseSub.isPending}
-                    onClick={() =>
-                      pauseSub.mutate(undefined, {
-                        onSuccess: () => toast.success('Subscription paused'),
-                        onError: (err) =>
-                          toast.error(err instanceof Error ? err.message : 'Failed to pause'),
-                      })
-                    }
-                  >
-                    Pause
-                  </Button>
-                ) : null}
                 <Button
                   size="sm"
                   variant="destructive"
@@ -471,31 +453,9 @@ export function BillingSection() {
                     )
                   }
                 >
-                  Cancel at period end
+                  Cancel subscription
                 </Button>
               </>
-            ) : null}
-            {isPaused && !overview.cancelAtPeriodEnd ? (
-              <Button
-                size="sm"
-                disabled={resumeSub.isPending}
-                onClick={() =>
-                  resumeSub.mutate(undefined, {
-                    onSuccess: () => toast.success('Subscription resumed'),
-                    onError: (err) =>
-                      toast.error(err instanceof Error ? err.message : 'Failed to resume'),
-                  })
-                }
-              >
-                {resumeSub.isPending ? (
-                  <>
-                    <Loader2 className="mr-1 size-4 animate-spin" />
-                    Resuming…
-                  </>
-                ) : (
-                  'Resume'
-                )}
-              </Button>
             ) : null}
           </div>
         ) : null}

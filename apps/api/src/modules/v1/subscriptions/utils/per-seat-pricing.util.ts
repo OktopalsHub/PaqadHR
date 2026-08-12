@@ -5,6 +5,9 @@ import {
 } from '../constants/billing.constants';
 
 export function resolveSeatCount(seatCount: number): number {
+  if (!Number.isFinite(seatCount)) {
+    return 1;
+  }
   return Math.max(1, seatCount);
 }
 

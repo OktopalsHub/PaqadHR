@@ -2,6 +2,47 @@ import geoip from 'fast-geoip';
 
 const DEFAULT_COUNTRY = 'GLOBAL';
 
+const EURO_COUNTRY_CODES = new Set([
+  'AD',
+  'AT',
+  'BE',
+  'BG',
+  'CY',
+  'DE',
+  'EE',
+  'ES',
+  'FI',
+  'FR',
+  'GR',
+  'HR',
+  'IE',
+  'IT',
+  'LT',
+  'LU',
+  'LV',
+  'MC',
+  'ME',
+  'MT',
+  'NL',
+  'PT',
+  'SI',
+  'SK',
+  'SM',
+  'VA',
+  'XK',
+]);
+
+const GBP_COUNTRY_CODES = new Set(['GB', 'GG', 'IM', 'JE']);
+
+export function getDefaultFiatCurrencyForCountry(countryCode?: string | null): string {
+  const code = countryCode?.trim().toUpperCase();
+  if (!code || code === DEFAULT_COUNTRY) return 'USD';
+  if (code === 'NG') return 'NGN';
+  if (GBP_COUNTRY_CODES.has(code)) return 'GBP';
+  if (EURO_COUNTRY_CODES.has(code)) return 'EUR';
+  return 'USD';
+}
+
 export type GeoRequestContext = {
   ip?: string;
   headers?: Record<string, string | string[] | undefined>;
@@ -139,7 +180,7 @@ export class GeoLocationHelper {
     if (code === 'NG') {
       return { currency: 'NGN', timezone: 'Africa/Lagos' };
     }
-    return { currency: 'USD', timezone: 'UTC' };
+    return { currency: getDefaultFiatCurrencyForCountry(code), timezone: 'UTC' };
   }
 
   static toStoredCountryCode(code: string | null | undefined): string | null {

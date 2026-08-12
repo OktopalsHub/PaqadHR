@@ -100,18 +100,10 @@ export class SubscriptionBillingController {
     return this.subscriptionBillingService.cancelSubscription(tenantId, dto);
   }
 
-  @Post('tenant/:tenantId/pause')
-  @UseGuards(TenantMemberGuard, TenantRoleGuard, BillingGatewayGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  @ApiOperation({ summary: 'Pause subscription renewals until period end' })
-  pauseSubscription(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
-    return this.subscriptionBillingService.pauseSubscription(tenantId);
-  }
-
   @Post('tenant/:tenantId/resume')
   @UseGuards(TenantMemberGuard, TenantRoleGuard, BillingGatewayGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  @ApiOperation({ summary: 'Resume paused subscription or undo scheduled cancel' })
+  @ApiOperation({ summary: 'Undo a scheduled cancellation' })
   resumeSubscription(@Param('tenantId', ParseUUIDPipe) tenantId: string) {
     return this.subscriptionBillingService.resumeSubscription(tenantId);
   }

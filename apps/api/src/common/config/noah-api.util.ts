@@ -1,3 +1,11 @@
+/** Map Noah HTTP failures to operator-facing API errors (never include secrets). */
+export function formatNoahHttpError(status: number, upstreamMessage: string): string {
+  if (status === 401) {
+    return 'Noah checkout authentication failed. Verify NOAH_API_KEY, NOAH_ENVIRONMENT (sandbox vs production), and NOAH_SIGNING_PRIVATE_KEY if set.';
+  }
+  return `Noah Error: ${upstreamMessage}`;
+}
+
 /** Noah success statuses for payouts and checkout. */
 export function isNoahOperationSuccessful(status?: string | null): boolean {
   if (!status) {

@@ -3,12 +3,13 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
   getNoahApiKey,
   getNoahBaseUrl,
+  getNoahEnvironment,
   getNoahPayoutCryptoCurrency,
   getNoahSigningPrivateKey,
   isNoahConfigured,
   isNoahSigningRequired,
 } from '../config/noah.config';
-import { isNoahOperationSuccessful } from '../config/noah-api.util';
+import { formatNoahHttpError, isNoahOperationSuccessful } from '../config/noah-api.util';
 import { createNoahApiSignature, noahJwtPath } from '../config/noah-request-sign.util';
 import { verifyNoahWebhookSignature } from '../config/noah-webhook.util';
 import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
@@ -174,8 +175,10 @@ export class NoahApiService {
           ? String(payload.error)
           : undefined) ||
         `Noah request failed (${response.status})`;
-      this.logger.error(`Noah ${method} ${path} failed: ${message}`);
-      throw new BadRequestException(`Noah Error: ${message}`);
+      this.logger.error(
+        `Noah ${method} ${path} failed: ${message} (env=${getNoahEnvironment()}, host=${url.host})`,
+      );
+      throw new BadRequestException(formatNoahHttpError(response.status, message));
     }
 
     return payload;

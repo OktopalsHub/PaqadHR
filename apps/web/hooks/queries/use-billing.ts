@@ -6,7 +6,6 @@ import {
   createSubscriptionCheckout,
   fetchBillingOverview,
   fetchBillingStatus,
-  pauseSubscription,
   resumeSubscription,
   startTrial,
   updatePaymentMethod,
@@ -111,19 +110,6 @@ export function useCancelSubscription() {
     mutationFn: (options?: { atPeriodEnd?: boolean; reason?: string }) => {
       if (!tenantId) throw new Error('Workspace not selected');
       return cancelSubscription(tenantId, options);
-    },
-    onSuccess: invalidate,
-  });
-}
-
-export function usePauseSubscription() {
-  const { tenantId } = useTenant();
-  const invalidate = useInvalidateBilling();
-
-  return useMutation({
-    mutationFn: () => {
-      if (!tenantId) throw new Error('Workspace not selected');
-      return pauseSubscription(tenantId);
     },
     onSuccess: invalidate,
   });

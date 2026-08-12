@@ -7,6 +7,7 @@ import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
+import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defaults.util';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
@@ -89,7 +90,7 @@ export class TenantWalletTopupService {
     }
 
     const wallet = await this.walletService.ensureWallet(tenantId);
-    const currency = (wallet.currencyCode || 'USD').toUpperCase();
+    const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode);
 
@@ -206,7 +207,7 @@ export class TenantWalletTopupService {
     }
 
     const wallet = await this.walletService.ensureWallet(input.tenantId);
-    const currency = (wallet.currencyCode || 'NGN').toUpperCase();
+    const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
 
     const verified =
       billingProvider === PaymentProvider.NOAH
@@ -338,14 +339,14 @@ export class TenantWalletTopupService {
       customerEmail = resolved;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      this.notifyWalletChargeFailed(tenantId, amount, 'NGN', reason);
+      this.notifyWalletChargeFailed(tenantId, amount, DEFAULT_WALLET_CURRENCY_FALLBACK, reason);
       throw new BadRequestException(
         audience === 'admin' ? WALLET_CHARGE_FAILED_ADMIN : WALLET_UNAVAILABLE_MEMBER,
       );
     }
 
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
-    const currency = (wallet.currencyCode || 'USD').toUpperCase();
+    const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode);
 

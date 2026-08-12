@@ -8,6 +8,7 @@ import type { PointsSettings } from '../../../../common/interfaces/points-settin
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import {
+  DEFAULT_WALLET_CURRENCY_FALLBACK,
   normalizeRewardsCatalogCountries,
   resolveDefaultRewardsCatalogCountry,
   resolveInitialWalletCurrency,
@@ -158,7 +159,7 @@ export class TenantSettingsService {
           rewardsCurrency:
             rewardsDefaults?.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
-            'USD',
+            DEFAULT_WALLET_CURRENCY_FALLBACK,
           catalogCountries:
             updateDto.rewards.catalogCountries !== undefined
               ? normalizeRewardsCatalogCountries(

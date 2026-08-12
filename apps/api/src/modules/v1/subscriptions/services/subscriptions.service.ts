@@ -13,6 +13,13 @@ import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import { isWithinRenewalGrace } from '../utils/dunning.util';
 
+export type NeedsPaymentInput = {
+  status: SubscriptionStatus;
+  daysRemaining?: number | null;
+  trialEndsAt?: Date | string | null;
+  nextBillingDate?: Date | string | null;
+} | null;
+
 @Injectable()
 export class SubscriptionsService {
   constructor(
@@ -57,20 +64,24 @@ export class SubscriptionsService {
   }
 
   isSubscriptionEntitled(subscription: TenantSubscription): boolean {
+    const now = new Date();
     if (subscription.status === SubscriptionStatus.ACTIVE) {
+      if (subscription.nextBillingDate && now >= subscription.nextBillingDate) {
+        return isWithinRenewalGrace(subscription.nextBillingDate, now);
+      }
       return true;
     }
     if (subscription.status === SubscriptionStatus.TRIAL) {
       if (!subscription.trialEndsAt) {
         return true;
       }
-      return new Date() < subscription.trialEndsAt;
+      return now < subscription.trialEndsAt;
     }
     if (subscription.status === SubscriptionStatus.PAST_DUE) {
-      return isWithinRenewalGrace(subscription.nextBillingDate);
+      return isWithinRenewalGrace(subscription.nextBillingDate, now);
     }
     if (subscription.status === SubscriptionStatus.PAUSED) {
-      return new Date() < subscription.currentPeriodEnd;
+      return now < subscription.currentPeriodEnd;
     }
     return false;
   }
@@ -88,6 +99,7 @@ export class SubscriptionsService {
       isOnTrial: boolean;
       daysRemaining: number | null;
       currentPeriodEnd: Date;
+      nextBillingDate: Date;
     } | null;
   }> {
     const subscription = await this.getTenantSubscription(tenantId);
@@ -115,6 +127,7 @@ export class SubscriptionsService {
       isOnTrial: subscription.isOnTrial,
       daysRemaining,
       currentPeriodEnd: subscription.currentPeriodEnd,
+      nextBillingDate: subscription.nextBillingDate,
     };
 
     return {
@@ -127,12 +140,7 @@ export class SubscriptionsService {
     };
   }
 
-  computeNeedsPayment(
-    subscription: {
-      status: SubscriptionStatus;
-      daysRemaining: number | null;
-    } | null,
-  ): boolean {
+  computeNeedsPayment(subscription: NeedsPaymentInput): boolean {
     if (!subscription) {
       return true;
     }
@@ -145,8 +153,15 @@ export class SubscriptionsService {
     ) {
       return true;
     }
-    if (subscription.status === SubscriptionStatus.TRIAL && subscription.daysRemaining === 0) {
-      return true;
+    const now = Date.now();
+    if (subscription.status === SubscriptionStatus.TRIAL) {
+      if (subscription.trialEndsAt) {
+        return now >= new Date(subscription.trialEndsAt).getTime();
+      }
+      return subscription.daysRemaining === 0;
+    }
+    if (subscription.status === SubscriptionStatus.ACTIVE && subscription.nextBillingDate) {
+      return now >= new Date(subscription.nextBillingDate).getTime();
     }
     return false;
   }
@@ -247,7 +262,8 @@ export class SubscriptionsService {
   async getCurrentUsage(tenantId: string, usageType: string): Promise<number> {
     const subscription = await this.getTenantSubscription(tenantId);
     if (!subscription?.usageMetrics) return 0;
-    return subscription.usageMetrics[usageType as keyof typeof subscription.usageMetrics] ?? 0;
+    const value = subscription.usageMetrics[usageType as keyof typeof subscription.usageMetrics];
+    return typeof value === 'number' ? value : 0;
   }
 
   async setTenantRegion(

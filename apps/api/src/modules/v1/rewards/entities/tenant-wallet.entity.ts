@@ -7,7 +7,7 @@ export class TenantWallet extends BaseEntity {
   @Column({ name: 'tenant_id', type: 'uuid' })
   tenantId: string;
 
-  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'NGN' })
+  @Column({ name: 'currency_code', type: 'varchar', length: 8, default: 'USD' })
   currencyCode: string;
 
   @Column({ name: 'balance_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })

@@ -1149,15 +1149,19 @@ describe('SubscriptionBillingService lifecycle', () => {
     expect(subscriptionRepo.save).toHaveBeenCalled();
   });
 
-  it('rejects pause for managed Polar/Bachs subscriptions', async () => {
+  it('rejects undo when there is no scheduled cancellation', async () => {
     const { service, subscriptionsService } = createService();
     subscriptionsService.getTenantSubscription.mockResolvedValue({
       tenantId: 'tenant-1',
       status: SubscriptionStatus.ACTIVE,
-      billingProvider: BillingProvider.POLAR,
+      cancelAtPeriodEnd: false,
+      paymentMethodId: 'pm_1',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
     });
 
-    await expect(service.pauseSubscription('tenant-1')).rejects.toThrow(/Pause is not supported/);
+    await expect(service.resumeSubscription('tenant-1')).rejects.toThrow(
+      /No scheduled cancellation/,
+    );
   });
 
   it('routes card_update success to card handler', async () => {
@@ -1289,6 +1293,7 @@ describe('SubscriptionBillingService seat sync', () => {
           pendingSeatCount: 11,
           pendingExtraSeats: 1,
           pendingChargeAmount: 1750,
+          pendingSeatChargedAt: expect.any(String),
         }),
       }),
     );
@@ -1296,17 +1301,76 @@ describe('SubscriptionBillingService seat sync', () => {
     jest.useRealTimers();
   });
 
-  it('skips a new charge while a seat addition payment is pending', async () => {
+  it('skips a new charge while a fresh seat addition payment is pending', async () => {
     const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
     subscriptionRepo.findOne.mockResolvedValue({
       ...baseSubscription,
-      usageMetrics: { pendingSeatCount: 12 },
+      usageMetrics: {
+        pendingSeatCount: 12,
+        pendingSeatChargedAt: new Date().toISOString(),
+      },
     });
-    tenantMemberRepo.count.mockResolvedValue(13);
+    tenantMemberRepo.count.mockResolvedValue(12);
 
     await service.syncSubscriptionQuantity('tenant-1');
 
     expect(nombaProvider.chargeSeatAddition).not.toHaveBeenCalled();
     expect(subscriptionRepo.save).not.toHaveBeenCalled();
+  });
+
+  it('clears legacy pending seat locks without a timestamp and retries', async () => {
+    const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
+    subscriptionRepo.findOne.mockResolvedValue({
+      ...baseSubscription,
+      usageMetrics: { pendingSeatCount: 12 },
+    });
+    tenantMemberRepo.count.mockResolvedValue(11);
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-16T00:00:00.000Z'));
+
+    await service.syncSubscriptionQuantity('tenant-1');
+
+    expect(nombaProvider.chargeSeatAddition).toHaveBeenCalled();
+    jest.useRealTimers();
+  });
+
+  it('applies seat decreases even while a pending seat charge exists', async () => {
+    const { service, subscriptionRepo, tenantMemberRepo, nombaProvider } = createService();
+    subscriptionRepo.findOne.mockResolvedValue({
+      ...baseSubscription,
+      currentUsers: 12,
+      usageMetrics: {
+        pendingSeatCount: 13,
+        pendingSeatChargedAt: new Date().toISOString(),
+      },
+    });
+    tenantMemberRepo.count.mockResolvedValue(10);
+
+    await service.syncSubscriptionQuantity('tenant-1');
+
+    expect(nombaProvider.chargeSeatAddition).not.toHaveBeenCalled();
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentUsers: 10,
+        usageMetrics: expect.objectContaining({
+          pendingSeatCount: undefined,
+        }),
+      }),
+    );
+  });
+});
+
+describe('SubscriptionBillingService resume guards', () => {
+  it('rejects resume for cancelled subscriptions', async () => {
+    const { service, subscriptionsService } = buildSubscriptionBillingService();
+    subscriptionsService.getTenantSubscription.mockResolvedValue({
+      tenantId: 'tenant-1',
+      status: SubscriptionStatus.CANCELLED,
+      cancelAtPeriodEnd: true,
+      paymentMethodId: 'tok',
+      currentPeriodEnd: new Date(Date.now() + 86_400_000),
+    });
+
+    await expect(service.resumeSubscription('tenant-1')).rejects.toThrow(/cancelled/i);
   });
 });
