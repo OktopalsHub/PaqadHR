@@ -305,7 +305,7 @@ export class SubscriptionsService {
     },
   ): Promise<{
     tenant: Tenant;
-    detectionMethod: string;
+    detectionMethod: 'user_selected' | 'ip_detected' | 'default';
     lockedRegion: string;
   }> {
     const tenant = await this.tenantRepository.findOne({
@@ -321,7 +321,7 @@ export class SubscriptionsService {
     }
 
     let countryCode: string;
-    let detectionMethod: string;
+    let detectionMethod: 'user_selected' | 'ip_detected' | 'default';
 
     const selected = userSelectedCountry?.trim().toUpperCase();
     if (selected && selected !== 'GLOBAL' && GeoLocationHelper.toStoredCountryCode(selected)) {
@@ -335,7 +335,7 @@ export class SubscriptionsService {
         timezone: options?.timezone,
       });
       countryCode = detected.countryCode;
-      detectionMethod = detected.detectionMethod;
+      detectionMethod = detected.detectionMethod === 'default' ? 'default' : 'ip_detected';
     }
 
     const updatedTenant = await this.setTenantRegion(tenantId, { countryCode });
