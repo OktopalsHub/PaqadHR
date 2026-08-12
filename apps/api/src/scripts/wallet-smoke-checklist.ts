@@ -13,7 +13,7 @@ Prerequisites
 - Boot logs show sandbox mode and webhook secrets configured
 - Two test tenants: one with country NG, one with country US (or other non-NG)
 
-NG tenant (Nomba or Monnify per NG_PAYMENTS_PROVIDER)
+NG tenant (Nomba or Monnify per NG_PAYMENTS_PROVIDER; optional NG_WALLET_PAYMENTS_PROVIDER=bachs for deposits)
 1. Settings → Rewards → Top up → enter amount → redirect to sandbox checkout
 2. Complete sandbox payment → webhook fires → wallet balance increases in NGN
 3. Replay the same webhook payload/reference → balance unchanged (idempotent)

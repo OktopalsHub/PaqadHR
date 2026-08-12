@@ -1,5 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { getBachsBaseUrl, getBachsSecretKey } from 'src/common/config/bachs.config';
+import {
+  type BachsWalletTopupCurrency,
+  getBachsBaseUrl,
+  getBachsSecretKey,
+  getBachsWalletTopupProductId,
+} from 'src/common/config/bachs.config';
 
 export interface BachsProductInput {
   name: string;
@@ -18,6 +23,17 @@ export interface BachsCheckoutInput {
   successUrl: string;
   cancelUrl?: string;
   billingCurrency?: string;
+  reference: string;
+  metadata?: Record<string, string | number | boolean | undefined>;
+}
+
+export interface BachsWalletTopupCheckoutInput {
+  amount: number;
+  currency: BachsWalletTopupCurrency;
+  customerEmail: string;
+  customerName: string;
+  successUrl: string;
+  cancelUrl?: string;
   reference: string;
   metadata?: Record<string, string | number | boolean | undefined>;
 }
@@ -85,6 +101,77 @@ export class BachsApiService {
         metadata,
       },
     });
+  }
+
+  async createWalletTopupCheckout(input: BachsWalletTopupCheckoutInput): Promise<{
+    checkout_id: string;
+    checkout_url: string;
+    reference?: string;
+  }> {
+    const productId = getBachsWalletTopupProductId(input.currency);
+    if (!productId) {
+      throw new Error('bachs_wallet_topup_product_not_configured');
+    }
+
+    const metadata = Object.fromEntries(
+      Object.entries(input.metadata ?? {}).filter(([, value]) => value != null),
+    );
+
+    return this.request('/v1/checkout-sessions', {
+      method: 'POST',
+      body: {
+        customer: {
+          email: input.customerEmail,
+          name: input.customerName,
+        },
+        product_cart: [
+          {
+            product_id: productId,
+            quantity: 1,
+            pricing: {
+              price_type: 'fixed',
+              amount: input.amount.toFixed(2),
+            },
+          },
+        ],
+        billing_currency: input.currency,
+        success_url: input.successUrl,
+        cancel_url: input.cancelUrl,
+        reference: input.reference,
+        metadata,
+      },
+    });
+  }
+
+  /** Paginated lookup by checkout reference for wallet top-up verification. */
+  async findPaymentByReference(
+    reference: string,
+  ): Promise<{ status: string; amount: number } | null> {
+    let offset = 0;
+    for (;;) {
+      const payload = await this.request<{
+        items?: Array<{
+          reference?: string | null;
+          status?: string;
+          amount_paid?: string;
+          amount?: string;
+        }>;
+        pagination?: { has_more?: boolean };
+      }>(`/v1/payments?limit=100&offset=${offset}`);
+
+      const items = payload.items ?? [];
+      const match = items.find((item) => item.reference === reference);
+      if (match) {
+        const status = String(match.status ?? '').toLowerCase();
+        const amount = Number(match.amount_paid ?? match.amount ?? 0);
+        return { status, amount };
+      }
+
+      if (!payload.pagination?.has_more || items.length === 0) {
+        return null;
+      }
+      offset += items.length;
+    }
   }
 
   async getCheckoutSession(checkoutId: string): Promise<Record<string, unknown>> {

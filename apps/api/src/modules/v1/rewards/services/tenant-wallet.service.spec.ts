@@ -149,20 +149,49 @@ describe('TenantWalletService', () => {
 describe('TenantWalletTopupService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
   const walletTopupRef = `wt_${tenantId.replace(/-/g, '')}_ref1`;
+  const bachsWalletTopupRef = `wb_${tenantId.replace(/-/g, '')}_ref1`;
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
   const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
   const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
+  const originalNgProvider = process.env.NG_PAYMENTS_PROVIDER;
+  const originalNgWalletProvider = process.env.NG_WALLET_PAYMENTS_PROVIDER;
+  const originalBachsWalletNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+  const originalBachsWalletUsd = process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
 
   beforeEach(() => {
     process.env.NOMBA_CLIENT_ID = 'client-id';
     process.env.NOMBA_CLIENT_SECRET = 'client-secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
+    process.env.NG_PAYMENTS_PROVIDER = 'nomba';
+    delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+    delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+    delete process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
   });
 
   afterEach(() => {
     process.env.NOMBA_CLIENT_ID = originalNombaClientId;
     process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
     process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
+    if (originalNgProvider === undefined) {
+      delete process.env.NG_PAYMENTS_PROVIDER;
+    } else {
+      process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
+    }
+    if (originalNgWalletProvider === undefined) {
+      delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+    } else {
+      process.env.NG_WALLET_PAYMENTS_PROVIDER = originalNgWalletProvider;
+    }
+    if (originalBachsWalletNgn === undefined) {
+      delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+    } else {
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = originalBachsWalletNgn;
+    }
+    if (originalBachsWalletUsd === undefined) {
+      delete process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
+    } else {
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_USD = originalBachsWalletUsd;
+    }
   });
 
   function createTopupService(overrides?: {
@@ -170,13 +199,15 @@ describe('TenantWalletTopupService', () => {
     nombaCharge?: jest.Mock;
     nombaVerify?: jest.Mock;
     monnifyVerify?: jest.Mock;
+    bachsFindPayment?: jest.Mock;
     paymentMethodId?: string | null;
     tenantCountryCode?: string;
+    walletCurrency?: string;
   }) {
     const wallet = {
       id: 'wallet-1',
       tenantId,
-      currencyCode: 'NGN',
+      currencyCode: overrides?.walletCurrency ?? 'NGN',
       balanceAmount: 500,
       autoTopupEnabled: false,
       autoTopupThreshold: 1000,
@@ -280,12 +311,25 @@ describe('TenantWalletTopupService', () => {
         jest.fn().mockResolvedValue({ paid: true, amount: 2500, currency: 'NGN' }),
     };
 
+    const bachsApi = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      createWalletTopupCheckout: jest.fn().mockResolvedValue({
+        checkout_url: 'https://checkout.bachs.io/test',
+        checkout_id: 'cs_test',
+        reference: 'wb_wallet-topup-ref',
+      }),
+      findPaymentByReference:
+        overrides?.bachsFindPayment ??
+        jest.fn().mockResolvedValue({ status: 'succeeded', amount: 2500 }),
+    };
+
     const topupService = new TenantWalletTopupService(
       dataSource as any,
       walletService as any,
       nombaApi as any,
       monnifyApi as any,
       noahApi as any,
+      bachsApi as any,
       subscriptionsService as any,
       tenantSettingsService as any,
       emailService as any,
@@ -299,6 +343,7 @@ describe('TenantWalletTopupService', () => {
       nombaApi,
       noahApi,
       monnifyApi,
+      bachsApi,
       emailService,
       manager,
       walletRepo,
@@ -486,6 +531,71 @@ describe('TenantWalletTopupService', () => {
       expect(result).toEqual({ received: true, credited: false });
       expect(monnifyApi.verifyTransaction).toHaveBeenCalledWith(monnifyRef);
       expect(walletService.credit).not.toHaveBeenCalled();
+    });
+
+    it('credits wallet once for a successful Bachs checkout payment', async () => {
+      const { topupService, walletService, bachsApi } = createTopupService({
+        bachsFindPayment: jest.fn().mockResolvedValue({ status: 'succeeded', amount: 2500 }),
+      });
+
+      const result = await topupService.completeCheckoutTopup(
+        { tenantId, orderReference: bachsWalletTopupRef, amount: 2500 },
+        PaymentProvider.BACHS,
+      );
+
+      expect(result).toEqual({ received: true, credited: true });
+      expect(bachsApi.findPaymentByReference).toHaveBeenCalledWith(bachsWalletTopupRef);
+      expect(walletService.credit).toHaveBeenCalled();
+    });
+  });
+
+  describe('Bachs checkout', () => {
+    const originalBachsKey = process.env.BACHS_SECRET_KEY;
+
+    beforeEach(() => {
+      process.env.NG_WALLET_PAYMENTS_PROVIDER = 'bachs';
+      process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn_wallet';
+    });
+
+    afterEach(() => {
+      if (originalBachsKey === undefined) {
+        delete process.env.BACHS_SECRET_KEY;
+      } else {
+        process.env.BACHS_SECRET_KEY = originalBachsKey;
+      }
+    });
+
+    it('creates Bachs checkout with wallet_topup billing meta and ad-hoc amount', async () => {
+      const { topupService, bachsApi } = createTopupService();
+
+      const result = await topupService.createTopupCheckout(tenantId, 2500);
+
+      expect(result.checkoutUrl).toBe('https://checkout.bachs.io/test');
+      expect(bachsApi.createWalletTopupCheckout).toHaveBeenCalledWith(
+        expect.objectContaining({
+          amount: 2500,
+          currency: 'NGN',
+          customerEmail: 'billing@test.com',
+          metadata: expect.objectContaining({
+            tenantId,
+            billingType: 'wallet_topup',
+            expectedAmount: 2500,
+          }),
+        }),
+      );
+      const reference = bachsApi.createWalletTopupCheckout.mock.calls[0][0].reference;
+      expect(reference).toMatch(new RegExp(`^wb_${tenantId.replace(/-/g, '')}_`));
+    });
+
+    it('rejects manual top-up when provider is Bachs', async () => {
+      const { topupService, nombaApi } = createTopupService();
+
+      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+        WALLET_SAVED_CARD_UNSUPPORTED,
+      );
+
+      expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();
     });
   });
 

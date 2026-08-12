@@ -29,6 +29,7 @@
     "audit:wallet-currency": "ts-node -r tsconfig-paths/register src/scripts/audit-wallet-currency.ts",
     "smoke:wallet": "ts-node -r tsconfig-paths/register src/scripts/wallet-smoke-checklist.ts",
     "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
+    "sync:bachs-wallet-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-wallet-products.ts",
     "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts",
     "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts"
   },

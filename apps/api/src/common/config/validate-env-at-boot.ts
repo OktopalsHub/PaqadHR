@@ -177,6 +177,17 @@ export function validateEnvAtBoot(): void {
   if (ngPaymentsProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
     warnings.push('NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
+  if (ngPaymentsProvider === 'bachs') {
+    warnings.push(
+      'NG_PAYMENTS_PROVIDER must be nomba or monnify — use NG_WALLET_PAYMENTS_PROVIDER=bachs for Bachs wallet deposits only',
+    );
+  }
+  const ngWalletProvider = (process.env.NG_WALLET_PAYMENTS_PROVIDER || '').trim().toLowerCase();
+  if (ngWalletProvider === 'bachs' && !process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN?.trim()) {
+    warnings.push(
+      'NG_WALLET_PAYMENTS_PROVIDER=bachs but BACHS_WALLET_TOPUP_PRODUCT_NGN is empty — run sync:bachs-wallet-products',
+    );
+  }
 
   const monnifyBase = process.env.MONNIFY_BASE_URL?.trim().replace(/\/$/, '');
   if (monnifyLive && monnifyBase?.includes('sandbox.monnify.com')) {

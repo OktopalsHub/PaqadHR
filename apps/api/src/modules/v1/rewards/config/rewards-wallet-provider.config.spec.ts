@@ -3,12 +3,36 @@ import { resolveRewardsWalletPaymentProvider } from './rewards-wallet-provider.c
 
 describe('resolveRewardsWalletPaymentProvider', () => {
   const originalNgProvider = process.env.NG_PAYMENTS_PROVIDER;
+  const originalNgWalletProvider = process.env.NG_WALLET_PAYMENTS_PROVIDER;
+  const originalBachsKey = process.env.BACHS_SECRET_KEY;
+  const originalBachsWalletUsd = process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
+  const originalBachsWalletNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
 
   afterEach(() => {
     if (originalNgProvider === undefined) {
       delete process.env.NG_PAYMENTS_PROVIDER;
     } else {
       process.env.NG_PAYMENTS_PROVIDER = originalNgProvider;
+    }
+    if (originalNgWalletProvider === undefined) {
+      delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+    } else {
+      process.env.NG_WALLET_PAYMENTS_PROVIDER = originalNgWalletProvider;
+    }
+    if (originalBachsKey === undefined) {
+      delete process.env.BACHS_SECRET_KEY;
+    } else {
+      process.env.BACHS_SECRET_KEY = originalBachsKey;
+    }
+    if (originalBachsWalletUsd === undefined) {
+      delete process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
+    } else {
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_USD = originalBachsWalletUsd;
+    }
+    if (originalBachsWalletNgn === undefined) {
+      delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
+    } else {
+      process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = originalBachsWalletNgn;
     }
   });
 
@@ -23,6 +47,20 @@ describe('resolveRewardsWalletPaymentProvider', () => {
     expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.MONNIFY);
   });
 
+  it('uses Bachs for wallet deposits when NG_WALLET_PAYMENTS_PROVIDER=bachs', () => {
+    process.env.NG_PAYMENTS_PROVIDER = 'nomba';
+    process.env.NG_WALLET_PAYMENTS_PROVIDER = 'bachs';
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = 'prod_ngn_wallet';
+    expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.BACHS);
+  });
+
+  it('keeps wallet deposits on the same Nomba↔Monnify peer as payroll', () => {
+    process.env.NG_PAYMENTS_PROVIDER = 'monnify';
+    delete process.env.NG_WALLET_PAYMENTS_PROVIDER;
+    expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.MONNIFY);
+  });
+
   it('uses Nomba/Monnify when wallet currency is NGN regardless of tenant country', () => {
     process.env.NG_PAYMENTS_PROVIDER = 'nomba';
     expect(resolveRewardsWalletPaymentProvider('US', 'NGN')).toBe(PaymentProvider.NOMBA);
@@ -33,5 +71,11 @@ describe('resolveRewardsWalletPaymentProvider', () => {
     expect(resolveRewardsWalletPaymentProvider('US')).toBe(PaymentProvider.NOAH);
     expect(resolveRewardsWalletPaymentProvider('US', 'USD')).toBe(PaymentProvider.NOAH);
     expect(resolveRewardsWalletPaymentProvider('GB', 'GBP')).toBe(PaymentProvider.NOAH);
+  });
+
+  it('uses Bachs for USD wallet when Bachs wallet product is configured', () => {
+    process.env.BACHS_SECRET_KEY = 'sk_sandbox_test';
+    process.env.BACHS_WALLET_TOPUP_PRODUCT_USD = 'prod_usd_wallet';
+    expect(resolveRewardsWalletPaymentProvider('US', 'USD')).toBe(PaymentProvider.BACHS);
   });
 });

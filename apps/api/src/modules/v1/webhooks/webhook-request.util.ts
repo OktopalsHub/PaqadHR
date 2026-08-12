@@ -141,6 +141,40 @@ function parseMonnifyMeta(raw: unknown): Record<string, string> {
   return {};
 }
 
+export function extractBachsWalletTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+} | null {
+  const body = payload as {
+    type?: string;
+    data?: {
+      reference?: string;
+      amount_paid?: string | number;
+      amount?: string | number;
+      metadata?: Record<string, string>;
+    };
+  };
+  const eventType = String(body.type ?? '').toLowerCase();
+  if (eventType !== 'collection.succeeded') return null;
+
+  const data = body.data ?? {};
+  const meta = data.metadata ?? {};
+  if (meta.billingType !== 'wallet_topup') return null;
+
+  const tenantId = String(meta.tenantId ?? '').trim();
+  const orderReference = String(data.reference ?? '').trim();
+  if (!tenantId || !orderReference) return null;
+
+  const expectedRaw = meta.expectedAmount;
+  const amount = Number(expectedRaw ?? data.amount_paid ?? data.amount ?? 0);
+  return {
+    tenantId,
+    orderReference,
+    amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+  };
+}
+
 export function extractMonnifyWalletTopupCheckout(payload: unknown): {
   tenantId: string;
   orderReference: string;
