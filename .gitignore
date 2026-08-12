@@ -52,3 +52,6 @@ next-env.d.ts
 .pnpm-store
 *.pem
 *.pem
+.cursor
+.cursorrules
+mcp

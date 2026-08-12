@@ -17,6 +17,7 @@ import {
 interface MonnifyAuthResponse {
   requestSuccessful?: boolean;
   responseMessage?: string;
+  responseCode?: string;
   responseBody?: {
     accessToken?: string;
     expiresIn?: number;
@@ -26,6 +27,7 @@ interface MonnifyAuthResponse {
 interface MonnifyInitTransactionResponse {
   requestSuccessful?: boolean;
   responseMessage?: string;
+  responseCode?: string;
   responseBody?: {
     transactionReference?: string;
     paymentReference?: string;
@@ -37,6 +39,7 @@ interface MonnifyInitTransactionResponse {
 interface MonnifyTransactionStatusResponse {
   requestSuccessful?: boolean;
   responseMessage?: string;
+  responseCode?: string;
   responseBody?: {
     paymentReference?: string;
     transactionReference?: string;
@@ -53,6 +56,7 @@ interface MonnifyTransactionStatusResponse {
 interface MonnifyDisbursementResponse {
   requestSuccessful?: boolean;
   responseMessage?: string;
+  responseCode?: string;
   responseBody?: {
     amount?: number;
     reference?: string;
@@ -110,6 +114,33 @@ export class MonnifyApiService {
     );
   }
 
+  /** Safe Monnify response diagnostics — never logs tokens, keys, or customer PII. */
+  private logMonnifyResponse(
+    operation: string,
+    path: string,
+    httpStatus: number,
+    payload: {
+      requestSuccessful?: boolean;
+      responseMessage?: string;
+      responseCode?: string;
+    },
+    extra?: Record<string, string | boolean | number | null | undefined>,
+  ): void {
+    const parts = [
+      `Monnify ${operation} ${path}`,
+      `http=${httpStatus}`,
+      `requestSuccessful=${payload.requestSuccessful ?? 'unknown'}`,
+      `responseCode=${payload.responseCode ?? 'none'}`,
+      `responseMessage=${payload.responseMessage ?? 'none'}`,
+    ];
+    if (extra) {
+      for (const [key, value] of Object.entries(extra)) {
+        parts.push(`${key}=${value ?? 'none'}`);
+      }
+    }
+    this.logger.warn(parts.join(' '));
+  }
+
   private async monnifyFetch(url: string, init?: RequestInit): Promise<Response> {
     const path = (() => {
       try {
@@ -154,9 +185,7 @@ export class MonnifyApiService {
     const payload = (await response.json().catch(() => ({}))) as MonnifyAuthResponse;
     const token = payload.responseBody?.accessToken;
     if (!response.ok || payload.requestSuccessful === false || !token) {
-      this.logger.warn(
-        `Payment provider auth failed (${response.status}): ${payload.responseMessage ?? 'no message'}`,
-      );
+      this.logMonnifyResponse('auth', '/api/v1/auth/login', response.status, payload);
       throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
     }
 
@@ -209,11 +238,25 @@ export class MonnifyApiService {
     const transactionReference = body?.transactionReference ?? paymentReference;
 
     if (!response.ok || payload.requestSuccessful === false || !checkoutUrl) {
-      this.logger.warn(
-        `Payment provider checkout init failed (${response.status}): ${payload.responseMessage ?? 'no checkout URL'}`,
+      this.logMonnifyResponse(
+        'checkout-init',
+        '/api/v1/merchant/transactions/init-transaction',
+        response.status,
+        payload,
+        {
+          hasCheckoutUrl: Boolean(checkoutUrl),
+          paymentReference,
+          transactionReference,
+          amount: input.amount,
+          currencyCode: (input.currencyCode || 'NGN').toUpperCase(),
+        },
       );
       throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
     }
+
+    this.logger.debug(
+      `Monnify checkout-init ok paymentReference=${paymentReference} transactionReference=${transactionReference}`,
+    );
 
     return { checkoutUrl, transactionReference, paymentReference };
   }
