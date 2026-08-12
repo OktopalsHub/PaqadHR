@@ -1,4 +1,5 @@
 import { createHash, generateKeyPairSync } from 'node:crypto';
+import { BadRequestException } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
 import { createNoahApiSignature, noahJwtPath } from './noah-request-sign.util';
 
@@ -45,5 +46,16 @@ describe('noah-request-sign.util', () => {
     const decoded = jwt.decode(token) as Record<string, unknown>;
     expect(decoded.queryParams).toEqual({ country: 'US', fiatCurrency: 'USD' });
     expect(decoded.bodyHash).toBeUndefined();
+  });
+
+  it('throws BadRequestException when private key is invalid', () => {
+    expect(() =>
+      createNoahApiSignature({
+        method: 'POST',
+        path: '/v1/checkout/payin/fiat',
+        privateKey: 'not-a-valid-pem',
+        body: Buffer.from('{}'),
+      }),
+    ).toThrow(BadRequestException);
   });
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { useUrlTab } from '@/hooks/use-url-tab';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { type EmployeeDetailTab, isEmployeeDetailTab } from '../../../lib/employee-detail-tabs';
@@ -27,6 +28,10 @@ export function EmployeeDetailTabs({
 }: EmployeeDetailTabsProps) {
   const [activeTab, setTab] = useUrlTab(isEmployeeDetailTab, 'personal');
   const isSelf = viewerMemberId === memberId;
+  const { data: settings } = useTenantSettings();
+  const requireIdentityForPayroll =
+    settings?.settings?.employee?.requireIdentityForPayroll === true;
+  const showIdentitySection = isSelf && requireIdentityForPayroll;
 
   return (
     <div className="md:w-2/3">
@@ -42,7 +47,7 @@ export function EmployeeDetailTabs({
         <PersonalInfoTab
           form={form}
           canEdit={canEditPersonal}
-          canEditIdentity={canEditPersonal || isAdmin}
+          showIdentitySection={showIdentitySection}
         />
         <EmergencyContactsTab form={form} canEdit={canEditPersonal} />
         <EmploymentTab

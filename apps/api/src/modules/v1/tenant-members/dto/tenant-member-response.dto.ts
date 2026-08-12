@@ -93,6 +93,7 @@ export class TenantMemberMapper {
   static toResponse(
     member: TenantMember,
     fileUrlService?: FileUrlService,
+    options?: { includeIdentityStatus?: boolean },
   ): ITenantMemberResponseDto {
     const currentPosition = member.positionHistory?.find((p) => p.isCurrent);
     const activeDepartmentMembership = member.departmentMemberships?.find((dm) => dm.isActive);
@@ -110,8 +111,6 @@ export class TenantMemberMapper {
       role: member.role,
       isActive: member.isActive,
       avatarKey: member.avatarKey ?? undefined,
-      hasIdentityBvn: Boolean(member.identityBvn?.trim()),
-      hasIdentityNin: Boolean(member.identityNin?.trim()),
       joinDate: member.joinDate,
       leaveDate: member.leaveDate,
       tenantId: member.tenantId,
@@ -137,6 +136,10 @@ export class TenantMemberMapper {
           }
         : undefined,
     };
+    if (options?.includeIdentityStatus) {
+      response.hasIdentityBvn = Boolean(member.identityBvn?.trim());
+      response.hasIdentityNin = Boolean(member.identityNin?.trim());
+    }
     if (fileUrlService && member.avatarKey && member.tenantId) {
       response.avatarUrl =
         FileUrlMapper.mapMemberAvatar(member.avatarKey, {

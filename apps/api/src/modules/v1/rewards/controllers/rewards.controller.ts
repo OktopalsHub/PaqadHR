@@ -46,7 +46,10 @@ async function withWalletResponse(
   tenantCountryCode?: string | null,
   currencyLocked?: boolean,
 ) {
-  const checkoutProvider = resolveRewardsWalletPaymentProvider(tenantCountryCode);
+  const checkoutProvider = resolveRewardsWalletPaymentProvider(
+    tenantCountryCode,
+    wallet.currencyCode,
+  );
   const checkoutLive = isRewardsWalletCheckoutLive(checkoutProvider);
 
   return {

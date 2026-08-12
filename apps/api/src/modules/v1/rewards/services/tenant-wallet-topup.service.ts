@@ -92,7 +92,7 @@ export class TenantWalletTopupService {
     const wallet = await this.walletService.ensureWallet(tenantId);
     const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode);
+    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
 
     if (provider === PaymentProvider.NOMBA && !this.nombaApi.isConfigured()) {
       throw new BadRequestException('Nomba checkout is not configured');
@@ -295,7 +295,10 @@ export class TenantWalletTopupService {
     }
 
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    if (resolveRewardsWalletPaymentProvider(tenant?.countryCode) === PaymentProvider.MONNIFY) {
+    if (
+      resolveRewardsWalletPaymentProvider(tenant?.countryCode, wallet.currencyCode) ===
+      PaymentProvider.MONNIFY
+    ) {
       this.logger.debug(
         `Skipping auto-topup for tenant ${tenantId}: saved-card top-up is unavailable on Monnify`,
       );
@@ -348,7 +351,7 @@ export class TenantWalletTopupService {
     const wallet = await this.walletService.ensureWallet(tenantId, manager);
     const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode);
+    const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
 
     if (provider === PaymentProvider.MONNIFY) {
       throw new BadRequestException(

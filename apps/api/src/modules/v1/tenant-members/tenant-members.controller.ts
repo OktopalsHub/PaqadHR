@@ -50,7 +50,9 @@ export class TenantMembersController {
       req.auth.principalId,
       tenantId,
     );
-    return TenantMemberMapper.toResponse(member, this.fileUrlService);
+    return TenantMemberMapper.toResponse(member, this.fileUrlService, {
+      includeIdentityStatus: true,
+    });
   }
   @Patch('profile')
   @ApiOperation({ summary: 'Update current member profile' })
@@ -64,7 +66,9 @@ export class TenantMembersController {
       req.auth.principalId,
       updateDto,
     );
-    return TenantMemberMapper.toResponse(member, this.fileUrlService);
+    return TenantMemberMapper.toResponse(member, this.fileUrlService, {
+      includeIdentityStatus: true,
+    });
   }
   @Get('roles')
   @Public()
@@ -83,7 +87,9 @@ export class TenantMembersController {
   ): Promise<ITenantMemberResponseDto> {
     await this.managerAccessService.assertAdminOrSelfOrManagerOf(member, memberId, tenantId);
     const result = await this.tenantMembersService.getTenantMember(memberId, tenantId);
-    return TenantMemberMapper.toResponse(result, this.fileUrlService);
+    return TenantMemberMapper.toResponse(result, this.fileUrlService, {
+      includeIdentityStatus: member.id === memberId,
+    });
   }
   @Delete('/members/:memberId')
   @UseGuards(TenantRoleGuard)
@@ -127,7 +133,9 @@ export class TenantMembersController {
       updateDto,
       actor.id,
     );
-    return TenantMemberMapper.toResponse(updated, this.fileUrlService);
+    return TenantMemberMapper.toResponse(updated, this.fileUrlService, {
+      includeIdentityStatus: actor.id === memberId,
+    });
   }
 
   @Patch('/members/:memberId')

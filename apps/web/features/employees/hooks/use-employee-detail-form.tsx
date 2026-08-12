@@ -128,8 +128,12 @@ export function useEmployeeDetailForm(
           phone: employee.phone || undefined,
           dateOfBirth: employee.dateOfBirth || undefined,
           gender: employee.personalInfo.gender || undefined,
-          identityBvn: employee.identityBvn.trim() || undefined,
-          identityNin: employee.identityNin.trim() || undefined,
+          ...(options.isSelf
+            ? {
+                identityBvn: employee.identityBvn.trim() || undefined,
+                identityNin: employee.identityNin.trim() || undefined,
+              }
+            : {}),
         };
         if (options.isSelf) {
           await updateMemberProfile(profileUpdate);
@@ -137,12 +141,6 @@ export function useEmployeeDetailForm(
           const { updateMemberProfileById } = await import('@/lib/api/member-profile');
           await updateMemberProfileById(employee.id, profileUpdate);
         }
-      } else if (options?.isAdmin && (employee.identityBvn.trim() || employee.identityNin.trim())) {
-        const { updateMemberProfileById } = await import('@/lib/api/member-profile');
-        await updateMemberProfileById(employee.id, {
-          identityBvn: employee.identityBvn.trim() || undefined,
-          identityNin: employee.identityNin.trim() || undefined,
-        });
       }
 
       if (options?.isAdmin) {

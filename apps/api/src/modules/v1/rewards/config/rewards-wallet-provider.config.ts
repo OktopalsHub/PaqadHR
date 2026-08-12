@@ -3,12 +3,14 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { resolveNgPaymentProvider } from 'src/common/utils/ng-money-provider.util';
 
-/** Rewards wallet checkout rail — keyed on tenant country (NG), not wallet currency. */
+/** Rewards wallet checkout rail — NG tenant country or NGN wallet → Nomba/Monnify; else Noah. */
 export function resolveRewardsWalletPaymentProvider(
   tenantCountryCode?: string | null,
+  walletCurrencyCode?: string | null,
 ): PaymentProvider {
   const country = GeoLocationHelper.toStoredCountryCode(tenantCountryCode ?? '') ?? '';
-  if (country === 'NG') {
+  const currency = walletCurrencyCode?.trim().toUpperCase() ?? '';
+  if (country === 'NG' || currency === 'NGN') {
     return resolveNgPaymentProvider();
   }
   return PaymentProvider.NOAH;

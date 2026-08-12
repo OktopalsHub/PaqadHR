@@ -38,7 +38,11 @@ import {
   useUpdateAutoTopupConfig,
   useWalletTopupCheckout,
 } from '@/hooks/queries/use-rewards';
-import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
+import {
+  usePatchTenantSettings,
+  useSupportedHolidayCountries,
+  useTenantSettings,
+} from '@/hooks/queries/use-tenant-settings';
 import { syncRewardsCatalog, WALLET_TOPUP_MAX_AMOUNT } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { formatPlanMoney } from '@/lib/format-plan-money';
@@ -61,7 +65,12 @@ export function SettingsRewardsTab() {
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
-  const { data: reloadlyCountries = [] } = useReloadlyCountries();
+  const {
+    data: reloadlyCountries = [],
+    isError: reloadlyCountriesError,
+    isLoading: reloadlyCountriesLoading,
+  } = useReloadlyCountries();
+  const { data: holidayCountriesData } = useSupportedHolidayCountries();
   const { data: billingOverview } = useBillingOverview();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
@@ -283,13 +292,20 @@ export function SettingsRewardsTab() {
     }
   };
 
+  const holidayCountryOptions = (holidayCountriesData?.countries ?? []).map((country) => ({
+    code: country.code,
+    name: country.name,
+  }));
+
   const allCountries = (
     reloadlyCountries.length
       ? reloadlyCountries
-      : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
-          code,
-          name: code,
-        }))
+      : holidayCountryOptions.length
+        ? holidayCountryOptions
+        : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
+            code,
+            name: code,
+          }))
   ).filter((country) => Boolean(country.code?.trim()));
 
   const filteredReloadlyCountries = allCountries.filter(
@@ -297,6 +313,17 @@ export function SettingsRewardsTab() {
       country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
       country.code.toLowerCase().includes(countrySearch.toLowerCase()),
   );
+
+  const addableCountries = filteredReloadlyCountries.filter(
+    (country) => Boolean(country.code?.trim()) && !selectedCountries.includes(country.code),
+  );
+
+  const catalogCountryHint =
+    addableCountries.length === 0
+      ? reloadlyCountriesError && reloadlyCountries.length === 0
+        ? 'Reloadly catalog unavailable — using workspace country list. All listed countries are already added.'
+        : 'All available catalog countries are already added.'
+      : null;
 
   return (
     <div className="space-y-6">
@@ -592,40 +619,60 @@ export function SettingsRewardsTab() {
 
                 <div className="pt-3 border-t flex flex-wrap justify-between items-center gap-3">
                   <span className="text-xs text-muted-foreground font-semibold">
-                    Add more countries:
+                    {addableCountries.length === 0 ? 'Catalog countries' : 'Add more countries:'}
                   </span>
-                  <div className="flex items-center gap-2">
-                    <Select value={selectValue} onValueChange={handleAddCountry}>
-                      <SelectTrigger className="w-[220px] h-10 text-xs font-semibold rounded-xl">
-                        <SelectValue placeholder="Choose Country..." />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-64">
-                        <div className="p-2 border-b">
-                          <Input
-                            placeholder="Search countries..."
-                            value={countrySearch}
-                            onChange={(e) => setCountrySearch(e.target.value)}
-                            className="h-8 text-xs rounded-lg"
-                          />
-                        </div>
-                        {filteredReloadlyCountries
-                          .filter(
-                            (country) =>
-                              Boolean(country.code?.trim()) &&
-                              !selectedCountries.includes(country.code),
-                          )
-                          .map((country) => (
-                            <SelectItem key={country.code} value={country.code} className="text-xs">
-                              {country.name} ({country.code})
-                            </SelectItem>
-                          ))}
-                        {filteredReloadlyCountries.length === 0 && (
-                          <div className="p-2 text-center text-xs text-muted-foreground">
-                            No countries found
-                          </div>
-                        )}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-col items-end gap-1.5">
+                    {reloadlyCountriesLoading ? (
+                      <span className="text-xs text-muted-foreground">Loading countries…</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectValue}
+                          onValueChange={handleAddCountry}
+                          disabled={addableCountries.length === 0}
+                        >
+                          <SelectTrigger className="w-[220px] h-10 text-xs font-semibold rounded-xl">
+                            <SelectValue
+                              placeholder={
+                                addableCountries.length === 0
+                                  ? 'No more countries'
+                                  : 'Choose Country...'
+                              }
+                            />
+                          </SelectTrigger>
+                          <SelectContent className="max-h-64">
+                            <div className="p-2 border-b">
+                              <Input
+                                placeholder="Search countries..."
+                                value={countrySearch}
+                                onChange={(e) => setCountrySearch(e.target.value)}
+                                className="h-8 text-xs rounded-lg"
+                                disabled={addableCountries.length === 0}
+                              />
+                            </div>
+                            {addableCountries.map((country) => (
+                              <SelectItem
+                                key={country.code}
+                                value={country.code}
+                                className="text-xs"
+                              >
+                                {country.name} ({country.code})
+                              </SelectItem>
+                            ))}
+                            {addableCountries.length === 0 && (
+                              <div className="p-2 text-center text-xs text-muted-foreground">
+                                No countries to add
+                              </div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {catalogCountryHint ? (
+                      <p className="text-xs text-muted-foreground max-w-sm text-right">
+                        {catalogCountryHint}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { BadRequestException } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
 
 const NOAH_JWT_AUDIENCE = 'https://api.noah.com';
@@ -27,11 +28,17 @@ export function createNoahApiSignature(opts: NoahJwtSignOptions): string {
     payload.queryParams = queryParams;
   }
 
-  return jwt.sign(payload, privateKey, {
-    algorithm: 'ES384',
-    audience: NOAH_JWT_AUDIENCE,
-    expiresIn: '5m',
-  });
+  try {
+    return jwt.sign(payload, privateKey, {
+      algorithm: 'ES384',
+      audience: NOAH_JWT_AUDIENCE,
+      expiresIn: '5m',
+    });
+  } catch {
+    throw new BadRequestException(
+      'Noah signing key is invalid — check NOAH_SIGNING_PRIVATE_KEY PEM format',
+    );
+  }
 }
 
 /** JWT path claim must include /v1 prefix (Noah docs use e.g. /v1/transactions). */

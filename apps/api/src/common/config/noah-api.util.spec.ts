@@ -13,6 +13,12 @@ describe('noah-api.util', () => {
     expect(message).not.toContain('Noah Error:');
   });
 
+  it('maps Noah 401 signature errors to signing setup guidance', () => {
+    const message = formatNoahHttpError(401, 'signature not provided');
+    expect(message).toContain('NOAH_SIGNING_PRIVATE_KEY');
+    expect(message).not.toContain('Noah Error:');
+  });
+
   it('keeps non-auth Noah failures prefixed', () => {
     expect(formatNoahHttpError(400, 'invalid currency')).toBe('Noah Error: invalid currency');
   });

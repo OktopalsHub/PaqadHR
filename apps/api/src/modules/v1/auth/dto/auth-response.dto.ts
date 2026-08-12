@@ -28,7 +28,9 @@ export class AuthResponseDto {
     this.user = UserResponseDto.toResponse(data.user);
     this.expiresIn = data.expiresIn;
     if (data.tenantMember) {
-      this.tenantMember = TenantMemberMapper.toResponse(data.tenantMember);
+      this.tenantMember = TenantMemberMapper.toResponse(data.tenantMember, undefined, {
+        includeIdentityStatus: true,
+      });
     }
   }
 }

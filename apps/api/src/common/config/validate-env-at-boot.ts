@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import { isMonnifyLive } from './monnify.config';
+import { getNoahSigningPrivateKeyValidationWarning } from './noah.config';
 import { resolveTrustedOrigins } from './trusted-origins';
 
 const CRITICAL = [
@@ -171,6 +172,11 @@ export function validateEnvAtBoot(): void {
   }
   if (ngPaymentsProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
     warnings.push('NG_PAYMENTS_PROVIDER=monnify but MONNIFY_API_KEY is empty');
+  }
+
+  const noahSigningWarning = getNoahSigningPrivateKeyValidationWarning();
+  if (noahSigningWarning) {
+    warnings.push(noahSigningWarning);
   }
 
   for (const warning of warnings) {

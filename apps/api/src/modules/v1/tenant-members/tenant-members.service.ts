@@ -241,6 +241,7 @@ export class TenantMembersService {
   ): Promise<TenantMember> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
     if (!member) throw new NotFoundException('Tenant member not found');
+    await this.assertIdentityUpdateAllowed(tenantId, updateDto, true);
     await this.applyProfileUpdates(member, updateDto);
     return this.getTenantMember(member.id, tenantId);
   }
@@ -251,6 +252,8 @@ export class TenantMembersService {
     actorMemberId?: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
+    const isSelf = Boolean(actorMemberId && actorMemberId === memberId);
+    await this.assertIdentityUpdateAllowed(tenantId, updateDto, isSelf);
     const before = this.snapshotProfileFields(member);
     await this.applyProfileUpdates(member, updateDto);
     const updated = await this.getTenantMember(memberId, tenantId);
@@ -302,6 +305,28 @@ export class TenantMembersService {
     }
     return updated;
   }
+
+  private async assertIdentityUpdateAllowed(
+    tenantId: string,
+    updateDto: UpdateMemberProfileDto,
+    isSelf: boolean,
+  ): Promise<void> {
+    const hasIdentityUpdate =
+      updateDto.identityBvn !== undefined || updateDto.identityNin !== undefined;
+    if (!hasIdentityUpdate) {
+      return;
+    }
+
+    if (!isSelf) {
+      throw new ForbiddenException('Identity details can only be updated by the employee');
+    }
+
+    const settings = await this.tenantSettingsRepository.findOne({ where: { tenantId } });
+    if (settings?.settings?.employee?.requireIdentityForPayroll !== true) {
+      throw new BadRequestException('Identity collection is not enabled for this workspace');
+    }
+  }
+
   private async applyProfileUpdates(
     member: TenantMember,
     updateDto: UpdateMemberProfileDto,
