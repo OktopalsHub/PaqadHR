@@ -62,7 +62,7 @@ describe('MonnifyApiService', () => {
       });
 
     const service = new MonnifyApiService();
-    const warnSpy = jest.spyOn(service['logger'], 'warn');
+    const warnSpy = jest.spyOn(service.logger, 'warn');
 
     await expect(
       service.initializeTransaction({
@@ -79,7 +79,9 @@ describe('MonnifyApiService', () => {
       expect.stringContaining('checkout-init /api/v1/merchant/transactions/init-transaction'),
     );
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('http=504'));
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('responseMessage=Gateway timeout'));
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('responseMessage=Gateway timeout'),
+    );
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('paymentReference=wm_test_ref'));
   });
 });
