@@ -44,3 +44,15 @@ export function isBachsWalletTopupOrderRef(orderReference: string, tenantId: str
   const tenantKey = tenantId.replace(/-/g, '');
   return orderReference.startsWith(`wb_${tenantKey}_`);
 }
+
+/** Infer checkout rail from our order-reference prefix (wm_/wt_/nw_/wb_). */
+export function resolveWalletTopupProviderFromOrderRef(
+  orderReference: string,
+  tenantId: string,
+): 'monnify' | 'nomba' | 'noah' | 'bachs' | null {
+  if (isMonnifyWalletTopupOrderRef(orderReference, tenantId)) return 'monnify';
+  if (isNombaWalletTopupOrderRef(orderReference, tenantId)) return 'nomba';
+  if (isNoahWalletTopupOrderRef(orderReference, tenantId)) return 'noah';
+  if (isBachsWalletTopupOrderRef(orderReference, tenantId)) return 'bachs';
+  return null;
+}

@@ -143,15 +143,25 @@ export function SettingsRewardsTab() {
     if (searchParams.get('wallet_topup') !== 'done' || !tenantId) return;
 
     let cancelled = false;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const run = async () => {
       let orderReference =
         searchParams.get('paymentReference') || searchParams.get('paymentreference') || '';
+      let pendingAmount: number | undefined;
       try {
         const raw = sessionStorage.getItem(WALLET_TOPUP_PENDING_KEY);
         if (raw) {
-          const pending = JSON.parse(raw) as { tenantId?: string; orderReference?: string };
+          const pending = JSON.parse(raw) as {
+            tenantId?: string;
+            orderReference?: string;
+            amount?: number;
+          };
           if (pending.orderReference && (!pending.tenantId || pending.tenantId === tenantId)) {
             orderReference = orderReference || pending.orderReference;
+            if (Number.isFinite(pending.amount) && (pending.amount as number) > 0) {
+              pendingAmount = Number(pending.amount);
+            }
           }
         }
       } catch {
@@ -166,7 +176,17 @@ export function SettingsRewardsTab() {
       }
 
       try {
-        const result = await completeWalletTopupCheckout(tenantId, orderReference);
+        // Monnify redirect can arrive before PAID is queryable — poll verify a few times.
+        let result: { credited: boolean; retryable?: boolean } = {
+          credited: false,
+          retryable: true,
+        };
+        for (let attempt = 0; attempt < 6; attempt++) {
+          result = await completeWalletTopupCheckout(tenantId, orderReference, pendingAmount);
+          if (cancelled) return;
+          if (result.credited || !result.retryable) break;
+          await sleep(2000);
+        }
         if (cancelled) return;
         try {
           sessionStorage.removeItem(WALLET_TOPUP_PENDING_KEY);

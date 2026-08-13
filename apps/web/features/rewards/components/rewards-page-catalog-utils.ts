@@ -129,17 +129,3 @@ export function getAvailableCustomPerkTemplates(customPerks: CatalogItem[]): Cat
 export function dataPlanId(plan: { amount: number; plan: string }) {
   return `${plan.amount}:${plan.plan}`;
 }
-
-export const NG_UTILITIES = [
-  { id: 'EKEDC', name: 'Eko Electricity (EKEDC)' },
-  { id: 'IKEDC', name: 'Ikeja Electricity (IKEDC)' },
-  { id: 'AEDC', name: 'Abuja Electricity (AEDC)' },
-  { id: 'IBEDC', name: 'Ibadan Electricity (IBEDC)' },
-  { id: 'PHEDC', name: 'Port Harcourt Electricity (PHEDC)' },
-  { id: 'KEDCO', name: 'Kano Electricity (KEDCO)' },
-  { id: 'JED', name: 'Jos Electricity (JED)' },
-  { id: 'EEDC', name: 'Enugu Electricity (EEDC)' },
-  { id: 'KAEDCO', name: 'Kaduna Electricity (KAEDCO)' },
-  { id: 'BEDC', name: 'Benin Electricity (BEDC)' },
-  { id: 'YEDC', name: 'Yola Electricity (YEDC)' },
-];

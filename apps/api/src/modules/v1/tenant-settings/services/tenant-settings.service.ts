@@ -7,6 +7,7 @@ import type { BillingSettings } from '../../../../common/interfaces/billing-sett
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
+import { getNgRewardsAirtimeProviderPreference } from '../../../../common/utils/ng-money-provider.util';
 import {
   DEFAULT_WALLET_CURRENCY_FALLBACK,
   normalizeRewardsCatalogCountries,
@@ -307,6 +308,7 @@ export class TenantSettingsService {
       ],
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
       reloadlyProducts: rewards?.reloadlyProducts ?? [],
+      ngBillsProvider: getNgRewardsAirtimeProviderPreference(),
     };
   }
 

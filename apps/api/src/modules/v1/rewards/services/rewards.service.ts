@@ -138,13 +138,6 @@ export class RewardsService {
       settings.rewardsCurrency.toUpperCase() === 'NGN';
 
     if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
-      // Utility catalog remains Nomba-shaped; require Nomba when utility is claimed.
-      if (input.rewardType === 'NOMBA_UTILITY') {
-        if (!this.nombaBillApi.isConfigured()) {
-          throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
-        }
-        return;
-      }
       const preferMonnify = getNgRewardsAirtimeProviderPreference() === 'monnify';
       const configured = preferMonnify
         ? this.monnifyBillApi.isConfigured()
@@ -289,6 +282,8 @@ export class RewardsService {
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
       customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
       reloadlyProducts: rewards?.reloadlyProducts ?? [],
+      /** Active NG airtime/data/utility rail (from NG_REWARDS_AIRTIME_PROVIDER). */
+      ngBillsProvider: getNgRewardsAirtimeProviderPreference(),
     };
   }
 
@@ -931,18 +926,21 @@ export class RewardsService {
     input: ClaimInput,
   ): Promise<void> {
     if (!input.accountNumber || !input.billerId || !input.serviceType) {
-      throw new Error(
-        'Meter number, biller ID, and service type are required for Nomba utility payment',
-      );
+      throw new Error('Meter number, biller ID, and service type are required for utility payment');
     }
 
-    const result = await this.nombaBillApi.purchaseElectricity({
+    const purchaseInput = {
       amount: redemption.currencyValue,
       meterNumber: input.accountNumber,
       billerId: String(input.billerId),
       serviceType: input.serviceType as 'PREPAID' | 'POSTPAID',
       merchantTxRef: redemption.id,
-    });
+    };
+
+    const result =
+      getNgRewardsAirtimeProviderPreference() === 'monnify'
+        ? await this.monnifyBillApi.purchaseElectricity(purchaseInput)
+        : await this.nombaBillApi.purchaseElectricity(purchaseInput);
 
     if (!result.success) {
       throw new Error(`Electricity purchase failed: status ${result.status}`);
@@ -1553,6 +1551,27 @@ export class RewardsService {
   }
 
   async listUtilityBillers(countryCode: string) {
+    if (countryCode.toUpperCase() === 'NG') {
+      if (getNgRewardsAirtimeProviderPreference() === 'monnify') {
+        if (!this.monnifyBillApi.isConfigured()) {
+          throw new BadRequestException('Utility billers are temporarily unavailable.');
+        }
+        return this.monnifyBillApi.listElectricityBillers();
+      }
+      return [
+        { id: 'EKEDC', name: 'Eko Electricity (EKEDC)' },
+        { id: 'IKEDC', name: 'Ikeja Electricity (IKEDC)' },
+        { id: 'AEDC', name: 'Abuja Electricity (AEDC)' },
+        { id: 'IBEDC', name: 'Ibadan Electricity (IBEDC)' },
+        { id: 'PHEDC', name: 'Port Harcourt Electricity (PHEDC)' },
+        { id: 'KEDCO', name: 'Kano Electricity (KEDCO)' },
+        { id: 'JED', name: 'Jos Electricity (JED)' },
+        { id: 'EEDC', name: 'Enugu Electricity (EEDC)' },
+        { id: 'KAEDCO', name: 'Kaduna Electricity (KAEDCO)' },
+        { id: 'BEDC', name: 'Benin Electricity (BEDC)' },
+        { id: 'YEDC', name: 'Yola Electricity (YEDC)' },
+      ];
+    }
     return this.reloadlyUtilitiesApi.listBillers({ countryISOCode: countryCode });
   }
 
@@ -1563,7 +1582,11 @@ export class RewardsService {
     serviceType?: string,
   ) {
     if (countryCode.toUpperCase() === 'NG') {
-      return this.nombaBillApi.lookupElectricity(billerId, accountNumber, serviceType || 'PREPAID');
+      const service = (serviceType || 'PREPAID') as 'PREPAID' | 'POSTPAID';
+      if (getNgRewardsAirtimeProviderPreference() === 'monnify') {
+        return this.monnifyBillApi.lookupElectricity(billerId, accountNumber, service);
+      }
+      return this.nombaBillApi.lookupElectricity(billerId, accountNumber, service);
     }
     return {
       customerName: 'Verified Account',

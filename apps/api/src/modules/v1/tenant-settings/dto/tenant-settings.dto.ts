@@ -557,7 +557,7 @@ export class RewardsSettingsDto {
   catalogCountries?: string[];
 
   @ApiProperty({
-    description: 'Whether Nomba airtime vending is enabled',
+    description: 'Whether NG airtime/data vending is enabled',
     example: true,
     required: false,
   })

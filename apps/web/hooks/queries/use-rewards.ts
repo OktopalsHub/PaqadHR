@@ -231,12 +231,12 @@ export function useWalletTopupCheckout() {
       if (!tenantId) throw new Error('Workspace not selected');
       return createWalletTopupCheckout(tenantId, amount);
     },
-    onSuccess: (result) => {
+    onSuccess: (result, amount) => {
       if (result.checkoutUrl && tenantId) {
         try {
           sessionStorage.setItem(
             WALLET_TOPUP_PENDING_KEY,
-            JSON.stringify({ tenantId, orderReference: result.orderReference }),
+            JSON.stringify({ tenantId, orderReference: result.orderReference, amount }),
           );
         } catch {
           // ignore storage failures — webhook may still credit

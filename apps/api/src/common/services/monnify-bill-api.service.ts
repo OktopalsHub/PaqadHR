@@ -322,4 +322,83 @@ export class MonnifyBillApiService {
     const product = await this.resolveDataProduct(input.network, input.amount);
     return this.purchase(product, input);
   }
+
+  async listElectricityBillers(): Promise<Array<{ id: string; name: string }>> {
+    const billers = await this.listBillers('ELECTRICITY');
+    return billers
+      .filter((biller) => Boolean(biller.billerCode))
+      .map((biller) => ({
+        id: String(biller.billerCode),
+        name: biller.name || String(biller.billerCode),
+      }));
+  }
+
+  private async resolveElectricityProduct(
+    billerCode: string,
+    serviceType: 'PREPAID' | 'POSTPAID',
+  ): Promise<MonnifyProduct> {
+    const products = await this.listProducts(billerCode);
+    const needle = serviceType.toLowerCase();
+    const product =
+      products.find((row) => (row.name ?? '').toLowerCase().includes(needle)) ??
+      products.find((row) => row.productCode) ??
+      null;
+    if (!product?.productCode) {
+      throw new BadRequestException(
+        `Monnify billing error: no ${serviceType.toLowerCase()} electricity product for ${billerCode}`,
+      );
+    }
+    return product;
+  }
+
+  async lookupElectricity(
+    billerCode: string,
+    meterNumber: string,
+    serviceType: 'PREPAID' | 'POSTPAID' = 'PREPAID',
+  ): Promise<{
+    customerName: string | null;
+    meterNumber: string | null;
+    address: string | null;
+    billerId: string | null;
+  }> {
+    const product = await this.resolveElectricityProduct(billerCode, serviceType);
+    const customerId = meterNumber.replace(/\s+/g, '');
+    const body = await this.requestPost<MonnifyValidateBody>(
+      '/api/v1/vas/bills-payment/validate-customer',
+      { productCode: product.productCode, customerId },
+    );
+    return {
+      customerName: body.customerName ?? null,
+      meterNumber: customerId,
+      address: null,
+      billerId: billerCode,
+    };
+  }
+
+  async purchaseElectricity(input: {
+    amount: number;
+    meterNumber: string;
+    billerId: string;
+    serviceType: 'PREPAID' | 'POSTPAID';
+    merchantTxRef: string;
+  }): Promise<{
+    success: boolean;
+    transactionId: string | null;
+    status: string;
+    token: string | null;
+  }> {
+    const product = await this.resolveElectricityProduct(input.billerId, input.serviceType);
+    const customerId = input.meterNumber.replace(/\s+/g, '');
+    const validation = await this.validateCustomer(product.productCode!, customerId);
+    const result = await this.vend({
+      productCode: product.productCode!,
+      customerId,
+      vendAmount: input.amount,
+      vendReference: input.merchantTxRef,
+      validationReference: validation.requireValidationRef
+        ? validation.validationReference
+        : undefined,
+    });
+    return { ...result, token: null };
+  }
 }

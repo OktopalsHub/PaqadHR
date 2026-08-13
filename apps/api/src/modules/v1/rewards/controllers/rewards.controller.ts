@@ -31,6 +31,7 @@ import { CustomRewardsService } from '../services/custom-rewards.service';
 import { type ClaimInput, RewardsService } from '../services/rewards.service';
 import { TenantWalletService } from '../services/tenant-wallet.service';
 import { TenantWalletTopupService } from '../services/tenant-wallet-topup.service';
+import { resolveWalletTopupProviderFromOrderRef } from '../utils/wallet-order-ref.util';
 
 const ALL_ROLES = [
   TenantMemberRole.OWNER,
@@ -200,16 +201,25 @@ export class RewardsController {
     @Param('tenantId') tenantId: string,
     @Body() body: WalletTopupCompleteDto,
   ) {
-    const wallet = await this.walletService.getWallet(tenantId);
-    const tenantCountryCode = await this.walletService.getTenantCountryCode(tenantId);
-    const checkoutProvider = resolveRewardsWalletPaymentProvider(
-      tenantCountryCode,
-      wallet.currencyCode,
-    );
+    const orderReference = body.orderReference.trim();
+    const fromRef = resolveWalletTopupProviderFromOrderRef(orderReference, tenantId);
+    const checkoutProvider =
+      fromRef === 'monnify'
+        ? PaymentProvider.MONNIFY
+        : fromRef === 'nomba'
+          ? PaymentProvider.NOMBA
+          : fromRef === 'bachs'
+            ? PaymentProvider.BACHS
+            : fromRef === 'noah'
+              ? PaymentProvider.NOAH
+              : resolveRewardsWalletPaymentProvider(
+                  await this.walletService.getTenantCountryCode(tenantId),
+                  (await this.walletService.getWallet(tenantId)).currencyCode,
+                );
     return this.walletTopupService.completeCheckoutTopup(
       {
         tenantId,
-        orderReference: body.orderReference.trim(),
+        orderReference,
         amount: body.amount,
       },
       checkoutProvider,

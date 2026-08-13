@@ -13,6 +13,7 @@ import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defau
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
+import { BILLING_AMOUNT_TOLERANCE } from '../../subscriptions/constants/billing.constants';
 import { TenantSubscription } from '../../subscriptions/entities/tenant-subscription.entity';
 import { NombaApiService } from '../../subscriptions/services/nomba-api.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
@@ -248,7 +249,8 @@ export class TenantWalletTopupService {
       where: { reference: input.orderReference },
     });
     if (existing) {
-      return { received: true, credited: false };
+      // Idempotent: already credited (or recorded) for this payment reference.
+      return { received: true, credited: existing.type === 'DEPOSIT' };
     }
 
     const wallet = await this.walletService.ensureWallet(input.tenantId);
@@ -300,28 +302,27 @@ export class TenantWalletTopupService {
 
     const expected = input.amount ?? Number(verified?.amount ?? 0);
     const verifiedAmount = Number(verified?.amount ?? 0);
-    // Bachs list summaries sometimes omit amount_paid; webhook/meta expectedAmount is trusted after status verify.
+    // Prefer verified paid amount; fall back to expected when provider omits amountPaid.
     const rawPaid =
       Number.isFinite(verifiedAmount) && verifiedAmount > 0
         ? verifiedAmount
         : Number.isFinite(expected) && expected > 0
           ? expected
           : verifiedAmount;
-    const paid = normalizeWebhookAmount(rawPaid, expected, currency);
+    const paid = normalizeWebhookAmount(rawPaid, expected > 0 ? expected : rawPaid, currency);
     if (!Number.isFinite(paid) || paid <= 0) {
       this.logger.warn(`Wallet checkout top-up invalid amount for ${input.orderReference}`);
       return { received: true, credited: false };
     }
 
-    if (
-      input.amount &&
-      Number.isFinite(input.amount) &&
-      !isAmountWithinTolerance(paid, input.amount)
-    ) {
-      this.logger.warn(
-        `Wallet checkout top-up amount mismatch for ${input.orderReference}: expected ${input.amount}, got ${paid}`,
-      );
-      return { received: true, credited: false };
+    // Monnify: credit when amountPaid is at least expected (fees / overpay OK). Reject underpay only.
+    if (input.amount && Number.isFinite(input.amount) && input.amount > 0) {
+      if (paid + BILLING_AMOUNT_TOLERANCE < input.amount) {
+        this.logger.warn(
+          `Wallet checkout top-up underpaid for ${input.orderReference}: expected ${input.amount}, got ${paid}`,
+        );
+        return { received: true, credited: false };
+      }
     }
 
     const creditResult = await this.dataSource.transaction(async (manager) => {

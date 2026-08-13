@@ -60,7 +60,6 @@ import {
   dataPlanId,
   getAvailableCustomPerkTemplates,
   getReloadlyCategory,
-  NG_UTILITIES,
 } from './rewards-page-catalog-utils';
 import { ClaimRow } from './rewards-page-claim-row';
 import { PointsSummaryCard } from './rewards-page-points-summary';
@@ -226,7 +225,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [utilityCountryCode, setUtilityCountryCode] = useState(
     catalogCountries[0] || defaultCatalogCountry,
   );
-  const [selectedUtilityBillerNg, setSelectedUtilityBillerNg] = useState('EKEDC');
+  const [selectedUtilityBillerNg, setSelectedUtilityBillerNg] = useState('');
   const [selectedUtilityBillerReloadlyId, setSelectedUtilityBillerReloadlyId] =
     useState<string>('');
   const [utilityAccountNumber, setUtilityAccountNumber] = useState('');
@@ -236,9 +235,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { data: reloadlyBillers = [], isLoading: billersLoading } = useUtilityBillers(
     utilityCountryCode !== 'NG' ? utilityCountryCode : '',
   );
+  const { data: ngUtilityBillers = [], isLoading: ngBillersLoading } = useUtilityBillers(
+    utilityCountryCode === 'NG' ? 'NG' : '',
+  );
 
   const selectedUtilityBillerReloadly = reloadlyBillers.find(
     (b) => String(b.id) === selectedUtilityBillerReloadlyId,
+  );
+  const selectedNgUtilityBiller = ngUtilityBillers.find(
+    (b) => String(b.id) === selectedUtilityBillerNg,
   );
 
   // Sync selected country code for utilities if settings change
@@ -254,6 +259,16 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       setSelectedUtilityBillerReloadlyId(String(reloadlyBillers[0].id));
     }
   }, [reloadlyBillers]);
+
+  useEffect(() => {
+    if (ngUtilityBillers.length === 0) return;
+    if (
+      !selectedUtilityBillerNg ||
+      !ngUtilityBillers.some((b) => String(b.id) === selectedUtilityBillerNg)
+    ) {
+      setSelectedUtilityBillerNg(String(ngUtilityBillers[0].id));
+    }
+  }, [ngUtilityBillers, selectedUtilityBillerNg]);
 
   // Meter lookup/validation state
   const [isLookingUpMeter, setIsLookingUpMeter] = useState(false);
@@ -387,7 +402,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         utilityCountryCode === 'NG' ? selectedUtilityBillerNg : selectedUtilityBillerReloadly?.id;
       const billerName =
         utilityCountryCode === 'NG'
-          ? NG_UTILITIES.find((u) => u.id === selectedUtilityBillerNg)?.name
+          ? selectedNgUtilityBiller?.name
           : selectedUtilityBillerReloadly?.name;
 
       const rewardName = `${billerName} Utility Payment`;
@@ -1219,23 +1234,41 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          Select Biller (Nigeria)
+                          Select Biller
                         </Label>
-                        <Select
-                          value={selectedUtilityBillerNg}
-                          onValueChange={setSelectedUtilityBillerNg}
-                        >
-                          <SelectTrigger className="h-10 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {NG_UTILITIES.map((u) => (
-                              <SelectItem key={u.id} value={u.id} className="text-xs">
-                                {u.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {ngBillersLoading ? (
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <Loader2 className="size-4 animate-spin text-primary" /> Loading
+                            Billers...
+                          </div>
+                        ) : ngUtilityBillers.length === 0 ? (
+                          <div className="text-xs text-muted-foreground italic">
+                            No electricity billers available.
+                          </div>
+                        ) : (
+                          <Select
+                            value={selectedUtilityBillerNg}
+                            onValueChange={(value) => {
+                              setSelectedUtilityBillerNg(value);
+                              setLookupResult(null);
+                            }}
+                          >
+                            <SelectTrigger className="h-10 text-xs">
+                              <SelectValue placeholder="Select electricity biller..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ngUtilityBillers.map((u) => (
+                                <SelectItem
+                                  key={String(u.id)}
+                                  value={String(u.id)}
+                                  className="text-xs"
+                                >
+                                  {u.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
 
                       <div className="space-y-1.5">
@@ -1244,9 +1277,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         </Label>
                         <Select
                           value={utilityServiceType}
-                          onValueChange={(val) =>
-                            setUtilityServiceType(val as 'PREPAID' | 'POSTPAID')
-                          }
+                          onValueChange={(val) => {
+                            setUtilityServiceType(val as 'PREPAID' | 'POSTPAID');
+                            setLookupResult(null);
+                          }}
                         >
                           <SelectTrigger className="h-10 text-xs">
                             <SelectValue />
@@ -1320,7 +1354,11 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                             type="button"
                             variant="secondary"
                             onClick={handleLookupMeter}
-                            disabled={isLookingUpMeter || !utilityAccountNumber.trim()}
+                            disabled={
+                              isLookingUpMeter ||
+                              !utilityAccountNumber.trim() ||
+                              !selectedUtilityBillerNg
+                            }
                             className="h-10 text-xs font-semibold shrink-0"
                           >
                             {isLookingUpMeter ? (
@@ -1428,7 +1466,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                       claimingId === 'utility' ||
                       !utilityAccountNumber ||
                       !utilityPoints ||
-                      (utilityCountryCode === 'NG' && !lookupResult)
+                      (utilityCountryCode === 'NG' && (!lookupResult || !selectedUtilityBillerNg))
                     }
                     onClick={handleUtilityClaim}
                   >

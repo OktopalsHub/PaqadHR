@@ -236,11 +236,11 @@ export async function fetchTopupOperators(countryCode: string): Promise<Reloadly
   return apiClient<ReloadlyOperator[]>(tenantPath(tenantId, `rewards/operators/${countryCode}`));
 }
 
-export async function fetchUtilityBillers(countryCode: string): Promise<ReloadlyBiller[]> {
+export async function fetchUtilityBillers(
+  countryCode: string,
+): Promise<Array<{ id: string | number; name: string; type?: string }>> {
   const tenantId = await resolveTenantId();
-  return apiClient<ReloadlyBiller[]>(
-    tenantPath(tenantId, `rewards/utilities/billers/${countryCode}`),
-  );
+  return apiClient(tenantPath(tenantId, `rewards/utilities/billers/${countryCode}`));
 }
 
 export async function lookupUtilityMeter(params: {
@@ -307,8 +307,8 @@ export async function completeWalletTopupCheckout(
   tenantId: string,
   orderReference: string,
   amount?: number,
-): Promise<{ received: boolean; credited: boolean }> {
-  return apiClient<{ received: boolean; credited: boolean }>(
+): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
+  return apiClient<{ received: boolean; credited: boolean; retryable?: boolean }>(
     tenantPath(tenantId, 'rewards/wallet/topup/checkout/complete'),
     {
       method: 'POST',

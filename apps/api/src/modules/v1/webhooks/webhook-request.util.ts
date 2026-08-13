@@ -225,7 +225,7 @@ export function extractMonnifyWalletTopupCheckout(payload: unknown): {
     );
   }
 
-  const amount = Number(meta.expectedAmount ?? data.amountPaid ?? 0);
+  const amount = Number(data.amountPaid ?? meta.expectedAmount ?? 0);
   return {
     tenantId,
     orderReference,
