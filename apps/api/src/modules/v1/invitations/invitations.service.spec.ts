@@ -246,6 +246,7 @@ describe('InvitationsService', () => {
         'tenant-1',
         'dept-1',
         'member-new',
+        'member-new',
       );
       expect(positionMemberService.assignPosition).toHaveBeenCalledWith(
         'tenant-1',

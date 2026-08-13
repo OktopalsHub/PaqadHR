@@ -1,5 +1,7 @@
 import { DataSource } from 'typeorm';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
+import { Tenant } from '../../tenants/entities/tenant.entity';
+import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { RewardsService } from './rewards.service';
 
 describe('RewardsService catalog sync', () => {
@@ -65,6 +67,25 @@ describe('RewardsService catalog sync', () => {
       {
         getRepository: jest.fn((entity) => {
           if (entity === TenantSettings) return settingsRepo;
+          if (entity === Tenant) {
+            return {
+              findOne: jest.fn().mockResolvedValue({
+                id: 'tenant-1',
+                countryCode: 'NG',
+                preferredCurrency: 'NGN',
+                createdBy: null,
+              }),
+            };
+          }
+          if (entity === TenantWallet) {
+            return {
+              findOne: jest.fn().mockResolvedValue({
+                tenantId: 'tenant-1',
+                currencyCode: 'NGN',
+                balanceAmount: 0,
+              }),
+            };
+          }
           return {};
         }),
       } as unknown as DataSource,

@@ -91,7 +91,7 @@ describe('PayrollPayoutService', () => {
       expect(changed).toBe(true);
       expect(item.status).toBe(PayrollItemStatus.PAID);
       expect(item.transactionId).toBe('txn-123');
-      expect(item.paymentProvider).toBe('Local bank (NGN)');
+      expect(item.paymentProvider).toBe('Local bank transfer');
       expect(item.paidAt).toBeInstanceOf(Date);
       expect(item.failureReason).toBeNull();
     });
@@ -141,7 +141,7 @@ describe('PayrollPayoutService', () => {
 
       expect(changed).toBe(true);
       expect(item.status).toBe(PayrollItemStatus.FAILED);
-      expect(item.failureReason).toBe('Local bank (NGN) transfer failed');
+      expect(item.failureReason).toBe('Local bank transfer failed');
     });
 
     it('promotes pending item to processing on pending webhook', async () => {

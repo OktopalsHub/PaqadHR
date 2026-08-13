@@ -264,6 +264,7 @@ export class InvitationsService {
         invitation.tenantId,
         invitation.departmentId,
         tenantMemberId,
+        tenantMemberId,
       );
     }
     if (invitation.positionId) {

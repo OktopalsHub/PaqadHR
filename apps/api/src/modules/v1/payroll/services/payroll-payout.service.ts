@@ -279,7 +279,7 @@ export class PayrollPayoutService {
       if (item.status === PayrollItemStatus.PAID) return false;
       item.status = PayrollItemStatus.FAILED;
       item.transactionId = transactionId;
-      item.failureReason = `${providerName} transfer ${status.toLowerCase()}`;
+      item.failureReason = `${providerName} ${status.toLowerCase()}`;
       await this.payrollItemRepository.save(item);
       this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
       return true;

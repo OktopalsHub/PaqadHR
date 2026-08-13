@@ -3,9 +3,16 @@ import type { BillingProductSyncService } from './billing-product-sync.service';
 import type { SubscriptionBillingService } from './subscription-billing.service';
 
 describe('BillingCronService', () => {
-  const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
-  const originalNombaClientSecret = process.env.NOMBA_CLIENT_SECRET;
-  const originalNombaAccountId = process.env.NOMBA_PARENT_ACCOUNT_ID;
+  const originalEnv = {
+    NOMBA_CLIENT_ID: process.env.NOMBA_CLIENT_ID,
+    NOMBA_CLIENT_SECRET: process.env.NOMBA_CLIENT_SECRET,
+    NOMBA_PARENT_ACCOUNT_ID: process.env.NOMBA_PARENT_ACCOUNT_ID,
+    MONNIFY_API_KEY: process.env.MONNIFY_API_KEY,
+    MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
+    MONNIFY_CONTRACT_CODE: process.env.MONNIFY_CONTRACT_CODE,
+    BACHS_SECRET_KEY: process.env.BACHS_SECRET_KEY,
+    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
+  };
 
   const createService = () => {
     const billingService = {
@@ -24,16 +31,22 @@ describe('BillingCronService', () => {
   };
 
   afterEach(() => {
-    process.env.NOMBA_CLIENT_ID = originalNombaClientId;
-    process.env.NOMBA_CLIENT_SECRET = originalNombaClientSecret;
-    process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
+    for (const [key, value] of Object.entries(originalEnv)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
     jest.restoreAllMocks();
   });
 
-  it('skips renewal processing when Nomba is not configured', async () => {
+  it('skips renewal processing when billing is not configured', async () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
+    delete process.env.MONNIFY_API_KEY;
+    delete process.env.MONNIFY_SECRET_KEY;
+    delete process.env.MONNIFY_CONTRACT_CODE;
+    delete process.env.BACHS_SECRET_KEY;
+    delete process.env.POLAR_ACCESS_TOKEN;
     const { cronService, billingService } = createService();
 
     await cronService.processSubscriptionRenewals();
