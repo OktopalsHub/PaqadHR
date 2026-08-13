@@ -64,6 +64,8 @@ export function formatActivityTitle(activity: TenantActivity): string {
       return description.replace(/\s+joined\s+.+$/i, ' joined').trim() || 'Member joined';
     case 'wallet.deposit':
       return 'Wallet topped up';
+    case 'wallet.refund':
+      return 'Wallet refunded';
     case 'reward.redeemed': {
       const rewardName = metadata?.rewardName;
       if (typeof rewardName === 'string' && rewardName.trim())
@@ -197,14 +199,8 @@ export function getActivityPresentation(activity: TenantActivity): ActivityPrese
   }
 }
 
-export function formatActivityActor(
-  actorName: string | null,
-  actorMemberId?: string | null,
-): string {
-  const trimmed = actorName?.trim();
-  if (trimmed) return trimmed;
-  if (actorMemberId) return 'Member';
-  return 'System';
+export function formatActivityActor(actorName: string | null): string {
+  return actorName?.trim() || 'Member';
 }
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {

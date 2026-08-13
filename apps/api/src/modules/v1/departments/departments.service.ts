@@ -234,7 +234,7 @@ export class DepartmentsService {
     tenantId: string,
     id: string,
     dto: UpdateDepartmentDto,
-    actorMemberId?: string,
+    actorMemberId: string,
   ) {
     const existing = await this.departmentsRepository.findOne({ where: { id, tenantId } });
     if (!existing) throw new NotFoundException('Department not found');
@@ -243,7 +243,7 @@ export class DepartmentsService {
       tenantId,
     });
     const department = await this.departmentsRepository.findOne({ where: { id, tenantId } });
-    if (actorMemberId && department) {
+    if (department) {
       void this.activitiesService
         .queueActivity({
           tenantId,
@@ -257,31 +257,29 @@ export class DepartmentsService {
     }
     return department;
   }
-  async deleteDepartment(tenantId: string, id: string, actorMemberId?: string) {
+  async deleteDepartment(tenantId: string, id: string, actorMemberId: string) {
     const department = await this.departmentsRepository.findOne({
       where: { id, tenantId },
     });
     if (!department) throw new NotFoundException('Department not found');
     const result = await this.departmentsRepository.delete(id);
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: 'department.deleted',
-          resourceType: 'department',
-          resourceId: id,
-          description: `Deleted department ${department.name}`,
-        })
-        .catch(() => {});
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId,
+        action: 'department.deleted',
+        resourceType: 'department',
+        resourceId: id,
+        description: `Deleted department ${department.name}`,
+      })
+      .catch(() => {});
     return result;
   }
   async addMemberToDepartment(
     tenantId: string,
     departmentId: string,
     memberId: string,
-    actorMemberId?: string,
+    actorMemberId: string,
   ) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
@@ -302,26 +300,24 @@ export class DepartmentsService {
         isActive: true,
       }),
     );
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: 'department.member_added',
-          resourceType: 'department',
-          resourceId: departmentId,
-          description: `Added a member to ${department.name}`,
-          metadata: { memberId },
-        })
-        .catch(() => {});
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId,
+        action: 'department.member_added',
+        resourceType: 'department',
+        resourceId: departmentId,
+        description: `Added a member to ${department.name}`,
+        metadata: { memberId },
+      })
+      .catch(() => {});
     return { success: true };
   }
   async removeMemberFromDepartment(
     tenantId: string,
     departmentId: string,
     memberId: string,
-    actorMemberId?: string,
+    actorMemberId: string,
   ) {
     const department = await this.departmentsRepository.findOne({
       where: { id: departmentId, tenantId },
@@ -334,19 +330,17 @@ export class DepartmentsService {
       throw new NotFoundException('Member not found in department');
     }
     await this.departmentMembersRepository.delete(membership.id);
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: 'department.member_removed',
-          resourceType: 'department',
-          resourceId: departmentId,
-          description: `Removed a member from ${department.name}`,
-          metadata: { memberId },
-        })
-        .catch(() => {});
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId,
+        action: 'department.member_removed',
+        resourceType: 'department',
+        resourceId: departmentId,
+        description: `Removed a member from ${department.name}`,
+        metadata: { memberId },
+      })
+      .catch(() => {});
     return { success: true };
   }
   async getDepartmentMembers(tenantId: string, departmentId: string) {

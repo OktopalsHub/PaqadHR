@@ -62,11 +62,13 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
   }
 
   async queueActivity(payload: CreateActivityPayload): Promise<void> {
+    const actorMemberId = payload.actorMemberId.trim();
+    const entry = { ...payload, actorMemberId };
     if (process.env.NODE_ENV === 'test') {
-      ActivitiesService.testLogs.push(payload);
+      ActivitiesService.testLogs.push(entry);
       return;
     }
-    this.queue.push(payload);
+    this.queue.push(entry);
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -145,7 +147,7 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
       const entities = batch.map((entry) =>
         this.activityRepository.create({
           tenantId: entry.tenantId,
-          actorMemberId: entry.actorMemberId ?? null,
+          actorMemberId: entry.actorMemberId || null,
           action: entry.action,
           resourceType: entry.resourceType ?? null,
           resourceId: entry.resourceId ?? null,

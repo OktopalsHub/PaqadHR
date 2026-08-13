@@ -90,8 +90,6 @@ export interface RewardsSettings {
   giftCardsEnabled?: boolean;
   giftCardCategories?: string[];
   utilityPaymentsEnabled?: boolean;
-  /** Active NG airtime/data/utility provider from API env. */
-  ngBillsProvider?: 'nomba' | 'monnify';
   reloadlyProducts?: Array<{
     productId: number;
     name: string;

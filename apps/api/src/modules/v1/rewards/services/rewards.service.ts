@@ -282,8 +282,6 @@ export class RewardsService {
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
       customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
       reloadlyProducts: rewards?.reloadlyProducts ?? [],
-      /** Active NG airtime/data/utility rail (from NG_REWARDS_AIRTIME_PROVIDER). */
-      ngBillsProvider: getNgRewardsAirtimeProviderPreference(),
     };
   }
 
@@ -663,6 +661,7 @@ export class RewardsService {
           totalTenantDebit,
           redemptionId,
           `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((totalTenantDebit - faceValueInRewardsCurrency).toFixed(2))})`,
+          memberId,
           manager,
         );
       }
@@ -687,7 +686,7 @@ export class RewardsService {
 
     if (input.rewardType !== 'CUSTOM') {
       try {
-        await this.walletTopupService.maybeAutoTopupAfterDebit(tenantId);
+        await this.walletTopupService.maybeAutoTopupAfterDebit(tenantId, memberId);
       } catch (error) {
         this.logger.warn(
           `Auto top-up after redemption failed for tenant ${tenantId}: ${error instanceof Error ? error.message : error}`,
@@ -747,6 +746,7 @@ export class RewardsService {
             redemptionId,
             `Refund: ${input.rewardName ?? input.rewardId}`,
             manager,
+            { actorMemberId: memberId },
           );
         }
 

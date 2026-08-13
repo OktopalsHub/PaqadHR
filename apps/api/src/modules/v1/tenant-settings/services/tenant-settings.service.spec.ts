@@ -66,7 +66,7 @@ describe('TenantSettingsService rewards validation', () => {
       repository as unknown as TenantSettingRepository,
       dataSource as unknown as DataSource,
       eventEmitter as unknown as EventEmitter2,
-      {} as never,
+      { queueActivity: jest.fn().mockResolvedValue(undefined) } as never,
       tenantRepository as never,
       encryptionService as unknown as EncryptionService,
     );
@@ -74,37 +74,57 @@ describe('TenantSettingsService rewards validation', () => {
 
   it.each([0, -1])('rejects exchange rate %p', async (rate) => {
     await expect(
-      service.updateTenantSettings('tenant-1', {
-        rewards: { pointsExchangeRate: rate },
-      }),
+      service.updateTenantSettings(
+        'tenant-1',
+        {
+          rewards: { pointsExchangeRate: rate },
+        },
+        'member-1',
+      ),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('accepts exchange rate 1', async () => {
-    const result = await service.updateTenantSettings('tenant-1', {
-      rewards: { pointsExchangeRate: 1 },
-    });
+    const result = await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { pointsExchangeRate: 1 },
+      },
+      'member-1',
+    );
     expect(result.settings.rewards?.pointsExchangeRate).toBe(1);
   });
 
   it('accepts exchange rates below 1 when positive', async () => {
-    const result = await service.updateTenantSettings('tenant-1', {
-      rewards: { pointsExchangeRate: 0.5 },
-    });
+    const result = await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { pointsExchangeRate: 0.5 },
+      },
+      'member-1',
+    );
     expect(result.settings.rewards?.pointsExchangeRate).toBe(0.5);
   });
 
   it('accepts small positive exchange rates', async () => {
-    const result = await service.updateTenantSettings('tenant-1', {
-      rewards: { pointsExchangeRate: 0.001 },
-    });
+    const result = await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { pointsExchangeRate: 0.001 },
+      },
+      'member-1',
+    );
     expect(result.settings.rewards?.pointsExchangeRate).toBe(0.001);
   });
 
   it('uses initial workspace currency when no wallet exists yet', async () => {
-    const result = await service.updateTenantSettings('tenant-1', {
-      rewards: { rewardsCurrency: 'NGN' },
-    });
+    const result = await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { rewardsCurrency: 'NGN' },
+      },
+      'member-1',
+    );
     expect(result.settings.rewards?.rewardsCurrency).toBe('USD');
   });
 
@@ -114,9 +134,13 @@ describe('TenantSettingsService rewards validation', () => {
       balanceAmount: 5000,
     });
 
-    const result = await service.updateTenantSettings('tenant-1', {
-      rewards: { rewardsCurrency: 'USD' },
-    });
+    const result = await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { rewardsCurrency: 'USD' },
+      },
+      'member-1',
+    );
 
     expect(result.settings.rewards?.rewardsCurrency).toBe('NGN');
   });
@@ -146,18 +170,26 @@ describe('TenantSettingsService rewards validation', () => {
   });
 
   it('emits catalog sync event when catalog countries change', async () => {
-    await service.updateTenantSettings('tenant-1', {
-      rewards: { catalogCountries: ['NG', 'US'] },
-    });
+    await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { catalogCountries: ['NG', 'US'] },
+      },
+      'member-1',
+    );
     expect(eventEmitter.emit).toHaveBeenCalledWith('rewards.catalogCountriesChanged', {
       tenantId: 'tenant-1',
     });
   });
 
   it('does not emit catalog sync when countries are unchanged', async () => {
-    await service.updateTenantSettings('tenant-1', {
-      rewards: { catalogCountries: ['NG'] },
-    });
+    await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { catalogCountries: ['NG'] },
+      },
+      'member-1',
+    );
     expect(eventEmitter.emit).not.toHaveBeenCalled();
   });
 
@@ -174,9 +206,13 @@ describe('TenantSettingsService rewards validation', () => {
     expect(settings.settings.billing?.identityBvn).toBe('12345678901');
     expect(settings.settings.billing?.identityNin).toBe('10987654321');
 
-    await service.updateTenantSettings('tenant-1', {
-      billing: { identityBvn: '12345678901', identityNin: '10987654321' },
-    });
+    await service.updateTenantSettings(
+      'tenant-1',
+      {
+        billing: { identityBvn: '12345678901', identityNin: '10987654321' },
+      },
+      'member-1',
+    );
 
     expect(repository.save).toHaveBeenCalledWith(
       expect.objectContaining({

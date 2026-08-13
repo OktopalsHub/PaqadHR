@@ -200,6 +200,7 @@ export class RewardsController {
   async completeTopupCheckout(
     @Param('tenantId') tenantId: string,
     @Body() body: WalletTopupCompleteDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
     const orderReference = body.orderReference.trim();
     const fromRef = resolveWalletTopupProviderFromOrderRef(orderReference, tenantId);
@@ -222,6 +223,7 @@ export class RewardsController {
         orderReference,
         amount: body.amount,
         transactionReference: body.transactionReference?.trim() || undefined,
+        initiatedByMemberId: member.id,
       },
       checkoutProvider,
     );

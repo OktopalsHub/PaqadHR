@@ -70,7 +70,7 @@ export function ActivityDetailDialog({ activity, open, onOpenChange }: ActivityD
   if (!activity) return null;
 
   const { icon: Icon, iconClassName, title } = getActivityPresentation(activity);
-  const actor = formatActivityActor(activity.actorName, activity.actorMemberId);
+  const actor = formatActivityActor(activity.actorName);
   const when = format(new Date(activity.createdAt), 'PPpp');
   const failed = activity.status?.toLowerCase() === 'failed';
   const changeEntries = getActivityChangeEntries(activity);

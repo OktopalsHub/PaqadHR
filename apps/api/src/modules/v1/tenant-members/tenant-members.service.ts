@@ -249,30 +249,28 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     updateDto: UpdateMemberProfileDto,
-    actorMemberId?: string,
+    actorMemberId: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
-    const isSelf = Boolean(actorMemberId && actorMemberId === memberId);
+    const isSelf = actorMemberId === memberId;
     await this.assertIdentityUpdateAllowed(tenantId, updateDto, isSelf);
     const before = this.snapshotProfileFields(member);
     await this.applyProfileUpdates(member, updateDto);
     const updated = await this.getTenantMember(memberId, tenantId);
-    if (actorMemberId) {
-      const after = this.snapshotProfileFields(updated);
-      const { beforeData, afterData } = pickChangedFields(before, after);
-      const changedKeys = Object.keys(afterData);
-      if (changedKeys.length > 0) {
-        const name = this.memberDisplayName(updated);
-        this.queueMemberActivity({
-          tenantId,
-          actorMemberId,
-          action: 'member.profile_updated',
-          resourceId: memberId,
-          description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
-          beforeData,
-          afterData,
-        });
-      }
+    const after = this.snapshotProfileFields(updated);
+    const { beforeData, afterData } = pickChangedFields(before, after);
+    const changedKeys = Object.keys(afterData);
+    if (changedKeys.length > 0) {
+      const name = this.memberDisplayName(updated);
+      this.queueMemberActivity({
+        tenantId,
+        actorMemberId,
+        action: 'member.profile_updated',
+        resourceId: memberId,
+        description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
+        beforeData,
+        afterData,
+      });
     }
     return updated;
   }
@@ -280,28 +278,26 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     updateDto: UpdateTenantMemberDto,
-    actorMemberId?: string,
+    actorMemberId: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
     const before = await this.snapshotOrgFields(member, tenantId);
     await this.applyOrgUpdates(member, tenantId, updateDto);
     const updated = await this.getTenantMember(memberId, tenantId);
-    if (actorMemberId) {
-      const after = await this.snapshotOrgFields(updated, tenantId);
-      const { beforeData, afterData } = pickChangedFields(before, after);
-      const changedKeys = Object.keys(afterData);
-      if (changedKeys.length > 0) {
-        const name = this.memberDisplayName(updated);
-        this.queueMemberActivity({
-          tenantId,
-          actorMemberId,
-          action: 'member.updated',
-          resourceId: memberId,
-          description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
-          beforeData,
-          afterData,
-        });
-      }
+    const after = await this.snapshotOrgFields(updated, tenantId);
+    const { beforeData, afterData } = pickChangedFields(before, after);
+    const changedKeys = Object.keys(afterData);
+    if (changedKeys.length > 0) {
+      const name = this.memberDisplayName(updated);
+      this.queueMemberActivity({
+        tenantId,
+        actorMemberId,
+        action: 'member.updated',
+        resourceId: memberId,
+        description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
+        beforeData,
+        afterData,
+      });
     }
     return updated;
   }
@@ -502,28 +498,22 @@ export class TenantMembersService {
       }),
     );
   }
-  async removeTenantMember(
-    userId: string,
-    tenantId: string,
-    actorMemberId?: string,
-  ): Promise<void> {
+  async removeTenantMember(userId: string, tenantId: string, actorMemberId: string): Promise<void> {
     const member = await this.getTenantMemberProfile(userId, tenantId);
     await this.tenantMemberRepository.update(member.id, {
       isActive: false,
       leaveDate: new Date(),
     });
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: 'member.removed',
-          resourceType: 'member',
-          resourceId: member.id,
-          description: `Removed ${this.memberDisplayName(member)} from the workspace`,
-        })
-        .catch(() => {});
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId,
+        action: 'member.removed',
+        resourceType: 'member',
+        resourceId: member.id,
+        description: `Removed ${this.memberDisplayName(member)} from the workspace`,
+      })
+      .catch(() => {});
     this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
   }
   async setTenantMemberStatus(
@@ -549,28 +539,26 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     isActive: boolean,
-    actorMemberId?: string,
+    actorMemberId: string,
   ): Promise<TenantMember> {
     const member = await this.getTenantMember(memberId, tenantId);
     const updated = await this.setTenantMemberStatus(member.userId, tenantId, isActive);
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: isActive ? 'member.reactivated' : 'member.deactivated',
-          resourceType: 'member',
-          resourceId: memberId,
-          description: isActive
-            ? `Reactivated ${this.memberDisplayName(member)}`
-            : `Deactivated ${this.memberDisplayName(member)}`,
-          metadata: {
-            beforeData: { status: isActive ? 'Inactive' : 'Active' },
-            afterData: { status: isActive ? 'Active' : 'Inactive' },
-          },
-        })
-        .catch(() => {});
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId,
+        action: isActive ? 'member.reactivated' : 'member.deactivated',
+        resourceType: 'member',
+        resourceId: memberId,
+        description: isActive
+          ? `Reactivated ${this.memberDisplayName(member)}`
+          : `Deactivated ${this.memberDisplayName(member)}`,
+        metadata: {
+          beforeData: { status: isActive ? 'Inactive' : 'Active' },
+          afterData: { status: isActive ? 'Active' : 'Inactive' },
+        },
+      })
+      .catch(() => {});
     return updated;
   }
   async restoreTenantMember(memberId: string): Promise<void> {

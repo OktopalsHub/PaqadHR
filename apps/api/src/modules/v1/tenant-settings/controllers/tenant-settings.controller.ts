@@ -239,11 +239,14 @@ export class TenantSettingsController {
   async updateHolidaySettings(
     @TenantId() tenantId: string,
     @Body() holidaySettings: HolidaySettingsDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
     return this.serializeTenantSettings(
-      await this.tenantSettingsService.updateTenantSettings(tenantId, {
-        holidays: holidaySettings,
-      }),
+      await this.tenantSettingsService.updateTenantSettings(
+        tenantId,
+        { holidays: holidaySettings },
+        member.id,
+      ),
     );
   }
   @Post('holidays/custom')
@@ -252,6 +255,7 @@ export class TenantSettingsController {
   async addCustomHoliday(
     @TenantId() tenantId: string,
     @Body() holidayData: CreateCustomHolidayDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];
@@ -261,28 +265,40 @@ export class TenantSettingsController {
     };
     const updatedHolidays: HolidayDto[] = [...currentHolidays, newHoliday];
     return this.serializeTenantSettings(
-      await this.tenantSettingsService.updateTenantSettings(tenantId, {
-        holidays: {
-          ...settings.settings.holidays,
-          customHolidays: updatedHolidays,
+      await this.tenantSettingsService.updateTenantSettings(
+        tenantId,
+        {
+          holidays: {
+            ...settings.settings.holidays,
+            customHolidays: updatedHolidays,
+          },
         },
-      }),
+        member.id,
+      ),
     );
   }
   @Delete('holidays/custom/:holidayId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  async removeCustomHoliday(@TenantId() tenantId: string, @Param('holidayId') holidayId: string) {
+  async removeCustomHoliday(
+    @TenantId() tenantId: string,
+    @Param('holidayId') holidayId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
     const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
     const currentHolidays = settings.settings.holidays?.customHolidays || [];
     const updatedHolidays = currentHolidays.filter((h) => h.id !== holidayId);
     return this.serializeTenantSettings(
-      await this.tenantSettingsService.updateTenantSettings(tenantId, {
-        holidays: {
-          ...settings.settings.holidays,
-          customHolidays: updatedHolidays,
+      await this.tenantSettingsService.updateTenantSettings(
+        tenantId,
+        {
+          holidays: {
+            ...settings.settings.holidays,
+            customHolidays: updatedHolidays,
+          },
         },
-      }),
+        member.id,
+      ),
     );
   }
 

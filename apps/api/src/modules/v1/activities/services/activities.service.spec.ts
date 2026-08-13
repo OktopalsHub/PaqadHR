@@ -12,6 +12,7 @@ describe('ActivitiesService', () => {
 
     await service.queueActivity({
       tenantId: 'tenant-1',
+      actorMemberId: 'member-1',
       action: 'payroll.created',
       description: 'Payroll run created',
       resourceType: 'payroll',
@@ -20,7 +21,25 @@ describe('ActivitiesService', () => {
 
     expect(ActivitiesService.testLogs).toHaveLength(1);
     expect(ActivitiesService.testLogs[0].tenantId).toBe('tenant-1');
+    expect(ActivitiesService.testLogs[0].actorMemberId).toBe('member-1');
     expect(repo.save).not.toHaveBeenCalled();
+  });
+
+  it('still records tenant activity when actorMemberId is blank', async () => {
+    const repo = { create: jest.fn(), save: jest.fn(), find: jest.fn() };
+    const fileUrlService = { getMemberAvatarUrl: jest.fn().mockReturnValue(null) };
+    const service = new ActivitiesService(repo as any, fileUrlService as any);
+
+    await service.queueActivity({
+      tenantId: 'tenant-1',
+      actorMemberId: '   ',
+      action: 'payroll.created',
+      description: 'Payroll run created',
+    });
+
+    expect(ActivitiesService.testLogs).toHaveLength(1);
+    expect(ActivitiesService.testLogs[0].tenantId).toBe('tenant-1');
+    expect(ActivitiesService.testLogs[0].action).toBe('payroll.created');
   });
 
   it('lists activities for a single tenant only', async () => {

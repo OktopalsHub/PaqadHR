@@ -17,9 +17,6 @@ export interface RewardsSettings {
 
   utilityPaymentsEnabled?: boolean;
 
-  /** Runtime-only: active NG airtime/data/utility rail from NG_REWARDS_AIRTIME_PROVIDER. */
-  ngBillsProvider?: 'nomba' | 'monnify';
-
   reloadlyProducts?: Array<{
     productId: number;
     name: string;

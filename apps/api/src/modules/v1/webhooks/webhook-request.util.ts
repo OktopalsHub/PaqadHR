@@ -148,6 +148,7 @@ export function extractBachsWalletTopupCheckout(payload: unknown): {
   tenantId: string;
   orderReference: string;
   amount?: number;
+  initiatedByMemberId?: string;
 } | null {
   const body = payload as {
     type?: string;
@@ -172,10 +173,12 @@ export function extractBachsWalletTopupCheckout(payload: unknown): {
   const expectedRaw = meta.expectedAmount;
   // collection.succeeded uses data.amount (not amount_paid).
   const amount = Number(expectedRaw ?? data.amount ?? data.amount_paid ?? 0);
+  const initiatedByMemberId = String(meta.initiatedByMemberId ?? '').trim();
   return {
     tenantId,
     orderReference,
     amount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    initiatedByMemberId: initiatedByMemberId || undefined,
   };
 }
 

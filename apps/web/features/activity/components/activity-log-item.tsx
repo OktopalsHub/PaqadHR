@@ -17,7 +17,7 @@ type ActivityLogItemProps = {
 
 export function ActivityLogItem({ activity, onSelect }: ActivityLogItemProps) {
   const { icon: Icon, iconClassName, title } = getActivityPresentation(activity);
-  const actor = formatActivityActor(activity.actorName, activity.actorMemberId);
+  const actor = formatActivityActor(activity.actorName);
   const changeEntries = getActivityChangeEntries(activity);
   const createdAt = new Date(activity.createdAt);
   const timeLabel = format(createdAt, 'h:mm a');

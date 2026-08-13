@@ -7,7 +7,6 @@ import type { BillingSettings } from '../../../../common/interfaces/billing-sett
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
-import { getNgRewardsAirtimeProviderPreference } from '../../../../common/utils/ng-money-provider.util';
 import {
   DEFAULT_WALLET_CURRENCY_FALLBACK,
   normalizeRewardsCatalogCountries,
@@ -60,7 +59,7 @@ export class TenantSettingsService {
   async updateTenantSettings(
     tenantId: string,
     updateDto: UpdateTenantSettingsDto,
-    actorMemberId?: string,
+    actorMemberId: string,
   ): Promise<TenantSettings> {
     const existingSettings = await this.getTenantSettings(tenantId);
     const rewardsDefaults =
@@ -202,6 +201,9 @@ export class TenantSettingsService {
         },
       }),
     };
+    if ('ngBillsProvider' in (updatedSettings.rewards ?? {})) {
+      delete (updatedSettings.rewards as { ngBillsProvider?: unknown }).ngBillsProvider;
+    }
     if (updateDto.points) {
       this.validatePointsSettings(updatedSettings.points);
     }
@@ -222,7 +224,7 @@ export class TenantSettingsService {
     const sections = (Object.keys(updateDto) as (keyof UpdateTenantSettingsDto)[]).filter(
       (key) => updateDto[key] !== undefined,
     );
-    if (sections.length > 0 && actorMemberId) {
+    if (sections.length > 0) {
       void this.activitiesService
         .queueActivity({
           tenantId,
@@ -308,7 +310,6 @@ export class TenantSettingsService {
       ],
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
       reloadlyProducts: rewards?.reloadlyProducts ?? [],
-      ngBillsProvider: getNgRewardsAirtimeProviderPreference(),
     };
   }
 

@@ -12,6 +12,7 @@ import { TenantWalletTopupService } from './tenant-wallet-topup.service';
 
 describe('TenantWalletService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
+  const actorMemberId = '22222222-2222-4222-8222-222222222222';
 
   function createWalletService(overrides?: {
     wallet?: Record<string, unknown>;
@@ -34,6 +35,11 @@ describe('TenantWalletService', () => {
       findOne: jest.fn().mockResolvedValue(null),
       count: jest.fn().mockResolvedValue(0),
     };
+    const memberRepo = {
+      findOne: jest.fn(async ({ where }: { where?: { id?: string; tenantId?: string } }) =>
+        where?.id && where?.tenantId === tenantId ? { id: where.id } : null,
+      ),
+    };
 
     const walletRepo = {
       findOne: jest.fn().mockResolvedValue(wallet),
@@ -54,6 +60,7 @@ describe('TenantWalletService', () => {
       getRepository: jest.fn((entity) => {
         if (entity.name === 'TenantWallet') return walletRepo;
         if (entity.name === 'TenantWalletTransaction') return txRepo;
+        if (entity.name === 'TenantMember') return memberRepo;
         return {};
       }),
     };
@@ -62,6 +69,7 @@ describe('TenantWalletService', () => {
       getRepository: jest.fn((entity) => {
         if (entity.name === 'TenantWallet') return walletRepo;
         if (entity.name === 'TenantWalletTransaction') return txRepo;
+        if (entity.name === 'TenantMember') return memberRepo;
         return {};
       }),
       manager,
@@ -87,8 +95,56 @@ describe('TenantWalletService', () => {
       const { walletService, manager } = createWalletService({ debitUpdateAffected: 0 });
 
       await expect(
-        walletService.debit(tenantId, 100, 'ref-1', 'test', manager as any),
+        walletService.debit(tenantId, 100, 'ref-1', 'test', actorMemberId, manager as any),
       ).rejects.toThrow(WALLET_UNAVAILABLE_MEMBER);
+    });
+
+    it('requires a tenant member', async () => {
+      const { walletService, manager } = createWalletService();
+
+      await expect(
+        walletService.debit(tenantId, 100, 'ref-1', 'test', '', manager as any),
+      ).rejects.toThrow('A tenant member is required for this wallet operation');
+    });
+
+    it('stores actorMemberId on the spent transaction', async () => {
+      const { walletService, txRepo, manager } = createWalletService();
+
+      await walletService.debit(tenantId, 100, 'ref-1', 'test', actorMemberId, manager as any);
+
+      expect(txRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'SPENT',
+          metadata: { actorMemberId },
+        }),
+      );
+    });
+  });
+
+  describe('credit', () => {
+    it('requires a tenant member for refunds', async () => {
+      const { walletService, manager } = createWalletService();
+
+      await expect(
+        walletService.credit(tenantId, 100, 'REFUND', 'ref-1', 'refund', manager as any, {
+          actorMemberId: '',
+        }),
+      ).rejects.toThrow('A tenant member is required for this wallet operation');
+    });
+
+    it('stores actorMemberId on refund metadata', async () => {
+      const { walletService, txRepo, manager } = createWalletService();
+
+      await walletService.credit(tenantId, 100, 'REFUND', 'ref-1', 'refund', manager as any, {
+        actorMemberId,
+      });
+
+      expect(txRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'REFUND',
+          metadata: expect.objectContaining({ actorMemberId }),
+        }),
+      );
     });
   });
 
@@ -157,7 +213,7 @@ describe('TenantWalletService', () => {
       try {
         const { walletService } = createWalletService();
         await expect(
-          walletService.updateAutoTopupConfig(tenantId, true, 1000, 5000),
+          walletService.updateAutoTopupConfig(tenantId, true, 1000, 5000, actorMemberId),
         ).rejects.toThrow(WALLET_SAVED_CARD_UNSUPPORTED);
       } finally {
         if (originalWalletPref === undefined) {
@@ -182,6 +238,7 @@ describe('TenantWalletService', () => {
 
 describe('TenantWalletTopupService', () => {
   const tenantId = '11111111-1111-4111-8111-111111111111';
+  const actorMemberId = '22222222-2222-4222-8222-222222222222';
   const walletTopupRef = `wt_${tenantId.replace(/-/g, '')}_ref1`;
   const bachsWalletTopupRef = `wb_${tenantId.replace(/-/g, '')}_ref1`;
   const originalNombaClientId = process.env.NOMBA_CLIENT_ID;
@@ -414,7 +471,7 @@ describe('TenantWalletTopupService', () => {
         nombaCharge: jest.fn().mockRejectedValue(new Error('card declined')),
       });
 
-      await expect(topupService.maybeAutoTopupAfterDebit(tenantId)).rejects.toThrow(
+      await expect(topupService.maybeAutoTopupAfterDebit(tenantId, actorMemberId)).rejects.toThrow(
         WALLET_UNAVAILABLE_MEMBER,
       );
 
@@ -429,7 +486,7 @@ describe('TenantWalletTopupService', () => {
         paymentMethodId: null,
       });
 
-      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+      await expect(topupService.manualTopup(tenantId, 5000, actorMemberId)).rejects.toThrow(
         WALLET_NO_BILLING_CARD,
       );
 
@@ -442,7 +499,7 @@ describe('TenantWalletTopupService', () => {
         nombaVerify: jest.fn().mockResolvedValue({ status: 'failed', amount: 5000 }),
       });
 
-      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+      await expect(topupService.manualTopup(tenantId, 5000, actorMemberId)).rejects.toThrow(
         WALLET_CHARGE_FAILED_ADMIN,
       );
 
@@ -454,7 +511,9 @@ describe('TenantWalletTopupService', () => {
       const { topupService, walletService, emailService } = createTopupService({});
       walletService.credit.mockRejectedValue(new Error('db deadlock'));
 
-      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(WALLET_CREDIT_FAILED);
+      await expect(topupService.manualTopup(tenantId, 5000, actorMemberId)).rejects.toThrow(
+        WALLET_CREDIT_FAILED,
+      );
 
       expect(emailService.sendEmail).not.toHaveBeenCalled();
     });
@@ -464,7 +523,7 @@ describe('TenantWalletTopupService', () => {
     it('creates checkout with wallet_topup billing meta', async () => {
       const { topupService, nombaApi } = createTopupService();
 
-      const result = await topupService.createTopupCheckout(tenantId, 2500);
+      const result = await topupService.createTopupCheckout(tenantId, 2500, actorMemberId);
 
       expect(result.checkoutUrl).toBe('https://checkout.nomba.com/test');
       expect(nombaApi.createCheckoutOrder).toHaveBeenCalledWith(
@@ -477,6 +536,7 @@ describe('TenantWalletTopupService', () => {
             tenantId,
             billingType: 'wallet_topup',
             expectedAmount: '2500',
+            initiatedByMemberId: actorMemberId,
           }),
         }),
       );
@@ -491,7 +551,7 @@ describe('TenantWalletTopupService', () => {
     it('rejects non-positive amounts', async () => {
       const { topupService, nombaApi } = createTopupService();
 
-      await expect(topupService.createTopupCheckout(tenantId, 0)).rejects.toThrow(
+      await expect(topupService.createTopupCheckout(tenantId, 0, actorMemberId)).rejects.toThrow(
         'Top up amount must be greater than 0',
       );
       expect(nombaApi.createCheckoutOrder).not.toHaveBeenCalled();
@@ -501,13 +561,28 @@ describe('TenantWalletTopupService', () => {
       const { topupService, nombaApi } = createTopupService();
 
       await expect(
-        topupService.createTopupCheckout(tenantId, WALLET_TOPUP_MAX_AMOUNT + 1),
+        topupService.createTopupCheckout(tenantId, WALLET_TOPUP_MAX_AMOUNT + 1, actorMemberId),
       ).rejects.toThrow(`Top up amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT}`);
       expect(nombaApi.createCheckoutOrder).not.toHaveBeenCalled();
     });
   });
 
   describe('completeCheckoutTopup', () => {
+    it('rejects successful checkout without a tenant member', async () => {
+      const { topupService, walletService } = createTopupService({
+        nombaVerify: jest.fn().mockResolvedValue({ status: 'success', amount: 2500 }),
+      });
+
+      await expect(
+        topupService.completeCheckoutTopup({
+          tenantId,
+          orderReference: walletTopupRef,
+          amount: 2500,
+        }),
+      ).rejects.toThrow('A tenant member is required to credit the wallet');
+      expect(walletService.credit).not.toHaveBeenCalled();
+    });
+
     it('credits wallet once for a successful checkout payment', async () => {
       const { topupService, walletService, nombaApi } = createTopupService({
         nombaVerify: jest.fn().mockResolvedValue({ status: 'success', amount: 2500 }),
@@ -517,6 +592,7 @@ describe('TenantWalletTopupService', () => {
         tenantId,
         orderReference: walletTopupRef,
         amount: 2500,
+        initiatedByMemberId: actorMemberId,
       });
 
       expect(result).toEqual({ received: true, credited: true });
@@ -581,7 +657,7 @@ describe('TenantWalletTopupService', () => {
       );
 
       expect(result).toEqual({ received: true, credited: false, retryable: true });
-      expect(monnifyApi.verifyTransaction).toHaveBeenCalledWith(monnifyRef);
+      expect(monnifyApi.verifyTransaction).toHaveBeenCalledWith(monnifyRef, undefined);
       expect(walletService.credit).not.toHaveBeenCalled();
     });
 
@@ -600,7 +676,7 @@ describe('TenantWalletTopupService', () => {
       });
 
       const result = await topupService.completeCheckoutTopup(
-        { tenantId, orderReference: monnifyRef, amount: 2500 },
+        { tenantId, orderReference: monnifyRef, amount: 2500, initiatedByMemberId: actorMemberId },
         PaymentProvider.MONNIFY,
       );
 
@@ -621,7 +697,12 @@ describe('TenantWalletTopupService', () => {
       });
 
       const result = await topupService.completeCheckoutTopup(
-        { tenantId, orderReference: bachsWalletTopupRef, amount: 2500 },
+        {
+          tenantId,
+          orderReference: bachsWalletTopupRef,
+          amount: 2500,
+          initiatedByMemberId: actorMemberId,
+        },
         PaymentProvider.BACHS,
       );
 
@@ -634,7 +715,7 @@ describe('TenantWalletTopupService', () => {
         bachsWalletTopupRef,
         expect.any(String),
         expect.anything(),
-        expect.anything(),
+        expect.objectContaining({ actorMemberId }),
       );
     });
   });
@@ -659,7 +740,7 @@ describe('TenantWalletTopupService', () => {
     it('creates Bachs checkout with wallet_topup billing meta and ad-hoc amount', async () => {
       const { topupService, bachsApi } = createTopupService();
 
-      const result = await topupService.createTopupCheckout(tenantId, 2500);
+      const result = await topupService.createTopupCheckout(tenantId, 2500, actorMemberId);
 
       expect(result.checkoutUrl).toBe('https://checkout.bachs.io/test');
       expect(bachsApi.createWalletTopupCheckout).toHaveBeenCalledWith(
@@ -671,6 +752,7 @@ describe('TenantWalletTopupService', () => {
             tenantId,
             billingType: 'wallet_topup',
             expectedAmount: '2500',
+            initiatedByMemberId: actorMemberId,
           }),
         }),
       );
@@ -681,7 +763,7 @@ describe('TenantWalletTopupService', () => {
     it('rejects manual top-up when provider is Bachs', async () => {
       const { topupService, nombaApi } = createTopupService();
 
-      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+      await expect(topupService.manualTopup(tenantId, 5000, actorMemberId)).rejects.toThrow(
         WALLET_SAVED_CARD_UNSUPPORTED,
       );
 
@@ -712,7 +794,7 @@ describe('TenantWalletTopupService', () => {
         monnifyVerify: jest.fn().mockResolvedValue({ paid: true, amount: 5000, currency: 'NGN' }),
       });
 
-      await topupService.manualTopup(tenantId, 5000);
+      await topupService.manualTopup(tenantId, 5000, actorMemberId);
 
       expect(monnifyApi.chargeCardToken).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -730,7 +812,7 @@ describe('TenantWalletTopupService', () => {
         paymentMethodId: 'tok-1',
       });
 
-      await expect(topupService.manualTopup(tenantId, 5000)).rejects.toThrow(
+      await expect(topupService.manualTopup(tenantId, 5000, actorMemberId)).rejects.toThrow(
         WALLET_NO_BILLING_CARD,
       );
       expect(monnifyApi.chargeCardToken).not.toHaveBeenCalled();
@@ -751,7 +833,7 @@ describe('TenantWalletTopupService', () => {
         monnifyVerify: jest.fn().mockResolvedValue({ paid: true, amount: 5000, currency: 'NGN' }),
       });
 
-      await topupService.maybeAutoTopupAfterDebit(tenantId);
+      await topupService.maybeAutoTopupAfterDebit(tenantId, actorMemberId);
 
       expect(monnifyApi.chargeCardToken).toHaveBeenCalled();
       expect(nombaApi.chargeTokenizedCard).not.toHaveBeenCalled();

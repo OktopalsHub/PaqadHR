@@ -1,6 +1,6 @@
 export interface CreateActivityPayload {
   tenantId: string;
-  actorMemberId?: string | null;
+  actorMemberId: string;
   action: string;
   resourceType?: string | null;
   resourceId?: string | null;

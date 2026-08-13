@@ -19,7 +19,7 @@ export class AuditService {
 
     await this.activitiesService.queueActivity({
       tenantId: context.tenantId,
-      actorMemberId: context.performedById ?? null,
+      actorMemberId: context.performedById.trim(),
       action: entry.eventType,
       resourceType: 'payroll',
       resourceId: context.payrollRunId ?? null,

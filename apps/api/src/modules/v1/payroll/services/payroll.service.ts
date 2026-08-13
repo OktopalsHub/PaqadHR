@@ -173,7 +173,7 @@ export class PayrollService {
     const payrollRun = await this.acquireProcessingLock(
       payrollRunId,
       tenantId,
-      auditContext.performedById || '',
+      auditContext.performedById,
     );
     if (!payrollRun) {
       throw new BadRequestException('Payroll run not found');

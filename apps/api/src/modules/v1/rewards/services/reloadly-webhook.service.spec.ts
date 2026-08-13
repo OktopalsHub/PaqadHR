@@ -155,6 +155,7 @@ describe('ReloadlyWebhookService', () => {
         mockRedemptionId,
         'Refund: MTN Airtime',
         mockEntityManager,
+        { actorMemberId: 'member-456' },
       );
 
       // 3. Redemption marked failed

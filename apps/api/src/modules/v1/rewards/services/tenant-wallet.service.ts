@@ -7,6 +7,7 @@ import {
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource, EntityManager } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantsService } from '../../tenants/tenants.service';
 import { resolveRewardsWalletPaymentProvider } from '../config/rewards-wallet-provider.config';
 import {
@@ -17,11 +18,12 @@ import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 
 export interface WalletCreditOptions {
+  /** Tenant member who triggered the credit — required for every credit. */
+  actorMemberId: string;
   rawAmount?: number;
   providerEventId?: string;
   metadata?: Record<string, unknown>;
   status?: TenantWalletTransaction['status'];
-  actorMemberId?: string | null;
 }
 
 @Injectable()
@@ -144,11 +146,13 @@ export class TenantWalletService {
     amount: number,
     reference: string,
     description: string,
+    actorMemberId: string,
     manager: EntityManager,
   ): Promise<TenantWallet> {
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Invalid debit amount');
     }
+    const memberId = await this.requireTenantMemberActor(tenantId, actorMemberId);
     const walletRepo = manager.getRepository(TenantWallet);
     const txRepo = manager.getRepository(TenantWalletTransaction);
 
@@ -172,6 +176,7 @@ export class TenantWalletService {
       reference,
       description,
       status: 'COMPLETED',
+      metadata: { actorMemberId: memberId },
     });
     await txRepo.save(tx);
 
@@ -184,12 +189,13 @@ export class TenantWalletService {
     type: 'DEPOSIT' | 'REFUND',
     reference: string,
     description: string,
-    manager?: EntityManager,
-    options?: WalletCreditOptions,
+    manager: EntityManager | undefined,
+    options: WalletCreditOptions,
   ): Promise<TenantWallet> {
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Invalid credit amount');
     }
+    const actorMemberId = await this.requireTenantMemberActor(tenantId, options.actorMemberId);
     const mgr = manager ?? this.dataSource.manager;
     const walletRepo = mgr.getRepository(TenantWallet);
     const txRepo = mgr.getRepository(TenantWalletTransaction);
@@ -211,32 +217,48 @@ export class TenantWalletService {
       amount,
       reference,
       description,
-      status: options?.status ?? 'COMPLETED',
-      rawAmount: options?.rawAmount ?? amount,
-      providerEventId: options?.providerEventId ?? null,
-      metadata: options?.metadata ?? null,
+      status: options.status ?? 'COMPLETED',
+      rawAmount: options.rawAmount ?? amount,
+      providerEventId: options.providerEventId ?? null,
+      metadata: {
+        ...(options.metadata ?? {}),
+        actorMemberId,
+      },
     });
     await txRepo.save(tx);
 
-    if (type === 'DEPOSIT') {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId: options?.actorMemberId ?? null,
-          action: 'wallet.deposit',
-          resourceType: 'rewards_wallet',
-          resourceId: reference,
-          description,
-          metadata: { amount, reference },
-        })
-        .catch((err) => {
-          this.logger.warn(
-            `Failed to queue wallet deposit activity: ${err instanceof Error ? err.message : err}`,
-          );
-        });
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId,
+        action: type === 'DEPOSIT' ? 'wallet.deposit' : 'wallet.refund',
+        resourceType: 'rewards_wallet',
+        resourceId: reference,
+        description,
+        metadata: { amount, reference, actorMemberId },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to queue wallet ${type.toLowerCase()} activity: ${err instanceof Error ? err.message : err}`,
+        );
+      });
 
     return updated;
+  }
+
+  private async requireTenantMemberActor(tenantId: string, memberId?: string): Promise<string> {
+    const id = memberId?.trim();
+    if (!id) {
+      throw new BadRequestException('A tenant member is required for this wallet operation');
+    }
+    const member = await this.dataSource.getRepository(TenantMember).findOne({
+      where: { id, tenantId },
+      select: ['id'],
+    });
+    if (!member) {
+      throw new BadRequestException('A tenant member is required for this wallet operation');
+    }
+    return member.id;
   }
 
   async listTransactions(tenantId: string, limit = 50): Promise<TenantWalletTransaction[]> {
@@ -253,8 +275,9 @@ export class TenantWalletService {
     enabled: boolean,
     threshold: number,
     amount: number,
-    actorMemberId?: string,
+    actorMemberId: string,
   ): Promise<TenantWallet> {
+    const memberId = await this.requireTenantMemberActor(tenantId, actorMemberId);
     const repo = this.dataSource.getRepository(TenantWallet);
     const wallet = await this.ensureWallet(tenantId);
     if (enabled) {
@@ -271,25 +294,23 @@ export class TenantWalletService {
     wallet.autoTopupThreshold = threshold;
     wallet.autoTopupAmount = amount;
     const saved = await repo.save(wallet);
-    if (actorMemberId) {
-      void this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId,
-          action: 'wallet.auto_topup_updated',
-          resourceType: 'rewards_wallet',
-          resourceId: wallet.id,
-          description: enabled
-            ? `Auto top-up enabled (${amount} when balance falls below ${threshold})`
-            : 'Auto top-up disabled',
-          metadata: { enabled, threshold, amount },
-        })
-        .catch((err) => {
-          this.logger.warn(
-            `Failed to queue auto-topup activity: ${err instanceof Error ? err.message : err}`,
-          );
-        });
-    }
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'wallet.auto_topup_updated',
+        resourceType: 'rewards_wallet',
+        resourceId: wallet.id,
+        description: enabled
+          ? `Auto top-up enabled (${amount} when balance falls below ${threshold})`
+          : 'Auto top-up disabled',
+        metadata: { enabled, threshold, amount, actorMemberId: memberId },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to queue auto-topup activity: ${err instanceof Error ? err.message : err}`,
+        );
+      });
     return saved;
   }
 }

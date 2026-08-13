@@ -70,7 +70,7 @@ export class TenantWalletTopupService {
   async manualTopup(
     tenantId: string,
     amount: number,
-    _initiatedByMemberId?: string,
+    initiatedByMemberId: string,
   ): Promise<TenantWallet> {
     const wallet = await this.walletService.ensureWallet(tenantId);
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
@@ -86,15 +86,17 @@ export class TenantWalletTopupService {
       'Manual rewards wallet top-up via saved payment method',
       undefined,
       'admin',
+      initiatedByMemberId,
     );
   }
 
   async createTopupCheckout(
     tenantId: string,
     amount: number,
-    initiatedByMemberId?: string,
+    initiatedByMemberId: string,
   ): Promise<{ checkoutUrl: string; orderReference: string; transactionReference?: string }> {
     this.assertTopupAmount(amount);
+    const actorMemberId = this.requireInitiatingTenantMemberId(initiatedByMemberId);
 
     const customerEmail = await this.resolveBillingEmail(tenantId);
     if (!customerEmail) {
@@ -149,7 +151,7 @@ export class TenantWalletTopupService {
       tenantId,
       billingType: 'wallet_topup',
       expectedAmount: String(amount),
-      ...(initiatedByMemberId ? { initiatedByMemberId } : {}),
+      initiatedByMemberId: actorMemberId,
     };
 
     const checkoutCurrency = provider === PaymentProvider.MONNIFY ? 'NGN' : currency;
@@ -234,6 +236,7 @@ export class TenantWalletTopupService {
       orderReference: string;
       amount?: number;
       transactionReference?: string;
+      initiatedByMemberId?: string;
     },
     billingProvider: PaymentProvider = PaymentProvider.NOMBA,
   ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
@@ -287,6 +290,7 @@ export class TenantWalletTopupService {
                       customerEmail: result.customerEmail,
                       cardLastFour: result.cardLastFour,
                       cardBrand: result.cardBrand,
+                      metaData: result.metaData,
                     }
                   : null,
               )
@@ -358,6 +362,10 @@ export class TenantWalletTopupService {
         return { received: true, credited: false };
       }
 
+      const actorMemberId = this.requireInitiatingTenantMemberId(
+        this.resolveCheckoutActorMemberId(input, verified ?? null),
+      );
+
       await this.walletService.credit(
         input.tenantId,
         paid,
@@ -365,7 +373,10 @@ export class TenantWalletTopupService {
         input.orderReference,
         `Rewards wallet top-up via checkout`,
         manager,
-        { providerEventId: input.orderReference },
+        {
+          providerEventId: input.orderReference,
+          actorMemberId,
+        },
       );
       this.logger.log(
         `Credited wallet ${input.tenantId} for checkout top-up ${input.orderReference}`,
@@ -396,6 +407,29 @@ export class TenantWalletTopupService {
     }
 
     return creditResult;
+  }
+
+  private requireInitiatingTenantMemberId(memberId?: string | null): string {
+    const id = memberId?.trim();
+    if (!id) {
+      throw new BadRequestException('A tenant member is required to credit the wallet');
+    }
+    return id;
+  }
+
+  private resolveCheckoutActorMemberId(
+    input: { initiatedByMemberId?: string },
+    verified: { metaData?: Record<string, unknown> } | Record<string, unknown> | null,
+  ): string | undefined {
+    const fromInput = input.initiatedByMemberId?.trim();
+    if (fromInput) return fromInput;
+    const meta =
+      verified && 'metaData' in verified
+        ? (verified.metaData as Record<string, unknown> | undefined)
+        : undefined;
+    const fromMeta = meta?.initiatedByMemberId;
+    if (typeof fromMeta === 'string' && fromMeta.trim()) return fromMeta.trim();
+    return undefined;
   }
 
   private async persistMonnifyWalletCardToken(
@@ -429,7 +463,7 @@ export class TenantWalletTopupService {
     this.logger.log(`Stored Monnify wallet card token for tenant ${tenantId}`);
   }
 
-  async maybeAutoTopupAfterDebit(tenantId: string): Promise<void> {
+  async maybeAutoTopupAfterDebit(tenantId: string, actorMemberId: string): Promise<void> {
     const wallet = await this.dataSource
       .getRepository(TenantWallet)
       .findOneOrFail({ where: { tenantId } });
@@ -465,6 +499,7 @@ export class TenantWalletTopupService {
       `Automatic replenishment of rewards wallet (balance below ${wallet.autoTopupThreshold})`,
       undefined,
       'member',
+      this.requireInitiatingTenantMemberId(actorMemberId),
     );
   }
 
@@ -473,9 +508,11 @@ export class TenantWalletTopupService {
     amount: number,
     reference: string,
     description: string,
-    manager?: EntityManager,
+    manager: EntityManager | undefined,
     audience: ChargeAudience = 'admin',
+    actorMemberId: string,
   ): Promise<TenantWallet> {
+    const initiatingMemberId = this.requireInitiatingTenantMemberId(actorMemberId);
     this.assertTopupAmount(amount);
 
     const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
@@ -547,7 +584,11 @@ export class TenantWalletTopupService {
           paymentReference,
           paymentDescription: description,
           currencyCode: currency,
-          metaData: { tenantId, billingType: 'wallet_topup' },
+          metaData: {
+            tenantId,
+            billingType: 'wallet_topup',
+            initiatedByMemberId: initiatingMemberId,
+          },
         });
         chargeReference = charge.paymentReference;
         const verified = await this.monnifyApi.verifyTransaction(chargeReference);
@@ -574,7 +615,11 @@ export class TenantWalletTopupService {
                 currency,
                 callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
                 tokenKey,
-                meta: { tenantId, billingType: 'wallet_topup' },
+                meta: {
+                  tenantId,
+                  billingType: 'wallet_topup',
+                  initiatedByMemberId: initiatingMemberId,
+                },
               })
             : await this.noahApi.chargeSavedPaymentMethod({
                 orderReference: reference,
@@ -583,7 +628,11 @@ export class TenantWalletTopupService {
                 currency,
                 callbackUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
                 paymentMethodId: tokenKey,
-                meta: { tenantId, billingType: 'wallet_topup' },
+                meta: {
+                  tenantId,
+                  billingType: 'wallet_topup',
+                  initiatedByMemberId: initiatingMemberId,
+                },
               });
 
         chargeReference = charge.orderReference;
@@ -625,6 +674,7 @@ export class TenantWalletTopupService {
         manager,
         {
           providerEventId: chargeReference,
+          actorMemberId: initiatingMemberId,
         },
       );
     } catch (error) {
