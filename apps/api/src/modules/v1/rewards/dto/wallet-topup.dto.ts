@@ -19,4 +19,11 @@ export class WalletTopupCompleteDto {
   @Min(1)
   @Max(WALLET_TOPUP_MAX_AMOUNT)
   amount?: number;
+
+  /** Monnify transactionReference from init / redirect — verify fallback. */
+  @IsOptional()
+  @IsString()
+  @MinLength(4)
+  @MaxLength(120)
+  transactionReference?: string;
 }

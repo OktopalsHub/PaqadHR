@@ -93,7 +93,7 @@ export class TenantWalletTopupService {
     tenantId: string,
     amount: number,
     initiatedByMemberId?: string,
-  ): Promise<{ checkoutUrl: string; orderReference: string }> {
+  ): Promise<{ checkoutUrl: string; orderReference: string; transactionReference?: string }> {
     this.assertTopupAmount(amount);
 
     const customerEmail = await this.resolveBillingEmail(tenantId);
@@ -156,15 +156,21 @@ export class TenantWalletTopupService {
 
     const result =
       provider === PaymentProvider.NOMBA
-        ? await this.nombaApi.createCheckoutOrder({
-            orderReference,
-            customerEmail,
-            amount,
-            currency,
-            callbackUrl,
-            tokenizeCard: false,
-            meta,
-          })
+        ? await this.nombaApi
+            .createCheckoutOrder({
+              orderReference,
+              customerEmail,
+              amount,
+              currency,
+              callbackUrl,
+              tokenizeCard: false,
+              meta,
+            })
+            .then((session) => ({
+              checkoutLink: session.checkoutLink,
+              orderReference: session.orderReference,
+              transactionReference: undefined as string | undefined,
+            }))
         : provider === PaymentProvider.MONNIFY
           ? await this.monnifyApi
               .initializeTransaction({
@@ -180,6 +186,7 @@ export class TenantWalletTopupService {
               .then((init) => ({
                 checkoutLink: init.checkoutUrl,
                 orderReference: init.paymentReference,
+                transactionReference: init.transactionReference,
               }))
           : provider === PaymentProvider.BACHS
             ? await this.bachsApi
@@ -195,21 +202,29 @@ export class TenantWalletTopupService {
                 .then((session) => ({
                   checkoutLink: session.checkout_url,
                   orderReference: session.reference ?? orderReference,
+                  transactionReference: undefined as string | undefined,
                 }))
-            : await this.noahApi.createPayinCheckout({
-                orderReference,
-                customerEmail,
-                amount,
-                currency,
-                callbackUrl,
-                customerId: tenantId,
-                tokenizeCard: false,
-                meta,
-              });
+            : await this.noahApi
+                .createPayinCheckout({
+                  orderReference,
+                  customerEmail,
+                  amount,
+                  currency,
+                  callbackUrl,
+                  customerId: tenantId,
+                  tokenizeCard: false,
+                  meta,
+                })
+                .then((session) => ({
+                  checkoutLink: session.checkoutLink,
+                  orderReference: session.orderReference,
+                  transactionReference: undefined as string | undefined,
+                }));
 
     return {
       checkoutUrl: result.checkoutLink,
       orderReference: result.orderReference,
+      ...(result.transactionReference ? { transactionReference: result.transactionReference } : {}),
     };
   }
 
@@ -218,6 +233,7 @@ export class TenantWalletTopupService {
       tenantId: string;
       orderReference: string;
       amount?: number;
+      transactionReference?: string;
     },
     billingProvider: PaymentProvider = PaymentProvider.NOMBA,
   ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
@@ -260,18 +276,20 @@ export class TenantWalletTopupService {
       billingProvider === PaymentProvider.NOAH
         ? await this.noahApi.verifyTransaction(input.orderReference)
         : billingProvider === PaymentProvider.MONNIFY
-          ? await this.monnifyApi.verifyTransaction(input.orderReference).then((result) =>
-              result
-                ? {
-                    status: result.paid ? 'success' : 'pending',
-                    amount: result.amount,
-                    cardToken: result.cardToken,
-                    customerEmail: result.customerEmail,
-                    cardLastFour: result.cardLastFour,
-                    cardBrand: result.cardBrand,
-                  }
-                : null,
-            )
+          ? await this.monnifyApi
+              .verifyTransaction(input.orderReference, input.transactionReference)
+              .then((result) =>
+                result
+                  ? {
+                      status: result.paid ? 'success' : 'pending',
+                      amount: result.amount,
+                      cardToken: result.cardToken,
+                      customerEmail: result.customerEmail,
+                      cardLastFour: result.cardLastFour,
+                      cardBrand: result.cardBrand,
+                    }
+                  : null,
+              )
           : billingProvider === PaymentProvider.BACHS
             ? await this.bachsApi.findPaymentByReference(input.orderReference).then((result) =>
                 result

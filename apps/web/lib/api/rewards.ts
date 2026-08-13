@@ -293,26 +293,32 @@ export async function manualTopupWallet(tenantId: string, amount: number): Promi
 export async function createWalletTopupCheckout(
   tenantId: string,
   amount: number,
-): Promise<{ checkoutUrl: string; orderReference: string }> {
-  return apiClient<{ checkoutUrl: string; orderReference: string }>(
-    tenantPath(tenantId, 'rewards/wallet/topup/checkout'),
-    {
-      method: 'POST',
-      body: JSON.stringify({ amount }),
-    },
-  );
+): Promise<{ checkoutUrl: string; orderReference: string; transactionReference?: string }> {
+  return apiClient<{
+    checkoutUrl: string;
+    orderReference: string;
+    transactionReference?: string;
+  }>(tenantPath(tenantId, 'rewards/wallet/topup/checkout'), {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  });
 }
 
 export async function completeWalletTopupCheckout(
   tenantId: string,
   orderReference: string,
   amount?: number,
+  transactionReference?: string,
 ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
   return apiClient<{ received: boolean; credited: boolean; retryable?: boolean }>(
     tenantPath(tenantId, 'rewards/wallet/topup/checkout/complete'),
     {
       method: 'POST',
-      body: JSON.stringify({ orderReference, ...(amount != null ? { amount } : {}) }),
+      body: JSON.stringify({
+        orderReference,
+        ...(amount != null ? { amount } : {}),
+        ...(transactionReference ? { transactionReference } : {}),
+      }),
     },
   );
 }

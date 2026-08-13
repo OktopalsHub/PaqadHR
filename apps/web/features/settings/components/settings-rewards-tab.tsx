@@ -140,25 +140,33 @@ export function SettingsRewardsTab() {
       : null;
 
   useEffect(() => {
-    if (searchParams.get('wallet_topup') !== 'done' || !tenantId) return;
+    if (!tenantId) return;
 
     let cancelled = false;
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
     const run = async () => {
+      const walletTopupDone = searchParams.get('wallet_topup') === 'done';
       let orderReference =
         searchParams.get('paymentReference') || searchParams.get('paymentreference') || '';
+      let transactionReference =
+        searchParams.get('transactionReference') || searchParams.get('transactionreference') || '';
       let pendingAmount: number | undefined;
+      let hasPending = false;
+
       try {
         const raw = sessionStorage.getItem(WALLET_TOPUP_PENDING_KEY);
         if (raw) {
           const pending = JSON.parse(raw) as {
             tenantId?: string;
             orderReference?: string;
+            transactionReference?: string;
             amount?: number;
           };
           if (pending.orderReference && (!pending.tenantId || pending.tenantId === tenantId)) {
+            hasPending = true;
             orderReference = orderReference || pending.orderReference;
+            transactionReference = transactionReference || pending.transactionReference || '';
             if (Number.isFinite(pending.amount) && (pending.amount as number) > 0) {
               pendingAmount = Number(pending.amount);
             }
@@ -168,10 +176,18 @@ export function SettingsRewardsTab() {
         // ignore
       }
 
+      // Monnify may rewrite the redirect query and drop wallet_topup=done — still complete from session / paymentReference.
+      const looksLikeMonnifyRef = /^wm_[0-9a-f]{32}_/i.test(orderReference);
+      if (!walletTopupDone && !hasPending && !looksLikeMonnifyRef) {
+        return;
+      }
+
       if (!orderReference) {
-        toast.message('If you completed payment, your wallet will update shortly.');
-        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
-        void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+        if (walletTopupDone) {
+          toast.message('If you completed payment, your wallet will update shortly.');
+          void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+          void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+        }
         return;
       }
 
@@ -182,7 +198,12 @@ export function SettingsRewardsTab() {
           retryable: true,
         };
         for (let attempt = 0; attempt < 6; attempt++) {
-          result = await completeWalletTopupCheckout(tenantId, orderReference, pendingAmount);
+          result = await completeWalletTopupCheckout(
+            tenantId,
+            orderReference,
+            pendingAmount,
+            transactionReference || undefined,
+          );
           if (cancelled) return;
           if (result.credited || !result.retryable) break;
           await sleep(2000);
@@ -197,7 +218,7 @@ export function SettingsRewardsTab() {
           toast.success('Wallet topped up');
           void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
           void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
-        } else {
+        } else if (walletTopupDone || hasPending) {
           toast.message('Payment is still processing. Your wallet will update shortly.');
           void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
         }

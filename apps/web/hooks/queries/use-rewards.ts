@@ -236,7 +236,12 @@ export function useWalletTopupCheckout() {
         try {
           sessionStorage.setItem(
             WALLET_TOPUP_PENDING_KEY,
-            JSON.stringify({ tenantId, orderReference: result.orderReference, amount }),
+            JSON.stringify({
+              tenantId,
+              orderReference: result.orderReference,
+              transactionReference: result.transactionReference,
+              amount,
+            }),
           );
         } catch {
           // ignore storage failures — webhook may still credit
@@ -251,9 +256,18 @@ export function useCompleteWalletTopupCheckout() {
   const queryClient = useQueryClient();
   const { tenantId } = useTenant();
   return useMutation({
-    mutationFn: (params: { orderReference: string; amount?: number }) => {
+    mutationFn: (params: {
+      orderReference: string;
+      amount?: number;
+      transactionReference?: string;
+    }) => {
       if (!tenantId) throw new Error('Workspace not selected');
-      return completeWalletTopupCheckout(tenantId, params.orderReference, params.amount);
+      return completeWalletTopupCheckout(
+        tenantId,
+        params.orderReference,
+        params.amount,
+        params.transactionReference,
+      );
     },
     onSuccess: (result) => {
       if (result.credited) {

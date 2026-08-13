@@ -221,6 +221,7 @@ export class RewardsController {
         tenantId,
         orderReference,
         amount: body.amount,
+        transactionReference: body.transactionReference?.trim() || undefined,
       },
       checkoutProvider,
     );

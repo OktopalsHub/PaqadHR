@@ -185,6 +185,53 @@ export class MonnifyApiService {
     }
   }
 
+  /** Monnify metaData values must be strings (API schema). */
+  private stringifyMeta(meta?: Record<string, unknown>): Record<string, string> {
+    if (!meta) return {};
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(meta)) {
+      if (value == null) continue;
+      out[key] = typeof value === 'string' ? value : String(value);
+    }
+    return out;
+  }
+
+  private mapVerifiedTransaction(
+    body: NonNullable<MonnifyTransactionStatusResponse['responseBody']>,
+  ): {
+    paid: boolean;
+    amount: number;
+    currency: string;
+    customerEmail?: string;
+    customerName?: string;
+    metaData?: Record<string, unknown>;
+    cardToken?: string;
+    cardLastFour?: string;
+    cardBrand?: string;
+    paymentReference?: string;
+    transactionReference?: string;
+  } {
+    const status = String(body.paymentStatus ?? '').toUpperCase();
+    const paid =
+      status === 'PAID' || status === 'SUCCESS' || status === 'SUCCESSFUL' || status === 'OVERPAID';
+    const amount = Number(body.amountPaid ?? body.totalPayable ?? 0);
+    const cardToken = body.cardDetails?.cardToken?.trim() || undefined;
+
+    return {
+      paid,
+      amount: Number.isFinite(amount) ? amount : 0,
+      currency: (body.currency || 'NGN').toUpperCase(),
+      customerEmail: body.customer?.email,
+      customerName: body.customer?.name,
+      metaData: body.metaData,
+      cardToken,
+      cardLastFour: body.cardDetails?.last4?.slice(-4),
+      cardBrand: body.cardDetails?.cardType,
+      paymentReference: body.paymentReference,
+      transactionReference: body.transactionReference,
+    };
+  }
+
   async getAccessToken(): Promise<string> {
     this.ensureConfigured();
 
@@ -245,7 +292,7 @@ export class MonnifyApiService {
           contractCode: getMonnifyContractCode(),
           redirectUrl: input.redirectUrl,
           paymentMethods: ['CARD', 'ACCOUNT_TRANSFER'],
-          metaData: input.metaData ?? {},
+          metaData: this.stringifyMeta(input.metaData),
         }),
       },
     );
@@ -280,7 +327,15 @@ export class MonnifyApiService {
     return { checkoutUrl, transactionReference, paymentReference };
   }
 
-  async verifyTransaction(paymentReference: string): Promise<{
+  /**
+   * Verify by merchant paymentReference (preferred) with optional Monnify transactionReference fallback.
+   * Soft-fails to null when not found / not yet queryable so callers can poll (PENDING).
+   * @see https://developers.monnify.com/docs/collections/manage-payments/verify-transactions
+   */
+  async verifyTransaction(
+    paymentReference: string,
+    transactionReference?: string,
+  ): Promise<{
     paid: boolean;
     amount: number;
     currency: string;
@@ -290,9 +345,29 @@ export class MonnifyApiService {
     cardToken?: string;
     cardLastFour?: string;
     cardBrand?: string;
+    paymentReference?: string;
+    transactionReference?: string;
   } | null> {
     this.ensureConfigured();
     const token = await this.getAccessToken();
+
+    const byPaymentRef = await this.queryByPaymentReference(token, paymentReference);
+    if (byPaymentRef) {
+      return byPaymentRef;
+    }
+
+    const txRef = transactionReference?.trim();
+    if (txRef) {
+      return this.queryByTransactionReference(token, txRef);
+    }
+
+    return null;
+  }
+
+  private async queryByPaymentReference(
+    token: string,
+    paymentReference: string,
+  ): Promise<ReturnType<MonnifyApiService['mapVerifiedTransaction']> | null> {
     const url = `${getMonnifyBaseUrl()}/api/v2/merchant/transactions/query?paymentReference=${encodeURIComponent(paymentReference)}`;
     const response = await this.monnifyFetch(url, {
       headers: { Authorization: `Bearer ${token}` },
@@ -305,26 +380,46 @@ export class MonnifyApiService {
     const payload = (await response.json().catch(() => ({}))) as MonnifyTransactionStatusResponse;
     const body = payload.responseBody;
     if (!response.ok || payload.requestSuccessful === false || !body) {
-      throw new BadRequestException(MonnifyApiService.CHECKOUT_UNAVAILABLE);
+      this.logMonnifyResponse(
+        'verify-paymentReference',
+        '/api/v2/merchant/transactions/query',
+        response.status,
+        payload,
+        { paymentReference },
+      );
+      return null;
     }
 
-    const status = String(body.paymentStatus ?? '').toUpperCase();
-    const paid =
-      status === 'PAID' || status === 'SUCCESS' || status === 'SUCCESSFUL' || status === 'OVERPAID';
-    const amount = Number(body.amountPaid ?? body.totalPayable ?? 0);
-    const cardToken = body.cardDetails?.cardToken?.trim() || undefined;
+    return this.mapVerifiedTransaction(body);
+  }
 
-    return {
-      paid,
-      amount: Number.isFinite(amount) ? amount : 0,
-      currency: (body.currency || 'NGN').toUpperCase(),
-      customerEmail: body.customer?.email,
-      customerName: body.customer?.name,
-      metaData: body.metaData,
-      cardToken,
-      cardLastFour: body.cardDetails?.last4?.slice(-4),
-      cardBrand: body.cardDetails?.cardType,
-    };
+  private async queryByTransactionReference(
+    token: string,
+    transactionReference: string,
+  ): Promise<ReturnType<MonnifyApiService['mapVerifiedTransaction']> | null> {
+    const url = `${getMonnifyBaseUrl()}/api/v2/transactions/${encodeURIComponent(transactionReference)}`;
+    const response = await this.monnifyFetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    const payload = (await response.json().catch(() => ({}))) as MonnifyTransactionStatusResponse;
+    const body = payload.responseBody;
+    if (!response.ok || payload.requestSuccessful === false || !body) {
+      this.logMonnifyResponse(
+        'verify-transactionReference',
+        '/api/v2/transactions',
+        response.status,
+        payload,
+        { transactionReference },
+      );
+      return null;
+    }
+
+    return this.mapVerifiedTransaction(body);
   }
 
   async chargeCardToken(input: {
@@ -357,7 +452,7 @@ export class MonnifyApiService {
           currencyCode: (input.currencyCode || 'NGN').toUpperCase(),
           contractCode: getMonnifyContractCode(),
           apiKey: getMonnifyApiKey(),
-          metaData: input.metaData ?? {},
+          metaData: this.stringifyMeta(input.metaData),
         }),
       },
     );

@@ -142,6 +142,83 @@ describe('MonnifyApiService', () => {
     );
   });
 
+  it('verifies by transactionReference when paymentReference query misses', async () => {
+    process.env.MONNIFY_API_KEY = 'key';
+    process.env.MONNIFY_SECRET_KEY = 'secret';
+    process.env.MONNIFY_CONTRACT_CODE = 'contract';
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: { accessToken: 'token', expiresIn: 3600 },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          requestSuccessful: false,
+          responseMessage: 'Could not find transaction',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: {
+            transactionReference: 'MNFY|1|2|3',
+            paymentReference: 'wm_test_ref',
+            paymentStatus: 'PAID',
+            amountPaid: '1000.00',
+            currency: 'NGN',
+          },
+        }),
+      });
+
+    const service = new MonnifyApiService();
+    const result = await service.verifyTransaction('wm_test_ref', 'MNFY|1|2|3');
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('/api/v2/transactions/MNFY%7C1%7C2%7C3'),
+      expect.anything(),
+    );
+    expect(result).toEqual(expect.objectContaining({ paid: true, amount: 1000 }));
+  });
+
+  it('returns null instead of throwing when paymentReference verify is not ready', async () => {
+    process.env.MONNIFY_API_KEY = 'key';
+    process.env.MONNIFY_SECRET_KEY = 'secret';
+    process.env.MONNIFY_CONTRACT_CODE = 'contract';
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          requestSuccessful: true,
+          responseBody: { accessToken: 'token', expiresIn: 3600 },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: async () => ({
+          requestSuccessful: false,
+          responseMessage: 'Could not find transaction',
+        }),
+      });
+
+    const service = new MonnifyApiService();
+    await expect(service.verifyTransaction('wm_missing')).resolves.toBeNull();
+  });
+
   it('charges a stored card token via charge-card-token', async () => {
     process.env.MONNIFY_API_KEY = 'key';
     process.env.MONNIFY_SECRET_KEY = 'secret';
