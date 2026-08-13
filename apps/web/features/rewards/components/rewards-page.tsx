@@ -321,12 +321,17 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     if (amt > 0 && selectedUtilityBillerReloadly) {
+      const reloadlyBillerId = Number(selectedUtilityBillerReloadly.id);
+      if (!Number.isFinite(reloadlyBillerId)) {
+        setUtilityPoints(null);
+        return;
+      }
       const delayDebounceFn = setTimeout(async () => {
         setIsCalculatingUtilityPoints(true);
         try {
           const res = await calculatePointsCost({
             type: 'utility',
-            billerId: selectedUtilityBillerReloadly.id,
+            billerId: reloadlyBillerId,
             amount: amt,
           });
           setUtilityPoints(res.pointsCost);
