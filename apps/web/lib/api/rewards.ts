@@ -236,9 +236,14 @@ export async function fetchTopupOperators(countryCode: string): Promise<Reloadly
   return apiClient<ReloadlyOperator[]>(tenantPath(tenantId, `rewards/operators/${countryCode}`));
 }
 
-export async function fetchUtilityBillers(
-  countryCode: string,
-): Promise<Array<{ id: string | number; name: string; type?: string }>> {
+export type UtilityBiller = {
+  id: string | number;
+  name: string;
+  type?: string;
+  localTransactionCurrencyCode?: string;
+};
+
+export async function fetchUtilityBillers(countryCode: string): Promise<UtilityBiller[]> {
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, `rewards/utilities/billers/${countryCode}`));
 }
