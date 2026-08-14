@@ -266,11 +266,6 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
           </div>
           <div className="min-w-0 flex-1">
             <h3 className="text-sm font-semibold text-foreground">Celebrate your team</h3>
-            <p className="text-xs text-muted-foreground">
-              Mention teammates with <span className="font-mono">@</span>, tag values with{' '}
-              <span className="font-mono">#</span>, and assign points with{' '}
-              <span className="font-mono">+10</span>.
-            </p>
           </div>
           {projectedRemaining != null ? (
             <Badge

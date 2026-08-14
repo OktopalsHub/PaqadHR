@@ -1,7 +1,7 @@
 import { PlusCircle, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { EmergencyContactForm } from '../../emergency-contact-form';
@@ -26,7 +26,6 @@ export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContact
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Emergency Contacts</CardTitle>
-            <CardDescription>Employee's emergency contact information</CardDescription>
           </div>
           {canEdit ? (
             <Button variant="outline" onClick={() => setEmergencyContactDialogOpen(true)}>

@@ -6,6 +6,7 @@ export const WALLET_TOPUP_MAX_AMOUNT = 10_000_000;
 
 export type RewardType =
   | 'RELOADLY'
+  | 'TREMENDOUS'
   | 'NOMBA_AIRTIME'
   | 'RELOADLY_AIRTIME'
   | 'NOMBA_UTILITY'

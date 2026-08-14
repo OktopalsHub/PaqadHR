@@ -14,12 +14,16 @@ describe('RewardsService catalog sync', () => {
         pointsExchangeRate: number;
         rewardsCurrency: string;
         catalogCountries: string[];
+        giftCardProvider?: 'reloadly' | 'tremendous';
         reloadlyProducts: unknown[];
+        tremendousProducts?: unknown[];
       };
     };
   };
   let settingsRepo: { findOne: jest.Mock; save: jest.Mock };
-  let listProductsByCountries: jest.Mock;
+  let listAccountProducts: jest.Mock;
+  let listTremendousProducts: jest.Mock;
+  let tenantCountryCode: string;
 
   beforeEach(() => {
     settingsRow = {
@@ -30,7 +34,9 @@ describe('RewardsService catalog sync', () => {
           pointsExchangeRate: 1,
           rewardsCurrency: 'NGN',
           catalogCountries: ['NG'],
+          giftCardProvider: 'reloadly',
           reloadlyProducts: [],
+          tremendousProducts: [],
         },
       },
     };
@@ -43,7 +49,9 @@ describe('RewardsService catalog sync', () => {
       }),
     };
 
-    listProductsByCountries = jest.fn().mockResolvedValue([
+    tenantCountryCode = 'NG';
+
+    listAccountProducts = jest.fn().mockResolvedValue([
       {
         productId: 101,
         productName: 'Amazon NG',
@@ -58,9 +66,15 @@ describe('RewardsService catalog sync', () => {
       },
     ]);
 
+    listTremendousProducts = jest.fn().mockResolvedValue([]);
+
     const reloadlyApi = {
       isConfigured: jest.fn().mockReturnValue(true),
-      listProductsByCountries,
+      listAccountProducts,
+    };
+    const tremendousApi = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      listProducts: listTremendousProducts,
     };
 
     service = new RewardsService(
@@ -69,19 +83,19 @@ describe('RewardsService catalog sync', () => {
           if (entity === TenantSettings) return settingsRepo;
           if (entity === Tenant) {
             return {
-              findOne: jest.fn().mockResolvedValue({
+              findOne: jest.fn().mockImplementation(async () => ({
                 id: 'tenant-1',
-                countryCode: 'NG',
-                preferredCurrency: 'NGN',
+                countryCode: tenantCountryCode,
+                preferredCurrency: tenantCountryCode === 'NG' ? 'NGN' : 'USD',
                 createdBy: null,
-              }),
+              })),
             };
           }
           if (entity === TenantWallet) {
             return {
               findOne: jest.fn().mockResolvedValue({
                 tenantId: 'tenant-1',
-                currencyCode: 'NGN',
+                currencyCode: tenantCountryCode === 'NG' ? 'NGN' : 'USD',
                 balanceAmount: 0,
               }),
             };
@@ -104,6 +118,7 @@ describe('RewardsService catalog sync', () => {
         getRedemptionFees: jest.fn().mockResolvedValue({ feePercentage: 2, flatFee: 0 }),
       } as any,
       {} as any,
+      tremendousApi as any,
     );
 
     jest.spyOn(service as any, 'getSubscriptionFees').mockResolvedValue({
@@ -129,7 +144,7 @@ describe('RewardsService catalog sync', () => {
   });
 
   it('prices USD sender cost with FX conversion', async () => {
-    listProductsByCountries.mockResolvedValue([
+    listAccountProducts.mockResolvedValue([
       {
         productId: 202,
         productName: 'Amazon US',
@@ -152,7 +167,7 @@ describe('RewardsService catalog sync', () => {
   });
 
   it('dedupes products with the same productId across countries', async () => {
-    listProductsByCountries.mockResolvedValue([
+    listAccountProducts.mockResolvedValue([
       {
         productId: 303,
         productName: 'Global Card',
@@ -235,5 +250,65 @@ describe('RewardsService catalog sync', () => {
       reloadlyCost: 10,
       reloadlyCostCurrency: 'USD',
     });
+  });
+
+  it('syncs Tremendous products and returns only TREMENDOUS catalog items for non-NG', async () => {
+    tenantCountryCode = 'US';
+    settingsRow.settings.rewards.rewardsCurrency = 'USD';
+    settingsRow.settings.rewards.giftCardProvider = 'tremendous';
+    listTremendousProducts.mockResolvedValue([
+      {
+        id: 'AMAZONUS',
+        name: 'Amazon.com Gift Card',
+        category: 'merchant_cards',
+        subcategory: 'retail',
+        currency_codes: ['USD'],
+        countries: [{ abbr: 'US' }],
+        skus: [
+          { min: 10, max: 10 },
+          { min: 25, max: 25 },
+        ],
+        images: [{ src: 'https://example.com/amazon.png', type: 'card' }],
+      },
+    ]);
+
+    const products = await service.syncTremendousProducts('tenant-1');
+    expect(products).toHaveLength(1);
+    expect(products[0].productId).toBe('AMAZONUS');
+    expect(products[0].fixedDenominations).toEqual([10, 25]);
+    expect(products[0].listTremendousCost).toBe(10);
+
+    const catalog = await service.getCatalog('tenant-1');
+    expect(catalog.some((item) => item.type === 'RELOADLY')).toBe(false);
+    const tremendousItem = catalog.find((item) => item.type === 'TREMENDOUS');
+    expect(tremendousItem?.id).toBe('tremendous_AMAZONUS');
+    expect(tremendousItem?.currencyValue).toBe(10);
+  });
+
+  it('unions Tremendous and Reloadly catalogs for Nigeria workspaces', async () => {
+    settingsRow.settings.rewards.giftCardProvider = 'tremendous';
+    listTremendousProducts.mockResolvedValue([
+      {
+        id: 'AMAZONUS',
+        name: 'Amazon.com Gift Card',
+        currency_codes: ['USD'],
+        countries: [{ abbr: 'US' }],
+        skus: [{ min: 10, max: 10 }],
+        images: [],
+      },
+    ]);
+
+    const catalog = await service.getCatalog('tenant-1');
+    expect(catalog.some((item) => item.type === 'RELOADLY')).toBe(true);
+    expect(catalog.some((item) => item.type === 'TREMENDOUS')).toBe(true);
+  });
+
+  it('does not infer catalog countries from the workspace', async () => {
+    const settings = await (service as any).getRewardsSettings('tenant-1');
+    expect(settings.catalogCountries).toEqual(['NG']);
+
+    tenantCountryCode = 'GB';
+    const otherSettings = await (service as any).getRewardsSettings('tenant-1');
+    expect(otherSettings.catalogCountries).toEqual(['NG']);
   });
 });

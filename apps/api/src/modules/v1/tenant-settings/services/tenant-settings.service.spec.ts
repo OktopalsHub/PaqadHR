@@ -162,18 +162,33 @@ describe('TenantSettingsService rewards validation', () => {
     expect(result.settings.rewards).toEqual(
       expect.objectContaining({
         rewardsCurrency: 'NGN',
-        catalogCountries: ['NG'],
         pointsExchangeRate: 1,
         enabled: true,
       }),
     );
   });
 
-  it('emits catalog sync event when catalog countries change', async () => {
+  it('does not emit catalog sync when only gift card visibility changes', async () => {
     await service.updateTenantSettings(
       'tenant-1',
       {
-        rewards: { catalogCountries: ['NG', 'US'] },
+        rewards: { giftCardsEnabled: true },
+      },
+      'member-1',
+    );
+    expect(eventEmitter.emit).not.toHaveBeenCalled();
+  });
+
+  it('emits catalog sync when gift card provider changes', async () => {
+    tenantRepository.findOne.mockResolvedValue({
+      id: baseSettings.tenantId,
+      countryCode: 'NG',
+      preferredCurrency: 'NGN',
+    });
+    await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { giftCardProvider: 'reloadly' },
       },
       'member-1',
     );
@@ -182,11 +197,16 @@ describe('TenantSettingsService rewards validation', () => {
     });
   });
 
-  it('does not emit catalog sync when countries are unchanged', async () => {
+  it('does not emit catalog sync when countries and provider are unchanged', async () => {
+    tenantRepository.findOne.mockResolvedValue({
+      id: baseSettings.tenantId,
+      countryCode: 'NG',
+      preferredCurrency: 'NGN',
+    });
     await service.updateTenantSettings(
       'tenant-1',
       {
-        rewards: { catalogCountries: ['NG'] },
+        rewards: { giftCardsEnabled: true },
       },
       'member-1',
     );

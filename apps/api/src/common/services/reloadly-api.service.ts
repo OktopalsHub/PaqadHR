@@ -164,11 +164,11 @@ export class ReloadlyApiService {
   }
 
   async listProducts(countryCode: string): Promise<ReloadlyProduct[]> {
-    const response = await this.request<ReloadlyProduct[]>(
+    const response = await this.request<unknown>(
       'GET',
       `/countries/${countryCode.toUpperCase()}/products`,
     );
-    return response ?? [];
+    return extractReloadlyProducts(response);
   }
 
   async listProductsByCountries(countryCodes: string[]): Promise<ReloadlyProduct[]> {
@@ -182,6 +182,24 @@ export class ReloadlyApiService {
         products.push(...result.value);
       }
     }
+    return products;
+  }
+
+  /** Native Reloadly account catalog — no tenant-country filter. */
+  async listAccountProducts(): Promise<ReloadlyProduct[]> {
+    const size = 200;
+    const maxPages = 5;
+    const products: ReloadlyProduct[] = [];
+
+    for (let page = 1; page <= maxPages; page += 1) {
+      const response = await this.request<unknown>('GET', `/products?size=${size}&page=${page}`);
+      const batch = extractReloadlyProducts(response);
+      products.push(...batch);
+      if (batch.length < size) {
+        break;
+      }
+    }
+
     return products;
   }
 
@@ -220,4 +238,18 @@ export class ReloadlyApiService {
       `/orders/transactions/${transactionId}/cards`,
     );
   }
+}
+
+function extractReloadlyProducts(payload: unknown): ReloadlyProduct[] {
+  if (Array.isArray(payload)) {
+    return payload as ReloadlyProduct[];
+  }
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    Array.isArray((payload as { content?: unknown }).content)
+  ) {
+    return (payload as { content: ReloadlyProduct[] }).content;
+  }
+  return [];
 }

@@ -9,8 +9,7 @@ import type { RewardsSettings } from '../../../../common/interfaces/rewards-sett
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
 import {
   DEFAULT_WALLET_CURRENCY_FALLBACK,
-  normalizeRewardsCatalogCountries,
-  resolveDefaultRewardsCatalogCountry,
+  resolveGiftCardProvider,
   resolveInitialWalletCurrency,
 } from '../../../../common/utils/rewards-defaults.util';
 import { ActivitiesService } from '../../activities/services/activities.service';
@@ -64,7 +63,9 @@ export class TenantSettingsService {
     const existingSettings = await this.getTenantSettings(tenantId);
     const rewardsDefaults =
       updateDto.rewards !== undefined ? await this.resolveRewardsDefaults(tenantId) : null;
-    const prevCatalogCountries = existingSettings.settings.rewards?.catalogCountries ?? [];
+    const prevGiftCardProvider = resolveGiftCardProvider(
+      existingSettings.settings.rewards?.giftCardProvider,
+    );
     const updatedSettings: TenantSettingsData = {
       ...existingSettings.settings,
       ...(updateDto.points && {
@@ -160,18 +161,7 @@ export class TenantSettingsService {
             rewardsDefaults?.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
             DEFAULT_WALLET_CURRENCY_FALLBACK,
-          catalogCountries:
-            updateDto.rewards.catalogCountries !== undefined
-              ? normalizeRewardsCatalogCountries(
-                  updateDto.rewards.catalogCountries,
-                  rewardsDefaults?.catalogCountries[0] ?? 'US',
-                  { allowEmpty: true },
-                )
-              : normalizeRewardsCatalogCountries(
-                  existingSettings.settings.rewards?.catalogCountries ??
-                    rewardsDefaults?.catalogCountries,
-                  rewardsDefaults?.catalogCountries[0] ?? 'US',
-                ),
+          catalogCountries: existingSettings.settings.rewards?.catalogCountries ?? [],
           airtimeEnabled:
             updateDto.rewards.airtimeEnabled ??
             existingSettings.settings.rewards?.airtimeEnabled ??
@@ -190,6 +180,10 @@ export class TenantSettingsService {
               'Gaming Cards',
               'Money Cards',
             ],
+          giftCardProvider: resolveGiftCardProvider(
+            updateDto.rewards.giftCardProvider ??
+              existingSettings.settings.rewards?.giftCardProvider,
+          ),
           utilityPaymentsEnabled:
             updateDto.rewards.utilityPaymentsEnabled ??
             existingSettings.settings.rewards?.utilityPaymentsEnabled ??
@@ -197,6 +191,10 @@ export class TenantSettingsService {
           reloadlyProducts:
             updateDto.rewards.reloadlyProducts ??
             existingSettings.settings.rewards?.reloadlyProducts ??
+            [],
+          tremendousProducts:
+            updateDto.rewards.tremendousProducts ??
+            existingSettings.settings.rewards?.tremendousProducts ??
             [],
         },
       }),
@@ -213,11 +211,8 @@ export class TenantSettingsService {
     existingSettings.settings = this.prepareSettingsForPersistence(updatedSettings);
     const result = await this.tenantSettingsRepository.save(existingSettings);
 
-    const newCatalogCountries = updatedSettings.rewards?.catalogCountries ?? [];
-    const catalogCountriesChanged =
-      updateDto.rewards?.catalogCountries !== undefined &&
-      !sameCountrySet(prevCatalogCountries, newCatalogCountries);
-    if (catalogCountriesChanged) {
+    const newGiftCardProvider = resolveGiftCardProvider(updatedSettings.rewards?.giftCardProvider);
+    if (updateDto.rewards !== undefined && prevGiftCardProvider !== newGiftCardProvider) {
       this.eventEmitter.emit('rewards.catalogCountriesChanged', { tenantId });
     }
 
@@ -253,22 +248,14 @@ export class TenantSettingsService {
 
   private async resolveRewardsDefaults(tenantId: string): Promise<{
     rewardsCurrency: string;
-    catalogCountries: string[];
   }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
-      relations: ['createdBy'],
-    });
-
-    const rewardsCurrency = await this.resolveWalletRewardsCurrency(tenantId, tenant);
-    const defaultCountry = resolveDefaultRewardsCatalogCountry({
-      tenantCountryCode: tenant?.countryCode,
-      creatorCountryCode: tenant?.createdBy?.countryCode,
+      select: { id: true, countryCode: true, preferredCurrency: true },
     });
 
     return {
-      rewardsCurrency,
-      catalogCountries: [defaultCountry],
+      rewardsCurrency: await this.resolveWalletRewardsCurrency(tenantId, tenant),
     };
   }
 
@@ -289,17 +276,13 @@ export class TenantSettingsService {
     rewards: RewardsSettings | undefined,
     defaults: {
       rewardsCurrency: string;
-      catalogCountries: string[];
     },
   ): RewardsSettings {
     return {
       enabled: rewards?.enabled ?? true,
       pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
       rewardsCurrency: defaults.rewardsCurrency,
-      catalogCountries: normalizeRewardsCatalogCountries(
-        rewards?.catalogCountries ?? defaults.catalogCountries,
-        defaults.catalogCountries[0] ?? 'US',
-      ),
+      catalogCountries: rewards?.catalogCountries ?? [],
       airtimeEnabled: rewards?.airtimeEnabled ?? true,
       customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
       giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
@@ -308,8 +291,10 @@ export class TenantSettingsService {
         'Gaming Cards',
         'Money Cards',
       ],
+      giftCardProvider: resolveGiftCardProvider(rewards?.giftCardProvider),
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
       reloadlyProducts: rewards?.reloadlyProducts ?? [],
+      tremendousProducts: rewards?.tremendousProducts ?? [],
     };
   }
 
@@ -403,13 +388,4 @@ export class TenantSettingsService {
       return undefined;
     }
   }
-}
-
-function sameCountrySet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) {
-    return false;
-  }
-  const sortedA = [...a].sort();
-  const sortedB = [...b].sort();
-  return sortedA.every((code, i) => code === sortedB[i]);
 }

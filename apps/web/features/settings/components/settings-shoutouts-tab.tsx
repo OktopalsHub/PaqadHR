@@ -177,21 +177,12 @@ export function SettingsShoutoutsTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard
-        title={`${PAQ_POINTS_NAME} allowance`}
-        description={`How many ${PAQ_POINTS_NAME.toLowerCase()} members can give per period`}
-      >
+      <ContentCard title={`${PAQ_POINTS_NAME} allowance`}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <SettingsFieldHint
-            label="Allowance amount"
-            hint={`Total ${PAQ_POINTS_NAME.toLowerCase()} each member can give during the selected reset period.`}
-          >
+          <SettingsFieldHint label="Allowance amount">
             <Input value={allowance} onChange={(e) => setAllowance(e.target.value)} />
           </SettingsFieldHint>
-          <SettingsFieldHint
-            label="Reset period"
-            hint="How often member shoutout allowances reset."
-          >
+          <SettingsFieldHint label="Reset period">
             <Select value={period} onValueChange={(v) => setPeriod(v as AllowancePeriod)}>
               <SelectTrigger>
                 <SelectValue />
@@ -205,11 +196,7 @@ export function SettingsShoutoutsTab() {
               </SelectContent>
             </Select>
           </SettingsFieldHint>
-          <SettingsFieldHint
-            label="Starting balance for new members"
-            hint={`${PAQ_POINTS_NAME} every new employee receives when they join the workspace.`}
-            className="sm:col-span-2"
-          >
+          <SettingsFieldHint label="Starting balance for new members" className="sm:col-span-2">
             <Input value={startingBalance} onChange={(e) => setStartingBalance(e.target.value)} />
           </SettingsFieldHint>
           <div className="sm:col-span-2">
@@ -218,25 +205,18 @@ export function SettingsShoutoutsTab() {
         </div>
       </ContentCard>
 
-      <ContentCard
-        title="Celebration shoutouts"
-        description={`Automated shoutouts and ${PAQ_POINTS_NAME.toLowerCase()} on birthdays and work anniversaries`}
-      >
+      <ContentCard title="Celebration shoutouts">
         <div className="space-y-6">
           <div className="space-y-3 rounded-lg border border-border/60 p-4">
             <SettingsSwitchRow
               id="birthday-enabled"
               label="Birthday shoutouts"
-              hint={`Post a shoutout and award ${PAQ_POINTS_NAME.toLowerCase()} when it is a member's birthday.`}
               checked={birthdayEnabled}
               onCheckedChange={setBirthdayEnabled}
             />
             {birthdayEnabled ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <SettingsFieldHint
-                  label={`${PAQ_POINTS_NAME} to award`}
-                  hint={`${PAQ_POINTS_NAME} granted to the birthday person.`}
-                >
+                <SettingsFieldHint label={`${PAQ_POINTS_NAME} to award`}>
                   <Input
                     value={birthdayPoints}
                     onChange={(e) => setBirthdayPoints(e.target.value)}
@@ -262,16 +242,12 @@ export function SettingsShoutoutsTab() {
             <SettingsSwitchRow
               id="anniversary-enabled"
               label="Work anniversary shoutouts"
-              hint={`Post a shoutout and award ${PAQ_POINTS_NAME.toLowerCase()} on each member's work anniversary.`}
               checked={anniversaryEnabled}
               onCheckedChange={setAnniversaryEnabled}
             />
             {anniversaryEnabled ? (
               <div className="grid gap-3 sm:grid-cols-2">
-                <SettingsFieldHint
-                  label={`${PAQ_POINTS_NAME} to award`}
-                  hint={`${PAQ_POINTS_NAME} granted on each anniversary.`}
-                >
+                <SettingsFieldHint label={`${PAQ_POINTS_NAME} to award`}>
                   <Input
                     value={anniversaryPoints}
                     onChange={(e) => setAnniversaryPoints(e.target.value)}
@@ -297,7 +273,7 @@ export function SettingsShoutoutsTab() {
         </div>
       </ContentCard>
 
-      <ContentCard title="Core values" description="Categories for shoutouts">
+      <ContentCard title="Core values">
         <div className="space-y-3">
           {categories.map((cat) => (
             <div
@@ -323,10 +299,7 @@ export function SettingsShoutoutsTab() {
         </div>
       </ContentCard>
 
-      <ContentCard
-        title={`Member ${PAQ_POINTS_NAME.toLowerCase()}`}
-        description={`Assign bonus ${PAQ_POINTS_NAME.toLowerCase()} to everyone in the workspace`}
-      >
+      <ContentCard title={`Member ${PAQ_POINTS_NAME.toLowerCase()}`}>
         <div className="flex flex-wrap items-end gap-2">
           <SettingsFieldHint label={`${PAQ_POINTS_NAME} to assign`}>
             <Input
@@ -335,11 +308,7 @@ export function SettingsShoutoutsTab() {
               className="w-32"
             />
           </SettingsFieldHint>
-          <SettingsFieldHint
-            label="Reason"
-            hint="Shown to members and in the activity log."
-            className="min-w-[220px] flex-1"
-          >
+          <SettingsFieldHint label="Reason" className="min-w-[220px] flex-1">
             <Input
               placeholder="e.g. New year celebration"
               value={bulkReason}
@@ -351,9 +320,7 @@ export function SettingsShoutoutsTab() {
           </Button>
         </div>
         {members.length > 0 ? (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Applies to all {members.length} members in the workspace
-          </p>
+          <p className="mt-3 text-xs text-muted-foreground">{members.length} members</p>
         ) : null}
       </ContentCard>
     </div>

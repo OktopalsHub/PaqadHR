@@ -4,6 +4,7 @@ import { TenantMember } from '../../tenant-members/entities/tenant-member.entity
 
 export type RewardType =
   | 'RELOADLY'
+  | 'TREMENDOUS'
   | 'NOMBA_AIRTIME'
   | 'RELOADLY_AIRTIME'
   | 'NOMBA_UTILITY'

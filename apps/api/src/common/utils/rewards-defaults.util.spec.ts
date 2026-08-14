@@ -1,7 +1,11 @@
 import {
+  isNigeriaWorkspace,
   isWalletCurrencyLocked,
   resolveDefaultRewardsCatalogCountry,
+  resolveGiftCardProvider,
+  resolveGiftCatalogProviders,
   resolveInitialWalletCurrency,
+  resolveRewardsCatalogCountries,
 } from './rewards-defaults.util';
 
 describe('resolveInitialWalletCurrency', () => {
@@ -46,5 +50,44 @@ describe('resolveDefaultRewardsCatalogCountry', () => {
         creatorCountryCode: 'US',
       }),
     ).toBe('NG');
+  });
+});
+
+describe('resolveRewardsCatalogCountries', () => {
+  it('does not infer catalog countries from the workspace', () => {
+    expect(resolveRewardsCatalogCountries('NG')).toEqual([]);
+    expect(resolveRewardsCatalogCountries('US')).toEqual([]);
+    expect(resolveRewardsCatalogCountries(null)).toEqual([]);
+  });
+});
+
+describe('isNigeriaWorkspace', () => {
+  it('is true only for Nigeria', () => {
+    expect(isNigeriaWorkspace('NG')).toBe(true);
+    expect(isNigeriaWorkspace('US')).toBe(false);
+    expect(isNigeriaWorkspace(null)).toBe(false);
+  });
+});
+
+describe('resolveGiftCatalogProviders', () => {
+  it('unions Tremendous and Reloadly for Nigeria', () => {
+    expect(resolveGiftCatalogProviders('NG', 'tremendous')).toEqual(['tremendous', 'reloadly']);
+    expect(resolveGiftCatalogProviders('NG', 'reloadly')).toEqual(['tremendous', 'reloadly']);
+  });
+
+  it('uses the selected provider for every other workspace', () => {
+    expect(resolveGiftCatalogProviders('US', 'reloadly')).toEqual(['reloadly']);
+    expect(resolveGiftCatalogProviders('GB', undefined)).toEqual(['tremendous']);
+  });
+});
+
+describe('resolveGiftCardProvider', () => {
+  it('defaults to tremendous', () => {
+    expect(resolveGiftCardProvider(undefined)).toBe('tremendous');
+    expect(resolveGiftCardProvider('tremendous')).toBe('tremendous');
+  });
+
+  it('returns reloadly when explicitly selected', () => {
+    expect(resolveGiftCardProvider('reloadly')).toBe('reloadly');
   });
 });

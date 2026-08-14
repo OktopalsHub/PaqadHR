@@ -55,7 +55,6 @@ export function AttendanceMyTab() {
     <div className="space-y-5">
       <ContentCard
         title="Timesheet"
-        description="Filter and review your clock entries"
         className="dashboard-panel rounded-[8px]"
         action={
           <AttendanceDateFilters

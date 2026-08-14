@@ -516,6 +516,74 @@ export class ReloadlyProductDto {
   wholesaleInRewardsCurrency?: number;
 }
 
+export class TremendousProductDto {
+  @ApiProperty({ example: 'XVBOXHD007XB' })
+  @IsString()
+  productId: string;
+
+  @ApiProperty({ example: 'Amazon Gift Card' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ example: 500 })
+  @IsNumber()
+  @Min(0)
+  pointsCost: number;
+
+  @ApiProperty({ example: 'https://cdn.example.com/card.png', nullable: true })
+  @IsString()
+  imageUrl: string | null;
+
+  @ApiProperty({ example: 'US' })
+  @IsString()
+  countryCode: string;
+
+  @ApiProperty({ example: 'USD' })
+  @IsString()
+  currencyCode: string;
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  minDenomination?: number | null;
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  maxDenomination?: number | null;
+
+  @ApiProperty({ required: false, type: [Number] })
+  @IsOptional()
+  @IsArray()
+  @IsNumber({}, { each: true })
+  fixedDenominations?: number[];
+
+  @ApiProperty({ required: false, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  listTremendousCost?: number | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  listTremendousCostCurrency?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsNumber()
+  wholesaleInRewardsCurrency?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  category?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  subcategory?: string;
+}
+
 export class RewardsSettingsDto {
   @ApiProperty({
     description: 'Whether the rewards redemption system is enabled',
@@ -547,7 +615,7 @@ export class RewardsSettingsDto {
   rewardsCurrency?: string;
 
   @ApiProperty({
-    description: 'Allowed ISO country codes for Reloadly gift cards',
+    description: 'Allowed ISO country codes for gift card catalog (derived from workspace country)',
     type: [String],
     required: false,
   })
@@ -594,6 +662,16 @@ export class RewardsSettingsDto {
   giftCardCategories?: string[];
 
   @ApiProperty({
+    description: 'Gift card fulfillment provider',
+    example: 'tremendous',
+    enum: ['reloadly', 'tremendous'],
+    required: false,
+  })
+  @IsOptional()
+  @IsIn(['reloadly', 'tremendous'])
+  giftCardProvider?: 'reloadly' | 'tremendous';
+
+  @ApiProperty({
     description: 'Whether utility payments are enabled',
     example: true,
     required: false,
@@ -612,6 +690,17 @@ export class RewardsSettingsDto {
   @ValidateNested({ each: true })
   @Type(() => ReloadlyProductDto)
   reloadlyProducts?: ReloadlyProductDto[];
+
+  @ApiProperty({
+    description: 'Cached Tremendous gift card products',
+    type: [TremendousProductDto],
+    required: false,
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => TremendousProductDto)
+  tremendousProducts?: TremendousProductDto[];
 }
 
 export class UpdateTenantSettingsDto {

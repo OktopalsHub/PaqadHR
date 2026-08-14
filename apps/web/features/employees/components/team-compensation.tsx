@@ -9,11 +9,10 @@ import { LoadingBlock } from '@/components/loading-block';
 import { PersonAvatar } from '@/components/person-avatar';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -149,7 +148,6 @@ export function TeamCompensation({ hideAppPage = false }: TeamCompensationProps)
         <CardHeader className="!flex flex-col gap-4 border-b border-[#d7e3f6] md:flex-row md:items-end md:justify-between dark:border-slate-800">
           <div className="min-w-0 space-y-1">
             <CardTitle>Team Salary</CardTitle>
-            <CardDescription>Manage salary for all team members in one place.</CardDescription>
           </div>
           <div className="relative w-full md:w-[420px] md:max-w-[420px] md:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -380,9 +378,6 @@ function SalaryDialog({
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
           <DialogTitle>Add salary — {memberName}</DialogTitle>
-          <DialogDescription>
-            Record a new salary amount and currency. Previous salaries stay in history.
-          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="space-y-2">

@@ -86,12 +86,9 @@ export function SettingsHolidaysTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard title="Public holidays" description="Country used for the team calendar">
+      <ContentCard title="Public holidays">
         <div className="space-y-3">
-          <SettingsFieldHint
-            label="Country"
-            hint="Public holidays for this country appear on the team calendar."
-          >
+          <SettingsFieldHint label="Country">
             <SearchSelect
               options={countryOptions}
               value={countryCode}
@@ -109,7 +106,7 @@ export function SettingsHolidaysTab() {
         </div>
       </ContentCard>
 
-      <ContentCard title="Custom holidays" description="Company-specific days off">
+      <ContentCard title="Custom holidays">
         <div className="space-y-3">
           {(holidays?.customHolidays ?? []).map((h) => (
             <div

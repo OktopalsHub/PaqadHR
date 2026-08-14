@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { formatNombaSenderName } from 'src/common/config/nomba.config';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
@@ -10,10 +11,11 @@ import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.
 import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
 import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
 import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
-import { getNgRewardsAirtimeProviderPreference } from 'src/common/utils/ng-money-provider.util';
+import { TremendousApiService } from 'src/common/services/tremendous-api.service';
+import { resolveNgRewardsAirtimeProvider } from 'src/common/utils/ng-money-provider.util';
 import {
-  normalizeRewardsCatalogCountries,
-  resolveDefaultRewardsCatalogCountry,
+  resolveGiftCardProvider,
+  resolveGiftCatalogProviders,
   resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
@@ -99,6 +101,7 @@ export class RewardsService {
     readonly _nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly activitiesService: ActivitiesService,
+    private readonly tremendousApi: TremendousApiService,
   ) {}
 
   private async toWalletCurrency(
@@ -132,14 +135,27 @@ export class RewardsService {
     return settings.reloadlyProducts?.find((p) => p.productId === productId);
   }
 
+  private resolveTremendousProduct(
+    settings: RewardsSettings,
+    rewardId: string,
+  ): NonNullable<RewardsSettings['tremendousProducts']>[number] | undefined {
+    if (!rewardId.startsWith('tremendous_')) return undefined;
+    const productId = rewardId.slice('tremendous_'.length);
+    if (!productId) return undefined;
+    return settings.tremendousProducts?.find((p) => p.productId === productId);
+  }
+
+  private useMonnifyNgBills(): boolean {
+    return resolveNgRewardsAirtimeProvider() === PaymentProvider.MONNIFY;
+  }
+
   private assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
     const isNgCurrency =
       (input.currencyCode ?? settings.rewardsCurrency).toUpperCase() === 'NGN' &&
       settings.rewardsCurrency.toUpperCase() === 'NGN';
 
     if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
-      const preferMonnify = getNgRewardsAirtimeProviderPreference() === 'monnify';
-      const configured = preferMonnify
+      const configured = this.useMonnifyNgBills()
         ? this.monnifyBillApi.isConfigured()
         : this.nombaBillApi.isConfigured();
       if (!configured) {
@@ -159,7 +175,7 @@ export class RewardsService {
   }
 
   async listNombaDataPlans(network: string) {
-    if (getNgRewardsAirtimeProviderPreference() === 'monnify') {
+    if (this.useMonnifyNgBills()) {
       if (!this.monnifyBillApi.isConfigured()) {
         throw new BadRequestException('Data plans are temporarily unavailable.');
       }
@@ -243,15 +259,61 @@ export class RewardsService {
     return 'Gift Cards';
   }
 
-  private async getRewardsSettings(tenantId: string): Promise<RewardsSettings> {
-    const repo = this.dataSource.getRepository(
-      (await import('../../tenant-settings/entities/tenant-settings.entity')).TenantSettings,
-    );
+  private getTremendousCategory(
+    name: string,
+    category?: string,
+    subcategory?: string,
+  ): 'Airtime' | 'Money Cards' | 'Gift Cards' | 'Gaming Cards' {
+    const cat = `${category ?? ''} ${subcategory ?? ''}`.toLowerCase();
+    if (
+      cat.includes('visa') ||
+      cat.includes('prepaid') ||
+      cat.includes('ach') ||
+      cat.includes('bank') ||
+      cat.includes('debit')
+    ) {
+      return 'Money Cards';
+    }
+    if (cat.includes('gaming') || cat.includes('video_game') || cat.includes('entertainment')) {
+      return 'Gaming Cards';
+    }
+    return this.getReloadlyCategory(name);
+  }
+
+  private tremendousSkusToDenoms(skus: Array<{ min: number; max: number }> | undefined): {
+    fixedDenominations: number[];
+    minDenomination: number | null;
+    maxDenomination: number | null;
+  } {
+    if (!skus?.length) {
+      return { fixedDenominations: [], minDenomination: null, maxDenomination: null };
+    }
+    const fixed = skus
+      .filter((sku) => sku.min === sku.max)
+      .map((sku) => sku.min)
+      .sort((a, b) => a - b);
+    const ranges = skus.filter((sku) => sku.min !== sku.max);
+    if (fixed.length > 0 && ranges.length === 0) {
+      return {
+        fixedDenominations: fixed,
+        minDenomination: fixed[0],
+        maxDenomination: fixed[fixed.length - 1],
+      };
+    }
+    const min = Math.min(...skus.map((sku) => sku.min));
+    const max = Math.max(...skus.map((sku) => sku.max));
+    return { fixedDenominations: [], minDenomination: min, maxDenomination: max };
+  }
+
+  private async getRewardsContext(tenantId: string): Promise<{
+    settings: RewardsSettings;
+    countryCode: string | null;
+  }> {
     const [row, tenant, wallet] = await Promise.all([
-      repo.findOne({ where: { tenantId } }),
+      this.dataSource.getRepository(TenantSettings).findOne({ where: { tenantId } }),
       this.dataSource.getRepository(Tenant).findOne({
         where: { id: tenantId },
-        relations: ['createdBy'],
+        select: { id: true, countryCode: true, preferredCurrency: true },
       }),
       this.dataSource.getRepository(TenantWallet).findOne({ where: { tenantId } }),
     ]);
@@ -259,30 +321,33 @@ export class RewardsService {
     const rewardsCurrency = wallet
       ? wallet.currencyCode.toUpperCase()
       : resolveInitialWalletCurrency(tenant?.countryCode, tenant?.preferredCurrency);
-    const defaultCatalogCountry = resolveDefaultRewardsCatalogCountry({
-      tenantCountryCode: tenant?.countryCode,
-      creatorCountryCode: tenant?.createdBy?.countryCode,
-    });
 
     return {
-      enabled: rewards?.enabled ?? true,
-      pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
-      rewardsCurrency,
-      catalogCountries: normalizeRewardsCatalogCountries(
-        rewards?.catalogCountries,
-        defaultCatalogCountry,
-      ),
-      airtimeEnabled: rewards?.airtimeEnabled ?? true,
-      giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
-      giftCardCategories: rewards?.giftCardCategories ?? [
-        'Gift Cards',
-        'Gaming Cards',
-        'Money Cards',
-      ],
-      utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
-      customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
-      reloadlyProducts: rewards?.reloadlyProducts ?? [],
+      countryCode: tenant?.countryCode ?? null,
+      settings: {
+        enabled: rewards?.enabled ?? true,
+        pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
+        rewardsCurrency,
+        catalogCountries: rewards?.catalogCountries ?? [],
+        airtimeEnabled: rewards?.airtimeEnabled ?? true,
+        giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
+        giftCardCategories: rewards?.giftCardCategories ?? [
+          'Gift Cards',
+          'Gaming Cards',
+          'Money Cards',
+        ],
+        giftCardProvider: resolveGiftCardProvider(rewards?.giftCardProvider),
+        utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
+        customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
+        reloadlyProducts: rewards?.reloadlyProducts ?? [],
+        tremendousProducts: rewards?.tremendousProducts ?? [],
+      },
     };
+  }
+
+  private async getRewardsSettings(tenantId: string): Promise<RewardsSettings> {
+    const { settings } = await this.getRewardsContext(tenantId);
+    return settings;
   }
 
   async getReloadlyCountries(tenantId: string): Promise<Array<{ code: string; name: string }>> {
@@ -308,18 +373,26 @@ export class RewardsService {
     tenantId: string,
     options?: { includeAdminPricing?: boolean },
   ): Promise<CatalogItem[]> {
-    let settings = await this.getRewardsSettings(tenantId);
+    let { settings, countryCode } = await this.getRewardsContext(tenantId);
     if (!settings.enabled) {
       return [];
     }
 
-    if (
-      (settings.reloadlyProducts ?? []).length === 0 &&
-      this.reloadlyApi.isConfigured() &&
-      settings.catalogCountries.length > 0
-    ) {
+    const providers = resolveGiftCatalogProviders(countryCode, settings.giftCardProvider);
+    const includeTremendous = providers.includes('tremendous');
+    const includeReloadly = providers.includes('reloadly');
+
+    let synced = false;
+    if (includeTremendous && (settings.tremendousProducts ?? []).length === 0) {
+      await this.syncTremendousProducts(tenantId);
+      synced = true;
+    }
+    if (includeReloadly && (settings.reloadlyProducts ?? []).length === 0) {
       await this.syncReloadlyProducts(tenantId);
-      settings = await this.getRewardsSettings(tenantId);
+      synced = true;
+    }
+    if (synced) {
+      settings = (await this.getRewardsContext(tenantId)).settings;
     }
 
     const exchangeRate = settings.pointsExchangeRate;
@@ -332,37 +405,72 @@ export class RewardsService {
       'Money Cards',
     ];
 
-    const reloadlyProducts = settings.reloadlyProducts ?? [];
-    for (const p of reloadlyProducts) {
-      const cat = this.getReloadlyCategory(p.name);
-      if (cat === 'Airtime') {
-        if (!settings.airtimeEnabled) continue;
-      } else {
+    if (includeTremendous) {
+      for (const p of settings.tremendousProducts ?? []) {
+        const cat = this.getTremendousCategory(p.name, p.category, p.subcategory);
         if (!giftCardsEnabled) continue;
         if (!giftCardCategories.includes(cat)) continue;
-      }
 
-      catalog.push({
-        id: `reloadly_${p.productId}`,
-        name: p.name,
-        type: 'RELOADLY',
-        pointsCost: p.pointsCost,
-        currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
-        currencyCode: p.currencyCode,
-        countryCode: p.countryCode,
-        imageUrl: p.imageUrl,
-        minDenomination: p.minDenomination ?? null,
-        maxDenomination: p.maxDenomination ?? null,
-        fixedDenominations: p.fixedDenominations ?? [],
-        ...(options?.includeAdminPricing && p.listReloadlyCost != null && p.listReloadlyCostCurrency
-          ? {
-              adminPricing: {
-                reloadlyCost: p.listReloadlyCost,
-                reloadlyCostCurrency: p.listReloadlyCostCurrency,
-              },
-            }
-          : {}),
-      });
+        catalog.push({
+          id: `tremendous_${p.productId}`,
+          name: p.name,
+          type: 'TREMENDOUS',
+          pointsCost: p.pointsCost,
+          currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
+          currencyCode: p.currencyCode,
+          countryCode: p.countryCode,
+          imageUrl: p.imageUrl,
+          minDenomination: p.minDenomination ?? null,
+          maxDenomination: p.maxDenomination ?? null,
+          fixedDenominations: p.fixedDenominations ?? [],
+          ...(options?.includeAdminPricing &&
+          p.listTremendousCost != null &&
+          p.listTremendousCostCurrency
+            ? {
+                adminPricing: {
+                  reloadlyCost: p.listTremendousCost,
+                  reloadlyCostCurrency: p.listTremendousCostCurrency,
+                },
+              }
+            : {}),
+        });
+      }
+    }
+
+    if (includeReloadly) {
+      for (const p of settings.reloadlyProducts ?? []) {
+        const cat = this.getReloadlyCategory(p.name);
+        if (cat === 'Airtime') {
+          if (!settings.airtimeEnabled) continue;
+        } else {
+          if (!giftCardsEnabled) continue;
+          if (!giftCardCategories.includes(cat)) continue;
+        }
+
+        catalog.push({
+          id: `reloadly_${p.productId}`,
+          name: p.name,
+          type: 'RELOADLY',
+          pointsCost: p.pointsCost,
+          currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
+          currencyCode: p.currencyCode,
+          countryCode: p.countryCode,
+          imageUrl: p.imageUrl,
+          minDenomination: p.minDenomination ?? null,
+          maxDenomination: p.maxDenomination ?? null,
+          fixedDenominations: p.fixedDenominations ?? [],
+          ...(options?.includeAdminPricing &&
+          p.listReloadlyCost != null &&
+          p.listReloadlyCostCurrency
+            ? {
+                adminPricing: {
+                  reloadlyCost: p.listReloadlyCost,
+                  reloadlyCostCurrency: p.listReloadlyCostCurrency,
+                },
+              }
+            : {}),
+        });
+      }
     }
 
     if (settings.customRewardsEnabled) {
@@ -401,7 +509,7 @@ export class RewardsService {
     }
 
     const settings = await this.getRewardsSettings(tenantId);
-    if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
+    if (!this.reloadlyApi.isConfigured()) {
       return existing;
     }
 
@@ -417,11 +525,125 @@ export class RewardsService {
     return products;
   }
 
+  async syncCatalog(
+    tenantId: string,
+    options?: { force?: boolean },
+  ): Promise<{ providers: Array<'reloadly' | 'tremendous'>; count: number }> {
+    const { settings, countryCode } = await this.getRewardsContext(tenantId);
+    const providers = resolveGiftCatalogProviders(countryCode, settings.giftCardProvider);
+    let count = 0;
+    if (providers.includes('reloadly')) {
+      const products = await this.syncReloadlyProducts(tenantId, options);
+      count += products.length;
+    }
+    if (providers.includes('tremendous')) {
+      const products = await this.syncTremendousProducts(tenantId, options);
+      count += products.length;
+    }
+    return { providers, count };
+  }
+
+  async syncTremendousProducts(
+    tenantId: string,
+    options?: { force?: boolean },
+  ): Promise<NonNullable<RewardsSettings['tremendousProducts']>> {
+    const repo = this.dataSource.getRepository(TenantSettings);
+    const row = await repo.findOne({ where: { tenantId } });
+    if (!row) {
+      return [];
+    }
+
+    const existing = row.settings?.rewards?.tremendousProducts ?? [];
+    if (!options?.force && existing.length > 0) {
+      return existing;
+    }
+
+    const settings = await this.getRewardsSettings(tenantId);
+    if (!this.tremendousApi.isConfigured()) {
+      return existing;
+    }
+
+    const products = await this.buildTremendousProductRecords(tenantId, settings);
+    row.settings = {
+      ...row.settings,
+      rewards: {
+        ...settings,
+        tremendousProducts: products,
+      },
+    };
+    await repo.save(row);
+    return products;
+  }
+
+  private async buildTremendousProductRecords(
+    tenantId: string,
+    settings: RewardsSettings,
+  ): Promise<NonNullable<RewardsSettings['tremendousProducts']>> {
+    const products = await this.tremendousApi.listProducts();
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const exchangeRate = settings.pointsExchangeRate;
+
+    const records: NonNullable<RewardsSettings['tremendousProducts']> = [];
+
+    for (const p of products) {
+      try {
+        const denoms = this.tremendousSkusToDenoms(p.skus);
+        const listCost = denoms.fixedDenominations[0] ?? denoms.minDenomination;
+        if (listCost == null) {
+          continue;
+        }
+        const currencyCode = p.currency_codes?.[0] ?? settings.rewardsCurrency;
+        const countryCode = p.countries?.[0]?.abbr ?? 'US';
+        const wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          listCost,
+          currencyCode,
+          settings.rewardsCurrency,
+          undefined,
+          countryCode,
+        );
+        const chargedValue = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
+        const pointsCost = Math.ceil(chargedValue * exchangeRate);
+        const imageUrl =
+          p.images?.find((image) => image.type === 'card')?.src ?? p.images?.[0]?.src ?? null;
+
+        records.push({
+          productId: p.id,
+          name: p.name,
+          countryCode,
+          currencyCode,
+          imageUrl,
+          minDenomination: denoms.minDenomination,
+          maxDenomination: denoms.maxDenomination,
+          fixedDenominations: denoms.fixedDenominations,
+          pointsCost,
+          listTremendousCost: listCost,
+          listTremendousCostCurrency: currencyCode,
+          wholesaleInRewardsCurrency,
+          category: p.category,
+          subcategory: p.subcategory,
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Skipping Tremendous product ${p.id} (${p.name}): FX conversion failed — ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
+    const seen = new Set<string>();
+    return records.filter((record) => {
+      if (seen.has(record.productId)) {
+        return false;
+      }
+      seen.add(record.productId);
+      return true;
+    });
+  }
+
   private async buildReloadlyProductRecords(
     tenantId: string,
     settings: RewardsSettings,
   ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
-    const products = await this.reloadlyApi.listProductsByCountries(settings.catalogCountries);
+    const products = await this.reloadlyApi.listAccountProducts();
     const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
     const exchangeRate = settings.pointsExchangeRate;
 
@@ -481,7 +703,7 @@ export class RewardsService {
     Array<NonNullable<RewardsSettings['reloadlyProducts']>[number] & { defaultPointsCost: number }>
   > {
     const settings = await this.getRewardsSettings(tenantId);
-    if (!this.reloadlyApi.isConfigured() || settings.catalogCountries.length === 0) {
+    if (!this.reloadlyApi.isConfigured()) {
       return [];
     }
 
@@ -540,6 +762,31 @@ export class RewardsService {
         wholesaleInRewardsCurrency = await this.toWalletCurrency(
           product.listReloadlyCost,
           product.listReloadlyCostCurrency,
+          settings.rewardsCurrency,
+          undefined,
+          product.countryCode,
+        );
+      }
+
+      faceValueInRewardsCurrency = wholesaleInRewardsCurrency;
+      totalTenantDebit = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
+      expectedPointsCost = product.pointsCost;
+    } else if (input.rewardType === 'TREMENDOUS') {
+      const product = this.resolveTremendousProduct(settings, input.rewardId);
+      if (!product) {
+        throw new BadRequestException('Tremendous product not found in catalog');
+      }
+
+      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
+      if (wholesaleInRewardsCurrency == null) {
+        if (product.listTremendousCost == null || !product.listTremendousCostCurrency) {
+          throw new BadRequestException(
+            'Gift card pricing is not available. Please refresh the rewards catalog.',
+          );
+        }
+        wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          product.listTremendousCost,
+          product.listTremendousCostCurrency,
           settings.rewardsCurrency,
           undefined,
           product.countryCode,
@@ -697,6 +944,8 @@ export class RewardsService {
     try {
       if (input.rewardType === 'RELOADLY') {
         await this.fulfillReloadly(redemption!, input);
+      } else if (input.rewardType === 'TREMENDOUS') {
+        await this.fulfillTremendous(redemption!, input);
       } else if (input.rewardType === 'NOMBA_AIRTIME') {
         await this.fulfillNombaTopup(redemption!, input);
       } else if (input.rewardType === 'RELOADLY_AIRTIME') {
@@ -843,13 +1092,65 @@ export class RewardsService {
     });
   }
 
+  private async fulfillTremendous(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
+    const productId = input.rewardId.startsWith('tremendous_')
+      ? input.rewardId.slice('tremendous_'.length)
+      : undefined;
+    if (!productId) {
+      throw new Error('Missing Tremendous productId for gift card order');
+    }
+
+    const member = await this.dataSource
+      .getRepository(TenantMember)
+      .createQueryBuilder('m')
+      .leftJoin('m.user', 'u')
+      .select(['m.id', 'm.firstName', 'm.lastName', 'm.preferredName', 'u.id', 'u.email'])
+      .where('m.id = :id AND m.tenantId = :tenantId', {
+        id: redemption.memberId,
+        tenantId: redemption.tenantId,
+      })
+      .getOne();
+
+    const recipientEmail = redemption.recipientEmail ?? member?.user?.email;
+    if (!recipientEmail) {
+      throw new Error('Recipient email is required to issue a Tremendous reward');
+    }
+
+    const recipientName =
+      member?.preferredName?.trim() ||
+      `${member?.firstName ?? ''} ${member?.lastName ?? ''}`.trim() ||
+      'Member';
+
+    const orderResponse = await this.tremendousApi.createOrder({
+      productId,
+      denomination: Number(redemption.currencyValue),
+      currencyCode: redemption.currencyCode,
+      recipientName,
+      recipientEmail,
+      externalId: redemption.id,
+    });
+
+    const reward = orderResponse.reward ?? orderResponse.order?.rewards?.[0];
+    const deliveryLink = reward?.delivery?.link ?? null;
+    const orderId = orderResponse.order?.id ?? reward?.id ?? null;
+
+    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
+      status: 'SUCCESS' as RedemptionStatus,
+      providerTxRef: orderId,
+      voucherCode: deliveryLink,
+      voucherInstructions: deliveryLink
+        ? 'Open this link to choose and redeem your gift card.'
+        : 'Your reward is being prepared. Check back shortly for your redemption link.',
+    });
+  }
+
   private async fulfillNombaTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
       throw new Error('Phone number and network are required for mobile top-up');
     }
 
     const isData = input.topupKind === 'data';
-    const useMonnify = getNgRewardsAirtimeProviderPreference() === 'monnify';
+    const useMonnify = this.useMonnifyNgBills();
 
     let result: { success: boolean; transactionId: string | null; status: string };
     if (useMonnify) {
@@ -937,10 +1238,9 @@ export class RewardsService {
       merchantTxRef: redemption.id,
     };
 
-    const result =
-      getNgRewardsAirtimeProviderPreference() === 'monnify'
-        ? await this.monnifyBillApi.purchaseElectricity(purchaseInput)
-        : await this.nombaBillApi.purchaseElectricity(purchaseInput);
+    const result = this.useMonnifyNgBills()
+      ? await this.monnifyBillApi.purchaseElectricity(purchaseInput)
+      : await this.nombaBillApi.purchaseElectricity(purchaseInput);
 
     if (!result.success) {
       throw new Error(`Electricity purchase failed: status ${result.status}`);
@@ -1552,7 +1852,7 @@ export class RewardsService {
 
   async listUtilityBillers(countryCode: string) {
     if (countryCode.toUpperCase() === 'NG') {
-      if (getNgRewardsAirtimeProviderPreference() === 'monnify') {
+      if (this.useMonnifyNgBills()) {
         if (!this.monnifyBillApi.isConfigured()) {
           throw new BadRequestException('Utility billers are temporarily unavailable.');
         }
@@ -1583,7 +1883,7 @@ export class RewardsService {
   ) {
     if (countryCode.toUpperCase() === 'NG') {
       const service = (serviceType || 'PREPAID') as 'PREPAID' | 'POSTPAID';
-      if (getNgRewardsAirtimeProviderPreference() === 'monnify') {
+      if (this.useMonnifyNgBills()) {
         return this.monnifyBillApi.lookupElectricity(billerId, accountNumber, service);
       }
       return this.nombaBillApi.lookupElectricity(billerId, accountNumber, service);

@@ -146,21 +146,17 @@ export function SettingsLeaveTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard title="Leave policy" description="Carryover and balance rules">
+      <ContentCard title="Leave policy">
         <div className="space-y-4">
           <SettingsSwitchRow
             id="carryover"
             label="Allow carryover"
-            hint="Unused leave days can roll into the next period, up to the maximum you set."
             checked={allowCarryover}
             onCheckedChange={setAllowCarryover}
           />
           {allowCarryover ? (
             <>
-              <SettingsFieldHint
-                label="Max carryover days"
-                hint="Maximum number of unused days that can carry over into the next period."
-              >
+              <SettingsFieldHint label="Max carryover days">
                 <Input
                   type="number"
                   min={0}
@@ -169,10 +165,7 @@ export function SettingsLeaveTab() {
                   onChange={(e) => setMaxCarryoverDays(e.target.value)}
                 />
               </SettingsFieldHint>
-              <SettingsFieldHint
-                label="Carryover expires after"
-                hint="Unused carried-over days expire this many months after the new period starts."
-              >
+              <SettingsFieldHint label="Carryover expires after">
                 <Select value={carryoverExpiryMonths} onValueChange={setCarryoverExpiryMonths}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select expiry" />
@@ -191,14 +184,12 @@ export function SettingsLeaveTab() {
           <SettingsSwitchRow
             id="auto-balances"
             label="Auto-create annual balances"
-            hint="Automatically creates leave balances for all members at the start of each cycle."
             checked={autoCreateAnnualBalances}
             onCheckedChange={setAutoCreateAnnualBalances}
           />
           <SettingsSwitchRow
             id="prorate"
             label="Prorate for new joiners"
-            hint="New members receive a partial allowance based on their join date."
             checked={prorateForNewJoiners}
             onCheckedChange={setProrateForNewJoiners}
           />
@@ -206,7 +197,7 @@ export function SettingsLeaveTab() {
         </div>
       </ContentCard>
 
-      <ContentCard title="Leave types" description="Types available for leave requests">
+      <ContentCard title="Leave types">
         <div className="space-y-3">
           {types.map((type) => (
             <div key={type.id} className="rounded-lg border border-border/60 p-3">

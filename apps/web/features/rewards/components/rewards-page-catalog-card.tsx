@@ -29,6 +29,7 @@ export function CatalogCard({
   const isTemplate = item.id.startsWith('default_');
   const typeColors: Record<string, string> = {
     RELOADLY: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
+    TREMENDOUS: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
     NOMBA_AIRTIME: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
     RELOADLY_AIRTIME:
       'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
@@ -39,6 +40,7 @@ export function CatalogCard({
 
   const typeLabels: Record<string, string> = {
     RELOADLY: 'Digital Voucher',
+    TREMENDOUS: 'Digital Voucher',
     NOMBA_AIRTIME: 'Airtime',
     RELOADLY_AIRTIME: 'Airtime',
     NOMBA_UTILITY: 'Utility',
@@ -94,7 +96,9 @@ export function CatalogCard({
           <div>
             <p className="text-lg font-bold tabular-nums text-primary">
               {item.pointsCost.toLocaleString()}
-              {isAdmin && item.type === 'RELOADLY' && item.adminPricing ? (
+              {isAdmin &&
+              (item.type === 'RELOADLY' || item.type === 'TREMENDOUS') &&
+              item.adminPricing ? (
                 <span className="ml-1.5 text-sm font-normal text-muted-foreground">
                   (
                   {formatReloadlyCost(

@@ -144,7 +144,6 @@ export function LeaveBalancesAdminTab() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Leave Balance</DialogTitle>
-            <DialogDescription>Adjust the allocated and used days.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">

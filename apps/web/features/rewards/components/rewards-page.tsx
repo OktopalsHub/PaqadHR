@@ -70,15 +70,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
   const settings = tenantSettings?.settings?.rewards;
-  const defaultCatalogCountry = tenant?.countryCode?.toUpperCase() || 'US';
+  const isNgWorkspace = (tenant?.countryCode ?? '').toUpperCase() === 'NG';
+  const giftCardProvider = settings?.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous';
+  const redemptionCountry = isNgWorkspace ? 'NG' : (tenant?.countryCode ?? 'US').toUpperCase();
 
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-
-  const catalogCountries = (
-    settings?.catalogCountries?.length ? settings.catalogCountries : [defaultCatalogCountry]
-  ) as string[];
+  const showAirtime = isAirtimeEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
+  const showUtilities = isUtilitiesEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
 
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
   const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog();
@@ -90,12 +90,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const deleteCustomReward = useDeleteCustomReward();
 
   // Top-up (Airtime/Data) States
-  const [selectedCountryCode, setSelectedCountryCode] = useState(
-    catalogCountries[0] || defaultCatalogCountry,
-  );
-  const [digitalCardsCountryCode, setDigitalCardsCountryCode] = useState(
-    catalogCountries[0] || defaultCatalogCountry,
-  );
+  const [selectedCountryCode, setSelectedCountryCode] = useState(redemptionCountry);
   const [airtimePhone, setAirtimePhone] = useState('');
   const [airtimeNetwork, setAirtimeNetwork] = useState<'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE'>('MTN');
   const [airtimeAmount, setAirtimeAmount] = useState('1000');
@@ -121,16 +116,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // Sync selected country code if settings change
   useEffect(() => {
-    if (catalogCountries.length > 0 && !catalogCountries.includes(selectedCountryCode)) {
-      setSelectedCountryCode(catalogCountries[0]);
+    if (selectedCountryCode !== redemptionCountry) {
+      setSelectedCountryCode(redemptionCountry);
     }
-  }, [catalogCountries, selectedCountryCode]);
-
-  useEffect(() => {
-    if (catalogCountries.length > 0 && !catalogCountries.includes(digitalCardsCountryCode)) {
-      setDigitalCardsCountryCode(catalogCountries[0]);
-    }
-  }, [catalogCountries, digitalCardsCountryCode]);
+  }, [redemptionCountry, selectedCountryCode]);
 
   // Sync operator default when operators load
   useEffect(() => {
@@ -222,9 +211,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   }, [airtimeAmount, selectedReloadlyOperator, selectedCountryCode]);
 
   // Utility Bill States
-  const [utilityCountryCode, setUtilityCountryCode] = useState(
-    catalogCountries[0] || defaultCatalogCountry,
-  );
+  const [utilityCountryCode, setUtilityCountryCode] = useState(redemptionCountry);
   const [selectedUtilityBillerNg, setSelectedUtilityBillerNg] = useState('');
   const [selectedUtilityBillerReloadlyId, setSelectedUtilityBillerReloadlyId] =
     useState<string>('');
@@ -248,10 +235,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   // Sync selected country code for utilities if settings change
   useEffect(() => {
-    if (catalogCountries.length > 0 && !catalogCountries.includes(utilityCountryCode)) {
-      setUtilityCountryCode(catalogCountries[0]);
+    if (utilityCountryCode !== redemptionCountry) {
+      setUtilityCountryCode(redemptionCountry);
     }
-  }, [catalogCountries, utilityCountryCode]);
+  }, [redemptionCountry, utilityCountryCode]);
 
   // Sync utility biller default when billers load
   useEffect(() => {
@@ -454,21 +441,17 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   const [claimsSearch, setClaimsSearch] = useState('');
 
-  const giftCards = catalog.filter((i) => i.type === 'RELOADLY');
+  const giftCards = catalog.filter((i) => i.type === 'RELOADLY' || i.type === 'TREMENDOUS');
   const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
   const availablePerkTemplates = useMemo(
     () => getAvailableCustomPerkTemplates(customPerks),
     [customPerks],
   );
 
-  const matchesDigitalCardsCountry = (item: CatalogItem) =>
-    catalogCountries.length <= 1 || item.countryCode === digitalCardsCountryCode;
-
   const filteredReloadlyCards = giftCards.filter((item) => {
     const category = getReloadlyCategory(item);
     const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
     if (isNgAirtime) return false;
-    if (!matchesDigitalCardsCountry(item)) return false;
 
     if (selectedCategory === 'All') return true;
     return category === selectedCategory;
@@ -644,16 +627,13 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
-  const defaultTab = isAirtimeEnabled ? 'airtime' : isUtilitiesEnabled ? 'utilities' : 'perks';
+  const defaultTab = showAirtime ? 'airtime' : showUtilities ? 'utilities' : 'perks';
 
   const content = (
     <>
       {!isTab ? (
-        <div className="space-y-1">
+        <div>
           <h1 className="text-2xl font-bold tracking-tight">Rewards</h1>
-          <p className="text-sm text-muted-foreground">
-            Redeem your {PAQ_POINTS_NAME.toLowerCase()} for gift cards, airtime, and exclusive perks
-          </p>
         </div>
       ) : null}
 
@@ -664,7 +644,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
-          {isAirtimeEnabled && (
+          {showAirtime && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
               value="airtime"
@@ -673,7 +653,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
               Mobile Top-up
             </TabsTrigger>
           )}
-          {isUtilitiesEnabled && (
+          {showUtilities && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
               value="utilities"
@@ -718,29 +698,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
         {isGiftCardsEnabled && giftCards.length > 0 && (
           <TabsContent value="digital-cards" className="space-y-4">
-            {isAdmin ? (
-              <p className="text-xs text-muted-foreground">
-                Points shown are for the lowest amount (plus plan fee × exchange rate). Higher
-                amounts cost more. Configure rate and fees in Settings → Rewards.
-              </p>
-            ) : null}
-            {catalogCountries.length > 1 ? (
-              <div className="flex items-center gap-2">
-                <Label className="text-xs font-semibold text-muted-foreground">Country:</Label>
-                <Select value={digitalCardsCountryCode} onValueChange={setDigitalCardsCountryCode}>
-                  <SelectTrigger className="w-[140px] h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogCountries.map((code) => (
-                      <SelectItem key={code} value={code} className="text-xs">
-                        {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : null}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {
@@ -757,7 +714,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     const isNgAirtime =
                       item.countryCode === 'NG' && getReloadlyCategory(item) === 'Airtime';
                     if (isNgAirtime) return false;
-                    if (!matchesDigitalCardsCountry(item)) return false;
                     if (cat === 'All') return true;
                     return getReloadlyCategory(item) === cat;
                   }).length;
@@ -816,7 +772,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           </TabsContent>
         )}
 
-        {isAirtimeEnabled && (
+        {showAirtime && (
           <TabsContent value="airtime" className="space-y-6">
             <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -833,26 +789,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-4">
-                  {catalogCountries.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <Label className="text-xs font-semibold text-muted-foreground">
-                        Country:
-                      </Label>
-                      <Select value={selectedCountryCode} onValueChange={setSelectedCountryCode}>
-                        <SelectTrigger className="w-[140px] h-9 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {catalogCountries.map((code) => (
-                            <SelectItem key={code} value={code} className="text-xs">
-                              {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
                   {selectedCountryCode === 'NG' && (
                     <div className="flex rounded-lg bg-muted p-1 border border-border/40 shrink-0">
                       <button
@@ -1198,7 +1134,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           </TabsContent>
         )}
 
-        {isUtilitiesEnabled && (
+        {showUtilities && (
           <TabsContent value="utilities" className="space-y-6">
             <div className="w-full space-y-6 rounded-xl border border-border/60 bg-card p-6 shadow-sm">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -1213,24 +1149,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     </p>
                   </div>
                 </div>
-
-                {catalogCountries.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <Label className="text-xs font-semibold text-muted-foreground">Country:</Label>
-                    <Select value={utilityCountryCode} onValueChange={setUtilityCountryCode}>
-                      <SelectTrigger className="w-[140px] h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {catalogCountries.map((code) => (
-                          <SelectItem key={code} value={code} className="text-xs">
-                            {code === 'NG' ? '🇳🇬 Nigeria' : `🌐 ${code}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

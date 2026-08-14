@@ -144,10 +144,7 @@ export function SettingsProfileTab() {
         </div>
       </div>
 
-      <ContentCard
-        title="Personal details"
-        description="Update how your name appears across the workspace"
-      >
+      <ContentCard title="Personal details">
         <div className="grid gap-3 sm:grid-cols-2">
           <SettingsFieldHint label="First name">
             <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -155,11 +152,7 @@ export function SettingsProfileTab() {
           <SettingsFieldHint label="Last name">
             <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </SettingsFieldHint>
-          <SettingsFieldHint
-            label="Preferred name"
-            hint="Optional display name used in shoutouts and greetings."
-            className="sm:col-span-2"
-          >
+          <SettingsFieldHint label="Preferred name" className="sm:col-span-2">
             <Input
               value={preferredName}
               onChange={(e) => setPreferredName(e.target.value)}
@@ -173,10 +166,7 @@ export function SettingsProfileTab() {
       </ContentCard>
 
       {security?.canChangePassword ? (
-        <ContentCard
-          title="Security"
-          description="Change the password you use to sign in with email"
-        >
+        <ContentCard title="Security">
           <div className="grid gap-3 sm:max-w-md">
             <SettingsFieldHint label="New password">
               <Input
@@ -219,11 +209,11 @@ export function SettingsProfileTab() {
         </ContentCard>
       ) : null}
 
-      <ContentCard title="Payment details" description="Bank account for receiving payroll">
+      <ContentCard title="Payment details">
         <PaymentSettingsSection />
       </ContentCard>
 
-      <ContentCard title="Delete account" description="Permanently remove your Paqad account">
+      <ContentCard title="Delete account">
         <PrivacySection />
       </ContentCard>
     </div>

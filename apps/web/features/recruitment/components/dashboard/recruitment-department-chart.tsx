@@ -27,7 +27,7 @@ export function RecruitmentDepartmentChart({ data }: RecruitmentDepartmentChartP
   );
 
   return (
-    <ContentCard title="By department" description="Application distribution">
+    <ContentCard title="By department">
       <ChartContainer config={config} className="mx-auto aspect-square h-[220px]">
         <PieChart>
           <ChartTooltip content={<ChartTooltipContent hideLabel />} />

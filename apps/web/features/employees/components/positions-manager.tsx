@@ -18,11 +18,10 @@ import {
   AppTablePanel,
 } from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -354,9 +353,6 @@ export function PositionsManager({
           <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
               <DialogTitle>Create position</DialogTitle>
-              <DialogDescription>
-                Add a new position to your workspace. Positions can then be assigned to employees.
-              </DialogDescription>
             </DialogHeader>
             {formDialog}
             <DialogFooter>
@@ -372,19 +368,10 @@ export function PositionsManager({
       <Card>
         <CardHeader>
           <CardTitle>Positions</CardTitle>
-          <CardDescription>
-            {isAdmin
-              ? 'Manage all positions in your workspace. Positions are assigned to employees via their employment profile.'
-              : 'All positions in your workspace.'}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           {positions.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              {isAdmin
-                ? 'No positions yet. Create your first position to start assigning roles to employees.'
-                : 'No positions yet.'}
-            </p>
+            <p className="text-sm text-muted-foreground py-6 text-center">No positions yet.</p>
           ) : (
             <div className="space-y-6">
               {activePositions.length > 0 ? (
@@ -428,7 +415,6 @@ export function PositionsManager({
           <DialogContent className="sm:max-w-[480px]">
             <DialogHeader>
               <DialogTitle>Edit position</DialogTitle>
-              <DialogDescription>Update the details for this position.</DialogDescription>
             </DialogHeader>
             {formDialog}
             <DialogFooter>

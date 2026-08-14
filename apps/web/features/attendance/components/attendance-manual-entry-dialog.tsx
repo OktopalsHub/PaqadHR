@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -84,7 +83,6 @@ export function AttendanceManualEntryDialog({ members }: { members: Member[] }) 
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Manual Attendance Entry</DialogTitle>
-          <DialogDescription>Record attendance for an employee manually.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">

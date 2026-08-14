@@ -1,3 +1,5 @@
+import type { GiftCardProvider } from '../utils/rewards-defaults.util';
+
 export interface RewardsSettings {
   enabled: boolean;
 
@@ -15,6 +17,8 @@ export interface RewardsSettings {
 
   giftCardCategories?: string[];
 
+  giftCardProvider?: GiftCardProvider;
+
   utilityPaymentsEnabled?: boolean;
 
   reloadlyProducts?: Array<{
@@ -30,5 +34,22 @@ export interface RewardsSettings {
     listReloadlyCost?: number | null;
     listReloadlyCostCurrency?: string;
     wholesaleInRewardsCurrency?: number;
+  }>;
+
+  tremendousProducts?: Array<{
+    productId: string;
+    name: string;
+    pointsCost: number;
+    imageUrl: string | null;
+    countryCode: string;
+    currencyCode: string;
+    minDenomination?: number | null;
+    maxDenomination?: number | null;
+    fixedDenominations?: number[];
+    listTremendousCost?: number | null;
+    listTremendousCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
+    category?: string;
+    subcategory?: string;
   }>;
 }

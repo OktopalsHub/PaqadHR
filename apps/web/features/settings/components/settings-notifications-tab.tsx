@@ -47,26 +47,21 @@ export function SettingsNotificationsTab() {
 
   return (
     <div>
-      <ContentCard title="Notifications" description="How your workspace sends alerts">
+      <ContentCard title="Notifications">
         <div className="space-y-4">
           <SettingsSwitchRow
             id="email-notifications"
             label="Email notifications"
-            hint="Send important workspace updates and reminders by email."
             checked={emailNotifications}
             onCheckedChange={setEmailNotifications}
           />
           <SettingsSwitchRow
             id="slack-notifications"
             label="Slack notifications"
-            hint="Requires Slack under Settings → Integrations."
             checked={slackNotifications}
             onCheckedChange={setSlackNotifications}
           />
-          <SettingsFieldHint
-            label="Webhook URL"
-            hint="Optional URL for delivering notifications to a custom endpoint or Slack incoming webhook."
-          >
+          <SettingsFieldHint label="Webhook URL">
             <Input
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}

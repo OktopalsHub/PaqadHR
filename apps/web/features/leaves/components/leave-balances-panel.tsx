@@ -9,7 +9,7 @@ export function LeaveBalancesPanel({ balances }: LeaveBalancesPanelProps) {
   if (balances.length === 0) return null;
 
   return (
-    <ContentCard title="Your balances" description="Available leave by type">
+    <ContentCard title="Your balances">
       <ul className="space-y-3">
         {balances.map((balance) => (
           <li

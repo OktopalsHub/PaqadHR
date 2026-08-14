@@ -84,11 +84,12 @@ export interface RewardsSettings {
   enabled: boolean;
   pointsExchangeRate: number;
   rewardsCurrency: string;
-  catalogCountries: string[];
+  catalogCountries?: string[];
   airtimeEnabled: boolean;
   customRewardsEnabled: boolean;
   giftCardsEnabled?: boolean;
   giftCardCategories?: string[];
+  giftCardProvider?: 'reloadly' | 'tremendous';
   utilityPaymentsEnabled?: boolean;
   reloadlyProducts?: Array<{
     productId: number;
@@ -103,6 +104,22 @@ export interface RewardsSettings {
     listReloadlyCost?: number | null;
     listReloadlyCostCurrency?: string;
     wholesaleInRewardsCurrency?: number;
+  }>;
+  tremendousProducts?: Array<{
+    productId: string;
+    name: string;
+    pointsCost: number;
+    imageUrl: string | null;
+    countryCode: string;
+    currencyCode: string;
+    minDenomination?: number | null;
+    maxDenomination?: number | null;
+    fixedDenominations?: number[];
+    listTremendousCost?: number | null;
+    listTremendousCostCurrency?: string;
+    wholesaleInRewardsCurrency?: number;
+    category?: string;
+    subcategory?: string;
   }>;
 }
 

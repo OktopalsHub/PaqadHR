@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isReloadlyConfigured } from 'src/common/config/reloadly.config';
+import { isTremendousConfigured } from 'src/common/config/tremendous.config';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { Repository } from 'typeorm';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
@@ -19,7 +20,7 @@ export class RewardsCatalogSyncCronService {
 
   @Cron('0 */4 * * *')
   async syncAllTenantCatalogs(): Promise<void> {
-    if (!isReloadlyConfigured()) {
+    if (!isReloadlyConfigured() && !isTremendousConfigured()) {
       return;
     }
 
@@ -27,11 +28,7 @@ export class RewardsCatalogSyncCronService {
       const rows = await this.tenantSettingsRepository.find();
       const eligible = rows.filter((row) => {
         const rewards = row.settings?.rewards;
-        return (
-          rewards?.enabled !== false &&
-          Array.isArray(rewards?.catalogCountries) &&
-          rewards.catalogCountries.length > 0
-        );
+        return rewards?.enabled !== false;
       });
 
       let synced = 0;
@@ -39,7 +36,7 @@ export class RewardsCatalogSyncCronService {
 
       for (const row of eligible) {
         try {
-          const _products = await this.rewardsService.syncReloadlyProducts(row.tenantId, {
+          await this.rewardsService.syncCatalog(row.tenantId, {
             force: true,
           });
           synced += 1;

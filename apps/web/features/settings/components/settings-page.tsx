@@ -44,13 +44,10 @@ export function SettingsPage() {
 
   return (
     <AppPage className="space-y-6">
-      <div className="space-y-1.5">
+      <div>
         <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
           Settings
         </h1>
-        <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-          Manage your account preferences and workspace configuration.
-        </p>
       </div>
 
       <Tabs value={visibleTab} className="space-y-5">

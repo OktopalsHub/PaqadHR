@@ -4,6 +4,9 @@ import { RewardsCatalogSyncCronService } from './rewards-catalog-sync-cron.servi
 jest.mock('src/common/config/reloadly.config', () => ({
   isReloadlyConfigured: jest.fn().mockReturnValue(true),
 }));
+jest.mock('src/common/config/tremendous.config', () => ({
+  isTremendousConfigured: jest.fn().mockReturnValue(true),
+}));
 
 describe('RewardsCatalogSyncCronService', () => {
   it('syncs eligible tenant catalogs', async () => {
@@ -20,7 +23,7 @@ describe('RewardsCatalogSyncCronService', () => {
       ]),
     };
     const rewardsService = {
-      syncReloadlyProducts: jest.fn().mockResolvedValue([{ productId: 1 }]),
+      syncCatalog: jest.fn().mockResolvedValue({ provider: 'tremendous', count: 1 }),
     };
 
     const cron = new RewardsCatalogSyncCronService(
@@ -30,7 +33,7 @@ describe('RewardsCatalogSyncCronService', () => {
 
     await cron.syncAllTenantCatalogs();
 
-    expect(rewardsService.syncReloadlyProducts).toHaveBeenCalledTimes(1);
-    expect(rewardsService.syncReloadlyProducts).toHaveBeenCalledWith('tenant-1', { force: true });
+    expect(rewardsService.syncCatalog).toHaveBeenCalledTimes(1);
+    expect(rewardsService.syncCatalog).toHaveBeenCalledWith('tenant-1', { force: true });
   });
 });

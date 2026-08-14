@@ -403,14 +403,9 @@ export function PayrollRunDetail({
         </div>
         <div className="flex flex-wrap gap-2">
           {isAdmin && isDraft ? (
-            <>
-              <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
-                Calculate
-              </Button>
-              <p className="w-full text-xs text-slate-500 dark:text-slate-400 sm:w-auto sm:self-center">
-                Add bonuses/deductions on lines before Calculate.
-              </p>
-            </>
+            <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
+              Calculate
+            </Button>
           ) : null}
           {isAdmin && detail.status === 'processing' ? (
             <Button
@@ -587,11 +582,6 @@ export function PayrollRunDetail({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h4 className="font-medium text-slate-950 dark:text-slate-100">Payslips</h4>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {isAdmin
-                  ? 'Paid employees can download payslips after you publish them.'
-                  : 'Publish and download payslips for your direct reports.'}
-              </p>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {isAdmin ? (

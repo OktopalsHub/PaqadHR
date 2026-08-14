@@ -16,7 +16,7 @@ type RecruitmentApplicationsChartProps = {
 
 export function RecruitmentApplicationsChart({ data }: RecruitmentApplicationsChartProps) {
   return (
-    <ContentCard title="Applications" description="Applied vs shortlisted">
+    <ContentCard title="Applications">
       <ChartContainer config={chartConfig} className="aspect-[16/9] h-[260px] w-full">
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid vertical={false} strokeDasharray="3 3" />

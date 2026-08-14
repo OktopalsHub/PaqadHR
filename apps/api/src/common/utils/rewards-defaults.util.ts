@@ -37,6 +37,32 @@ export function isWalletCurrencyLocked(
   return Number(wallet.balanceAmount) !== 0;
 }
 
+export type GiftCardProvider = 'reloadly' | 'tremendous';
+
+export const DEFAULT_GIFT_CARD_PROVIDER: GiftCardProvider = 'tremendous';
+
+export function isNigeriaWorkspace(tenantCountryCode?: string | null): boolean {
+  return (GeoLocationHelper.toStoredCountryCode(tenantCountryCode ?? '') ?? '') === 'NG';
+}
+
+export function resolveGiftCardProvider(value?: string | null): GiftCardProvider {
+  return value === 'reloadly' ? 'reloadly' : DEFAULT_GIFT_CARD_PROVIDER;
+}
+
+/**
+ * Gift catalogs follow the funded provider account, not tenant country.
+ * Nigeria workspaces get every configured platform; everyone else gets the selected one.
+ */
+export function resolveGiftCatalogProviders(
+  tenantCountryCode?: string | null,
+  selected?: string | null,
+): GiftCardProvider[] {
+  if (isNigeriaWorkspace(tenantCountryCode)) {
+    return ['tremendous', 'reloadly'];
+  }
+  return [resolveGiftCardProvider(selected)];
+}
+
 export function resolveDefaultRewardsCatalogCountry(options: {
   tenantCountryCode?: string | null;
   creatorCountryCode?: string | null;
@@ -46,6 +72,11 @@ export function resolveDefaultRewardsCatalogCountry(options: {
     GeoLocationHelper.toStoredCountryCode(options.creatorCountryCode) ??
     'US'
   );
+}
+
+/** @deprecated Catalogs are provider-native; do not infer tenant country. */
+export function resolveRewardsCatalogCountries(_tenantCountryCode?: string | null): string[] {
+  return [];
 }
 
 export function normalizeRewardsCatalogCountries(

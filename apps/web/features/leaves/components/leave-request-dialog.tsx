@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -77,9 +76,6 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Request Leave</DialogTitle>
-          <DialogDescription>
-            Fill in the leave request details. Click submit when you&apos;re done.
-          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">

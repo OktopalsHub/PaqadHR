@@ -1,7 +1,7 @@
 import { Book, PlusCircle, Trash } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TabsContent } from '@/components/ui/tabs';
 import type { EmployeeDetailForm } from '../../../hooks/use-employee-detail-form';
 import { EducationForm } from '../../education-form';
@@ -26,7 +26,6 @@ export function EducationTab({ form, canEdit = false }: EducationTabProps) {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Education</CardTitle>
-            <CardDescription>Employee's educational background</CardDescription>
           </div>
           {canEdit ? (
             <Button variant="outline" onClick={() => setEducationDialogOpen(true)}>

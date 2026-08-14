@@ -100,10 +100,10 @@ export class RewardsController {
   @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
-  @ApiOperation({ summary: 'Force sync Reloadly gift catalog into tenant settings' })
+  @ApiOperation({ summary: 'Force sync gift catalog into tenant settings' })
   async syncCatalog(@Param('tenantId') tenantId: string) {
-    const products = await this.rewardsService.syncReloadlyProducts(tenantId, { force: true });
-    return { synced: products.length, products };
+    const result = await this.rewardsService.syncCatalog(tenantId, { force: true });
+    return { synced: result.count, providers: result.providers };
   }
 
   @Get('countries')

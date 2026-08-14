@@ -80,7 +80,6 @@ export function TeamManagement() {
     <div className="space-y-5">
       <ContentCard
         title="Teams"
-        description="Manage teams and departments"
         action={
           <Button size="sm" className="h-8 rounded-lg text-xs">
             <UserPlus className="mr-1.5 size-3.5" />

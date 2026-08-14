@@ -189,11 +189,7 @@ export function SettingsWorkspaceTab() {
 
   return (
     <div className="space-y-5">
-      <ContentCard
-        title="Workspace"
-        description="Organization settings"
-        bodyClassName="space-y-6 p-5"
-      >
+      <ContentCard title="Workspace" bodyClassName="space-y-6 p-5">
         <div className="dashboard-soft-tile rounded-[8px] px-5 py-5">
           <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Branding</p>
           <div className="mt-4">
@@ -215,17 +211,12 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             htmlFor="workspace-name"
             label="Company name"
-            hint="The name shown across the workspace and on invoices."
             className="lg:col-span-2"
           >
             <Input id="workspace-name" value={name} onChange={(e) => setName(e.target.value)} />
           </SettingsFieldHint>
 
-          <SettingsFieldHint
-            htmlFor="workspace-slug"
-            label="Workspace URL"
-            hint="Your workspace slug cannot be changed after creation."
-          >
+          <SettingsFieldHint htmlFor="workspace-slug" label="Workspace URL">
             <Input
               id="workspace-slug"
               value={tenant?.slug ?? ''}
@@ -234,11 +225,7 @@ export function SettingsWorkspaceTab() {
             />
           </SettingsFieldHint>
 
-          <SettingsFieldHint
-            htmlFor="workspace-employee-code"
-            label="Tenant Code"
-            hint="Unique alphanumeric code for your tenant, also prepended to employee numbers (e.g. PAQ → PAQ-1001). Min 2, max 10 characters."
-          >
+          <SettingsFieldHint htmlFor="workspace-employee-code" label="Tenant Code">
             <Input
               id="workspace-employee-code"
               placeholder="e.g. PAQ"
@@ -248,12 +235,7 @@ export function SettingsWorkspaceTab() {
             />
           </SettingsFieldHint>
 
-          <SettingsFieldHint
-            htmlFor="workspace-country"
-            label="Country"
-            hint="Used to suggest the default payroll currency for this workspace."
-            className="lg:col-span-2"
-          >
+          <SettingsFieldHint htmlFor="workspace-country" label="Country" className="lg:col-span-2">
             <SearchSelect
               id="workspace-country"
               options={countryOptions}
@@ -267,7 +249,6 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             htmlFor="workspace-timezone"
             label="Timezone"
-            hint="Used for schedules, attendance, and date displays."
             className="lg:col-span-2"
           >
             <SearchSelect
@@ -280,11 +261,7 @@ export function SettingsWorkspaceTab() {
             />
           </SettingsFieldHint>
 
-          <SettingsFieldHint
-            label="Payroll currencies"
-            hint="Members can only add bank accounts in these currencies. The first selected currency is the workspace default. Changing it does not rewrite salary amounts — update each employee’s salary currency first if people are still paid in the old default."
-            className="lg:col-span-2"
-          >
+          <SettingsFieldHint label="Payroll currencies" className="lg:col-span-2">
             <div className="dashboard-soft-tile rounded-[8px] px-4 py-4">
               <div className="flex flex-wrap gap-2">
                 {SUPPORTED_FIAT_CURRENCIES.map((code) => {
@@ -333,14 +310,8 @@ export function SettingsWorkspaceTab() {
         </div>
       </ContentCard>
 
-      <ContentCard
-        title="Payroll identity"
-        description="Require employee BVN or NIN before they can receive payroll."
-      >
-        <SettingsFieldHint
-          label="Require BVN or NIN for payroll"
-          hint="When enabled, employees without identity details on their profile are blocked from payroll readiness."
-        >
+      <ContentCard title="Payroll identity">
+        <SettingsFieldHint label="Require BVN or NIN for payroll">
           <div className="flex items-center gap-3">
             <Switch
               id="require-identity-for-payroll"
@@ -359,15 +330,9 @@ export function SettingsWorkspaceTab() {
         />
       </ContentCard>
 
-      <ContentCard
-        title="Email Settings"
-        description="Configure automated email notifications for your workspace."
-      >
+      <ContentCard title="Email Settings">
         <div className="space-y-4">
-          <SettingsFieldHint
-            label="Email payslips on publish"
-            hint="When enabled, employees receive an email notification when an admin publishes their payslip. You can still override this per publish action on the payroll run."
-          >
+          <SettingsFieldHint label="Email payslips on publish">
             <div className="flex items-center gap-3">
               <Switch
                 id="email-payslip-on-publish"

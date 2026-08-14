@@ -414,11 +414,6 @@ export function PayrollPage() {
                   <DialogTitle>Create payroll run</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Creating a run does not take money. You calculate, approve, then Pay now or
-                    Schedule. One currency per run — create another run for a different currency.
-                    Bonuses and deductions are added before Calculate.
-                  </p>
                   <div className="space-y-2">
                     <Label>Title</Label>
                     <Input
@@ -455,9 +450,6 @@ export function PayrollPage() {
                         onChange={(e) => setPaymentDate(e.target.value)}
                         className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
                       />
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Usually on or after period end. Any calendar day is allowed.
-                      </p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -474,10 +466,6 @@ export function PayrollPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Payout currency for this run. Only employees paid in this currency are
-                      included. Split different currencies into separate runs.
-                    </p>
                   </div>
                   <Button
                     variant="brandSolid"
@@ -498,28 +486,24 @@ export function PayrollPage() {
             <StatCard
               label="Active employees"
               value={activeEmployees.length}
-              hint="Eligible for payroll"
               icon={Wallet}
               iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
             />
             <StatCard
               label="Total runs"
               value={runs.length}
-              hint="All payroll cycles"
               icon={FileText}
               iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
             />
             <StatCard
               label="Completed"
               value={completedRuns}
-              hint="Paid out runs"
               icon={CalendarDays}
               iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
             />
             <StatCard
               label="In progress"
               value={pendingRuns}
-              hint="Draft or awaiting action"
               icon={Wallet}
               iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
             />
@@ -538,11 +522,6 @@ export function PayrollPage() {
 
           <ContentCard
             title="Payroll runs"
-            description={
-              isAdmin
-                ? 'Calculate, approve, then Pay now or Schedule. Mark paid stays available for offline payouts.'
-                : 'Review and publish payslips for your direct reports'
-            }
             className="dashboard-panel rounded-[8px]"
             bodyClassName="space-y-3"
           >
@@ -552,7 +531,7 @@ export function PayrollPage() {
                 title={canManagePayroll ? 'No payroll runs' : 'Payroll not available'}
                 description={
                   canManagePayroll
-                    ? ''
+                    ? undefined
                     : 'Only admins and managers with direct reports can access payroll runs.'
                 }
                 className="min-h-[260px] bg-white dark:bg-slate-950/60"
@@ -574,11 +553,7 @@ export function PayrollPage() {
           </ContentCard>
 
           {selectedRunId ? (
-            <ContentCard
-              title="Run detail"
-              description="Review lines, bonuses, and payslips"
-              className="dashboard-panel rounded-[8px]"
-            >
+            <ContentCard title="Run detail" className="dashboard-panel rounded-[8px]">
               <PayrollRunDetail
                 runId={selectedRunId}
                 payrollGatewayEnabled={payrollGatewayEnabled}
@@ -640,11 +615,7 @@ export function PayrollPage() {
           ) : null}
 
           {isAdmin ? (
-            <ContentCard
-              title="Verify payment details"
-              description="Approve employee bank accounts before payroll can pay them"
-              className="dashboard-panel rounded-[8px]"
-            >
+            <ContentCard title="Verify payment details" className="dashboard-panel rounded-[8px]">
               <PaymentAdminSection />
             </ContentCard>
           ) : null}
@@ -668,10 +639,6 @@ export function PayrollPage() {
             <DialogTitle>Schedule payout</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              Gateway payout starts automatically on or after this date while the run stays
-              approved.
-            </p>
             <div className="space-y-2">
               <Label>Payment date</Label>
               <Input

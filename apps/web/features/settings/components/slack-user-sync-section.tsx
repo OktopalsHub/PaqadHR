@@ -137,7 +137,6 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
       <div className="flex items-center justify-between border-b pb-4">
         <div>
           <h2 className="text-lg font-medium text-foreground">User sync</h2>
-          <p className="text-sm text-muted-foreground">Match Slack users to employees</p>
         </div>
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" disabled={isWorking} onClick={handleSync}>
@@ -212,7 +211,6 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
       <Card>
         <CardHeader>
           <CardTitle>Unmatched</CardTitle>
-          <CardDescription>Map Slack users to employees</CardDescription>
         </CardHeader>
         <CardContent>
           {displayTotal === 0 ? (

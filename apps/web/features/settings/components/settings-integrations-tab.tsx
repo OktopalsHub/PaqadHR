@@ -6,7 +6,7 @@ import { SlackIntegrationSection } from '@/features/settings/components/slack-in
 export function SettingsIntegrationsTab() {
   return (
     <div className="space-y-6">
-      <ContentCard title="Slack" description="Post shoutouts to a channel">
+      <ContentCard title="Slack">
         <SlackIntegrationSection />
       </ContentCard>
     </div>

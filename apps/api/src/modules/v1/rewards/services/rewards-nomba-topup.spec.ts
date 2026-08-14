@@ -55,6 +55,7 @@ describe('RewardsService Nomba topup', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
   });
 

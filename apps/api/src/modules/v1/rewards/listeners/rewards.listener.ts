@@ -28,10 +28,10 @@ export class RewardsListener {
   @OnEvent('rewards.catalogCountriesChanged')
   async handleCatalogCountriesChanged(payload: { tenantId: string }) {
     try {
-      await this.rewardsService.syncReloadlyProducts(payload.tenantId, { force: true });
+      await this.rewardsService.syncCatalog(payload.tenantId, { force: true });
     } catch (error) {
       this.logger.warn(
-        `Reloadly catalog sync failed for tenant ${payload.tenantId}: ${error instanceof Error ? error.message : error}`,
+        `Gift catalog sync failed for tenant ${payload.tenantId}: ${error instanceof Error ? error.message : error}`,
       );
     }
   }

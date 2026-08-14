@@ -58,10 +58,7 @@ export function PrivacySection() {
     <div className="space-y-6">
       <div className="space-y-3">
         <h3 className="text-sm font-medium">Export your data</h3>
-        <p className="text-sm text-muted-foreground">
-          Download a copy of your account profile and workspace memberships (GDPR / NDPR right of
-          access).
-        </p>
+        <p className="text-sm text-muted-foreground">Download a copy of your account data.</p>
         <Button size="sm" variant="outline" disabled={exporting} onClick={handleExport}>
           <Download className="mr-1 size-4" />
           {exporting ? 'Preparing export…' : 'Export my data'}

@@ -179,9 +179,6 @@ function ShoutoutsPageContent() {
           <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
             Shoutouts & Recognition
           </h1>
-          <p className="max-w-2xl text-sm font-medium text-slate-600 dark:text-slate-400">
-            Appreciate your colleagues, earn points checklist rewards, and redeem vouchers
-          </p>
         </div>
 
         {pointsBalance ? (
@@ -250,7 +247,6 @@ function ShoutoutsPageContent() {
 
               <ContentCard
                 title="Activity feed"
-                description="Recent recognition across your workspace"
                 action={
                   <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                     {items.length} recognition(s)
@@ -273,11 +269,7 @@ function ShoutoutsPageContent() {
 
             <div className="space-y-5 lg:col-span-4">
               {pointsBalance ? (
-                <ContentCard
-                  title="Allowance overview"
-                  description="Track how much recognition budget you still have this cycle"
-                  bodyClassName="space-y-4 p-5"
-                >
+                <ContentCard title="Allowance overview" bodyClassName="space-y-4 p-5">
                   <div className="dashboard-soft-tile space-y-3 rounded-[8px] px-4 py-4">
                     <div className="flex items-center justify-between gap-3 text-xs">
                       <span className="font-medium text-slate-500 dark:text-slate-400">
@@ -300,9 +292,6 @@ function ShoutoutsPageContent() {
                       <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
                         Lifetime earned
                       </p>
-                      <p className="mt-0.5 text-[10px] leading-tight text-slate-500 dark:text-slate-400">
-                        Points you&apos;ve received from others
-                      </p>
                     </div>
                     <p className="flex items-center gap-1 text-lg font-semibold text-slate-950 dark:text-slate-50">
                       <Coins className="size-4 text-primary" />
@@ -321,11 +310,7 @@ function ShoutoutsPageContent() {
                 </ContentCard>
               ) : null}
 
-              <ContentCard
-                title="Company core values"
-                description="Recognition tags available across the workspace"
-                bodyClassName="space-y-4 p-5"
-              >
+              <ContentCard title="Company core values" bodyClassName="space-y-4 p-5">
                 {isAdmin ? (
                   <div className="flex gap-2">
                     <Input
@@ -393,13 +378,10 @@ function ShoutoutsPageContent() {
         </TabsContent>
 
         <TabsContent value="redeem" className="mt-0 space-y-4">
-          <div className="space-y-1">
+          <div>
             <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
               Redeem Rewards
             </h2>
-            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              Redeem your points for digital vouchers, mobile top-ups, and custom perks
-            </p>
           </div>
           {featureAccessLoading ? (
             <LoadingBlock />

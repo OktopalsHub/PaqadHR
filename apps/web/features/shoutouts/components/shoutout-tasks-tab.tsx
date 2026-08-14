@@ -419,10 +419,6 @@ export function ShoutoutTasksTab() {
               <Trophy className="size-6 text-amber-500 animate-pulse fill-amber-500/15" />
               Points Checklist
             </h3>
-            <p className="text-sm text-muted-foreground max-w-lg leading-relaxed">
-              Accelerate your point earnings! Complete actions, upload proof if required, and watch
-              your balance grow to redeem premium digital cards and custom rewards.
-            </p>
           </div>
 
           <div className="flex items-center gap-6 shrink-0 bg-background/50 backdrop-blur-md p-5 rounded-2xl border border-border/60 shadow-inner">
@@ -464,10 +460,6 @@ export function ShoutoutTasksTab() {
         <div className="flex flex-wrap items-center justify-between border-b pb-4 gap-4">
           <div>
             <h4 className="text-sm font-semibold text-foreground">Checklist Management</h4>
-            <p className="text-xs text-muted-foreground">
-              Configure checklist challenges, approve submissions, or award tokens directly to
-              members.
-            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button
@@ -1060,9 +1052,6 @@ export function ShoutoutTasksTab() {
               <Users className="size-5 text-indigo-600" />
               Direct Points Assignment
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              Select members and specify the exact points you want to award each of them.
-            </DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">

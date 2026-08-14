@@ -623,7 +623,6 @@ export function PaymentSettingsSection() {
                 </SelectContent>
               </Select>
             )}
-            <p className="text-xs text-muted-foreground">Select your payment method and currency</p>
           </div>
 
           {isCrypto ? (
@@ -635,10 +634,6 @@ export function PaymentSettingsSection() {
                   onChange={(e) => setWalletAddress(e.target.value)}
                   placeholder="Paste your wallet address"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Required for crypto payouts. Use the network that matches this asset (e.g.
-                  ethereum for ETH/USDC).
-                </p>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Network</Label>

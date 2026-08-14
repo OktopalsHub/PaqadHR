@@ -65,11 +65,9 @@ export function UpcomingReminders() {
   return (
     <ContentCard
       title="Upcoming celebrations"
-      description="Birthdays and work anniversaries"
       className="dashboard-panel rounded-[8px]"
       headerClassName="border-b border-border/60 px-5 py-4"
       titleClassName="text-[17px] font-semibold text-foreground"
-      descriptionClassName="text-sm text-muted-foreground"
       bodyClassName="p-5"
     >
       {items.length === 0 ? (

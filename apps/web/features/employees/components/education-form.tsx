@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -101,11 +100,6 @@ export function EducationForm({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{editMode ? 'Edit Education' : 'Add Education'}</DialogTitle>
-          <DialogDescription>
-            {editMode
-              ? 'Update the education information below.'
-              : 'Add new education details for this employee.'}
-          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">

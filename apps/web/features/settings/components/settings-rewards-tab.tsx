@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, RefreshCw, Save, Trash2, Wallet, X } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Save, Trash2, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -33,17 +32,12 @@ import {
   useCreateCustomReward,
   useCustomRewards,
   useDeleteCustomReward,
-  useReloadlyCountries,
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useWalletTopupCheckout,
   WALLET_TOPUP_PENDING_KEY,
 } from '@/hooks/queries/use-rewards';
-import {
-  usePatchTenantSettings,
-  useSupportedHolidayCountries,
-  useTenantSettings,
-} from '@/hooks/queries/use-tenant-settings';
+import { usePatchTenantSettings, useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import {
   completeWalletTopupCheckout,
   syncRewardsCatalog,
@@ -60,7 +54,6 @@ function walletAmountExamples(currency: string) {
   return {
     thresholdPlaceholder: isNgn ? 'e.g. 1000' : 'e.g. 50',
     amountPlaceholder: isNgn ? 'e.g. 5000' : 'e.g. 100',
-    exampleRewardCost: isNgn ? 1000 : 10,
   };
 }
 
@@ -70,12 +63,6 @@ export function SettingsRewardsTab() {
   const queryClient = useQueryClient();
   const { data: settings, isLoading } = useTenantSettings();
   const { data: wallet } = useTenantWallet();
-  const {
-    data: reloadlyCountries = [],
-    isError: reloadlyCountriesError,
-    isLoading: reloadlyCountriesLoading,
-  } = useReloadlyCountries();
-  const { data: holidayCountriesData } = useSupportedHolidayCountries();
   const { data: billingOverview } = useBillingOverview();
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
@@ -85,15 +72,12 @@ export function SettingsRewardsTab() {
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
   const topupCheckout = useWalletTopupCheckout();
 
+  const isNgTenant = (tenant?.countryCode ?? '').toUpperCase() === 'NG';
   const rewards = settings?.settings?.rewards;
-  const defaultCatalogCountry = (tenant?.countryCode?.trim() || 'US').toUpperCase();
   const [exchangeRate, setExchangeRate] = useState('1');
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([defaultCatalogCountry]);
-  const [selectValue, setSelectValue] = useState<string | undefined>(undefined);
-  const [countrySearch, setCountrySearch] = useState('');
-
   const [airtimeEnabled, setAirtimeEnabled] = useState(true);
   const [giftCardsEnabled, setGiftCardsEnabled] = useState(true);
+  const [giftCardProvider, setGiftCardProvider] = useState<'reloadly' | 'tremendous'>('tremendous');
   const [giftCardCategories, setGiftCardCategories] = useState<string[]>([
     'Gift Cards',
     'Gaming Cards',
@@ -118,26 +102,17 @@ export function SettingsRewardsTab() {
   const hasBillingCard = billingOverview?.hasPaymentMethodOnFile ?? false;
   const savedCardTopupSupported = wallet?.savedCardTopupSupported ?? true;
   const billingSettingsHref = tenant?.slug ? tenantPath(tenant.slug, 'settings?tab=billing') : null;
-  const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
-  const isNgTenant = tenantCountry === 'NG';
   const rewardsCurrency = (
     wallet?.currencyCode ??
     tenant?.preferredCurrency ??
     getDefaultPayrollCurrencyForCountry(tenant?.countryCode)
   ).toUpperCase();
-  const currencyLocked = wallet?.currencyLocked ?? Number(wallet?.balanceAmount ?? 0) !== 0;
-  const { thresholdPlaceholder, amountPlaceholder, exampleRewardCost } =
-    walletAmountExamples(rewardsCurrency);
+  const { thresholdPlaceholder, amountPlaceholder } = walletAmountExamples(rewardsCurrency);
   const topupAmountValue = Number(topupAmount);
   const topupAmountValid =
     Number.isFinite(topupAmountValue) &&
     topupAmountValue > 0 &&
     topupAmountValue <= WALLET_TOPUP_MAX_AMOUNT;
-  const exchangeRateValue = Number(exchangeRate);
-  const examplePointsCost =
-    Number.isFinite(exchangeRateValue) && exchangeRateValue > 0
-      ? Math.ceil(exampleRewardCost * exchangeRateValue)
-      : null;
 
   useEffect(() => {
     if (!tenantId) return;
@@ -239,20 +214,16 @@ export function SettingsRewardsTab() {
   useEffect(() => {
     if (rewards) {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 1));
-      const countries = (rewards.catalogCountries ?? [])
-        .map((code) => code?.trim().toUpperCase())
-        .filter((code): code is string => Boolean(code));
-      setSelectedCountries(countries.length ? countries : [defaultCatalogCountry]);
       setAirtimeEnabled(rewards.airtimeEnabled ?? true);
       setGiftCardsEnabled(rewards.giftCardsEnabled ?? true);
+      setGiftCardProvider(rewards.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous');
       setGiftCardCategories(
         rewards.giftCardCategories ?? ['Gift Cards', 'Gaming Cards', 'Money Cards'],
       );
       setUtilityPaymentsEnabled(rewards.utilityPaymentsEnabled ?? true);
       return;
     }
-    setSelectedCountries([defaultCatalogCountry]);
-  }, [rewards, defaultCatalogCountry]);
+  }, [rewards]);
 
   useEffect(() => {
     if (wallet) {
@@ -278,12 +249,8 @@ export function SettingsRewardsTab() {
       toast.error('Exchange rate must be greater than 0');
       return;
     }
-    const prevCountries = rewards?.catalogCountries?.length
-      ? rewards.catalogCountries
-      : [defaultCatalogCountry];
-    const countriesChanged =
-      prevCountries.length !== selectedCountries.length ||
-      [...prevCountries].sort().some((c, i) => c !== [...selectedCountries].sort()[i]);
+    const prevProvider = rewards?.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous';
+    const providerChanged = prevProvider !== giftCardProvider;
 
     try {
       await patchSettings.mutateAsync({
@@ -291,16 +258,17 @@ export function SettingsRewardsTab() {
           enabled: true,
           pointsExchangeRate: rate,
           rewardsCurrency: rewardsCurrency,
-          catalogCountries: selectedCountries,
           airtimeEnabled,
           giftCardsEnabled,
           giftCardCategories,
+          giftCardProvider,
           utilityPaymentsEnabled,
           customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
           reloadlyProducts: rewards?.reloadlyProducts ?? [],
+          tremendousProducts: rewards?.tremendousProducts ?? [],
         },
       });
-      if (countriesChanged) {
+      if (providerChanged) {
         try {
           await syncRewardsCatalog();
         } catch {
@@ -329,17 +297,6 @@ export function SettingsRewardsTab() {
       toast.success('Custom reward perk created');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create reward');
-    }
-  };
-
-  const handleRemoveCountry = (code: string) => {
-    setSelectedCountries(selectedCountries.filter((c) => c !== code));
-  };
-
-  const handleAddCountry = (code: string) => {
-    setSelectValue(undefined);
-    if (code && !selectedCountries.includes(code)) {
-      setSelectedCountries([...selectedCountries, code]);
     }
   };
 
@@ -386,46 +343,10 @@ export function SettingsRewardsTab() {
     }
   };
 
-  const holidayCountryOptions = (holidayCountriesData?.countries ?? []).map((country) => ({
-    code: country.code,
-    name: country.name,
-  }));
-
-  const allCountries = (
-    reloadlyCountries.length
-      ? reloadlyCountries
-      : holidayCountryOptions.length
-        ? holidayCountryOptions
-        : Array.from(new Set([...selectedCountries, defaultCatalogCountry])).map((code) => ({
-            code,
-            name: code,
-          }))
-  ).filter((country) => Boolean(country.code?.trim()));
-
-  const filteredReloadlyCountries = allCountries.filter(
-    (country) =>
-      country.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-      country.code.toLowerCase().includes(countrySearch.toLowerCase()),
-  );
-
-  const addableCountries = filteredReloadlyCountries.filter(
-    (country) => Boolean(country.code?.trim()) && !selectedCountries.includes(country.code),
-  );
-
-  const catalogCountryHint =
-    addableCountries.length === 0
-      ? reloadlyCountriesError && reloadlyCountries.length === 0
-        ? 'Reloadly catalog unavailable — using workspace country list. All listed countries are already added.'
-        : 'All available catalog countries are already added.'
-      : null;
-
   return (
     <div className="space-y-6">
       {/* Wallet Card */}
-      <ContentCard
-        title="Rewards Wallet"
-        description="Your tenant's internal wallet for funding gift card and airtime redemptions"
-      >
+      <ContentCard title="Rewards Wallet">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-primary/20 bg-gradient-to-br from-indigo-50/40 to-violet-50/40 dark:from-indigo-950/20 dark:to-violet-950/20 p-6 shadow-sm">
             <div className="flex items-center gap-4">
@@ -455,15 +376,10 @@ export function SettingsRewardsTab() {
             {savedCardTopupSupported ? (
               <>
                 <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
-                      <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
-                      Auto-topup
-                    </h4>
-                    <p className="text-xs text-muted-foreground">
-                      Charge your billing card when balance is low
-                    </p>
-                  </div>
+                  <h4 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                    <RefreshCw className="size-4 text-indigo-600 dark:text-indigo-400" />
+                    Auto-topup
+                  </h4>
                   <Switch
                     checked={autoTopupEnabled}
                     onCheckedChange={setAutoTopupEnabled}
@@ -558,50 +474,20 @@ export function SettingsRewardsTab() {
       </ContentCard>
 
       {/* Rewards Configuration */}
-      <ContentCard
-        title="Rewards Configuration"
-        description="Control the rewards system, exchange rates, and catalog"
-      >
+      <ContentCard title="Rewards Configuration">
         <div className="space-y-6">
           <div className="grid gap-5 sm:grid-cols-2">
-            <SettingsFieldHint
-              label="Points Exchange Rate"
-              hint={`Points per 1 ${rewardsCurrency} of cost after fees. Rates below 1 are allowed. Gift card list prices use the lowest amount × (1 + plan fee %) × this rate.`}
-            >
-              <div className="space-y-3">
-                <Input
-                  type="number"
-                  step={0.01}
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(e.target.value)}
-                  className="rounded-xl h-11"
-                />
-                <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-                  {examplePointsCost == null ? (
-                    'Enter a positive rate to preview the conversion.'
-                  ) : (
-                    <>
-                      Preview: {formatPlanMoney(exampleRewardCost, rewardsCurrency)} costs{' '}
-                      <span className="font-semibold text-foreground">
-                        {examplePointsCost.toLocaleString()} {PAQ_POINTS_NAME}
-                      </span>{' '}
-                      at a rate of {exchangeRateValue}.
-                    </>
-                  )}
-                </div>
-              </div>
+            <SettingsFieldHint label="Points Exchange Rate">
+              <Input
+                type="number"
+                step={0.01}
+                value={exchangeRate}
+                onChange={(e) => setExchangeRate(e.target.value)}
+                className="rounded-xl h-11"
+              />
             </SettingsFieldHint>
 
-            <SettingsFieldHint
-              label="Rewards Currency"
-              hint={
-                currencyLocked
-                  ? `Locked after wallet activity. Balance stays in ${rewardsCurrency}.`
-                  : isNgTenant
-                    ? 'Nigeria workspaces use NGN. Updates if you change workspace settings before first top-up.'
-                    : 'Set from workspace country and currency. Updates before first top-up if you change them in Workspace settings.'
-              }
-            >
+            <SettingsFieldHint label="Rewards Currency">
               <Input value={rewardsCurrency} readOnly className="rounded-xl h-11 bg-muted/30" />
             </SettingsFieldHint>
 
@@ -613,7 +499,6 @@ export function SettingsRewardsTab() {
                 <SettingsSwitchRow
                   id="airtimeEnabled"
                   label="Airtime & Mobile Data"
-                  hint="Allow users to redeem points for mobile airtime and data bundles."
                   checked={airtimeEnabled}
                   onCheckedChange={setAirtimeEnabled}
                 />
@@ -624,17 +509,34 @@ export function SettingsRewardsTab() {
                   <SettingsSwitchRow
                     id="giftCardsEnabled"
                     label="Gift Cards & Prepaid Vouchers"
-                    hint="Reloadly vouchers. Points = wholesale cost converted to your rewards wallet currency, plus plan fee, then × exchange rate. Members pay more for higher amounts."
                     checked={giftCardsEnabled}
                     onCheckedChange={setGiftCardsEnabled}
                   />
                   {giftCardsEnabled && (
-                    <div className="pl-6 pt-2 space-y-2 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Points on each card are a starting price (lowest amount). Your wallet is
-                        charged the Reloadly wholesale cost (converted to {rewardsCurrency}) plus
-                        plan fee when someone redeems.
-                      </p>
+                    <div className="pl-6 pt-2 space-y-3 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
+                      {isNgTenant ? null : (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-semibold text-muted-foreground">Provider</p>
+                          <Select
+                            value={giftCardProvider}
+                            onValueChange={(value) =>
+                              setGiftCardProvider(value === 'reloadly' ? 'reloadly' : 'tremendous')
+                            }
+                          >
+                            <SelectTrigger className="w-[220px] h-10 text-xs font-semibold rounded-xl">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="tremendous" className="text-xs">
+                                Tremendous
+                              </SelectItem>
+                              <SelectItem value="reloadly" className="text-xs">
+                                Reloadly
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:
                       </p>
@@ -663,123 +565,18 @@ export function SettingsRewardsTab() {
                 <SettingsSwitchRow
                   id="utilityPaymentsEnabled"
                   label="Utility Bill Payments"
-                  hint="Allow users to redeem points for electricity bills and internet/water utilities."
                   checked={utilityPaymentsEnabled}
                   onCheckedChange={setUtilityPaymentsEnabled}
                 />
               </div>
             </div>
-
-            <SettingsFieldHint
-              label="Catalog Countries"
-              hint="Select allowed countries for Reloadly catalog products. Default comes from the workspace country, then falls back to US."
-              className="sm:col-span-2"
-            >
-              <div className="space-y-4 p-5 rounded-2xl border bg-muted/10">
-                <div className="flex flex-wrap gap-2 min-h-8 items-center">
-                  {selectedCountries.length === 0 ? (
-                    <span className="text-xs text-muted-foreground italic">
-                      No countries selected. Catalog will be empty.
-                    </span>
-                  ) : (
-                    selectedCountries
-                      .filter((code) => Boolean(code?.trim()))
-                      .map((code) => {
-                        const info = allCountries.find((country) => country.code === code) ?? {
-                          name: code,
-                        };
-                        return (
-                          <Badge
-                            key={code}
-                            variant="secondary"
-                            className="text-xs font-bold py-1.5 pl-3 pr-2 flex items-center gap-2 border border-indigo-100 dark:border-indigo-950 bg-indigo-50/20 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-300 rounded-full"
-                          >
-                            <span>
-                              {info.name} ({code})
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveCountry(code)}
-                              className="rounded-full p-0.5 hover:bg-muted-foreground/20 text-indigo-500/80 hover:text-indigo-600 transition-colors"
-                            >
-                              <X className="size-3" />
-                            </button>
-                          </Badge>
-                        );
-                      })
-                  )}
-                </div>
-
-                <div className="pt-3 border-t flex flex-wrap justify-between items-center gap-3">
-                  <span className="text-xs text-muted-foreground font-semibold">
-                    {addableCountries.length === 0 ? 'Catalog countries' : 'Add more countries:'}
-                  </span>
-                  <div className="flex flex-col items-end gap-1.5">
-                    {reloadlyCountriesLoading ? (
-                      <span className="text-xs text-muted-foreground">Loading countries…</span>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Select
-                          value={selectValue}
-                          onValueChange={handleAddCountry}
-                          disabled={addableCountries.length === 0}
-                        >
-                          <SelectTrigger className="w-[220px] h-10 text-xs font-semibold rounded-xl">
-                            <SelectValue
-                              placeholder={
-                                addableCountries.length === 0
-                                  ? 'No more countries'
-                                  : 'Choose Country...'
-                              }
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="max-h-64">
-                            <div className="p-2 border-b">
-                              <Input
-                                placeholder="Search countries..."
-                                value={countrySearch}
-                                onChange={(e) => setCountrySearch(e.target.value)}
-                                className="h-8 text-xs rounded-lg"
-                                disabled={addableCountries.length === 0}
-                              />
-                            </div>
-                            {addableCountries.map((country) => (
-                              <SelectItem
-                                key={country.code}
-                                value={country.code}
-                                className="text-xs"
-                              >
-                                {country.name} ({country.code})
-                              </SelectItem>
-                            ))}
-                            {addableCountries.length === 0 && (
-                              <div className="p-2 text-center text-xs text-muted-foreground">
-                                No countries to add
-                              </div>
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-                    {catalogCountryHint ? (
-                      <p className="text-xs text-muted-foreground max-w-sm text-right">
-                        {catalogCountryHint}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </SettingsFieldHint>
           </div>
           <SettingsFormActions onSave={saveRewardsSettings} isPending={patchSettings.isPending} />
         </div>
       </ContentCard>
 
       {/* Custom Rewards */}
-      <ContentCard
-        title="Custom Rewards"
-        description="Create company-specific rewards employees can claim"
-      >
+      <ContentCard title="Custom Rewards">
         <div className="space-y-4">
           <div className="grid gap-3">
             {customRewards.map((reward) => (

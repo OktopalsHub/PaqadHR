@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -71,7 +70,6 @@ export function AttendanceExceptionDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Submit Attendance Exception</DialogTitle>
-          <DialogDescription>Request an exception for a specific date.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-2">

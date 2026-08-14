@@ -107,10 +107,7 @@ function BillingContactForm({
       <SettingsFieldHint label="Contact name">
         <Input value={contactName} onChange={(e) => setContactName(e.target.value)} />
       </SettingsFieldHint>
-      <SettingsFieldHint
-        label="Contact email"
-        hint="Used for invoices and payment notifications. Falls back to workspace owner if unset."
-      >
+      <SettingsFieldHint label="Contact email">
         <Input
           type="email"
           value={contactEmail}

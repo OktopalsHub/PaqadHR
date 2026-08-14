@@ -165,11 +165,6 @@ export function AddCalendarEventDialog({
                 Date range
               </ToggleGroupItem>
             </ToggleGroup>
-            <p className="text-xs text-muted-foreground">
-              {spanMode === 'single'
-                ? 'One day on the calendar — optional start and end times.'
-                : 'Spans multiple days (all-day). Use start and end dates.'}
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -221,7 +216,6 @@ export function AddCalendarEventDialog({
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <Label htmlFor="all-day">All day</Label>
-                  <p className="text-xs text-muted-foreground">Turn off to set a specific time</p>
                 </div>
                 <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
               </div>

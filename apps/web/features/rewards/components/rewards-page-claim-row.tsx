@@ -31,10 +31,21 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
           <span suppressHydrationWarning>{new Date(claim.createdAt).toLocaleDateString()}</span>
         </p>
         {claim.voucherCode ? (
-          <p className="mt-1 font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded inline-block">
-            Code: {claim.voucherCode}
-            {claim.voucherPin ? ` · PIN: ${claim.voucherPin}` : ''}
-          </p>
+          claim.voucherCode.startsWith('http') ? (
+            <a
+              href={claim.voucherCode}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 text-xs font-semibold text-primary underline underline-offset-2 inline-block"
+            >
+              Redeem gift card
+            </a>
+          ) : (
+            <p className="mt-1 font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded inline-block">
+              Code: {claim.voucherCode}
+              {claim.voucherPin ? ` · PIN: ${claim.voucherPin}` : ''}
+            </p>
+          )
         ) : null}
         {claim.voucherInstructions ? (
           <p className="mt-0.5 text-[10px] text-muted-foreground italic">

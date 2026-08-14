@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -111,11 +110,6 @@ export function EmergencyContactForm({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>{editMode ? 'Edit Emergency Contact' : 'Add Emergency Contact'}</DialogTitle>
-          <DialogDescription>
-            {editMode
-              ? 'Update the emergency contact information below.'
-              : 'Add a new emergency contact for this employee.'}
-          </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
