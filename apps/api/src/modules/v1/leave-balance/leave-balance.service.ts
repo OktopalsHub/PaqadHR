@@ -30,7 +30,7 @@ export class LeaveBalanceService {
   async listLeaveBalances(tenantId: string, memberIds?: string[]) {
     const rows = await this.leaveBalanceRepository.findAdminListWithLabels(tenantId, memberIds);
     return rows.map((row) => {
-      const nameParts = [row.memberPreferredName || row.memberFirstName, row.memberLastName]
+      const nameParts = [row.memberFirstName, row.memberLastName]
         .map((part) => part?.trim())
         .filter((part): part is string => Boolean(part));
       return {

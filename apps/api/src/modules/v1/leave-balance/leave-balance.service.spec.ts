@@ -55,7 +55,7 @@ describe('LeaveBalanceService listLeaveBalances', () => {
     expect(repository.findAdminListWithLabels).toHaveBeenCalledWith('tenant-1', undefined);
     expect(rows[0]).toEqual(
       expect.objectContaining({
-        memberName: 'Ada Okafor',
+        memberName: 'Adaobi Okafor',
         leaveTypeName: 'Annual Leave',
       }),
     );
