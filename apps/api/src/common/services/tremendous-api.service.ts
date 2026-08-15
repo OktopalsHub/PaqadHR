@@ -114,8 +114,13 @@ export class TremendousApiService {
     }
   }
 
-  async listProducts(): Promise<TremendousProduct[]> {
-    const response = await this.request<{ products?: TremendousProduct[] }>('GET', '/products');
+  async listProducts(countryCodes?: string[]): Promise<TremendousProduct[]> {
+    const codes = (countryCodes ?? []).map((code) => code.trim().toUpperCase()).filter(Boolean);
+    const query = codes.length > 0 ? `?country=${encodeURIComponent(codes.join(','))}` : '';
+    const response = await this.request<{ products?: TremendousProduct[] }>(
+      'GET',
+      `/products${query}`,
+    );
     return response.products ?? [];
   }
 

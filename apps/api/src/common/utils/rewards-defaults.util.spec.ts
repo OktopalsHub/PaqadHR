@@ -1,11 +1,12 @@
 import {
   isNigeriaWorkspace,
   isWalletCurrencyLocked,
+  normalizeRewardsCatalogCountries,
   resolveDefaultRewardsCatalogCountry,
   resolveGiftCardProvider,
+  resolveGiftCardProviderFromEnv,
   resolveGiftCatalogProviders,
   resolveInitialWalletCurrency,
-  resolveRewardsCatalogCountries,
 } from './rewards-defaults.util';
 
 describe('resolveInitialWalletCurrency', () => {
@@ -53,11 +54,18 @@ describe('resolveDefaultRewardsCatalogCountry', () => {
   });
 });
 
-describe('resolveRewardsCatalogCountries', () => {
-  it('does not infer catalog countries from the workspace', () => {
-    expect(resolveRewardsCatalogCountries('NG')).toEqual([]);
-    expect(resolveRewardsCatalogCountries('US')).toEqual([]);
-    expect(resolveRewardsCatalogCountries(null)).toEqual([]);
+describe('normalizeRewardsCatalogCountries', () => {
+  it('defaults to the tenant country when empty', () => {
+    expect(normalizeRewardsCatalogCountries([], 'NG')).toEqual(['NG']);
+    expect(normalizeRewardsCatalogCountries(null, 'US')).toEqual(['US']);
+  });
+
+  it('always includes the tenant country even when only other countries are selected', () => {
+    expect(normalizeRewardsCatalogCountries(['US', 'GB'], 'NG')).toEqual(['NG', 'US', 'GB']);
+  });
+
+  it('dedupes and normalizes codes', () => {
+    expect(normalizeRewardsCatalogCountries(['us', 'US', 'gb'], 'NG')).toEqual(['NG', 'US', 'GB']);
   });
 });
 
@@ -69,25 +77,61 @@ describe('isNigeriaWorkspace', () => {
   });
 });
 
-describe('resolveGiftCatalogProviders', () => {
-  it('unions Tremendous and Reloadly for Nigeria', () => {
-    expect(resolveGiftCatalogProviders('NG', 'tremendous')).toEqual(['tremendous', 'reloadly']);
-    expect(resolveGiftCatalogProviders('NG', 'reloadly')).toEqual(['tremendous', 'reloadly']);
+describe('resolveGiftCardProviderFromEnv', () => {
+  const original = process.env.REWARDS_GIFT_CARD_PROVIDER;
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.REWARDS_GIFT_CARD_PROVIDER;
+    } else {
+      process.env.REWARDS_GIFT_CARD_PROVIDER = original;
+    }
   });
 
-  it('uses the selected provider for every other workspace', () => {
-    expect(resolveGiftCatalogProviders('US', 'reloadly')).toEqual(['reloadly']);
-    expect(resolveGiftCatalogProviders('GB', undefined)).toEqual(['tremendous']);
+  it('defaults to tremendous', () => {
+    delete process.env.REWARDS_GIFT_CARD_PROVIDER;
+    expect(resolveGiftCardProviderFromEnv()).toBe('tremendous');
+    expect(resolveGiftCardProviderFromEnv('')).toBe('tremendous');
+    expect(resolveGiftCardProviderFromEnv('tremendous')).toBe('tremendous');
+  });
+
+  it('returns reloadly when set', () => {
+    expect(resolveGiftCardProviderFromEnv('reloadly')).toBe('reloadly');
+    expect(resolveGiftCardProviderFromEnv(' RELOADLY ')).toBe('reloadly');
+  });
+});
+
+describe('resolveGiftCatalogProviders', () => {
+  const original = process.env.REWARDS_GIFT_CARD_PROVIDER;
+
+  afterEach(() => {
+    if (original === undefined) {
+      delete process.env.REWARDS_GIFT_CARD_PROVIDER;
+    } else {
+      process.env.REWARDS_GIFT_CARD_PROVIDER = original;
+    }
+  });
+
+  it('uses the environment provider for every workspace', () => {
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'tremendous';
+    expect(resolveGiftCatalogProviders('NG', 'reloadly')).toEqual(['tremendous']);
+    expect(resolveGiftCatalogProviders('US', 'reloadly')).toEqual(['tremendous']);
+
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'reloadly';
+    expect(resolveGiftCatalogProviders('NG')).toEqual(['reloadly']);
+    expect(resolveGiftCatalogProviders('GB')).toEqual(['reloadly']);
   });
 });
 
 describe('resolveGiftCardProvider', () => {
-  it('defaults to tremendous', () => {
-    expect(resolveGiftCardProvider(undefined)).toBe('tremendous');
-    expect(resolveGiftCardProvider('tremendous')).toBe('tremendous');
-  });
-
-  it('returns reloadly when explicitly selected', () => {
-    expect(resolveGiftCardProvider('reloadly')).toBe('reloadly');
+  it('ignores tenant selection and reads env', () => {
+    const original = process.env.REWARDS_GIFT_CARD_PROVIDER;
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'reloadly';
+    expect(resolveGiftCardProvider('tremendous')).toBe('reloadly');
+    if (original === undefined) {
+      delete process.env.REWARDS_GIFT_CARD_PROVIDER;
+    } else {
+      process.env.REWARDS_GIFT_CARD_PROVIDER = original;
+    }
   });
 });

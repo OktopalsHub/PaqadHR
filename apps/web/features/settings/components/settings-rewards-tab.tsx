@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2, Plus, RefreshCw, Save, Trash2, Wallet } from 'lucide-react';
+import { Loader2, Pencil, Plus, RefreshCw, Save, Trash2, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -12,13 +12,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -32,8 +25,10 @@ import {
   useCreateCustomReward,
   useCustomRewards,
   useDeleteCustomReward,
+  useReloadlyCountries,
   useTenantWallet,
   useUpdateAutoTopupConfig,
+  useUpdateCustomReward,
   useWalletTopupCheckout,
   WALLET_TOPUP_PENDING_KEY,
 } from '@/hooks/queries/use-rewards';
@@ -67,17 +62,19 @@ export function SettingsRewardsTab() {
   const { data: customRewards = [], isLoading: rewardsLoading } = useCustomRewards();
   const patchSettings = usePatchTenantSettings();
   const createReward = useCreateCustomReward();
+  const updateReward = useUpdateCustomReward();
   const deleteReward = useDeleteCustomReward();
+  const { data: providerCountries = [] } = useReloadlyCountries();
 
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
   const topupCheckout = useWalletTopupCheckout();
 
-  const isNgTenant = (tenant?.countryCode ?? '').toUpperCase() === 'NG';
+  const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
   const rewards = settings?.settings?.rewards;
   const [exchangeRate, setExchangeRate] = useState('1');
   const [airtimeEnabled, setAirtimeEnabled] = useState(true);
   const [giftCardsEnabled, setGiftCardsEnabled] = useState(true);
-  const [giftCardProvider, setGiftCardProvider] = useState<'reloadly' | 'tremendous'>('tremendous');
+  const [catalogCountries, setCatalogCountries] = useState<string[]>([tenantCountry]);
   const [giftCardCategories, setGiftCardCategories] = useState<string[]>([
     'Gift Cards',
     'Gaming Cards',
@@ -89,6 +86,16 @@ export function SettingsRewardsTab() {
   const [newDescription, setNewDescription] = useState('');
   const [newPointsCost, setNewPointsCost] = useState('100');
   const [newInstructions, setNewInstructions] = useState('');
+
+  const [editingReward, setEditingReward] = useState<{
+    id: string;
+    title: string;
+    description?: string;
+    pointsCost: number;
+    deliveryInstructions?: string;
+    stockLimit?: number;
+    isActive: boolean;
+  } | null>(null);
 
   // Top Up Modal State
   const [isTopupOpen, setIsTopupOpen] = useState(false);
@@ -216,14 +223,19 @@ export function SettingsRewardsTab() {
       setExchangeRate(String(rewards.pointsExchangeRate ?? 1));
       setAirtimeEnabled(rewards.airtimeEnabled ?? true);
       setGiftCardsEnabled(rewards.giftCardsEnabled ?? true);
-      setGiftCardProvider(rewards.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous');
+      const allowed = (rewards.catalogCountries ?? []).map((code) => code.toUpperCase());
+      setCatalogCountries(
+        allowed.includes(tenantCountry)
+          ? allowed
+          : [tenantCountry, ...allowed.filter((code) => code !== tenantCountry)],
+      );
       setGiftCardCategories(
         rewards.giftCardCategories ?? ['Gift Cards', 'Gaming Cards', 'Money Cards'],
       );
       setUtilityPaymentsEnabled(rewards.utilityPaymentsEnabled ?? true);
       return;
     }
-  }, [rewards]);
+  }, [rewards, tenantCountry]);
 
   useEffect(() => {
     if (wallet) {
@@ -243,14 +255,27 @@ export function SettingsRewardsTab() {
     }
   };
 
+  const toggleCatalogCountry = (code: string) => {
+    const upper = code.toUpperCase();
+    if (upper === tenantCountry) return;
+    setCatalogCountries((current) =>
+      current.includes(upper) ? current.filter((c) => c !== upper) : [...current, upper],
+    );
+  };
+
   const saveRewardsSettings = async () => {
     const rate = Number(exchangeRate);
     if (!Number.isFinite(rate) || rate <= 0) {
       toast.error('Exchange rate must be greater than 0');
       return;
     }
-    const prevProvider = rewards?.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous';
-    const providerChanged = prevProvider !== giftCardProvider;
+    const nextCountries = Array.from(
+      new Set([tenantCountry, ...catalogCountries.map((code) => code.toUpperCase())]),
+    );
+    const prevCountries = (rewards?.catalogCountries ?? []).map((code) => code.toUpperCase());
+    const countriesChanged =
+      nextCountries.length !== prevCountries.length ||
+      nextCountries.some((code) => !prevCountries.includes(code));
 
     try {
       await patchSettings.mutateAsync({
@@ -258,17 +283,17 @@ export function SettingsRewardsTab() {
           enabled: true,
           pointsExchangeRate: rate,
           rewardsCurrency: rewardsCurrency,
+          catalogCountries: nextCountries,
           airtimeEnabled,
           giftCardsEnabled,
           giftCardCategories,
-          giftCardProvider,
           utilityPaymentsEnabled,
           customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
           reloadlyProducts: rewards?.reloadlyProducts ?? [],
           tremendousProducts: rewards?.tremendousProducts ?? [],
         },
       });
-      if (providerChanged) {
+      if (countriesChanged) {
         try {
           await syncRewardsCatalog();
         } catch {
@@ -297,6 +322,30 @@ export function SettingsRewardsTab() {
       toast.success('Custom reward perk created');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create reward');
+    }
+  };
+
+  const handleUpdateReward = async () => {
+    if (!editingReward?.title.trim()) return;
+    try {
+      await updateReward.mutateAsync({
+        rewardId: editingReward.id,
+        input: {
+          title: editingReward.title.trim(),
+          description: editingReward.description?.trim() || undefined,
+          pointsCost: Number(editingReward.pointsCost) || 100,
+          deliveryInstructions: editingReward.deliveryInstructions?.trim() || undefined,
+          stockLimit:
+            editingReward.stockLimit != null && Number.isFinite(editingReward.stockLimit)
+              ? Number(editingReward.stockLimit)
+              : undefined,
+          isActive: editingReward.isActive,
+        },
+      });
+      setEditingReward(null);
+      toast.success('Custom reward updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update reward');
     }
   };
 
@@ -514,29 +563,41 @@ export function SettingsRewardsTab() {
                   />
                   {giftCardsEnabled && (
                     <div className="pl-6 pt-2 space-y-3 border-l-2 border-indigo-100 dark:border-indigo-950/60 ml-2 animate-in fade-in slide-in-from-left-2 duration-200">
-                      {isNgTenant ? null : (
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-semibold text-muted-foreground">Provider</p>
-                          <Select
-                            value={giftCardProvider}
-                            onValueChange={(value) =>
-                              setGiftCardProvider(value === 'reloadly' ? 'reloadly' : 'tremendous')
-                            }
-                          >
-                            <SelectTrigger className="w-[220px] h-10 text-xs font-semibold rounded-xl">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="tremendous" className="text-xs">
-                                Tremendous
-                              </SelectItem>
-                              <SelectItem value="reloadly" className="text-xs">
-                                Reloadly
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-muted-foreground">
+                          Catalog countries
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Employees can switch between these catalogs. Your company country (
+                          {tenantCountry}) stays enabled.
+                        </p>
+                        <div className="flex flex-wrap gap-4">
+                          {(providerCountries.length > 0
+                            ? providerCountries
+                            : [{ code: tenantCountry, name: tenantCountry }]
+                          ).map((country) => {
+                            const code = country.code.toUpperCase();
+                            const locked = code === tenantCountry;
+                            return (
+                              <label
+                                key={code}
+                                className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer select-none"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={catalogCountries.includes(code)}
+                                  disabled={locked}
+                                  onChange={() => toggleCatalogCountry(code)}
+                                  className="rounded border-border bg-background text-indigo-600 focus:ring-indigo-500/30"
+                                />
+                                <span>
+                                  {country.name} ({code}){locked ? ' · company' : ''}
+                                </span>
+                              </label>
+                            );
+                          })}
                         </div>
-                      )}
+                      </div>
                       <p className="text-xs font-semibold text-muted-foreground">
                         Enabled Gift Card Types:
                       </p>
@@ -589,18 +650,43 @@ export function SettingsRewardsTab() {
                   <span className="ml-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full">
                     {reward.pointsCost} {PAQ_POINTS_NAME}
                   </span>
+                  {!reward.isActive ? (
+                    <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Inactive
+                    </span>
+                  ) : null}
                   {reward.description && (
                     <p className="text-xs text-muted-foreground mt-1">{reward.description}</p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => deleteReward.mutateAsync(reward.id)}
-                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg size-8 p-0"
-                >
-                  <Trash2 className="size-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() =>
+                      setEditingReward({
+                        id: reward.id,
+                        title: reward.title,
+                        description: reward.description,
+                        pointsCost: reward.pointsCost,
+                        deliveryInstructions: reward.deliveryInstructions,
+                        stockLimit: reward.stockLimit,
+                        isActive: reward.isActive,
+                      })
+                    }
+                    className="text-muted-foreground hover:text-foreground rounded-lg size-8 p-0"
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteReward.mutateAsync(reward.id)}
+                    className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg size-8 p-0"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -651,6 +737,93 @@ export function SettingsRewardsTab() {
           </div>
         </div>
       </ContentCard>
+
+      <Dialog
+        open={Boolean(editingReward)}
+        onOpenChange={(open) => {
+          if (!open) setEditingReward(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit custom reward</DialogTitle>
+          </DialogHeader>
+          {editingReward ? (
+            <div className="grid gap-3 py-2">
+              <Input
+                placeholder="Reward title"
+                value={editingReward.title}
+                onChange={(e) => setEditingReward({ ...editingReward, title: e.target.value })}
+                className="rounded-xl h-10"
+              />
+              <Input
+                type="number"
+                placeholder="Points cost"
+                value={String(editingReward.pointsCost)}
+                onChange={(e) =>
+                  setEditingReward({ ...editingReward, pointsCost: Number(e.target.value) || 0 })
+                }
+                className="rounded-xl h-10"
+              />
+              <Textarea
+                placeholder="Description (optional)"
+                rows={2}
+                value={editingReward.description ?? ''}
+                onChange={(e) =>
+                  setEditingReward({ ...editingReward, description: e.target.value })
+                }
+                className="rounded-xl"
+              />
+              <Input
+                placeholder="Delivery instructions (optional)"
+                value={editingReward.deliveryInstructions ?? ''}
+                onChange={(e) =>
+                  setEditingReward({ ...editingReward, deliveryInstructions: e.target.value })
+                }
+                className="rounded-xl h-10"
+              />
+              <Input
+                type="number"
+                placeholder="Stock limit (optional)"
+                value={editingReward.stockLimit != null ? String(editingReward.stockLimit) : ''}
+                onChange={(e) =>
+                  setEditingReward({
+                    ...editingReward,
+                    stockLimit: e.target.value === '' ? undefined : Number(e.target.value),
+                  })
+                }
+                className="rounded-xl h-10"
+              />
+              <div className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-2 text-sm">
+                <span id="edit-reward-active-label">Active</span>
+                <Switch
+                  checked={editingReward.isActive}
+                  onCheckedChange={(checked) =>
+                    setEditingReward({ ...editingReward, isActive: checked })
+                  }
+                  aria-labelledby="edit-reward-active-label"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingReward(null)}
+                  className="rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  disabled={updateReward.isPending || !editingReward.title.trim()}
+                  onClick={handleUpdateReward}
+                  className="rounded-xl"
+                >
+                  Save changes
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isTopupOpen}

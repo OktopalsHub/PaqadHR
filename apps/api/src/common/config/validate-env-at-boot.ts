@@ -34,6 +34,11 @@ function resolveNgRewardsAirtimeProvider(): string {
   return (process.env.NG_REWARDS_AIRTIME_PROVIDER || 'nomba').trim().toLowerCase();
 }
 
+function resolveRewardsGiftCardProvider(): string {
+  const value = (process.env.REWARDS_GIFT_CARD_PROVIDER || 'tremendous').trim().toLowerCase();
+  return value || 'tremendous';
+}
+
 export function validateEnvAtBoot(): void {
   const logger = new Logger('EnvValidation');
   const isProduction = (process.env.NODE_ENV || 'development') === 'production';
@@ -45,6 +50,7 @@ export function validateEnvAtBoot(): void {
   const ngPayrollProvider = resolveNgPayrollProvider();
   const ngRewardsDepositProvider = resolveNgRewardsDepositProvider();
   const ngRewardsAirtimeProvider = resolveNgRewardsAirtimeProvider();
+  const rewardsGiftCardProvider = resolveRewardsGiftCardProvider();
 
   for (const key of CRITICAL) {
     if (!process.env[key]?.trim()) {
@@ -110,6 +116,24 @@ export function validateEnvAtBoot(): void {
   logger.log(
     `NG rails: payroll=${ngPayrollProvider} deposits=${ngRewardsDepositProvider || `(follow payroll:${ngPayrollProvider})`} airtime=${ngRewardsAirtimeProvider}`,
   );
+  logger.log(`Rewards gift-card provider: ${rewardsGiftCardProvider}`);
+
+  if (rewardsGiftCardProvider !== 'tremendous' && rewardsGiftCardProvider !== 'reloadly') {
+    errors.push('REWARDS_GIFT_CARD_PROVIDER must be tremendous or reloadly');
+  }
+  if (rewardsGiftCardProvider === 'tremendous' && !process.env.TREMENDOUS_API_KEY?.trim()) {
+    warnings.push(
+      'REWARDS_GIFT_CARD_PROVIDER=tremendous but TREMENDOUS_API_KEY is empty — gift catalog sync will be skipped',
+    );
+  }
+  if (
+    rewardsGiftCardProvider === 'reloadly' &&
+    (!process.env.RELOADLY_CLIENT_ID?.trim() || !process.env.RELOADLY_CLIENT_SECRET?.trim())
+  ) {
+    warnings.push(
+      'REWARDS_GIFT_CARD_PROVIDER=reloadly but RELOADLY_CLIENT_ID/SECRET are empty — gift catalog sync will be skipped',
+    );
+  }
 
   if (!process.env.NG_PAYROLL_PROVIDER?.trim() && process.env.NG_PAYMENTS_PROVIDER?.trim()) {
     warnings.push(

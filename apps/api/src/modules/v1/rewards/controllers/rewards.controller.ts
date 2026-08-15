@@ -25,6 +25,7 @@ import {
   resolveRewardsWalletPaymentProvider,
 } from '../config/rewards-wallet-provider.config';
 import { AssignMemberPointsDto } from '../dto/assign-member-points.dto';
+import { CreateCustomRewardDto, UpdateCustomRewardDto } from '../dto/custom-reward.dto';
 import { WalletAutoTopupDto } from '../dto/wallet-auto-topup.dto';
 import { WalletTopupCompleteDto, WalletTopupDto } from '../dto/wallet-topup.dto';
 import { CustomRewardsService } from '../services/custom-rewards.service';
@@ -90,10 +91,14 @@ export class RewardsController {
   async getCatalog(
     @Param('tenantId') tenantId: string,
     @CurrentTenantMember() member: MemberContext,
+    @Query('country') country?: string,
   ) {
     const role = member.role?.toLowerCase();
     const includeAdminPricing = role === 'owner' || role === 'admin';
-    return this.rewardsService.getCatalog(tenantId, { includeAdminPricing });
+    return this.rewardsService.getCatalog(tenantId, {
+      includeAdminPricing,
+      countryCode: country,
+    });
   }
 
   @Post('catalog/sync')
@@ -111,7 +116,7 @@ export class RewardsController {
   @UseGuards(TenantRoleGuard)
   @Roles(...ALL_ROLES)
   async getCountries(@Param('tenantId') tenantId: string) {
-    return this.rewardsService.getReloadlyCountries(tenantId);
+    return this.rewardsService.getCatalogCountries(tenantId);
   }
 
   @Post('claim')
@@ -279,15 +284,7 @@ export class RewardsController {
   @Roles(...ADMIN_ROLES)
   async createCustomReward(
     @Param('tenantId') tenantId: string,
-    @Body()
-    body: {
-      title: string;
-      description?: string;
-      pointsCost: number;
-      imageUrl?: string;
-      stockLimit?: number;
-      deliveryInstructions?: string;
-    },
+    @Body() body: CreateCustomRewardDto,
   ) {
     return this.customRewardsService.create(tenantId, body);
   }
@@ -299,16 +296,7 @@ export class RewardsController {
   async updateCustomReward(
     @Param('tenantId') tenantId: string,
     @Param('rewardId') rewardId: string,
-    @Body()
-    body: Partial<{
-      title: string;
-      description: string;
-      pointsCost: number;
-      imageUrl: string;
-      isActive: boolean;
-      stockLimit: number;
-      deliveryInstructions: string;
-    }>,
+    @Body() body: UpdateCustomRewardDto,
   ) {
     return this.customRewardsService.update(tenantId, rewardId, body);
   }

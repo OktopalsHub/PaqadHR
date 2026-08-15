@@ -41,26 +41,29 @@ export type GiftCardProvider = 'reloadly' | 'tremendous';
 
 export const DEFAULT_GIFT_CARD_PROVIDER: GiftCardProvider = 'tremendous';
 
-export function isNigeriaWorkspace(tenantCountryCode?: string | null): boolean {
-  return (GeoLocationHelper.toStoredCountryCode(tenantCountryCode ?? '') ?? '') === 'NG';
+/** Platform gift-card provider — set via REWARDS_GIFT_CARD_PROVIDER (not tenant settings). */
+export function resolveGiftCardProviderFromEnv(
+  raw: string | undefined = process.env.REWARDS_GIFT_CARD_PROVIDER,
+): GiftCardProvider {
+  const value = (raw ?? '').trim().toLowerCase();
+  if (value === 'reloadly') return 'reloadly';
+  return DEFAULT_GIFT_CARD_PROVIDER;
 }
 
-export function resolveGiftCardProvider(value?: string | null): GiftCardProvider {
-  return value === 'reloadly' ? 'reloadly' : DEFAULT_GIFT_CARD_PROVIDER;
+/** @deprecated Prefer resolveGiftCardProviderFromEnv — tenant-selected provider is ignored. */
+export function resolveGiftCardProvider(_value?: string | null): GiftCardProvider {
+  return resolveGiftCardProviderFromEnv();
 }
 
 /**
- * Gift catalogs follow the funded provider account, not tenant country.
- * Nigeria workspaces get every configured platform; everyone else gets the selected one.
+ * Gift catalogs follow the environment-selected provider only.
+ * Tenant country no longer unions both providers.
  */
 export function resolveGiftCatalogProviders(
-  tenantCountryCode?: string | null,
-  selected?: string | null,
+  _tenantCountryCode?: string | null,
+  _selected?: string | null,
 ): GiftCardProvider[] {
-  if (isNigeriaWorkspace(tenantCountryCode)) {
-    return ['tremendous', 'reloadly'];
-  }
-  return [resolveGiftCardProvider(selected)];
+  return [resolveGiftCardProviderFromEnv()];
 }
 
 export function resolveDefaultRewardsCatalogCountry(options: {
@@ -74,16 +77,20 @@ export function resolveDefaultRewardsCatalogCountry(options: {
   );
 }
 
-/** @deprecated Catalogs are provider-native; do not infer tenant country. */
-export function resolveRewardsCatalogCountries(_tenantCountryCode?: string | null): string[] {
-  return [];
-}
-
+/**
+ * Normalize an allowlist of catalog countries.
+ * Always includes `fallbackCountry` (tenant country) when a list is provided or when empty is not allowed.
+ */
 export function normalizeRewardsCatalogCountries(
   countries: readonly string[] | null | undefined,
   fallbackCountry: string,
   options?: { allowEmpty?: boolean },
 ): string[] {
+  const fallback =
+    GeoLocationHelper.toStoredCountryCode(fallbackCountry) ??
+    GeoLocationHelper.toStoredCountryCode('US') ??
+    'US';
+
   const normalized = Array.from(
     new Set(
       (countries ?? [])
@@ -93,6 +100,9 @@ export function normalizeRewardsCatalogCountries(
   );
 
   if (normalized.length > 0) {
+    if (!normalized.includes(fallback)) {
+      normalized.unshift(fallback);
+    }
     return normalized;
   }
 
@@ -105,5 +115,9 @@ export function normalizeRewardsCatalogCountries(
     return [];
   }
 
-  return [fallbackCountry];
+  return [fallback];
+}
+
+export function isNigeriaWorkspace(tenantCountryCode?: string | null): boolean {
+  return (GeoLocationHelper.toStoredCountryCode(tenantCountryCode ?? '') ?? '') === 'NG';
 }

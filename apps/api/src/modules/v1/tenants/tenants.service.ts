@@ -10,7 +10,6 @@ import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs
 import { TenantMemberRole } from 'src/common/enums';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
-import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { isWalletCurrencyLocked } from 'src/common/utils/rewards-defaults.util';
 import { IsNull, Repository } from 'typeorm';
 import { Employment } from '../employment/entities/employment.entity';
@@ -175,13 +174,6 @@ export class TenantsService {
     if (!existingTenant) {
       throw new NotFoundException('Tenant does not exist');
     }
-    if (updateTenantDto.countryCode !== undefined) {
-      const normalizedCountry = GeoLocationHelper.toStoredCountryCode(updateTenantDto.countryCode);
-      if (!normalizedCountry) {
-        throw new BadRequestException('Country code must be a valid ISO 3166-1 alpha-2 code');
-      }
-      updateTenantDto.countryCode = normalizedCountry;
-    }
     await this.assertRewardsWalletAllowsTenantProfileChange(
       tenantId,
       existingTenant,
@@ -277,16 +269,9 @@ export class TenantsService {
     const nextCurrency = updateTenantDto.preferredCurrency?.toUpperCase();
     const currencyChanging = Boolean(nextCurrency && nextCurrency !== currentCurrency);
 
-    const currentCountry = GeoLocationHelper.toStoredCountryCode(existingTenant.countryCode) ?? '';
-    const nextCountry =
-      updateTenantDto.countryCode !== undefined
-        ? GeoLocationHelper.toStoredCountryCode(updateTenantDto.countryCode)
-        : currentCountry;
-    const countryChanging = nextCountry !== currentCountry;
-
-    if (currencyChanging || countryChanging) {
+    if (currencyChanging) {
       throw new BadRequestException(
-        `Rewards wallet has activity in ${wallet.currencyCode.toUpperCase()}. Spend the balance before changing workspace country or currency.`,
+        `Rewards wallet has activity in ${wallet.currencyCode.toUpperCase()}. Spend the balance before changing workspace currency.`,
       );
     }
   }

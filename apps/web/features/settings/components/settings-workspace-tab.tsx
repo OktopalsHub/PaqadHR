@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LogoUpload } from '@/components/logo-upload';
@@ -10,10 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import {
-  reprioritizePayrollCurrenciesForCountry,
-  resolveInitialPayrollCurrencies,
-} from '@/features/settings/lib/workspace-payroll-currencies';
+import { resolveInitialPayrollCurrencies } from '@/features/settings/lib/workspace-payroll-currencies';
 import { useWorkspaceLogoUpload } from '@/hooks/queries/use-image-upload';
 import {
   usePatchTenantSettings,
@@ -44,28 +41,21 @@ export function SettingsWorkspaceTab() {
 
   const [name, setName] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [countryCode, setCountryCode] = useState('');
   const [timezone, setTimezone] = useState('UTC');
   const [employeeCode, setEmployeeCode] = useState('');
   const [payrollCurrencies, setPayrollCurrencies] = useState<string[]>(['USD']);
   const [emailPayslipOnPublish, setEmailPayslipOnPublish] = useState(false);
   const [requireIdentityForPayroll, setRequireIdentityForPayroll] = useState(false);
 
-  const countryOptions = useMemo(
-    () =>
-      (countriesData?.countries ?? []).map((country) => ({
-        value: country.code,
-        label: country.name,
-      })),
-    [countriesData?.countries],
-  );
+  const workspaceCountry = tenant?.countryCode ?? settings?.settings?.holidays?.countryCode ?? '';
+  const countryLabel =
+    (countriesData?.countries ?? []).find((country) => country.code === workspaceCountry)?.name ??
+    workspaceCountry;
 
   useEffect(() => {
     if (!tenant) return;
     setName(tenant.name ?? '');
     setLogoUrl(tenantLogoUrl);
-    const workspaceCountry = tenant.countryCode ?? settings?.settings?.holidays?.countryCode ?? '';
-    setCountryCode(workspaceCountry);
     setTimezone(tenant.timezone ?? 'UTC');
     setEmployeeCode(tenant.employeeCode ?? '');
 
@@ -80,7 +70,7 @@ export function SettingsWorkspaceTab() {
         tenantPreferredCurrency: tenant.preferredCurrency,
       }),
     );
-  }, [tenant, settings, tenantLogoUrl]);
+  }, [tenant, settings, tenantLogoUrl, workspaceCountry]);
 
   const toggleCurrency = (code: string) => {
     setPayrollCurrencies((current) => {
@@ -93,13 +83,6 @@ export function SettingsWorkspaceTab() {
       }
       return [...current, code];
     });
-  };
-
-  const handleCountryChange = (nextCountryCode: string) => {
-    setCountryCode(nextCountryCode);
-    setPayrollCurrencies((current) =>
-      reprioritizePayrollCurrenciesForCountry(current, nextCountryCode),
-    );
   };
 
   const saveWorkspace = async () => {
@@ -133,7 +116,6 @@ export function SettingsWorkspaceTab() {
         tenantId,
         input: {
           name: name.trim(),
-          ...(countryCode ? { countryCode } : {}),
           timezone: timezone.trim() || 'UTC',
           preferredCurrency: primaryCurrency,
           ...(employeeCode.trim() ? { employeeCode: employeeCode.trim().toUpperCase() } : {}),
@@ -236,14 +218,15 @@ export function SettingsWorkspaceTab() {
           </SettingsFieldHint>
 
           <SettingsFieldHint htmlFor="workspace-country" label="Country" className="lg:col-span-2">
-            <SearchSelect
+            <Input
               id="workspace-country"
-              options={countryOptions}
-              value={countryCode}
-              onValueChange={handleCountryChange}
-              placeholder="Select country…"
-              searchPlaceholder="Search countries…"
+              value={countryLabel || '—'}
+              readOnly
+              className="bg-white/60 text-slate-500 dark:bg-slate-950/40 dark:text-slate-300"
             />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Set during onboarding and cannot be changed.
+            </p>
           </SettingsFieldHint>
 
           <SettingsFieldHint

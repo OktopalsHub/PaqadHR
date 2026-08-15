@@ -7,9 +7,11 @@ import type { BillingSettings } from '../../../../common/interfaces/billing-sett
 import type { PointsSettings } from '../../../../common/interfaces/points-settings.interface';
 import type { RewardsSettings } from '../../../../common/interfaces/rewards-settings.interface';
 import type { TenantSettingsData } from '../../../../common/interfaces/tenant-settings-data.interface';
+import { GeoLocationHelper } from '../../../../common/utils/geo-location.util';
 import {
   DEFAULT_WALLET_CURRENCY_FALLBACK,
-  resolveGiftCardProvider,
+  normalizeRewardsCatalogCountries,
+  resolveGiftCardProviderFromEnv,
   resolveInitialWalletCurrency,
 } from '../../../../common/utils/rewards-defaults.util';
 import { ActivitiesService } from '../../activities/services/activities.service';
@@ -63,8 +65,9 @@ export class TenantSettingsService {
     const existingSettings = await this.getTenantSettings(tenantId);
     const rewardsDefaults =
       updateDto.rewards !== undefined ? await this.resolveRewardsDefaults(tenantId) : null;
-    const prevGiftCardProvider = resolveGiftCardProvider(
-      existingSettings.settings.rewards?.giftCardProvider,
+    const prevCatalogCountries = normalizeRewardsCatalogCountries(
+      existingSettings.settings.rewards?.catalogCountries,
+      rewardsDefaults?.tenantCountryCode ?? 'US',
     );
     const updatedSettings: TenantSettingsData = {
       ...existingSettings.settings,
@@ -161,7 +164,11 @@ export class TenantSettingsService {
             rewardsDefaults?.rewardsCurrency ??
             existingSettings.settings.rewards?.rewardsCurrency ??
             DEFAULT_WALLET_CURRENCY_FALLBACK,
-          catalogCountries: existingSettings.settings.rewards?.catalogCountries ?? [],
+          catalogCountries: normalizeRewardsCatalogCountries(
+            updateDto.rewards.catalogCountries ??
+              existingSettings.settings.rewards?.catalogCountries,
+            rewardsDefaults?.tenantCountryCode ?? 'US',
+          ),
           airtimeEnabled:
             updateDto.rewards.airtimeEnabled ??
             existingSettings.settings.rewards?.airtimeEnabled ??
@@ -180,10 +187,8 @@ export class TenantSettingsService {
               'Gaming Cards',
               'Money Cards',
             ],
-          giftCardProvider: resolveGiftCardProvider(
-            updateDto.rewards.giftCardProvider ??
-              existingSettings.settings.rewards?.giftCardProvider,
-          ),
+          // Platform env selects the provider; ignore any client-supplied value.
+          giftCardProvider: resolveGiftCardProviderFromEnv(),
           utilityPaymentsEnabled:
             updateDto.rewards.utilityPaymentsEnabled ??
             existingSettings.settings.rewards?.utilityPaymentsEnabled ??
@@ -211,8 +216,15 @@ export class TenantSettingsService {
     existingSettings.settings = this.prepareSettingsForPersistence(updatedSettings);
     const result = await this.tenantSettingsRepository.save(existingSettings);
 
-    const newGiftCardProvider = resolveGiftCardProvider(updatedSettings.rewards?.giftCardProvider);
-    if (updateDto.rewards !== undefined && prevGiftCardProvider !== newGiftCardProvider) {
+    const nextCatalogCountries = normalizeRewardsCatalogCountries(
+      updatedSettings.rewards?.catalogCountries,
+      rewardsDefaults?.tenantCountryCode ?? 'US',
+    );
+    const catalogCountriesChanged =
+      updateDto.rewards !== undefined &&
+      (prevCatalogCountries.length !== nextCatalogCountries.length ||
+        prevCatalogCountries.some((code, index) => code !== nextCatalogCountries[index]));
+    if (catalogCountriesChanged) {
       this.eventEmitter.emit('rewards.catalogCountriesChanged', { tenantId });
     }
 
@@ -248,14 +260,17 @@ export class TenantSettingsService {
 
   private async resolveRewardsDefaults(tenantId: string): Promise<{
     rewardsCurrency: string;
+    tenantCountryCode: string;
   }> {
     const tenant = await this.tenantRepository.findOne({
       where: { id: tenantId },
       select: { id: true, countryCode: true, preferredCurrency: true },
     });
+    const tenantCountryCode = GeoLocationHelper.toStoredCountryCode(tenant?.countryCode) ?? 'US';
 
     return {
       rewardsCurrency: await this.resolveWalletRewardsCurrency(tenantId, tenant),
+      tenantCountryCode,
     };
   }
 
@@ -276,13 +291,17 @@ export class TenantSettingsService {
     rewards: RewardsSettings | undefined,
     defaults: {
       rewardsCurrency: string;
+      tenantCountryCode: string;
     },
   ): RewardsSettings {
     return {
       enabled: rewards?.enabled ?? true,
       pointsExchangeRate: rewards?.pointsExchangeRate ?? 1,
       rewardsCurrency: defaults.rewardsCurrency,
-      catalogCountries: rewards?.catalogCountries ?? [],
+      catalogCountries: normalizeRewardsCatalogCountries(
+        rewards?.catalogCountries,
+        defaults.tenantCountryCode,
+      ),
       airtimeEnabled: rewards?.airtimeEnabled ?? true,
       customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
       giftCardsEnabled: rewards?.giftCardsEnabled ?? true,
@@ -291,7 +310,7 @@ export class TenantSettingsService {
         'Gaming Cards',
         'Money Cards',
       ],
-      giftCardProvider: resolveGiftCardProvider(rewards?.giftCardProvider),
+      giftCardProvider: resolveGiftCardProviderFromEnv(),
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
       reloadlyProducts: rewards?.reloadlyProducts ?? [],
       tremendousProducts: rewards?.tremendousProducts ?? [],

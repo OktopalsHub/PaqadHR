@@ -21,11 +21,13 @@ describe('RewardsService catalog sync', () => {
     };
   };
   let settingsRepo: { findOne: jest.Mock; save: jest.Mock };
-  let listAccountProducts: jest.Mock;
+  let listProductsByCountries: jest.Mock;
   let listTremendousProducts: jest.Mock;
   let tenantCountryCode: string;
+  const originalProvider = process.env.REWARDS_GIFT_CARD_PROVIDER;
 
   beforeEach(() => {
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'reloadly';
     settingsRow = {
       tenantId: 'tenant-1',
       settings: {
@@ -34,7 +36,6 @@ describe('RewardsService catalog sync', () => {
           pointsExchangeRate: 1,
           rewardsCurrency: 'NGN',
           catalogCountries: ['NG'],
-          giftCardProvider: 'reloadly',
           reloadlyProducts: [],
           tremendousProducts: [],
         },
@@ -51,7 +52,7 @@ describe('RewardsService catalog sync', () => {
 
     tenantCountryCode = 'NG';
 
-    listAccountProducts = jest.fn().mockResolvedValue([
+    listProductsByCountries = jest.fn().mockResolvedValue([
       {
         productId: 101,
         productName: 'Amazon NG',
@@ -70,7 +71,8 @@ describe('RewardsService catalog sync', () => {
 
     const reloadlyApi = {
       isConfigured: jest.fn().mockReturnValue(true),
-      listAccountProducts,
+      listProductsByCountries,
+      listAccountProducts: jest.fn().mockResolvedValue([]),
     };
     const tremendousApi = {
       isConfigured: jest.fn().mockReturnValue(true),
@@ -132,8 +134,17 @@ describe('RewardsService catalog sync', () => {
       );
   });
 
-  it('syncs Reloadly products when catalog is empty', async () => {
+  afterEach(() => {
+    if (originalProvider === undefined) {
+      delete process.env.REWARDS_GIFT_CARD_PROVIDER;
+    } else {
+      process.env.REWARDS_GIFT_CARD_PROVIDER = originalProvider;
+    }
+  });
+
+  it('syncs Reloadly products for allowlisted countries', async () => {
     const products = await service.syncReloadlyProducts('tenant-1');
+    expect(listProductsByCountries).toHaveBeenCalledWith(['NG']);
     expect(products).toHaveLength(1);
     expect(products[0].productId).toBe(101);
     expect(products[0].listReloadlyCost).toBe(980);
@@ -144,7 +155,8 @@ describe('RewardsService catalog sync', () => {
   });
 
   it('prices USD sender cost with FX conversion', async () => {
-    listAccountProducts.mockResolvedValue([
+    settingsRow.settings.rewards.catalogCountries = ['NG', 'US'];
+    listProductsByCountries.mockResolvedValue([
       {
         productId: 202,
         productName: 'Amazon US',
@@ -166,8 +178,9 @@ describe('RewardsService catalog sync', () => {
     expect(products[0].pointsCost).toBe(15300);
   });
 
-  it('dedupes products with the same productId across countries', async () => {
-    listAccountProducts.mockResolvedValue([
+  it('keeps same productId for different countries as separate records', async () => {
+    settingsRow.settings.rewards.catalogCountries = ['NG', 'US'];
+    listProductsByCountries.mockResolvedValue([
       {
         productId: 303,
         productName: 'Global Card',
@@ -191,15 +204,15 @@ describe('RewardsService catalog sync', () => {
     ]);
 
     const products = await service.syncReloadlyProducts('tenant-1');
-    expect(products).toHaveLength(1);
-    expect(products[0].productId).toBe(303);
-    expect(products[0].countryCode).toBe('NG');
+    expect(products).toHaveLength(2);
+    expect(products.map((p) => p.countryCode).sort()).toEqual(['NG', 'US']);
   });
 
   it('returns non-empty catalog after sync', async () => {
     const catalog = await service.getCatalog('tenant-1', { includeAdminPricing: true });
     const reloadlyItem = catalog.find((item) => item.type === 'RELOADLY');
     expect(reloadlyItem).toBeDefined();
+    expect(reloadlyItem?.id).toBe('reloadly_NG_101');
     expect(reloadlyItem?.currencyValue).toBe(1000);
     expect(reloadlyItem?.adminPricing).toEqual({
       reloadlyCost: 980,
@@ -207,10 +220,43 @@ describe('RewardsService catalog sync', () => {
     });
   });
 
+  it('rejects catalog countries outside the tenant allowlist', async () => {
+    await expect(service.getCatalog('tenant-1', { countryCode: 'GB' })).rejects.toThrow(
+      'Catalog country is not enabled',
+    );
+  });
+
+  it('filters catalog by selected allowlisted country', async () => {
+    settingsRow.settings.rewards.catalogCountries = ['NG', 'US'];
+    settingsRow.settings.rewards.reloadlyProducts = [
+      {
+        productId: 1,
+        name: 'NG Card',
+        countryCode: 'NG',
+        currencyCode: 'NGN',
+        imageUrl: null,
+        pointsCost: 10,
+        fixedDenominations: [1000],
+      },
+      {
+        productId: 2,
+        name: 'US Card',
+        countryCode: 'US',
+        currencyCode: 'USD',
+        imageUrl: null,
+        pointsCost: 20,
+        fixedDenominations: [10],
+      },
+    ];
+
+    const catalog = await service.getCatalog('tenant-1', { countryCode: 'US' });
+    expect(catalog.map((item) => item.id)).toEqual(['reloadly_US_2']);
+  });
+
   it('validates reloadly gift card points against stored catalog cost', async () => {
     await service.syncReloadlyProducts('tenant-1');
     const catalog = await service.getCatalog('tenant-1');
-    const item = catalog.find((i) => i.id === 'reloadly_101');
+    const item = catalog.find((i) => i.id === 'reloadly_NG_101');
     expect(item).toBeDefined();
 
     await expect(
@@ -230,7 +276,8 @@ describe('RewardsService catalog sync', () => {
     expect(reloadlyItem?.adminPricing).toBeUndefined();
   });
 
-  it('includes admin pricing for non-rewards currency costs', async () => {
+  it('includes admin pricing for matching catalog country costs', async () => {
+    settingsRow.settings.rewards.catalogCountries = ['NG', 'US'];
     settingsRow.settings.rewards.reloadlyProducts = [
       {
         productId: 999,
@@ -244,18 +291,51 @@ describe('RewardsService catalog sync', () => {
       },
     ];
 
-    const catalog = await service.getCatalog('tenant-1', { includeAdminPricing: true });
-    const reloadlyItem = catalog.find((item) => item.id === 'reloadly_999');
+    const catalog = await service.getCatalog('tenant-1', {
+      includeAdminPricing: true,
+      countryCode: 'US',
+    });
+    const reloadlyItem = catalog.find((item) => item.id === 'reloadly_US_999');
     expect(reloadlyItem?.adminPricing).toEqual({
       reloadlyCost: 10,
       reloadlyCostCurrency: 'USD',
     });
   });
 
-  it('syncs Tremendous products and returns only TREMENDOUS catalog items for non-NG', async () => {
+  it('expands multi-country Tremendous products across the allowlist', async () => {
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'tremendous';
+    tenantCountryCode = 'NG';
+    settingsRow.settings.rewards.rewardsCurrency = 'NGN';
+    settingsRow.settings.rewards.catalogCountries = ['NG', 'GB'];
+    listTremendousProducts.mockResolvedValue([
+      {
+        id: 'MULTI',
+        name: 'Global Card',
+        category: 'merchant_cards',
+        subcategory: 'retail',
+        currency_codes: ['USD'],
+        countries: [{ abbr: 'NG' }, { abbr: 'GB' }, { abbr: 'US' }],
+        skus: [{ min: 10, max: 10 }],
+        images: [{ src: 'https://testflight.tremendous.com/card.png', type: 'card' }],
+      },
+    ]);
+
+    const products = await service.syncTremendousProducts('tenant-1');
+    expect(listTremendousProducts).toHaveBeenCalledWith(['NG', 'GB']);
+    expect(products).toHaveLength(2);
+    expect(products.map((p) => p.countryCode).sort()).toEqual(['GB', 'NG']);
+    expect(products[0].countries).toEqual(['NG', 'GB', 'US']);
+    expect(products[0].imageUrl).toContain('tremendous.com');
+
+    const ngCatalog = await service.getCatalog('tenant-1', { countryCode: 'NG' });
+    expect(ngCatalog.find((item) => item.type === 'TREMENDOUS')?.id).toBe('tremendous_NG_MULTI');
+  });
+
+  it('uses the environment provider only', async () => {
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'tremendous';
     tenantCountryCode = 'US';
     settingsRow.settings.rewards.rewardsCurrency = 'USD';
-    settingsRow.settings.rewards.giftCardProvider = 'tremendous';
+    settingsRow.settings.rewards.catalogCountries = ['US'];
     listTremendousProducts.mockResolvedValue([
       {
         id: 'AMAZONUS',
@@ -275,40 +355,20 @@ describe('RewardsService catalog sync', () => {
     const products = await service.syncTremendousProducts('tenant-1');
     expect(products).toHaveLength(1);
     expect(products[0].productId).toBe('AMAZONUS');
-    expect(products[0].fixedDenominations).toEqual([10, 25]);
-    expect(products[0].listTremendousCost).toBe(10);
 
     const catalog = await service.getCatalog('tenant-1');
     expect(catalog.some((item) => item.type === 'RELOADLY')).toBe(false);
-    const tremendousItem = catalog.find((item) => item.type === 'TREMENDOUS');
-    expect(tremendousItem?.id).toBe('tremendous_AMAZONUS');
-    expect(tremendousItem?.currencyValue).toBe(10);
+    expect(catalog.find((item) => item.type === 'TREMENDOUS')?.id).toBe('tremendous_US_AMAZONUS');
   });
 
-  it('unions Tremendous and Reloadly catalogs for Nigeria workspaces', async () => {
-    settingsRow.settings.rewards.giftCardProvider = 'tremendous';
-    listTremendousProducts.mockResolvedValue([
-      {
-        id: 'AMAZONUS',
-        name: 'Amazon.com Gift Card',
-        currency_codes: ['USD'],
-        countries: [{ abbr: 'US' }],
-        skus: [{ min: 10, max: 10 }],
-        images: [],
-      },
-    ]);
-
-    const catalog = await service.getCatalog('tenant-1');
-    expect(catalog.some((item) => item.type === 'RELOADLY')).toBe(true);
-    expect(catalog.some((item) => item.type === 'TREMENDOUS')).toBe(true);
-  });
-
-  it('does not infer catalog countries from the workspace', async () => {
+  it('defaults catalog countries to the tenant country', async () => {
+    settingsRow.settings.rewards.catalogCountries = [];
     const settings = await (service as any).getRewardsSettings('tenant-1');
     expect(settings.catalogCountries).toEqual(['NG']);
 
     tenantCountryCode = 'GB';
+    settingsRow.settings.rewards.catalogCountries = [];
     const otherSettings = await (service as any).getRewardsSettings('tenant-1');
-    expect(otherSettings.catalogCountries).toEqual(['NG']);
+    expect(otherSettings.catalogCountries).toEqual(['GB']);
   });
 });

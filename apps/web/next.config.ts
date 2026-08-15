@@ -19,6 +19,26 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'testflight.tremendous.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.tremendous.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 's3.giftrocket.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'paqadhr.com',
         pathname: '/logo-*.png',
       },

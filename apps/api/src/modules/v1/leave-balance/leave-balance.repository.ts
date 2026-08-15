@@ -74,4 +74,63 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
       .addGroupBy('leaveType.name')
       .getRawMany();
   }
+
+  async findAdminListWithLabels(
+    tenantId: string,
+    memberIds?: string[],
+  ): Promise<
+    Array<{
+      id: string;
+      memberId: string;
+      leaveTypeId: string;
+      totalDays: number;
+      usedDays: number;
+      remainingDays: number;
+      carryoverDays: number;
+      regularDays: number;
+      carryoverUsed: number;
+      year: number;
+      tenantId: string;
+      createdAt: Date;
+      updatedAt: Date;
+      leaveTypeName: string | null;
+      memberPreferredName: string | null;
+      memberFirstName: string | null;
+      memberLastName: string | null;
+    }>
+  > {
+    const qb = this.leaveBalanceRepository
+      .createQueryBuilder('balance')
+      .leftJoin('balance.leaveType', 'leaveType')
+      .leftJoin('balance.tenantMember', 'member')
+      .select([
+        'balance.id AS id',
+        'balance.member_id AS "memberId"',
+        'balance.leave_type_id AS "leaveTypeId"',
+        'balance.total_days AS "totalDays"',
+        'balance.used_days AS "usedDays"',
+        'balance.remaining_days AS "remainingDays"',
+        'balance.carryover_days AS "carryoverDays"',
+        'balance.regular_days AS "regularDays"',
+        'balance.carryover_used AS "carryoverUsed"',
+        'balance.year AS year',
+        'balance.tenant_id AS "tenantId"',
+        'balance.created_at AS "createdAt"',
+        'balance.updated_at AS "updatedAt"',
+        'leaveType.name AS "leaveTypeName"',
+        'member.preferred_name AS "memberPreferredName"',
+        'member.first_name AS "memberFirstName"',
+        'member.last_name AS "memberLastName"',
+      ])
+      .where('balance.tenant_id = :tenantId', { tenantId })
+      .orderBy('balance.year', 'DESC')
+      .addOrderBy('member.last_name', 'ASC')
+      .addOrderBy('member.first_name', 'ASC');
+
+    if (memberIds?.length) {
+      qb.andWhere('balance.member_id IN (:...memberIds)', { memberIds });
+    }
+
+    return qb.getRawMany();
+  }
 }

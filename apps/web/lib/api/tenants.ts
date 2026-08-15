@@ -12,7 +12,6 @@ export interface CreateTenantInput {
 
 export interface UpdateTenantInput {
   name?: string;
-  countryCode?: string;
   timezone?: string;
   preferredCurrency?: string;
   logoKey?: string;

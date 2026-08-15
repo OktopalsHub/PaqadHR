@@ -108,8 +108,10 @@ export function LeaveBalancesAdminTab() {
               <TableBody>
                 {balances.map((b) => (
                   <TableRow key={b.id}>
-                    <TableCell className="font-medium">{b.memberId}</TableCell>
-                    <TableCell>{b.leaveTypeName ?? b.leaveTypeId}</TableCell>
+                    <TableCell className="font-medium">
+                      {b.memberName?.trim() || 'Unknown member'}
+                    </TableCell>
+                    <TableCell>{b.leaveTypeName?.trim() || 'Unknown type'}</TableCell>
                     <TableCell className="text-right">{b.totalDays}</TableCell>
                     <TableCell className="text-right">{b.usedDays}</TableCell>
                     <TableCell className="text-right">{b.remainingDays}</TableCell>

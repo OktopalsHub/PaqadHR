@@ -179,7 +179,7 @@ describe('TenantSettingsService rewards validation', () => {
     expect(eventEmitter.emit).not.toHaveBeenCalled();
   });
 
-  it('emits catalog sync when gift card provider changes', async () => {
+  it('emits catalog sync when catalog countries change', async () => {
     tenantRepository.findOne.mockResolvedValue({
       id: baseSettings.tenantId,
       countryCode: 'NG',
@@ -188,7 +188,7 @@ describe('TenantSettingsService rewards validation', () => {
     await service.updateTenantSettings(
       'tenant-1',
       {
-        rewards: { giftCardProvider: 'reloadly' },
+        rewards: { catalogCountries: ['NG', 'GB'] },
       },
       'member-1',
     );
@@ -197,7 +197,34 @@ describe('TenantSettingsService rewards validation', () => {
     });
   });
 
-  it('does not emit catalog sync when countries and provider are unchanged', async () => {
+  it('ignores client gift card provider selection', async () => {
+    tenantRepository.findOne.mockResolvedValue({
+      id: baseSettings.tenantId,
+      countryCode: 'NG',
+      preferredCurrency: 'NGN',
+    });
+    process.env.REWARDS_GIFT_CARD_PROVIDER = 'tremendous';
+    await service.updateTenantSettings(
+      'tenant-1',
+      {
+        rewards: { giftCardsEnabled: true, catalogCountries: ['NG'] },
+      },
+      'member-1',
+    );
+    expect(repository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        settings: expect.objectContaining({
+          rewards: expect.objectContaining({
+            giftCardProvider: 'tremendous',
+            catalogCountries: ['NG'],
+          }),
+        }),
+      }),
+    );
+    expect(eventEmitter.emit).not.toHaveBeenCalled();
+  });
+
+  it('does not emit catalog sync when countries are unchanged', async () => {
     tenantRepository.findOne.mockResolvedValue({
       id: baseSettings.tenantId,
       countryCode: 'NG',
@@ -206,7 +233,7 @@ describe('TenantSettingsService rewards validation', () => {
     await service.updateTenantSettings(
       'tenant-1',
       {
-        rewards: { giftCardsEnabled: true },
+        rewards: { giftCardsEnabled: true, catalogCountries: ['NG'] },
       },
       'member-1',
     );

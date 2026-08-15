@@ -103,6 +103,16 @@ export interface CustomRewardInput {
   deliveryInstructions?: string;
 }
 
+export interface UpdateCustomRewardInput {
+  title?: string;
+  description?: string;
+  pointsCost?: number;
+  imageUrl?: string;
+  isActive?: boolean;
+  stockLimit?: number;
+  deliveryInstructions?: string;
+}
+
 export interface ClaimInput {
   rewardType: RewardType;
   rewardId: string;
@@ -127,9 +137,10 @@ export async function syncRewardsCatalog(): Promise<{ synced: number }> {
   });
 }
 
-export async function fetchRewardsCatalog(): Promise<CatalogItem[]> {
+export async function fetchRewardsCatalog(countryCode?: string): Promise<CatalogItem[]> {
   const tenantId = await resolveTenantId();
-  return apiClient<CatalogItem[]>(tenantPath(tenantId, 'rewards/catalog'));
+  const query = countryCode ? `?country=${encodeURIComponent(countryCode)}` : '';
+  return apiClient<CatalogItem[]>(tenantPath(tenantId, `rewards/catalog${query}`));
 }
 
 export async function claimReward(input: ClaimInput): Promise<RewardRedemption> {
@@ -161,7 +172,14 @@ export async function fetchWalletTransactions(): Promise<TenantWalletTransaction
 }
 
 export async function fetchCustomRewards(): Promise<
-  Array<CustomRewardInput & { id: string; isActive: boolean }>
+  Array<
+    CustomRewardInput & {
+      id: string;
+      isActive: boolean;
+      deliveryInstructions?: string;
+      stockLimit?: number;
+    }
+  >
 > {
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, 'rewards/custom'));
@@ -171,6 +189,14 @@ export async function createCustomReward(input: CustomRewardInput) {
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, 'rewards/custom'), {
     method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function updateCustomReward(rewardId: string, input: UpdateCustomRewardInput) {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, `rewards/custom/${rewardId}`), {
+    method: 'PATCH',
     body: JSON.stringify(input),
   });
 }

@@ -49,14 +49,6 @@ export class UpdateTenantDto {
   @IsIn([...SUPPORTED_FIAT_CURRENCIES])
   preferredCurrency?: string;
   @ApiProperty({
-    description: 'Country code (ISO 3166-1 alpha-2)',
-    example: 'US',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  countryCode?: string;
-  @ApiProperty({
     description: 'Timezone for the organization',
     example: 'America/New_York',
     required: false,

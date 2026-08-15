@@ -22,7 +22,9 @@ import {
   fetchWalletTransactions,
   manualTopupWallet,
   type RewardRedemption,
+  type UpdateCustomRewardInput,
   updateAutoTopupConfig,
+  updateCustomReward,
 } from '@/lib/api/rewards';
 import { queryKeys } from '@/lib/query/keys';
 import type { MemberPointsBalance } from '@/lib/schemas/member-points';
@@ -58,12 +60,12 @@ export function useUtilityBillers(countryCode: string) {
   });
 }
 
-export function useRewardsCatalog() {
+export function useRewardsCatalog(countryCode?: string) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: [...queryKeys.rewards.catalog, tenantId],
-    queryFn: fetchRewardsCatalog,
+    queryKey: [...queryKeys.rewards.catalog, tenantId, countryCode ?? 'default'],
+    queryFn: () => fetchRewardsCatalog(countryCode),
     enabled: !tenantLoading && Boolean(tenantId),
     staleTime: 60_000,
   });
@@ -189,6 +191,19 @@ export function useCreateCustomReward() {
 
   return useMutation({
     mutationFn: (input: CustomRewardInput) => createCustomReward(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.custom });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.catalog });
+    },
+  });
+}
+
+export function useUpdateCustomReward() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ rewardId, input }: { rewardId: string; input: UpdateCustomRewardInput }) =>
+      updateCustomReward(rewardId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.custom });
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.catalog });

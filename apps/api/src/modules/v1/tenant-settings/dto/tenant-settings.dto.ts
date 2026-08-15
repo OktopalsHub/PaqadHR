@@ -615,7 +615,7 @@ export class RewardsSettingsDto {
   rewardsCurrency?: string;
 
   @ApiProperty({
-    description: 'Allowed ISO country codes for gift card catalog (derived from workspace country)',
+    description: 'Allowed ISO country codes for gift card catalog (tenant country always included)',
     type: [String],
     required: false,
   })
@@ -660,16 +660,6 @@ export class RewardsSettingsDto {
   @IsArray()
   @IsString({ each: true })
   giftCardCategories?: string[];
-
-  @ApiProperty({
-    description: 'Gift card fulfillment provider',
-    example: 'tremendous',
-    enum: ['reloadly', 'tremendous'],
-    required: false,
-  })
-  @IsOptional()
-  @IsIn(['reloadly', 'tremendous'])
-  giftCardProvider?: 'reloadly' | 'tremendous';
 
   @ApiProperty({
     description: 'Whether utility payments are enabled',

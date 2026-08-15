@@ -42,6 +42,8 @@ export interface RewardsSettings {
     pointsCost: number;
     imageUrl: string | null;
     countryCode: string;
+    /** All provider countries this product ships to (ISO alpha-2). */
+    countries?: string[];
     currencyCode: string;
     minDenomination?: number | null;
     maxDenomination?: number | null;

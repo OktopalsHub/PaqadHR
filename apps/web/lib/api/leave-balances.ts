@@ -3,8 +3,9 @@ import { apiClient, tenantPath } from '@/lib/api/client';
 export interface LeaveBalance {
   id: string;
   memberId: string;
+  memberName?: string | null;
   leaveTypeId: string;
-  leaveTypeName?: string;
+  leaveTypeName?: string | null;
   totalDays: number;
   usedDays: number;
   remainingDays: number;

@@ -1,5 +1,6 @@
 import { Gift, Loader2, Plus, Trash2 } from 'lucide-react';
 import Image from 'next/image';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { CatalogItem } from '@/lib/api/rewards';
@@ -26,7 +27,9 @@ export function CatalogCard({
   onAddDefault?: (item: CatalogItem) => void;
   isAddingDefault?: boolean;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
   const isTemplate = item.id.startsWith('default_');
+  const showImage = Boolean(item.imageUrl) && !imageFailed;
   const typeColors: Record<string, string> = {
     RELOADLY: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
     TREMENDOUS: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
@@ -50,14 +53,15 @@ export function CatalogCard({
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-      {item.imageUrl ? (
+      {showImage ? (
         <div className="aspect-[16/10] w-full overflow-hidden bg-muted/30 relative">
           <Image
-            src={item.imageUrl}
+            src={item.imageUrl!}
             alt={item.name}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-contain p-4 transition-transform group-hover:scale-105"
+            onError={() => setImageFailed(true)}
           />
           {isTemplate && (
             <Badge className="absolute top-2 left-2 bg-amber-500 hover:bg-amber-600 text-white border-none text-[9px] uppercase tracking-wider font-bold">

@@ -72,7 +72,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const settings = tenantSettings?.settings?.rewards;
   const isNgWorkspace = (tenant?.countryCode ?? '').toUpperCase() === 'NG';
   const giftCardProvider = settings?.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous';
-  const redemptionCountry = isNgWorkspace ? 'NG' : (tenant?.countryCode ?? 'US').toUpperCase();
+  const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
+  const redemptionCountry = isNgWorkspace ? 'NG' : tenantCountry;
+  const allowedCatalogCountries = Array.from(
+    new Set([
+      tenantCountry,
+      ...(settings?.catalogCountries ?? []).map((code) => code.toUpperCase()),
+    ]),
+  );
 
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
@@ -80,8 +87,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const showAirtime = isAirtimeEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
   const showUtilities = isUtilitiesEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
 
+  const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
-  const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog();
+  const { data: catalog = [], isLoading: catalogLoading } = useRewardsCatalog(catalogCountryCode);
   const { data: claims = [], isLoading: claimsLoading } = useMyClaims();
   const { data: allClaims = [], isLoading: allClaimsLoading } = useAllClaims();
   const claimReward = useClaimReward();
@@ -120,6 +128,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       setSelectedCountryCode(redemptionCountry);
     }
   }, [redemptionCountry, selectedCountryCode]);
+
+  useEffect(() => {
+    if (!allowedCatalogCountries.includes(catalogCountryCode)) {
+      setCatalogCountryCode(tenantCountry);
+    }
+  }, [allowedCatalogCountries, catalogCountryCode, tenantCountry]);
 
   // Sync operator default when operators load
   useEffect(() => {
@@ -669,7 +683,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             <Sparkles className="mr-1.5 size-3.5" />
             Custom Perks
           </TabsTrigger>
-          {isGiftCardsEnabled && giftCards.length > 0 && (
+          {isGiftCardsEnabled && (
             <TabsTrigger
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground py-2 px-4 h-auto"
               value="digital-cards"
@@ -696,8 +710,34 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           )}
         </TabsList>
 
-        {isGiftCardsEnabled && giftCards.length > 0 && (
+        {isGiftCardsEnabled && (
           <TabsContent value="digital-cards" className="space-y-4">
+            {allowedCatalogCountries.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-semibold text-muted-foreground mr-1">Catalog country</p>
+                {allowedCatalogCountries.map((code) => (
+                  <Button
+                    key={code}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCatalogCountryCode(code)}
+                    className={cn(
+                      'h-8 text-xs font-semibold rounded-full px-3 border-border/60',
+                      catalogCountryCode === code
+                        ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
+                        : 'hover:bg-muted text-muted-foreground',
+                    )}
+                  >
+                    {code}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+            {giftCards.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">
+                No digital vouchers available for {catalogCountryCode} yet.
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2 pb-2 border-b border-border/40">
               {(['All', 'Airtime', 'Money Cards', 'Gift Cards', 'Gaming Cards'] as const).map(
                 (cat) => {

@@ -49,7 +49,7 @@ describe('TenantsService', () => {
   });
 
   describe('updateTenant', () => {
-    it('normalizes lowercase country codes with surrounding whitespace before saving', async () => {
+    it('updates timezone without changing country', async () => {
       tenantRepository.findById.mockResolvedValue({
         id: 'tenant-1',
         slug: 'acme',
@@ -60,51 +60,33 @@ describe('TenantsService', () => {
         id: 'tenant-1',
         slug: 'acme',
         preferredCurrency: 'USD',
-        countryCode: 'NG',
+        countryCode: 'US',
+        timezone: 'Africa/Lagos',
       });
 
       const result = await service.updateTenant('tenant-1', {
-        countryCode: ' ng ',
+        timezone: 'Africa/Lagos',
       });
 
       expect(tenantRepository.update).toHaveBeenCalledWith(
         'tenant-1',
         expect.objectContaining({
-          countryCode: 'NG',
+          timezone: 'Africa/Lagos',
           slug: 'acme',
         }),
       );
-      expect(employmentRepository.count).not.toHaveBeenCalled();
       expect(result).toEqual(
         expect.objectContaining({
-          countryCode: 'NG',
+          countryCode: 'US',
+          timezone: 'Africa/Lagos',
         }),
       );
-    });
-
-    it('rejects invalid country codes before persisting changes', async () => {
-      tenantRepository.findById.mockResolvedValue({
-        id: 'tenant-1',
-        slug: 'acme',
-        preferredCurrency: 'USD',
-      });
-
-      await expect(
-        service.updateTenant('tenant-1', {
-          countryCode: 'nigeria',
-        }),
-      ).rejects.toThrow(
-        new BadRequestException('Country code must be a valid ISO 3166-1 alpha-2 code'),
-      );
-
-      expect(tenantRepository.update).not.toHaveBeenCalled();
-      expect(tenantRepository.findOne).not.toHaveBeenCalled();
     });
 
     it('throws when the tenant does not exist', async () => {
       tenantRepository.findById.mockResolvedValue(null);
 
-      await expect(service.updateTenant('tenant-1', { countryCode: 'NG' })).rejects.toThrow(
+      await expect(service.updateTenant('tenant-1', { timezone: 'UTC' })).rejects.toThrow(
         new NotFoundException('Tenant does not exist'),
       );
     });
@@ -126,7 +108,7 @@ describe('TenantsService', () => {
 
       await expect(service.updateTenant('tenant-1', { preferredCurrency: 'EUR' })).rejects.toThrow(
         new BadRequestException(
-          'Rewards wallet has activity in USD. Spend the balance before changing workspace country or currency.',
+          'Rewards wallet has activity in USD. Spend the balance before changing workspace currency.',
         ),
       );
 

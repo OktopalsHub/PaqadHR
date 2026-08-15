@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import type { CarryoverExpirationResult } from 'src/common/interfaces';
-import { In } from 'typeorm';
 import type { Leave } from '../leave/entities/leave.entity';
 import { LeavePolicyService } from '../leave-policy/leave-policy.service';
 import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
@@ -29,12 +28,29 @@ export class LeaveBalanceService {
     });
   }
   async listLeaveBalances(tenantId: string, memberIds?: string[]) {
-    if (memberIds?.length) {
-      return this.leaveBalanceRepository.find({
-        where: { tenantId, memberId: In(memberIds) },
-      });
-    }
-    return this.leaveBalanceRepository.find({ where: { tenantId } });
+    const rows = await this.leaveBalanceRepository.findAdminListWithLabels(tenantId, memberIds);
+    return rows.map((row) => {
+      const nameParts = [row.memberPreferredName || row.memberFirstName, row.memberLastName]
+        .map((part) => part?.trim())
+        .filter((part): part is string => Boolean(part));
+      return {
+        id: row.id,
+        memberId: row.memberId,
+        leaveTypeId: row.leaveTypeId,
+        totalDays: Number(row.totalDays),
+        usedDays: Number(row.usedDays),
+        remainingDays: Number(row.remainingDays),
+        carryoverDays: Number(row.carryoverDays),
+        regularDays: Number(row.regularDays),
+        carryoverUsed: Number(row.carryoverUsed),
+        year: Number(row.year),
+        tenantId: row.tenantId,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        memberName: nameParts.length > 0 ? nameParts.join(' ') : null,
+        leaveTypeName: row.leaveTypeName?.trim() || null,
+      };
+    });
   }
   async getLeaveBalance(balanceId: string, tenantId: string) {
     return this.leaveBalanceRepository.findOne({

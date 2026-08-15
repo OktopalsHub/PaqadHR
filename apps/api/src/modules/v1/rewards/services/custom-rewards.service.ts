@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { CustomReward } from '../entities/custom-reward.entity';
 
@@ -60,7 +60,7 @@ export class CustomRewardsService {
     const repo = this.dataSource.getRepository(CustomReward);
     const reward = await repo.findOne({ where: { id: rewardId, tenantId } });
     if (!reward) {
-      throw new Error('Custom reward not found');
+      throw new NotFoundException('Custom reward not found');
     }
     Object.assign(reward, data);
     return repo.save(reward);
@@ -70,7 +70,7 @@ export class CustomRewardsService {
     const repo = this.dataSource.getRepository(CustomReward);
     const reward = await repo.findOne({ where: { id: rewardId, tenantId } });
     if (!reward) {
-      throw new Error('Custom reward not found');
+      throw new NotFoundException('Custom reward not found');
     }
     await repo.softRemove(reward);
   }
