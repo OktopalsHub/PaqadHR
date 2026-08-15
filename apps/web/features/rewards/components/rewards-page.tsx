@@ -64,6 +64,18 @@ import {
 import { ClaimRow } from './rewards-page-claim-row';
 import { PointsSummaryCard } from './rewards-page-points-summary';
 
+function catalogCountryLabel(code: string): string {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function createClaimIdempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
 export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { tenant } = useTenant();
   const { data: tenantSettings } = useTenantSettings();
@@ -403,6 +415,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     setClaimingId('utility');
+    const idempotencyKey = createClaimIdempotencyKey();
     try {
       const billerId =
         utilityCountryCode === 'NG' ? selectedUtilityBillerNg : selectedUtilityBillerReloadly?.id;
@@ -414,6 +427,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       const rewardName = `${billerName} Utility Payment`;
 
       const result = await claimReward.mutateAsync({
+        idempotencyKey,
         rewardType: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
         rewardId: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
         rewardName,
@@ -490,8 +504,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     setClaimingId(item.id);
+    const idempotencyKey = createClaimIdempotencyKey();
     try {
       const result = await claimReward.mutateAsync({
+        idempotencyKey,
         rewardType: item.type,
         rewardId: item.id,
         rewardName: item.name,
@@ -538,6 +554,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     setClaimingId('airtime');
+    const idempotencyKey = createClaimIdempotencyKey();
     try {
       const selectedBundle =
         selectedCountryCode === 'NG' && topupMode === 'data' ? selectedDataPlan : null;
@@ -553,6 +570,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           : `${selectedReloadlyOperator?.name} Airtime`;
 
       const result = await claimReward.mutateAsync({
+        idempotencyKey,
         rewardType: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
         rewardId: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
         rewardName,
@@ -713,24 +731,20 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         {isGiftCardsEnabled && (
           <TabsContent value="digital-cards" className="space-y-4">
             {allowedCatalogCountries.length > 1 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-semibold text-muted-foreground mr-1">Catalog country</p>
-                {allowedCatalogCountries.map((code) => (
-                  <Button
-                    key={code}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCatalogCountryCode(code)}
-                    className={cn(
-                      'h-8 text-xs font-semibold rounded-full px-3 border-border/60',
-                      catalogCountryCode === code
-                        ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-                        : 'hover:bg-muted text-muted-foreground',
-                    )}
-                  >
-                    {code}
-                  </Button>
-                ))}
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-xs font-semibold text-muted-foreground">Catalog country</p>
+                <Select value={catalogCountryCode} onValueChange={setCatalogCountryCode}>
+                  <SelectTrigger className="h-9 w-[220px] text-xs font-medium">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedCatalogCountries.map((code) => (
+                      <SelectItem key={code} value={code} className="text-xs">
+                        {catalogCountryLabel(code)} ({code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : null}
             {giftCards.length === 0 ? (

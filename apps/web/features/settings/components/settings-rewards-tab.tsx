@@ -12,6 +12,13 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -255,12 +262,29 @@ export function SettingsRewardsTab() {
     }
   };
 
-  const toggleCatalogCountry = (code: string) => {
+  const countryOptions =
+    providerCountries.length > 0
+      ? providerCountries
+      : [{ code: tenantCountry, name: tenantCountry }];
+
+  const countryNameByCode = (code: string) =>
+    countryOptions.find((country) => country.code.toUpperCase() === code.toUpperCase())?.name ??
+    code;
+
+  const availableCatalogCountries = countryOptions.filter(
+    (country) => !catalogCountries.includes(country.code.toUpperCase()),
+  );
+
+  const addCatalogCountry = (code: string) => {
+    const upper = code.toUpperCase();
+    if (catalogCountries.includes(upper)) return;
+    setCatalogCountries((current) => [...current, upper]);
+  };
+
+  const removeCatalogCountry = (code: string) => {
     const upper = code.toUpperCase();
     if (upper === tenantCountry) return;
-    setCatalogCountries((current) =>
-      current.includes(upper) ? current.filter((c) => c !== upper) : [...current, upper],
-    );
+    setCatalogCountries((current) => current.filter((c) => c !== upper));
   };
 
   const saveRewardsSettings = async () => {
@@ -571,31 +595,54 @@ export function SettingsRewardsTab() {
                           Employees can switch between these catalogs. Your company country (
                           {tenantCountry}) stays enabled.
                         </p>
-                        <div className="flex flex-wrap gap-4">
-                          {(providerCountries.length > 0
-                            ? providerCountries
-                            : [{ code: tenantCountry, name: tenantCountry }]
-                          ).map((country) => {
-                            const code = country.code.toUpperCase();
-                            const locked = code === tenantCountry;
-                            return (
-                              <label
-                                key={code}
-                                className="flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer select-none"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={catalogCountries.includes(code)}
-                                  disabled={locked}
-                                  onChange={() => toggleCatalogCountry(code)}
-                                  className="rounded border-border bg-background text-indigo-600 focus:ring-indigo-500/30"
-                                />
-                                <span>
-                                  {country.name} ({code}){locked ? ' · company' : ''}
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap gap-2">
+                            {Array.from(
+                              new Set([tenantCountry, ...catalogCountries.map((code) => code.toUpperCase())]),
+                            ).map((code) => {
+                              const locked = code === tenantCountry;
+                              return (
+                                <span
+                                  key={code}
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-3 py-1 text-xs font-semibold text-foreground"
+                                >
+                                  {countryNameByCode(code)} ({code})
+                                  {locked ? (
+                                    <span className="text-[10px] text-muted-foreground">company</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeCatalogCountry(code)}
+                                      className="text-muted-foreground hover:text-foreground"
+                                      aria-label={`Remove ${code} catalog`}
+                                    >
+                                      ×
+                                    </button>
+                                  )}
                                 </span>
-                              </label>
-                            );
-                          })}
+                              );
+                            })}
+                          </div>
+                          {availableCatalogCountries.length > 0 ? (
+                            <Select
+                              value=""
+                              onValueChange={(code) => addCatalogCountry(code)}
+                            >
+                              <SelectTrigger className="h-9 w-full max-w-sm text-xs">
+                                <SelectValue placeholder="Add catalog country..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableCatalogCountries.map((country) => {
+                                  const code = country.code.toUpperCase();
+                                  return (
+                                    <SelectItem key={code} value={code} className="text-xs">
+                                      {country.name} ({code})
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          ) : null}
                         </div>
                       </div>
                       <p className="text-xs font-semibold text-muted-foreground">

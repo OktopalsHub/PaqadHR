@@ -122,6 +122,8 @@ export interface ClaimInput {
   currencyCode?: string;
   recipientEmail?: string;
   recipientPhone?: string;
+  /** Client-generated UUID; retries with the same key return the existing redemption. */
+  idempotencyKey?: string;
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
   topupKind?: 'airtime' | 'data';
