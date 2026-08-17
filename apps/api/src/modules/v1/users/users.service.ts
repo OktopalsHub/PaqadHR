@@ -94,7 +94,7 @@ export class UsersService {
         resourceType: 'user',
         resourceId: userId,
         userId,
-        metadata: { email: user.email, membershipCount: members.length },
+        metadata: { membershipCount: members.length },
       })
       .catch(() => {});
   }

@@ -467,6 +467,7 @@ export class AttendanceService {
     tenantId: string,
     exceptionId: string,
     dto: RejectAttendanceExceptionDto,
+    approvedById: string,
   ) {
     const exception = await this.getAttendanceException(tenantId, exceptionId);
     if (exception.status !== AttendanceExceptionStatus.PENDING) {
@@ -474,12 +475,14 @@ export class AttendanceService {
     }
     await this.attendanceExceptionRepository.update(exceptionId, {
       status: AttendanceExceptionStatus.REJECTED,
+      approvedById,
+      approvedAt: new Date(),
     });
 
     void this.activitiesService
       .queueActivity({
         tenantId,
-        actorMemberId: exception.tenantMemberId,
+        actorMemberId: approvedById,
         action: 'attendance.exception_rejected',
         resourceType: 'attendance_exception',
         resourceId: exceptionId,

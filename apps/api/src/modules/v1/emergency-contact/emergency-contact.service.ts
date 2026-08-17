@@ -34,7 +34,6 @@ export class EmergencyContactService {
           resourceId: contact.id,
           description: `Emergency contact created`,
           metadata: {
-            fullName: createEmergencyContactDto.fullName,
             relationship: createEmergencyContactDto.relationship,
           },
         })

@@ -65,6 +65,8 @@ export class LeavePolicyService {
         })
         .catch(() => {});
     }
+
+    return this.leavePolicyRepository.findOne({ where: { id: policy.id } });
   }
   async createCustomPolicy(tenantId: string, dto: CreateLeavePolicyDto, actorMemberId?: string) {
     const policyData = {
