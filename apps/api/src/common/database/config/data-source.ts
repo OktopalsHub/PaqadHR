@@ -96,6 +96,7 @@ const AppDataSource = {
     Migrations.PayrollPayoutModeAndEmploymentCurrency1784756934802,
     Migrations.TenantMemberIdentity1785716078366,
     Migrations.DropWalletStaticVaAndEnsureTxColumns1785754833575,
+    Migrations.NotificationCleanup1787006225581,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

@@ -24,7 +24,7 @@ export class NotificationService {
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     @InjectRepository(NotificationPreference)
-    private preferenceRepository: Repository<NotificationPreference>,
+    _preferenceRepository: Repository<NotificationPreference>,
     private emailService: ZeptomailEmailService,
     private sseNotificationService: SSENotificationService,
     private tenantMembersService: TenantMembersService,
@@ -148,7 +148,10 @@ export class NotificationService {
     memberId: string,
     tenantId?: string,
   ): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { id: In(notificationIds), recipientId: IsNull() };
+    const where: FindOptionsWhere<Notification> = {
+      id: In(notificationIds),
+      recipientId: IsNull(),
+    };
     if (tenantId) where.tenantId = tenantId;
 
     await this.notificationRepository.update(where, {
@@ -185,10 +188,20 @@ export class NotificationService {
     if (tenantId) {
       where.push(
         { tenantId, recipientId: IsNull(), readAt: IsNull() },
-        { type: NotificationType.SYSTEM, tenantId: IsNull(), recipientId: IsNull(), readAt: IsNull() },
+        {
+          type: NotificationType.SYSTEM,
+          tenantId: IsNull(),
+          recipientId: IsNull(),
+          readAt: IsNull(),
+        },
       );
     } else {
-      where.push({ type: NotificationType.SYSTEM, tenantId: IsNull(), recipientId: IsNull(), readAt: IsNull() });
+      where.push({
+        type: NotificationType.SYSTEM,
+        tenantId: IsNull(),
+        recipientId: IsNull(),
+        readAt: IsNull(),
+      });
     }
 
     return this.notificationRepository.count({ where });
@@ -287,10 +300,7 @@ export class NotificationService {
     }
   }
 
-  private async getRecipientEmail(
-    recipientId: string,
-    tenantId: string,
-  ): Promise<string | null> {
+  private async getRecipientEmail(recipientId: string, tenantId: string): Promise<string | null> {
     try {
       const member = await this.tenantMembersService.getTenantMember(recipientId, tenantId);
       return member.user?.email ?? null;
