@@ -598,7 +598,10 @@ export function SettingsRewardsTab() {
                         <div className="space-y-3">
                           <div className="flex flex-wrap gap-2">
                             {Array.from(
-                              new Set([tenantCountry, ...catalogCountries.map((code) => code.toUpperCase())]),
+                              new Set([
+                                tenantCountry,
+                                ...catalogCountries.map((code) => code.toUpperCase()),
+                              ]),
                             ).map((code) => {
                               const locked = code === tenantCountry;
                               return (
@@ -608,7 +611,9 @@ export function SettingsRewardsTab() {
                                 >
                                   {countryNameByCode(code)} ({code})
                                   {locked ? (
-                                    <span className="text-[10px] text-muted-foreground">company</span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      company
+                                    </span>
                                   ) : (
                                     <button
                                       type="button"
@@ -624,10 +629,7 @@ export function SettingsRewardsTab() {
                             })}
                           </div>
                           {availableCatalogCountries.length > 0 ? (
-                            <Select
-                              value=""
-                              onValueChange={(code) => addCatalogCountry(code)}
-                            >
+                            <Select value="" onValueChange={(code) => addCatalogCountry(code)}>
                               <SelectTrigger className="h-9 w-full max-w-sm text-xs">
                                 <SelectValue placeholder="Add catalog country..." />
                               </SelectTrigger>

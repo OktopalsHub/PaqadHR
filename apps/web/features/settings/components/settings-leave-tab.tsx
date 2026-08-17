@@ -234,9 +234,7 @@ export function SettingsLeaveTab() {
               ) : (
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="font-medium">
-                      {type.name}
-                    </p>
+                    <p className="font-medium">{type.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {type.defaultDays} days · {type.description}
                     </p>
