@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { NotificationController } from './controllers/notification.controller';
 import { NotificationPreferenceController } from './controllers/notification-preference.controller';
@@ -13,7 +14,11 @@ import { SSENotificationService } from './services/sse-notification.service';
 import { ZeptomailEmailService } from './services/zeptomail-email.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification, NotificationPreference]), TenantMembersModule],
+  imports: [
+    TypeOrmModule.forFeature([Notification, NotificationPreference]),
+    TenantMembersModule,
+    ActivitiesModule,
+  ],
   controllers: [NotificationController, NotificationPreferenceController],
   providers: [
     EmailTemplateService,

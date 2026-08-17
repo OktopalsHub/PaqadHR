@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateCandidateDto } from '../dto/create-candidate.dto';
 import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
 import type { UpdateCandidateDto } from '../dto/update-candidate.dto';
@@ -13,6 +14,7 @@ export class CandidateService {
   constructor(
     private readonly candidateRepository: CandidateRepository,
     private readonly jobOpeningService: JobOpeningService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async createPipelineCandidate(
     tenantId: string,
@@ -54,7 +56,25 @@ export class CandidateService {
       skills: dto.skills,
       experience: dto.experience,
     });
-    return this.candidateRepository.save(entity);
+    const saved = await this.candidateRepository.save(entity);
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'recruitment.candidate_added',
+        resourceType: 'candidate',
+        resourceId: saved.id,
+        description: `Candidate "${dto.firstName} ${dto.lastName}" added to pipeline`,
+        metadata: {
+          firstName: dto.firstName,
+          lastName: dto.lastName,
+          jobOpeningId: dto.jobOpeningId,
+        },
+      })
+      .catch(() => {});
+
+    return saved;
   }
 
   async applyForJob(jobId: string, createCandidateDto: CreateCandidateDto): Promise<Candidate> {
@@ -117,6 +137,7 @@ export class CandidateService {
     candidateId: string,
     tenantId: string,
     updateDto: UpdateCandidateStatusDto,
+    actorMemberId?: string,
   ): Promise<Candidate> {
     await this.getCandidate(candidateId, tenantId);
     const updateData: Record<string, unknown> = {
@@ -136,6 +157,24 @@ export class CandidateService {
     if (!updatedCandidate) {
       throw new NotFoundException('Candidate not found');
     }
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'recruitment.candidate_status_updated',
+          resourceType: 'candidate',
+          resourceId: candidateId,
+          description: `Candidate status updated to "${updateDto.status}"`,
+          metadata: {
+            status: updateDto.status,
+            candidateName: `${updatedCandidate.firstName} ${updatedCandidate.lastName}`,
+          },
+        })
+        .catch(() => {});
+    }
+
     return updatedCandidate;
   }
   async getCandidatesByJob(jobId: string, tenantId: string): Promise<Candidate[]> {

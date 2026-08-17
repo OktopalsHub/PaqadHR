@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
 import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
@@ -7,6 +8,7 @@ import { NotificationService } from './notification.service';
 @Injectable()
 export class NotificationHelperService {
   constructor(private readonly notificationService: NotificationService) {}
+
   async sendWelcomeNotification(
     recipientId: string,
     tenantId: string,
@@ -14,18 +16,25 @@ export class NotificationHelperService {
   ): Promise<void> {
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.IN_APP,
+      channel: NotificationChannel.BOTH,
       priority: NotificationPriority.MEDIUM,
       title: `Welcome to ${variables.tenantName}!`,
       message: `Hi ${variables.name}, welcome to ${variables.tenantName}. We're glad you're here.`,
       recipientId,
       tenantId,
+      actionData: variables.ctaUrl
+        ? { url: variables.ctaUrl, buttonText: 'Get Started', actionType: 'navigate' }
+        : undefined,
     });
   }
+
   async sendInvitationNotification(
     email: string,
     variables: { inviterName: string; tenantName: string; inviteLink: string },
-  ): Promise<void> {}
+  ): Promise<void> {
+    // Invitations are sent via email only, no in-app bell.
+  }
+
   async sendPayrollNotification(
     recipientId: string,
     tenantId: string,
@@ -118,6 +127,7 @@ export class NotificationHelperService {
       tenantId,
     });
   }
+
   async sendLeaveRequestNotification(
     recipientId: string,
     tenantId: string,
@@ -128,22 +138,44 @@ export class NotificationHelperService {
       requesterName?: string;
     },
   ): Promise<void> {
-    const statusMessage =
+    const statusWord =
       variables.status === 'approved'
         ? 'approved'
         : variables.status === 'rejected'
           ? 'rejected'
           : 'updated';
+
     await this.notificationService.createNotification({
       type: NotificationType.USER,
       channel: NotificationChannel.BOTH,
       priority: NotificationPriority.MEDIUM,
-      title: `Leave Request ${statusMessage}`,
-      message: `Your leave request from ${variables.startDate} to ${variables.endDate} has been ${statusMessage}.`,
+      title: `Leave request ${statusWord}`,
+      message: `Your leave request from ${variables.startDate} to ${variables.endDate} has been ${statusWord}.`,
       recipientId,
       tenantId,
     });
   }
+
+  async sendLeaveBalanceUpdatedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      leaveTypeName: string;
+      remainingDays: number;
+      reason: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.LOW,
+      title: 'Leave balance updated',
+      message: `Your ${variables.leaveTypeName} balance has been updated. Remaining: ${variables.remainingDays} day(s). Reason: ${variables.reason}`,
+      recipientId,
+      tenantId,
+    });
+  }
+
   async sendShoutoutNotification(
     recipientId: string,
     tenantId: string,
@@ -164,6 +196,7 @@ export class NotificationHelperService {
       tenantId,
     });
   }
+
   async sendSystemAnnouncement(
     title: string,
     message: string,
@@ -187,6 +220,7 @@ export class NotificationHelperService {
       );
     }
   }
+
   async sendTaskAssignmentNotification(
     recipientId: string,
     tenantId: string,
@@ -201,16 +235,12 @@ export class NotificationHelperService {
       type: NotificationType.USER,
       channel: NotificationChannel.IN_APP,
       priority: NotificationPriority.MEDIUM,
-      title: 'New Task Assigned',
+      title: 'New task assigned',
       message: `${variables.assignerName} assigned you a task: "${variables.taskTitle}"${variables.dueDate ? ` (Due: ${variables.dueDate})` : ''}`,
       recipientId,
       tenantId,
       actionData: variables.taskUrl
-        ? {
-            url: variables.taskUrl,
-            buttonText: 'View Task',
-            actionType: 'navigate',
-          }
+        ? { url: variables.taskUrl, buttonText: 'View Task', actionType: 'navigate' }
         : undefined,
       metadata: {
         type: 'task_assignment',
@@ -219,6 +249,7 @@ export class NotificationHelperService {
       },
     });
   }
+
   async sendMeetingReminderNotification(
     recipientIds: string[],
     tenantId: string,
@@ -233,15 +264,11 @@ export class NotificationHelperService {
       recipientIds,
       channel: NotificationChannel.BOTH,
       priority: NotificationPriority.HIGH,
-      title: 'Meeting Reminder',
+      title: 'Meeting reminder',
       message: `Reminder: "${variables.meetingTitle}" starts at ${variables.startTime}`,
       tenantId,
       actionData: variables.meetingUrl
-        ? {
-            url: variables.meetingUrl,
-            buttonText: 'Join Meeting',
-            actionType: 'external_link',
-          }
+        ? { url: variables.meetingUrl, buttonText: 'Join Meeting', actionType: 'external_link' }
         : undefined,
       metadata: {
         type: 'meeting_reminder',
@@ -250,6 +277,7 @@ export class NotificationHelperService {
       },
     });
   }
+
   async sendDocumentApprovalNotification(
     recipientId: string,
     tenantId: string,
@@ -266,21 +294,18 @@ export class NotificationHelperService {
       rejected: 'has been rejected',
       pending_review: 'is pending review',
     };
+
     await this.notificationService.createNotification({
       type: NotificationType.USER,
       channel: NotificationChannel.BOTH,
       priority:
         variables.status === 'rejected' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
-      title: `Document ${variables.status === 'approved' ? 'Approved' : variables.status === 'rejected' ? 'Rejected' : 'Under Review'}`,
+      title: `Document ${variables.status === 'approved' ? 'approved' : variables.status === 'rejected' ? 'rejected' : 'under review'}`,
       message: `Your document "${variables.documentName}" ${statusMessages[variables.status]} by ${variables.reviewerName}${variables.comments ? `. Comments: ${variables.comments}` : ''}`,
       recipientId,
       tenantId,
       actionData: variables.documentUrl
-        ? {
-            url: variables.documentUrl,
-            buttonText: 'View Document',
-            actionType: 'navigate',
-          }
+        ? { url: variables.documentUrl, buttonText: 'View Document', actionType: 'navigate' }
         : undefined,
       metadata: {
         type: 'document_approval',
@@ -290,6 +315,68 @@ export class NotificationHelperService {
       },
     });
   }
+
+  async sendRewardRedemptionNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      rewardName: string;
+      status: 'processing' | 'fulfilled' | 'failed';
+      points?: number;
+      failureReason?: string;
+    },
+  ): Promise<void> {
+    const statusMessages = {
+      processing: 'is being processed',
+      fulfilled: 'has been fulfilled',
+      failed: 'could not be completed',
+    };
+
+    const pointsText = variables.points ? ` (${variables.points} Paq points)` : '';
+    const failureText = variables.failureReason ? ` Reason: ${variables.failureReason}` : '';
+
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority:
+        variables.status === 'failed' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+      title: `Reward ${variables.status}`,
+      message: `Your reward "${variables.rewardName}" ${statusMessages[variables.status]}${pointsText}.${variables.status === 'failed' ? failureText : ''}`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'reward_redemption',
+        rewardName: variables.rewardName,
+        status: variables.status,
+      },
+    });
+  }
+
+  async sendNewTeamMemberNotification(
+    tenantId: string,
+    variables: {
+      newMemberName: string;
+      department?: string;
+      role?: string;
+    },
+  ): Promise<void> {
+    const departmentText = variables.department ? ` in ${variables.department}` : '';
+    const roleText = variables.role ? ` as ${variables.role}` : '';
+
+    await this.notificationService.sendTenantNotification(
+      tenantId,
+      'New team member',
+      `${variables.newMemberName} has joined${departmentText}${roleText}. Say hello!`,
+      NotificationChannel.IN_APP,
+      {
+        type: 'new_team_member',
+        newMemberName: variables.newMemberName,
+        department: variables.department,
+        role: variables.role,
+      },
+    );
+  }
+
   async sendBirthdayNotification(
     tenantId: string,
     variables: {
@@ -299,7 +386,7 @@ export class NotificationHelperService {
   ): Promise<void> {
     await this.notificationService.sendTenantNotification(
       tenantId,
-      '🎉 Birthday Today!',
+      'Birthday today!',
       `It's ${variables.birthdayPersonName}'s birthday today! Don't forget to wish them well.`,
       NotificationChannel.IN_APP,
       {
@@ -309,6 +396,7 @@ export class NotificationHelperService {
       },
     );
   }
+
   async sendSecurityAlertNotification(
     recipientId: string,
     tenantId: string,
@@ -323,7 +411,7 @@ export class NotificationHelperService {
       type: NotificationType.USER,
       channel: NotificationChannel.BOTH,
       priority: NotificationPriority.URGENT,
-      title: 'Security Alert',
+      title: 'Security alert',
       message: `${variables.alertType}: ${variables.description}${variables.ipAddress ? ` from IP ${variables.ipAddress}` : ''} at ${variables.timestamp}`,
       recipientId,
       tenantId,
@@ -332,6 +420,31 @@ export class NotificationHelperService {
         alertType: variables.alertType,
         ipAddress: variables.ipAddress,
         timestamp: variables.timestamp,
+      },
+    });
+  }
+
+  async sendProfileUpdatedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      updatedFields: string[];
+      updatedBy: string;
+    },
+  ): Promise<void> {
+    const fields = variables.updatedFields.join(', ');
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.BOTH,
+      priority: NotificationPriority.LOW,
+      title: 'Profile updated',
+      message: `Your profile was updated by ${variables.updatedBy}. Fields changed: ${fields}`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'profile_updated',
+        updatedFields: variables.updatedFields,
+        updatedBy: variables.updatedBy,
       },
     });
   }

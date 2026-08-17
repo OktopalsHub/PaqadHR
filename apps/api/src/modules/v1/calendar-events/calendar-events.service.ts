@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import type { CreateCalendarEventDto, UpdateCalendarEventDto } from './dto/calendar-event.dto';
 import { TenantCalendarEvent } from './entities/tenant-calendar-event.entity';
 
@@ -9,6 +10,7 @@ export class CalendarEventsService {
   constructor(
     @InjectRepository(TenantCalendarEvent)
     private readonly repo: Repository<TenantCalendarEvent>,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   async list(tenantId: string, from?: string, to?: string) {
@@ -41,10 +43,29 @@ export class CalendarEventsService {
       reminderMinutes: dto.reminderMinutes ?? null,
       type: dto.type ?? 'meeting',
     });
-    return this.repo.save(event);
+    const saved = await this.repo.save(event);
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'calendar.event_created',
+        resourceType: 'calendar_event',
+        resourceId: saved.id,
+        description: `Calendar event "${dto.title}" created`,
+        metadata: { title: dto.title, type: dto.type },
+      })
+      .catch(() => {});
+
+    return saved;
   }
 
-  async update(tenantId: string, eventId: string, dto: UpdateCalendarEventDto) {
+  async update(
+    tenantId: string,
+    eventId: string,
+    dto: UpdateCalendarEventDto,
+    actorMemberId?: string,
+  ) {
     const event = await this.repo.findOne({ where: { id: eventId, tenantId } });
     if (!event) throw new NotFoundException('Calendar event not found');
 
@@ -73,12 +94,42 @@ export class CalendarEventsService {
       event.reminderSentAt = null;
     }
 
-    return this.repo.save(event);
+    const saved = await this.repo.save(event);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'calendar.event_updated',
+          resourceType: 'calendar_event',
+          resourceId: eventId,
+          description: `Calendar event updated`,
+          metadata: { updatedFields: Object.keys(dto) },
+        })
+        .catch(() => {});
+    }
+
+    return saved;
   }
 
-  async remove(tenantId: string, eventId: string) {
+  async remove(tenantId: string, eventId: string, actorMemberId?: string) {
     const event = await this.repo.findOne({ where: { id: eventId, tenantId } });
     if (!event) throw new NotFoundException('Calendar event not found');
     await this.repo.remove(event);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'calendar.event_deleted',
+          resourceType: 'calendar_event',
+          resourceId: eventId,
+          description: `Calendar event "${event.title}" deleted`,
+          metadata: { title: event.title },
+        })
+        .catch(() => {});
+    }
   }
 }

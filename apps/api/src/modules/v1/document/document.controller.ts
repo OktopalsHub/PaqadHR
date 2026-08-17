@@ -209,7 +209,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
         tenantId,
       );
     }
-    return this.documentService.updateDocument(id, updateDocumentDto, tenantId);
+    return this.documentService.updateDocument(id, updateDocumentDto, tenantId, member.id);
   }
   @Get(':id/download')
   @HttpCode(HttpStatus.OK)
@@ -241,7 +241,7 @@ Step 3: Call this endpoint with the fileKey from step 1`,
         tenantId,
       );
     }
-    await this.documentService.deleteDocument(id, tenantId);
+    await this.documentService.deleteDocument(id, tenantId, member.id);
   }
   @Post(':id/restore')
   @UseGuards(TenantRoleGuard)

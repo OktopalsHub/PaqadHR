@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { StringUtility } from 'src/common/utils';
 import { Repository } from 'typeorm';
+import { AuditAction, AuditSeverity, AuditStatus } from '../../../common/enums/audit-action.enum';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
 import { PaymentMethod } from '../payment-method/entities/payment-method.entity';
@@ -24,6 +26,7 @@ export class UsersService {
     private readonly tenantMemberRepository: Repository<TenantMember>,
     @InjectRepository(PaymentMethod)
     private readonly paymentMethodRepository: Repository<PaymentMethod>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -81,6 +84,19 @@ export class UsersService {
       countryCode: null,
     });
     await this.userRepository.softDelete(userId);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.USER_DELETED,
+        description: `User account deleted`,
+        severity: AuditSeverity.HIGH,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'user',
+        resourceId: userId,
+        userId,
+        metadata: { email: user.email, membershipCount: members.length },
+      })
+      .catch(() => {});
   }
 
   async exportUserData(userId: string): Promise<Record<string, unknown>> {
@@ -139,7 +155,22 @@ export class UsersService {
     }
     await this.getUser(id);
     await this.userRepository.update(id, data as Parameters<UserRepository['update']>[1]);
-    return this.getUser(id);
+    const updated = await this.getUser(id);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.USER_UPDATED,
+        description: `User profile updated`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'user',
+        resourceId: id,
+        userId: id,
+        metadata: { updatedFields: Object.keys(data) },
+      })
+      .catch(() => {});
+
+    return updated;
   }
 
   validateRegistrationConsent(termsAccepted?: boolean): void {
