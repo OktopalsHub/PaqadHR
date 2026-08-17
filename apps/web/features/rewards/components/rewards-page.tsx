@@ -442,12 +442,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       if (result.status === 'SUCCESS') {
         toast.success(
-          `Utility payment successful! ${result.voucherCode ? `Token: ${result.voucherCode}` : ''}`,
+          `Utility payment successful! ${result.voucher?.code ? `Token: ${result.voucher.code}` : ''}`,
         );
         setUtilityAccountNumber('');
         setLookupResult(null);
       } else if (result.status === 'FAILED') {
-        toast.error(result.errorMessage ?? 'Payment failed. Points refunded.');
+        toast.error(result.providerRef?.error ?? 'Payment failed. Points refunded.');
       }
     } catch (err) {
       toast.error(mapMemberWalletError(err, 'Failed to redeem utility payment'));
@@ -492,8 +492,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     const memberName = claim.member
       ? `${claim.member.firstName} ${claim.member.lastName}`.toLowerCase()
       : '';
-    const phoneMatch = claim.recipientPhone?.toLowerCase().includes(term);
-    const emailMatch = claim.recipientEmail?.toLowerCase().includes(term);
+    const phoneMatch = claim.recipient?.phone?.toLowerCase().includes(term);
+    const emailMatch = claim.recipient?.email?.toLowerCase().includes(term);
     return nameMatch || memberName.includes(term) || phoneMatch || emailMatch;
   });
 
@@ -518,12 +518,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       if (result.status === 'SUCCESS') {
         toast.success(
-          `Claim successful! ${result.voucherCode ? `Code: ${result.voucherCode}` : 'Reward ordered.'}`,
+          `Claim successful! ${result.voucher?.code ? `Code: ${result.voucher.code}` : 'Reward ordered.'}`,
         );
       } else if (result.status === 'PENDING') {
         toast.info('Claim pending fulfillment.');
       } else {
-        toast.error(result.errorMessage ?? 'Claim failed. Points refunded.');
+        toast.error(result.providerRef?.error ?? 'Claim failed. Points refunded.');
       }
     } catch (err) {
       toast.error(mapMemberWalletError(err, 'Failed to claim reward'));
@@ -591,7 +591,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         );
         setAirtimePhone('');
       } else if (result.status === 'FAILED') {
-        toast.error(result.errorMessage ?? 'Purchase failed. Points refunded.');
+        toast.error(result.providerRef?.error ?? 'Purchase failed. Points refunded.');
       }
     } catch (err) {
       toast.error(mapMemberWalletError(err, 'Failed to top-up'));
@@ -1720,35 +1720,35 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 <span>{new Date(claim.createdAt).toLocaleDateString()}</span>
                               </p>
 
-                              {(claim.recipientPhone || claim.recipientEmail) && (
+                              {(claim.recipient?.phone || claim.recipient?.email) && (
                                 <p className="text-[11px] text-muted-foreground mt-1 bg-muted/40 px-2 py-0.5 rounded-md inline-block">
-                                  {claim.recipientPhone
-                                    ? `📞 ${claim.recipientPhone}`
-                                    : `✉️ ${claim.recipientEmail}`}
+                                  {claim.recipient?.phone
+                                    ? `📞 ${claim.recipient.phone}`
+                                    : `✉️ ${claim.recipient?.email}`}
                                 </p>
                               )}
 
-                              {(claim.voucherCode || claim.voucherInstructions) && (
+                              {(claim.voucher?.code || claim.voucher?.instructions) && (
                                 <div className="mt-2 text-xs space-y-1 bg-muted/50 p-2.5 rounded-lg border border-border/40">
-                                  {claim.voucherCode && (
+                                  {claim.voucher?.code && (
                                     <p className="font-mono font-bold text-foreground">
                                       Code:{' '}
                                       <span className="select-all bg-background px-1.5 py-0.5 rounded border">
-                                        {claim.voucherCode}
+                                        {claim.voucher.code}
                                       </span>
-                                      {claim.voucherPin ? ` · PIN: ${claim.voucherPin}` : ''}
+                                      {claim.voucher.pin ? ` · PIN: ${claim.voucher.pin}` : ''}
                                     </p>
                                   )}
-                                  {claim.voucherInstructions && (
+                                  {claim.voucher?.instructions && (
                                     <p className="text-[10px] text-muted-foreground italic leading-normal pt-1">
-                                      {claim.voucherInstructions}
+                                      {claim.voucher.instructions}
                                     </p>
                                   )}
                                 </div>
                               )}
-                              {claim.status === 'FAILED' && claim.errorMessage && (
+                              {claim.status === 'FAILED' && claim.providerRef?.error && (
                                 <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
-                                  Error: {claim.errorMessage}
+                                  Error: {claim.providerRef.error}
                                 </p>
                               )}
                             </div>

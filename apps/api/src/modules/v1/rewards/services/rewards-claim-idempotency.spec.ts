@@ -58,6 +58,7 @@ describe('RewardsService claim idempotency', () => {
       currencyValue: 1000,
       currencyCode: 'NGN',
       status: 'SUCCESS',
+      recipient: { email: 'test@example.com' },
     } as RewardRedemption;
 
     const redemptionRepo = {

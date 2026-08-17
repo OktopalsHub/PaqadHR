@@ -43,7 +43,13 @@ export class LeaveBalanceController {
     @Body() dto: CreateLeaveBalanceDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.createLeaveBalance(tenantId, member.id, leaveTypeId, dto);
+    return this.leaveBalanceService.createLeaveBalance(
+      tenantId,
+      member.id,
+      leaveTypeId,
+      dto,
+      member.id,
+    );
   }
 
   @Get()
