@@ -96,8 +96,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const showAirtime = isAirtimeEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
-  const showUtilities = isUtilitiesEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
+  const showAirtime = isAirtimeEnabled && giftCardProvider === 'reloadly';
+  const showUtilities = isUtilitiesEnabled && giftCardProvider === 'reloadly';
 
   const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();

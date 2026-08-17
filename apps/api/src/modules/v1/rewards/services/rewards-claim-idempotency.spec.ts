@@ -64,13 +64,19 @@ describe('RewardsService claim idempotency', () => {
       findOne: jest.fn().mockResolvedValue(existing),
     };
     const service = createRewardsService(redemptionRepo);
-    jest.spyOn(service as unknown as { getRewardsSettings: () => Promise<unknown> }, 'getRewardsSettings').mockResolvedValue({
+    const settingsMock = {
       enabled: true,
       rewardsCurrency: 'NGN',
       reloadlyProducts: [],
       tremendousProducts: [],
       catalogCountries: ['NG'],
-    });
+    };
+    jest
+      .spyOn(
+        service as unknown as { getRewardsSettings: () => Promise<unknown> },
+        'getRewardsSettings',
+      )
+      .mockResolvedValue(settingsMock);
 
     const result = await service.claim('tenant-1', 'member-1', {
       idempotencyKey,
@@ -90,13 +96,19 @@ describe('RewardsService claim idempotency', () => {
 
   it('rejects idempotency keys that are not UUIDs', async () => {
     const service = createRewardsService({ findOne: jest.fn() });
-    jest.spyOn(service as unknown as { getRewardsSettings: () => Promise<unknown> }, 'getRewardsSettings').mockResolvedValue({
+    const settingsMock = {
       enabled: true,
       rewardsCurrency: 'NGN',
       reloadlyProducts: [],
       tremendousProducts: [],
       catalogCountries: ['NG'],
-    });
+    };
+    jest
+      .spyOn(
+        service as unknown as { getRewardsSettings: () => Promise<unknown> },
+        'getRewardsSettings',
+      )
+      .mockResolvedValue(settingsMock);
 
     await expect(
       service.claim('tenant-1', 'member-1', {

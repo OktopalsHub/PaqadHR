@@ -40,6 +40,7 @@ import {
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
+import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
@@ -903,13 +904,53 @@ export class RewardsService {
     }
 
     if (existing?.status === 'PENDING') {
+      let originalDebitAmount = costs.totalTenantDebit;
+
+      const claimed = await this.dataSource.transaction(async (manager) => {
+        const updateResult = await manager
+          .getRepository(RewardRedemption)
+          .createQueryBuilder()
+          .update(RewardRedemption)
+          .set({ status: 'PROCESSING' as RedemptionStatus })
+          .where(
+            'id = :id AND tenant_id = :tenantId AND member_id = :memberId AND status = :status',
+            {
+              id: redemptionId,
+              tenantId,
+              memberId,
+              status: 'PENDING',
+            },
+          )
+          .execute();
+
+        if (!updateResult.affected) {
+          return null;
+        }
+
+        const walletTxRepo = manager.getRepository(TenantWalletTransaction);
+        const originalDebit = await walletTxRepo.findOne({
+          where: { reference: redemptionId, type: 'SPENT' },
+        });
+        if (originalDebit) {
+          originalDebitAmount = Math.abs(Number(originalDebit.amount));
+        }
+
+        return true;
+      });
+
+      if (!claimed) {
+        return this.dataSource.getRepository(RewardRedemption).findOneOrFail({
+          where: { id: redemptionId, tenantId, memberId },
+        });
+      }
+
       return this.finalizeClaimFulfillment({
         tenantId,
         memberId,
         input,
         redemption: existing,
         pointsCost,
-        totalTenantDebit: costs.totalTenantDebit,
+        totalTenantDebit: originalDebitAmount,
       });
     }
 
@@ -1036,9 +1077,7 @@ export class RewardsService {
     if (!key) {
       return randomUUID();
     }
-    if (
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)
-    ) {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) {
       throw new BadRequestException('idempotencyKey must be a valid UUID');
     }
     return key;
@@ -1049,7 +1088,9 @@ export class RewardsService {
       existing.rewardType !== input.rewardType ||
       existing.rewardId !== input.rewardId ||
       existing.pointsSpent !== input.pointsCost ||
-      Number(existing.currencyValue) !== input.currencyValue
+      Number(existing.currencyValue) !== input.currencyValue ||
+      (existing.recipientEmail ?? null) !== (input.recipientEmail ?? null) ||
+      (existing.recipientPhone ?? null) !== (input.recipientPhone ?? null)
     ) {
       throw new BadRequestException(
         'This idempotency key was already used for a different reward claim.',
@@ -1199,6 +1240,22 @@ export class RewardsService {
       const errorMessage = error instanceof Error ? error.message : 'Unknown fulfillment error';
       this.logger.error(`Reward fulfillment failed for ${redemptionId}: ${errorMessage}`);
 
+      const alreadyFailed = await this.dataSource.getRepository(RewardRedemption).findOne({
+        where: { id: redemptionId, status: 'FAILED' as RedemptionStatus },
+      });
+      if (alreadyFailed) {
+        redemption = alreadyFailed;
+        return redemption;
+      }
+
+      let originalDebitAmount = totalTenantDebit;
+      const originalDebit = await this.dataSource
+        .getRepository(TenantWalletTransaction)
+        .findOne({ where: { reference: redemptionId, type: 'SPENT' } });
+      if (originalDebit) {
+        originalDebitAmount = Math.abs(Number(originalDebit.amount));
+      }
+
       await this.dataSource.transaction(async (manager) => {
         const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
         await pointsRepo
@@ -1213,22 +1270,24 @@ export class RewardsService {
           .execute();
 
         const txRepo = manager.getRepository(ShoutoutPointTransaction);
-        const updatedPoints = await pointsRepo.findOneOrFail({ where: { tenantId, memberId } });
-        const refundTx = txRepo.create({
-          tenantId,
-          memberId,
-          type: ShoutoutPointTransactionType.REDEMPTION,
-          points: pointsCost,
-          runningBalance: updatedPoints.currentBalance,
-          description: `Refund: ${input.rewardName ?? input.rewardId} — ${errorMessage}`,
-          createdBy: memberId,
-        });
-        await txRepo.save(refundTx);
+        const updatedPoints = await pointsRepo.findOne({ where: { tenantId, memberId } });
+        if (updatedPoints) {
+          const refundTx = txRepo.create({
+            tenantId,
+            memberId,
+            type: ShoutoutPointTransactionType.REDEMPTION,
+            points: pointsCost,
+            runningBalance: updatedPoints.currentBalance,
+            description: `Refund: ${input.rewardName ?? input.rewardId} — ${errorMessage}`,
+            createdBy: memberId,
+          });
+          await txRepo.save(refundTx);
+        }
 
         if (input.rewardType !== 'CUSTOM') {
           await this.walletService.credit(
             tenantId,
-            totalTenantDebit,
+            originalDebitAmount,
             'REFUND',
             redemptionId,
             `Refund: ${input.rewardName ?? input.rewardId}`,
@@ -1281,7 +1340,7 @@ export class RewardsService {
       });
 
     return this.dataSource.getRepository(RewardRedemption).findOneOrFail({
-      where: { id: redemptionId },
+      where: { id: redemptionId, tenantId, memberId },
     });
   }
 
@@ -1403,9 +1462,22 @@ export class RewardsService {
       externalId: redemption.id,
     });
 
+    const orderStatus = orderResponse.order?.status;
     const reward = orderResponse.reward ?? orderResponse.order?.rewards?.[0];
+    const deliveryStatus = reward?.delivery?.status;
     const deliveryLink = reward?.delivery?.link ?? null;
     const orderId = orderResponse.order?.id ?? reward?.id ?? null;
+
+    if (
+      orderStatus === 'DECLINED' ||
+      orderStatus === 'CANCELLED' ||
+      deliveryStatus === 'FAILED' ||
+      deliveryStatus === 'BOUNCED'
+    ) {
+      throw new Error(
+        `Tremendous order was not fulfilled: ${orderStatus ?? deliveryStatus ?? 'unknown status'}`,
+      );
+    }
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
@@ -1927,6 +1999,7 @@ export class RewardsService {
       submissionType: 'instant' | 'text' | 'file';
       isRecurring?: boolean;
     },
+    actorMemberId?: string,
   ) {
     const taskRepo = this.dataSource.getRepository(Task);
     const task = taskRepo.create({
@@ -1940,16 +2013,43 @@ export class RewardsService {
       submissionType: data.submissionType,
       isRecurring: data.isRecurring ?? false,
     });
-    return taskRepo.save(task);
+    const saved = await taskRepo.save(task);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'reward.task_created',
+          resourceType: 'task',
+          resourceId: saved.id,
+          description: `Task "${data.title}" created`,
+          metadata: { title: data.title, points: data.points },
+        })
+        .catch(() => {});
+    }
+    return saved;
   }
 
-  async deleteTask(tenantId: string, taskId: string) {
+  async deleteTask(tenantId: string, taskId: string, actorMemberId?: string) {
     const taskRepo = this.dataSource.getRepository(Task);
     const task = await taskRepo.findOne({ where: { id: taskId, tenantId } });
     if (!task) {
       throw new BadRequestException('Task not found');
     }
     await taskRepo.remove(task);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'reward.task_deleted',
+          resourceType: 'task',
+          resourceId: taskId,
+          description: `Task "${task.title}" deleted`,
+          metadata: { title: task.title },
+        })
+        .catch(() => {});
+    }
     return { success: true };
   }
 
@@ -2041,6 +2141,18 @@ export class RewardsService {
 
     await this.awardPointsForTask(tenantId, sub.memberId, task.points, task.title);
 
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: actorId,
+        action: 'reward.submission_approved',
+        resourceType: 'task_submission',
+        resourceId: submissionId,
+        description: `Task submission approved for "${task.title}"`,
+        metadata: { taskId, submitterMemberId: sub.memberId, points: task.points },
+      })
+      .catch(() => {});
+
     return { success: true };
   }
 
@@ -2065,6 +2177,22 @@ export class RewardsService {
 
     sub.status = 'rejected';
     await submissionRepo.save(sub);
+
+    const task = await this.dataSource
+      .getRepository(Task)
+      .findOne({ where: { id: taskId, tenantId } });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: actorId,
+        action: 'reward.submission_rejected',
+        resourceType: 'task_submission',
+        resourceId: submissionId,
+        description: `Task submission rejected for "${task?.title ?? taskId}"`,
+        metadata: { taskId, submitterMemberId: sub.memberId },
+      })
+      .catch(() => {});
 
     return { success: true };
   }

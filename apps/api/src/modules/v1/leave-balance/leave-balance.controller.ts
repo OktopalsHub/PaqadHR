@@ -105,8 +105,9 @@ export class LeaveBalanceController {
     @Param('tenantId') tenantId: string,
     @Param('balanceId') balanceId: string,
     @Body() dto: UpdateLeaveBalanceDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.updateLeaveBalance(balanceId, dto, tenantId);
+    return this.leaveBalanceService.updateLeaveBalance(balanceId, dto, tenantId, member.id);
   }
 
   @Delete(':balanceId')
@@ -115,7 +116,8 @@ export class LeaveBalanceController {
   async deleteLeaveBalance(
     @Param('tenantId') tenantId: string,
     @Param('balanceId') balanceId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveBalanceService.deleteLeaveBalance(tenantId, balanceId);
+    return this.leaveBalanceService.deleteLeaveBalance(tenantId, balanceId, member.id);
   }
 }

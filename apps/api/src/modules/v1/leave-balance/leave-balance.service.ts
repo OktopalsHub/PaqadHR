@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import type { CarryoverExpirationResult } from 'src/common/interfaces';
+import { ActivitiesService } from '../activities/services/activities.service';
 import type { Leave } from '../leave/entities/leave.entity';
 import { LeavePolicyService } from '../leave-policy/leave-policy.service';
 import type { CreateLeaveBalanceDto } from './dto/create-leave-balance.dto';
@@ -13,19 +14,35 @@ export class LeaveBalanceService {
   constructor(
     private readonly leaveBalanceRepository: LeaveBalanceRepository,
     private readonly leavePolicyService: LeavePolicyService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async createLeaveBalance(
     tenantId: string,
     memberId: string,
     leaveTypeId: string,
     dto: CreateLeaveBalanceDto,
+    actorMemberId?: string,
   ): Promise<LeaveBalance> {
-    return this.leaveBalanceRepository.save({
+    const balance = await this.leaveBalanceRepository.save({
       ...dto,
       tenantId,
       memberId,
       leaveTypeId,
     });
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'leave.balance_created',
+          resourceType: 'leave_balance',
+          resourceId: balance.id,
+          description: `Leave balance created for member`,
+          metadata: { memberId, leaveTypeId, totalDays: dto.totalDays },
+        })
+        .catch(() => {});
+    }
+    return balance;
   }
   async listLeaveBalances(tenantId: string, memberIds?: string[]) {
     const rows = await this.leaveBalanceRepository.findAdminListWithLabels(tenantId, memberIds);
@@ -57,22 +74,56 @@ export class LeaveBalanceService {
       where: { id: balanceId, tenantId },
     });
   }
-  async updateLeaveBalance(balanceId: string, dto: UpdateLeaveBalanceDto, tenantId: string) {
+  async updateLeaveBalance(
+    balanceId: string,
+    dto: UpdateLeaveBalanceDto,
+    tenantId: string,
+    actorMemberId?: string,
+  ) {
     const existingBalance = await this.getLeaveBalance(balanceId, tenantId);
     if (!existingBalance) {
       throw new NotFoundException('Leave balance not found or access denied');
     }
     await this.leaveBalanceRepository.update(balanceId, dto);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'leave.balance_updated',
+          resourceType: 'leave_balance',
+          resourceId: balanceId,
+          description: `Leave balance updated`,
+          metadata: { memberId: existingBalance.memberId, changes: dto },
+        })
+        .catch(() => {});
+    }
     return this.leaveBalanceRepository.findOne({
       where: { id: balanceId, tenantId },
     });
   }
-  async deleteLeaveBalance(tenantId: string, balanceId: string) {
+  async deleteLeaveBalance(tenantId: string, balanceId: string, actorMemberId?: string) {
     const existingBalance = await this.getLeaveBalance(balanceId, tenantId);
     if (!existingBalance) {
       throw new NotFoundException('Leave balance not found or access denied');
     }
-    return this.leaveBalanceRepository.softDelete(balanceId);
+    await this.leaveBalanceRepository.softDelete(balanceId);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'leave.balance_deleted',
+          resourceType: 'leave_balance',
+          resourceId: balanceId,
+          description: `Leave balance deleted`,
+          metadata: {
+            memberId: existingBalance.memberId,
+            leaveTypeId: existingBalance.leaveTypeId,
+          },
+        })
+        .catch(() => {});
+    }
   }
   async findByCriteria(criteria: {
     tenantId: string;

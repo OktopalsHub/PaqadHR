@@ -49,6 +49,7 @@ describe('LeaveBalanceService listLeaveBalances', () => {
     const service = new LeaveBalanceService(
       repository as unknown as LeaveBalanceRepository,
       {} as never,
+      { queueActivity: jest.fn().mockResolvedValue(undefined) } as never,
     );
 
     const rows = await service.listLeaveBalances('tenant-1');
@@ -74,6 +75,7 @@ describe('LeaveBalanceService listLeaveBalances', () => {
     const service = new LeaveBalanceService(
       repository as unknown as LeaveBalanceRepository,
       {} as never,
+      { queueActivity: jest.fn().mockResolvedValue(undefined) } as never,
     );
 
     await service.listLeaveBalances('tenant-1', ['m1', 'm2']);
