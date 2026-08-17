@@ -1682,6 +1682,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
                         PENDING:
                           'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+                        PROCESSING:
+                          'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800',
                         FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
                       };
 
@@ -1762,7 +1764,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 statusColors[claim.status],
                               )}
                             >
-                              {claim.status === 'PENDING' ? (
+                              {claim.status === 'PENDING' || claim.status === 'PROCESSING' ? (
                                 <Loader2 className="size-2.5 animate-spin" />
                               ) : null}
                               {claim.status}

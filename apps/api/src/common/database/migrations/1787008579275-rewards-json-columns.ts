@@ -11,32 +11,32 @@ export class RewardsJsonColumns1787008579275 implements MigrationInterface {
       ADD COLUMN processing_started_at TIMESTAMPTZ;
     `);
 
-    // Migrate data from old columns to new JSON columns
+    // Migrate data from old columns to new JSON columns (strip NULL keys)
     await queryRunner.query(`
       UPDATE reward_redemptions
-      SET recipient = jsonb_build_object(
+      SET recipient = jsonb_strip_nulls(jsonb_build_object(
         'email', recipient_email,
         'phone', recipient_phone
-      )
+      ))
       WHERE recipient_email IS NOT NULL OR recipient_phone IS NOT NULL;
     `);
 
     await queryRunner.query(`
       UPDATE reward_redemptions
-      SET voucher = jsonb_build_object(
+      SET voucher = jsonb_strip_nulls(jsonb_build_object(
         'code', voucher_code,
         'pin', voucher_pin,
         'instructions', voucher_instructions
-      )
+      ))
       WHERE voucher_code IS NOT NULL OR voucher_pin IS NOT NULL OR voucher_instructions IS NOT NULL;
     `);
 
     await queryRunner.query(`
       UPDATE reward_redemptions
-      SET provider_ref = jsonb_build_object(
+      SET provider_ref = jsonb_strip_nulls(jsonb_build_object(
         'txRef', provider_tx_ref,
         'error', error_message
-      )
+      ))
       WHERE provider_tx_ref IS NOT NULL OR error_message IS NOT NULL;
     `);
 
@@ -54,6 +54,13 @@ export class RewardsJsonColumns1787008579275 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    // Normalize PROCESSING status before rollback (old code has no PROCESSING state)
+    await queryRunner.query(`
+      UPDATE reward_redemptions
+      SET status = 'PENDING'
+      WHERE status = 'PROCESSING';
+    `);
+
     // Add back old columns
     await queryRunner.query(`
       ALTER TABLE reward_redemptions

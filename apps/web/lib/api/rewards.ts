@@ -12,7 +12,7 @@ export type RewardType =
   | 'NOMBA_UTILITY'
   | 'RELOADLY_UTILITY'
   | 'CUSTOM';
-export type RedemptionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 
 export interface CatalogItem {
   id: string;

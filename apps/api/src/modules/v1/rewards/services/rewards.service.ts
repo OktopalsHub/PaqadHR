@@ -1344,7 +1344,7 @@ export class RewardsService {
         const redemptionRepo = manager.getRepository(RewardRedemption);
         await redemptionRepo.update(redemptionId, {
           status: 'FAILED' as RedemptionStatus,
-          providerRef: { error: errorMessage },
+          providerRef: { ...redemption.providerRef, error: errorMessage },
           processingStartedAt: null,
         });
       });
@@ -1453,7 +1453,10 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { txRef: transactionId ? String(transactionId) : undefined },
+      providerRef: {
+        ...redemption.providerRef,
+        txRef: transactionId ? String(transactionId) : undefined,
+      },
       voucher: {
         code,
         pin,
@@ -1520,7 +1523,7 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { txRef: orderId ?? undefined },
+      providerRef: { ...redemption.providerRef, txRef: orderId ?? undefined },
       voucher: {
         code: deliveryLink ?? undefined,
         instructions: deliveryLink
@@ -1572,7 +1575,7 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { txRef: result.transactionId ?? undefined },
+      providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
       voucher: {
         instructions: isData
           ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
@@ -1607,7 +1610,7 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { txRef: String(result.transactionId) },
+      providerRef: { ...redemption.providerRef, txRef: String(result.transactionId) },
       voucher: {
         instructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
       },
@@ -1645,7 +1648,7 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { txRef: result.transactionId ?? undefined },
+      providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
       voucher: { code: result.token || undefined, instructions },
       processingStartedAt: null,
     });
@@ -1675,7 +1678,7 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { txRef: String(result.id) },
+      providerRef: { ...redemption.providerRef, txRef: String(result.id) },
       voucher: { code: result.pin || result.code || undefined, instructions },
       processingStartedAt: null,
     });
