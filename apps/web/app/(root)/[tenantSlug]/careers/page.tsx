@@ -454,54 +454,18 @@ export default function PublicCareersPage() {
             <OrgAvatar src={tenant.logoUrl} name={tenant.name} className="h-9 w-9" />
             <span className="font-bold text-lg tracking-tight">{tenant.name}</span>
           </div>
-
-          <div className="flex items-center space-x-4">
-            <Badge
-              variant="secondary"
-              className="px-3 py-1 font-medium capitalize text-xs bg-secondary/60"
-            >
-              {tenant.industry || 'People Operations'}
-            </Badge>
-          </div>
         </div>
       </header>
 
       {}
-      <section className="relative overflow-hidden py-20 lg:py-24 border-b bg-gradient-to-b from-primary/[0.02] to-transparent">
+      <section className="relative overflow-hidden py-16 lg:py-20 border-b bg-gradient-to-b from-primary/[0.02] to-transparent">
         <div className="mx-auto max-w-5xl px-4 text-center sm:px-6 lg:px-8">
-          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl text-foreground">
-            Be part of our mission
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl text-foreground">
+            Join {tenant.name}
           </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg sm:text-xl text-muted-foreground leading-relaxed">
-            We are looking for passionate, driven individuals to join our team at{' '}
-            <strong className="text-foreground">{tenant.name}</strong>. Explore our open positions
-            and build the future with us.
+          <p className="mt-4 text-lg text-muted-foreground">
+            {jobs.length} open role{jobs.length !== 1 ? 's' : ''} — explore and apply below
           </p>
-
-          <div className="mt-10 flex justify-center space-x-8 text-center border-t border-border/60 pt-10 max-w-2xl mx-auto">
-            <div>
-              <p className="text-3xl font-extrabold text-primary">{jobs.length}</p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                Open Roles
-              </p>
-            </div>
-            <div className="border-r border-border" />
-            <div>
-              <p className="text-3xl font-extrabold text-primary">{tenant.location || 'Remote'}</p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                Primary Location
-              </p>
-            </div>
-            <div className="border-r border-border" />
-            <div>
-              <p className="text-3xl font-extrabold text-primary">
-                {tenant.companySize || 'Growing'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">
-                Company Size
-              </p>
-            </div>
-          </div>
         </div>
       </section>
 
