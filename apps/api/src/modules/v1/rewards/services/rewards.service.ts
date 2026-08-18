@@ -479,36 +479,6 @@ export class RewardsService {
     return this.getCatalogCountries(tenantId);
   }
 
-  private normalizeProductName(name: string): string {
-    return name
-      .toLowerCase()
-      .replace(/\s+/g, '')
-      .replace(/[^a-z0-9]/g, '');
-  }
-
-  private deduplicateTremendousCatalog(items: CatalogItem[]): CatalogItem[] {
-    const groups = new Map<string, CatalogItem[]>();
-    for (const item of items) {
-      const key = `${this.normalizeProductName(item.name)}:${item.countryCode}`;
-      const existing = groups.get(key) ?? [];
-      existing.push(item);
-      groups.set(key, existing);
-    }
-
-    const deduplicated: CatalogItem[] = [];
-    for (const group of groups.values()) {
-      if (group.length === 1) {
-        deduplicated.push(group[0]);
-        continue;
-      }
-      const cheapest = group.reduce((best, item) =>
-        item.pointsCost < best.pointsCost ? item : best,
-      );
-      deduplicated.push(cheapest);
-    }
-    return deduplicated;
-  }
-
   async getCatalog(
     tenantId: string,
     options?: { includeAdminPricing?: boolean; countryCode?: string | null },
@@ -543,7 +513,6 @@ export class RewardsService {
 
     const exchangeRate = settings.pointsExchangeRate;
     const catalog: CatalogItem[] = [];
-    const tremendousItems: CatalogItem[] = [];
 
     const giftCardsEnabled = settings.giftCardsEnabled ?? true;
     const giftCardCategories = settings.giftCardCategories ?? [
@@ -559,7 +528,7 @@ export class RewardsService {
         if (!giftCardsEnabled) continue;
         if (!giftCardCategories.includes(cat)) continue;
 
-        tremendousItems.push({
+        catalog.push({
           id: `tremendous_${catalogCountry}_${p.productId}`,
           name: p.name,
           type: 'TREMENDOUS',
@@ -584,8 +553,6 @@ export class RewardsService {
         });
       }
     }
-
-    catalog.push(...this.deduplicateTremendousCatalog(tremendousItems));
 
     if (includeReloadly) {
       for (const p of settings.reloadlyProducts ?? []) {
@@ -1357,7 +1324,7 @@ export class RewardsService {
             tenantId,
             originalDebitAmount,
             'REFUND',
-            `refund:${redemptionId}`,
+            redemptionId,
             `Refund: ${input.rewardName ?? input.rewardId}`,
             manager,
             { actorMemberId: memberId },

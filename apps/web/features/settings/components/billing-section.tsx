@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, CheckCircle2, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CreditCard, Loader2 } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -49,7 +49,6 @@ function BillingContactForm({
   const [country, setCountry] = useState(initial.country ?? '');
   const [identityBvn, setIdentityBvn] = useState('');
   const [identityNin, setIdentityNin] = useState('');
-  const [showIdentity, setShowIdentity] = useState(false);
 
   useEffect(() => {
     setContactName(initial.contactName ?? '');
@@ -141,44 +140,22 @@ function BillingContactForm({
         </p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <SettingsFieldHint label="BVN">
-            <div className="relative">
-              <Input
-                type={showIdentity ? 'text' : 'password'}
-                inputMode="numeric"
-                maxLength={11}
-                placeholder={initial.hasIdentityBvn ? 'Stored securely' : '11-digit BVN'}
-                value={identityBvn}
-                onChange={(e) => setIdentityBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowIdentity(!showIdentity)}
-                className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
-              >
-                {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+            <Input
+              inputMode="numeric"
+              maxLength={11}
+              placeholder={initial.hasIdentityBvn ? 'Stored securely' : '11-digit BVN'}
+              value={identityBvn}
+              onChange={(e) => setIdentityBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            />
           </SettingsFieldHint>
           <SettingsFieldHint label="NIN">
-            <div className="relative">
-              <Input
-                type={showIdentity ? 'text' : 'password'}
-                inputMode="numeric"
-                maxLength={11}
-                placeholder={initial.hasIdentityNin ? 'Stored securely' : '11-digit NIN'}
-                value={identityNin}
-                onChange={(e) => setIdentityNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                className="pr-10"
-              />
-              <button
-                type="button"
-                onClick={() => setShowIdentity(!showIdentity)}
-                className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground"
-              >
-                {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-              </button>
-            </div>
+            <Input
+              inputMode="numeric"
+              maxLength={11}
+              placeholder={initial.hasIdentityNin ? 'Stored securely' : '11-digit NIN'}
+              value={identityNin}
+              onChange={(e) => setIdentityNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+            />
           </SettingsFieldHint>
         </div>
       </div>

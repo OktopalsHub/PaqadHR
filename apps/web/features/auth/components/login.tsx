@@ -176,7 +176,7 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="cursor-pointer self-start text-sm font-semibold text-primary hover:text-primary/90 sm:self-auto"
+              className="self-start text-sm font-semibold text-primary hover:text-primary/90 sm:self-auto"
             >
               Forgot password?
             </button>

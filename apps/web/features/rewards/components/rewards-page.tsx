@@ -852,7 +852,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           setAirtimeAmount('1000');
                         }}
                         className={cn(
-                          'cursor-pointer px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
+                          'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
                           topupMode === 'airtime'
                             ? 'bg-background text-foreground shadow-sm'
                             : 'text-muted-foreground hover:text-foreground',
@@ -866,7 +866,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           setTopupMode('data');
                         }}
                         className={cn(
-                          'cursor-pointer px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
+                          'px-3 py-1.5 text-xs font-semibold rounded-md transition-all',
                           topupMode === 'data'
                             ? 'bg-background text-foreground shadow-sm'
                             : 'text-muted-foreground hover:text-foreground',

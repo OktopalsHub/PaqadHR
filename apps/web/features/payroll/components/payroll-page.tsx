@@ -90,11 +90,7 @@ function PayrollRunRow({
           : 'border-[#d7e3f6] bg-white/70 dark:border-slate-800 dark:bg-slate-950/45'
       }`}
     >
-      <button
-        type="button"
-        className="cursor-pointer space-y-1 text-left"
-        onClick={() => onSelect(run.id)}
-      >
+      <button type="button" className="space-y-1 text-left" onClick={() => onSelect(run.id)}>
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-medium text-slate-950 dark:text-slate-100">{run.title}</p>
           <Badge variant={statusVariant(run.status)}>{run.status}</Badge>

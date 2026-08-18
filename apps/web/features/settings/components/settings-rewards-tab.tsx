@@ -618,7 +618,7 @@ export function SettingsRewardsTab() {
                                     <button
                                       type="button"
                                       onClick={() => removeCatalogCountry(code)}
-                                      className="cursor-pointer text-muted-foreground hover:text-foreground"
+                                      className="text-muted-foreground hover:text-foreground"
                                       aria-label={`Remove ${code} catalog`}
                                     >
                                       ×

@@ -117,7 +117,7 @@ export class ReloadlyWebhookService {
               tenantId,
               refundAmount,
               'REFUND',
-              `refund:${currentRedemption.id}`,
+              currentRedemption.id,
               `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
               manager,
               { actorMemberId: currentRedemption.memberId },

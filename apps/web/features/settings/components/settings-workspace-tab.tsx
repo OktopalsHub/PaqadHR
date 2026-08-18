@@ -139,13 +139,13 @@ export function SettingsWorkspaceTab() {
     }
   };
 
-  const saveEmailSettings = async (value: boolean) => {
+  const saveEmailSettings = async () => {
     try {
       const existingGeneral = settings?.settings?.general;
       await patchSettings.mutateAsync({
         general: {
           ...existingGeneral,
-          emailPayslipOnPublish: value,
+          emailPayslipOnPublish,
         },
       });
       toast.success('Email settings saved');
@@ -154,13 +154,13 @@ export function SettingsWorkspaceTab() {
     }
   };
 
-  const savePayrollIdentitySettings = async (value: boolean) => {
+  const savePayrollIdentitySettings = async () => {
     try {
       const existingEmployee = settings?.settings?.employee;
       await patchSettings.mutateAsync({
         employee: {
           ...existingEmployee,
-          requireIdentityForPayroll: value,
+          requireIdentityForPayroll,
         },
       });
       toast.success('Payroll identity settings saved');
@@ -299,17 +299,18 @@ export function SettingsWorkspaceTab() {
             <Switch
               id="require-identity-for-payroll"
               checked={requireIdentityForPayroll}
-              onCheckedChange={(checked) => {
-                setRequireIdentityForPayroll(checked);
-                void savePayrollIdentitySettings(checked);
-              }}
-              disabled={!isAdmin || patchSettings.isPending}
+              onCheckedChange={setRequireIdentityForPayroll}
+              disabled={!isAdmin}
             />
             <label htmlFor="require-identity-for-payroll" className="text-sm text-muted-foreground">
               {requireIdentityForPayroll ? 'Required' : 'Optional'}
             </label>
           </div>
         </SettingsFieldHint>
+        <SettingsFormActions
+          onSave={savePayrollIdentitySettings}
+          isPending={patchSettings.isPending}
+        />
       </ContentCard>
 
       <ContentCard title="Email Settings">
@@ -319,17 +320,15 @@ export function SettingsWorkspaceTab() {
               <Switch
                 id="email-payslip-on-publish"
                 checked={emailPayslipOnPublish}
-                onCheckedChange={(checked) => {
-                  setEmailPayslipOnPublish(checked);
-                  void saveEmailSettings(checked);
-                }}
-                disabled={patchSettings.isPending}
+                onCheckedChange={setEmailPayslipOnPublish}
               />
               <label htmlFor="email-payslip-on-publish" className="text-sm text-muted-foreground">
                 {emailPayslipOnPublish ? 'Enabled' : 'Disabled'}
               </label>
             </div>
           </SettingsFieldHint>
+
+          <SettingsFormActions onSave={saveEmailSettings} isPending={patchSettings.isPending} />
         </div>
       </ContentCard>
     </div>

@@ -28,7 +28,7 @@ export function ActivityLogItem({ activity, onSelect }: ActivityLogItemProps) {
       type="button"
       onClick={() => onSelect(activity)}
       className={cn(
-        'cursor-pointer dashboard-soft-tile flex w-full items-start gap-3 rounded-[8px] border px-4 py-3.5 text-left transition-[border-color,box-shadow,background-color] hover:border-primary/25 hover:bg-white/85 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-slate-900/85',
+        'dashboard-soft-tile flex w-full items-start gap-3 rounded-[8px] border px-4 py-3.5 text-left transition-[border-color,box-shadow,background-color] hover:border-primary/25 hover:bg-white/85 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-slate-900/85',
         failed &&
           'border-destructive/25 bg-destructive/5 dark:border-destructive/30 dark:bg-destructive/10',
       )}

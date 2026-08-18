@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
 import {
   useChangePaymentMethodPasscode,
   useCreatePaymentMethod,
@@ -220,7 +219,8 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
             </div>
             <div className="space-y-2">
               <Label>Current passcode</Label>
-              <PasswordInput
+              <Input
+                type="password"
                 maxLength={6}
                 value={currentPasscode}
                 onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -249,7 +249,8 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
           <div className="space-y-3 pt-2">
             <div className="space-y-2">
               <Label>Current passcode</Label>
-              <PasswordInput
+              <Input
+                type="password"
                 maxLength={6}
                 value={currentPasscode}
                 onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -257,7 +258,8 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
             </div>
             <div className="space-y-2">
               <Label>New passcode</Label>
-              <PasswordInput
+              <Input
+                type="password"
                 maxLength={6}
                 value={newPasscode}
                 onChange={(e) => setNewPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -285,7 +287,8 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
             </p>
             <div className="space-y-2">
               <Label>Passcode</Label>
-              <PasswordInput
+              <Input
+                type="password"
                 maxLength={6}
                 value={currentPasscode}
                 onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -764,7 +767,8 @@ export function PaymentSettingsSection() {
 
           <div className="space-y-2 sm:col-span-2">
             <Label>6-digit passcode</Label>
-            <PasswordInput
+            <Input
+              type="password"
               inputMode="numeric"
               maxLength={6}
               value={passcode}

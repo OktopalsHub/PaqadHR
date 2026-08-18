@@ -1,7 +1,7 @@
 'use client';
 
-import { Search, Trash2, X } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
@@ -20,7 +20,6 @@ import {
   SettingsSwitchRow,
 } from '@/features/settings/components/settings-field-hint';
 import { SettingsFormActions } from '@/features/settings/components/settings-form-actions';
-import { useAssignPoints } from '@/hooks/queries/use-rewards';
 import {
   useCreateShoutoutCategoryAdmin,
   useDeleteShoutoutCategoryAdmin,
@@ -79,23 +78,6 @@ export function SettingsShoutoutsTab() {
   const [categoryName, setCategoryName] = useState('');
   const [bulkPoints, setBulkPoints] = useState('10');
   const [bulkReason, setBulkReason] = useState('');
-
-  const [directPoints, setDirectPoints] = useState('50');
-  const [directReason, setDirectReason] = useState('');
-  const [selectedMembers, setSelectedMembers] = useState<{ memberId: string; points: number }[]>(
-    [],
-  );
-  const [memberSearch, setMemberSearch] = useState('');
-  const [directMode, setDirectMode] = useState<'all' | 'specific'>('all');
-  const assignPoints = useAssignPoints();
-
-  const filteredMembers = useMemo(() => {
-    if (!memberSearch.trim()) return members;
-    const q = memberSearch.toLowerCase();
-    return members.filter((m) =>
-      `${m.firstName ?? ''} ${m.lastName ?? ''}`.toLowerCase().includes(q),
-    );
-  }, [members, memberSearch]);
 
   useEffect(() => {
     const points = settings?.settings?.points;
@@ -181,54 +163,15 @@ export function SettingsShoutoutsTab() {
   };
 
   const bulkAssign = async () => {
-    const pts = Number(bulkPoints) || 0;
-    if (pts < 1) {
-      toast.error('Points must be at least 1');
-      return;
-    }
     try {
       await assignAll.mutateAsync({
-        points: pts,
+        points: Number(bulkPoints) || 0,
         reason: bulkReason.trim() || undefined,
       });
-      toast.success(`Everyone got ${pts} ${PAQ_POINTS_NAME}`);
+      toast.success(`Everyone got ${Number(bulkPoints) || 0} ${PAQ_POINTS_NAME}`);
       setBulkReason('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Bulk assign failed');
-    }
-  };
-
-  const addSelectedMember = (memberId: string) => {
-    if (selectedMembers.some((a) => a.memberId === memberId)) return;
-    setSelectedMembers([...selectedMembers, { memberId, points: Number(directPoints) || 50 }]);
-  };
-
-  const removeSelectedMember = (memberId: string) => {
-    setSelectedMembers(selectedMembers.filter((a) => a.memberId !== memberId));
-  };
-
-  const selectAllFiltered = () => {
-    const pts = Number(directPoints) || 50;
-    setSelectedMembers(filteredMembers.map((m) => ({ memberId: m.memberId, points: pts })));
-  };
-
-  const directAssign = async () => {
-    if (selectedMembers.length === 0) {
-      toast.error('Select at least one member');
-      return;
-    }
-    try {
-      await assignPoints.mutateAsync({
-        memberIds: selectedMembers.map((a) => a.memberId),
-        points: 0,
-        assignments: selectedMembers,
-        reason: directReason.trim() || undefined,
-      });
-      toast.success(`Assigned ${PAQ_POINTS_NAME} to ${selectedMembers.length} member(s)`);
-      setSelectedMembers([]);
-      setDirectReason('');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Assign failed');
     }
   };
 
@@ -379,95 +322,6 @@ export function SettingsShoutoutsTab() {
         {members.length > 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">{members.length} members</p>
         ) : null}
-
-        <div className="mt-4 border-t pt-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium">Send to specific members</p>
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant={directMode === 'all' ? 'default' : 'outline'}
-                onClick={() => setDirectMode('all')}
-              >
-                All
-              </Button>
-              <Button
-                size="sm"
-                variant={directMode === 'specific' ? 'default' : 'outline'}
-                onClick={() => setDirectMode('specific')}
-              >
-                Specific
-              </Button>
-            </div>
-          </div>
-
-          {directMode === 'specific' && (
-            <div className="mt-3 space-y-3">
-              <div className="flex items-end gap-2">
-                <SettingsFieldHint label={`${PAQ_POINTS_NAME} per member`} className="w-32">
-                  <Input value={directPoints} onChange={(e) => setDirectPoints(e.target.value)} />
-                </SettingsFieldHint>
-                <SettingsFieldHint label="Reason" className="min-w-[220px] flex-1">
-                  <Input
-                    placeholder="e.g. Project completion bonus"
-                    value={directReason}
-                    onChange={(e) => setDirectReason(e.target.value)}
-                  />
-                </SettingsFieldHint>
-                <Button
-                  disabled={selectedMembers.length === 0 || assignPoints.isPending}
-                  onClick={directAssign}
-                >
-                  Assign ({selectedMembers.length})
-                </Button>
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search members..."
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {filteredMembers.length} member(s) shown
-                </p>
-                <Button size="sm" variant="ghost" onClick={selectAllFiltered}>
-                  Select all shown
-                </Button>
-              </div>
-
-              <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border p-2">
-                {filteredMembers.map((m) => {
-                  const isSelected = selectedMembers.some((a) => a.memberId === m.memberId);
-                  return (
-                    <button
-                      key={m.memberId}
-                      type="button"
-                      className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                        isSelected ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() =>
-                        isSelected
-                          ? removeSelectedMember(m.memberId)
-                          : addSelectedMember(m.memberId)
-                      }
-                    >
-                      <span className="font-medium">
-                        {m.firstName ?? ''} {m.lastName ?? ''}
-                      </span>
-                      {isSelected && <X className="size-4 text-muted-foreground" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
       </ContentCard>
     </div>
   );

@@ -140,7 +140,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
                 <button
                   key={plan.planPriceId}
                   type="button"
-                  className="cursor-pointer text-left"
+                  className="text-left"
                   onClick={() => setSelectedPlan(plan.slug)}
                 >
                   <PlanPricingCard

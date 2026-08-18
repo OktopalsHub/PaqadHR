@@ -1,5 +1,3 @@
-import { Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +26,6 @@ export function PersonalInfoTab({
 }: PersonalInfoTabProps) {
   const { employee, handleInputChange, handleNestedInputChange } = form;
   const readOnlyProps = canEdit ? {} : { readOnly: true as const, className: 'bg-muted/50' };
-  const [showIdentity, setShowIdentity] = useState(false);
 
   return (
     <TabsContent value="personal">
@@ -129,69 +126,47 @@ export function PersonalInfoTab({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="identity-bvn">BVN</Label>
-                    <div className="relative">
-                      <Input
-                        id="identity-bvn"
-                        type={showIdentity ? 'text' : 'password'}
-                        inputMode="numeric"
-                        maxLength={11}
-                        placeholder={
-                          employee.hasIdentityBvn
-                            ? 'Stored securely — enter to replace'
-                            : '11-digit BVN'
-                        }
-                        value={employee.identityBvn}
-                        onChange={(e) =>
-                          handleInputChange(
-                            'identityBvn',
-                            e.target.value.replace(/\D/g, '').slice(0, 11),
-                          )
-                        }
-                        disabled={!canEdit}
-                        className={canEdit ? 'pr-10' : 'bg-muted/50 pr-10'}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowIdentity(!showIdentity)}
-                        disabled={!canEdit}
-                        className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
+                    <Input
+                      id="identity-bvn"
+                      inputMode="numeric"
+                      maxLength={11}
+                      placeholder={
+                        employee.hasIdentityBvn
+                          ? 'Stored securely — enter to replace'
+                          : '11-digit BVN'
+                      }
+                      value={employee.identityBvn}
+                      onChange={(e) =>
+                        handleInputChange(
+                          'identityBvn',
+                          e.target.value.replace(/\D/g, '').slice(0, 11),
+                        )
+                      }
+                      disabled={!canEdit}
+                      className={canEdit ? undefined : 'bg-muted/50'}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="identity-nin">NIN</Label>
-                    <div className="relative">
-                      <Input
-                        id="identity-nin"
-                        type={showIdentity ? 'text' : 'password'}
-                        inputMode="numeric"
-                        maxLength={11}
-                        placeholder={
-                          employee.hasIdentityNin
-                            ? 'Stored securely — enter to replace'
-                            : '11-digit NIN'
-                        }
-                        value={employee.identityNin}
-                        onChange={(e) =>
-                          handleInputChange(
-                            'identityNin',
-                            e.target.value.replace(/\D/g, '').slice(0, 11),
-                          )
-                        }
-                        disabled={!canEdit}
-                        className={canEdit ? 'pr-10' : 'bg-muted/50 pr-10'}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowIdentity(!showIdentity)}
-                        disabled={!canEdit}
-                        className="absolute right-0 top-0 flex h-full cursor-pointer items-center px-3 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {showIdentity ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                      </button>
-                    </div>
+                    <Input
+                      id="identity-nin"
+                      inputMode="numeric"
+                      maxLength={11}
+                      placeholder={
+                        employee.hasIdentityNin
+                          ? 'Stored securely — enter to replace'
+                          : '11-digit NIN'
+                      }
+                      value={employee.identityNin}
+                      onChange={(e) =>
+                        handleInputChange(
+                          'identityNin',
+                          e.target.value.replace(/\D/g, '').slice(0, 11),
+                        )
+                      }
+                      disabled={!canEdit}
+                      className={canEdit ? undefined : 'bg-muted/50'}
+                    />
                   </div>
                 </div>
               </div>

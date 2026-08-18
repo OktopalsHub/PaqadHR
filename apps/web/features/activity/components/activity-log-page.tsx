@@ -117,7 +117,7 @@ export function ActivityLogPage() {
                     type="button"
                     onClick={() => handleFilterChange(option.value)}
                     className={cn(
-                      'cursor-pointer rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors',
+                      'rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors',
                       filter === option.value
                         ? 'bg-primary text-primary-foreground shadow-sm font-semibold'
                         : 'font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100',
