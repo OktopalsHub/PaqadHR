@@ -17,7 +17,7 @@ export const ViewModeToggle = ({ viewMode, onViewModeChange, className }: ViewMo
         <button
           type="button"
           className={cn(
-            'flex h-full w-10 items-center justify-center p-2 transition-colors',
+            'cursor-pointer flex h-full w-10 items-center justify-center p-2 transition-colors',
             viewMode === 'list'
               ? 'bg-primary text-primary-foreground'
               : 'bg-white text-slate-400 hover:bg-slate-50',
@@ -30,7 +30,7 @@ export const ViewModeToggle = ({ viewMode, onViewModeChange, className }: ViewMo
         <button
           type="button"
           className={cn(
-            'flex h-full w-10 items-center justify-center p-2 transition-colors',
+            'cursor-pointer flex h-full w-10 items-center justify-center p-2 transition-colors',
             viewMode === 'card'
               ? 'bg-primary text-primary-foreground'
               : 'bg-white text-slate-400 hover:bg-slate-50',

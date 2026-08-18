@@ -108,7 +108,7 @@ export const EmployeeList = () => {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors sm:px-6',
+                  'cursor-pointer rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors sm:px-6',
                   activeTab === tab.id
                     ? 'border border-slate-200 bg-slate-50 text-slate-800 shadow-sm font-semibold'
                     : 'font-medium text-slate-500 hover:text-slate-800',
@@ -122,7 +122,7 @@ export const EmployeeList = () => {
                 type="button"
                 onClick={() => setActiveTab('invitations')}
                 className={cn(
-                  'rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors sm:px-6',
+                  'cursor-pointer rounded-[8px] px-5 py-2 text-sm whitespace-nowrap transition-colors sm:px-6',
                   activeTab === 'invitations'
                     ? 'border border-slate-200 bg-slate-50 text-slate-800 shadow-sm font-semibold'
                     : 'font-medium text-slate-500 hover:text-slate-800',

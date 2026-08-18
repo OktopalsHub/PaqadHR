@@ -548,7 +548,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                         <button
                           key={plan.plan.slug}
                           type="button"
-                          className="group h-full text-left"
+                          className="cursor-pointer group h-full text-left"
                           onClick={() => setSelectedPlan(plan.plan.slug)}
                         >
                           <PlanPricingCard
