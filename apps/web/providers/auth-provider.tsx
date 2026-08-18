@@ -68,8 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000, // 5 minutes — revalidate periodically so expired sessions are caught
     retry: 1,
     enabled: sessionBootstrapEnabled,
-    // Use cached data as initial data for instant render, but still revalidate
-    initialData: cachedSession ?? undefined,
+    // placeholderData shows cached session during loading but does NOT mark query as fresh
+    // This prevents stale authenticated UI while the server session is validated
+    placeholderData: cachedSession ?? undefined,
   });
 
   // Start proactive token refresh when user is authenticated
@@ -172,10 +173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await registerMutation.mutateAsync(input);
       },
       logout,
-      isAuthenticated: Boolean(sessionQuery.data),
-      isLoading: sessionQuery.isLoading || loginMutation.isPending || registerMutation.isPending,
+      // Only trust auth state after first server fetch completes (not from placeholder/cached data)
+      isAuthenticated: sessionQuery.isFetched && Boolean(sessionQuery.data),
+      isLoading: !sessionQuery.isFetched || loginMutation.isPending || registerMutation.isPending,
     }),
-    [sessionQuery.data, sessionQuery.isLoading, loginMutation, registerMutation, logout],
+    [sessionQuery.data, sessionQuery.isFetched, loginMutation, registerMutation, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

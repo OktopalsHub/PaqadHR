@@ -1361,43 +1361,60 @@ export class RewardsService {
         }
       });
 
-      // Refund wallet — check first to avoid double-credit race condition
+      // Refund wallet — atomic: check + credit + insert in single transaction
       if (input.rewardType !== 'CUSTOM') {
-        const existingRefund = await this.dataSource
-          .getRepository(TenantWalletTransaction)
-          .findOne({ where: { reference: `refund:${redemptionId}`, type: 'REFUND' } });
+        try {
+          await this.dataSource.transaction(async (manager) => {
+            // Lock and check for existing refund to prevent double-credit
+            const walletRepo = manager.getRepository(TenantWallet);
+            const wallet = await walletRepo
+              .createQueryBuilder('w')
+              .setLock('pessimistic_write')
+              .where('w.tenant_id = :tenantId', { tenantId })
+              .getOne();
 
-        if (!existingRefund) {
-          try {
-            await this.walletService.credit(
-              tenantId,
-              originalDebitAmount,
-              'REFUND',
-              `refund:${redemptionId}`,
-              `Refund: ${input.rewardName ?? input.rewardId}`,
-              undefined,
-              { actorMemberId: memberId },
-            );
-          } catch (walletError) {
-            // Handle race condition: if a webhook already processed the refund,
-            // the unique constraint violation is expected.
-            const isUniqueConstraintViolation =
-              walletError instanceof Error &&
-              walletError.message.includes('unique constraint') &&
-              walletError.message.includes('idx_wallet_tx_wallet_reference');
+            if (!wallet) return;
 
-            if (isUniqueConstraintViolation) {
+            const existingRefund = await manager
+              .getRepository(TenantWalletTransaction)
+              .findOne({ where: { reference: `refund:${redemptionId}`, type: 'REFUND' } });
+
+            if (existingRefund) {
               this.logger.log(
-                `Wallet refund for ${redemptionId} already processed by webhook, skipping duplicate`,
+                `Wallet refund for ${redemptionId} already exists, skipping duplicate`,
               );
-            } else {
-              this.logger.error(
-                `Wallet refund failed for ${redemptionId}: ${walletError instanceof Error ? walletError.message : walletError}`,
-              );
+              return;
             }
-          }
-        } else {
-          this.logger.log(`Wallet refund for ${redemptionId} already exists, skipping duplicate`);
+
+            // Credit wallet and insert transaction atomically
+            await manager
+              .getRepository(TenantWallet)
+              .createQueryBuilder()
+              .update(TenantWallet)
+              .set({ balanceAmount: () => 'balance_amount + :amount' })
+              .where('tenant_id = :tenantId', { tenantId, amount: originalDebitAmount })
+              .execute();
+
+            const _updatedWallet = await walletRepo.findOneOrFail({
+              where: { tenantId },
+            });
+
+            const refundTx = manager.getRepository(TenantWalletTransaction).create({
+              tenantWalletId: wallet.id,
+              type: 'REFUND',
+              amount: originalDebitAmount,
+              reference: `refund:${redemptionId}`,
+              description: `Refund: ${input.rewardName ?? input.rewardId}`,
+              status: 'COMPLETED',
+              rawAmount: originalDebitAmount,
+              metadata: { actorMemberId: memberId },
+            });
+            await manager.getRepository(TenantWalletTransaction).save(refundTx);
+          });
+        } catch (walletError) {
+          this.logger.error(
+            `Wallet refund failed for ${redemptionId}: ${walletError instanceof Error ? walletError.message : walletError}`,
+          );
         }
       }
 
