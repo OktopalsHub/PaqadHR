@@ -87,6 +87,9 @@ export interface ClaimInput {
   serviceType?: string;
 }
 
+/** Maximum time in milliseconds a redemption can stay in PROCESSING before recovery kicks in. */
+const PROCESSING_LEASE_MS = 5 * 60 * 1000; // 5 minutes
+
 type ClaimCostBreakdown = {
   totalTenantDebit: number;
   expectedPointsCost: number;
@@ -911,7 +914,10 @@ export class RewardsService {
           .getRepository(RewardRedemption)
           .createQueryBuilder()
           .update(RewardRedemption)
-          .set({ status: 'PROCESSING' as RedemptionStatus })
+          .set({
+            status: 'PROCESSING' as RedemptionStatus,
+            processingStartedAt: () => 'NOW()',
+          })
           .where(
             'id = :id AND tenant_id = :tenantId AND member_id = :memberId AND status = :status',
             {
@@ -944,14 +950,39 @@ export class RewardsService {
         });
       }
 
+      const updated = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
+        where: { id: redemptionId, tenantId, memberId },
+      });
+
       return this.finalizeClaimFulfillment({
         tenantId,
         memberId,
         input,
-        redemption: existing,
+        redemption: updated,
         pointsCost,
         totalTenantDebit: originalDebitAmount,
       });
+    }
+
+    if (existing?.status === 'PROCESSING') {
+      const leaseExpired =
+        existing.processingStartedAt &&
+        Date.now() - existing.processingStartedAt.getTime() > PROCESSING_LEASE_MS;
+
+      if (!leaseExpired) {
+        throw new BadRequestException('Reward claim is already being processed. Please wait.');
+      }
+
+      this.logger.warn(
+        `Recovering stale PROCESSING redemption ${redemptionId} (lease expired at ${existing.processingStartedAt?.toISOString()})`,
+      );
+
+      await this.dataSource.getRepository(RewardRedemption).update(redemptionId, {
+        status: 'PENDING' as RedemptionStatus,
+        processingStartedAt: null,
+      });
+
+      return this.claim(tenantId, memberId, input);
     }
 
     let redemption: RewardRedemption;
@@ -1046,8 +1077,10 @@ export class RewardsService {
         currencyValue,
         currencyCode,
         status: 'PENDING' as RedemptionStatus,
-        recipientEmail: input.recipientEmail ?? null,
-        recipientPhone: input.recipientPhone ?? null,
+        recipient: {
+          email: input.recipientEmail ?? undefined,
+          phone: input.recipientPhone ?? undefined,
+        },
       });
       await txRedemptionRepo.save(redemption);
     });
@@ -1084,13 +1117,15 @@ export class RewardsService {
   }
 
   private assertMatchingIdempotentClaim(existing: RewardRedemption, input: ClaimInput): void {
+    const existingEmail = existing.recipient?.email ?? null;
+    const existingPhone = existing.recipient?.phone ?? null;
     if (
       existing.rewardType !== input.rewardType ||
       existing.rewardId !== input.rewardId ||
       existing.pointsSpent !== input.pointsCost ||
       Number(existing.currencyValue) !== input.currencyValue ||
-      (existing.recipientEmail ?? null) !== (input.recipientEmail ?? null) ||
-      (existing.recipientPhone ?? null) !== (input.recipientPhone ?? null)
+      existingEmail !== (input.recipientEmail ?? null) ||
+      existingPhone !== (input.recipientPhone ?? null)
     ) {
       throw new BadRequestException(
         'This idempotency key was already used for a different reward claim.',
@@ -1309,12 +1344,13 @@ export class RewardsService {
         const redemptionRepo = manager.getRepository(RewardRedemption);
         await redemptionRepo.update(redemptionId, {
           status: 'FAILED' as RedemptionStatus,
-          errorMessage,
+          providerRef: { ...redemption.providerRef, error: errorMessage },
+          processingStartedAt: null,
         });
       });
 
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
-        where: { id: redemptionId },
+        where: { id: redemptionId, tenantId, memberId },
       });
       return redemption;
     }
@@ -1394,21 +1430,21 @@ export class RewardsService {
       quantity: 1,
       unitPrice: redemption.currencyValue,
       customIdentifier: redemption.id,
-      recipientEmail: redemption.recipientEmail ?? undefined,
+      recipientEmail: redemption.recipient?.email,
       senderName,
     });
 
     const transactionId = orderResponse.transactionId;
 
-    let voucherCode: string | null = null;
-    let voucherPin: string | null = null;
+    let code: string | undefined;
+    let pin: string | undefined;
 
     if (transactionId) {
       try {
         const codes = await this.reloadlyApi.getRedemptionCodes(transactionId);
         if (codes?.[0]) {
-          voucherCode = codes[0].cardNumber ?? null;
-          voucherPin = codes[0].pinCode ?? null;
+          code = codes[0].cardNumber ?? undefined;
+          pin = codes[0].pinCode ?? undefined;
         }
       } catch (e) {
         this.logger.warn(`Could not fetch redemption codes for transaction ${transactionId}: ${e}`);
@@ -1417,10 +1453,16 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: transactionId ? String(transactionId) : null,
-      voucherCode,
-      voucherPin,
-      voucherInstructions: 'Present this code at any participating store to redeem.',
+      providerRef: {
+        ...redemption.providerRef,
+        txRef: transactionId ? String(transactionId) : undefined,
+      },
+      voucher: {
+        code,
+        pin,
+        instructions: 'Present this code at any participating store to redeem.',
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1443,7 +1485,7 @@ export class RewardsService {
       })
       .getOne();
 
-    const recipientEmail = redemption.recipientEmail ?? member?.user?.email;
+    const recipientEmail = redemption.recipient?.email ?? member?.user?.email;
     if (!recipientEmail) {
       throw new Error('Recipient email is required to issue a Tremendous reward');
     }
@@ -1481,11 +1523,14 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: orderId,
-      voucherCode: deliveryLink,
-      voucherInstructions: deliveryLink
-        ? 'Open this link to choose and redeem your gift card.'
-        : 'Your reward is being prepared. Check back shortly for your redemption link.',
+      providerRef: { ...redemption.providerRef, txRef: orderId ?? undefined },
+      voucher: {
+        code: deliveryLink ?? undefined,
+        instructions: deliveryLink
+          ? 'Open this link to choose and redeem your gift card.'
+          : 'Your reward is being prepared. Check back shortly for your redemption link.',
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1530,10 +1575,13 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: result.transactionId,
-      voucherInstructions: isData
-        ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
-        : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
+      voucher: {
+        instructions: isData
+          ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
+          : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1562,8 +1610,11 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: String(result.transactionId),
-      voucherInstructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      providerRef: { ...redemption.providerRef, txRef: String(result.transactionId) },
+      voucher: {
+        instructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1597,9 +1648,9 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: result.transactionId,
-      voucherCode: result.token || null,
-      voucherInstructions: instructions,
+      providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
+      voucher: { code: result.token || undefined, instructions },
+      processingStartedAt: null,
     });
   }
 
@@ -1627,9 +1678,9 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: String(result.id),
-      voucherCode: result.pin || result.code || null,
-      voucherInstructions: instructions,
+      providerRef: { ...redemption.providerRef, txRef: String(result.id) },
+      voucher: { code: result.pin || result.code || undefined, instructions },
+      processingStartedAt: null,
     });
   }
 
@@ -1725,9 +1776,12 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      voucherInstructions:
-        customReward?.deliveryInstructions ??
-        'Your admin has been notified and will fulfill this reward.',
+      voucher: {
+        instructions:
+          customReward?.deliveryInstructions ??
+          'Your admin has been notified and will fulfill this reward.',
+      },
+      processingStartedAt: null,
     });
   }
 

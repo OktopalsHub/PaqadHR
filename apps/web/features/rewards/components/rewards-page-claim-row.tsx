@@ -8,6 +8,7 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
   const statusColors: Record<string, string> = {
     SUCCESS: 'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
     PENDING: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+    PROCESSING: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800',
     FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
   };
 
@@ -30,10 +31,10 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
           {claim.pointsSpent} {PAQ_POINTS_NAME} ·{' '}
           <span suppressHydrationWarning>{new Date(claim.createdAt).toLocaleDateString()}</span>
         </p>
-        {claim.voucherCode ? (
-          claim.voucherCode.startsWith('http') ? (
+        {claim.voucher?.code ? (
+          claim.voucher.code.startsWith('http') ? (
             <a
-              href={claim.voucherCode}
+              href={claim.voucher.code}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-1 text-xs font-semibold text-primary underline underline-offset-2 inline-block"
@@ -42,19 +43,19 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
             </a>
           ) : (
             <p className="mt-1 font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded inline-block">
-              Code: {claim.voucherCode}
-              {claim.voucherPin ? ` · PIN: ${claim.voucherPin}` : ''}
+              Code: {claim.voucher.code}
+              {claim.voucher.pin ? ` · PIN: ${claim.voucher.pin}` : ''}
             </p>
           )
         ) : null}
-        {claim.voucherInstructions ? (
+        {claim.voucher?.instructions ? (
           <p className="mt-0.5 text-[10px] text-muted-foreground italic">
-            {claim.voucherInstructions}
+            {claim.voucher.instructions}
           </p>
         ) : null}
-        {claim.status === 'FAILED' && claim.errorMessage && (
+        {claim.status === 'FAILED' && claim.providerRef?.error && (
           <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
-            Error: {claim.errorMessage}
+            Error: {claim.providerRef.error}
           </p>
         )}
       </div>

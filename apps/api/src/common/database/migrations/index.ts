@@ -76,3 +76,4 @@ export * from './1784756934802-PayrollPayoutModeAndEmploymentCurrency';
 export * from './1785716078366-tenant-member-identity';
 export * from './1785754833575-DropWalletStaticVaAndEnsureTxColumns';
 export * from './1787006225581-notification-cleanup';
+export * from './1787008579275-rewards-json-columns';

@@ -46,7 +46,10 @@ export class ReloadlyWebhookService {
       if (redemption.status !== 'SUCCESS') {
         await redemptionRepo.update(redemption.id, {
           status: 'SUCCESS',
-          providerTxRef: providerTxRef ? String(providerTxRef) : redemption.providerTxRef,
+          providerRef: {
+            ...redemption.providerRef,
+            txRef: providerTxRef ? String(providerTxRef) : redemption.providerRef?.txRef,
+          },
         });
       }
       return;
@@ -125,7 +128,10 @@ export class ReloadlyWebhookService {
         // 3. Mark redemption as failed
         await manager.getRepository(RewardRedemption).update(currentRedemption.id, {
           status: 'FAILED',
-          errorMessage: `Reloadly transaction ${status.toLowerCase()}`,
+          providerRef: {
+            ...currentRedemption.providerRef,
+            error: `Reloadly transaction ${status.toLowerCase()}`,
+          },
         });
       });
     }

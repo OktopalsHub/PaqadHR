@@ -947,6 +947,16 @@ export class PaymentMethodService {
           bankName: bankName?.trim() || trimmedBankCode,
         };
       } catch (error) {
+        // Only fall through to Monnify for availability errors; rethrow validation errors immediately
+        const isAvailabilityError =
+          error instanceof ServiceUnavailableException ||
+          (error instanceof BadRequestException &&
+            /not available|not configured|unavailable|Failed to authenticate with Nomba/i.test(
+              error.message || '',
+            ));
+        if (!isAvailabilityError) {
+          throw error;
+        }
         this.logger.warn(
           `Nomba bank lookup failed, trying Monnify: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -963,6 +973,14 @@ export class PaymentMethodService {
           bankName: bankName?.trim() || trimmedBankCode,
         };
       } catch (error) {
+        // Only fall through for availability errors; rethrow validation errors immediately
+        const isAvailabilityError =
+          error instanceof ServiceUnavailableException ||
+          (error instanceof BadRequestException &&
+            /not available|not configured|unavailable/i.test(error.message || ''));
+        if (!isAvailabilityError) {
+          throw error;
+        }
         this.logger.warn(
           `Monnify bank lookup failed: ${error instanceof Error ? error.message : String(error)}`,
         );

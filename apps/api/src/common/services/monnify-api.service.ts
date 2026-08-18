@@ -567,7 +567,7 @@ export class MonnifyApiService {
   ): Promise<{ accountNumber: string; accountName: string }> {
     this.ensureConfigured();
     const token = await this.getAccessToken();
-    const url = `${getMonnifyBaseUrl()}/api/v1/disbursements/account/validate?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`;
+    const url = `${getMonnifyBaseUrl()}/api/v2/disbursements/account/validate?accountNumber=${encodeURIComponent(accountNumber)}&bankCode=${encodeURIComponent(bankCode)}`;
     const response = await this.monnifyFetch(url, {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
@@ -583,10 +583,10 @@ export class MonnifyApiService {
     if (!response.ok || payload.requestSuccessful === false || !payload.responseBody?.accountName) {
       this.logMonnifyResponse(
         'lookup-bank-account',
-        '/api/v1/disbursements/account/validate',
+        '/api/v2/disbursements/account/validate',
         response.status,
         payload,
-        { accountNumber },
+        { accountNumber: `****${accountNumber.slice(-4)}` },
       );
       throw new BadRequestException('Could not verify this bank account');
     }

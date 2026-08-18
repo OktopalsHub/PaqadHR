@@ -97,6 +97,7 @@ const AppDataSource = {
     Migrations.TenantMemberIdentity1785716078366,
     Migrations.DropWalletStaticVaAndEnsureTxColumns1785754833575,
     Migrations.NotificationCleanup1787006225581,
+    Migrations.RewardsJsonColumns1787008579275,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,
