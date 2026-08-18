@@ -9,6 +9,7 @@ import { LoadingBlock } from '@/components/loading-block';
 import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
 import { PaymentSettingsSection } from '@/features/settings/components/payment-settings-section';
 import { PrivacySection } from '@/features/settings/components/privacy-section';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
@@ -169,16 +170,14 @@ export function SettingsProfileTab() {
         <ContentCard title="Security">
           <div className="grid gap-3 sm:max-w-md">
             <SettingsFieldHint label="New password">
-              <Input
-                type="password"
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
               />
             </SettingsFieldHint>
             <SettingsFieldHint label="Confirm new password">
-              <Input
-                type="password"
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 autoComplete="new-password"

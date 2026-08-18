@@ -19,6 +19,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { MemberContext } from 'src/common/interfaces';
 import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
@@ -29,7 +30,10 @@ import { PaymentMethodService } from '../services/payment-method.service';
 @ApiTags('Payment Methods')
 @Controller('tenants/:tenantId/payment-methods')
 export class PaymentMethodController {
-  constructor(private readonly paymentMethodService: PaymentMethodService) {}
+  constructor(
+    private readonly paymentMethodService: PaymentMethodService,
+    private readonly tenantConfigService: TenantConfigService,
+  ) {}
   @Post()
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Create bank payment method' })
@@ -226,7 +230,8 @@ export class PaymentMethodController {
   @ApiResponse({ status: 200, description: 'Supported currencies retrieved' })
   async getSupportedCurrencies(@Param('tenantId') tenantId: string) {
     const fiat = await this.paymentMethodService.getAllowedCurrencies(tenantId);
-    return { fiat, crypto: [...SUPPORTED_CRYPTO_CURRENCIES] };
+    const cryptoEnabled = await this.tenantConfigService.isCryptoEnabled(tenantId);
+    return { fiat, crypto: cryptoEnabled ? [...SUPPORTED_CRYPTO_CURRENCIES] : [] };
   }
   @Get('member/:memberId')
   @UseGuards(TenantMemberGuard)

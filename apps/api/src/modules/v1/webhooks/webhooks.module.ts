@@ -10,6 +10,7 @@ import { MonnifyWebhookService } from './services/monnify-webhook.service';
 import { NoahWebhookService } from './services/noah-webhook.service';
 import { NombaWebhookService } from './services/nomba-webhook.service';
 import { PolarWebhookService } from './services/polar-webhook.service';
+import { TremendousWebhookService } from './services/tremendous-webhook.service';
 
 @Module({
   imports: [SubscriptionsModule, PayrollModule, RewardsModule, ShoutoutsModule, PaymentsModule],
@@ -20,6 +21,7 @@ import { PolarWebhookService } from './services/polar-webhook.service';
     NoahWebhookService,
     BachsWebhookService,
     PolarWebhookService,
+    TremendousWebhookService,
   ],
 })
 export class WebhooksModule {}
