@@ -1397,9 +1397,7 @@ export class RewardsService {
             }
           }
         } else {
-          this.logger.log(
-            `Wallet refund for ${redemptionId} already exists, skipping duplicate`,
-          );
+          this.logger.log(`Wallet refund for ${redemptionId} already exists, skipping duplicate`);
         }
       }
 
