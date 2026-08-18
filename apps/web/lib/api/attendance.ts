@@ -328,7 +328,31 @@ export type DailyReportEntry = {
 export async function fetchDailyReport(date?: string): Promise<DailyReportEntry[]> {
   const tenantId = await resolveTenantId();
   const params = date ? `?date=${encodeURIComponent(date)}` : '';
-  return apiClient<DailyReportEntry[]>(tenantPath(tenantId, `attendance/reports/daily${params}`));
+  const res = await apiClient<{
+    date: string;
+    attendances: Array<{
+      id: string;
+      status: string;
+      clockIn: string | null;
+      clockOut: string | null;
+      workHours: string | null;
+      sessionNumber: number;
+      member?: {
+        id: string;
+        firstName?: string | null;
+        lastName?: string | null;
+      } | null;
+    }>;
+  }>(tenantPath(tenantId, `attendance/reports/daily${params}`));
+  return res.attendances.map((a) => ({
+    memberId: a.member?.id ?? '',
+    memberName: [a.member?.firstName, a.member?.lastName].filter(Boolean).join(' ') || '—',
+    status: a.status,
+    clockIn: a.clockIn,
+    clockOut: a.clockOut,
+    workHours: a.workHours,
+    sessions: a.sessionNumber,
+  }));
 }
 
 export type MonthlyReportEntry = {
@@ -348,9 +372,57 @@ export async function fetchMonthlyReport(
 ): Promise<MonthlyReportEntry[]> {
   const tenantId = await resolveTenantId();
   const params = new URLSearchParams({ month: String(month), year: String(year) });
-  return apiClient<MonthlyReportEntry[]>(
-    tenantPath(tenantId, `attendance/reports/monthly?${params.toString()}`),
-  );
+  const res = await apiClient<{
+    month: number;
+    year: number;
+    attendances: Array<{
+      id: string;
+      tenantMemberId: string;
+      status: string;
+      workHours: string | null;
+      tenantMember?: {
+        id: string;
+        firstName?: string | null;
+        lastName?: string | null;
+      } | null;
+    }>;
+  }>(tenantPath(tenantId, `attendance/reports/monthly?${params.toString()}`));
+
+  const byMember = new Map<
+    string,
+    { name: string; present: number; absent: number; late: number; hours: number; total: number }
+  >();
+  for (const a of res.attendances) {
+    const id = a.tenantMemberId;
+    if (!byMember.has(id)) {
+      const m = a.tenantMember;
+      byMember.set(id, {
+        name: [m?.firstName, m?.lastName].filter(Boolean).join(' ') || '—',
+        present: 0,
+        absent: 0,
+        late: 0,
+        hours: 0,
+        total: 0,
+      });
+    }
+    const entry = byMember.get(id)!;
+    entry.total += 1;
+    if (a.status === 'PRESENT') entry.present += 1;
+    else if (a.status === 'ABSENT') entry.absent += 1;
+    else if (a.status === 'LATE') entry.late += 1;
+    entry.hours += parseFloat(a.workHours ?? '0') || 0;
+  }
+
+  return Array.from(byMember.entries()).map(([memberId, s]) => ({
+    memberId,
+    memberName: s.name,
+    totalDays: s.total,
+    presentDays: s.present,
+    absentDays: s.absent,
+    lateDays: s.late,
+    workHours: Math.round(s.hours * 100) / 100,
+    attendanceRate: s.total > 0 ? Math.round((s.present / s.total) * 10000) / 100 : 0,
+  }));
 }
 
 export async function fetchEmployeeReport(
