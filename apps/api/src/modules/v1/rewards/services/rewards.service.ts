@@ -1347,10 +1347,15 @@ export class RewardsService {
             providerRef: { ...redemption.providerRef, error: errorMessage },
             processingStartedAt: null,
           })
-          .where('id = :redemptionId AND status <> :failed', {
-            redemptionId,
-            failed: 'FAILED' as RedemptionStatus,
-          })
+          .where(
+            'id = :redemptionId AND tenant_id = :tenantId AND member_id = :memberId AND status <> :failed',
+            {
+              redemptionId,
+              tenantId,
+              memberId,
+              failed: 'FAILED' as RedemptionStatus,
+            },
+          )
           .execute();
 
         if (!flip.affected) {
