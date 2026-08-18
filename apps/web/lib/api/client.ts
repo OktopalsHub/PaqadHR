@@ -153,7 +153,7 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/reset-password',
 ];
 
-const REFRESH_RETRY_DELAYS_MS = [1000, 2000];
+const REFRESH_RETRY_DELAYS_MS = [500, 1000];
 
 function shouldAttemptAuthRefresh(path: string): boolean {
   return !AUTH_PATHS_WITHOUT_REFRESH.some((prefix) => path.startsWith(prefix));

@@ -21,15 +21,15 @@ import type {
   MemberContext,
   TenantContext,
 } from 'src/common/interfaces';
-import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
+import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import type { Notification } from '../entities/notification.entity';
 import { NotificationService } from '../services/notification.service';
 import { SSENotificationService } from '../services/sse-notification.service';
 
 @ApiTags('Notifications')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, HeaderTenantMemberGuard)
-@Controller('notifications')
+@UseGuards(JwtAuthGuard, TenantMemberGuard)
+@Controller('tenants/:tenantId/notifications')
 export class NotificationController {
   constructor(
     private readonly notificationService: NotificationService,

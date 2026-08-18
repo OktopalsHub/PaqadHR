@@ -61,20 +61,44 @@ export class ReloadlyWebhookService {
       }
 
       await this.dataSource.transaction(async (manager) => {
-        // Fetch fresh copy inside transaction
-        const currentRedemption = await manager.getRepository(RewardRedemption).findOneOrFail({
-          where: { id: redemption.id },
-        });
+        const redemptionRepo = manager.getRepository(RewardRedemption);
 
-        if (currentRedemption.status === 'FAILED') {
+        // Conditional status flip is the idempotency guard: the first executor
+        // (this webhook, a retried delivery, or the claim failure handler) that
+        // flips this redemption to FAILED performs the refunds. Everything else
+        // skips, so overlapping events cannot double-credit points or wallet.
+        // A failure mid-refund rolls the whole transaction back, so the
+        // redemption never ends up FAILED with a partial refund.
+        const flip = await redemptionRepo
+          .createQueryBuilder()
+          .update(RewardRedemption)
+          .set({
+            status: 'FAILED',
+            providerRef: {
+              ...redemption.providerRef,
+              error: `Reloadly transaction ${status.toLowerCase()}`,
+            },
+          })
+          .where(
+            'id = :id AND tenant_id = :tenantId AND member_id = :memberId AND status <> :failed',
+            {
+              id: redemption.id,
+              tenantId: redemption.tenantId,
+              memberId: redemption.memberId,
+              failed: 'FAILED' as const,
+            },
+          )
+          .execute();
+
+        if (!flip.affected) {
           return;
         }
 
-        const pointsCost = currentRedemption.pointsSpent;
-        const tenantId = currentRedemption.tenantId;
-        const memberId = currentRedemption.memberId;
+        const pointsCost = redemption.pointsSpent;
+        const tenantId = redemption.tenantId;
+        const memberId = redemption.memberId;
 
-        // 1. Re-credit member points
+        // Re-credit member points
         const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
         await pointsRepo
           .createQueryBuilder()
@@ -95,19 +119,19 @@ export class ReloadlyWebhookService {
           type: ShoutoutPointTransactionType.REDEMPTION,
           points: pointsCost,
           runningBalance: updatedPoints.currentBalance,
-          description: `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
+          description: `Refund: ${redemption.rewardName ?? redemption.rewardId}`,
           createdBy: memberId,
         });
         await txRepo.save(refundTx);
 
-        // 2. Re-credit tenant wallet (if not CUSTOM reward)
-        if (currentRedemption.rewardType !== 'CUSTOM') {
+        // Re-credit tenant wallet (if not CUSTOM reward)
+        if (redemption.rewardType !== 'CUSTOM') {
           const wallet = await this.walletService.ensureWallet(tenantId, manager);
           const tx = await manager.getRepository(TenantWalletTransaction).findOne({
             where: {
               tenantWalletId: wallet.id,
-              reference: currentRedemption.id,
-              type: 'SPENT',
+              reference: redemption.id,
+              type: 'SPENT' as const,
             },
           });
           const refundAmount = tx ? Math.abs(Number(tx.amount)) : 0;
@@ -117,22 +141,13 @@ export class ReloadlyWebhookService {
               tenantId,
               refundAmount,
               'REFUND',
-              `refund:${currentRedemption.id}`,
-              `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
+              `refund:${redemption.id}`,
+              `Refund: ${redemption.rewardName ?? redemption.rewardId}`,
               manager,
-              { actorMemberId: currentRedemption.memberId },
+              { actorMemberId: memberId },
             );
           }
         }
-
-        // 3. Mark redemption as failed
-        await manager.getRepository(RewardRedemption).update(currentRedemption.id, {
-          status: 'FAILED',
-          providerRef: {
-            ...currentRedemption.providerRef,
-            error: `Reloadly transaction ${status.toLowerCase()}`,
-          },
-        });
       });
     }
   }

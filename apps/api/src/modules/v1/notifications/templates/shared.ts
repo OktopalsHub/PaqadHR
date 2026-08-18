@@ -1,4 +1,4 @@
-import { EMAIL_BRAND, EMAIL_FOUNDER, escapeHtml } from './brand';
+import { EMAIL_BRAND, escapeHtml } from './brand';
 
 const BODY_TEXT = '#3f3f46';
 const MUTED_TEXT = '#a1a1aa';
@@ -49,7 +49,7 @@ ${cta ? emailButton(cta.href, cta.label) : ''}
 }
 
 export function emailFriendsSignOff(): string {
-  return `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:${BODY_TEXT};">Thanks,<br /><strong>Your friends at PaqadHR</strong></p>`;
+  return `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:${BODY_TEXT};">Thank you,<br /><strong>The Paqad Team</strong></p>`;
 }
 
 export function emailPostscript(text: string): string {
@@ -57,17 +57,15 @@ export function emailPostscript(text: string): string {
 }
 
 export function emailSentWithCare(): string {
-  return `<p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:${MUTED_TEXT};text-align:center;">Sent with care from<br /><strong style="color:${EMAIL_BRAND.text};">PaqadHR</strong></p>`;
+  return `<p style="margin:24px 0 0;font-size:12px;line-height:1.5;color:${MUTED_TEXT};text-align:center;">Sent with care from<br /><strong style="color:${EMAIL_BRAND.text};">Paqad</strong></p>`;
 }
 
 export function emailDanielIntro(): string {
-  return emailParagraph(
-    `Hi — I'm <strong>${escapeHtml(EMAIL_FOUNDER.name)}</strong>, founder of PaqadHR.`,
-  );
+  return '';
 }
 
 export function emailDanielSignOff(): string {
-  return `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:${BODY_TEXT};">Warm regards,<br /><strong>${escapeHtml(EMAIL_FOUNDER.name)}</strong><br /><span style="color:${EMAIL_BRAND.muted};">${escapeHtml(EMAIL_FOUNDER.title)}</span></p>`;
+  return `<p style="margin:24px 0 0;font-size:15px;line-height:1.6;color:${BODY_TEXT};">Thank you,<br /><strong>The Paqad Team</strong></p>`;
 }
 
 export function resolveFirstName(name?: string, email?: string): string {

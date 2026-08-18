@@ -83,7 +83,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAdmin = role === 'owner' || role === 'admin';
   const settings = tenantSettings?.settings?.rewards;
   const isNgWorkspace = (tenant?.countryCode ?? '').toUpperCase() === 'NG';
-  const giftCardProvider = settings?.giftCardProvider === 'reloadly' ? 'reloadly' : 'tremendous';
   const tenantCountry = (tenant?.countryCode ?? 'US').toUpperCase();
   const redemptionCountry = isNgWorkspace ? 'NG' : tenantCountry;
   const allowedCatalogCountries = Array.from(
@@ -96,8 +95,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const showAirtime = isAirtimeEnabled && giftCardProvider === 'reloadly';
-  const showUtilities = isUtilitiesEnabled && giftCardProvider === 'reloadly';
+  const showAirtime = isAirtimeEnabled;
+  const showUtilities = isUtilitiesEnabled;
 
   const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();

@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { LoadingBlock, LoadingSpinner } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
 import { loadUserTenantsWithRetry } from '@/lib/api/auth';
@@ -52,7 +52,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
     void (async () => {
       let resolvedTenants = tenants;
       if (resolvedTenants.length === 0) {
-        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 6, baseDelayMs: 200 });
+        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
         if (resolvedTenants.length > 0) {
           queryClient.setQueryData(queryKeys.tenants.all, resolvedTenants);
           return;
@@ -81,19 +81,11 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   ]);
 
   if (isLoading || !hasResolvedTenants) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (isError) {

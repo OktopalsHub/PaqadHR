@@ -60,8 +60,8 @@ export async function waitForAuthenticatedProfile(options?: {
   attempts?: number;
   baseDelayMs?: number;
 }): Promise<ProfileResponse | null> {
-  const attempts = options?.attempts ?? 6;
-  const baseDelayMs = options?.baseDelayMs ?? 150;
+  const attempts = options?.attempts ?? 3;
+  const baseDelayMs = options?.baseDelayMs ?? 100;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -82,8 +82,8 @@ export async function loadUserTenantsWithRetry(options?: {
   attempts?: number;
   baseDelayMs?: number;
 }): Promise<Tenant[]> {
-  const attempts = options?.attempts ?? 3;
-  const baseDelayMs = options?.baseDelayMs ?? 150;
+  const attempts = options?.attempts ?? 2;
+  const baseDelayMs = options?.baseDelayMs ?? 100;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -114,8 +114,8 @@ export async function getSession(): Promise<User | null> {
 
   try {
     const profile = await waitForAuthenticatedProfile({
-      attempts: isOnTenantSubdomain() ? 12 : 4,
-      baseDelayMs: isOnTenantSubdomain() ? 200 : 150,
+      attempts: isOnTenantSubdomain() ? 4 : 2,
+      baseDelayMs: isOnTenantSubdomain() ? 100 : 80,
     });
     if (!profile) return null;
 

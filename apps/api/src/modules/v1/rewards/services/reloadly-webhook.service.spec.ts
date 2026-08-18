@@ -20,6 +20,12 @@ describe('ReloadlyWebhookService', () => {
     mockRedemptionRepo = {
       findOne: jest.fn(),
       update: jest.fn(),
+      createQueryBuilder: jest.fn().mockReturnValue({
+        update: jest.fn().mockReturnThis(),
+        set: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        execute: jest.fn().mockResolvedValue({ affected: 1 }),
+      }),
     };
 
     mockPointsRepo = {
@@ -152,17 +158,29 @@ describe('ReloadlyWebhookService', () => {
         'tenant-123',
         500,
         'REFUND',
-        mockRedemptionId,
+        `refund:${mockRedemptionId}`,
         'Refund: MTN Airtime',
         mockEntityManager,
         { actorMemberId: 'member-456' },
       );
 
       // 3. Redemption marked failed
-      expect(mockRedemptionRepo.update).toHaveBeenCalledWith(mockRedemptionId, {
+      expect(mockRedemptionRepo.createQueryBuilder).toHaveBeenCalled();
+      const qb = mockRedemptionRepo.createQueryBuilder();
+      expect(qb.update).toHaveBeenCalledWith(RewardRedemption);
+      expect(qb.set).toHaveBeenCalledWith({
         status: 'FAILED',
         providerRef: { error: 'Reloadly transaction failed' },
       });
+      expect(qb.where).toHaveBeenCalledWith(
+        'id = :id AND tenant_id = :tenantId AND member_id = :memberId AND status <> :failed',
+        {
+          id: mockRedemptionId,
+          tenantId: 'tenant-123',
+          memberId: 'member-456',
+          failed: 'FAILED',
+        },
+      );
     });
   });
 });
