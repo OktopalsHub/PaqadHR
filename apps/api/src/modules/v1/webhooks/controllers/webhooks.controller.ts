@@ -15,7 +15,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { getReloadlyWebhookSecret } from 'src/common/config/reloadly.config';
-import { Public } from 'src/common/decorators';
+import { Public, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import type {
   SlackEventPayload,
   SlackInteractiveBody,
@@ -30,6 +30,7 @@ import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
 import { PolarWebhookService } from '../services/polar-webhook.service';
+import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import {
   getNombaRawBody,
   resolveMonnifySignature,
@@ -53,6 +54,7 @@ export class WebhooksController {
     private readonly polarWebhookService: PolarWebhookService,
     private readonly reloadlyWebhookService: ReloadlyWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
+    private readonly tremendousWebhookService: TremendousWebhookService,
   ) {}
 
   @Post('nomba')
@@ -239,5 +241,41 @@ export class WebhooksController {
       throw new UnauthorizedException('Invalid signature');
     }
     return this.slackWebhookService.handleSlashCommand(body);
+  }
+
+  @Post('tremendous')
+  @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Tremendous reward fulfillment webhook' })
+  async handleTremendousWebhook(
+    @Req() req: RawBodyRequestType,
+    @Headers('x-tremendous-signature') signature: string,
+  ) {
+    const secret = process.env.TREMENDOUS_WEBHOOK_SECRET?.trim() ?? '';
+    if (!secret) {
+      this.logger.warn('TREMENDOUS_WEBHOOK_SECRET is not configured. Webhook validation skipped.');
+      throw new UnauthorizedException('Tremendous webhook secret is not configured');
+    }
+
+    if (!signature) {
+      throw new UnauthorizedException('Missing Tremendous signature');
+    }
+
+    const rawBody = req.rawBody?.toString('utf8') ?? '';
+    try {
+      const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
+      const sigBuffer = Buffer.from(signature, 'utf8');
+      const digestBuffer = Buffer.from(hash, 'utf8');
+      if (sigBuffer.length !== digestBuffer.length || !timingSafeEqual(sigBuffer, digestBuffer)) {
+        throw new UnauthorizedException('Invalid Tremendous signature');
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      this.logger.error(`Tremendous signature verification failed: ${(err as Error).message}`);
+      throw new UnauthorizedException('Invalid Tremendous signature');
+    }
+
+    return this.tremendousWebhookService.dispatch(rawBody, signature);
   }
 }
