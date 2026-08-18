@@ -119,8 +119,9 @@ export class EmploymentController {
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateEmploymentDto: UpdateEmploymentDto,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<Employment> {
-    return this.employmentService.updateEmployment(id, updateEmploymentDto, tenantId);
+    return this.employmentService.updateEmployment(id, updateEmploymentDto, tenantId, member.id);
   }
   @Delete('employments/:id')
   @UseGuards(TenantRoleGuard)
@@ -129,7 +130,8 @@ export class EmploymentController {
   async deleteEmployment(
     @Param('tenantId') tenantId: string,
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<void> {
-    return this.employmentService.deleteEmployment(id, tenantId);
+    return this.employmentService.deleteEmployment(id, tenantId, member.id);
   }
 }

@@ -8,6 +8,7 @@ import {
 import { AttendanceExceptionStatus, type AttendanceStatus } from 'src/common/enums';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { Between, type FindOptionsWhere, In, LessThan } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
 import { LeaveService } from '../leave/leave.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -39,6 +40,7 @@ export class AttendanceService {
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly leaveService: LeaveService,
     private readonly departmentUtils: DepartmentUtils,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   private async isClockInEnabled(tenantId: string): Promise<boolean> {
     try {
@@ -48,8 +50,29 @@ export class AttendanceService {
       return false;
     }
   }
-  async createAttendancePolicy(tenantId: string, dto: CreateAttendancePolicyDto) {
-    return this.attendancePolicyRepository.create({ ...dto, tenantId });
+  async createAttendancePolicy(
+    tenantId: string,
+    dto: CreateAttendancePolicyDto,
+    actorMemberId?: string,
+  ) {
+    const policy = await this.attendancePolicyRepository.create({ ...dto, tenantId });
+    const saved = await this.attendancePolicyRepository.save(policy);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'attendance.policy_created',
+          resourceType: 'attendance_policy',
+          resourceId: saved.id,
+          description: `Attendance policy created`,
+          metadata: { name: dto.name },
+        })
+        .catch(() => {});
+    }
+
+    return saved;
   }
   async getAttendancePolicies(tenantId: string) {
     return this.attendancePolicyRepository.find({ where: { tenantId } });
@@ -63,16 +86,49 @@ export class AttendanceService {
     }
     return policy;
   }
-  async updateAttendancePolicy(tenantId: string, policyId: string, dto: UpdateAttendancePolicyDto) {
+  async updateAttendancePolicy(
+    tenantId: string,
+    policyId: string,
+    dto: UpdateAttendancePolicyDto,
+    actorMemberId?: string,
+  ) {
     await this.getAttendancePolicy(tenantId, policyId);
     await this.attendancePolicyRepository.update(policyId, dto);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'attendance.policy_updated',
+          resourceType: 'attendance_policy',
+          resourceId: policyId,
+          description: `Attendance policy updated`,
+          metadata: { updatedFields: Object.keys(dto) },
+        })
+        .catch(() => {});
+    }
+
     return this.attendancePolicyRepository.findOne({
       where: { id: policyId, tenantId },
     });
   }
-  async deleteAttendancePolicy(tenantId: string, policyId: string) {
+  async deleteAttendancePolicy(tenantId: string, policyId: string, actorMemberId?: string) {
     await this.getAttendancePolicy(tenantId, policyId);
-    return this.attendancePolicyRepository.delete(policyId);
+    await this.attendancePolicyRepository.delete(policyId);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'attendance.policy_deleted',
+          resourceType: 'attendance_policy',
+          resourceId: policyId,
+          description: `Attendance policy deleted`,
+        })
+        .catch(() => {});
+    }
   }
   async clockIn(
     tenantId: string,
@@ -161,6 +217,19 @@ export class AttendanceService {
         isManualEntry: false,
       }),
     );
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: tenantMemberId,
+        action: 'attendance.clocked_in',
+        resourceType: 'attendance',
+        resourceId: attendance.id,
+        description: `Clocked in at ${dto.location || 'Office'}`,
+        metadata: { location: dto.location, sessionNumber: nextSessionNumber },
+      })
+      .catch(() => {});
+
     return attendance;
   }
   private formatTimeToHHMMSS(milliseconds: number): string {
@@ -211,6 +280,19 @@ export class AttendanceService {
       notes: dto.notes,
       entryMethod: 'auto',
     });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: tenantMemberId,
+        action: 'attendance.clocked_out',
+        resourceType: 'attendance',
+        resourceId: attendanceId,
+        description: `Clocked out after ${workHours}`,
+        metadata: { workHours, location: dto.location },
+      })
+      .catch(() => {});
+
     return this.attendanceRepository.findOne({
       where: { id: attendanceId, tenantId },
     });
@@ -364,6 +446,19 @@ export class AttendanceService {
       approvedById,
       approvedAt: new Date(),
     });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: approvedById,
+        action: 'attendance.exception_approved',
+        resourceType: 'attendance_exception',
+        resourceId: exceptionId,
+        description: `Attendance exception approved`,
+        metadata: { reason: exception.reason },
+      })
+      .catch(() => {});
+
     return this.attendanceExceptionRepository.findOne({
       where: { id: exceptionId, tenantId },
     });
@@ -372,6 +467,7 @@ export class AttendanceService {
     tenantId: string,
     exceptionId: string,
     dto: RejectAttendanceExceptionDto,
+    approvedById: string,
   ) {
     const exception = await this.getAttendanceException(tenantId, exceptionId);
     if (exception.status !== AttendanceExceptionStatus.PENDING) {
@@ -379,7 +475,22 @@ export class AttendanceService {
     }
     await this.attendanceExceptionRepository.update(exceptionId, {
       status: AttendanceExceptionStatus.REJECTED,
+      approvedById,
+      approvedAt: new Date(),
     });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: approvedById,
+        action: 'attendance.exception_rejected',
+        resourceType: 'attendance_exception',
+        resourceId: exceptionId,
+        description: `Attendance exception rejected`,
+        metadata: { reason: exception.reason, rejectionNote: dto.comments },
+      })
+      .catch(() => {});
+
     return this.attendanceExceptionRepository.findOne({
       where: { id: exceptionId, tenantId },
     });

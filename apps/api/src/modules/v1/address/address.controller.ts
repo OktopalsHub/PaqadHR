@@ -20,7 +20,7 @@ export class AddressController {
     @Body() createAddressDto: CreateAddressDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.createAddress(tenantId, member.id, createAddressDto);
+    return this.addressService.createAddress(tenantId, member.id, createAddressDto, member.id);
   }
   @Get()
   async listAddresses(
@@ -36,7 +36,13 @@ export class AddressController {
     @Body() updateAddressDto: UpdateAddressDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.updateAddress(member.id, addressId, updateAddressDto);
+    return this.addressService.updateAddress(
+      member.id,
+      addressId,
+      updateAddressDto,
+      tenantId,
+      member.id,
+    );
   }
   @Delete(':addressId')
   async deleteAddress(
@@ -44,6 +50,6 @@ export class AddressController {
     @Param('addressId') addressId: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.addressService.deleteAddress(member.id, addressId);
+    return this.addressService.deleteAddress(member.id, addressId, tenantId, member.id);
   }
 }

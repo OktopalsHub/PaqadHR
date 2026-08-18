@@ -64,6 +64,18 @@ import {
 import { ClaimRow } from './rewards-page-claim-row';
 import { PointsSummaryCard } from './rewards-page-points-summary';
 
+function catalogCountryLabel(code: string): string {
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+function createClaimIdempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
 export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const { tenant } = useTenant();
   const { data: tenantSettings } = useTenantSettings();
@@ -84,8 +96,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const showAirtime = isAirtimeEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
-  const showUtilities = isUtilitiesEnabled && (isNgWorkspace || giftCardProvider === 'reloadly');
+  const showAirtime = isAirtimeEnabled && giftCardProvider === 'reloadly';
+  const showUtilities = isUtilitiesEnabled && giftCardProvider === 'reloadly';
 
   const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
@@ -403,6 +415,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     setClaimingId('utility');
+    const idempotencyKey = createClaimIdempotencyKey();
     try {
       const billerId =
         utilityCountryCode === 'NG' ? selectedUtilityBillerNg : selectedUtilityBillerReloadly?.id;
@@ -414,6 +427,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       const rewardName = `${billerName} Utility Payment`;
 
       const result = await claimReward.mutateAsync({
+        idempotencyKey,
         rewardType: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
         rewardId: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
         rewardName,
@@ -428,12 +442,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       if (result.status === 'SUCCESS') {
         toast.success(
-          `Utility payment successful! ${result.voucherCode ? `Token: ${result.voucherCode}` : ''}`,
+          `Utility payment successful! ${result.voucher?.code ? `Token: ${result.voucher.code}` : ''}`,
         );
         setUtilityAccountNumber('');
         setLookupResult(null);
       } else if (result.status === 'FAILED') {
-        toast.error(result.errorMessage ?? 'Payment failed. Points refunded.');
+        toast.error(result.providerRef?.error ?? 'Payment failed. Points refunded.');
       }
     } catch (err) {
       toast.error(mapMemberWalletError(err, 'Failed to redeem utility payment'));
@@ -478,8 +492,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     const memberName = claim.member
       ? `${claim.member.firstName} ${claim.member.lastName}`.toLowerCase()
       : '';
-    const phoneMatch = claim.recipientPhone?.toLowerCase().includes(term);
-    const emailMatch = claim.recipientEmail?.toLowerCase().includes(term);
+    const phoneMatch = claim.recipient?.phone?.toLowerCase().includes(term);
+    const emailMatch = claim.recipient?.email?.toLowerCase().includes(term);
     return nameMatch || memberName.includes(term) || phoneMatch || emailMatch;
   });
 
@@ -490,8 +504,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     setClaimingId(item.id);
+    const idempotencyKey = createClaimIdempotencyKey();
     try {
       const result = await claimReward.mutateAsync({
+        idempotencyKey,
         rewardType: item.type,
         rewardId: item.id,
         rewardName: item.name,
@@ -502,12 +518,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       if (result.status === 'SUCCESS') {
         toast.success(
-          `Claim successful! ${result.voucherCode ? `Code: ${result.voucherCode}` : 'Reward ordered.'}`,
+          `Claim successful! ${result.voucher?.code ? `Code: ${result.voucher.code}` : 'Reward ordered.'}`,
         );
       } else if (result.status === 'PENDING') {
         toast.info('Claim pending fulfillment.');
       } else {
-        toast.error(result.errorMessage ?? 'Claim failed. Points refunded.');
+        toast.error(result.providerRef?.error ?? 'Claim failed. Points refunded.');
       }
     } catch (err) {
       toast.error(mapMemberWalletError(err, 'Failed to claim reward'));
@@ -538,6 +554,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
 
     setClaimingId('airtime');
+    const idempotencyKey = createClaimIdempotencyKey();
     try {
       const selectedBundle =
         selectedCountryCode === 'NG' && topupMode === 'data' ? selectedDataPlan : null;
@@ -553,6 +570,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           : `${selectedReloadlyOperator?.name} Airtime`;
 
       const result = await claimReward.mutateAsync({
+        idempotencyKey,
         rewardType: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
         rewardId: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
         rewardName,
@@ -573,7 +591,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         );
         setAirtimePhone('');
       } else if (result.status === 'FAILED') {
-        toast.error(result.errorMessage ?? 'Purchase failed. Points refunded.');
+        toast.error(result.providerRef?.error ?? 'Purchase failed. Points refunded.');
       }
     } catch (err) {
       toast.error(mapMemberWalletError(err, 'Failed to top-up'));
@@ -713,24 +731,20 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         {isGiftCardsEnabled && (
           <TabsContent value="digital-cards" className="space-y-4">
             {allowedCatalogCountries.length > 1 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-semibold text-muted-foreground mr-1">Catalog country</p>
-                {allowedCatalogCountries.map((code) => (
-                  <Button
-                    key={code}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCatalogCountryCode(code)}
-                    className={cn(
-                      'h-8 text-xs font-semibold rounded-full px-3 border-border/60',
-                      catalogCountryCode === code
-                        ? 'bg-primary text-primary-foreground border-primary hover:bg-primary/90'
-                        : 'hover:bg-muted text-muted-foreground',
-                    )}
-                  >
-                    {code}
-                  </Button>
-                ))}
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-xs font-semibold text-muted-foreground">Catalog country</p>
+                <Select value={catalogCountryCode} onValueChange={setCatalogCountryCode}>
+                  <SelectTrigger className="h-9 w-[220px] text-xs font-medium">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allowedCatalogCountries.map((code) => (
+                      <SelectItem key={code} value={code} className="text-xs">
+                        {catalogCountryLabel(code)} ({code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             ) : null}
             {giftCards.length === 0 ? (
@@ -1668,6 +1682,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           'bg-green-500/10 text-green-600 border-green-200 dark:border-green-800',
                         PENDING:
                           'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
+                        PROCESSING:
+                          'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800',
                         FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
                       };
 
@@ -1706,35 +1722,35 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 <span>{new Date(claim.createdAt).toLocaleDateString()}</span>
                               </p>
 
-                              {(claim.recipientPhone || claim.recipientEmail) && (
+                              {(claim.recipient?.phone || claim.recipient?.email) && (
                                 <p className="text-[11px] text-muted-foreground mt-1 bg-muted/40 px-2 py-0.5 rounded-md inline-block">
-                                  {claim.recipientPhone
-                                    ? `📞 ${claim.recipientPhone}`
-                                    : `✉️ ${claim.recipientEmail}`}
+                                  {claim.recipient?.phone
+                                    ? `📞 ${claim.recipient.phone}`
+                                    : `✉️ ${claim.recipient?.email}`}
                                 </p>
                               )}
 
-                              {(claim.voucherCode || claim.voucherInstructions) && (
+                              {(claim.voucher?.code || claim.voucher?.instructions) && (
                                 <div className="mt-2 text-xs space-y-1 bg-muted/50 p-2.5 rounded-lg border border-border/40">
-                                  {claim.voucherCode && (
+                                  {claim.voucher?.code && (
                                     <p className="font-mono font-bold text-foreground">
                                       Code:{' '}
                                       <span className="select-all bg-background px-1.5 py-0.5 rounded border">
-                                        {claim.voucherCode}
+                                        {claim.voucher.code}
                                       </span>
-                                      {claim.voucherPin ? ` · PIN: ${claim.voucherPin}` : ''}
+                                      {claim.voucher.pin ? ` · PIN: ${claim.voucher.pin}` : ''}
                                     </p>
                                   )}
-                                  {claim.voucherInstructions && (
+                                  {claim.voucher?.instructions && (
                                     <p className="text-[10px] text-muted-foreground italic leading-normal pt-1">
-                                      {claim.voucherInstructions}
+                                      {claim.voucher.instructions}
                                     </p>
                                   )}
                                 </div>
                               )}
-                              {claim.status === 'FAILED' && claim.errorMessage && (
+                              {claim.status === 'FAILED' && claim.providerRef?.error && (
                                 <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
-                                  Error: {claim.errorMessage}
+                                  Error: {claim.providerRef.error}
                                 </p>
                               )}
                             </div>
@@ -1748,7 +1764,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 statusColors[claim.status],
                               )}
                             >
-                              {claim.status === 'PENDING' ? (
+                              {claim.status === 'PENDING' || claim.status === 'PROCESSING' ? (
                                 <Loader2 className="size-2.5 animate-spin" />
                               ) : null}
                               {claim.status}

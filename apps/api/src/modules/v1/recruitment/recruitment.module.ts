@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from 'src/common/modules/file.module';
 import { TurnstileService } from 'src/common/services/turnstile.service';
 import { DepartmentExistsConstraint } from 'src/common/validators/department-exists.validator';
+import { ActivitiesModule } from '../activities/activities.module';
 import { Department } from '../departments/entities/department.entity';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -30,6 +31,7 @@ import { JobOpeningService } from './services/job-opening.service';
     TenantsModule,
     TenantMembersModule,
     SubscriptionsModule,
+    ActivitiesModule,
   ],
   controllers: [
     ApplicationController,

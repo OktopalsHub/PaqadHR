@@ -45,7 +45,12 @@ export class EducationController {
     const { memberId, ...educationData } = createEducationDto;
     const targetMemberId = memberId ?? member.id;
     assertSelfOnly(member, targetMemberId);
-    return this.educationService.createEducation(tenantId, targetMemberId, educationData);
+    return this.educationService.createEducation(
+      tenantId,
+      targetMemberId,
+      educationData,
+      member.id,
+    );
   }
 
   @Get()
@@ -100,7 +105,7 @@ export class EducationController {
   ): Promise<Education> {
     const education = await this.educationService.getEducation(id, tenantId);
     assertSelfOnly(member, education.tenantMemberId);
-    return this.educationService.updateEducation(id, updateEducationDto, tenantId);
+    return this.educationService.updateEducation(id, updateEducationDto, tenantId, member.id);
   }
 
   @Delete(':id')
@@ -112,6 +117,6 @@ export class EducationController {
   ): Promise<void> {
     const education = await this.educationService.getEducation(id, tenantId);
     assertSelfOnly(member, education.tenantMemberId);
-    return this.educationService.deleteEducation(id, tenantId);
+    return this.educationService.deleteEducation(id, tenantId, member.id);
   }
 }

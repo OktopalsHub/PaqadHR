@@ -12,7 +12,7 @@ export type RewardType =
   | 'NOMBA_UTILITY'
   | 'RELOADLY_UTILITY'
   | 'CUSTOM';
-export type RedemptionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 
 export interface CatalogItem {
   id: string;
@@ -47,13 +47,9 @@ export interface RewardRedemption {
   currencyValue: number;
   currencyCode: string;
   status: RedemptionStatus;
-  recipientEmail: string | null;
-  recipientPhone: string | null;
-  voucherCode: string | null;
-  voucherPin: string | null;
-  voucherInstructions: string | null;
-  providerTxRef: string | null;
-  errorMessage: string | null;
+  recipient: { email?: string; phone?: string } | null;
+  voucher: { code?: string; pin?: string; instructions?: string } | null;
+  providerRef: { txRef?: string; error?: string } | null;
   createdAt: string;
   member?: {
     firstName: string;
@@ -122,6 +118,8 @@ export interface ClaimInput {
   currencyCode?: string;
   recipientEmail?: string;
   recipientPhone?: string;
+  /** Client-generated UUID; retries with the same key return the existing redemption. */
+  idempotencyKey?: string;
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
   topupKind?: 'airtime' | 'data';

@@ -33,7 +33,27 @@ export class DocumentService {
     tenantMemberId: string,
     createDocumentDto: CreateDocumentDto,
   ): Promise<Document> {
-    return this.documentRepository.createDocument(createDocumentDto, tenantId, tenantMemberId);
+    const doc = await this.documentRepository.createDocument(
+      createDocumentDto,
+      tenantId,
+      tenantMemberId,
+    );
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.FILE_UPLOADED,
+        description: `Document "${createDocumentDto.name}" created`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'document',
+        resourceId: doc.id,
+        tenantId,
+        userId: tenantMemberId,
+        metadata: { name: createDocumentDto.name, type: createDocumentDto.type },
+      })
+      .catch(() => {});
+
+    return doc;
   }
   async listDocuments(tenantId: string): Promise<Document[]> {
     return this.documentRepository.listDocuments(tenantId);
@@ -57,13 +77,47 @@ export class DocumentService {
     id: string,
     updateDocumentDto: UpdateDocumentDto,
     tenantId: string,
+    actorMemberId?: string,
   ): Promise<Document> {
     await this.getDocument(id, tenantId);
-    return this.documentRepository.updateDocument(id, updateDocumentDto, tenantId);
+    const updated = await this.documentRepository.updateDocument(id, updateDocumentDto, tenantId);
+
+    if (actorMemberId) {
+      void this.auditLogsService
+        .queueAuditLog({
+          action: AuditAction.UPDATE,
+          description: `Document updated`,
+          severity: AuditSeverity.LOW,
+          status: AuditStatus.SUCCESS,
+          resourceType: 'document',
+          resourceId: id,
+          tenantId,
+          userId: actorMemberId,
+          metadata: { updatedFields: Object.keys(updateDocumentDto) },
+        })
+        .catch(() => {});
+    }
+
+    return updated;
   }
-  async deleteDocument(id: string, tenantId: string): Promise<void> {
+  async deleteDocument(id: string, tenantId: string, actorMemberId?: string): Promise<void> {
     await this.getDocument(id, tenantId);
     await this.documentRepository.softDeleteDocument(id, tenantId);
+
+    if (actorMemberId) {
+      void this.auditLogsService
+        .queueAuditLog({
+          action: AuditAction.FILE_DELETED,
+          description: `Document deleted`,
+          severity: AuditSeverity.MEDIUM,
+          status: AuditStatus.SUCCESS,
+          resourceType: 'document',
+          resourceId: id,
+          tenantId,
+          userId: actorMemberId,
+        })
+        .catch(() => {});
+    }
   }
 
   async purgeExpiredDocument(document: Document): Promise<void> {

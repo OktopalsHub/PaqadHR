@@ -4,6 +4,12 @@ import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
 import { hasPlanFeaturesAccess } from '../../../../common/constants/feature-access-resolver';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from '../../../../common/enums/audit-action.enum';
+import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -28,6 +34,7 @@ export class SubscriptionsService {
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
     private readonly plansService: PlansService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async getTenantSubscription(tenantId: string): Promise<TenantSubscription | null> {
@@ -46,7 +53,22 @@ export class SubscriptionsService {
       throw new NotFoundException('Subscription not found');
     }
     Object.assign(subscription, updates);
-    return this.subscriptionRepository.save(subscription);
+    const saved = await this.subscriptionRepository.save(subscription);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.SUBSCRIPTION_CREATED,
+        description: `Subscription updated`,
+        severity: AuditSeverity.MEDIUM,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'tenant_subscription',
+        resourceId: subscription.id,
+        tenantId,
+        metadata: { updatedFields: Object.keys(updates) },
+      })
+      .catch(() => {});
+
+    return saved;
   }
 
   async hasFeatureAccess(tenantId: string, features: FeatureAccess[]): Promise<boolean> {
@@ -256,6 +278,20 @@ export class SubscriptionsService {
       where: { id: saved.id },
       relations: ['plan', 'planPrice', 'planPrice.plan'],
     });
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.SUBSCRIPTION_CREATED,
+        description: `Trial extended by ${additionalDays} days`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'tenant_subscription',
+        resourceId: saved.id,
+        tenantId,
+        metadata: { additionalDays, newTrialEnd: newEnd.toISOString() },
+      })
+      .catch(() => {});
+
     return loaded ?? saved;
   }
 

@@ -41,13 +41,18 @@ export class LeaveTypeController {
     @Param('tenantId') tenantId: string,
     @Param('typeId') typeId: string,
     @Body() dto: UpdateLeaveTypeDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.leaveTypeService.updateLeaveType(tenantId, typeId, dto);
+    return this.leaveTypeService.updateLeaveType(tenantId, typeId, dto, member.id);
   }
   @Delete(':typeId')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  async deleteLeaveType(@Param('tenantId') tenantId: string, @Param('typeId') typeId: string) {
-    await this.leaveTypeService.deleteLeaveType(tenantId, typeId);
+  async deleteLeaveType(
+    @Param('tenantId') tenantId: string,
+    @Param('typeId') typeId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    await this.leaveTypeService.deleteLeaveType(tenantId, typeId, member.id);
   }
 }

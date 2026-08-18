@@ -285,8 +285,9 @@ export class RewardsController {
   async createCustomReward(
     @Param('tenantId') tenantId: string,
     @Body() body: CreateCustomRewardDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.customRewardsService.create(tenantId, body);
+    return this.customRewardsService.create(tenantId, body, member.id);
   }
 
   @Patch('custom/:rewardId')
@@ -297,8 +298,9 @@ export class RewardsController {
     @Param('tenantId') tenantId: string,
     @Param('rewardId') rewardId: string,
     @Body() body: UpdateCustomRewardDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.customRewardsService.update(tenantId, rewardId, body);
+    return this.customRewardsService.update(tenantId, rewardId, body, member.id);
   }
 
   @Delete('custom/:rewardId')
@@ -308,8 +310,9 @@ export class RewardsController {
   async deleteCustomReward(
     @Param('tenantId') tenantId: string,
     @Param('rewardId') rewardId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    await this.customRewardsService.softDelete(tenantId, rewardId);
+    await this.customRewardsService.softDelete(tenantId, rewardId, member.id);
     return { success: true };
   }
 
@@ -349,15 +352,20 @@ export class RewardsController {
       submissionType: 'instant' | 'text' | 'file';
       isRecurring?: boolean;
     },
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.rewardsService.createTask(tenantId, body);
+    return this.rewardsService.createTask(tenantId, body, member.id);
   }
 
   @Delete('tasks/:taskId')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)
-  async deleteTask(@Param('tenantId') tenantId: string, @Param('taskId') taskId: string) {
-    return this.rewardsService.deleteTask(tenantId, taskId);
+  async deleteTask(
+    @Param('tenantId') tenantId: string,
+    @Param('taskId') taskId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.rewardsService.deleteTask(tenantId, taskId, member.id);
   }
 
   @Post('tasks/:taskId/submit')

@@ -252,7 +252,7 @@ export class AttendanceController {
   ) {
     const exception = await this.attendanceService.getAttendanceException(tenantId, exceptionId);
     await this.assertCanApproveException(member, tenantId, exception.tenantMemberId);
-    return this.attendanceService.rejectAttendanceException(tenantId, exceptionId, dto);
+    return this.attendanceService.rejectAttendanceException(tenantId, exceptionId, dto, member.id);
   }
 
   @Get('reports/daily')

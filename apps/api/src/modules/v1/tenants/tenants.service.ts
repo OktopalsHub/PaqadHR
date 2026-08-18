@@ -12,6 +12,8 @@ import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
 import { isWalletCurrencyLocked } from 'src/common/utils/rewards-defaults.util';
 import { IsNull, Repository } from 'typeorm';
+import { AuditAction, AuditSeverity, AuditStatus } from '../../../common/enums/audit-action.enum';
+import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Employment } from '../employment/entities/employment.entity';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
 import { TenantWallet } from '../rewards/entities/tenant-wallet.entity';
@@ -37,6 +39,7 @@ export class TenantsService {
     private readonly walletRepository: Repository<TenantWallet>,
     @InjectRepository(TenantWalletTransaction)
     private readonly walletTransactionRepository: Repository<TenantWalletTransaction>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
   async createTenant(creatorId: string, data: CreateTenantDto): Promise<Tenant> {
     try {
@@ -96,6 +99,20 @@ export class TenantsService {
           },
         });
       } catch (_eventError) {}
+
+      void this.auditLogsService
+        .queueAuditLog({
+          action: AuditAction.TENANT_CREATED,
+          description: `Workspace "${data.name}" created`,
+          severity: AuditSeverity.MEDIUM,
+          status: AuditStatus.SUCCESS,
+          resourceType: 'tenant',
+          resourceId: savedTenant.id,
+          userId: creatorId,
+          metadata: { name: data.name, slug },
+        })
+        .catch(() => {});
+
       return savedTenant;
     } catch (error) {
       if (error instanceof UnprocessableEntityException || error instanceof BadRequestException) {
@@ -221,6 +238,19 @@ export class TenantsService {
       updateTenantDto.slug = existingTenant.slug;
     }
     await this.tenantRepository.update(tenantId, updateTenantDto);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.TENANT_UPDATED,
+        description: `Workspace settings updated`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'tenant',
+        resourceId: tenantId,
+        metadata: { updatedFields: Object.keys(updateTenantDto) },
+      })
+      .catch(() => {});
+
     return this.tenantRepository.findOne({ where: { id: tenantId } });
   }
   async permanentDeleteTenant(tenantId: string): Promise<void> {
@@ -228,12 +258,34 @@ export class TenantsService {
     if (result.affected === 0) {
       throw new NotFoundException(`Tenant not found`);
     }
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.TENANT_DELETED,
+        description: `Workspace permanently deleted`,
+        severity: AuditSeverity.CRITICAL,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'tenant',
+        resourceId: tenantId,
+      })
+      .catch(() => {});
   }
   async deleteTenant(tenantId: string): Promise<void> {
     const result = await this.tenantRepository.softDelete(tenantId);
     if (result.affected === 0) {
       throw new NotFoundException(`Tenant not found`);
     }
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.TENANT_DELETED,
+        description: `Workspace soft-deleted`,
+        severity: AuditSeverity.HIGH,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'tenant',
+        resourceId: tenantId,
+      })
+      .catch(() => {});
   }
   async restoreTenant(tenantId: string): Promise<void> {
     const result = await this.tenantRepository.restore(tenantId);

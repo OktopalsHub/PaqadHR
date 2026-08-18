@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ActivitiesModule } from '../activities/activities.module';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { LeaveModule } from '../leave/leave.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -22,6 +23,7 @@ import { DepartmentUtils } from './utils/department.utils';
     TenantMembersModule,
     TenantSettingsModule,
     LeaveModule,
+    ActivitiesModule,
   ],
   controllers: [AttendanceController],
   providers: [

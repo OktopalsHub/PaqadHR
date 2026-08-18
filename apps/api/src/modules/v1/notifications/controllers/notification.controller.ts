@@ -111,8 +111,9 @@ export class NotificationController {
   async deleteNotification(
     @Param('id') id: string,
     @CurrentTenantMember() member: MemberContext,
+    @CurrentTenant() tenant: TenantContext | undefined,
   ): Promise<{ success: boolean }> {
-    await this.notificationService.deleteNotification(id, member.id);
+    await this.notificationService.deleteNotification(id, member.id, tenant?.id);
     return { success: true };
   }
   @Sse('stream')

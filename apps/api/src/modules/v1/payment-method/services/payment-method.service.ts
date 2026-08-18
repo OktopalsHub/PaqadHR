@@ -28,6 +28,7 @@ import {
 } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import { EncryptionService } from '../../../../common/services/encryption.service';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
+import { MonnifyApiService } from '../../../../common/services/monnify-api.service';
 import { NombaTransferApiService } from '../../../../common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
@@ -63,6 +64,7 @@ export class PaymentMethodService {
     private readonly tenantMemberRepository: Repository<TenantMember>,
     readonly _paymentProviderFactory: PaymentProviderFactoryService,
     private readonly nombaTransferApi: NombaTransferApiService,
+    private readonly monnifyApi: MonnifyApiService,
     private readonly encryptionService: EncryptionService,
     private readonly auditLogsService: AuditLogsService,
     private readonly managerAccessService: ManagerAccessService,
@@ -876,7 +878,7 @@ export class PaymentMethodService {
   }
 
   /**
-   * Auto-verify via Nomba when available. If lookup is down, accept a manual
+   * Auto-verify via Nomba or Monnify when available. If lookup is down, accept a manual
    * account name as pending admin verification so NGN users can still save.
    */
   private async resolveNigerianBankAccount(
@@ -923,9 +925,6 @@ export class PaymentMethodService {
     bankCode: string,
     bankName?: string,
   ): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
-    if (!this.nombaTransferApi.isConfigured()) {
-      throw new ServiceUnavailableException('Bank lookup is not available in this environment');
-    }
     const normalizedNumber = accountNumber.replace(/\D/g, '');
     if (normalizedNumber.length !== 10) {
       throw new BadRequestException('Account number must be 10 digits');
@@ -933,11 +932,61 @@ export class PaymentMethodService {
     if (!bankCode?.trim()) {
       throw new BadRequestException('Bank is required');
     }
-    const result = await this.nombaTransferApi.lookupBankAccount(normalizedNumber, bankCode.trim());
-    return {
-      ...result,
-      bankCode: bankCode.trim(),
-      bankName: bankName?.trim() || bankCode.trim(),
-    };
+    const trimmedBankCode = bankCode.trim();
+
+    // Try Nomba first
+    if (this.nombaTransferApi.isConfigured()) {
+      try {
+        const result = await this.nombaTransferApi.lookupBankAccount(
+          normalizedNumber,
+          trimmedBankCode,
+        );
+        return {
+          ...result,
+          bankCode: trimmedBankCode,
+          bankName: bankName?.trim() || trimmedBankCode,
+        };
+      } catch (error) {
+        // Only fall through to Monnify for availability errors; rethrow validation errors immediately
+        const isAvailabilityError =
+          error instanceof ServiceUnavailableException ||
+          (error instanceof BadRequestException &&
+            /not available|not configured|unavailable|Failed to authenticate with Nomba/i.test(
+              error.message || '',
+            ));
+        if (!isAvailabilityError) {
+          throw error;
+        }
+        this.logger.warn(
+          `Nomba bank lookup failed, trying Monnify: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    // Fallback to Monnify
+    if (this.monnifyApi.isConfigured()) {
+      try {
+        const result = await this.monnifyApi.lookupBankAccount(normalizedNumber, trimmedBankCode);
+        return {
+          ...result,
+          bankCode: trimmedBankCode,
+          bankName: bankName?.trim() || trimmedBankCode,
+        };
+      } catch (error) {
+        // Only fall through for availability errors; rethrow validation errors immediately
+        const isAvailabilityError =
+          error instanceof ServiceUnavailableException ||
+          (error instanceof BadRequestException &&
+            /not available|not configured|unavailable/i.test(error.message || ''));
+        if (!isAvailabilityError) {
+          throw error;
+        }
+        this.logger.warn(
+          `Monnify bank lookup failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    throw new ServiceUnavailableException('Bank lookup is not available in this environment');
   }
 }

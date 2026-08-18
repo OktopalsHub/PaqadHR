@@ -10,7 +10,23 @@ export type RewardType =
   | 'NOMBA_UTILITY'
   | 'RELOADLY_UTILITY'
   | 'CUSTOM';
-export type RedemptionStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
+export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+
+export interface RecipientInfo {
+  email?: string;
+  phone?: string;
+}
+
+export interface VoucherInfo {
+  code?: string;
+  pin?: string;
+  instructions?: string;
+}
+
+export interface ProviderRefInfo {
+  txRef?: string;
+  error?: string;
+}
 
 @Entity('reward_redemptions')
 export class RewardRedemption extends BaseEntity {
@@ -45,24 +61,15 @@ export class RewardRedemption extends BaseEntity {
   @Column({ type: 'varchar', length: 16, default: 'PENDING' })
   status: RedemptionStatus;
 
-  @Column({ name: 'recipient_email', type: 'varchar', nullable: true })
-  recipientEmail: string | null;
+  @Column({ type: 'jsonb', nullable: true })
+  recipient: RecipientInfo | null;
 
-  @Column({ name: 'recipient_phone', type: 'varchar', nullable: true })
-  recipientPhone: string | null;
+  @Column({ type: 'jsonb', nullable: true })
+  voucher: VoucherInfo | null;
 
-  @Column({ name: 'voucher_code', type: 'text', nullable: true })
-  voucherCode: string | null;
+  @Column({ type: 'jsonb', nullable: true })
+  providerRef: ProviderRefInfo | null;
 
-  @Column({ name: 'voucher_pin', type: 'text', nullable: true })
-  voucherPin: string | null;
-
-  @Column({ name: 'voucher_instructions', type: 'text', nullable: true })
-  voucherInstructions: string | null;
-
-  @Column({ name: 'provider_tx_ref', type: 'varchar', nullable: true })
-  providerTxRef: string | null;
-
-  @Column({ name: 'error_message', type: 'text', nullable: true })
-  errorMessage: string | null;
+  @Column({ name: 'processing_started_at', type: 'timestamptz', nullable: true })
+  processingStartedAt: Date | null;
 }

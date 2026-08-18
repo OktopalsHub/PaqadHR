@@ -40,6 +40,7 @@ import {
 import { Task } from '../entities/task.entity';
 import { TaskSubmission } from '../entities/task-submission.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
+import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import { computeRedemptionDebit } from '../utils/rewards-redemption.util';
 import { CustomRewardsService } from './custom-rewards.service';
 import { TenantWalletService } from './tenant-wallet.service';
@@ -75,6 +76,8 @@ export interface ClaimInput {
   currencyCode?: string;
   recipientEmail?: string;
   recipientPhone?: string;
+  /** Client-generated UUID; retries with the same key return the existing redemption. */
+  idempotencyKey?: string;
 
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
@@ -83,6 +86,15 @@ export interface ClaimInput {
   accountNumber?: string;
   serviceType?: string;
 }
+
+/** Maximum time in milliseconds a redemption can stay in PROCESSING before recovery kicks in. */
+const PROCESSING_LEASE_MS = 5 * 60 * 1000; // 5 minutes
+
+type ClaimCostBreakdown = {
+  totalTenantDebit: number;
+  expectedPointsCost: number;
+  faceValueInRewardsCurrency: number;
+};
 
 @Injectable()
 export class RewardsService {
@@ -865,116 +877,123 @@ export class RewardsService {
     const currencyCode = input.currencyCode ?? settings.rewardsCurrency;
     const currencyValue = input.currencyValue;
     const pointsCost = input.pointsCost;
+    const redemptionId = this.resolveRedemptionId(input);
+    const redemptionRepo = this.dataSource.getRepository(RewardRedemption);
+    const existing = await redemptionRepo.findOne({
+      where: { id: redemptionId, tenantId, memberId },
+    });
 
-    const redemptionId = randomUUID();
-
-    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
-
-    let totalTenantDebit: number;
-    let expectedPointsCost: number;
-    let faceValueInRewardsCurrency: number;
-
-    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
-      const calc = await this.calculateLocalRewardCost(tenantId, currencyValue);
-      totalTenantDebit = calc.totalTenantDebit;
-      expectedPointsCost = calc.pointsCost;
-      faceValueInRewardsCurrency = calc.currencyValue;
-    } else if (input.rewardType === 'RELOADLY') {
-      const product = this.resolveReloadlyProduct(settings, input.rewardId);
-      if (!product) {
-        throw new BadRequestException('Reloadly product not found in catalog');
+    if (existing) {
+      this.assertMatchingIdempotentClaim(existing, input);
+      if (existing.status === 'SUCCESS' || existing.status === 'FAILED') {
+        return existing;
       }
-
-      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
-      if (wholesaleInRewardsCurrency == null) {
-        if (product.listReloadlyCost == null || !product.listReloadlyCostCurrency) {
-          throw new BadRequestException(
-            'Gift card pricing is not available. Please refresh the rewards catalog.',
-          );
-        }
-        wholesaleInRewardsCurrency = await this.toWalletCurrency(
-          product.listReloadlyCost,
-          product.listReloadlyCostCurrency,
-          settings.rewardsCurrency,
-          undefined,
-          product.countryCode,
-        );
-      }
-
-      faceValueInRewardsCurrency = wholesaleInRewardsCurrency;
-      totalTenantDebit = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
-      expectedPointsCost = product.pointsCost;
-    } else if (input.rewardType === 'TREMENDOUS') {
-      const product = this.resolveTremendousProduct(settings, input.rewardId);
-      if (!product) {
-        throw new BadRequestException('Tremendous product not found in catalog');
-      }
-
-      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
-      if (wholesaleInRewardsCurrency == null) {
-        if (product.listTremendousCost == null || !product.listTremendousCostCurrency) {
-          throw new BadRequestException(
-            'Gift card pricing is not available. Please refresh the rewards catalog.',
-          );
-        }
-        wholesaleInRewardsCurrency = await this.toWalletCurrency(
-          product.listTremendousCost,
-          product.listTremendousCostCurrency,
-          settings.rewardsCurrency,
-          undefined,
-          product.countryCode,
-        );
-      }
-
-      faceValueInRewardsCurrency = wholesaleInRewardsCurrency;
-      totalTenantDebit = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
-      expectedPointsCost = product.pointsCost;
-    } else if (input.rewardType === 'RELOADLY_AIRTIME') {
-      const calc = await this.calculateReloadlyAirtimeCost(
-        Number(input.billerId),
-        currencyValue,
-        tenantId,
-        settings,
-      );
-      totalTenantDebit = calc.totalTenantDebit;
-      expectedPointsCost = calc.pointsCost;
-      faceValueInRewardsCurrency = await this.toWalletCurrency(
-        calc.senderAmount,
-        calc.senderCurrencyCode,
-        settings.rewardsCurrency,
-        Number(input.billerId),
-      );
-    } else if (input.rewardType === 'RELOADLY_UTILITY') {
-      const calc = await this.calculateReloadlyUtilityCost(
-        Number(input.billerId),
-        currencyValue,
-        tenantId,
-        settings,
-      );
-      totalTenantDebit = calc.totalTenantDebit;
-      expectedPointsCost = calc.pointsCost;
-      faceValueInRewardsCurrency = await this.toWalletCurrency(
-        calc.senderAmount,
-        calc.senderCurrencyCode,
-        settings.rewardsCurrency,
-        Number(input.billerId),
-      );
-    } else if (input.rewardType === 'CUSTOM') {
-      totalTenantDebit = currencyValue;
-      faceValueInRewardsCurrency = currencyValue;
-      expectedPointsCost = pointsCost;
-    } else {
-      throw new BadRequestException(`Unsupported reward type: ${input.rewardType}`);
     }
 
-    if (input.rewardType !== 'CUSTOM' && pointsCost !== expectedPointsCost) {
+    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
+    const costs = await this.computeClaimCosts(
+      tenantId,
+      settings,
+      input,
+      pointsCost,
+      currencyValue,
+      feePercentage,
+    );
+
+    if (input.rewardType !== 'CUSTOM' && pointsCost !== costs.expectedPointsCost) {
       throw new BadRequestException(
-        `Invalid points cost. Expected ${expectedPointsCost} points for this reward.`,
+        `Invalid points cost. Expected ${costs.expectedPointsCost} points for this reward.`,
       );
+    }
+
+    if (existing?.status === 'PENDING') {
+      let originalDebitAmount = costs.totalTenantDebit;
+
+      const claimed = await this.dataSource.transaction(async (manager) => {
+        const updateResult = await manager
+          .getRepository(RewardRedemption)
+          .createQueryBuilder()
+          .update(RewardRedemption)
+          .set({
+            status: 'PROCESSING' as RedemptionStatus,
+            processingStartedAt: () => 'NOW()',
+          })
+          .where(
+            'id = :id AND tenant_id = :tenantId AND member_id = :memberId AND status = :status',
+            {
+              id: redemptionId,
+              tenantId,
+              memberId,
+              status: 'PENDING',
+            },
+          )
+          .execute();
+
+        if (!updateResult.affected) {
+          return null;
+        }
+
+        const walletTxRepo = manager.getRepository(TenantWalletTransaction);
+        const originalDebit = await walletTxRepo.findOne({
+          where: { reference: redemptionId, type: 'SPENT' },
+        });
+        if (originalDebit) {
+          originalDebitAmount = Math.abs(Number(originalDebit.amount));
+        }
+
+        return true;
+      });
+
+      if (!claimed) {
+        return this.dataSource.getRepository(RewardRedemption).findOneOrFail({
+          where: { id: redemptionId, tenantId, memberId },
+        });
+      }
+
+      const updated = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
+        where: { id: redemptionId, tenantId, memberId },
+      });
+
+      return this.finalizeClaimFulfillment({
+        tenantId,
+        memberId,
+        input,
+        redemption: updated,
+        pointsCost,
+        totalTenantDebit: originalDebitAmount,
+      });
+    }
+
+    if (existing?.status === 'PROCESSING') {
+      const leaseExpired =
+        existing.processingStartedAt &&
+        Date.now() - existing.processingStartedAt.getTime() > PROCESSING_LEASE_MS;
+
+      if (!leaseExpired) {
+        throw new BadRequestException('Reward claim is already being processed. Please wait.');
+      }
+
+      this.logger.warn(
+        `Recovering stale PROCESSING redemption ${redemptionId} (lease expired at ${existing.processingStartedAt?.toISOString()})`,
+      );
+
+      await this.dataSource.getRepository(RewardRedemption).update(redemptionId, {
+        status: 'PENDING' as RedemptionStatus,
+        processingStartedAt: null,
+      });
+
+      return this.claim(tenantId, memberId, input);
     }
 
     let redemption: RewardRedemption;
     await this.dataSource.transaction(async (manager) => {
+      const pending = await manager.getRepository(RewardRedemption).findOne({
+        where: { id: redemptionId, tenantId, memberId },
+      });
+      if (pending) {
+        throw new BadRequestException('Reward claim is already being processed. Please wait.');
+      }
+
       if (input.rewardType === 'CUSTOM') {
         const customRewardRepo = manager.getRepository(CustomReward);
         const cr = await customRewardRepo.findOneOrFail({
@@ -1038,16 +1057,16 @@ export class RewardsService {
       if (input.rewardType !== 'CUSTOM') {
         await this.walletService.debit(
           tenantId,
-          totalTenantDebit,
+          costs.totalTenantDebit,
           redemptionId,
-          `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((totalTenantDebit - faceValueInRewardsCurrency).toFixed(2))})`,
+          `Reward claim: ${input.rewardName ?? input.rewardId} (Face Value: ${currencyCode} ${currencyValue}, Platform Fees: ${Number((costs.totalTenantDebit - costs.faceValueInRewardsCurrency).toFixed(2))})`,
           memberId,
           manager,
         );
       }
 
-      const redemptionRepo = manager.getRepository(RewardRedemption);
-      redemption = redemptionRepo.create({
+      const txRedemptionRepo = manager.getRepository(RewardRedemption);
+      redemption = txRedemptionRepo.create({
         id: redemptionId,
         tenantId,
         memberId,
@@ -1058,10 +1077,12 @@ export class RewardsService {
         currencyValue,
         currencyCode,
         status: 'PENDING' as RedemptionStatus,
-        recipientEmail: input.recipientEmail ?? null,
-        recipientPhone: input.recipientPhone ?? null,
+        recipient: {
+          email: input.recipientEmail ?? undefined,
+          phone: input.recipientPhone ?? undefined,
+        },
       });
-      await redemptionRepo.save(redemption);
+      await txRedemptionRepo.save(redemption);
     });
 
     if (input.rewardType !== 'CUSTOM') {
@@ -1074,25 +1095,201 @@ export class RewardsService {
       }
     }
 
-    try {
-      if (input.rewardType === 'RELOADLY') {
-        await this.fulfillReloadly(redemption!, input);
-      } else if (input.rewardType === 'TREMENDOUS') {
-        await this.fulfillTremendous(redemption!, input);
-      } else if (input.rewardType === 'NOMBA_AIRTIME') {
-        await this.fulfillNombaTopup(redemption!, input);
-      } else if (input.rewardType === 'RELOADLY_AIRTIME') {
-        await this.fulfillReloadlyAirtime(redemption!, input);
-      } else if (input.rewardType === 'NOMBA_UTILITY') {
-        await this.fulfillNombaUtility(redemption!, input);
-      } else if (input.rewardType === 'RELOADLY_UTILITY') {
-        await this.fulfillReloadlyUtility(redemption!, input);
-      } else if (input.rewardType === 'CUSTOM') {
-        await this.fulfillCustom(redemption!);
+    return this.finalizeClaimFulfillment({
+      tenantId,
+      memberId,
+      input,
+      redemption: redemption!,
+      pointsCost,
+      totalTenantDebit: costs.totalTenantDebit,
+    });
+  }
+
+  private resolveRedemptionId(input: ClaimInput): string {
+    const key = input.idempotencyKey?.trim();
+    if (!key) {
+      return randomUUID();
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(key)) {
+      throw new BadRequestException('idempotencyKey must be a valid UUID');
+    }
+    return key;
+  }
+
+  private assertMatchingIdempotentClaim(existing: RewardRedemption, input: ClaimInput): void {
+    const existingEmail = existing.recipient?.email ?? null;
+    const existingPhone = existing.recipient?.phone ?? null;
+    if (
+      existing.rewardType !== input.rewardType ||
+      existing.rewardId !== input.rewardId ||
+      existing.pointsSpent !== input.pointsCost ||
+      Number(existing.currencyValue) !== input.currencyValue ||
+      existingEmail !== (input.recipientEmail ?? null) ||
+      existingPhone !== (input.recipientPhone ?? null)
+    ) {
+      throw new BadRequestException(
+        'This idempotency key was already used for a different reward claim.',
+      );
+    }
+  }
+
+  private async computeClaimCosts(
+    tenantId: string,
+    settings: RewardsSettings,
+    input: ClaimInput,
+    pointsCost: number,
+    currencyValue: number,
+    feePercentage: number,
+  ): Promise<ClaimCostBreakdown> {
+    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
+      const calc = await this.calculateLocalRewardCost(tenantId, currencyValue);
+      return {
+        totalTenantDebit: calc.totalTenantDebit,
+        expectedPointsCost: calc.pointsCost,
+        faceValueInRewardsCurrency: calc.currencyValue,
+      };
+    }
+
+    if (input.rewardType === 'RELOADLY') {
+      const product = this.resolveReloadlyProduct(settings, input.rewardId);
+      if (!product) {
+        throw new BadRequestException('Reloadly product not found in catalog');
       }
+
+      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
+      if (wholesaleInRewardsCurrency == null) {
+        if (product.listReloadlyCost == null || !product.listReloadlyCostCurrency) {
+          throw new BadRequestException(
+            'Gift card pricing is not available. Please refresh the rewards catalog.',
+          );
+        }
+        wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          product.listReloadlyCost,
+          product.listReloadlyCostCurrency,
+          settings.rewardsCurrency,
+          undefined,
+          product.countryCode,
+        );
+      }
+
+      return {
+        faceValueInRewardsCurrency: wholesaleInRewardsCurrency,
+        totalTenantDebit: computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage),
+        expectedPointsCost: product.pointsCost,
+      };
+    }
+
+    if (input.rewardType === 'TREMENDOUS') {
+      const product = this.resolveTremendousProduct(settings, input.rewardId);
+      if (!product) {
+        throw new BadRequestException('Tremendous product not found in catalog');
+      }
+
+      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
+      if (wholesaleInRewardsCurrency == null) {
+        if (product.listTremendousCost == null || !product.listTremendousCostCurrency) {
+          throw new BadRequestException(
+            'Gift card pricing is not available. Please refresh the rewards catalog.',
+          );
+        }
+        wholesaleInRewardsCurrency = await this.toWalletCurrency(
+          product.listTremendousCost,
+          product.listTremendousCostCurrency,
+          settings.rewardsCurrency,
+          undefined,
+          product.countryCode,
+        );
+      }
+
+      return {
+        faceValueInRewardsCurrency: wholesaleInRewardsCurrency,
+        totalTenantDebit: computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage),
+        expectedPointsCost: product.pointsCost,
+      };
+    }
+
+    if (input.rewardType === 'RELOADLY_AIRTIME') {
+      const calc = await this.calculateReloadlyAirtimeCost(
+        Number(input.billerId),
+        currencyValue,
+        tenantId,
+        settings,
+      );
+      return {
+        totalTenantDebit: calc.totalTenantDebit,
+        expectedPointsCost: calc.pointsCost,
+        faceValueInRewardsCurrency: await this.toWalletCurrency(
+          calc.senderAmount,
+          calc.senderCurrencyCode,
+          settings.rewardsCurrency,
+          Number(input.billerId),
+        ),
+      };
+    }
+
+    if (input.rewardType === 'RELOADLY_UTILITY') {
+      const calc = await this.calculateReloadlyUtilityCost(
+        Number(input.billerId),
+        currencyValue,
+        tenantId,
+        settings,
+      );
+      return {
+        totalTenantDebit: calc.totalTenantDebit,
+        expectedPointsCost: calc.pointsCost,
+        faceValueInRewardsCurrency: await this.toWalletCurrency(
+          calc.senderAmount,
+          calc.senderCurrencyCode,
+          settings.rewardsCurrency,
+          Number(input.billerId),
+        ),
+      };
+    }
+
+    if (input.rewardType === 'CUSTOM') {
+      return {
+        totalTenantDebit: currencyValue,
+        faceValueInRewardsCurrency: currencyValue,
+        expectedPointsCost: pointsCost,
+      };
+    }
+
+    throw new BadRequestException(`Unsupported reward type: ${input.rewardType}`);
+  }
+
+  private async finalizeClaimFulfillment(params: {
+    tenantId: string;
+    memberId: string;
+    input: ClaimInput;
+    redemption: RewardRedemption;
+    pointsCost: number;
+    totalTenantDebit: number;
+  }): Promise<RewardRedemption> {
+    const { tenantId, memberId, input, pointsCost, totalTenantDebit } = params;
+    let redemption = params.redemption;
+    const redemptionId = redemption.id;
+
+    try {
+      await this.runClaimFulfillment(redemption, input);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown fulfillment error';
       this.logger.error(`Reward fulfillment failed for ${redemptionId}: ${errorMessage}`);
+
+      const alreadyFailed = await this.dataSource.getRepository(RewardRedemption).findOne({
+        where: { id: redemptionId, status: 'FAILED' as RedemptionStatus },
+      });
+      if (alreadyFailed) {
+        redemption = alreadyFailed;
+        return redemption;
+      }
+
+      let originalDebitAmount = totalTenantDebit;
+      const originalDebit = await this.dataSource
+        .getRepository(TenantWalletTransaction)
+        .findOne({ where: { reference: redemptionId, type: 'SPENT' } });
+      if (originalDebit) {
+        originalDebitAmount = Math.abs(Number(originalDebit.amount));
+      }
 
       await this.dataSource.transaction(async (manager) => {
         const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
@@ -1108,22 +1305,24 @@ export class RewardsService {
           .execute();
 
         const txRepo = manager.getRepository(ShoutoutPointTransaction);
-        const updatedPoints = await pointsRepo.findOneOrFail({ where: { tenantId, memberId } });
-        const refundTx = txRepo.create({
-          tenantId,
-          memberId,
-          type: ShoutoutPointTransactionType.REDEMPTION,
-          points: pointsCost,
-          runningBalance: updatedPoints.currentBalance,
-          description: `Refund: ${input.rewardName ?? input.rewardId} — ${errorMessage}`,
-          createdBy: memberId,
-        });
-        await txRepo.save(refundTx);
+        const updatedPoints = await pointsRepo.findOne({ where: { tenantId, memberId } });
+        if (updatedPoints) {
+          const refundTx = txRepo.create({
+            tenantId,
+            memberId,
+            type: ShoutoutPointTransactionType.REDEMPTION,
+            points: pointsCost,
+            runningBalance: updatedPoints.currentBalance,
+            description: `Refund: ${input.rewardName ?? input.rewardId} — ${errorMessage}`,
+            createdBy: memberId,
+          });
+          await txRepo.save(refundTx);
+        }
 
         if (input.rewardType !== 'CUSTOM') {
           await this.walletService.credit(
             tenantId,
-            totalTenantDebit,
+            originalDebitAmount,
             'REFUND',
             redemptionId,
             `Refund: ${input.rewardName ?? input.rewardId}`,
@@ -1145,14 +1344,15 @@ export class RewardsService {
         const redemptionRepo = manager.getRepository(RewardRedemption);
         await redemptionRepo.update(redemptionId, {
           status: 'FAILED' as RedemptionStatus,
-          errorMessage,
+          providerRef: { ...redemption.providerRef, error: errorMessage },
+          processingStartedAt: null,
         });
       });
 
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
-        where: { id: redemptionId },
+        where: { id: redemptionId, tenantId, memberId },
       });
-      return redemption!;
+      return redemption;
     }
 
     void this.activitiesService
@@ -1175,7 +1375,42 @@ export class RewardsService {
         );
       });
 
-    return redemption!;
+    return this.dataSource.getRepository(RewardRedemption).findOneOrFail({
+      where: { id: redemptionId, tenantId, memberId },
+    });
+  }
+
+  private async runClaimFulfillment(
+    redemption: RewardRedemption,
+    input: ClaimInput,
+  ): Promise<void> {
+    if (input.rewardType === 'RELOADLY') {
+      await this.fulfillReloadly(redemption, input);
+      return;
+    }
+    if (input.rewardType === 'TREMENDOUS') {
+      await this.fulfillTremendous(redemption, input);
+      return;
+    }
+    if (input.rewardType === 'NOMBA_AIRTIME') {
+      await this.fulfillNombaTopup(redemption, input);
+      return;
+    }
+    if (input.rewardType === 'RELOADLY_AIRTIME') {
+      await this.fulfillReloadlyAirtime(redemption, input);
+      return;
+    }
+    if (input.rewardType === 'NOMBA_UTILITY') {
+      await this.fulfillNombaUtility(redemption, input);
+      return;
+    }
+    if (input.rewardType === 'RELOADLY_UTILITY') {
+      await this.fulfillReloadlyUtility(redemption, input);
+      return;
+    }
+    if (input.rewardType === 'CUSTOM') {
+      await this.fulfillCustom(redemption);
+    }
   }
 
   private async fulfillReloadly(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
@@ -1195,21 +1430,21 @@ export class RewardsService {
       quantity: 1,
       unitPrice: redemption.currencyValue,
       customIdentifier: redemption.id,
-      recipientEmail: redemption.recipientEmail ?? undefined,
+      recipientEmail: redemption.recipient?.email,
       senderName,
     });
 
     const transactionId = orderResponse.transactionId;
 
-    let voucherCode: string | null = null;
-    let voucherPin: string | null = null;
+    let code: string | undefined;
+    let pin: string | undefined;
 
     if (transactionId) {
       try {
         const codes = await this.reloadlyApi.getRedemptionCodes(transactionId);
         if (codes?.[0]) {
-          voucherCode = codes[0].cardNumber ?? null;
-          voucherPin = codes[0].pinCode ?? null;
+          code = codes[0].cardNumber ?? undefined;
+          pin = codes[0].pinCode ?? undefined;
         }
       } catch (e) {
         this.logger.warn(`Could not fetch redemption codes for transaction ${transactionId}: ${e}`);
@@ -1218,10 +1453,16 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: transactionId ? String(transactionId) : null,
-      voucherCode,
-      voucherPin,
-      voucherInstructions: 'Present this code at any participating store to redeem.',
+      providerRef: {
+        ...redemption.providerRef,
+        txRef: transactionId ? String(transactionId) : undefined,
+      },
+      voucher: {
+        code,
+        pin,
+        instructions: 'Present this code at any participating store to redeem.',
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1244,7 +1485,7 @@ export class RewardsService {
       })
       .getOne();
 
-    const recipientEmail = redemption.recipientEmail ?? member?.user?.email;
+    const recipientEmail = redemption.recipient?.email ?? member?.user?.email;
     if (!recipientEmail) {
       throw new Error('Recipient email is required to issue a Tremendous reward');
     }
@@ -1263,17 +1504,33 @@ export class RewardsService {
       externalId: redemption.id,
     });
 
+    const orderStatus = orderResponse.order?.status;
     const reward = orderResponse.reward ?? orderResponse.order?.rewards?.[0];
+    const deliveryStatus = reward?.delivery?.status;
     const deliveryLink = reward?.delivery?.link ?? null;
     const orderId = orderResponse.order?.id ?? reward?.id ?? null;
 
+    if (
+      orderStatus === 'DECLINED' ||
+      orderStatus === 'CANCELLED' ||
+      deliveryStatus === 'FAILED' ||
+      deliveryStatus === 'BOUNCED'
+    ) {
+      throw new Error(
+        `Tremendous order was not fulfilled: ${orderStatus ?? deliveryStatus ?? 'unknown status'}`,
+      );
+    }
+
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: orderId,
-      voucherCode: deliveryLink,
-      voucherInstructions: deliveryLink
-        ? 'Open this link to choose and redeem your gift card.'
-        : 'Your reward is being prepared. Check back shortly for your redemption link.',
+      providerRef: { ...redemption.providerRef, txRef: orderId ?? undefined },
+      voucher: {
+        code: deliveryLink ?? undefined,
+        instructions: deliveryLink
+          ? 'Open this link to choose and redeem your gift card.'
+          : 'Your reward is being prepared. Check back shortly for your redemption link.',
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1318,10 +1575,13 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: result.transactionId,
-      voucherInstructions: isData
-        ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
-        : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
+      voucher: {
+        instructions: isData
+          ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
+          : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1350,8 +1610,11 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: String(result.transactionId),
-      voucherInstructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      providerRef: { ...redemption.providerRef, txRef: String(result.transactionId) },
+      voucher: {
+        instructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1385,9 +1648,9 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: result.transactionId,
-      voucherCode: result.token || null,
-      voucherInstructions: instructions,
+      providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
+      voucher: { code: result.token || undefined, instructions },
+      processingStartedAt: null,
     });
   }
 
@@ -1415,9 +1678,9 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      providerTxRef: String(result.id),
-      voucherCode: result.pin || result.code || null,
-      voucherInstructions: instructions,
+      providerRef: { ...redemption.providerRef, txRef: String(result.id) },
+      voucher: { code: result.pin || result.code || undefined, instructions },
+      processingStartedAt: null,
     });
   }
 
@@ -1513,9 +1776,12 @@ export class RewardsService {
 
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
       status: 'SUCCESS' as RedemptionStatus,
-      voucherInstructions:
-        customReward?.deliveryInstructions ??
-        'Your admin has been notified and will fulfill this reward.',
+      voucher: {
+        instructions:
+          customReward?.deliveryInstructions ??
+          'Your admin has been notified and will fulfill this reward.',
+      },
+      processingStartedAt: null,
     });
   }
 
@@ -1787,6 +2053,7 @@ export class RewardsService {
       submissionType: 'instant' | 'text' | 'file';
       isRecurring?: boolean;
     },
+    actorMemberId?: string,
   ) {
     const taskRepo = this.dataSource.getRepository(Task);
     const task = taskRepo.create({
@@ -1800,16 +2067,43 @@ export class RewardsService {
       submissionType: data.submissionType,
       isRecurring: data.isRecurring ?? false,
     });
-    return taskRepo.save(task);
+    const saved = await taskRepo.save(task);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'reward.task_created',
+          resourceType: 'task',
+          resourceId: saved.id,
+          description: `Task "${data.title}" created`,
+          metadata: { title: data.title, points: data.points },
+        })
+        .catch(() => {});
+    }
+    return saved;
   }
 
-  async deleteTask(tenantId: string, taskId: string) {
+  async deleteTask(tenantId: string, taskId: string, actorMemberId?: string) {
     const taskRepo = this.dataSource.getRepository(Task);
     const task = await taskRepo.findOne({ where: { id: taskId, tenantId } });
     if (!task) {
       throw new BadRequestException('Task not found');
     }
     await taskRepo.remove(task);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'reward.task_deleted',
+          resourceType: 'task',
+          resourceId: taskId,
+          description: `Task "${task.title}" deleted`,
+          metadata: { title: task.title },
+        })
+        .catch(() => {});
+    }
     return { success: true };
   }
 
@@ -1901,6 +2195,18 @@ export class RewardsService {
 
     await this.awardPointsForTask(tenantId, sub.memberId, task.points, task.title);
 
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: actorId,
+        action: 'reward.submission_approved',
+        resourceType: 'task_submission',
+        resourceId: submissionId,
+        description: `Task submission approved for "${task.title}"`,
+        metadata: { taskId, submitterMemberId: sub.memberId, points: task.points },
+      })
+      .catch(() => {});
+
     return { success: true };
   }
 
@@ -1925,6 +2231,22 @@ export class RewardsService {
 
     sub.status = 'rejected';
     await submissionRepo.save(sub);
+
+    const task = await this.dataSource
+      .getRepository(Task)
+      .findOne({ where: { id: taskId, tenantId } });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: actorId,
+        action: 'reward.submission_rejected',
+        resourceType: 'task_submission',
+        resourceId: submissionId,
+        description: `Task submission rejected for "${task?.title ?? taskId}"`,
+        metadata: { taskId, submitterMemberId: sub.memberId },
+      })
+      .catch(() => {});
 
     return { success: true };
   }

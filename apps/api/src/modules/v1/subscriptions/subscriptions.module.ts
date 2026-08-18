@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FeatureAccessGuard } from '../../../common/guards/feature-access.guard';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PlanPrice } from '../plans/entities/plan-price.entity';
 import { PlansModule } from '../plans/plans.module';
@@ -44,6 +45,7 @@ import { SubscriptionsService } from './services/subscriptions.service';
     NotificationsModule,
     TenantMembersModule,
     TenantConfigModule,
+    AuditLogsModule,
   ],
   controllers: [
     SubscriptionsController,

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from '../../../common/modules/file.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { Employment } from '../employment/entities/employment.entity';
 import { PlansModule } from '../plans/plans.module';
 import { PositionModule } from '../position/position.module';
@@ -25,6 +26,7 @@ import { TenantsService } from './tenants.service';
     SubscriptionsModule,
     PositionModule,
     FileModule,
+    AuditLogsModule,
   ],
   controllers: [TenantsController, TenantOnboardingController],
   providers: [TenantsService, TenantOnboardingService, TenantRepository],

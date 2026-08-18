@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
+import { ActivitiesService } from '../activities/services/activities.service';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -24,6 +25,7 @@ export class EmploymentService {
     private readonly tenantRepository: Repository<Tenant>,
     private readonly tenantMembersService: TenantMembersService,
     private readonly positionMemberService: PositionMemberService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async createEmployment(
     tenantId: string,
@@ -57,6 +59,20 @@ export class EmploymentService {
         createEmploymentDto.positionStartDate ?? createEmploymentDto.startDate,
       );
     }
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: createdBy,
+        action: 'employment.created',
+        resourceType: 'employment',
+        resourceId: employment.id,
+        description: `Employment record created`,
+        metadata: {
+          tenantMemberId,
+        },
+      })
+      .catch(() => {});
 
     return employment;
   }
@@ -96,7 +112,7 @@ export class EmploymentService {
       await this.employmentRepository.endCurrentEmployment(tenantMemberId, endDate, tenantId);
     }
 
-    return this.employmentRepository.createEmployment({
+    const newEmployment = await this.employmentRepository.createEmployment({
       startDate: effectiveDate,
       payRate,
       payType,
@@ -108,6 +124,23 @@ export class EmploymentService {
       tenantId,
       createdBy,
     });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: createdBy,
+        action: 'employment.compensation_updated',
+        resourceType: 'employment',
+        resourceId: newEmployment.id,
+        description: `Compensation record added`,
+        metadata: {
+          tenantMemberId,
+          effectiveDate,
+        },
+      })
+      .catch(() => {});
+
+    return newEmployment;
   }
   async listEmployments(tenantId: string): Promise<Employment[]> {
     return this.employmentRepository.listEmployments(tenantId);
@@ -126,13 +159,47 @@ export class EmploymentService {
     id: string,
     updateEmploymentDto: UpdateEmploymentDto,
     tenantId: string,
+    actorMemberId?: string,
   ): Promise<Employment> {
     await this.getEmployment(id, tenantId);
-    return this.employmentRepository.updateEmployment(id, updateEmploymentDto, tenantId);
+    const updated = await this.employmentRepository.updateEmployment(
+      id,
+      updateEmploymentDto,
+      tenantId,
+    );
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'employment.updated',
+          resourceType: 'employment',
+          resourceId: id,
+          description: `Employment record updated`,
+          metadata: { updatedFields: Object.keys(updateEmploymentDto) },
+        })
+        .catch(() => {});
+    }
+
+    return updated;
   }
-  async deleteEmployment(id: string, tenantId: string): Promise<void> {
+  async deleteEmployment(id: string, tenantId: string, actorMemberId?: string): Promise<void> {
     await this.getEmployment(id, tenantId);
     await this.employmentRepository.deleteEmployment(id, tenantId);
+
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'employment.deleted',
+          resourceType: 'employment',
+          resourceId: id,
+          description: `Employment record deleted`,
+        })
+        .catch(() => {});
+    }
   }
   async getCurrentEmployment(tenantMemberId: string, tenantId: string): Promise<Employment> {
     const employment = await this.employmentRepository.getCurrentEmployment(

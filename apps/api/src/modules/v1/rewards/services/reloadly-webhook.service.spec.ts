@@ -95,7 +95,7 @@ describe('ReloadlyWebhookService', () => {
       const redemption = {
         id: mockRedemptionId,
         status: 'PENDING',
-        providerTxRef: null,
+        providerRef: null,
       };
       mockRedemptionRepo.findOne.mockResolvedValue(redemption);
 
@@ -109,7 +109,7 @@ describe('ReloadlyWebhookService', () => {
 
       expect(mockRedemptionRepo.update).toHaveBeenCalledWith(mockRedemptionId, {
         status: 'SUCCESS',
-        providerTxRef: '9999',
+        providerRef: { txRef: '9999' },
       });
     });
 
@@ -161,7 +161,7 @@ describe('ReloadlyWebhookService', () => {
       // 3. Redemption marked failed
       expect(mockRedemptionRepo.update).toHaveBeenCalledWith(mockRedemptionId, {
         status: 'FAILED',
-        errorMessage: 'Reloadly transaction failed',
+        providerRef: { error: 'Reloadly transaction failed' },
       });
     });
   });

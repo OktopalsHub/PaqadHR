@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { InterviewStatus } from 'src/common/enums';
 import type { InterviewFilters } from 'src/common/interfaces';
 import { Repository } from 'typeorm';
+import { ActivitiesService } from '../../activities/services/activities.service';
 import type {
   AddFeedbackDto,
   CreateInterviewDto,
@@ -28,6 +29,7 @@ export class InterviewService {
     private readonly candidateRepository: Repository<Candidate>,
     @InjectRepository(JobOpening)
     private readonly jobOpeningRepository: Repository<JobOpening>,
+    private readonly activitiesService: ActivitiesService,
   ) {}
   async createInterview(
     tenantId: string,
@@ -64,12 +66,31 @@ export class InterviewService {
     if (!jobOpening) {
       throw new NotFoundException('Job opening not found or does not belong to this tenant');
     }
-    return this.interviewRepository.create({
-      ...createInterviewDto,
-      tenantId,
-      tenantMemberId,
-      status: InterviewStatus.SCHEDULED,
-    });
+    const saved = await this.interviewRepository.save(
+      this.interviewRepository.create({
+        ...createInterviewDto,
+        tenantId,
+        tenantMemberId,
+        status: InterviewStatus.SCHEDULED,
+      }),
+    );
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: tenantMemberId,
+        action: 'recruitment.interview_scheduled',
+        resourceType: 'interview',
+        resourceId: saved.id,
+        description: `Interview scheduled for candidate`,
+        metadata: {
+          candidateId: createInterviewDto.candidateId,
+          jobOpeningId: createInterviewDto.jobOpeningId,
+        },
+      })
+      .catch(() => {});
+
+    return saved;
   }
   async getInterviews(
     tenantId: string,
