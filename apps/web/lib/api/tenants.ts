@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { apiClient, tenantPath } from '@/lib/api/client';
+import { cacheKeys, removeCached } from '@/lib/cache';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { getTenantSlugFromPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
@@ -60,7 +61,10 @@ function getCachedTenants(): Tenant[] | undefined {
 }
 
 function invalidateTenantCache() {
-  // No-op - React Query handles cache invalidation
+  if (queryClientRef) {
+    queryClientRef.invalidateQueries({ queryKey: queryKeys.tenants.all });
+  }
+  removeCached(cacheKeys.tenants.all);
 }
 
 export { invalidateTenantCache };

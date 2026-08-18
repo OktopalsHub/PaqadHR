@@ -65,10 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return user;
     },
-    staleTime: Infinity,
+    staleTime: 5 * 60 * 1000, // 5 minutes — revalidate periodically so expired sessions are caught
     retry: 1,
     enabled: sessionBootstrapEnabled,
-    // Use cached data as initial data for instant render
+    // Use cached data as initial data for instant render, but still revalidate
     initialData: cachedSession ?? undefined,
   });
 

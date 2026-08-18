@@ -1361,35 +1361,45 @@ export class RewardsService {
         }
       });
 
-      // Refund wallet (may fail with duplicate key if webhook already processed)
+      // Refund wallet — check first to avoid double-credit race condition
       if (input.rewardType !== 'CUSTOM') {
-        try {
-          await this.walletService.credit(
-            tenantId,
-            originalDebitAmount,
-            'REFUND',
-            `refund:${redemptionId}`,
-            `Refund: ${input.rewardName ?? input.rewardId}`,
-            undefined,
-            { actorMemberId: memberId },
-          );
-        } catch (walletError) {
-          // Handle race condition: if a webhook already processed the refund,
-          // the unique constraint violation is expected.
-          const isUniqueConstraintViolation =
-            walletError instanceof Error &&
-            walletError.message.includes('unique constraint') &&
-            walletError.message.includes('idx_wallet_tx_wallet_reference');
+        const existingRefund = await this.dataSource
+          .getRepository(TenantWalletTransaction)
+          .findOne({ where: { reference: `refund:${redemptionId}`, type: 'REFUND' } });
 
-          if (isUniqueConstraintViolation) {
-            this.logger.log(
-              `Wallet refund for ${redemptionId} already processed by webhook, skipping duplicate`,
+        if (!existingRefund) {
+          try {
+            await this.walletService.credit(
+              tenantId,
+              originalDebitAmount,
+              'REFUND',
+              `refund:${redemptionId}`,
+              `Refund: ${input.rewardName ?? input.rewardId}`,
+              undefined,
+              { actorMemberId: memberId },
             );
-          } else {
-            this.logger.error(
-              `Wallet refund failed for ${redemptionId}: ${walletError instanceof Error ? walletError.message : walletError}`,
-            );
+          } catch (walletError) {
+            // Handle race condition: if a webhook already processed the refund,
+            // the unique constraint violation is expected.
+            const isUniqueConstraintViolation =
+              walletError instanceof Error &&
+              walletError.message.includes('unique constraint') &&
+              walletError.message.includes('idx_wallet_tx_wallet_reference');
+
+            if (isUniqueConstraintViolation) {
+              this.logger.log(
+                `Wallet refund for ${redemptionId} already processed by webhook, skipping duplicate`,
+              );
+            } else {
+              this.logger.error(
+                `Wallet refund failed for ${redemptionId}: ${walletError instanceof Error ? walletError.message : walletError}`,
+              );
+            }
           }
+        } else {
+          this.logger.log(
+            `Wallet refund for ${redemptionId} already exists, skipping duplicate`,
+          );
         }
       }
 
