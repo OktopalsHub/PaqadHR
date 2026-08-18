@@ -1331,8 +1331,33 @@ export class RewardsService {
         originalDebitAmount = Math.abs(Number(originalDebit.amount));
       }
 
-      // Refund points first (always succeeds)
+      // Refund points + wallet + stock and mark FAILED atomically. The
+      // conditional status flip is the idempotency guard: only the executor
+      // that flips this redemption to FAILED performs the refunds, so an
+      // overlapping provider webhook or a retry after a stopped execution
+      // cannot double-refund. A failure mid-refund rolls everything back, so
+      // the redemption never ends up FAILED with a partial refund.
       await this.dataSource.transaction(async (manager) => {
+        const flip = await manager
+          .getRepository(RewardRedemption)
+          .createQueryBuilder()
+          .update(RewardRedemption)
+          .set({
+            status: 'FAILED' as RedemptionStatus,
+            providerRef: { ...redemption.providerRef, error: errorMessage },
+            processingStartedAt: null,
+          })
+          .where('id = :redemptionId AND status <> :failed', {
+            redemptionId,
+            failed: 'FAILED' as RedemptionStatus,
+          })
+          .execute();
+
+        if (!flip.affected) {
+          return;
+        }
+
+        // Refund member points
         const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
         await pointsRepo
           .createQueryBuilder()
@@ -1359,22 +1384,18 @@ export class RewardsService {
           });
           await txRepo.save(refundTx);
         }
-      });
 
-      // Refund wallet — atomic: check + credit + insert in single transaction
-      if (input.rewardType !== 'CUSTOM') {
-        try {
-          await this.dataSource.transaction(async (manager) => {
-            // Lock and check for existing refund to prevent double-credit
-            const walletRepo = manager.getRepository(TenantWallet);
-            const wallet = await walletRepo
-              .createQueryBuilder('w')
-              .setLock('pessimistic_write')
-              .where('w.tenant_id = :tenantId', { tenantId })
-              .getOne();
+        // Refund wallet — keep the existing-refund check as defence-in-depth
+        // for partial states written by older code.
+        if (input.rewardType !== 'CUSTOM') {
+          const walletRepo = manager.getRepository(TenantWallet);
+          const wallet = await walletRepo
+            .createQueryBuilder('w')
+            .setLock('pessimistic_write')
+            .where('w.tenant_id = :tenantId', { tenantId })
+            .getOne();
 
-            if (!wallet) return;
-
+          if (wallet) {
             const existingRefund = await manager
               .getRepository(TenantWalletTransaction)
               .findOne({ where: { reference: `refund:${redemptionId}`, type: 'REFUND' } });
@@ -1383,58 +1404,41 @@ export class RewardsService {
               this.logger.log(
                 `Wallet refund for ${redemptionId} already exists, skipping duplicate`,
               );
-              return;
+            } else {
+              await manager
+                .getRepository(TenantWallet)
+                .createQueryBuilder()
+                .update(TenantWallet)
+                .set({ balanceAmount: () => 'balance_amount + :amount' })
+                .where('tenant_id = :tenantId', { tenantId, amount: originalDebitAmount })
+                .execute();
+
+              const refundTx = manager.getRepository(TenantWalletTransaction).create({
+                tenantWalletId: wallet.id,
+                type: 'REFUND',
+                amount: originalDebitAmount,
+                reference: `refund:${redemptionId}`,
+                description: `Refund: ${input.rewardName ?? input.rewardId}`,
+                status: 'COMPLETED',
+                rawAmount: originalDebitAmount,
+                metadata: { actorMemberId: memberId },
+              });
+              await manager.getRepository(TenantWalletTransaction).save(refundTx);
             }
-
-            // Credit wallet and insert transaction atomically
-            await manager
-              .getRepository(TenantWallet)
-              .createQueryBuilder()
-              .update(TenantWallet)
-              .set({ balanceAmount: () => 'balance_amount + :amount' })
-              .where('tenant_id = :tenantId', { tenantId, amount: originalDebitAmount })
-              .execute();
-
-            const _updatedWallet = await walletRepo.findOneOrFail({
-              where: { tenantId },
-            });
-
-            const refundTx = manager.getRepository(TenantWalletTransaction).create({
-              tenantWalletId: wallet.id,
-              type: 'REFUND',
-              amount: originalDebitAmount,
-              reference: `refund:${redemptionId}`,
-              description: `Refund: ${input.rewardName ?? input.rewardId}`,
-              status: 'COMPLETED',
-              rawAmount: originalDebitAmount,
-              metadata: { actorMemberId: memberId },
-            });
-            await manager.getRepository(TenantWalletTransaction).save(refundTx);
-          });
-        } catch (walletError) {
-          this.logger.error(
-            `Wallet refund failed for ${redemptionId}: ${walletError instanceof Error ? walletError.message : walletError}`,
-          );
+          }
         }
-      }
 
-      // Restore custom reward stock
-      if (input.rewardType === 'CUSTOM') {
-        const cr = await this.dataSource
-          .getRepository(CustomReward)
-          .findOne({ where: { id: input.rewardId, tenantId } });
-        if (cr && cr.stockLimit !== null) {
-          await this.dataSource.getRepository(CustomReward).update(cr.id, {
-            stockLimit: cr.stockLimit + 1,
-          });
+        // Restore custom reward stock
+        if (input.rewardType === 'CUSTOM') {
+          const cr = await manager
+            .getRepository(CustomReward)
+            .findOne({ where: { id: input.rewardId, tenantId } });
+          if (cr && cr.stockLimit !== null) {
+            await manager.getRepository(CustomReward).update(cr.id, {
+              stockLimit: cr.stockLimit + 1,
+            });
+          }
         }
-      }
-
-      // Mark as FAILED
-      await this.dataSource.getRepository(RewardRedemption).update(redemptionId, {
-        status: 'FAILED' as RedemptionStatus,
-        providerRef: { ...redemption.providerRef, error: errorMessage },
-        processingStartedAt: null,
       });
 
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
