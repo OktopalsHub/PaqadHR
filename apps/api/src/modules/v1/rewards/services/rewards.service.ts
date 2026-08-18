@@ -177,6 +177,13 @@ export class RewardsService {
     return settings.tremendousProducts?.find((p) => p.productId === rest);
   }
 
+  private extractTremendousProductId(rewardId: string): string | undefined {
+    if (!rewardId.startsWith('tremendous_')) return undefined;
+    const rest = rewardId.slice('tremendous_'.length);
+    const withCountry = rest.match(/^([A-Z]{2})_(.+)$/);
+    return withCountry ? withCountry[2] : rest || undefined;
+  }
+
   private useMonnifyNgBills(): boolean {
     return resolveNgRewardsAirtimeProvider() === PaymentProvider.MONNIFY;
   }
@@ -1324,6 +1331,7 @@ export class RewardsService {
         originalDebitAmount = Math.abs(Number(originalDebit.amount));
       }
 
+      // Refund points first (always succeeds)
       await this.dataSource.transaction(async (manager) => {
         const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
         await pointsRepo
@@ -1351,35 +1359,57 @@ export class RewardsService {
           });
           await txRepo.save(refundTx);
         }
+      });
 
-        if (input.rewardType !== 'CUSTOM') {
+      // Refund wallet (may fail with duplicate key if webhook already processed)
+      if (input.rewardType !== 'CUSTOM') {
+        try {
           await this.walletService.credit(
             tenantId,
             originalDebitAmount,
             'REFUND',
             `refund:${redemptionId}`,
             `Refund: ${input.rewardName ?? input.rewardId}`,
-            manager,
+            undefined,
             { actorMemberId: memberId },
           );
-        }
+        } catch (walletError) {
+          // Handle race condition: if a webhook already processed the refund,
+          // the unique constraint violation is expected.
+          const isUniqueConstraintViolation =
+            walletError instanceof Error &&
+            walletError.message.includes('unique constraint') &&
+            walletError.message.includes('idx_wallet_tx_wallet_reference');
 
-        if (input.rewardType === 'CUSTOM') {
-          const customRewardRepo = manager.getRepository(CustomReward);
-          const cr = await customRewardRepo.findOne({ where: { id: input.rewardId, tenantId } });
-          if (cr && cr.stockLimit !== null) {
-            await customRewardRepo.update(cr.id, {
-              stockLimit: cr.stockLimit + 1,
-            });
+          if (isUniqueConstraintViolation) {
+            this.logger.log(
+              `Wallet refund for ${redemptionId} already processed by webhook, skipping duplicate`,
+            );
+          } else {
+            this.logger.error(
+              `Wallet refund failed for ${redemptionId}: ${walletError instanceof Error ? walletError.message : walletError}`,
+            );
           }
         }
+      }
 
-        const redemptionRepo = manager.getRepository(RewardRedemption);
-        await redemptionRepo.update(redemptionId, {
-          status: 'FAILED' as RedemptionStatus,
-          providerRef: { ...redemption.providerRef, error: errorMessage },
-          processingStartedAt: null,
-        });
+      // Restore custom reward stock
+      if (input.rewardType === 'CUSTOM') {
+        const cr = await this.dataSource
+          .getRepository(CustomReward)
+          .findOne({ where: { id: input.rewardId, tenantId } });
+        if (cr && cr.stockLimit !== null) {
+          await this.dataSource.getRepository(CustomReward).update(cr.id, {
+            stockLimit: cr.stockLimit + 1,
+          });
+        }
+      }
+
+      // Mark as FAILED
+      await this.dataSource.getRepository(RewardRedemption).update(redemptionId, {
+        status: 'FAILED' as RedemptionStatus,
+        providerRef: { ...redemption.providerRef, error: errorMessage },
+        processingStartedAt: null,
       });
 
       redemption = await this.dataSource.getRepository(RewardRedemption).findOneOrFail({
@@ -1500,9 +1530,7 @@ export class RewardsService {
   }
 
   private async fulfillTremendous(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
-    const productId = input.rewardId.startsWith('tremendous_')
-      ? input.rewardId.slice('tremendous_'.length)
-      : undefined;
+    const productId = this.extractTremendousProductId(input.rewardId);
     if (!productId) {
       throw new Error('Missing Tremendous productId for gift card order');
     }

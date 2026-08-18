@@ -1,7 +1,7 @@
 export const EMAIL_FOUNDER = {
-  name: 'Daniel',
-  title: 'Founder, PaqadHR',
-  email: 'daniel@paqadhr.com',
+  name: 'The Paqad Team',
+  title: '',
+  email: 'support@paqad.com',
 } as const;
 
 export const EMAIL_BRAND = {
@@ -24,6 +24,6 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-export const EMAIL_INTRO_TEXT = `Hi — I'm ${EMAIL_FOUNDER.name}, founder of PaqadHR.`;
+export const EMAIL_INTRO_TEXT = '';
 
-export const EMAIL_SIGNOFF_TEXT = `Warm regards,\n${EMAIL_FOUNDER.name}\n${EMAIL_FOUNDER.title}`;
+export const EMAIL_SIGNOFF_TEXT = `Thank you,\nThe Paqad Team`;

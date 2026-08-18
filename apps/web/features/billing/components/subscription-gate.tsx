@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useBillingStatus } from '@/hooks/queries/use-billing';
 import { subscribePageUrl } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
@@ -24,19 +24,11 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   }, [isLoading, shouldBlockPayment, tenant?.slug]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (shouldBlockPayment) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;

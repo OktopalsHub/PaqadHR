@@ -1,6 +1,8 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { getTenantSlugFromPath } from '@/lib/navigation/tenant-routes';
+import { queryKeys } from '@/lib/query/keys';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { paginatedTenantsSchema } from '@/lib/schemas/tenant';
 import { persistTenantId, readTenantId, readTenantSlug } from '@/lib/session';
@@ -41,12 +43,54 @@ export async function fetchUserTenants() {
   }));
 }
 
+// Lazy reference to queryClient (set by QueryProvider)
+let queryClientRef: QueryClient | null = null;
+
+export function setQueryClientForTenants(client: QueryClient) {
+  queryClientRef = client;
+}
+
+function getCachedTenants(): Tenant[] | undefined {
+  // Try React Query cache first (instant, no HTTP)
+  if (queryClientRef) {
+    const cached = queryClientRef.getQueryData<Tenant[]>(queryKeys.tenants.all);
+    if (cached) return cached;
+  }
+  return undefined;
+}
+
+function invalidateTenantCache() {
+  // No-op - React Query handles cache invalidation
+}
+
+export { invalidateTenantCache };
+
 export async function resolveTenantId(): Promise<string> {
   const slug =
     (typeof window !== 'undefined' ? getTenantSlugFromPath(window.location.pathname) : null) ??
     readTenantSlug();
 
-  const tenants = await fetchUserTenants();
+  // Use React Query cache first (instant, no HTTP)
+  let tenants = getCachedTenants();
+
+  // If not cached, use queryClient.fetchQuery which deduplicates concurrent calls
+  // instead of raw HTTP which causes N parallel requests
+  if (!tenants && queryClientRef) {
+    try {
+      tenants = await queryClientRef.fetchQuery<Tenant[]>({
+        queryKey: queryKeys.tenants.all,
+        queryFn: fetchUserTenants,
+        staleTime: 60_000,
+      });
+    } catch {
+      tenants = undefined;
+    }
+  }
+
+  // Last resort: direct HTTP
+  if (!tenants) {
+    tenants = await fetchUserTenants();
+  }
 
   if (slug) {
     const fromSlug = tenants.find((t) => t.slug === slug);

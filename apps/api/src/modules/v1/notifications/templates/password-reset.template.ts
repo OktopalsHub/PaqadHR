@@ -20,7 +20,7 @@ export function renderPasswordResetEmail(vars: PasswordResetEmailVariables): Ren
   const bodyHtml = [
     emailHeading('Reset your password'),
     emailParagraph(
-      'We received a request to reset the password for your PaqadHR account. Click the button below to choose a new one.',
+      'We received a request to reset the password for your Paqad account. Click the button below to choose a new one.',
     ),
     emailButton(vars.resetLink, 'Reset password'),
     emailParagraph(`Or copy this link into your browser:<br />${emailLink(vars.resetLink)}`),
@@ -31,13 +31,13 @@ export function renderPasswordResetEmail(vars: PasswordResetEmailVariables): Ren
   ].join('');
 
   return {
-    subject: 'Reset your PaqadHR password',
+    subject: 'Reset your Paqad password',
     html: renderEmailLayout({
-      preheader: 'Reset your PaqadHR password',
+      preheader: 'Reset your Paqad password',
       content: bodyHtml,
     }),
     text: [
-      'Reset your PaqadHR password',
+      'Reset your Paqad password',
       '',
       'We received a request to reset your password.',
       `Reset password: ${vars.resetLink}`,

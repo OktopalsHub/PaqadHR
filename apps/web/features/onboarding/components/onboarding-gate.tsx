@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
 import { loadUserTenantsWithRetry } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
@@ -43,7 +43,7 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     void (async () => {
       let resolvedTenants = tenants;
       if (resolvedTenants.length === 0) {
-        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 6, baseDelayMs: 200 });
+        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
         if (resolvedTenants.length > 0) {
           queryClient.setQueryData(queryKeys.tenants.all, resolvedTenants);
         }
@@ -61,27 +61,15 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
   }, [authLoading, isAuthenticated, isLoading, hasResolvedTenants, tenants, router, queryClient]);
 
   if (isLoading || !hasResolvedTenants) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (tenants.length > 0) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;

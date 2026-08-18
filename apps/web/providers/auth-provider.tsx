@@ -16,6 +16,7 @@ import {
 } from '@/lib/api/auth';
 import { startProactiveRefresh, stopProactiveRefresh } from '@/lib/api/auth-refresh';
 import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
+import { cacheKeys, getCached, removeCached, setCached } from '@/lib/cache';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
@@ -48,12 +49,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const currentPathname = typeof window === 'undefined' ? pathname : window.location.pathname;
   const sessionBootstrapEnabled = !skipsSessionBootstrap(currentPathname);
 
+  // Try to get cached session first for instant page load
+  const cachedSession = useMemo(() => {
+    if (!sessionBootstrapEnabled) return null;
+    return getCached<User>(cacheKeys.auth.session);
+  }, [sessionBootstrapEnabled]);
+
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,
-    queryFn: getSession,
+    queryFn: async () => {
+      const user = await getSession();
+      // Cache the session for instant subsequent loads
+      if (user) {
+        setCached(cacheKeys.auth.session, user, { ttl: 30 * 60 * 1000 }); // 30 minutes
+      }
+      return user;
+    },
     staleTime: Infinity,
     retry: 1,
     enabled: sessionBootstrapEnabled,
+    // Use cached data as initial data for instant render
+    initialData: cachedSession ?? undefined,
   });
 
   // Start proactive token refresh when user is authenticated
@@ -67,11 +83,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [sessionQuery.data]);
 
   const navigateAfterAuth = useCallback(async () => {
-    await waitForAuthenticatedProfile({ attempts: 6, baseDelayMs: 150 });
+    await waitForAuthenticatedProfile({ attempts: 3, baseDelayMs: 100 });
 
     await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
 
-    const tenants = await loadUserTenantsWithRetry({ attempts: 5, baseDelayMs: 200 });
+    const tenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
     queryClient.setQueryData(queryKeys.tenants.all, tenants);
 
     const redirect = readRedirectParam();
@@ -123,6 +139,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearCsrfToken();
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
+      // Clear cache on logout
+      removeCached(cacheKeys.auth.session);
+      removeCached(cacheKeys.tenants.all);
       toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
       window.location.assign(authPageUrl('/signin'));
     } catch {
@@ -130,6 +149,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearCsrfToken();
       queryClient.setQueryData(queryKeys.auth.session, null);
       queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
+      // Clear cache on logout
+      removeCached(cacheKeys.auth.session);
+      removeCached(cacheKeys.tenants.all);
       toast.error(
         <ToastMessage
           title="Logout Failed"

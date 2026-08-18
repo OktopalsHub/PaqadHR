@@ -55,6 +55,7 @@ export class TenantMemberGuard implements CanActivate {
     request.member = {
       id: member.id,
       role: member.role as TenantMemberRole,
+      memberId: member.id,
     };
 
     tenantContext.updateContext({
@@ -67,7 +68,7 @@ export class TenantMemberGuard implements CanActivate {
       member: {
         id: member.id,
         role: member.role as TenantMemberRole,
-        userId: member.userId,
+        memberId: member.id,
       },
     });
 

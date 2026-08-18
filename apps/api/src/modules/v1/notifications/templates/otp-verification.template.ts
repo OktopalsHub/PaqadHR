@@ -16,7 +16,7 @@ export function renderOtpVerificationEmail(
 
   const bodyHtml = [
     emailHeading('Your verification code'),
-    emailParagraph(`Use this code to confirm ${purposeLabel} on PaqadHR:`),
+    emailParagraph(`Use this code to confirm ${purposeLabel} on Paqad:`),
     `<div style="margin:0 0 24px;padding:20px;background-color:${EMAIL_BRAND.highlightBg};border-radius:8px;text-align:center;"><span style="font-size:32px;font-weight:700;letter-spacing:0.25em;color:${EMAIL_BRAND.text};">${code}</span></div>`,
     emailMuted(
       'This code expires in 10 minutes. If you did not request this, you can ignore this email.',

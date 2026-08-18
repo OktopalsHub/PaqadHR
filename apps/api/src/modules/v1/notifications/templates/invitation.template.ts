@@ -27,7 +27,7 @@ export function renderInvitationEmail(vars: InvitationEmailVariables): RenderedE
     emailHeading(`You're invited to join ${tenantName}`),
     emailParagraph(`Hi ${firstName},`),
     emailParagraph(
-      `<strong>${inviterName}</strong> invited you to join <strong>${tenantName}</strong> on PaqadHR.`,
+      `<strong>${inviterName}</strong> invited you to join <strong>${tenantName}</strong> on Paqad.`,
     ),
     emailHighlight('Accept the invitation to access your workspace and team tools.'),
     emailButton(vars.inviteLink, 'Accept invitation'),
@@ -38,7 +38,7 @@ export function renderInvitationEmail(vars: InvitationEmailVariables): RenderedE
   ].join('');
 
   const subject = `You're invited to join ${vars.tenantName}`;
-  const preheader = `${vars.inviterName} invited you to join ${vars.tenantName} on PaqadHR.`;
+  const preheader = `${vars.inviterName} invited you to join ${vars.tenantName} on Paqad.`;
 
   return {
     subject,
@@ -47,7 +47,7 @@ export function renderInvitationEmail(vars: InvitationEmailVariables): RenderedE
       `You're invited to join ${vars.tenantName}`,
       '',
       `Hi ${vars.firstName},`,
-      `${vars.inviterName} invited you to join ${vars.tenantName} on PaqadHR.`,
+      `${vars.inviterName} invited you to join ${vars.tenantName} on Paqad.`,
       '',
       `Accept invitation: ${vars.inviteLink}`,
       '',

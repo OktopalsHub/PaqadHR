@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
 import { authPageUrl, subscribePageUrl } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
@@ -46,19 +46,11 @@ export function SubscribeGate({ children }: { children: React.ReactNode }) {
   }, [workspaceSlug, tenants, tenant?.id, selectTenantId]);
 
   if (isLoading || !hasResolvedTenants) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated || tenants.length === 0) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <LoadingBlock />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;

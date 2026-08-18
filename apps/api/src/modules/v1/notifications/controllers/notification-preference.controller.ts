@@ -4,15 +4,15 @@ import { CurrentTenantMember } from 'src/common/decorators';
 import { JwtAuthGuard } from 'src/common/guards';
 import type { MemberContext } from 'src/common/interfaces';
 import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
-import { HeaderTenantMemberGuard } from '../../tenant-members/guards/header-tenant-member.guard';
+import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { UpdatePreferenceDto } from '../dto/update-preference.dto';
 import type { NotificationPreference } from '../entities/notification-preference.entity';
 import { NotificationPreferenceService } from '../services/notification-preference.service';
 
 @ApiTags('Notification Preferences')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, HeaderTenantMemberGuard)
-@Controller('notification-preferences')
+@UseGuards(JwtAuthGuard, TenantMemberGuard)
+@Controller('tenants/:tenantId/notification-preferences')
 export class NotificationPreferenceController {
   constructor(private readonly preferenceService: NotificationPreferenceService) {}
   @Get()

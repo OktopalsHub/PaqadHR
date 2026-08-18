@@ -19,7 +19,7 @@ export class ForbiddenAuditFilter implements ExceptionFilter {
 
     const tenantId = (request.params?.tenantId as string | undefined) ?? request.tenant?.id ?? null;
     const memberId = request.member?.id ?? null;
-    const userId = request.member?.userId ?? null;
+    const userId = request.auth?.principalId ?? null;
 
     void this.auditLogsService.queueAuditLog({
       action: AuditAction.UNAUTHORIZED_ACCESS_ATTEMPT,

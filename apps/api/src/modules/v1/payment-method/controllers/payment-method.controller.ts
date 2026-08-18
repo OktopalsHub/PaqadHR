@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SUPPORTED_CRYPTO_CURRENCIES } from 'src/common/constants/crypto-currencies.constant';
-import { CurrentTenantMember } from 'src/common/decorators';
+import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
@@ -71,8 +71,14 @@ export class PaymentMethodController {
     @Param('tenantId') tenantId: string,
     @Body() dto: CreatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
+    @CurrentUser() request: { auth?: { principalId?: string } },
   ) {
-    return this.paymentMethodService.createPaymentMethod(tenantId, member.id, member.userId, dto);
+    return this.paymentMethodService.createPaymentMethod(
+      tenantId,
+      member.id,
+      request.auth?.principalId ?? '',
+      dto,
+    );
   }
   @Get()
   @UseGuards(TenantMemberGuard)
@@ -151,12 +157,13 @@ export class PaymentMethodController {
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() dto: UpdatePaymentMethodDto,
     @CurrentTenantMember() member: MemberContext,
+    @CurrentUser() request: { auth?: { principalId?: string } },
   ) {
     return this.paymentMethodService.updatePaymentMethod(
       paymentMethodId,
       tenantId,
       member.id,
-      member.userId,
+      request.auth?.principalId ?? '',
       dto,
     );
   }

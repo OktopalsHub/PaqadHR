@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { LoadingBlock } from '@/components/loading-block';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
@@ -21,11 +21,11 @@ export function AdminOnlyGate({ children }: { children: React.ReactNode }) {
   }, [isAdmin, isLoading, router, tenant, tenantHref]);
 
   if (isLoading || !tenant) {
-    return <LoadingBlock />;
+    return <LoadingSpinner />;
   }
 
   if (!isAdmin) {
-    return <LoadingBlock />;
+    return <LoadingSpinner />;
   }
 
   return <>{children}</>;
