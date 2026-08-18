@@ -70,9 +70,6 @@ export class EmploymentService {
         description: `Employment record created`,
         metadata: {
           tenantMemberId,
-          payRate: employmentData.payRate,
-          payType: employmentData.payType,
-          currency,
         },
       })
       .catch(() => {});
@@ -138,10 +135,6 @@ export class EmploymentService {
         description: `Compensation record added`,
         metadata: {
           tenantMemberId,
-          payRate,
-          payType,
-          paySchedule,
-          currency: salaryCurrency,
           effectiveDate,
         },
       })
