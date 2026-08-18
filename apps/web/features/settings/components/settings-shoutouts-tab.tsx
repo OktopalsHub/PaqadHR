@@ -217,11 +217,16 @@ export function SettingsShoutoutsTab() {
       toast.error('Select at least one member');
       return;
     }
+    const pts = Number(directPoints) || 0;
+    if (pts < 1) {
+      toast.error('Points must be at least 1');
+      return;
+    }
     try {
       await assignPoints.mutateAsync({
         memberIds: selectedMembers.map((a) => a.memberId),
         points: 0,
-        assignments: selectedMembers,
+        assignments: selectedMembers.map((a) => ({ memberId: a.memberId, points: pts })),
         reason: directReason.trim() || undefined,
       });
       toast.success(`Assigned ${PAQ_POINTS_NAME} to ${selectedMembers.length} member(s)`);

@@ -88,7 +88,7 @@ export class TremendousWebhookService {
       return;
     }
 
-    if (redemption.status === 'SUCCESS') {
+    if (redemption.status === 'SUCCESS' || redemption.status === 'FAILED') {
       return;
     }
 
@@ -120,7 +120,7 @@ export class TremendousWebhookService {
       return;
     }
 
-    if (redemption.status === 'FAILED') {
+    if (redemption.status === 'SUCCESS' || redemption.status === 'FAILED') {
       return;
     }
 
@@ -129,7 +129,7 @@ export class TremendousWebhookService {
         where: { id: redemption.id },
       });
 
-      if (currentRedemption.status === 'FAILED') {
+      if (currentRedemption.status === 'SUCCESS' || currentRedemption.status === 'FAILED') {
         return;
       }
 

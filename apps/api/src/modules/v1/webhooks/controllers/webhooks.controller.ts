@@ -15,7 +15,7 @@ import {
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { getReloadlyWebhookSecret } from 'src/common/config/reloadly.config';
-import { Public } from 'src/common/decorators';
+import { Public, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import type {
   SlackEventPayload,
   SlackInteractiveBody,
@@ -245,6 +245,7 @@ export class WebhooksController {
 
   @Post('tremendous')
   @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Tremendous reward fulfillment webhook' })
   async handleTremendousWebhook(
