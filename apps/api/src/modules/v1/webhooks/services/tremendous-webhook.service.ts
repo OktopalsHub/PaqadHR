@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { DataSource } from 'typeorm';
 import { RewardRedemption } from '../../rewards/entities/reward-redemption.entity';
 import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
-import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
-import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
 
 interface TremendousWebhookPayload {
   event_type: string;
@@ -41,7 +38,7 @@ export class TremendousWebhookService {
     private readonly walletService: TenantWalletService,
   ) {}
 
-  async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
+  async dispatch(rawBody: string, _signature: string): Promise<{ received: boolean }> {
     let payload: TremendousWebhookPayload;
     try {
       payload = JSON.parse(rawBody) as TremendousWebhookPayload;
@@ -77,7 +74,11 @@ export class TremendousWebhookService {
 
   private async handleFulfillmentSuccess(
     redemptionId: string,
-    reward?: TremendousWebhookPayload['payload']['reward'],
+    reward?: {
+      id?: string;
+      delivery?: { link?: string };
+      redemption?: { details?: { redemption_url?: string } };
+    },
   ): Promise<void> {
     const redemptionRepo = this.dataSource.getRepository(RewardRedemption);
     const redemption = await redemptionRepo.findOne({ where: { id: redemptionId } });
@@ -96,10 +97,18 @@ export class TremendousWebhookService {
       status: 'SUCCESS',
       providerRef: {
         ...redemption.providerRef,
-        tremendousRewardId: reward?.id,
-        deliveryLink,
+        txRef: reward?.id ?? redemption.providerRef?.txRef,
       },
     });
+
+    if (deliveryLink) {
+      await redemptionRepo.update(redemption.id, {
+        voucher: {
+          ...redemption.voucher,
+          instructions: `Redeem here: ${deliveryLink}`,
+        },
+      });
+    }
   }
 
   private async handleFulfillmentFailure(redemptionId: string): Promise<void> {
@@ -128,34 +137,18 @@ export class TremendousWebhookService {
       const tenantId = currentRedemption.tenantId;
       const memberId = currentRedemption.memberId;
 
-      const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
-      await pointsRepo
-        .createQueryBuilder()
-        .update(ShoutoutMemberPoints)
-        .set({ currentBalance: () => `"currentBalance" + ${pointsCost}` })
-        .where('"tenantId" = :tenantId AND "memberId" = :memberId', { tenantId, memberId })
-        .execute();
-
-      const txRepo = manager.getRepository(ShoutoutPointTransaction);
-      await txRepo.save(
-        txRepo.create({
-          tenantId,
-          memberId,
-          type: ShoutoutPointTransactionType.REFUND,
-          points: pointsCost,
-          reason: `Tremendous fulfillment failed for redemption ${redemption.id}`,
-        }),
-      );
-
       await manager.getRepository(RewardRedemption).update(currentRedemption.id, {
         status: 'FAILED',
-        failedReason: 'Tremendous fulfillment failed',
+        providerRef: {
+          ...currentRedemption.providerRef,
+          error: 'Tremendous fulfillment failed',
+        },
       });
 
-      if (currentRedemption.pointsSpent > 0) {
+      if (pointsCost > 0) {
         await this.walletService.credit(
           tenantId,
-          currentRedemption.pointsSpent,
+          pointsCost,
           'REFUND',
           `refund:${currentRedemption.id}`,
           `Refund: ${currentRedemption.rewardName ?? currentRedemption.rewardId}`,
