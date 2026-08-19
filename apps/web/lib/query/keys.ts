@@ -115,5 +115,6 @@ export const queryKeys = {
     wallet: ['rewards', 'wallet'] as const,
     walletTransactions: ['rewards', 'wallet-transactions'] as const,
     custom: ['rewards', 'custom'] as const,
+    providers: (tenantId: string) => ['rewards', 'providers', tenantId] as const,
   },
 } as const;

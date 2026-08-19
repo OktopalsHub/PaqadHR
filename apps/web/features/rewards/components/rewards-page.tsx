@@ -39,6 +39,7 @@ import {
   useDeleteCustomReward,
   useMyClaims,
   useNombaDataPlans,
+  useRewardProviders,
   useRewardsCatalog,
   useTopupOperators,
   useUtilityBillers,
@@ -95,8 +96,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const showAirtime = isAirtimeEnabled;
-  const showUtilities = isUtilitiesEnabled;
+  const { data: providers, isLoading: providersLoading } = useRewardProviders();
+  const showAirtime = isAirtimeEnabled && (isNgWorkspace || Boolean(providers?.reloadly.airtime));
+  const showUtilities =
+    isUtilitiesEnabled && (isNgWorkspace || Boolean(providers?.reloadly.utilities));
 
   const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
@@ -120,7 +123,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   // Reloadly Topup specific states
   const [selectedReloadlyOperatorId, setSelectedReloadlyOperatorId] = useState<string>('');
   const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
-    selectedCountryCode !== 'NG' ? selectedCountryCode : '',
+    showAirtime && selectedCountryCode !== 'NG' ? selectedCountryCode : '',
   );
   const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
     airtimeNetwork,
@@ -245,10 +248,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [utilityServiceType, setUtilityServiceType] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
 
   const { data: reloadlyBillers = [], isLoading: billersLoading } = useUtilityBillers(
-    utilityCountryCode !== 'NG' ? utilityCountryCode : '',
+    showUtilities && utilityCountryCode !== 'NG' ? utilityCountryCode : '',
   );
   const { data: ngUtilityBillers = [], isLoading: ngBillersLoading } = useUtilityBillers(
-    utilityCountryCode === 'NG' ? 'NG' : '',
+    showUtilities && utilityCountryCode === 'NG' ? 'NG' : '',
   );
 
   const selectedUtilityBillerReloadly = reloadlyBillers.find(
@@ -648,7 +651,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
   };
 
-  if (pointsLoading || catalogLoading) {
+  if (pointsLoading || catalogLoading || providersLoading) {
     return isTab ? (
       <LoadingBlock />
     ) : (

@@ -15,6 +15,7 @@ import {
   fetchMyClaims,
   fetchNombaDataPlans,
   fetchReloadlyCountries,
+  fetchRewardProviders,
   fetchRewardsCatalog,
   fetchTenantWallet,
   fetchTopupOperators,
@@ -138,6 +139,17 @@ export function useReloadlyCountries() {
     queryKey: ['rewards-countries', tenantId],
     queryFn: fetchReloadlyCountries,
     enabled: !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function useRewardProviders() {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: tenantId ? queryKeys.rewards.providers(tenantId) : ['rewards-providers'],
+    queryFn: fetchRewardProviders,
+    enabled: !tenantLoading && Boolean(tenantId),
+    staleTime: 300_000,
   });
 }
 

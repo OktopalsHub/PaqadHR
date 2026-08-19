@@ -101,6 +101,7 @@ export class NotificationService {
 
     if (tenantId) {
       where.push(
+        { tenantId, recipientId: memberId },
         { tenantId, recipientId: IsNull() },
         { type: NotificationType.SYSTEM, tenantId: IsNull(), recipientId: IsNull() },
       );
@@ -122,7 +123,10 @@ export class NotificationService {
   }
 
   async markAsRead(notificationId: string, memberId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { id: notificationId, recipientId: IsNull() };
+    const where: FindOptionsWhere<Notification> = {
+      id: notificationId,
+      recipientId: memberId,
+    };
     if (tenantId) where.tenantId = tenantId;
 
     await this.notificationRepository.update(where, {
@@ -150,7 +154,7 @@ export class NotificationService {
   ): Promise<void> {
     const where: FindOptionsWhere<Notification> = {
       id: In(notificationIds),
-      recipientId: IsNull(),
+      recipientId: memberId,
     };
     if (tenantId) where.tenantId = tenantId;
 
@@ -161,7 +165,7 @@ export class NotificationService {
   }
 
   async markAllAsRead(memberId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { recipientId: IsNull() };
+    const where: FindOptionsWhere<Notification> = { recipientId: memberId };
     if (tenantId) where.tenantId = tenantId;
 
     await this.notificationRepository.update(where, {
@@ -187,6 +191,7 @@ export class NotificationService {
 
     if (tenantId) {
       where.push(
+        { tenantId, recipientId: memberId, readAt: IsNull() },
         { tenantId, recipientId: IsNull(), readAt: IsNull() },
         {
           type: NotificationType.SYSTEM,

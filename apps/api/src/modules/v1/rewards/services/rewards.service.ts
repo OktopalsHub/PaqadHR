@@ -1482,6 +1482,9 @@ export class RewardsService {
     input: ClaimInput,
   ): Promise<void> {
     if (input.rewardType === 'RELOADLY') {
+      if (!this.reloadlyApi.isConfigured()) {
+        throw new Error('Reloadly gift card API is not configured');
+      }
       await this.fulfillReloadly(redemption, input);
       return;
     }
@@ -1494,6 +1497,9 @@ export class RewardsService {
       return;
     }
     if (input.rewardType === 'RELOADLY_AIRTIME') {
+      if (!this.reloadlyTopupsApi.isConfigured()) {
+        throw new Error('Reloadly Topups API is not configured');
+      }
       await this.fulfillReloadlyAirtime(redemption, input);
       return;
     }
@@ -1502,6 +1508,9 @@ export class RewardsService {
       return;
     }
     if (input.rewardType === 'RELOADLY_UTILITY') {
+      if (!this.reloadlyUtilitiesApi.isConfigured()) {
+        throw new Error('Reloadly Utilities API is not configured');
+      }
       await this.fulfillReloadlyUtility(redemption, input);
       return;
     }
@@ -2397,7 +2406,31 @@ export class RewardsService {
   }
 
   async listTopupOperators(countryCode: string) {
+    if (!this.reloadlyTopupsApi.isConfigured()) {
+      return [];
+    }
     return this.reloadlyTopupsApi.listOperators(countryCode);
+  }
+
+  async getProviderAvailability() {
+    return {
+      reloadly: {
+        giftCards: this.reloadlyApi.isConfigured(),
+        airtime: this.reloadlyTopupsApi.isConfigured(),
+        utilities: this.reloadlyUtilitiesApi.isConfigured(),
+      },
+      tremendous: {
+        giftCards: this.tremendousApi.isConfigured(),
+      },
+      nomba: {
+        airtime: this.nombaBillApi.isConfigured(),
+        utility: this.nombaBillApi.isConfigured(),
+      },
+      monnify: {
+        airtime: this.monnifyBillApi.isConfigured(),
+        utility: this.monnifyBillApi.isConfigured(),
+      },
+    };
   }
 
   async listUtilityBillers(countryCode: string) {
@@ -2421,6 +2454,9 @@ export class RewardsService {
         { id: 'BEDC', name: 'Benin Electricity (BEDC)' },
         { id: 'YEDC', name: 'Yola Electricity (YEDC)' },
       ];
+    }
+    if (!this.reloadlyUtilitiesApi.isConfigured()) {
+      return [];
     }
     return this.reloadlyUtilitiesApi.listBillers({ countryISOCode: countryCode });
   }
@@ -2478,6 +2514,14 @@ export class RewardsService {
   ) {
     if (type === 'ng-airtime' || type === 'ng-utility') {
       return this.calculateLocalRewardCost(tenantId, amount);
+    }
+    if (
+      (type === 'airtime' && !this.reloadlyTopupsApi.isConfigured()) ||
+      (type === 'utility' && !this.reloadlyUtilitiesApi.isConfigured())
+    ) {
+      throw new BadRequestException(
+        'Global airtime and utility rewards are not available. Reloadly is not configured.',
+      );
     }
     const settings = await this.getRewardsSettings(tenantId);
     if (type === 'airtime') {
