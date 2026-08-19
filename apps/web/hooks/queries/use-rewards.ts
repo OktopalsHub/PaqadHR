@@ -146,7 +146,7 @@ export function useRewardProviders() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: ['rewards-providers', tenantId],
+    queryKey: tenantId ? queryKeys.rewards.providers(tenantId) : ['rewards-providers'],
     queryFn: fetchRewardProviders,
     enabled: !tenantLoading && Boolean(tenantId),
     staleTime: 300_000,

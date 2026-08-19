@@ -96,7 +96,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const { data: providers } = useRewardProviders();
+  const { data: providers, isLoading: providersLoading } = useRewardProviders();
   const showAirtime = isAirtimeEnabled && (isNgWorkspace || Boolean(providers?.reloadly.airtime));
   const showUtilities =
     isUtilitiesEnabled && (isNgWorkspace || Boolean(providers?.reloadly.utilities));
@@ -651,7 +651,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
   };
 
-  if (pointsLoading || catalogLoading) {
+  if (pointsLoading || catalogLoading || providersLoading) {
     return isTab ? (
       <LoadingBlock />
     ) : (
