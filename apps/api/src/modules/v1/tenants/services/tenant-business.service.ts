@@ -75,7 +75,8 @@ export class TenantBusinessService {
       companySize: data.companySize || null,
       location: data.location || null,
     };
-    return this.tenantRepository.create(tenantData);
+    const tenantEntity = this.tenantRepository.create(tenantData);
+    return this.tenantRepository.save(tenantEntity);
   }
   private async createOwnerMembership(userId: string, tenantId: string): Promise<TenantMember> {
     return this.tenantMemberService.createTenantMember(userId, tenantId, {

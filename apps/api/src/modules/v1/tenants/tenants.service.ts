@@ -66,7 +66,8 @@ export class TenantsService {
         companySize: data.companySize || null,
         location: data.location || null,
       };
-      const savedTenant = await this.tenantRepository.create(tenantData);
+      const tenantEntity = this.tenantRepository.create(tenantData);
+      const savedTenant = await this.tenantRepository.save(tenantEntity);
       const ownerProfile = await this.resolveOwnerMemberProfile(creatorId, user.name);
       const tenantMember = await this.tenantMemberService.createTenantMember(
         creatorId,

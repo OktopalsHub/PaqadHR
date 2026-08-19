@@ -123,7 +123,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   // Reloadly Topup specific states
   const [selectedReloadlyOperatorId, setSelectedReloadlyOperatorId] = useState<string>('');
   const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
-    selectedCountryCode !== 'NG' ? selectedCountryCode : '',
+    showAirtime && selectedCountryCode !== 'NG' ? selectedCountryCode : '',
   );
   const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
     airtimeNetwork,
@@ -248,10 +248,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [utilityServiceType, setUtilityServiceType] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
 
   const { data: reloadlyBillers = [], isLoading: billersLoading } = useUtilityBillers(
-    utilityCountryCode !== 'NG' ? utilityCountryCode : '',
+    showUtilities && utilityCountryCode !== 'NG' ? utilityCountryCode : '',
   );
   const { data: ngUtilityBillers = [], isLoading: ngBillersLoading } = useUtilityBillers(
-    utilityCountryCode === 'NG' ? 'NG' : '',
+    showUtilities && utilityCountryCode === 'NG' ? 'NG' : '',
   );
 
   const selectedUtilityBillerReloadly = reloadlyBillers.find(
