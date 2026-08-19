@@ -15,8 +15,8 @@ import {
   waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
 import { startProactiveRefresh, stopProactiveRefresh } from '@/lib/api/auth-refresh';
-import { bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
-import { cacheKeys, getCached, removeCached, setCached } from '@/lib/cache';
+import { bootstrapCsrf } from '@/lib/api/client';
+import { cacheKeys, clearAppCache, getCached, setCached } from '@/lib/cache';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
@@ -129,38 +129,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     stopProactiveRefresh();
-    // Flag AppGate so it doesn't capture the tenant URL as a redirect param
-    // while the session is being torn down.
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('auth_signing_out', '1');
-    }
     try {
       await logoutRequest();
-      clearSession();
-      clearCsrfToken();
-      queryClient.setQueryData(queryKeys.auth.session, null);
-      queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
-      // Clear cache on logout
-      removeCached(cacheKeys.auth.session);
-      removeCached(cacheKeys.tenants.all);
-      toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
-      window.location.assign(authPageUrl('/signin'));
     } catch {
-      clearSession();
-      clearCsrfToken();
-      queryClient.setQueryData(queryKeys.auth.session, null);
-      queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
-      // Clear cache on logout
-      removeCached(cacheKeys.auth.session);
-      removeCached(cacheKeys.tenants.all);
-      toast.error(
-        <ToastMessage
-          title="Logout Failed"
-          description="Could not reach the server. Please try again."
-        />,
-      );
-      window.location.assign(authPageUrl('/signin'));
+      // Server unreachable — still tear down client state below
     }
+    clearSession();
+    queryClient.setQueryData(queryKeys.auth.session, null);
+    queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
+    clearAppCache();
+    toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
+    window.location.assign(authPageUrl('/signin'));
   }, [queryClient]);
 
   const value = useMemo<AuthContextType>(
@@ -175,9 +154,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       // Only trust auth state after first server fetch completes (not from placeholder/cached data)
       isAuthenticated: sessionQuery.isFetched && Boolean(sessionQuery.data),
-      isLoading: !sessionQuery.isFetched || loginMutation.isPending || registerMutation.isPending,
+      isLoading:
+        (sessionBootstrapEnabled && !sessionQuery.isFetched) ||
+        loginMutation.isPending ||
+        registerMutation.isPending,
     }),
-    [sessionQuery.data, sessionQuery.isFetched, loginMutation, registerMutation, logout],
+    [
+      sessionBootstrapEnabled,
+      sessionQuery.data,
+      sessionQuery.isFetched,
+      loginMutation,
+      registerMutation,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
