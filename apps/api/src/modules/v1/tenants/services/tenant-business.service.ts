@@ -1,15 +1,17 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs';
 import { TenantMemberRole } from 'src/common/enums';
 import { StringUtility } from 'src/common/utils';
+import { DataSource } from 'typeorm';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
-import type { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
-import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-import type { User } from '../../users/entities/user.entity';
+import { TenantCounter } from '../../tenant-members/entities/tenant-counter.entity';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { UsersService } from '../../users/users.service';
 import type { CreateTenantDto } from '../dto/create-tenant.dto';
-import type { Tenant } from '../entities/tenant.entity';
+import { Tenant } from '../entities/tenant.entity';
 import { TenantRepository } from '../repositories/tenant.repository';
 
 @Injectable()
@@ -17,14 +19,15 @@ export class TenantBusinessService {
   private readonly logger = new Logger(TenantBusinessService.name);
   constructor(
     private readonly tenantRepository: TenantRepository,
-    private readonly tenantMemberService: TenantMembersService,
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
   async createTenantWithOwner(
     creatorId: string,
     data: CreateTenantDto,
-  ): Promise<{ tenant: Tenant; member: unknown }> {
+  ): Promise<{ tenant: Tenant; member: TenantMember }> {
     try {
       const user = await this.userService.getUser(creatorId);
       if (!user) {
@@ -32,10 +35,80 @@ export class TenantBusinessService {
       }
       const slug = await this.generateUniqueSlug(data.name);
       this.validateSlugNotReserved(slug);
-      const tenant = await this.createTenant(user, data, slug);
-      const member = await this.createOwnerMembership(creatorId, tenant.id);
-      await this.emitTenantCreationEvents(tenant, member);
-      await this.initializeTenantSettings(tenant, data.name);
+
+      const { tenant, member } = await this.dataSource.transaction(async (manager) => {
+        const tenantRepo = manager.getRepository(Tenant);
+        const memberRepo = manager.getRepository(TenantMember);
+        const counterRepo = manager.getRepository(TenantCounter);
+        const settingsRepo = manager.getRepository(TenantSettings);
+
+        const inviteCode = StringUtility.generateInviteCode();
+        const employeeCode = this.generateEmployeeCode(data.name);
+        const tenantEntity = tenantRepo.create({
+          name: data.name,
+          slug,
+          createdBy: user as Tenant['createdBy'],
+          isActive: true,
+          inviteCode,
+          employeeCode,
+          industry: data.industry || null,
+          companySize: data.companySize || null,
+          location: data.location || null,
+        });
+        const tenant = await tenantRepo.save(tenantEntity);
+
+        const existingMember = await memberRepo.findOne({
+          where: { userId: creatorId, tenantId: tenant.id },
+        });
+        if (existingMember) {
+          throw new BadRequestException('User is already a member of this tenant');
+        }
+
+        let numberPrefix = '';
+        let numberPadding = 3;
+        try {
+          const settings = await settingsRepo.findOne({
+            where: { tenantId: tenant.id },
+          });
+          if (settings?.settings?.employee) {
+            numberPrefix = settings.settings.employee.numberPrefix || '';
+            numberPadding = settings.settings.employee.numberPadding || 3;
+          }
+        } catch (_) {}
+
+        let counter = await counterRepo.findOne({
+          where: { tenantId: tenant.id, counterType: 'employee_number' },
+        });
+        if (!counter) {
+          counter = counterRepo.create({
+            tenantId: tenant.id,
+            counterType: 'employee_number',
+            currentValue: 0,
+            prefix: numberPrefix,
+            paddingLength: numberPadding,
+          });
+        } else {
+          counter.currentValue = (counter.currentValue || 0) + 1;
+        }
+        await counterRepo.save(counter);
+        const employeeNumber = (counter.currentValue || 0).toString().padStart(numberPadding, '0');
+
+        const memberEntity = memberRepo.create({
+          userId: creatorId,
+          tenantId: tenant.id,
+          role: TenantMemberRole.OWNER,
+          isActive: true,
+          joinDate: new Date(),
+          employeeNumber,
+        });
+        const member = await memberRepo.save(memberEntity);
+
+        return { tenant, member };
+      });
+
+      this.emitTenantCreationEvents(tenant, member);
+      this.initializeTenantSettings(tenant, data.name);
+
       return { tenant, member };
     } catch (error) {
       this.logger.error('Error in tenant creation business logic:', error);
@@ -60,28 +133,6 @@ export class TenantBusinessService {
     if (isReservedTenantSlug(slug)) {
       throw new BadRequestException(`The subdomain "${slug}" is reserved and cannot be used.`);
     }
-  }
-  private async createTenant(user: User, data: CreateTenantDto, slug: string): Promise<Tenant> {
-    const inviteCode = StringUtility.generateInviteCode();
-    const employeeCode = this.generateEmployeeCode(data.name);
-    const tenantData: Partial<Tenant> = {
-      name: data.name,
-      slug,
-      createdBy: user as Tenant['createdBy'],
-      isActive: true,
-      inviteCode,
-      employeeCode,
-      industry: data.industry || null,
-      companySize: data.companySize || null,
-      location: data.location || null,
-    };
-    const tenantEntity = this.tenantRepository.create(tenantData);
-    return this.tenantRepository.save(tenantEntity);
-  }
-  private async createOwnerMembership(userId: string, tenantId: string): Promise<TenantMember> {
-    return this.tenantMemberService.createTenantMember(userId, tenantId, {
-      role: TenantMemberRole.OWNER,
-    });
   }
   private emitTenantCreationEvents(tenant: Tenant, member: TenantMember): void {
     try {
