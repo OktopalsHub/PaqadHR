@@ -39,6 +39,7 @@ import {
   useDeleteCustomReward,
   useMyClaims,
   useNombaDataPlans,
+  useRewardProviders,
   useRewardsCatalog,
   useTopupOperators,
   useUtilityBillers,
@@ -95,8 +96,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const showAirtime = isAirtimeEnabled;
-  const showUtilities = isUtilitiesEnabled;
+  const { data: providers } = useRewardProviders();
+  const showAirtime = isAirtimeEnabled && (isNgWorkspace || Boolean(providers?.reloadly.airtime));
+  const showUtilities =
+    isUtilitiesEnabled && (isNgWorkspace || Boolean(providers?.reloadly.utilities));
 
   const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();

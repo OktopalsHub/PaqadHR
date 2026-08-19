@@ -101,6 +101,7 @@ export class NotificationService {
 
     if (tenantId) {
       where.push(
+        { tenantId, recipientId: memberId },
         { tenantId, recipientId: IsNull() },
         { type: NotificationType.SYSTEM, tenantId: IsNull(), recipientId: IsNull() },
       );
@@ -122,13 +123,29 @@ export class NotificationService {
   }
 
   async markAsRead(notificationId: string, memberId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { id: notificationId, recipientId: IsNull() };
-    if (tenantId) where.tenantId = tenantId;
+    const personalWhere: FindOptionsWhere<Notification> = {
+      id: notificationId,
+      recipientId: memberId,
+    };
+    if (tenantId) personalWhere.tenantId = tenantId;
 
-    await this.notificationRepository.update(where, {
+    const broadcastWhere: FindOptionsWhere<Notification> = {
+      id: notificationId,
+      recipientId: IsNull(),
+    };
+    if (tenantId) broadcastWhere.tenantId = tenantId;
+
+    const result = await this.notificationRepository.update(personalWhere, {
       readAt: new Date(),
       status: NotificationStatus.READ,
     });
+
+    if (result.affected === 0) {
+      await this.notificationRepository.update(broadcastWhere, {
+        readAt: new Date(),
+        status: NotificationStatus.READ,
+      });
+    }
 
     if (tenantId) {
       this.activitiesService
@@ -148,26 +165,41 @@ export class NotificationService {
     memberId: string,
     tenantId?: string,
   ): Promise<void> {
-    const where: FindOptionsWhere<Notification> = {
+    const readAt = new Date();
+    const status = NotificationStatus.READ;
+
+    const personalWhere: FindOptionsWhere<Notification> = {
+      id: In(notificationIds),
+      recipientId: memberId,
+    };
+    if (tenantId) personalWhere.tenantId = tenantId;
+
+    const broadcastWhere: FindOptionsWhere<Notification> = {
       id: In(notificationIds),
       recipientId: IsNull(),
     };
-    if (tenantId) where.tenantId = tenantId;
+    if (tenantId) broadcastWhere.tenantId = tenantId;
 
-    await this.notificationRepository.update(where, {
-      readAt: new Date(),
-      status: NotificationStatus.READ,
-    });
+    await Promise.all([
+      this.notificationRepository.update(personalWhere, { readAt, status }),
+      this.notificationRepository.update(broadcastWhere, { readAt, status }),
+    ]);
   }
 
   async markAllAsRead(memberId: string, tenantId?: string): Promise<void> {
-    const where: FindOptionsWhere<Notification> = { recipientId: IsNull() };
-    if (tenantId) where.tenantId = tenantId;
+    const readAt = new Date();
+    const status = NotificationStatus.READ;
 
-    await this.notificationRepository.update(where, {
-      readAt: new Date(),
-      status: NotificationStatus.READ,
-    });
+    const personalWhere: FindOptionsWhere<Notification> = { recipientId: memberId };
+    if (tenantId) personalWhere.tenantId = tenantId;
+
+    const broadcastWhere: FindOptionsWhere<Notification> = { recipientId: IsNull() };
+    if (tenantId) broadcastWhere.tenantId = tenantId;
+
+    await Promise.all([
+      this.notificationRepository.update(personalWhere, { readAt, status }),
+      this.notificationRepository.update(broadcastWhere, { readAt, status }),
+    ]);
 
     if (tenantId) {
       this.activitiesService
@@ -187,6 +219,7 @@ export class NotificationService {
 
     if (tenantId) {
       where.push(
+        { tenantId, recipientId: memberId, readAt: IsNull() },
         { tenantId, recipientId: IsNull(), readAt: IsNull() },
         {
           type: NotificationType.SYSTEM,

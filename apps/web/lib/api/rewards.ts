@@ -377,3 +377,15 @@ export async function assignPoints(params: {
     body: JSON.stringify(params),
   });
 }
+
+export interface RewardProviders {
+  reloadly: { giftCards: boolean; airtime: boolean; utilities: boolean };
+  tremendous: { giftCards: boolean };
+  nomba: { airtime: boolean; utility: boolean };
+  monnify: { airtime: boolean; utility: boolean };
+}
+
+export async function fetchRewardProviders(): Promise<RewardProviders> {
+  const tenantId = await resolveTenantId();
+  return apiClient<RewardProviders>(tenantPath(tenantId, 'rewards/providers'));
+}

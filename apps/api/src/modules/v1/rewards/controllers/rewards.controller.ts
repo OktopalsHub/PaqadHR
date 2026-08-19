@@ -412,6 +412,14 @@ export class RewardsController {
     return this.rewardsService.listTopupOperators(countryCode);
   }
 
+  @Get('providers')
+  @RequireFeatures(FeatureAccess.INTEGRATIONS)
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ALL_ROLES)
+  async getProviderAvailability() {
+    return this.rewardsService.getProviderAvailability();
+  }
+
   @Get('data-plans/:network')
   @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)
