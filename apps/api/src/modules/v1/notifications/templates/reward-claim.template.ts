@@ -9,7 +9,7 @@ function validateRedemptionUrl(url: string): string {
     if (parsed.protocol !== 'https:') {
       throw new Error('Redemption URL must use HTTPS');
     }
-    return escapeHtml(url);
+    return url;
   } catch {
     return escapeHtml('#invalid-redemption-url');
   }
