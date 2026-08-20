@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useTenant } from '@/_/tenant-provider';
+import { useTenant } from '@/providers/tenant-provider';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -40,7 +40,7 @@ import {
   useDeleteCustomReward,
   useMyClaims,
   useNombaDataPlans,
-  useReward_,
+  useRewardProviders,
   useRewardsCatalog,
   useUtilityBillers,
 } from '@/hooks/queries/use-rewards';
@@ -95,7 +95,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const { data: _providers, isLoading: _Loading } = useReward_();
+  const { data: _providers, isLoading: _Loading } = useRewardProviders();
   const showAirtime = isAirtimeEnabled && isNgWorkspace;
   const showUtilities = isUtilitiesEnabled && isNgWorkspace;
 
@@ -300,7 +300,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       return () => clearTimeout(delayDebounceFn);
     }
     setUtilityPoints(null);
-  }, [utilityAmount, utilityCountryCode, selectedNgUtilityBiller.id, selectedNgUtilityBiller]);
+  }, [utilityAmount, utilityCountryCode, selectedNgUtilityBiller?.id, selectedNgUtilityBiller]);
 
   const handleLookupMeter = async () => {
     if (!utilityAccountNumber.trim()) {
