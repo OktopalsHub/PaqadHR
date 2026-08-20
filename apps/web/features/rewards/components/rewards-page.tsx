@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { useTenant } from '@/providers/tenant-provider';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -55,6 +54,7 @@ import {
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
 import { mapMemberWalletError } from '@/lib/wallet-error-message';
+import { useTenant } from '@/providers/tenant-provider';
 import { CatalogCard } from './rewards-page-catalog-card';
 import {
   dataPlanId,
