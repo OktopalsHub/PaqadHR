@@ -193,10 +193,6 @@ export class TenantSettingsService {
             updateDto.rewards.utilityPaymentsEnabled ??
             existingSettings.settings.rewards?.utilityPaymentsEnabled ??
             true,
-          reloadlyProducts:
-            updateDto.rewards.reloadlyProducts ??
-            existingSettings.settings.rewards?.reloadlyProducts ??
-            [],
           tremendousProducts:
             updateDto.rewards.tremendousProducts ??
             existingSettings.settings.rewards?.tremendousProducts ??
@@ -312,7 +308,6 @@ export class TenantSettingsService {
       ],
       giftCardProvider: resolveGiftCardProviderFromEnv(),
       utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
-      reloadlyProducts: rewards?.reloadlyProducts ?? [],
       tremendousProducts: rewards?.tremendousProducts ?? [],
     };
   }

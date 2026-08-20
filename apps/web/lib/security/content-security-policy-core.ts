@@ -15,7 +15,6 @@ export function buildContentSecurityPolicyFromSources(
     'blob:',
     options.brandOrigin,
     'https://images.unsplash.com',
-    'https://cdn.reloadly.com',
     'https://testflight.tremendous.com',
     'https://api.tremendous.com',
     'https://res.cloudinary.com',

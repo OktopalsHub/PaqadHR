@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { getReloadlyWebhookSecret } from 'src/common/config/reloadly.config';
 import { Public, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import type {
   SlackEventPayload,
@@ -23,7 +22,6 @@ import type {
   SlackSlashCommandPayload,
   SlackUrlVerificationPayload,
 } from 'src/common/integrations/integration.types';
-import { ReloadlyWebhookService } from '../../rewards/services/reloadly-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
@@ -52,7 +50,6 @@ export class WebhooksController {
     private readonly noahWebhookService: NoahWebhookService,
     private readonly bachsWebhookService: BachsWebhookService,
     private readonly polarWebhookService: PolarWebhookService,
-    private readonly reloadlyWebhookService: ReloadlyWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
     private readonly tremendousWebhookService: TremendousWebhookService,
   ) {}
@@ -123,51 +120,6 @@ export class WebhooksController {
       throw new UnauthorizedException('Missing raw webhook body');
     }
     return this.polarWebhookService.dispatch(rawBody, headers);
-  }
-
-  @Post('reloadly')
-  @Public()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reloadly transaction status webhook' })
-  async handleReloadlyWebhook(
-    @Req() req: RawBodyRequestType,
-    @Headers('x-reloadly-signature') signature: string,
-  ) {
-    const secret = getReloadlyWebhookSecret();
-    if (!secret) {
-      this.logger.warn('RELOADLY_WEBHOOK_SECRET is not configured. Webhook validation skipped.');
-      throw new UnauthorizedException('Reloadly webhook signature secret is not configured');
-    }
-
-    if (!signature) {
-      throw new UnauthorizedException('Missing Reloadly signature');
-    }
-
-    const rawBody = req.rawBody?.toString('utf8') ?? '';
-    try {
-      const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
-      const sigBuffer = Buffer.from(signature, 'utf8');
-      const digestBuffer = Buffer.from(hash, 'utf8');
-      if (sigBuffer.length !== digestBuffer.length || !timingSafeEqual(sigBuffer, digestBuffer)) {
-        throw new UnauthorizedException('Invalid Reloadly signature');
-      }
-    } catch (err) {
-      if (err instanceof UnauthorizedException) throw err;
-      this.logger.error(`Reloadly signature verification failed: ${(err as Error).message}`);
-      throw new UnauthorizedException('Invalid Reloadly signature');
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      throw new BadRequestException('Invalid webhook JSON');
-    }
-
-    await this.reloadlyWebhookService.processReloadlyWebhookEvent(
-      payload as Record<string, unknown>,
-    );
-    return { received: true };
   }
 
   @Post('slack/events')

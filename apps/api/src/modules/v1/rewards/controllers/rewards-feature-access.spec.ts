@@ -42,7 +42,6 @@ describe('Rewards controller feature access', () => {
     ['wallet', controller.getWallet],
     ['claims', controller.getMyClaims],
     ['custom rewards', controller.listCustomRewards],
-    ['airtime operators', controller.listTopupOperators],
   ])('requires integrations for %s', async (_, handler) => {
     subscriptionsService.hasFeatureAccess.mockResolvedValue(false);
 

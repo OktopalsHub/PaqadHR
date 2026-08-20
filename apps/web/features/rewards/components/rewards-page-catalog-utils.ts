@@ -1,6 +1,6 @@
 import type { CatalogItem } from '@/lib/api/rewards';
 
-export function getReloadlyCategory(
+export function getGiftCardCategory(
   item: CatalogItem,
 ): 'Airtime' | 'Money Cards' | 'Gift Cards' | 'Gaming Cards' {
   const name = item.name.toLowerCase();
@@ -54,7 +54,7 @@ export function getReloadlyCategory(
   return 'Gift Cards';
 }
 
-export function formatReloadlyCost(amount: number, currency: string) {
+export function formatCost(amount: number, currency: string) {
   try {
     return new Intl.NumberFormat(undefined, {
       style: 'currency',

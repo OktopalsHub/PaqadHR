@@ -14,11 +14,6 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'cdn.reloadly.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
         hostname: 'testflight.tremendous.com',
         pathname: '/**',
       },

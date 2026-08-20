@@ -21,21 +21,6 @@ export interface RewardsSettings {
 
   utilityPaymentsEnabled?: boolean;
 
-  reloadlyProducts?: Array<{
-    productId: number;
-    name: string;
-    pointsCost: number;
-    imageUrl: string | null;
-    countryCode: string;
-    currencyCode: string;
-    minDenomination?: number | null;
-    maxDenomination?: number | null;
-    fixedDenominations?: number[];
-    listReloadlyCost?: number | null;
-    listReloadlyCostCurrency?: string;
-    wholesaleInRewardsCurrency?: number;
-  }>;
-
   tremendousProducts?: Array<{
     productId: string;
     name: string;

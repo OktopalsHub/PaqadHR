@@ -13,6 +13,7 @@ import {
   type PayrollNotificationEmailVariables,
   renderPayrollNotificationEmail,
 } from './payroll-notification.template';
+import { type RewardClaimEmailVariables, renderRewardClaimEmail } from './reward-claim.template';
 import type { RenderedEmailTemplate } from './types';
 
 type EmailTemplateRenderer = (variables: Record<string, unknown>) => RenderedEmailTemplate;
@@ -28,4 +29,6 @@ export const EMAIL_TEMPLATE_REGISTRY: Record<string, EmailTemplateRenderer> = {
     renderPayrollNotificationEmail(variables as unknown as PayrollNotificationEmailVariables),
   notification: (variables) =>
     renderGenericNotificationEmail(variables as unknown as GenericNotificationEmailVariables),
+  'reward-claim': (variables) =>
+    renderRewardClaimEmail(variables as unknown as RewardClaimEmailVariables),
 };
