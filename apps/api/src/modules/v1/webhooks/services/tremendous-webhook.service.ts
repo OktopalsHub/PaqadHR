@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { RewardRedemption } from '../../rewards/entities/reward-redemption.entity';
-import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
+import { RewardRedemption } from '../../rewards/entities/reward-redemption.entity';
+import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
 function isValidHttpsUrl(url: string): boolean {

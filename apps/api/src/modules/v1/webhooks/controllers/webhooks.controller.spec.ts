@@ -1,11 +1,11 @@
 import { UnauthorizedException } from '@nestjs/common';
-import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
 import { PolarWebhookService } from '../services/polar-webhook.service';
+import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import { WebhooksController } from './webhooks.controller';
 
 jest.mock('src/common/config/nomba-webhook.util', () => ({
