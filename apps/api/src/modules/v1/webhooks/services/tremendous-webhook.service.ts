@@ -2,6 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { RewardRedemption } from '../../rewards/entities/reward-redemption.entity';
 import { TenantWalletService } from '../../rewards/services/tenant-wallet.service';
+import { EmailTemplateService } from '../../notifications/services/email-template.service';
+import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
+
+function isValidHttpsUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 interface TremendousWebhookPayload {
   event_type: string;
@@ -36,6 +48,8 @@ export class TremendousWebhookService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
+    private readonly emailTemplateService: EmailTemplateService,
+    private readonly emailService: ZeptomailEmailService,
   ) {}
 
   async dispatch(rawBody: string, _signature: string): Promise<{ received: boolean }> {
@@ -93,22 +107,79 @@ export class TremendousWebhookService {
     }
 
     const deliveryLink = reward?.delivery?.link ?? reward?.redemption?.details?.redemption_url;
+    const safeDeliveryLink =
+      deliveryLink && isValidHttpsUrl(deliveryLink) ? deliveryLink : undefined;
+
     await redemptionRepo.update(redemption.id, {
       status: 'SUCCESS',
       providerRef: {
         ...redemption.providerRef,
         txRef: reward?.id ?? redemption.providerRef?.txRef,
       },
+      ...(safeDeliveryLink
+        ? {
+            voucher: {
+              ...redemption.voucher,
+              code: safeDeliveryLink,
+              instructions: 'Open this link to choose and redeem your gift card.',
+            },
+          }
+        : {}),
     });
 
-    if (deliveryLink) {
-      await redemptionRepo.update(redemption.id, {
-        voucher: {
-          ...redemption.voucher,
-          instructions: `Redeem here: ${deliveryLink}`,
-        },
+    if (safeDeliveryLink && !redemption.voucher?.code) {
+      void this.sendRewardClaimEmail(redemption, safeDeliveryLink).catch((err) => {
+        this.logger.warn(
+          `Failed to send reward claim email for ${redemption.id}: ${err instanceof Error ? err.message : err}`,
+        );
       });
     }
+  }
+
+  private async sendRewardClaimEmail(
+    redemption: RewardRedemption,
+    deliveryLink: string,
+  ): Promise<void> {
+    const member = await this.dataSource
+      .getRepository(TenantMember)
+      .createQueryBuilder('m')
+      .leftJoin('m.user', 'u')
+      .select(['m.id', 'm.firstName', 'm.lastName', 'm.preferredName', 'u.id', 'u.email'])
+      .where('m.id = :id AND m.tenantId = :tenantId', {
+        id: redemption.memberId,
+        tenantId: redemption.tenantId,
+      })
+      .getOne();
+
+    const recipientEmail = redemption.recipient?.email ?? member?.user?.email;
+    if (!recipientEmail) {
+      this.logger.warn(`No recipient email for redemption ${redemption.id}, skipping email`);
+      return;
+    }
+
+    const recipientName =
+      member?.preferredName?.trim() ||
+      `${member?.firstName ?? ''} ${member?.lastName ?? ''}`.trim() ||
+      'Member';
+
+    const rendered = this.emailTemplateService.render('reward-claim', {
+      employeeName: recipientName,
+      employeeEmail: recipientEmail,
+      rewardName: redemption.rewardName ?? 'Gift Card',
+      rewardAmount: redemption.currencyValue,
+      currencyCode: redemption.currencyCode,
+      redemptionUrl: deliveryLink,
+      referenceId: redemption.id,
+      providerName: 'Tremendous',
+      providerLogoUrl: 'https://www.tremendous.com/img/tremendous-logo.png',
+    });
+
+    await this.emailService.sendEmail({
+      to: recipientEmail,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+    });
   }
 
   private async handleFulfillmentFailure(redemptionId: string): Promise<void> {

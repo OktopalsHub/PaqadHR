@@ -347,21 +347,28 @@ export class RewardsService {
     }
   }
 
-  async getCatalogCountries(_tenantId: string): Promise<Array<{ code: string; name: string }>> {
+  async getCatalogCountries(tenantId: string): Promise<Array<{ code: string; name: string }>> {
+    const settings = await this.getRewardsSettings(tenantId);
+    const allowed = new Set(
+      normalizeRewardsCatalogCountries(settings.catalogCountries, 'NG').map((c) => c.toUpperCase()),
+    );
+
     if (!this.tremendousApi.isConfigured()) {
       return [
         { code: 'US', name: 'United States' },
         { code: 'GB', name: 'United Kingdom' },
         { code: 'CA', name: 'Canada' },
         { code: 'NG', name: 'Nigeria' },
-      ];
+      ].filter((c) => allowed.size === 0 || allowed.has(c.code));
     }
     const products = await this.tremendousApi.listProducts();
     const codes = new Set<string>();
     for (const product of products) {
       for (const country of product.countries ?? []) {
         const code = GeoLocationHelper.toStoredCountryCode(country.abbr);
-        if (code) codes.add(code);
+        if (code && (allowed.size === 0 || allowed.has(code.toUpperCase()))) {
+          codes.add(code);
+        }
       }
     }
     return Array.from(codes)

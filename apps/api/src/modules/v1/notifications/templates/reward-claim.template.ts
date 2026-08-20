@@ -3,6 +3,18 @@ import { renderEmailLayout } from './layout';
 import { emailButton, emailHeading, emailParagraph, greetingFirstName } from './shared';
 import type { RenderedEmailTemplate } from './types';
 
+function validateRedemptionUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') {
+      throw new Error('Redemption URL must use HTTPS');
+    }
+    return escapeHtml(url);
+  } catch {
+    return escapeHtml('#invalid-redemption-url');
+  }
+}
+
 export interface RewardClaimEmailVariables {
   employeeName?: string;
   employeeEmail: string;
@@ -22,7 +34,7 @@ export function renderRewardClaimEmail(vars: RewardClaimEmailVariables): Rendere
   const amount = escapeHtml(String(vars.rewardAmount));
   const currency = escapeHtml(vars.currencyCode);
   const securityCode = vars.securityCode ? escapeHtml(vars.securityCode) : null;
-  const redemptionUrl = vars.redemptionUrl;
+  const redemptionUrl = validateRedemptionUrl(vars.redemptionUrl);
   const referenceId = escapeHtml(vars.referenceId);
   const providerName = escapeHtml(vars.providerName);
 
