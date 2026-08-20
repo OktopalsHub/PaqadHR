@@ -1,4 +1,3 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import {
   BadRequestException,
   Body,
@@ -6,7 +5,6 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
-  Logger,
   Post,
   type RawBodyRequest,
   Req,
@@ -42,8 +40,6 @@ type RawBodyRequestType = Request & { rawBody?: Buffer };
 @ApiTags('Global Webhooks')
 @Controller('webhooks')
 export class WebhooksController {
-  private readonly logger = new Logger(WebhooksController.name);
-
   constructor(
     private readonly nombaWebhookService: NombaWebhookService,
     private readonly monnifyWebhookService: MonnifyWebhookService,
@@ -200,34 +196,8 @@ export class WebhooksController {
   @RateLimit(RateLimitPresets.PUBLIC)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Tremendous reward fulfillment webhook' })
-  async handleTremendousWebhook(
-    @Req() req: RawBodyRequestType,
-    @Headers('x-tremendous-signature') signature: string,
-  ) {
-    const secret = process.env.TREMENDOUS_WEBHOOK_SECRET?.trim() ?? '';
-    if (!secret) {
-      this.logger.warn('TREMENDOUS_WEBHOOK_SECRET is not configured. Webhook validation skipped.');
-      throw new UnauthorizedException('Tremendous webhook secret is not configured');
-    }
-
-    if (!signature) {
-      throw new UnauthorizedException('Missing Tremendous signature');
-    }
-
+  async handleTremendousWebhook(@Req() req: RawBodyRequestType) {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
-    try {
-      const hash = createHmac('sha256', secret).update(rawBody).digest('hex');
-      const sigBuffer = Buffer.from(signature, 'utf8');
-      const digestBuffer = Buffer.from(hash, 'utf8');
-      if (sigBuffer.length !== digestBuffer.length || !timingSafeEqual(sigBuffer, digestBuffer)) {
-        throw new UnauthorizedException('Invalid Tremendous signature');
-      }
-    } catch (err) {
-      if (err instanceof UnauthorizedException) throw err;
-      this.logger.error(`Tremendous signature verification failed: ${(err as Error).message}`);
-      throw new UnauthorizedException('Invalid Tremendous signature');
-    }
-
-    return this.tremendousWebhookService.dispatch(rawBody, signature);
+    return this.tremendousWebhookService.dispatch(rawBody);
   }
 }

@@ -52,7 +52,7 @@ export class TremendousWebhookService {
     private readonly emailService: ZeptomailEmailService,
   ) {}
 
-  async dispatch(rawBody: string, _signature: string): Promise<{ received: boolean }> {
+  async dispatch(rawBody: string): Promise<{ received: boolean }> {
     let payload: TremendousWebhookPayload;
     try {
       payload = JSON.parse(rawBody) as TremendousWebhookPayload;
