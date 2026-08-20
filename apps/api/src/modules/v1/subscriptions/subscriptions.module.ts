@@ -29,6 +29,13 @@ import { BillingProviderFactoryService } from './services/billing-provider-facto
 import { NombaApiService } from './services/nomba-api.service';
 import { SubscriptionBillingService } from './services/subscription-billing.service';
 import { SubscriptionsService } from './services/subscriptions.service';
+import { SubscriptionCheckoutService } from './services/subscription-checkout.service';
+import { SubscriptionWebhookService } from './services/subscription-webhook.service';
+import { SubscriptionPaymentProcessorService } from './services/subscription-payment-processor.service';
+import { SubscriptionRenewalService } from './services/subscription-renewal.service';
+import { SubscriptionSeatChargeService } from './services/subscription-seat-charge.service';
+import { SubscriptionSyncService } from './services/subscription-sync.service';
+import { SubscriptionReconciliationService } from './services/subscription-reconciliation.service';
 
 @Module({
   imports: [
@@ -56,6 +63,13 @@ import { SubscriptionsService } from './services/subscriptions.service';
   providers: [
     SubscriptionsService,
     SubscriptionBillingService,
+    SubscriptionCheckoutService,
+    SubscriptionWebhookService,
+    SubscriptionPaymentProcessorService,
+    SubscriptionRenewalService,
+    SubscriptionSeatChargeService,
+    SubscriptionSyncService,
+    SubscriptionReconciliationService,
     BillingCronService,
     BillingProductSyncService,
     SubscriptionBillingListener,
@@ -81,4 +95,4 @@ import { SubscriptionsService } from './services/subscriptions.service';
     FeatureAccessGuard,
   ],
 })
-export class SubscriptionsModule {}
+export class SubscriptionsModule { }
