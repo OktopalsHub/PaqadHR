@@ -404,14 +404,6 @@ export class RewardsController {
     return this.rewardsService.rejectSubmission(tenantId, taskId, submissionId, member.id);
   }
 
-  @Get('operators/:countryCode')
-  @RequireFeatures(FeatureAccess.INTEGRATIONS)
-  @UseGuards(TenantRoleGuard)
-  @Roles(...ALL_ROLES)
-  async listTopupOperators(@Param('countryCode') countryCode: string) {
-    return this.rewardsService.listTopupOperators(countryCode);
-  }
-
   @Get('providers')
   @RequireFeatures(FeatureAccess.INTEGRATIONS)
   @UseGuards(TenantRoleGuard)

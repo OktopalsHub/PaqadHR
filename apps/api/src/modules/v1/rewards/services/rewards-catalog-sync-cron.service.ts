@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { isReloadlyConfigured } from 'src/common/config/reloadly.config';
 import { isTremendousConfigured } from 'src/common/config/tremendous.config';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
 import { Repository } from 'typeorm';
@@ -20,7 +19,7 @@ export class RewardsCatalogSyncCronService {
 
   @Cron('0 */4 * * *')
   async syncAllTenantCatalogs(): Promise<void> {
-    if (!isReloadlyConfigured() && !isTremendousConfigured()) {
+    if (!isTremendousConfigured()) {
       return;
     }
 

@@ -4,14 +4,7 @@ import { resolveTenantId } from '@/lib/api/tenants';
 /** Maximum wallet top-up amount per checkout or auto-topup request (mirrors API DTO). */
 export const WALLET_TOPUP_MAX_AMOUNT = 10_000_000;
 
-export type RewardType =
-  | 'RELOADLY'
-  | 'TREMENDOUS'
-  | 'NOMBA_AIRTIME'
-  | 'RELOADLY_AIRTIME'
-  | 'NOMBA_UTILITY'
-  | 'RELOADLY_UTILITY'
-  | 'CUSTOM';
+export type RewardType = 'TREMENDOUS' | 'NOMBA_AIRTIME' | 'NOMBA_UTILITY' | 'CUSTOM';
 export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 
 export interface CatalogItem {
@@ -206,44 +199,6 @@ export async function deleteCustomReward(rewardId: string) {
   });
 }
 
-export interface ReloadlyCountry {
-  code: string;
-  name: string;
-}
-
-export async function fetchReloadlyCountries(): Promise<ReloadlyCountry[]> {
-  const tenantId = await resolveTenantId();
-  return apiClient<ReloadlyCountry[]>(tenantPath(tenantId, 'rewards/countries'));
-}
-
-export interface ReloadlyOperator {
-  operatorId: number;
-  name: string;
-  bundle: boolean;
-  data: boolean;
-  pin: boolean;
-  denominationType: string;
-  senderCurrencyCode: string;
-  destinationCurrencyCode: string;
-  minAmount: number | null;
-  maxAmount: number | null;
-  localMinAmount: number | null;
-  localMaxAmount: number | null;
-  logoUrls: string[];
-}
-
-export interface ReloadlyBiller {
-  id: number;
-  name: string;
-  countryIsoCode: string;
-  type: string;
-  serviceType: 'POSTPAID' | 'PREPAID';
-  localAmountSupported: boolean;
-  localTransactionCurrencyCode: string;
-  minLocalTransactionAmount: number | null;
-  maxLocalTransactionAmount: number | null;
-}
-
 export interface NombaDataPlan {
   amount: number;
   plan: string;
@@ -254,11 +209,6 @@ export async function fetchNombaDataPlans(
 ): Promise<NombaDataPlan[]> {
   const tenantId = await resolveTenantId();
   return apiClient<NombaDataPlan[]>(tenantPath(tenantId, `rewards/data-plans/${network}`));
-}
-
-export async function fetchTopupOperators(countryCode: string): Promise<ReloadlyOperator[]> {
-  const tenantId = await resolveTenantId();
-  return apiClient<ReloadlyOperator[]>(tenantPath(tenantId, `rewards/operators/${countryCode}`));
 }
 
 export type UtilityBiller = {
@@ -379,7 +329,6 @@ export async function assignPoints(params: {
 }
 
 export interface RewardProviders {
-  reloadly: { giftCards: boolean; airtime: boolean; utilities: boolean };
   tremendous: { giftCards: boolean };
   nomba: { airtime: boolean; utility: boolean };
   monnify: { airtime: boolean; utility: boolean };

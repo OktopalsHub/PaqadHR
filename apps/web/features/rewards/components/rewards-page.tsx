@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { useTenant } from '@/_/tenant-provider';
 import { AppPage } from '@/components/app-page';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
@@ -39,9 +40,8 @@ import {
   useDeleteCustomReward,
   useMyClaims,
   useNombaDataPlans,
-  useRewardProviders,
+  useReward_,
   useRewardsCatalog,
-  useTopupOperators,
   useUtilityBillers,
 } from '@/hooks/queries/use-rewards';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
@@ -55,12 +55,11 @@ import {
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
 import { cn } from '@/lib/utils';
 import { mapMemberWalletError } from '@/lib/wallet-error-message';
-import { useTenant } from '@/providers/tenant-provider';
 import { CatalogCard } from './rewards-page-catalog-card';
 import {
   dataPlanId,
   getAvailableCustomPerkTemplates,
-  getReloadlyCategory,
+  getGiftCardCategory,
 } from './rewards-page-catalog-utils';
 import { ClaimRow } from './rewards-page-claim-row';
 import { PointsSummaryCard } from './rewards-page-points-summary';
@@ -96,10 +95,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const { data: providers, isLoading: providersLoading } = useRewardProviders();
-  const showAirtime = isAirtimeEnabled && (isNgWorkspace || Boolean(providers?.reloadly.airtime));
-  const showUtilities =
-    isUtilitiesEnabled && (isNgWorkspace || Boolean(providers?.reloadly.utilities));
+  const { data: _providers, isLoading: _Loading } = useReward_();
+  const showAirtime = isAirtimeEnabled && isNgWorkspace;
+  const showUtilities = isUtilitiesEnabled && isNgWorkspace;
 
   const [catalogCountryCode, setCatalogCountryCode] = useState(tenantCountry);
   const { data: pointsBalance, isLoading: pointsLoading } = useMyPointsBalance();
@@ -120,21 +118,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [topupMode, setTopupMode] = useState<'airtime' | 'data'>('airtime');
   const [selectedBundleId, setSelectedBundleId] = useState<string>('');
 
-  // Reloadly Topup specific states
-  const [selectedReloadlyOperatorId, setSelectedReloadlyOperatorId] = useState<string>('');
-  const { data: reloadlyOperators = [], isLoading: operatorsLoading } = useTopupOperators(
-    showAirtime && selectedCountryCode !== 'NG' ? selectedCountryCode : '',
-  );
   const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
     airtimeNetwork,
     selectedCountryCode === 'NG' && topupMode === 'data',
   );
 
   const selectedDataPlan = nombaDataPlans.find((plan) => dataPlanId(plan) === selectedBundleId);
-
-  const selectedReloadlyOperator = reloadlyOperators.find(
-    (o) => String(o.operatorId) === selectedReloadlyOperatorId,
-  );
 
   // Sync selected country code if settings change
   useEffect(() => {
@@ -148,16 +137,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       setCatalogCountryCode(tenantCountry);
     }
   }, [allowedCatalogCountries, catalogCountryCode, tenantCountry]);
-
-  // Sync operator default when operators load
-  useEffect(() => {
-    if (reloadlyOperators.length > 0) {
-      setSelectedReloadlyOperatorId(String(reloadlyOperators[0].operatorId));
-      if (reloadlyOperators[0].denominationType === 'FIXED') {
-        setAirtimeAmount('');
-      }
-    }
-  }, [reloadlyOperators]);
 
   useEffect(() => {
     if (topupMode !== 'data' || selectedCountryCode !== 'NG' || nombaDataPlans.length === 0) {
@@ -215,48 +194,20 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       return;
     }
 
-    if (amt > 0 && selectedReloadlyOperator) {
-      const delayDebounceFn = setTimeout(async () => {
-        setIsCalculatingPoints(true);
-        try {
-          const res = await calculatePointsCost({
-            type: 'airtime',
-            billerId: selectedReloadlyOperator.operatorId,
-            amount: amt,
-          });
-          setCalculatedPoints(res.pointsCost);
-          setCalculatedValue(res.currencyValue);
-          setCalculatedCurrency(res.currencyCode);
-        } catch (_e) {
-          setCalculatedPoints(null);
-        } finally {
-          setIsCalculatingPoints(false);
-        }
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
-    }
     setCalculatedPoints(null);
-  }, [airtimeAmount, selectedReloadlyOperator, selectedCountryCode]);
+  }, [airtimeAmount, selectedCountryCode]);
 
   // Utility Bill States
   const [utilityCountryCode, setUtilityCountryCode] = useState(redemptionCountry);
   const [selectedUtilityBillerNg, setSelectedUtilityBillerNg] = useState('');
-  const [selectedUtilityBillerReloadlyId, setSelectedUtilityBillerReloadlyId] =
-    useState<string>('');
   const [utilityAccountNumber, setUtilityAccountNumber] = useState('');
   const [utilityAmount, setUtilityAmount] = useState('1000');
   const [utilityServiceType, setUtilityServiceType] = useState<'PREPAID' | 'POSTPAID'>('PREPAID');
 
-  const { data: reloadlyBillers = [], isLoading: billersLoading } = useUtilityBillers(
-    showUtilities && utilityCountryCode !== 'NG' ? utilityCountryCode : '',
-  );
   const { data: ngUtilityBillers = [], isLoading: ngBillersLoading } = useUtilityBillers(
     showUtilities && utilityCountryCode === 'NG' ? 'NG' : '',
   );
 
-  const selectedUtilityBillerReloadly = reloadlyBillers.find(
-    (b) => String(b.id) === selectedUtilityBillerReloadlyId,
-  );
   const selectedNgUtilityBiller = ngUtilityBillers.find(
     (b) => String(b.id) === selectedUtilityBillerNg,
   );
@@ -267,13 +218,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       setUtilityCountryCode(redemptionCountry);
     }
   }, [redemptionCountry, utilityCountryCode]);
-
-  // Sync utility biller default when billers load
-  useEffect(() => {
-    if (reloadlyBillers.length > 0) {
-      setSelectedUtilityBillerReloadlyId(String(reloadlyBillers[0].id));
-    }
-  }, [reloadlyBillers]);
 
   useEffect(() => {
     if (ngUtilityBillers.length === 0) return;
@@ -335,18 +279,13 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       return;
     }
 
-    if (amt > 0 && selectedUtilityBillerReloadly) {
-      const reloadlyBillerId = Number(selectedUtilityBillerReloadly.id);
-      if (!Number.isFinite(reloadlyBillerId)) {
-        setUtilityPoints(null);
-        return;
-      }
+    if (amt > 0 && selectedNgUtilityBiller) {
       const delayDebounceFn = setTimeout(async () => {
         setIsCalculatingUtilityPoints(true);
         try {
           const res = await calculatePointsCost({
-            type: 'utility',
-            billerId: reloadlyBillerId,
+            type: 'ng-utility',
+            billerId: Number(selectedNgUtilityBiller.id),
             amount: amt,
           });
           setUtilityPoints(res.pointsCost);
@@ -361,7 +300,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       return () => clearTimeout(delayDebounceFn);
     }
     setUtilityPoints(null);
-  }, [utilityAmount, selectedUtilityBillerReloadly, utilityCountryCode]);
+  }, [utilityAmount, utilityCountryCode, selectedNgUtilityBiller.id, selectedNgUtilityBiller]);
 
   const handleLookupMeter = async () => {
     if (!utilityAccountNumber.trim()) {
@@ -371,10 +310,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     setIsLookingUpMeter(true);
     setLookupResult(null);
     try {
-      const billerId =
-        utilityCountryCode === 'NG'
-          ? selectedUtilityBillerNg
-          : String(selectedUtilityBillerReloadly?.id);
+      const billerId = selectedUtilityBillerNg;
       const res = await lookupUtilityMeter({
         countryCode: utilityCountryCode,
         billerId,
@@ -419,19 +355,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     setClaimingId('utility');
     const idempotencyKey = createClaimIdempotencyKey();
     try {
-      const billerId =
-        utilityCountryCode === 'NG' ? selectedUtilityBillerNg : selectedUtilityBillerReloadly?.id;
-      const billerName =
-        utilityCountryCode === 'NG'
-          ? selectedNgUtilityBiller?.name
-          : selectedUtilityBillerReloadly?.name;
+      const billerId = selectedUtilityBillerNg;
+      const billerName = selectedNgUtilityBiller?.name;
 
       const rewardName = `${billerName} Utility Payment`;
 
       const result = await claimReward.mutateAsync({
         idempotencyKey,
-        rewardType: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
-        rewardId: utilityCountryCode === 'NG' ? 'NOMBA_UTILITY' : 'RELOADLY_UTILITY',
+        rewardType: 'NOMBA_UTILITY',
+        rewardId: 'NOMBA_UTILITY',
         rewardName,
         pointsCost: utilityPoints,
         currencyValue: amount,
@@ -471,15 +403,15 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   const [claimsSearch, setClaimsSearch] = useState('');
 
-  const giftCards = catalog.filter((i) => i.type === 'RELOADLY' || i.type === 'TREMENDOUS');
+  const giftCards = catalog.filter((i) => i.type === 'TREMENDOUS');
   const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
   const availablePerkTemplates = useMemo(
     () => getAvailableCustomPerkTemplates(customPerks),
     [customPerks],
   );
 
-  const filteredReloadlyCards = giftCards.filter((item) => {
-    const category = getReloadlyCategory(item);
+  const filteredGiftCards = giftCards.filter((item) => {
+    const category = getGiftCardCategory(item);
     const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
     if (isNgAirtime) return false;
 
@@ -519,9 +451,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       });
 
       if (result.status === 'SUCCESS') {
-        toast.success(
-          `Claim successful! ${result.voucher?.code ? `Code: ${result.voucher.code}` : 'Reward ordered.'}`,
-        );
+        toast.success(`Claim successful! Check your email for redemption details.`);
       } else if (result.status === 'PENDING') {
         toast.info('Claim pending fulfillment.');
       } else {
@@ -558,38 +488,28 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     setClaimingId('airtime');
     const idempotencyKey = createClaimIdempotencyKey();
     try {
-      const selectedBundle =
-        selectedCountryCode === 'NG' && topupMode === 'data' ? selectedDataPlan : null;
+      const selectedBundle = topupMode === 'data' ? selectedDataPlan : null;
 
-      const providerProductId =
-        selectedCountryCode !== 'NG' ? selectedReloadlyOperator?.operatorId : undefined;
-
-      const rewardName =
-        selectedCountryCode === 'NG'
-          ? selectedBundle
-            ? `${airtimeNetwork} ${selectedBundle.plan} Data Bundle`
-            : `${airtimeNetwork} Airtime Top-up`
-          : `${selectedReloadlyOperator?.name} Airtime`;
+      const rewardName = selectedBundle
+        ? `${airtimeNetwork} ${selectedBundle.plan} Data Bundle`
+        : `${airtimeNetwork} Airtime Top-up`;
 
       const result = await claimReward.mutateAsync({
         idempotencyKey,
-        rewardType: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
-        rewardId: selectedCountryCode === 'NG' ? 'NOMBA_AIRTIME' : 'RELOADLY_AIRTIME',
+        rewardType: 'NOMBA_AIRTIME',
+        rewardId: 'NOMBA_AIRTIME',
         rewardName,
         pointsCost: calculatedPoints,
         currencyValue: amount,
         currencyCode: calculatedCurrency,
         recipientPhone: airtimePhone.trim(),
-        airtimeNetwork: selectedCountryCode === 'NG' ? airtimeNetwork : undefined,
-        topupKind: selectedCountryCode === 'NG' ? topupMode : undefined,
-        providerProductId,
+        airtimeNetwork,
+        topupKind: topupMode,
       });
 
       if (result.status === 'SUCCESS') {
         toast.success(
-          selectedCountryCode === 'NG' && selectedBundle
-            ? 'Data bundle sent successfully!'
-            : 'Airtime sent successfully!',
+          selectedBundle ? 'Data bundle sent successfully!' : 'Airtime sent successfully!',
         );
         setAirtimePhone('');
       } else if (result.status === 'FAILED') {
@@ -651,7 +571,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
   };
 
-  if (pointsLoading || catalogLoading || providersLoading) {
+  if (pointsLoading || catalogLoading || _Loading) {
     return isTab ? (
       <LoadingBlock />
     ) : (
@@ -768,10 +688,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
                   const count = giftCards.filter((item) => {
                     const isNgAirtime =
-                      item.countryCode === 'NG' && getReloadlyCategory(item) === 'Airtime';
+                      item.countryCode === 'NG' && getGiftCardCategory(item) === 'Airtime';
                     if (isNgAirtime) return false;
                     if (cat === 'All') return true;
-                    return getReloadlyCategory(item) === cat;
+                    return getGiftCardCategory(item) === cat;
                   }).length;
 
                   if (count === 0 && cat !== 'All') return null;
@@ -806,7 +726,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
               )}
             </div>
 
-            {filteredReloadlyCards.length === 0 ? (
+            {filteredGiftCards.length === 0 ? (
               <EmptyState
                 icon={ShoppingBag}
                 title="No items in this category"
@@ -814,7 +734,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
               />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredReloadlyCards.map((item) => (
+                {filteredGiftCards.map((item) => (
                   <CatalogCard
                     key={item.id}
                     item={item}
@@ -953,36 +873,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Select Global Operator
                       </Label>
-                      {operatorsLoading ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Loader2 className="size-4 animate-spin text-primary" /> Loading
-                          Operators...
-                        </div>
-                      ) : reloadlyOperators.length === 0 ? (
-                        <div className="text-xs text-muted-foreground italic">
-                          No operators available for this country.
-                        </div>
-                      ) : (
-                        <Select
-                          value={selectedReloadlyOperatorId}
-                          onValueChange={setSelectedReloadlyOperatorId}
-                        >
-                          <SelectTrigger className="h-10 text-xs">
-                            <SelectValue placeholder="Select operator..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {reloadlyOperators.map((operator) => (
-                              <SelectItem
-                                key={operator.operatorId}
-                                value={String(operator.operatorId)}
-                                className="text-xs"
-                              >
-                                {operator.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <div className="text-xs text-muted-foreground italic">
+                        Global airtime is not available. Only Nigerian airtime is supported.
+                      </div>
                     </div>
                   )}
 
@@ -1003,58 +896,35 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                       />
                     </div>
 
-                    {selectedCountryCode === 'NG'
-                      ? topupMode === 'airtime' && (
-                          <div className="space-y-1.5">
-                            <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
-                              Amount (₦)
-                            </Label>
-                            <Input
-                              type="number"
-                              min={100}
-                              value={airtimeAmount}
-                              onChange={(e) => setAirtimeAmount(e.target.value)}
-                              className="h-10 text-sm font-medium"
-                            />
-                          </div>
-                        )
-                      : selectedReloadlyOperator && (
-                          <div className="space-y-1.5">
-                            <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
-                              Amount ({selectedReloadlyOperator.destinationCurrencyCode})
-                            </Label>
-                            {selectedReloadlyOperator.denominationType === 'FIXED' ? (
-                              <Select value={airtimeAmount} onValueChange={setAirtimeAmount}>
-                                <SelectTrigger className="h-10 text-xs font-medium">
-                                  <SelectValue placeholder="Select denomination" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {selectedReloadlyOperator.localMinAmount === null ? (
-                                    <SelectItem value="0" className="text-xs">
-                                      No denominations available
-                                    </SelectItem>
-                                  ) : (
-                                    [10, 20, 50, 100].map((val) => (
-                                      <SelectItem key={val} value={String(val)} className="text-xs">
-                                        {selectedReloadlyOperator.destinationCurrencyCode} {val}
-                                      </SelectItem>
-                                    ))
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <Input
-                                type="number"
-                                min={selectedReloadlyOperator.localMinAmount ?? 1}
-                                max={selectedReloadlyOperator.localMaxAmount ?? 1000}
-                                value={airtimeAmount}
-                                onChange={(e) => setAirtimeAmount(e.target.value)}
-                                placeholder={`Range: ${selectedReloadlyOperator.localMinAmount ?? 1} - ${selectedReloadlyOperator.localMaxAmount ?? 1000}`}
-                                className="h-10 text-sm font-medium"
-                              />
-                            )}
-                          </div>
-                        )}
+                    {selectedCountryCode === 'NG' ? (
+                      topupMode === 'airtime' && (
+                        <div className="space-y-1.5">
+                          <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                            Amount (₦)
+                          </Label>
+                          <Input
+                            type="number"
+                            min={100}
+                            value={airtimeAmount}
+                            onChange={(e) => setAirtimeAmount(e.target.value)}
+                            className="h-10 text-sm font-medium"
+                          />
+                        </div>
+                      )
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">
+                          Amount
+                        </Label>
+                        <Input
+                          type="number"
+                          min={100}
+                          value={airtimeAmount}
+                          onChange={(e) => setAirtimeAmount(e.target.value)}
+                          className="h-10 text-sm font-medium"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {selectedCountryCode === 'NG' && topupMode === 'airtime' && (
@@ -1125,9 +995,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         <div className="flex justify-between text-xs text-muted-foreground font-medium">
                           <span>Recharge Value</span>
                           <span className="font-bold text-foreground">
-                            {selectedCountryCode === 'NG'
-                              ? '₦'
-                              : `${selectedReloadlyOperator?.destinationCurrencyCode} `}
+                            {selectedCountryCode === 'NG' ? '₦' : '$ '}
                             {Number(airtimeAmount).toLocaleString()}
                           </span>
                         </div>
@@ -1280,36 +1148,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                       <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Select Global Utility Biller
                       </Label>
-                      {billersLoading ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Loader2 className="size-4 animate-spin text-primary" /> Loading
-                          Billers...
-                        </div>
-                      ) : reloadlyBillers.length === 0 ? (
-                        <div className="text-xs text-muted-foreground italic">
-                          No utility billers available for this country.
-                        </div>
-                      ) : (
-                        <Select
-                          value={selectedUtilityBillerReloadlyId}
-                          onValueChange={setSelectedUtilityBillerReloadlyId}
-                        >
-                          <SelectTrigger className="h-10 text-xs">
-                            <SelectValue placeholder="Select utility biller..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {reloadlyBillers.map((biller) => (
-                              <SelectItem
-                                key={biller.id}
-                                value={String(biller.id)}
-                                className="text-xs"
-                              >
-                                {biller.name} ({biller.type})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <div className="text-xs text-muted-foreground italic">
+                        Global utility payments are not available. Only Nigerian utilities are
+                        supported.
+                      </div>
                     </div>
                   )}
 
@@ -1396,9 +1238,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         <div className="flex justify-between text-xs text-muted-foreground font-medium">
                           <span>Payment Value</span>
                           <span className="font-bold text-foreground">
-                            {utilityCountryCode === 'NG'
-                              ? '₦'
-                              : `${selectedUtilityBillerReloadly?.localTransactionCurrencyCode || 'USD'} `}
+                            {utilityCountryCode === 'NG' ? '₦' : '$ '}
                             {Number(utilityAmount).toLocaleString()}
                           </span>
                         </div>
@@ -1696,13 +1536,11 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         >
                           <div className="flex items-start gap-3.5 min-w-0">
                             <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
-                              {claim.rewardType === 'NOMBA_AIRTIME' ||
-                              claim.rewardType === 'RELOADLY_AIRTIME' ? (
+                              {claim.rewardType === 'NOMBA_AIRTIME' ? (
                                 <Phone className="size-5" />
                               ) : claim.rewardType === 'CUSTOM' ? (
                                 <Sparkles className="size-5 text-amber-500" />
-                              ) : claim.rewardType === 'NOMBA_UTILITY' ||
-                                claim.rewardType === 'RELOADLY_UTILITY' ? (
+                              ) : claim.rewardType === 'NOMBA_UTILITY' ? (
                                 <Zap className="size-5 text-indigo-600" />
                               ) : (
                                 <ShoppingBag className="size-5" />

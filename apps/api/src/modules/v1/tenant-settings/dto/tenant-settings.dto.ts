@@ -458,64 +458,6 @@ export class HolidaySettingsDto {
   excludeWeekends?: boolean;
 }
 
-export class ReloadlyProductDto {
-  @ApiProperty({ example: 12345 })
-  @IsNumber()
-  productId: number;
-
-  @ApiProperty({ example: 'Amazon Gift Card' })
-  @IsString()
-  name: string;
-
-  @ApiProperty({ example: 500 })
-  @IsNumber()
-  @Min(0)
-  pointsCost: number;
-
-  @ApiProperty({ example: 'https://cdn.reloadly.com/card.png', nullable: true })
-  @IsString()
-  imageUrl: string | null;
-
-  @ApiProperty({ example: 'NG' })
-  @IsString()
-  countryCode: string;
-
-  @ApiProperty({ example: 'NGN' })
-  @IsString()
-  currencyCode: string;
-
-  @ApiProperty({ required: false, nullable: true })
-  @IsOptional()
-  @IsNumber()
-  minDenomination?: number | null;
-
-  @ApiProperty({ required: false, nullable: true })
-  @IsOptional()
-  @IsNumber()
-  maxDenomination?: number | null;
-
-  @ApiProperty({ required: false, type: [Number] })
-  @IsOptional()
-  @IsArray()
-  @IsNumber({}, { each: true })
-  fixedDenominations?: number[];
-
-  @ApiProperty({ required: false, nullable: true })
-  @IsOptional()
-  @IsNumber()
-  listReloadlyCost?: number | null;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsString()
-  listReloadlyCostCurrency?: string;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
-  @IsNumber()
-  wholesaleInRewardsCurrency?: number;
-}
-
 export class TremendousProductDto {
   @ApiProperty({ example: 'XVBOXHD007XB' })
   @IsString()
@@ -669,17 +611,6 @@ export class RewardsSettingsDto {
   @IsOptional()
   @IsBoolean()
   utilityPaymentsEnabled?: boolean;
-
-  @ApiProperty({
-    description: 'Active configured Reloadly gift card products',
-    type: [ReloadlyProductDto],
-    required: false,
-  })
-  @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ReloadlyProductDto)
-  reloadlyProducts?: ReloadlyProductDto[];
 
   @ApiProperty({
     description: 'Cached Tremendous gift card products',

@@ -32,7 +32,6 @@ import {
   useCreateCustomReward,
   useCustomRewards,
   useDeleteCustomReward,
-  useReloadlyCountries,
   useTenantWallet,
   useUpdateAutoTopupConfig,
   useUpdateCustomReward,
@@ -71,8 +70,6 @@ export function SettingsRewardsTab() {
   const createReward = useCreateCustomReward();
   const updateReward = useUpdateCustomReward();
   const deleteReward = useDeleteCustomReward();
-  const { data: providerCountries = [] } = useReloadlyCountries();
-
   const updateAutoTopupMutation = useUpdateAutoTopupConfig();
   const topupCheckout = useWalletTopupCheckout();
 
@@ -262,10 +259,12 @@ export function SettingsRewardsTab() {
     }
   };
 
-  const countryOptions =
-    providerCountries.length > 0
-      ? providerCountries
-      : [{ code: tenantCountry, name: tenantCountry }];
+  const countryOptions = [
+    { code: 'US', name: 'United States' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'CA', name: 'Canada' },
+    { code: 'NG', name: 'Nigeria' },
+  ].filter((c) => c.code === tenantCountry || catalogCountries.includes(c.code));
 
   const countryNameByCode = (code: string) =>
     countryOptions.find((country) => country.code.toUpperCase() === code.toUpperCase())?.name ??
@@ -313,7 +312,6 @@ export function SettingsRewardsTab() {
           giftCardCategories,
           utilityPaymentsEnabled,
           customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
-          reloadlyProducts: rewards?.reloadlyProducts ?? [],
           tremendousProducts: rewards?.tremendousProducts ?? [],
         },
       });

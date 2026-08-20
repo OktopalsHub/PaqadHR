@@ -8,21 +8,19 @@ import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
-import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
-import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
-import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { resolveNgRewardsAirtimeProvider } from 'src/common/utils/ng-money-provider.util';
 import {
   normalizeRewardsCatalogCountries,
   resolveGiftCardProviderFromEnv,
-  resolveGiftCatalogProviders,
   resolveInitialWalletCurrency,
 } from 'src/common/utils/rewards-defaults.util';
 import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';
+import { EmailTemplateService } from '../../notifications/services/email-template.service';
+import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
 import { ShoutoutPointTransaction } from '../../shoutouts/entities/shoutout-point-transaction.entity';
@@ -106,16 +104,15 @@ export class RewardsService {
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly customRewardsService: CustomRewardsService,
     readonly _tenantConfigService: TenantConfigService,
-    private readonly reloadlyApi: ReloadlyApiService,
-    private readonly reloadlyTopupsApi: ReloadlyTopupsApiService,
     private readonly fiatExchange: FiatExchangeService,
-    private readonly reloadlyUtilitiesApi: ReloadlyUtilitiesApiService,
     private readonly nombaBillApi: NombaBillApiService,
     private readonly monnifyBillApi: MonnifyBillApiService,
     readonly _nombaTransferApi: NombaTransferApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly activitiesService: ActivitiesService,
     private readonly tremendousApi: TremendousApiService,
+    private readonly emailTemplateService: EmailTemplateService,
+    private readonly emailService: ZeptomailEmailService,
   ) {}
 
   private async toWalletCurrency(
@@ -137,26 +134,6 @@ export class RewardsService {
       select: { name: true },
     });
     return formatNombaSenderName(tenant?.name);
-  }
-
-  private resolveReloadlyProduct(
-    settings: RewardsSettings,
-    rewardId: string,
-  ): NonNullable<RewardsSettings['reloadlyProducts']>[number] | undefined {
-    if (!rewardId.startsWith('reloadly_')) return undefined;
-    const rest = rewardId.slice('reloadly_'.length);
-    const withCountry = rest.match(/^([A-Z]{2})_(\d+)$/);
-    if (withCountry) {
-      const countryCode = withCountry[1];
-      const productId = Number(withCountry[2]);
-      if (!Number.isFinite(productId)) return undefined;
-      return settings.reloadlyProducts?.find(
-        (p) => p.productId === productId && p.countryCode === countryCode,
-      );
-    }
-    const productId = Number(rest);
-    if (!Number.isFinite(productId)) return undefined;
-    return settings.reloadlyProducts?.find((p) => p.productId === productId);
   }
 
   private resolveTremendousProduct(
@@ -189,7 +166,7 @@ export class RewardsService {
   }
 
   private assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
-    const isNgCurrency =
+    const _isNgCurrency =
       (input.currencyCode ?? settings.rewardsCurrency).toUpperCase() === 'NGN' &&
       settings.rewardsCurrency.toUpperCase() === 'NGN';
 
@@ -201,15 +178,6 @@ export class RewardsService {
         throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
       }
       return;
-    }
-
-    if (
-      isNgCurrency &&
-      (input.rewardType === 'RELOADLY_AIRTIME' || input.rewardType === 'RELOADLY_UTILITY')
-    ) {
-      throw new BadRequestException(
-        'Nigeria airtime and utilities require Nigeria as the redemption country.',
-      );
     }
   }
 
@@ -244,62 +212,8 @@ export class RewardsService {
     return this.getSubscriptionFees(tenantId, currency);
   }
 
-  private getReloadlyCategory(
-    name: string,
-  ): 'Airtime' | 'Money Cards' | 'Gift Cards' | 'Gaming Cards' {
-    const lowerName = name.toLowerCase();
-
-    if (
-      lowerName.includes('airtime') ||
-      lowerName.includes('mobile topup') ||
-      lowerName.includes('refill') ||
-      lowerName.includes('top-up') ||
-      lowerName.includes('telecom') ||
-      lowerName.includes('mtn') ||
-      lowerName.includes('airtel') ||
-      lowerName.includes('orange') ||
-      lowerName.includes('vodafone') ||
-      lowerName.includes('safaricom') ||
-      lowerName.includes('tigo')
-    ) {
-      return 'Airtime';
-    }
-
-    if (
-      lowerName.includes('visa') ||
-      lowerName.includes('mastercard') ||
-      lowerName.includes('american express') ||
-      lowerName.includes('amex') ||
-      lowerName.includes('prepaid card') ||
-      lowerName.includes('cash') ||
-      lowerName.includes('money')
-    ) {
-      return 'Money Cards';
-    }
-
-    if (
-      lowerName.includes('playstation') ||
-      lowerName.includes('xbox') ||
-      lowerName.includes('steam') ||
-      lowerName.includes('nintendo') ||
-      lowerName.includes('roblox') ||
-      lowerName.includes('pubg') ||
-      lowerName.includes('razer') ||
-      lowerName.includes('gaming') ||
-      lowerName.includes('riot') ||
-      lowerName.includes('league of legends') ||
-      lowerName.includes('minecraft') ||
-      lowerName.includes('nexon') ||
-      lowerName.includes('twitch')
-    ) {
-      return 'Gaming Cards';
-    }
-
-    return 'Gift Cards';
-  }
-
   private getTremendousCategory(
-    name: string,
+    _name: string,
     category?: string,
     subcategory?: string,
   ): 'Airtime' | 'Money Cards' | 'Gift Cards' | 'Gaming Cards' {
@@ -316,7 +230,7 @@ export class RewardsService {
     if (cat.includes('gaming') || cat.includes('video_game') || cat.includes('entertainment')) {
       return 'Gaming Cards';
     }
-    return this.getReloadlyCategory(name);
+    return 'Gift Cards';
   }
 
   private tremendousSkusToDenoms(skus: Array<{ min: number; max: number }> | undefined): {
@@ -382,7 +296,6 @@ export class RewardsService {
         giftCardProvider: resolveGiftCardProviderFromEnv(),
         utilityPaymentsEnabled: rewards?.utilityPaymentsEnabled ?? true,
         customRewardsEnabled: rewards?.customRewardsEnabled ?? true,
-        reloadlyProducts: rewards?.reloadlyProducts ?? [],
         tremendousProducts: rewards?.tremendousProducts ?? [],
       },
     };
@@ -434,56 +347,26 @@ export class RewardsService {
     }
   }
 
-  async getCatalogCountries(tenantId: string): Promise<Array<{ code: string; name: string }>> {
-    const provider = resolveGiftCardProviderFromEnv();
-    if (provider === 'tremendous') {
-      if (!this.tremendousApi.isConfigured()) {
-        return [
-          { code: 'US', name: 'United States' },
-          { code: 'GB', name: 'United Kingdom' },
-          { code: 'CA', name: 'Canada' },
-          { code: 'NG', name: 'Nigeria' },
-        ];
-      }
-      const products = await this.tremendousApi.listProducts();
-      const codes = new Set<string>();
-      for (const product of products) {
-        for (const country of product.countries ?? []) {
-          const code = GeoLocationHelper.toStoredCountryCode(country.abbr);
-          if (code) codes.add(code);
-        }
-      }
-      return Array.from(codes)
-        .sort()
-        .map((code) => ({ code, name: this.countryDisplayName(code) }));
-    }
-
-    if (!this.reloadlyApi.isConfigured()) {
+  async getCatalogCountries(_tenantId: string): Promise<Array<{ code: string; name: string }>> {
+    if (!this.tremendousApi.isConfigured()) {
       return [
-        { code: 'NG', name: 'Nigeria' },
         { code: 'US', name: 'United States' },
         { code: 'GB', name: 'United Kingdom' },
         { code: 'CA', name: 'Canada' },
-        { code: 'GH', name: 'Ghana' },
-        { code: 'KE', name: 'Kenya' },
-        { code: 'ZA', name: 'South Africa' },
+        { code: 'NG', name: 'Nigeria' },
       ];
     }
-    const countries = await this.reloadlyApi.listCountries();
-    return countries
-      .map((c) => {
-        const code = GeoLocationHelper.toStoredCountryCode(c.code || c.countryCode || '') ?? '';
-        return {
-          code,
-          name: c.name || c.countryName || this.countryDisplayName(code) || code,
-        };
-      })
-      .filter((c) => Boolean(c.code));
-  }
-
-  /** @deprecated Prefer getCatalogCountries */
-  async getReloadlyCountries(tenantId: string): Promise<Array<{ code: string; name: string }>> {
-    return this.getCatalogCountries(tenantId);
+    const products = await this.tremendousApi.listProducts();
+    const codes = new Set<string>();
+    for (const product of products) {
+      for (const country of product.countries ?? []) {
+        const code = GeoLocationHelper.toStoredCountryCode(country.abbr);
+        if (code) codes.add(code);
+      }
+    }
+    return Array.from(codes)
+      .sort()
+      .map((code) => ({ code, name: this.countryDisplayName(code) }));
   }
 
   private normalizeProductName(name: string): string {
@@ -531,17 +414,9 @@ export class RewardsService {
       options?.countryCode,
     );
 
-    const providers = resolveGiftCatalogProviders();
-    const includeTremendous = providers.includes('tremendous');
-    const includeReloadly = providers.includes('reloadly');
-
     let synced = false;
-    if (includeTremendous && (settings.tremendousProducts ?? []).length === 0) {
+    if ((settings.tremendousProducts ?? []).length === 0) {
       await this.syncTremendousProducts(tenantId);
-      synced = true;
-    }
-    if (includeReloadly && (settings.reloadlyProducts ?? []).length === 0) {
-      await this.syncReloadlyProducts(tenantId);
       synced = true;
     }
     if (synced) {
@@ -559,77 +434,38 @@ export class RewardsService {
       'Money Cards',
     ];
 
-    if (includeTremendous) {
-      for (const p of settings.tremendousProducts ?? []) {
-        if (!this.productMatchesCatalogCountry(p, catalogCountry)) continue;
-        const cat = this.getTremendousCategory(p.name, p.category, p.subcategory);
-        if (!giftCardsEnabled) continue;
-        if (!giftCardCategories.includes(cat)) continue;
+    for (const p of settings.tremendousProducts ?? []) {
+      if (!this.productMatchesCatalogCountry(p, catalogCountry)) continue;
+      const cat = this.getTremendousCategory(p.name, p.category, p.subcategory);
+      if (!giftCardsEnabled) continue;
+      if (!giftCardCategories.includes(cat)) continue;
 
-        tremendousItems.push({
-          id: `tremendous_${catalogCountry}_${p.productId}`,
-          name: p.name,
-          type: 'TREMENDOUS',
-          pointsCost: p.pointsCost,
-          currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
-          currencyCode: p.currencyCode,
-          countryCode: catalogCountry,
-          imageUrl: p.imageUrl,
-          minDenomination: p.minDenomination ?? null,
-          maxDenomination: p.maxDenomination ?? null,
-          fixedDenominations: p.fixedDenominations ?? [],
-          ...(options?.includeAdminPricing &&
-          p.listTremendousCost != null &&
-          p.listTremendousCostCurrency
-            ? {
-                adminPricing: {
-                  reloadlyCost: p.listTremendousCost,
-                  reloadlyCostCurrency: p.listTremendousCostCurrency,
-                },
-              }
-            : {}),
-        });
-      }
+      tremendousItems.push({
+        id: `tremendous_${catalogCountry}_${p.productId}`,
+        name: p.name,
+        type: 'TREMENDOUS',
+        pointsCost: p.pointsCost,
+        currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
+        currencyCode: p.currencyCode,
+        countryCode: catalogCountry,
+        imageUrl: p.imageUrl,
+        minDenomination: p.minDenomination ?? null,
+        maxDenomination: p.maxDenomination ?? null,
+        fixedDenominations: p.fixedDenominations ?? [],
+        ...(options?.includeAdminPricing &&
+        p.listTremendousCost != null &&
+        p.listTremendousCostCurrency
+          ? {
+              adminPricing: {
+                reloadlyCost: p.listTremendousCost,
+                reloadlyCostCurrency: p.listTremendousCostCurrency,
+              },
+            }
+          : {}),
+      });
     }
 
     catalog.push(...this.deduplicateTremendousCatalog(tremendousItems));
-
-    if (includeReloadly) {
-      for (const p of settings.reloadlyProducts ?? []) {
-        if (!this.productMatchesCatalogCountry(p, catalogCountry)) continue;
-        const cat = this.getReloadlyCategory(p.name);
-        if (cat === 'Airtime') {
-          if (!settings.airtimeEnabled) continue;
-        } else {
-          if (!giftCardsEnabled) continue;
-          if (!giftCardCategories.includes(cat)) continue;
-        }
-
-        catalog.push({
-          id: `reloadly_${p.countryCode}_${p.productId}`,
-          name: p.name,
-          type: 'RELOADLY',
-          pointsCost: p.pointsCost,
-          currencyValue: p.fixedDenominations?.[0] ?? p.minDenomination ?? 0,
-          currencyCode: p.currencyCode,
-          countryCode: p.countryCode,
-          imageUrl: p.imageUrl,
-          minDenomination: p.minDenomination ?? null,
-          maxDenomination: p.maxDenomination ?? null,
-          fixedDenominations: p.fixedDenominations ?? [],
-          ...(options?.includeAdminPricing &&
-          p.listReloadlyCost != null &&
-          p.listReloadlyCostCurrency
-            ? {
-                adminPricing: {
-                  reloadlyCost: p.listReloadlyCost,
-                  reloadlyCostCurrency: p.listReloadlyCostCurrency,
-                },
-              }
-            : {}),
-        });
-      }
-    }
 
     if (settings.customRewardsEnabled) {
       const customRewards = await this.customRewardsService.list(tenantId);
@@ -651,53 +487,14 @@ export class RewardsService {
     return catalog;
   }
 
-  async syncReloadlyProducts(
-    tenantId: string,
-    options?: { force?: boolean },
-  ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
-    const repo = this.dataSource.getRepository(TenantSettings);
-    const row = await repo.findOne({ where: { tenantId } });
-    if (!row) {
-      return [];
-    }
-
-    const existing = row.settings?.rewards?.reloadlyProducts ?? [];
-    if (!options?.force && existing.length > 0) {
-      return existing;
-    }
-
-    const settings = await this.getRewardsSettings(tenantId);
-    if (!this.reloadlyApi.isConfigured()) {
-      return existing;
-    }
-
-    const products = await this.buildReloadlyProductRecords(tenantId, settings);
-    row.settings = {
-      ...row.settings,
-      rewards: {
-        ...settings,
-        reloadlyProducts: products,
-      },
-    };
-    await repo.save(row);
-    return products;
-  }
-
   async syncCatalog(
     tenantId: string,
     options?: { force?: boolean },
-  ): Promise<{ providers: Array<'reloadly' | 'tremendous'>; count: number }> {
-    const providers = resolveGiftCatalogProviders();
+  ): Promise<{ providers: Array<'tremendous'>; count: number }> {
     let count = 0;
-    if (providers.includes('reloadly')) {
-      const products = await this.syncReloadlyProducts(tenantId, options);
-      count += products.length;
-    }
-    if (providers.includes('tremendous')) {
-      const products = await this.syncTremendousProducts(tenantId, options);
-      count += products.length;
-    }
-    return { providers, count };
+    const products = await this.syncTremendousProducts(tenantId, options);
+    count += products.length;
+    return { providers: ['tremendous'], count };
   }
 
   async syncTremendousProducts(
@@ -817,93 +614,6 @@ export class RewardsService {
       seen.add(key);
       return true;
     });
-  }
-
-  private async buildReloadlyProductRecords(
-    tenantId: string,
-    settings: RewardsSettings,
-  ): Promise<NonNullable<RewardsSettings['reloadlyProducts']>> {
-    const allowlist = settings.catalogCountries ?? [];
-    const products =
-      allowlist.length > 0
-        ? await this.reloadlyApi.listProductsByCountries(allowlist)
-        : await this.reloadlyApi.listAccountProducts();
-    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
-    const exchangeRate = settings.pointsExchangeRate;
-
-    const records: NonNullable<RewardsSettings['reloadlyProducts']> = [];
-
-    for (const p of products) {
-      try {
-        const senderCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? 0;
-        const wholesaleInRewardsCurrency = await this.toWalletCurrency(
-          senderCost,
-          p.senderCurrencyCode,
-          settings.rewardsCurrency,
-          undefined,
-          p.countryCode,
-        );
-        const chargedValue = computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage);
-        const pointsCost = Math.ceil(chargedValue * exchangeRate);
-        const rawCost = p.fixedSenderDenominations?.[0] ?? p.minSenderDenomination ?? null;
-        const rawCurrency = p.senderCurrencyCode;
-
-        records.push({
-          productId: p.productId,
-          name: p.productName,
-          countryCode: p.countryCode,
-          currencyCode: p.recipientCurrencyCode,
-          imageUrl: p.logoUrls?.[0] ?? null,
-          minDenomination: p.minRecipientDenomination ?? null,
-          maxDenomination: p.maxRecipientDenomination ?? null,
-          fixedDenominations: p.fixedRecipientDenominations ?? [],
-          pointsCost,
-          listReloadlyCost: rawCost,
-          listReloadlyCostCurrency: rawCurrency,
-          wholesaleInRewardsCurrency,
-        });
-      } catch (error) {
-        this.logger.warn(
-          `Skipping Reloadly product ${p.productId} (${p.productName}): FX conversion failed — ${error instanceof Error ? error.message : error}`,
-        );
-      }
-    }
-
-    const seen = new Set<string>();
-    const deduped = records.filter((record) => {
-      const key = `${record.productId}:${record.countryCode}`;
-      if (seen.has(key)) {
-        return false;
-      }
-      seen.add(key);
-      return true;
-    });
-
-    return deduped;
-  }
-
-  async getAvailableReloadlyProducts(
-    tenantId: string,
-  ): Promise<
-    Array<NonNullable<RewardsSettings['reloadlyProducts']>[number] & { defaultPointsCost: number }>
-  > {
-    const settings = await this.getRewardsSettings(tenantId);
-    if (!this.reloadlyApi.isConfigured()) {
-      return [];
-    }
-
-    try {
-      const records = await this.buildReloadlyProductRecords(tenantId, settings);
-      return records.map((p) => ({
-        ...p,
-        defaultPointsCost: p.pointsCost,
-      }));
-    } catch (error) {
-      this.logger.warn(
-        `Failed to fetch raw Reloadly catalog: ${error instanceof Error ? error.message : error}`,
-      );
-      return [];
-    }
   }
 
   async claim(tenantId: string, memberId: string, input: ClaimInput): Promise<RewardRedemption> {
@@ -1190,35 +900,6 @@ export class RewardsService {
       };
     }
 
-    if (input.rewardType === 'RELOADLY') {
-      const product = this.resolveReloadlyProduct(settings, input.rewardId);
-      if (!product) {
-        throw new BadRequestException('Reloadly product not found in catalog');
-      }
-
-      let wholesaleInRewardsCurrency = product.wholesaleInRewardsCurrency;
-      if (wholesaleInRewardsCurrency == null) {
-        if (product.listReloadlyCost == null || !product.listReloadlyCostCurrency) {
-          throw new BadRequestException(
-            'Gift card pricing is not available. Please refresh the rewards catalog.',
-          );
-        }
-        wholesaleInRewardsCurrency = await this.toWalletCurrency(
-          product.listReloadlyCost,
-          product.listReloadlyCostCurrency,
-          settings.rewardsCurrency,
-          undefined,
-          product.countryCode,
-        );
-      }
-
-      return {
-        faceValueInRewardsCurrency: wholesaleInRewardsCurrency,
-        totalTenantDebit: computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage),
-        expectedPointsCost: product.pointsCost,
-      };
-    }
-
     if (input.rewardType === 'TREMENDOUS') {
       const product = this.resolveTremendousProduct(settings, input.rewardId);
       if (!product) {
@@ -1245,44 +926,6 @@ export class RewardsService {
         faceValueInRewardsCurrency: wholesaleInRewardsCurrency,
         totalTenantDebit: computeRedemptionDebit(wholesaleInRewardsCurrency, feePercentage),
         expectedPointsCost: product.pointsCost,
-      };
-    }
-
-    if (input.rewardType === 'RELOADLY_AIRTIME') {
-      const calc = await this.calculateReloadlyAirtimeCost(
-        Number(input.billerId),
-        currencyValue,
-        tenantId,
-        settings,
-      );
-      return {
-        totalTenantDebit: calc.totalTenantDebit,
-        expectedPointsCost: calc.pointsCost,
-        faceValueInRewardsCurrency: await this.toWalletCurrency(
-          calc.senderAmount,
-          calc.senderCurrencyCode,
-          settings.rewardsCurrency,
-          Number(input.billerId),
-        ),
-      };
-    }
-
-    if (input.rewardType === 'RELOADLY_UTILITY') {
-      const calc = await this.calculateReloadlyUtilityCost(
-        Number(input.billerId),
-        currencyValue,
-        tenantId,
-        settings,
-      );
-      return {
-        totalTenantDebit: calc.totalTenantDebit,
-        expectedPointsCost: calc.pointsCost,
-        faceValueInRewardsCurrency: await this.toWalletCurrency(
-          calc.senderAmount,
-          calc.senderCurrencyCode,
-          settings.rewardsCurrency,
-          Number(input.billerId),
-        ),
       };
     }
 
@@ -1481,13 +1124,6 @@ export class RewardsService {
     redemption: RewardRedemption,
     input: ClaimInput,
   ): Promise<void> {
-    if (input.rewardType === 'RELOADLY') {
-      if (!this.reloadlyApi.isConfigured()) {
-        throw new Error('Reloadly gift card API is not configured');
-      }
-      await this.fulfillReloadly(redemption, input);
-      return;
-    }
     if (input.rewardType === 'TREMENDOUS') {
       await this.fulfillTremendous(redemption, input);
       return;
@@ -1496,80 +1132,13 @@ export class RewardsService {
       await this.fulfillNombaTopup(redemption, input);
       return;
     }
-    if (input.rewardType === 'RELOADLY_AIRTIME') {
-      if (!this.reloadlyTopupsApi.isConfigured()) {
-        throw new Error('Reloadly Topups API is not configured');
-      }
-      await this.fulfillReloadlyAirtime(redemption, input);
-      return;
-    }
     if (input.rewardType === 'NOMBA_UTILITY') {
       await this.fulfillNombaUtility(redemption, input);
-      return;
-    }
-    if (input.rewardType === 'RELOADLY_UTILITY') {
-      if (!this.reloadlyUtilitiesApi.isConfigured()) {
-        throw new Error('Reloadly Utilities API is not configured');
-      }
-      await this.fulfillReloadlyUtility(redemption, input);
       return;
     }
     if (input.rewardType === 'CUSTOM') {
       await this.fulfillCustom(redemption);
     }
-  }
-
-  private async fulfillReloadly(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
-    const productId =
-      input.providerProductId ??
-      (input.rewardId.startsWith('reloadly_')
-        ? Number(input.rewardId.replace('reloadly_', ''))
-        : undefined);
-    if (!productId || !Number.isFinite(productId)) {
-      throw new Error('Missing Reloadly productId for gift card order');
-    }
-
-    const senderName = await this.resolveSenderName(redemption.tenantId);
-
-    const orderResponse = await this.reloadlyApi.orderGiftCard({
-      productId,
-      quantity: 1,
-      unitPrice: redemption.currencyValue,
-      customIdentifier: redemption.id,
-      recipientEmail: redemption.recipient?.email,
-      senderName,
-    });
-
-    const transactionId = orderResponse.transactionId;
-
-    let code: string | undefined;
-    let pin: string | undefined;
-
-    if (transactionId) {
-      try {
-        const codes = await this.reloadlyApi.getRedemptionCodes(transactionId);
-        if (codes?.[0]) {
-          code = codes[0].cardNumber ?? undefined;
-          pin = codes[0].pinCode ?? undefined;
-        }
-      } catch (e) {
-        this.logger.warn(`Could not fetch redemption codes for transaction ${transactionId}: ${e}`);
-      }
-    }
-
-    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
-      status: 'SUCCESS' as RedemptionStatus,
-      providerRef: {
-        ...redemption.providerRef,
-        txRef: transactionId ? String(transactionId) : undefined,
-      },
-      voucher: {
-        code,
-        pin,
-        instructions: 'Present this code at any participating store to redeem.',
-      },
-      processingStartedAt: null,
-    });
   }
 
   private async fulfillTremendous(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
@@ -1636,6 +1205,47 @@ export class RewardsService {
       },
       processingStartedAt: null,
     });
+
+    if (deliveryLink) {
+      void this.sendRewardClaimEmail({
+        recipientEmail,
+        recipientName,
+        redemption,
+        deliveryLink,
+      }).catch((err) => {
+        this.logger.warn(
+          `Failed to send reward claim email for ${redemption.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
+    }
+  }
+
+  private async sendRewardClaimEmail(params: {
+    recipientEmail: string;
+    recipientName: string;
+    redemption: RewardRedemption;
+    deliveryLink: string;
+  }): Promise<void> {
+    const { recipientEmail, recipientName, redemption, deliveryLink } = params;
+
+    const rendered = this.emailTemplateService.render('reward-claim', {
+      employeeName: recipientName,
+      employeeEmail: recipientEmail,
+      rewardName: redemption.rewardName ?? 'Gift Card',
+      rewardAmount: redemption.currencyValue,
+      currencyCode: redemption.currencyCode,
+      redemptionUrl: deliveryLink,
+      referenceId: redemption.id,
+      providerName: 'Tremendous',
+      providerLogoUrl: 'https://www.tremendous.com/img/tremendous-logo.png',
+    });
+
+    await this.emailService.sendEmail({
+      to: recipientEmail,
+      subject: rendered.subject,
+      html: rendered.html,
+      text: rendered.text,
+    });
   }
 
   private async fulfillNombaTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
@@ -1689,39 +1299,6 @@ export class RewardsService {
     });
   }
 
-  private async fulfillReloadlyAirtime(
-    redemption: RewardRedemption,
-    input: ClaimInput,
-  ): Promise<void> {
-    if (!input.recipientPhone || !input.billerId) {
-      throw new Error('Phone number and operatorId are required for Reloadly airtime');
-    }
-
-    const cleanedPhone = input.recipientPhone.replace(/^\+/, '');
-    const operators = await this.reloadlyTopupsApi.listOperators(input.currencyCode || 'US');
-    const op = operators.find((o) => o.operatorId === Number(input.billerId));
-    const countryIso = op?.country?.isoName || 'US';
-
-    const result = await this.reloadlyTopupsApi.topup({
-      operatorId: Number(input.billerId),
-      amount: redemption.currencyValue,
-      recipientPhone: {
-        countryCode: countryIso,
-        number: cleanedPhone,
-      },
-      customIdentifier: redemption.id,
-    });
-
-    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
-      status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { ...redemption.providerRef, txRef: String(result.transactionId) },
-      voucher: {
-        instructions: `Airtime recharge of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
-      },
-      processingStartedAt: null,
-    });
-  }
-
   private async fulfillNombaUtility(
     redemption: RewardRedemption,
     input: ClaimInput,
@@ -1756,121 +1333,6 @@ export class RewardsService {
       voucher: { code: result.token || undefined, instructions },
       processingStartedAt: null,
     });
-  }
-
-  private async fulfillReloadlyUtility(
-    redemption: RewardRedemption,
-    input: ClaimInput,
-  ): Promise<void> {
-    if (!input.accountNumber || !input.billerId) {
-      throw new Error(
-        'Subscriber account number and biller ID are required for Reloadly utility payment',
-      );
-    }
-
-    const result = await this.reloadlyUtilitiesApi.payBill({
-      subscriberAccountNumber: input.accountNumber,
-      amount: redemption.currencyValue,
-      billerId: Number(input.billerId),
-      useLocalAmount: true,
-      referenceId: redemption.id,
-    });
-
-    const instructions = result.pin
-      ? `Utility payment successful. Pin: ${result.pin}. Code: ${result.code}`
-      : `Utility payment successful. Biller: ${result.billerName}`;
-
-    await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
-      status: 'SUCCESS' as RedemptionStatus,
-      providerRef: { ...redemption.providerRef, txRef: String(result.id) },
-      voucher: { code: result.pin || result.code || undefined, instructions },
-      processingStartedAt: null,
-    });
-  }
-
-  async calculateReloadlyAirtimeCost(
-    operatorId: number,
-    localAmount: number,
-    tenantId: string,
-    settings: RewardsSettings,
-  ): Promise<{
-    pointsCost: number;
-    currencyValue: number;
-    currencyCode: string;
-    totalTenantDebit: number;
-    senderAmount: number;
-    senderCurrencyCode: string;
-  }> {
-    const fxInfo = await this.reloadlyTopupsApi.getOperatorFxRate(operatorId, localAmount);
-    const senderCurrencyCode = 'USD';
-    const senderAmount = localAmount / (fxInfo.fxRate || 1);
-
-    const convertedValue = await this.toWalletCurrency(
-      localAmount,
-      fxInfo.currencyCode,
-      settings.rewardsCurrency,
-      operatorId,
-    );
-
-    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
-    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage);
-
-    const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
-
-    return {
-      pointsCost,
-      currencyValue: localAmount,
-      currencyCode: fxInfo.currencyCode,
-      totalTenantDebit,
-      senderAmount,
-      senderCurrencyCode,
-    };
-  }
-
-  async calculateReloadlyUtilityCost(
-    billerId: number,
-    localAmount: number,
-    tenantId: string,
-    settings: RewardsSettings,
-  ): Promise<{
-    pointsCost: number;
-    currencyValue: number;
-    currencyCode: string;
-    totalTenantDebit: number;
-    senderAmount: number;
-    senderCurrencyCode: string;
-  }> {
-    const billers = await this.reloadlyUtilitiesApi.listBillers();
-    const biller = billers.find((b) => b.id === billerId);
-    if (!biller) {
-      throw new BadRequestException('Biller not found');
-    }
-
-    const senderCurrencyCode = 'USD';
-    const senderAmount = localAmount;
-
-    const operators = await this.reloadlyTopupsApi.listOperators(biller.countryIsoCode);
-    const bridgeOperatorId = operators[0]?.operatorId;
-    const convertedValue = await this.toWalletCurrency(
-      localAmount,
-      biller.localTransactionCurrencyCode,
-      settings.rewardsCurrency,
-      bridgeOperatorId,
-    );
-
-    const { feePercentage } = await this.getSubscriptionFees(tenantId, settings.rewardsCurrency);
-    const totalTenantDebit = computeRedemptionDebit(convertedValue, feePercentage);
-
-    const pointsCost = Math.ceil(totalTenantDebit * settings.pointsExchangeRate);
-
-    return {
-      pointsCost,
-      currencyValue: localAmount,
-      currencyCode: biller.localTransactionCurrencyCode,
-      totalTenantDebit,
-      senderAmount,
-      senderCurrencyCode,
-    };
   }
 
   private async fulfillCustom(redemption: RewardRedemption): Promise<void> {
@@ -2405,20 +1867,8 @@ export class RewardsService {
     });
   }
 
-  async listTopupOperators(countryCode: string) {
-    if (!this.reloadlyTopupsApi.isConfigured()) {
-      return [];
-    }
-    return this.reloadlyTopupsApi.listOperators(countryCode);
-  }
-
   async getProviderAvailability() {
     return {
-      reloadly: {
-        giftCards: this.reloadlyApi.isConfigured(),
-        airtime: this.reloadlyTopupsApi.isConfigured(),
-        utilities: this.reloadlyUtilitiesApi.isConfigured(),
-      },
       tremendous: {
         giftCards: this.tremendousApi.isConfigured(),
       },
@@ -2455,10 +1905,7 @@ export class RewardsService {
         { id: 'YEDC', name: 'Yola Electricity (YEDC)' },
       ];
     }
-    if (!this.reloadlyUtilitiesApi.isConfigured()) {
-      return [];
-    }
-    return this.reloadlyUtilitiesApi.listBillers({ countryISOCode: countryCode });
+    return [];
   }
 
   async lookupUtilityMeter(
@@ -2509,24 +1956,12 @@ export class RewardsService {
   async calculatePointsCost(
     tenantId: string,
     type: 'airtime' | 'utility' | 'ng-airtime' | 'ng-utility',
-    billerId: number,
+    _billerId: number,
     amount: number,
   ) {
     if (type === 'ng-airtime' || type === 'ng-utility') {
       return this.calculateLocalRewardCost(tenantId, amount);
     }
-    if (
-      (type === 'airtime' && !this.reloadlyTopupsApi.isConfigured()) ||
-      (type === 'utility' && !this.reloadlyUtilitiesApi.isConfigured())
-    ) {
-      throw new BadRequestException(
-        'Global airtime and utility rewards are not available. Reloadly is not configured.',
-      );
-    }
-    const settings = await this.getRewardsSettings(tenantId);
-    if (type === 'airtime') {
-      return this.calculateReloadlyAirtimeCost(billerId, amount, tenantId, settings);
-    }
-    return this.calculateReloadlyUtilityCost(billerId, amount, tenantId, settings);
+    throw new BadRequestException('Global airtime and utility rewards are not available.');
   }
 }

@@ -37,27 +37,24 @@ export function isWalletCurrencyLocked(
   return Number(wallet.balanceAmount) !== 0;
 }
 
-export type GiftCardProvider = 'reloadly' | 'tremendous';
+export type GiftCardProvider = 'tremendous';
 
 export const DEFAULT_GIFT_CARD_PROVIDER: GiftCardProvider = 'tremendous';
 
-/** Platform gift-card provider — set via REWARDS_GIFT_CARD_PROVIDER (not tenant settings). */
+/** Platform gift-card provider — always Tremendous. */
 export function resolveGiftCardProviderFromEnv(
-  raw: string | undefined = process.env.REWARDS_GIFT_CARD_PROVIDER,
+  _raw: string | undefined = process.env.REWARDS_GIFT_CARD_PROVIDER,
 ): GiftCardProvider {
-  const value = (raw ?? '').trim().toLowerCase();
-  if (value === 'reloadly') return 'reloadly';
   return DEFAULT_GIFT_CARD_PROVIDER;
 }
 
-/** @deprecated Prefer resolveGiftCardProviderFromEnv — tenant-selected provider is ignored. */
+/** @deprecated Prefer resolveGiftCardProviderFromEnv. */
 export function resolveGiftCardProvider(_value?: string | null): GiftCardProvider {
   return resolveGiftCardProviderFromEnv();
 }
 
 /**
  * Gift catalogs follow the environment-selected provider only.
- * Tenant country no longer unions both providers.
  */
 export function resolveGiftCatalogProviders(
   _tenantCountryCode?: string | null,

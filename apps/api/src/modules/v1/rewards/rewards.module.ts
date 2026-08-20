@@ -4,9 +4,6 @@ import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
-import { ReloadlyApiService } from 'src/common/services/reloadly-api.service';
-import { ReloadlyTopupsApiService } from 'src/common/services/reloadly-topups-api.service';
-import { ReloadlyUtilitiesApiService } from 'src/common/services/reloadly-utilities-api.service';
 import { TremendousApiService } from 'src/common/services/tremendous-api.service';
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -26,7 +23,6 @@ import { TenantWallet } from './entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from './entities/tenant-wallet-transaction.entity';
 import { RewardsListener } from './listeners/rewards.listener';
 import { CustomRewardsService } from './services/custom-rewards.service';
-import { ReloadlyWebhookService } from './services/reloadly-webhook.service';
 import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
@@ -59,17 +55,13 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     TenantWalletService,
     TenantWalletTopupService,
     CustomRewardsService,
-    ReloadlyWebhookService,
-    ReloadlyApiService,
-    ReloadlyTopupsApiService,
     FiatExchangeService,
-    ReloadlyUtilitiesApiService,
     NombaBillApiService,
     MonnifyBillApiService,
     TremendousApiService,
     RewardsListener,
     RewardsCatalogSyncCronService,
   ],
-  exports: [RewardsService, TenantWalletService, TenantWalletTopupService, ReloadlyWebhookService],
+  exports: [RewardsService, TenantWalletService, TenantWalletTopupService],
 })
 export class RewardsModule {}

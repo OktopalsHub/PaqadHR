@@ -15,9 +15,9 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3 bg-card shadow-sm">
       <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {claim.rewardType === 'NOMBA_AIRTIME' || claim.rewardType === 'RELOADLY_AIRTIME' ? (
+        {claim.rewardType === 'NOMBA_AIRTIME' ? (
           <Phone className="size-4" />
-        ) : claim.rewardType === 'NOMBA_UTILITY' || claim.rewardType === 'RELOADLY_UTILITY' ? (
+        ) : claim.rewardType === 'NOMBA_UTILITY' ? (
           <Zap className="size-4 text-indigo-600" />
         ) : claim.rewardType === 'CUSTOM' ? (
           <Sparkles className="size-4" />

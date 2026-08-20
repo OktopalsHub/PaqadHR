@@ -118,21 +118,11 @@ export function validateEnvAtBoot(): void {
   );
   logger.log(`Rewards gift-card provider: ${rewardsGiftCardProvider}`);
 
-  if (rewardsGiftCardProvider !== 'tremendous' && rewardsGiftCardProvider !== 'reloadly') {
-    errors.push('REWARDS_GIFT_CARD_PROVIDER must be tremendous or reloadly');
+  if (rewardsGiftCardProvider !== 'tremendous') {
+    errors.push('REWARDS_GIFT_CARD_PROVIDER must be tremendous');
   }
-  if (rewardsGiftCardProvider === 'tremendous' && !process.env.TREMENDOUS_API_KEY?.trim()) {
-    warnings.push(
-      'REWARDS_GIFT_CARD_PROVIDER=tremendous but TREMENDOUS_API_KEY is empty — gift catalog sync will be skipped',
-    );
-  }
-  if (
-    rewardsGiftCardProvider === 'reloadly' &&
-    (!process.env.RELOADLY_CLIENT_ID?.trim() || !process.env.RELOADLY_CLIENT_SECRET?.trim())
-  ) {
-    warnings.push(
-      'REWARDS_GIFT_CARD_PROVIDER=reloadly but RELOADLY_CLIENT_ID/SECRET are empty — gift catalog sync will be skipped',
-    );
+  if (!process.env.TREMENDOUS_API_KEY?.trim()) {
+    warnings.push('TREMENDOUS_API_KEY is empty — gift catalog sync will be skipped');
   }
 
   if (!process.env.NG_PAYROLL_PROVIDER?.trim() && process.env.NG_PAYMENTS_PROVIDER?.trim()) {
@@ -201,9 +191,6 @@ export function validateEnvAtBoot(): void {
       warnings.push(
         'NOMBA_LIVE is not true but NOMBA_BASE_URL is production — pair sandbox credentials with sandbox.nomba.com',
       );
-    }
-    if (process.env.RELOADLY_CLIENT_ID?.trim() && !process.env.RELOADLY_WEBHOOK_SECRET?.trim()) {
-      warnings.push('RELOADLY_WEBHOOK_SECRET is not set — Reloadly webhooks will fail');
     }
   }
 

@@ -14,11 +14,9 @@ import {
   fetchCustomRewards,
   fetchMyClaims,
   fetchNombaDataPlans,
-  fetchReloadlyCountries,
   fetchRewardProviders,
   fetchRewardsCatalog,
   fetchTenantWallet,
-  fetchTopupOperators,
   fetchUtilityBillers,
   fetchWalletTransactions,
   manualTopupWallet,
@@ -38,16 +36,6 @@ export function useNombaDataPlans(network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE',
     queryKey: ['rewards-nomba-data-plans', tenantId, network],
     queryFn: () => fetchNombaDataPlans(network),
     enabled: !tenantLoading && Boolean(tenantId) && enabled,
-  });
-}
-
-export function useTopupOperators(countryCode: string) {
-  const { tenantId, isLoading: tenantLoading } = useTenant();
-
-  return useQuery({
-    queryKey: ['rewards-topup-operators', tenantId, countryCode],
-    queryFn: () => fetchTopupOperators(countryCode),
-    enabled: !tenantLoading && Boolean(tenantId) && Boolean(countryCode),
   });
 }
 
@@ -128,16 +116,6 @@ export function useCustomRewards() {
   return useQuery({
     queryKey: [...queryKeys.rewards.custom, tenantId],
     queryFn: fetchCustomRewards,
-    enabled: !tenantLoading && Boolean(tenantId),
-  });
-}
-
-export function useReloadlyCountries() {
-  const { tenantId, isLoading: tenantLoading } = useTenant();
-
-  return useQuery({
-    queryKey: ['rewards-countries', tenantId],
-    queryFn: fetchReloadlyCountries,
     enabled: !tenantLoading && Boolean(tenantId),
   });
 }
