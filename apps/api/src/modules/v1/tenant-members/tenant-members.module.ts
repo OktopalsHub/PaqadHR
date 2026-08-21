@@ -33,7 +33,7 @@ import { TenantMembersService } from './tenant-members.service';
     FileModule,
     EncryptionModule,
     forwardRef(() => ActivitiesModule),
-    NotificationsModule,
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [TenantMembersController, PublicTenantMembersController],
   providers: [
