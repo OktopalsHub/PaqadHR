@@ -20,8 +20,11 @@ import { ActivitiesService } from '../activities/services/activities.service';
 import { Department } from '../departments/entities/department.entity';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Employment } from '../employment/entities/employment.entity';
-import { TenantMemberChangedEvent, TenantMemberCreatedEvent } from '../leave/events/leave.events';
-import { NotificationHelperService } from '../notifications/services/notification-helper.service';
+import {
+  ProfileUpdatedEvent,
+  TenantMemberChangedEvent,
+  TenantMemberCreatedEvent,
+} from '../leave/events/leave.events';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import type { CreateTenantMemberDto } from './dto/create-tenant-member.dto';
 import type { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
@@ -58,7 +61,6 @@ export class TenantMembersService {
     private readonly fileUrlService: FileUrlService,
     private readonly encryptionService: EncryptionService,
     private readonly activitiesService: ActivitiesService,
-    private readonly notificationHelperService: NotificationHelperService,
     @Optional() private readonly emailQueueService?: EmailQueueService,
   ) {}
 
@@ -275,14 +277,16 @@ export class TenantMembersService {
       });
 
       if (!isSelf) {
-        void this.notificationHelperService
-          .sendProfileUpdatedNotification(memberId, tenantId, {
-            updatedBy: this.memberDisplayName(await this.getTenantMember(actorMemberId, tenantId)),
+        const updatedBy = this.memberDisplayName(
+          await this.getTenantMember(actorMemberId, tenantId),
+        );
+        this.eventEmitter.emit(
+          'profile.updated',
+          new ProfileUpdatedEvent(memberId, tenantId, {
+            updatedBy,
             updatedFields: changedKeys,
-          })
-          .catch((error) => {
-            this.logger.error('Failed to send profile updated notification', error);
-          });
+          }),
+        );
       }
     }
     return updated;

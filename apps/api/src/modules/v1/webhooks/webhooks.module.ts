@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { PaymentsModule } from 'src/common/providers/payments.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PayrollModule } from '../payroll/payroll.module';
 import { RewardsModule } from '../rewards/rewards.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
@@ -13,7 +14,14 @@ import { PolarWebhookService } from './services/polar-webhook.service';
 import { TremendousWebhookService } from './services/tremendous-webhook.service';
 
 @Module({
-  imports: [SubscriptionsModule, PayrollModule, RewardsModule, ShoutoutsModule, PaymentsModule],
+  imports: [
+    SubscriptionsModule,
+    PayrollModule,
+    RewardsModule,
+    ShoutoutsModule,
+    PaymentsModule,
+    NotificationsModule,
+  ],
   controllers: [WebhooksController],
   providers: [
     NombaWebhookService,

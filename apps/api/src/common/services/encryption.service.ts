@@ -9,10 +9,10 @@ export class EncryptionService {
   private readonly encryptionKey: Buffer;
   constructor() {
     const key = ENVIRONMENT.ENCRYPTION.KEY;
-    if (key.length !== 32) {
-      throw new BadRequestException('Encryption key must be exactly 32 characters long');
+    if (key.length < 32) {
+      throw new BadRequestException('Encryption key must be at least 32 characters long');
     }
-    this.encryptionKey = Buffer.from(key, 'utf8');
+    this.encryptionKey = Buffer.from(key, 'utf8').subarray(0, 32);
   }
   encrypt(text: string): string {
     if (!text || text.trim() === '') {
