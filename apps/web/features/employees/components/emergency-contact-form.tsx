@@ -95,10 +95,7 @@ export function EmergencyContactForm({
       form.reset(initialValues);
     } catch (_error) {
       toast.error(
-        <ToastMessage
-          title="Error"
-          description="Failed to save emergency contact. Please try again."
-        />,
+        <ToastMessage title="Save failed" description="Could not save emergency contact." />,
       );
     } finally {
       setIsLoading(false);

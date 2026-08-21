@@ -62,7 +62,7 @@ export class AuthController {
       ip,
       headers: req.headers,
     });
-    this.setAuthCookies(res, accessToken, refreshToken);
+    this.setAuthCookies(res, accessToken, refreshToken, false);
     return {
       user: {
         id: user.id,
@@ -79,14 +79,17 @@ export class AuthController {
   async login(
     @Req() req: AuthenticatedRequest,
     @Ip() ipParam: string,
+    @Body() body: { rememberMe?: boolean },
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthUserResponse> {
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
-    const { accessToken, refreshToken } = await this.authService.login(req.user, {
-      ip,
-      headers: req.headers,
-    });
-    this.setAuthCookies(res, accessToken, refreshToken);
+    const { accessToken, refreshToken } = await this.authService.login(
+      req.user,
+      { ip, headers: req.headers },
+      undefined,
+      body.rememberMe,
+    );
+    this.setAuthCookies(res, accessToken, refreshToken, body.rememberMe);
     return {
       user: {
         id: req.user.id,
@@ -110,11 +113,13 @@ export class AuthController {
     @Res() res: Response,
   ): Promise<void> {
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
-    const { accessToken, refreshToken } = await this.authService.login(req.user, {
-      ip,
-      headers: req.headers,
-    });
-    this.setAuthCookies(res, accessToken, refreshToken);
+    const { accessToken, refreshToken } = await this.authService.login(
+      req.user,
+      { ip, headers: req.headers },
+      undefined,
+      false,
+    );
+    this.setAuthCookies(res, accessToken, refreshToken, false);
     const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     res.redirect(`${frontend}/google/complete`);
   }
@@ -133,9 +138,12 @@ export class AuthController {
     if (!refreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
-    const { accessToken, refreshToken: newRefreshToken } =
-      await this.authService.refreshToken(refreshToken);
-    this.setAuthCookies(res, accessToken, newRefreshToken);
+    const {
+      accessToken,
+      refreshToken: newRefreshToken,
+      rememberMe,
+    } = await this.authService.refreshToken(refreshToken);
+    this.setAuthCookies(res, accessToken, newRefreshToken, rememberMe);
     return { message: 'Token refreshed' };
   }
 
@@ -245,9 +253,14 @@ export class AuthController {
     };
   }
 
-  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
-    const accessMaxAge = 24 * 60 * 60 * 1000;
-    const refreshMaxAge = 7 * 24 * 60 * 60 * 1000;
+  private setAuthCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+    rememberMe = false,
+  ) {
+    const accessMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const refreshMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
     const options = this.cookieOptions();
     res.cookie('access_token', accessToken, {
       ...options,

@@ -157,7 +157,7 @@ export function useEmployeeDetailForm(
           street.trim() || city.trim() || state.trim() || zipCode.trim() || country.trim();
         if (hasAddress) {
           if (!city.trim() || !state.trim() || !country.trim()) {
-            toast.error('Address requires city, state, and country');
+            toast.error('City, state, and country are required');
             return;
           }
           const saved = await upsertMemberAddress(employee.id, {
@@ -226,7 +226,7 @@ export function useEmployeeDetailForm(
         ...prev,
         emergencyContacts: prev.emergencyContacts.filter((contact) => contact.id !== contactId),
       }));
-      toast.success('Emergency contact removed.');
+      toast.success('Emergency contact removed');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove emergency contact');
     }
@@ -262,7 +262,7 @@ export function useEmployeeDetailForm(
         ...prev,
         education: prev.education.filter((record) => record.id !== educationId),
       }));
-      toast.success('Education record removed.');
+      toast.success('Education record removed');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove education record');
     }

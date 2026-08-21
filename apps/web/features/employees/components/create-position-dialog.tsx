@@ -63,7 +63,7 @@ export function CreatePositionDialog({ open, onOpenChange, onCreated }: CreatePo
       reset();
       onOpenChange(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Unable to create position');
+      toast.error(error instanceof Error ? error.message : 'Failed to create position');
     }
   };
 

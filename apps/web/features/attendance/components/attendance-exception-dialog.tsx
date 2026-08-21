@@ -40,7 +40,7 @@ export function AttendanceExceptionDialog() {
 
   const handleSubmit = async () => {
     if (!date || !type || !reason.trim()) {
-      toast.error('Fill in all fields');
+      toast.error('All required fields must be filled');
       return;
     }
     try {
@@ -49,7 +49,7 @@ export function AttendanceExceptionDialog() {
         type: type as 'OVERTIME' | 'UNDERTIME' | 'ABSENCE' | 'LATE',
         reason: reason.trim(),
       });
-      toast.success('Exception submitted');
+      toast.success('Exception request submitted');
       setOpen(false);
       setDate(new Date().toISOString().split('T')[0]);
       setType('');

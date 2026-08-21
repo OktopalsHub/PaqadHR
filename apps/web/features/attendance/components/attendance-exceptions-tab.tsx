@@ -67,7 +67,7 @@ export function AttendanceExceptionsTab() {
         toast.success('Exception approved');
       } else {
         if (!comments.trim()) {
-          toast.error('Rejection requires a comment');
+          toast.error('A comment is required to reject');
           return;
         }
         await reject.mutateAsync({ exceptionId: reviewing.exception.id, comments });

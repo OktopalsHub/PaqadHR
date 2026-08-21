@@ -305,7 +305,7 @@ export function AcceptInvitePage() {
             setIsSubmitting(true);
             try {
               await declineInvitation({ token, email });
-              toast.success('Invitation declined.');
+              toast.success('Invitation declined');
               router.replace('/signin');
             } catch (err) {
               toast.error(err instanceof Error ? err.message : 'Failed to decline invitation');

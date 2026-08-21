@@ -16,6 +16,8 @@ let consecutiveFailures = 0;
 const MAX_CONSECUTIVE_FAILURES = 3;
 const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000;
 
+let visibilityHandler: (() => void) | null = null;
+
 export function invalidateSession() {
   stopProactiveRefresh();
   clearSessionStorage();
@@ -63,18 +65,33 @@ async function proactiveRefresh(): Promise<void> {
   }
 }
 
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') {
+    void refreshAccessToken();
+  }
+}
+
 export function startProactiveRefresh(): void {
   if (typeof window === 'undefined') return;
   if (proactiveTimer !== null) return; // Already running — don't reset
   proactiveTimer = setInterval(() => {
     void proactiveRefresh();
   }, PROACTIVE_REFRESH_INTERVAL_MS);
+
+  if (!visibilityHandler) {
+    visibilityHandler = onVisibilityChange;
+    document.addEventListener('visibilitychange', visibilityHandler);
+  }
 }
 
 export function stopProactiveRefresh(): void {
   if (proactiveTimer !== null) {
     clearInterval(proactiveTimer);
     proactiveTimer = null;
+  }
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    visibilityHandler = null;
   }
 }
 

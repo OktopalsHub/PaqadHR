@@ -40,7 +40,7 @@ export function AttendanceManualEntryDialog({ members }: { members: Member[] }) 
 
   const handleSubmit = async () => {
     if (!selectedMemberId || !date || !status) {
-      toast.error('Fill in required fields');
+      toast.error('All required fields must be filled');
       return;
     }
     setIsPending(true);

@@ -203,7 +203,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
         });
       }
 
-      toast.success(`Workspace "${result.tenant.name}" is ready — your 14-day trial has started`);
+      toast.success(`Workspace "${result.tenant.name}" created. 14-day trial started.`);
 
       if (result.tenant.slug) {
         persistTenantSlug(result.tenant.slug);

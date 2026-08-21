@@ -90,8 +90,8 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       });
 
       toastInvitationDelivery(result, {
-        successMessage: 'Invite sent',
-        failureMessage: 'Invite saved — email not sent',
+        successMessage: 'Invitation sent',
+        failureMessage: 'Invitation saved, email not sent',
       });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.employees.all, tenantId],
@@ -102,10 +102,10 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
       resetForm();
       onOpenChange(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to send invite';
+      const message = err instanceof Error ? err.message : 'Failed to send invitation';
       if (message.includes('already been sent')) {
-        toast.error('Invite already pending', {
-          description: 'Resend or revoke from Invitations.',
+        toast.error('Invitation already pending', {
+          description: 'Resend or revoke from the Invitations tab.',
         });
       } else {
         toast.error(message);

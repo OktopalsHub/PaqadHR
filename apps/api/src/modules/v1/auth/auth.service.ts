@@ -114,7 +114,7 @@ export class AuthService {
     });
   }
 
-  generateTokens(user: User, sessionToken?: string) {
+  generateTokens(user: User, sessionToken?: string, rememberMe = false) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -124,9 +124,10 @@ export class AuthService {
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: ENVIRONMENT.JWT.ACCESS_EXPIRES_IN as `${number}${'s' | 'm' | 'h' | 'd'}`,
     });
+    const refreshTokenExpiry = rememberMe ? '30d' : '24h';
     const refreshToken = this.jwtService.sign(payload, {
       secret: ENVIRONMENT.JWT.REFRESH_SECRET,
-      expiresIn: '7d',
+      expiresIn: refreshTokenExpiry,
     });
     return { accessToken, refreshToken };
   }
@@ -135,9 +136,11 @@ export class AuthService {
     userId: string,
     ipAddress?: string | null,
     userAgent?: string | null,
+    rememberMe = false,
   ): Promise<Session> {
     const sessionToken = randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const durationMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const expiresAt = new Date(Date.now() + durationMs);
     const session = this.sessionRepository.create({
       userId,
       token: sessionToken,
@@ -152,6 +155,7 @@ export class AuthService {
     user: User,
     geo: GeoRequestContext = {},
     auditContext?: AuthAuditContext,
+    rememberMe = false,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!user.isActive) {
       throw new UnauthorizedException('User account is inactive');
@@ -170,8 +174,8 @@ export class AuthService {
       }
     }
 
-    const session = await this.createSession(user.id);
-    const tokens = this.generateTokens(user, session.token);
+    const session = await this.createSession(user.id, undefined, undefined, rememberMe);
+    const tokens = this.generateTokens(user, session.token, rememberMe);
 
     if (auditContext) {
       await this.auditLogsService.queueAuditLog({
@@ -416,7 +420,7 @@ export class AuthService {
     }
 
     if (!payload.sid) {
-      return this.generateTokens(user, payload.sid);
+      return { ...this.generateTokens(user, payload.sid), rememberMe: false };
     }
 
     const session = await this.sessionRepository.findOne({
@@ -435,10 +439,16 @@ export class AuthService {
 
     const newSessionToken = randomUUID();
     session.token = newSessionToken;
-    session.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const sessionDurationMs = session.expiresAt.getTime() - session.createdAt.getTime();
+    const isLongSession = sessionDurationMs > 2 * 24 * 60 * 60 * 1000;
+    const newDurationMs = isLongSession ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    session.expiresAt = new Date(Date.now() + newDurationMs);
     await this.sessionRepository.save(session);
 
-    return this.generateTokens(user, newSessionToken);
+    return {
+      ...this.generateTokens(user, newSessionToken, isLongSession),
+      rememberMe: isLongSession,
+    };
   }
 
   async logout(userId: string) {

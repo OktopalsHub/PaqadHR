@@ -91,7 +91,7 @@ function ForgottenSessionModalContent() {
         notes,
       });
 
-      toast.success('Successfully resolved unclosed session');
+      toast.success('Session closed');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit clock out time.');
     }

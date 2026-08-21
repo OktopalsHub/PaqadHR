@@ -143,6 +143,7 @@ export async function login(input: LoginInput): Promise<User> {
     body: JSON.stringify({
       email: input.email,
       password: input.password,
+      rememberMe: input.rememberMe,
     }),
     skipCsrf: true,
   });
