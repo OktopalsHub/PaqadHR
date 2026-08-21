@@ -1888,7 +1888,9 @@ export class RewardsService {
 
     this.notificationHelper
       .sendTaskCompletionPointsNotification(memberId, tenantId, { points, taskTitle })
-      .catch(() => {});
+      .catch((error) => {
+        this.logger.error('Failed to send task completion points notification', error);
+      });
   }
 
   async getProviderAvailability() {

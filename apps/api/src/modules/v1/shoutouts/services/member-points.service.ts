@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { type AllowancePeriod, DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
@@ -13,6 +13,7 @@ import { MemberPointsRepository } from '../repositories/member-points.repository
 
 @Injectable()
 export class MemberPointsService {
+  private readonly logger = new Logger(MemberPointsService.name);
   constructor(
     private readonly memberPointsRepository: MemberPointsRepository,
     private readonly tenantConfigService: TenantConfigService,
@@ -54,8 +55,7 @@ export class MemberPointsService {
 
   private sendBulkAssignNotifications(
     tenantId: string,
-    memberIds: string[],
-    points: number,
+    entries: { memberId: string; points: number }[],
     actorId: string,
     reason?: string,
   ): void {
@@ -67,14 +67,16 @@ export class MemberPointsService {
       } catch {
         // fall back to 'Admin'
       }
-      for (const memberId of memberIds) {
+      for (const { memberId, points } of entries) {
         this.notificationHelper
           .sendPointsAwardedNotification(memberId, tenantId, {
             points,
             awardedBy: actorName,
             reason,
           })
-          .catch(() => {});
+          .catch((error) => {
+            this.logger.error('Failed to send points awarded notification', error);
+          });
       }
     })();
   }
@@ -296,8 +298,11 @@ export class MemberPointsService {
       scope: 'selected',
     });
 
-    const assignedMemberIds = assignments ? assignments.map((a) => a.memberId) : memberIds;
-    this.sendBulkAssignNotifications(tenantId, assignedMemberIds, points, actorId, reason);
+    const entries =
+      assignments && assignments.length > 0
+        ? assignments.map((a) => ({ memberId: a.memberId, points: a.points }))
+        : memberIds.map((id) => ({ memberId: id, points }));
+    this.sendBulkAssignNotifications(tenantId, entries, actorId, reason);
 
     return {
       success: true,
