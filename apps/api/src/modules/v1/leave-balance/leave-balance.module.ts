@@ -11,6 +11,9 @@ import { LeaveAssignmentController } from './leave-assignment.controller';
 import { LeaveBalanceController } from './leave-balance.controller';
 import { LeaveBalanceRepository } from './leave-balance.repository';
 import { LeaveBalanceService } from './leave-balance.service';
+import { LeaveBalanceCalculationService } from './leave-balance-calculation.service';
+import { LeaveBalanceCarryoverService } from './leave-balance-carryover.service';
+import { LeaveBalanceCrudService } from './leave-balance-crud.service';
 import { LeaveBalanceInitializationService } from './leave-balance-initialization.service';
 import { LeaveTypeAssignmentService } from './leave-type-assignment.service';
 
@@ -26,6 +29,9 @@ import { LeaveTypeAssignmentService } from './leave-type-assignment.service';
   controllers: [LeaveBalanceController, LeaveAssignmentController],
   providers: [
     LeaveBalanceService,
+    LeaveBalanceCrudService,
+    LeaveBalanceCalculationService,
+    LeaveBalanceCarryoverService,
     LeaveBalanceRepository,
     LeaveBalanceInitializationService,
     LeaveTypeAssignmentService,
