@@ -232,8 +232,7 @@ export class MemberPointsService {
 
     this.sendBulkAssignNotifications(
       tenantId,
-      members.map((m) => m.id),
-      points,
+      members.map((m) => ({ memberId: m.id, points })),
       actorId,
       reason,
     );
