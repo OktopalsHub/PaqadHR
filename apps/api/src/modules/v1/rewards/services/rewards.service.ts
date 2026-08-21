@@ -20,6 +20,7 @@ import { DataSource } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { Employment } from '../../employment/entities/employment.entity';
 import { EmailTemplateService } from '../../notifications/services/email-template.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { ZeptomailEmailService } from '../../notifications/services/zeptomail-email.service';
 import { Shoutout } from '../../shoutouts/entities/shoutout.entity';
 import { ShoutoutMemberPoints } from '../../shoutouts/entities/shoutout-member-points.entity';
@@ -113,6 +114,7 @@ export class RewardsService {
     private readonly tremendousApi: TremendousApiService,
     private readonly emailTemplateService: EmailTemplateService,
     private readonly emailService: ZeptomailEmailService,
+    private readonly notificationHelper: NotificationHelperService,
   ) {}
 
   private async toWalletCurrency(
@@ -1872,6 +1874,10 @@ export class RewardsService {
         }),
       );
     });
+
+    this.notificationHelper
+      .sendTaskCompletionPointsNotification(memberId, tenantId, { points, taskTitle })
+      .catch(() => {});
   }
 
   async getProviderAvailability() {

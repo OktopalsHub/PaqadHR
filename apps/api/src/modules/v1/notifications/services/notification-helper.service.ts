@@ -448,4 +448,54 @@ export class NotificationHelperService {
       },
     });
   }
+
+  async sendPointsAwardedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      points: number;
+      awardedBy: string;
+      reason?: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.LOW,
+      title: 'Paq points awarded',
+      message: `${variables.awardedBy} awarded you ${variables.points} Paq points${variables.reason ? `: ${variables.reason}` : ''}`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'points_awarded',
+        points: variables.points,
+        awardedBy: variables.awardedBy,
+        reason: variables.reason ?? null,
+      },
+    });
+  }
+
+  async sendTaskCompletionPointsNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      points: number;
+      taskTitle: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.LOW,
+      title: 'Task completed',
+      message: `You earned ${variables.points} Paq points for completing "${variables.taskTitle}"`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'task_completion_points',
+        points: variables.points,
+        taskTitle: variables.taskTitle,
+      },
+    });
+  }
 }

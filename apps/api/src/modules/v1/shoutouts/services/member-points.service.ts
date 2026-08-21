@@ -4,6 +4,7 @@ import { type AllowancePeriod, DateTimeHelper } from 'src/common/utils/date-time
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource, EntityManager } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
@@ -18,6 +19,7 @@ export class MemberPointsService {
     private readonly tenantMembersService: TenantMembersService,
     private readonly dataSource: DataSource,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationHelper: NotificationHelperService,
   ) {}
 
   private logPointsAssignment(payload: {
@@ -48,6 +50,33 @@ export class MemberPointsService {
       .catch(() => {
         // activity logging is best-effort; never block the assignment
       });
+  }
+
+  private sendBulkAssignNotifications(
+    tenantId: string,
+    memberIds: string[],
+    points: number,
+    actorId: string,
+    reason?: string,
+  ): void {
+    void (async () => {
+      let actorName = 'Admin';
+      try {
+        const actor = await this.tenantMembersService.getTenantMemberId(tenantId, actorId);
+        actorName = actor.displayName;
+      } catch {
+        // fall back to 'Admin'
+      }
+      for (const memberId of memberIds) {
+        this.notificationHelper
+          .sendPointsAwardedNotification(memberId, tenantId, {
+            points,
+            awardedBy: actorName,
+            reason,
+          })
+          .catch(() => {});
+      }
+    })();
   }
 
   async ensureMemberRow(
@@ -199,6 +228,14 @@ export class MemberPointsService {
       scope: 'all',
     });
 
+    this.sendBulkAssignNotifications(
+      tenantId,
+      members.map((m) => m.id),
+      points,
+      actorId,
+      reason,
+    );
+
     return {
       success: true,
       message: `Assigned ${points} Paq points to ${membersUpdated} members`,
@@ -258,6 +295,9 @@ export class MemberPointsService {
       reason,
       scope: 'selected',
     });
+
+    const assignedMemberIds = assignments ? assignments.map((a) => a.memberId) : memberIds;
+    this.sendBulkAssignNotifications(tenantId, assignedMemberIds, points, actorId, reason);
 
     return {
       success: true,
