@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
@@ -6,6 +6,7 @@ import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils
 import type { FindOptionsWhere } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
 import { LeaveBalanceService } from '../leave-balance/leave-balance.service';
+import { NotificationHelperService } from '../notifications/services/notification-helper.service';
 import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
 import type { CreateLeaveDto } from './dto/create-leave.dto';
 import { LeaveMemberMapper } from './dto/leave-member-response.dto';
@@ -16,11 +17,13 @@ import { LeaveRepository } from './leave.repository';
 
 @Injectable()
 export class LeaveService {
+  private readonly logger = new Logger(LeaveService.name);
   constructor(
     private readonly leaveRepository: LeaveRepository,
     private readonly leaveBalanceService: LeaveBalanceService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationHelperService: NotificationHelperService,
   ) {}
   async createLeave(tenantId: string, memberId: string, dto: CreateLeaveDto) {
     const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
@@ -61,6 +64,16 @@ export class LeaveService {
         endDate: saved.endDate,
       },
     });
+
+    void this.notificationHelperService
+      .sendLeaveRequestNotification(memberId, tenantId, {
+        status: 'pending',
+        startDate: String(saved.startDate),
+        endDate: String(saved.endDate),
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send leave request notification', error);
+      });
 
     return saved;
   }
@@ -310,6 +323,17 @@ export class LeaveService {
       throw new NotFoundException('Updated leave not found');
     }
     await this.logLeaveReviewActivity(tenantId, updated, approverId, 'leave.approved');
+
+    void this.notificationHelperService
+      .sendLeaveRequestNotification(updated.requestedBy, tenantId, {
+        status: 'approved',
+        startDate: String(updated.startDate),
+        endDate: String(updated.endDate),
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send leave approval notification', error);
+      });
+
     return this.toLeaveResponseDto(updated);
   }
   async rejectLeave(tenantId: string, leaveId: string, approverId: string, comments: string) {
@@ -336,6 +360,17 @@ export class LeaveService {
       throw new NotFoundException('Updated leave not found');
     }
     await this.logLeaveReviewActivity(tenantId, updated, approverId, 'leave.rejected');
+
+    void this.notificationHelperService
+      .sendLeaveRequestNotification(updated.requestedBy, tenantId, {
+        status: 'rejected',
+        startDate: String(updated.startDate),
+        endDate: String(updated.endDate),
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send leave rejection notification', error);
+      });
+
     return this.toLeaveResponseDto(updated);
   }
 

@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { LeaveModule } from '../leave/leave.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
 import { TenantsModule } from '../tenants/tenants.module';
@@ -24,6 +25,7 @@ import { DepartmentUtils } from './utils/department.utils';
     TenantSettingsModule,
     LeaveModule,
     ActivitiesModule,
+    NotificationsModule,
   ],
   controllers: [AttendanceController],
   providers: [

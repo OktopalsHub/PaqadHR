@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PasswordService, StringUtility } from 'src/common/utils';
@@ -16,6 +17,7 @@ import {
 } from '../../../common/utils/member-display.util';
 import { ActivitiesService } from '../activities/services/activities.service';
 import { DepartmentsService } from '../departments/departments.service';
+import { NotificationHelperService } from '../notifications/services/notification-helper.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -29,6 +31,7 @@ import { InvitationsRepository } from './repositories/invitations.repository';
 
 @Injectable()
 export class InvitationsService {
+  private readonly logger = new Logger(InvitationsService.name);
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
     private readonly tenantMembersService: TenantMembersService,
@@ -39,6 +42,7 @@ export class InvitationsService {
     private readonly activitiesService: ActivitiesService,
     private readonly departmentsService: DepartmentsService,
     private readonly positionMemberService: PositionMemberService,
+    private readonly notificationHelperService: NotificationHelperService,
   ) {}
   private generateInvitationToken(): string {
     const crypto = require('node:crypto');
@@ -292,6 +296,25 @@ export class InvitationsService {
       })
       .catch(() => {});
 
+    void this.notificationHelperService
+      .sendWelcomeNotification(tenantMemberId, invitation.tenantId, {
+        name: inviteeName,
+        tenantName:
+          (await this.tenantsService.getTenant(invitation.tenantId))?.name ?? 'the workspace',
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send welcome notification', error);
+      });
+
+    void this.notificationHelperService
+      .sendNewTeamMemberNotification(invitation.tenantId, {
+        newMemberName: inviteeName,
+        role: invitation.role,
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send new team member notification', error);
+      });
+
     return {
       invitation: await this?.mapToResponseDto(updatedInvitation),
       userExists,
@@ -314,6 +337,15 @@ export class InvitationsService {
       throw new BadRequestException('Invitation is not pending');
     }
     await this.invitationsRepository.delete(id);
+
+    void this.notificationHelperService
+      .sendInvitationDeclinedNotification(invitation.invitedBy, tenantId, {
+        inviteeEmail: invitation.email,
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send invitation declined notification', error);
+      });
+
     return this?.mapToResponseDto(invitation);
   }
   async resendInvitation(id: string, tenantId: string): Promise<IInvitationResponseDto> {

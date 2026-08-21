@@ -73,6 +73,11 @@ describe('InvitationsService', () => {
     const positionMemberService = {
       assignPosition: jest.fn().mockResolvedValue({ id: 'pos-member-1' }),
     };
+    const notificationHelperService = {
+      sendWelcomeNotification: jest.fn().mockResolvedValue(undefined),
+      sendNewTeamMemberNotification: jest.fn().mockResolvedValue(undefined),
+      sendInvitationDeclinedNotification: jest.fn().mockResolvedValue(undefined),
+    };
 
     const service = new InvitationsService(
       invitationsRepository as any,
@@ -84,6 +89,7 @@ describe('InvitationsService', () => {
       activitiesService as any,
       departmentsService as any,
       positionMemberService as any,
+      notificationHelperService as any,
     );
 
     return {

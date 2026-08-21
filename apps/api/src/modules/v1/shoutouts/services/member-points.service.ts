@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { type AllowancePeriod, DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource, EntityManager } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { ShoutoutMemberPoints } from '../entities/shoutout-member-points.entity';
@@ -12,12 +13,14 @@ import { MemberPointsRepository } from '../repositories/member-points.repository
 
 @Injectable()
 export class MemberPointsService {
+  private readonly logger = new Logger(MemberPointsService.name);
   constructor(
     private readonly memberPointsRepository: MemberPointsRepository,
     private readonly tenantConfigService: TenantConfigService,
     private readonly tenantMembersService: TenantMembersService,
     private readonly dataSource: DataSource,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationHelper: NotificationHelperService,
   ) {}
 
   private logPointsAssignment(payload: {
@@ -48,6 +51,34 @@ export class MemberPointsService {
       .catch(() => {
         // activity logging is best-effort; never block the assignment
       });
+  }
+
+  private sendBulkAssignNotifications(
+    tenantId: string,
+    entries: { memberId: string; points: number }[],
+    actorId: string,
+    reason?: string,
+  ): void {
+    void (async () => {
+      let actorName = 'Admin';
+      try {
+        const actor = await this.tenantMembersService.getTenantMemberId(tenantId, actorId);
+        actorName = actor.displayName;
+      } catch {
+        // fall back to 'Admin'
+      }
+      for (const { memberId, points } of entries) {
+        this.notificationHelper
+          .sendPointsAwardedNotification(memberId, tenantId, {
+            points,
+            awardedBy: actorName,
+            reason,
+          })
+          .catch((error) => {
+            this.logger.error('Failed to send points awarded notification', error);
+          });
+      }
+    })();
   }
 
   async ensureMemberRow(
@@ -199,6 +230,13 @@ export class MemberPointsService {
       scope: 'all',
     });
 
+    this.sendBulkAssignNotifications(
+      tenantId,
+      members.map((m) => ({ memberId: m.id, points })),
+      actorId,
+      reason,
+    );
+
     return {
       success: true,
       message: `Assigned ${points} Paq points to ${membersUpdated} members`,
@@ -258,6 +296,12 @@ export class MemberPointsService {
       reason,
       scope: 'selected',
     });
+
+    const entries =
+      assignments && assignments.length > 0
+        ? assignments.map((a) => ({ memberId: a.memberId, points: a.points }))
+        : memberIds.map((id) => ({ memberId: id, points }));
+    this.sendBulkAssignNotifications(tenantId, entries, actorId, reason);
 
     return {
       success: true,
