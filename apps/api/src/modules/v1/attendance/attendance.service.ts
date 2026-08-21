@@ -11,6 +11,7 @@ import { Between, type FindOptionsWhere, In, LessThan } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { LeaveResponseDto } from '../leave/dto/leave-response.dto';
 import { LeaveService } from '../leave/leave.service';
+import { NotificationHelperService } from '../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import type { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { TenantSettingsService } from '../tenant-settings/services/tenant-settings.service';
@@ -41,6 +42,7 @@ export class AttendanceService {
     private readonly leaveService: LeaveService,
     private readonly departmentUtils: DepartmentUtils,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationHelperService: NotificationHelperService,
   ) {}
   private async isClockInEnabled(tenantId: string): Promise<boolean> {
     try {
@@ -459,6 +461,17 @@ export class AttendanceService {
       })
       .catch(() => {});
 
+    void this.notificationHelperService
+      .sendAttendanceExceptionNotification(exception.tenantMemberId, tenantId, {
+        status: 'approved',
+        exceptionType: exception.type,
+        date: exception.date.toISOString().split('T')[0],
+        comments: dto.comments,
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send attendance exception approval notification', error);
+      });
+
     return this.attendanceExceptionRepository.findOne({
       where: { id: exceptionId, tenantId },
     });
@@ -490,6 +503,17 @@ export class AttendanceService {
         metadata: { reason: exception.reason, rejectionNote: dto.comments },
       })
       .catch(() => {});
+
+    void this.notificationHelperService
+      .sendAttendanceExceptionNotification(exception.tenantMemberId, tenantId, {
+        status: 'rejected',
+        exceptionType: exception.type,
+        date: exception.date.toISOString().split('T')[0],
+        comments: dto.comments,
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send attendance exception rejection notification', error);
+      });
 
     return this.attendanceExceptionRepository.findOne({
       where: { id: exceptionId, tenantId },

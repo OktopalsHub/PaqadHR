@@ -1124,6 +1124,17 @@ export class RewardsService {
         );
       });
 
+    void this.notificationHelper
+      .sendRewardRedemptionNotification(memberId, tenantId, {
+        rewardName: input.rewardName ?? input.rewardId,
+        status: 'processing',
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to send reward redemption notification: ${err instanceof Error ? err.message : err}`,
+        );
+      });
+
     return this.dataSource.getRepository(RewardRedemption).findOneOrFail({
       where: { id: redemptionId, tenantId, memberId },
     });

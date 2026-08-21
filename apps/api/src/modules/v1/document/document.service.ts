@@ -8,6 +8,7 @@ import { DocumentAccessLevel } from '../../../common/enums/document-access-level
 import type { DocumentCategory } from '../../../common/enums/document-category.enum';
 import { DocumentType } from '../../../common/enums/document-type.enum';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
+import { NotificationHelperService } from '../notifications/services/notification-helper.service';
 import { DocumentRepository } from './document.repository';
 import type { CreateDocumentDto } from './dto/create-document.dto';
 import type { UpdateDocumentDto } from './dto/update-document.dto';
@@ -27,6 +28,7 @@ export class DocumentService {
     private readonly fileService: FileService,
     private readonly auditLogsService: AuditLogsService,
     private readonly managerAccessService: ManagerAccessService,
+    private readonly notificationHelperService: NotificationHelperService,
   ) {}
   async createDocument(
     tenantId: string,
@@ -157,8 +159,28 @@ export class DocumentService {
     const filtered = documents.filter((doc) => doc.type === type);
     return this.filterDocumentsForMember(filtered, memberRole);
   }
-  async verifyDocument(id: string, tenantId: string, isVerified: boolean): Promise<Document> {
-    return this.updateDocument(id, { isVerified }, tenantId);
+  async verifyDocument(
+    id: string,
+    tenantId: string,
+    isVerified: boolean,
+    actorMemberId?: string,
+  ): Promise<Document> {
+    const doc = await this.getDocument(id, tenantId);
+    const updated = await this.updateDocument(id, { isVerified }, tenantId);
+
+    if (isVerified) {
+      void this.notificationHelperService
+        .sendDocumentApprovalNotification(doc.tenantMemberId, tenantId, {
+          documentName: doc.name,
+          status: 'approved',
+          reviewerName: actorMemberId ?? 'Admin',
+        })
+        .catch((error) => {
+          this.logger.error('Failed to send document approval notification', error);
+        });
+    }
+
+    return updated;
   }
   async getDocumentsByVerificationStatus(
     tenantId: string,
@@ -175,11 +197,17 @@ export class DocumentService {
     tenantId: string,
     documentIds: string[],
     isVerified: boolean,
+    actorMemberId?: string,
   ): Promise<Document[]> {
     const updatedDocuments: Document[] = [];
     for (const documentId of documentIds) {
       try {
-        const updatedDoc = await this.verifyDocument(documentId, tenantId, isVerified);
+        const updatedDoc = await this.verifyDocument(
+          documentId,
+          tenantId,
+          isVerified,
+          actorMemberId,
+        );
         updatedDocuments.push(updatedDoc);
       } catch {}
     }

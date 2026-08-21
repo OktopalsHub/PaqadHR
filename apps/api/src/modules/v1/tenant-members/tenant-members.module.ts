@@ -6,6 +6,7 @@ import { ActivitiesModule } from '../activities/activities.module';
 import { Department } from '../departments/entities/department.entity';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
 import { Employment } from '../employment/entities/employment.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantCounter } from './entities/tenant-counter.entity';
@@ -32,6 +33,7 @@ import { TenantMembersService } from './tenant-members.service';
     FileModule,
     EncryptionModule,
     forwardRef(() => ActivitiesModule),
+    NotificationsModule,
   ],
   controllers: [TenantMembersController, PublicTenantMembersController],
   providers: [

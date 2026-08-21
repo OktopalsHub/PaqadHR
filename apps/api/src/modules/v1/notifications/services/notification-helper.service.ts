@@ -498,4 +498,56 @@ export class NotificationHelperService {
       },
     });
   }
+
+  async sendInvitationDeclinedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      inviteeEmail: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.LOW,
+      title: 'Invitation declined',
+      message: `${variables.inviteeEmail} declined the invitation to join the workspace.`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'invitation_declined',
+        inviteeEmail: variables.inviteeEmail,
+      },
+    });
+  }
+
+  async sendAttendanceExceptionNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      status: 'approved' | 'rejected';
+      exceptionType: string;
+      date: string;
+      reviewerName?: string;
+      comments?: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.LOW,
+      title: `Attendance exception ${variables.status}`,
+      message: `Your ${variables.exceptionType.toLowerCase()} exception for ${variables.date} was ${variables.status}.${variables.comments ? ` Comment: ${variables.comments}` : ''}`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'attendance_exception',
+        status: variables.status,
+        exceptionType: variables.exceptionType,
+        date: variables.date,
+        reviewerName: variables.reviewerName ?? null,
+        comments: variables.comments ?? null,
+      },
+    });
+  }
 }

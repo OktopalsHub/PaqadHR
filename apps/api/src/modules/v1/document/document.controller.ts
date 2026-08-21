@@ -158,8 +158,14 @@ Step 3: Call this endpoint with the fileKey from step 1`,
   async bulkVerifyDocuments(
     @Param('tenantId') tenantId: string,
     @Body() body: { documentIds: string[]; isVerified: boolean },
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<Document[]> {
-    return this.documentService.bulkVerifyDocuments(tenantId, body.documentIds, body.isVerified);
+    return this.documentService.bulkVerifyDocuments(
+      tenantId,
+      body.documentIds,
+      body.isVerified,
+      member.id,
+    );
   }
 
   @Post('bulk/delete')
@@ -261,8 +267,9 @@ Step 3: Call this endpoint with the fileKey from step 1`,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('tenantId') tenantId: string,
     @Query('isVerified', ParseBoolPipe) isVerified: boolean,
+    @CurrentTenantMember() member: MemberContext,
   ): Promise<Document> {
-    return this.documentService.verifyDocument(id, tenantId, isVerified);
+    return this.documentService.verifyDocument(id, tenantId, isVerified, member.id);
   }
   @Post(':id/sign')
   @HttpCode(HttpStatus.OK)
