@@ -26,6 +26,7 @@ describe('ShoutoutsService Slack gating', () => {
 
     const tenantMembersService = {
       getTenantMemberId: jest.fn().mockResolvedValue('member-2'),
+      filterTenantMemberIds: jest.fn().mockResolvedValue(new Set(['member-2'])),
     } as unknown as TenantMembersService;
 
     const categoriesService = {
