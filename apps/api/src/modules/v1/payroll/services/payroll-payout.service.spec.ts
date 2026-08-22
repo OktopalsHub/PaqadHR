@@ -41,6 +41,11 @@ describe('PayrollPayoutService', () => {
     const payrollRunRepository = {
       findOne: jest.fn(),
       save: jest.fn(),
+      findByIdWithItems: jest.fn().mockResolvedValue({
+        id: RUN_ID,
+        tenantId: 'tenant-1',
+        items: [],
+      }),
     };
 
     const service = new PayrollPayoutService(
@@ -201,20 +206,27 @@ describe('PayrollPayoutService', () => {
 
     it('applies transfer status for valid transfer webhooks', async () => {
       const { service, nombaTransferApi } = createService();
-      const rawBody = JSON.stringify({ event_type: 'transfer.success' });
       (nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
-      (nombaTransferApi.parseTransferWebhook as jest.Mock).mockReturnValue({
+      const rawBody = JSON.stringify({
         eventId: 'evt-1',
         reference: 'txn-123',
         merchantTxRef: MERCHANT_REF,
         status: 'SUCCESS',
       });
       const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      const payrollRunRepository = (service as any).payrollRunRepository;
+      payrollRunRepository.findOne.mockResolvedValue({ tenantId: 'tenant-1' });
 
       const result = await service.handleNombaWebhook(rawBody, 'valid-sig');
 
       expect(result).toEqual({ received: true });
-      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'txn-123', 'nomba');
+      expect(applySpy).toHaveBeenCalledWith(
+        MERCHANT_REF,
+        'SUCCESS',
+        'txn-123',
+        'nomba',
+        'tenant-1',
+      );
     });
 
     it('rejects malformed JSON', async () => {
@@ -232,7 +244,7 @@ describe('PayrollPayoutService', () => {
     it('resolves payroll item by transaction id when external id is absent', async () => {
       const { service, noahApi, payrollItemRepository } = createService();
       const txnId = '0ee0ed7a-57eb-5818-bd11-67cccd940e3e';
-      const item = { ...baseItem(), transactionId: txnId };
+      const item = { ...baseItem(), transactionId: txnId, payrollRun: { tenantId: 'tenant-1' } };
       (noahApi.parseTransferWebhook as jest.Mock).mockReturnValue({
         merchantTxRef: txnId,
         reference: txnId,
@@ -263,10 +275,17 @@ describe('PayrollPayoutService', () => {
         ...baseItem(),
         transactionId: 'txn-stuck',
         updatedAt: new Date(Date.now() - 20 * 60 * 1000),
+        payrollRun: { tenantId: 'tenant-1' },
       };
       (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
       (nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue('SUCCESS');
       const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      const payrollRunRepository = (service as any).payrollRunRepository;
+      payrollRunRepository.findByIdWithItems.mockResolvedValue({
+        id: RUN_ID,
+        tenantId: 'tenant-1',
+        items: [stuckItem],
+      });
 
       const result = await service.requeryStuckPayouts();
 
@@ -277,6 +296,7 @@ describe('PayrollPayoutService', () => {
         'txn-stuck',
         'nomba',
         undefined,
+        'tenant-1',
       );
     });
 
@@ -287,6 +307,7 @@ describe('PayrollPayoutService', () => {
         transactionId: 'mon-txn-1',
         paymentProvider: 'Local bank (Monnify)',
         updatedAt: new Date(Date.now() - 20 * 60 * 1000),
+        payrollRun: { tenantId: 'tenant-1' },
       };
       (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
       (monnifyApi.getDisbursementStatus as jest.Mock).mockResolvedValue({
@@ -294,12 +315,18 @@ describe('PayrollPayoutService', () => {
         amount: 1000,
       });
       const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+      const payrollRunRepository = (service as any).payrollRunRepository;
+      payrollRunRepository.findByIdWithItems.mockResolvedValue({
+        id: RUN_ID,
+        tenantId: 'tenant-1',
+        items: [stuckItem],
+      });
 
       const result = await service.requeryStuckPayouts();
 
       expect(result.updated).toBe(1);
-      expect(monnifyApi.getDisbursementStatus).toHaveBeenCalledWith('mon-txn-1');
-      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'mon-txn-1', 'monnify', 1000);
+      expect(monnifyApi.getDisbursementStatus).toHaveBeenCalledWith('mon-txn-1', 'tenant-1');
+      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'mon-txn-1', 'monnify', 1000, 'tenant-1');
     });
 
     it('skips items without a transaction id', async () => {
@@ -327,7 +354,7 @@ describe('PayrollPayoutService', () => {
         'SUCCESS',
         'txn-1',
         'nomba' as never,
-        5000,
+        '5000',
       );
 
       expect(changed).toBe(false);

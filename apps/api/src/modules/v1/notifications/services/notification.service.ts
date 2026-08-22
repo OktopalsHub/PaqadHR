@@ -163,18 +163,6 @@ export class NotificationService {
       readAt: new Date(),
       status: NotificationStatus.READ,
     });
-
-    if (tenantId) {
-      this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId: memberId,
-          action: 'notification.marked_read',
-          description: 'Notification marked as read',
-          metadata: { notificationId },
-        })
-        .catch(() => {});
-    }
   }
 
   async markMultipleAsRead(
@@ -202,18 +190,6 @@ export class NotificationService {
       readAt: new Date(),
       status: NotificationStatus.READ,
     });
-
-    if (tenantId) {
-      this.activitiesService
-        .queueActivity({
-          tenantId,
-          actorMemberId: memberId,
-          action: 'notification.mark_all_read',
-          description: 'All notifications marked as read',
-          metadata: {},
-        })
-        .catch(() => {});
-    }
   }
 
   async getUnreadCount(memberId: string, tenantId?: string): Promise<number> {
