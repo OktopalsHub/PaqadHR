@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TenantRoleGuard } from '../../../common/guards/tenant-member-role.guard';
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { NotificationController } from './controllers/notification.controller';
@@ -29,6 +30,7 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
     SSENotificationService,
     NotificationHelperService,
     NotificationEventListener,
+    TenantRoleGuard,
   ],
   exports: [
     EmailTemplateService,

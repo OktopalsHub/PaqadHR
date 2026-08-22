@@ -140,7 +140,7 @@ type ApiInterceptorConfig = InternalAxiosRequestConfig & {
 export type ApiClientOptions = Omit<AxiosRequestConfig, 'method' | 'headers' | 'data'> & {
   method?: string;
   headers?: HeadersInit;
-  body?: BodyInit | null;
+  body?: unknown;
   data?: unknown;
   skipCsrf?: boolean;
 };

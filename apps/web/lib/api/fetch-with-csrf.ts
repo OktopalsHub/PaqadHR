@@ -69,16 +69,18 @@ export async function executeFetchWithCsrf(
     credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
   });
 
-  const payload = await parseResponsePayload(response.clone());
-  if (needsCsrf && isCsrfErrorResponse(response.status, payload)) {
-    deps.clearCsrfToken();
-    headers.set(deps.csrfHeader, await deps.ensureCsrfToken(true));
-    response = await deps.fetchImpl(input, {
-      ...init,
-      method,
-      headers,
-      credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
-    });
+  if (needsCsrf) {
+    const payload = await parseResponsePayload(response.clone());
+    if (isCsrfErrorResponse(response.status, payload)) {
+      deps.clearCsrfToken();
+      headers.set(deps.csrfHeader, await deps.ensureCsrfToken(true));
+      response = await deps.fetchImpl(input, {
+        ...init,
+        method,
+        headers,
+        credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
+      });
+    }
   }
 
   return response;

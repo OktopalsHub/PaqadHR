@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, In, IsNull, type Repository } from 'typeorm';
 
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationStatus } from '../../../../common/enums/notification-status.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
 import { ActivitiesService } from '../../activities/services/activities.service';
@@ -81,6 +82,7 @@ export class NotificationService {
     message: string,
     channel: NotificationChannel = NotificationChannel.IN_APP,
     metadata?: Record<string, unknown>,
+    priority?: NotificationPriority,
   ): Promise<void> {
     await this.createNotification({
       type: NotificationType.TENANT,
@@ -89,7 +91,35 @@ export class NotificationService {
       message,
       tenantId,
       metadata,
+      ...(priority ? { priority } : {}),
     });
+  }
+
+  async broadcastToTenant(
+    tenantId: string,
+    dto: {
+      title: string;
+      message: string;
+      channel: NotificationChannel;
+      priority?: NotificationPriority;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<{ recipients: number }> {
+    const members = await this.tenantMembersService.listActiveTenantMembers(tenantId);
+    if (members.length === 0) {
+      return { recipients: 0 };
+    }
+
+    await this.createBulkNotifications({
+      recipientIds: members.map((member) => member.id),
+      channel: dto.channel,
+      title: dto.title,
+      message: dto.message,
+      ...(dto.priority ? { priority: dto.priority } : {}),
+      metadata: dto.metadata,
+      tenantId,
+    });
+    return { recipients: members.length };
   }
 
   async getUserNotifications(
