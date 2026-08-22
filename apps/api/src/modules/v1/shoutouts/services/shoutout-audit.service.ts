@@ -12,7 +12,7 @@ export class ShoutoutAuditService {
   constructor(private readonly auditLogsService: AuditLogsService) {}
 
   async logShoutoutCreated(payload: ShoutoutCreatedEventPayload): Promise<void> {
-    const description = `Shoutout created via ${payload.source} for ${payload.recipientIds.length} recipient(s), ${payload.totalPoints} total points`;
+    const description = `Shoutout created for ${payload.recipientIds.length} recipient(s), ${payload.totalPoints} total points`;
 
     await this.auditLogsService.queueAuditLog({
       action: AuditAction.SHOUTOUT_CREATED,

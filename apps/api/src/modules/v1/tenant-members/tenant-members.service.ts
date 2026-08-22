@@ -202,6 +202,10 @@ export class TenantMembersService {
   async getTenantMemberId(tenantId: string, memberId: string): Promise<TenantMember> {
     return this.tenantMemberRepository.findByTenantAndMemberId(tenantId, memberId);
   }
+  async getTenantMembersByIds(tenantId: string, memberIds: string[]): Promise<TenantMember[]> {
+    if (memberIds.length === 0) return [];
+    return this.tenantMemberRepository.findByIdsAndTenantId(tenantId, memberIds);
+  }
   async getTenantMembersCount(tenantId: string): Promise<number> {
     return this.tenantMemberRepository.countByTenantId(tenantId);
   }
