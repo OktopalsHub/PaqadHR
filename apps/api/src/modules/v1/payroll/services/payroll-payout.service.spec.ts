@@ -326,7 +326,14 @@ describe('PayrollPayoutService', () => {
 
       expect(result.updated).toBe(1);
       expect(monnifyApi.getDisbursementStatus).toHaveBeenCalledWith('mon-txn-1', 'tenant-1');
-      expect(applySpy).toHaveBeenCalledWith(MERCHANT_REF, 'SUCCESS', 'mon-txn-1', 'monnify', 1000, 'tenant-1');
+      expect(applySpy).toHaveBeenCalledWith(
+        MERCHANT_REF,
+        'SUCCESS',
+        'mon-txn-1',
+        'monnify',
+        1000,
+        'tenant-1',
+      );
     });
 
     it('skips items without a transaction id', async () => {
