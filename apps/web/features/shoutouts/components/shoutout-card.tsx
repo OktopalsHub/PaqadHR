@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatPaqPointsDelta } from '@/lib/constants/paq-points';
 import { formatDateTime } from '@/lib/format-date';
 import type { Shoutout } from '@/lib/schemas/shoutout';
+import type { ShoutoutLookupItem } from '@/lib/shoutouts/parse-shoutout';
 import { renderShoutoutMessage } from '@/lib/shoutouts/render-shoutout-message';
 import { cn } from '@/lib/utils';
 
@@ -17,7 +18,15 @@ function categoryStyle(color?: string | null) {
   return undefined;
 }
 
-export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
+export function ShoutoutCard({
+  shoutout,
+  employees = [],
+  categories = [],
+}: {
+  shoutout: Shoutout;
+  employees?: ShoutoutLookupItem[];
+  categories?: ShoutoutLookupItem[];
+}) {
   const hasRecipients = shoutout.recipients && shoutout.recipients.length > 0;
   const recipients = hasRecipients
     ? shoutout.recipients.map((r) => `${memberLabel(r)} +${r.points}`).join(', ')
@@ -64,7 +73,7 @@ export function ShoutoutCard({ shoutout }: { shoutout: Shoutout }) {
           ) : null}
 
           <div className="culture-message mt-3 whitespace-pre-wrap rounded-[8px] px-3 py-2.5 text-sm leading-relaxed">
-            {renderShoutoutMessage(shoutout.message)}
+            {renderShoutoutMessage(shoutout.message, { employees, categories })}
           </div>
 
           <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">

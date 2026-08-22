@@ -440,7 +440,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   <Smile className="size-4 text-pink-500" />
                 </Button>
                 {emojiOpen ? (
-                  <div className="absolute left-0 top-full z-20 mt-1 grid grid-cols-5 gap-1 rounded-[8px] border border-border/60 bg-popover p-2 shadow-lg">
+                  <div className="absolute left-0 top-full z-20 mt-1 grid w-52 grid-cols-5 gap-1 rounded-[8px] border border-border/60 bg-popover p-2 shadow-lg">
                     {EMOJIS.map((emoji) => (
                       <button
                         key={emoji}

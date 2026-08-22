@@ -3,7 +3,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Coins, Heart, Sparkles, X } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -99,6 +99,18 @@ function ShoutoutsPageContent() {
     enabled: canAccessShoutouts && activeTab === 'feed',
   });
   const { data: categories = [] } = useShoutoutCategories({ enabled: feedQueriesEnabled });
+
+  const employeeOptions = useMemo(
+    () =>
+      employees
+        .filter((employee) => employee.id !== currentMemberId)
+        .map((employee) => ({ id: employee.id, name: employee.name })),
+    [employees, currentMemberId],
+  );
+  const categoryOptions = useMemo(
+    () => categories.map((category) => ({ id: category.id, name: category.name })),
+    [categories],
+  );
   const { data: pointsBalance } = useMyPointsBalance({ enabled: canAccessShoutouts });
   const { data, isLoading, isError, error } = useShoutouts({ enabled: feedQueriesEnabled });
   const createShoutout = useCreateShoutout();
@@ -241,10 +253,8 @@ function ShoutoutsPageContent() {
               <ShoutoutComposer
                 ref={composerRef}
                 variant="feed"
-                employees={employees
-                  .filter((employee) => employee.id !== currentMemberId)
-                  .map((employee) => ({ id: employee.id, name: employee.name }))}
-                categories={categories}
+                employees={employeeOptions}
+                categories={categoryOptions}
                 points={pointsBalance}
                 onSubmit={handleCreate}
                 isSubmitting={createShoutout.isPending}
@@ -267,7 +277,14 @@ function ShoutoutsPageContent() {
                     className="min-h-[260px]"
                   />
                 ) : (
-                  items.map((shoutout) => <ShoutoutCard key={shoutout.id} shoutout={shoutout} />)
+                  items.map((shoutout) => (
+                    <ShoutoutCard
+                      key={shoutout.id}
+                      shoutout={shoutout}
+                      employees={employeeOptions}
+                      categories={categoryOptions}
+                    />
+                  ))
                 )}
               </ContentCard>
             </div>
