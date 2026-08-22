@@ -1422,8 +1422,31 @@ export class RewardsService {
       relations: ['member'],
       order: { createdAt: 'DESC' },
       take: 100,
+      select: {
+        id: true,
+        tenantId: true,
+        memberId: true,
+        rewardId: true,
+        rewardName: true,
+        rewardType: true,
+        pointsSpent: true,
+        currencyValue: true,
+        currencyCode: true,
+        status: true,
+        providerRef: true,
+        recipient: true,
+        createdAt: true,
+        updatedAt: true,
+        processingStartedAt: true,
+        member: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+        },
+      },
     });
-    return claims.map(({ voucher: _voucher, ...rest }) => rest);
+    return claims;
   }
 
   async refundStaleClaim(redemption: RewardRedemption): Promise<boolean> {
@@ -1457,12 +1480,12 @@ export class RewardsService {
           processingStartedAt: null,
         })
         .where(
-          'id = :redemptionId AND tenant_id = :tenantId AND member_id = :memberId AND status <> :failed',
+          'id = :redemptionId AND tenant_id = :tenantId AND member_id = :memberId AND status = :pending',
           {
             redemptionId,
             tenantId,
             memberId,
-            failed: 'FAILED' as RedemptionStatus,
+            pending: 'PENDING' as RedemptionStatus,
           },
         )
         .execute();
@@ -1848,6 +1871,53 @@ export class RewardsService {
           resourceId: saved.id,
           description: `Task "${data.title}" created`,
           metadata: { title: data.title, points: data.points },
+        })
+        .catch(() => {});
+    }
+    return saved;
+  }
+
+  async updateTask(
+    tenantId: string,
+    taskId: string,
+    data: {
+      title?: string;
+      description?: string;
+      points?: number;
+      icon?: string;
+      category?: string;
+      imageUrl?: string;
+      submissionType?: 'instant' | 'text' | 'file';
+      isRecurring?: boolean;
+    },
+    actorMemberId?: string,
+  ) {
+    const taskRepo = this.dataSource.getRepository(Task);
+    const task = await taskRepo.findOne({ where: { id: taskId, tenantId } });
+    if (!task) {
+      throw new BadRequestException('Task not found');
+    }
+
+    if (data.title !== undefined) task.title = data.title;
+    if (data.description !== undefined) task.description = data.description;
+    if (data.points !== undefined) task.points = data.points;
+    if (data.icon !== undefined) task.icon = data.icon;
+    if (data.category !== undefined) task.category = data.category || undefined;
+    if (data.imageUrl !== undefined) task.imageUrl = data.imageUrl || undefined;
+    if (data.submissionType !== undefined) task.submissionType = data.submissionType;
+    if (data.isRecurring !== undefined) task.isRecurring = data.isRecurring;
+
+    const saved = await taskRepo.save(task);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'reward.task_updated',
+          resourceType: 'task',
+          resourceId: saved.id,
+          description: `Task "${saved.title}" updated`,
+          metadata: { title: saved.title, points: saved.points },
         })
         .catch(() => {});
     }

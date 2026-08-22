@@ -60,36 +60,51 @@ export class LeaveBalanceInitializationService {
       targetYear,
     );
     const existingSet = new Set(existingBalances.map((b) => `${b.memberId}:${b.leaveTypeId}`));
-    const results: {
+
+    // Build all missing balance records first
+    const missingRecords: {
       memberId: string;
-      balancesCreated: number;
-      balances: LeaveBalance[];
+      leaveTypeId: string;
+      totalDays: number;
     }[] = [];
     for (const memberId of memberIds) {
-      const memberBalances: LeaveBalance[] = [];
       for (const leaveType of activeLeaveTypes) {
         if (!existingSet.has(`${memberId}:${leaveType.id}`)) {
-          const newBalance = await this.leaveBalanceService.createLeaveBalance(
-            tenantId,
+          missingRecords.push({
             memberId,
-            leaveType.id,
-            {
-              year: targetYear,
-              totalDays: leaveType.defaultDays,
-              usedDays: 0,
-              remainingDays: leaveType.defaultDays,
-            },
-          );
-          memberBalances.push(newBalance);
+            leaveTypeId: leaveType.id,
+            totalDays: leaveType.defaultDays,
+          });
         }
       }
-      results.push({
-        memberId,
-        balancesCreated: memberBalances.length,
-        balances: memberBalances,
-      });
     }
-    return results;
+
+    // Batch insert all missing records
+    if (missingRecords.length > 0) {
+      await this.leaveBalanceService.createLeaveBalancesBatch(
+        tenantId,
+        missingRecords.map((r) => ({
+          memberId: r.memberId,
+          leaveTypeId: r.leaveTypeId,
+          year: targetYear,
+          totalDays: r.totalDays,
+          usedDays: 0,
+          remainingDays: r.totalDays,
+        })),
+      );
+    }
+
+    // Build result per member
+    const createdCountMap = new Map<string, number>();
+    for (const r of missingRecords) {
+      createdCountMap.set(r.memberId, (createdCountMap.get(r.memberId) ?? 0) + 1);
+    }
+
+    return memberIds.map((memberId) => ({
+      memberId,
+      balancesCreated: createdCountMap.get(memberId) ?? 0,
+      balances: [] as LeaveBalance[],
+    }));
   }
   async initializeNewLeaveTypeForAllMembers(
     tenantId: string,

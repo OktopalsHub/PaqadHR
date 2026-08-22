@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
-import { LessThan, Repository } from 'typeorm';
-import { RewardRedemption } from '../entities/reward-redemption.entity';
+import { LessThan, Not, Repository } from 'typeorm';
+import { RedemptionStatus, RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsService } from './rewards.service';
 
 const PROCESSING_LEASE_MS = 5 * 60 * 1000;
@@ -34,13 +34,23 @@ export class RewardsClaimCronService {
         },
       });
 
+      const resetIds = new Set<string>();
       for (const claim of staleProcessing) {
         try {
-          await this.redemptionRepository.update(claim.id, {
-            status: 'PENDING',
-            processingStartedAt: null,
-          });
-          resetProcessing += 1;
+          const result = await this.redemptionRepository
+            .createQueryBuilder()
+            .update(RewardRedemption)
+            .set({ status: 'PENDING' as RedemptionStatus, processingStartedAt: null })
+            .where('id = :id AND status = :status AND processingStartedAt < :cutoff', {
+              id: claim.id,
+              status: 'PROCESSING',
+              cutoff: staleProcessingCutoff,
+            })
+            .execute();
+          if (result.affected) {
+            resetIds.add(claim.id);
+            resetProcessing += 1;
+          }
         } catch (err) {
           this.logger.warn(
             `Failed to reset PROCESSING claim ${claim.id}: ${err instanceof Error ? err.message : err}`,
@@ -49,11 +59,14 @@ export class RewardsClaimCronService {
       }
 
       // 2. Refund PENDING claims stuck beyond the stale window
+      //    Exclude claims that were just reset from PROCESSING in this same run
+      //    to prevent refunding a claim whose original fulfillment is still in-flight.
       const stalePendingCutoff = new Date(Date.now() - PENDING_STALE_MS);
       const stalePending = await this.redemptionRepository.find({
         where: {
           status: 'PENDING',
           createdAt: LessThan(stalePendingCutoff),
+          ...(resetIds.size > 0 ? { id: Not(Array.from(resetIds)) } : {}),
         },
       });
 

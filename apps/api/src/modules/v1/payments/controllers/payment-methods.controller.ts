@@ -255,14 +255,24 @@ export class PaymentMethodsController {
   async getPaymentMethodByMember(
     @Param('tenantId') tenantId: string,
     @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.findByMemberId(memberId, tenantId);
+    return this.paymentMethodService.findByMemberIdForRequester(
+      tenantId,
+      memberId,
+      member.id,
+      member.role,
+    );
   }
   @Get('details/:id')
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method details by ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method details retrieved' })
-  async getPaymentMethodDetails(@Param('tenantId') tenantId: string, @Param('id') id: string) {
-    return this.paymentMethodService.findById(id, tenantId);
+  async getPaymentMethodDetails(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.findByIdForMember(tenantId, id, member.id, member.role);
   }
 }

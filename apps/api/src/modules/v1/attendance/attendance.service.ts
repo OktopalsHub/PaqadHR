@@ -532,7 +532,9 @@ export class AttendanceService {
         },
         relations: ['tenantMember', 'tenantMember.user'],
       });
-      const memberIds = [...new Set(attendances.map((a) => a.tenantMember?.id).filter(Boolean))];
+      const memberIds = [
+        ...new Set(attendances.map((a) => a.tenantMember?.id).filter((id): id is string => !!id)),
+      ];
       const departmentMap = await this.departmentUtils.getDepartmentsByMemberIds(
         tenantId,
         memberIds,

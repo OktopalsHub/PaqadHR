@@ -120,6 +120,16 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [selectedBundleId, setSelectedBundleId] = useState<string>('');
   const defaultTab = showAirtime ? 'airtime' : showUtilities ? 'utilities' : 'perks';
   const [activeTab, setActiveTab] = useState(defaultTab);
+
+  useEffect(() => {
+    const visibleTabs: string[] = [];
+    if (showAirtime) visibleTabs.push('airtime');
+    if (showUtilities) visibleTabs.push('utilities');
+    visibleTabs.push('perks');
+    if (!visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0] ?? 'perks');
+    }
+  }, [showAirtime, showUtilities, activeTab]);
   const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
     airtimeNetwork,
     selectedCountryCode === 'NG' && topupMode === 'data',
@@ -161,6 +171,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [calculatedCurrency, setCalculatedCurrency] = useState<string>('NGN');
   const [airtimeProcessingFee, setAirtimeProcessingFee] = useState<number | null>(null);
   const [isCalculatingPoints, setIsCalculatingPoints] = useState(false);
+  const [pointsCalcError, setPointsCalcError] = useState<string | null>(null);
 
   useEffect(() => {
     const amt = Number(airtimeAmount) || 0;
@@ -168,6 +179,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       if (amt >= 100) {
         const delayDebounceFn = setTimeout(async () => {
           setIsCalculatingPoints(true);
+          setPointsCalcError(null);
           try {
             const res = await calculatePointsCost({
               type: 'ng-airtime',
@@ -182,9 +194,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ? Number(res.processingFee)
                 : res.totalTenantDebit - res.currencyValue,
             );
-          } catch (_e) {
+          } catch (e) {
             setCalculatedPoints(null);
             setAirtimeProcessingFee(null);
+            setPointsCalcError(e instanceof Error ? e.message : 'Failed to calculate points cost');
           } finally {
             setIsCalculatingPoints(false);
           }
@@ -193,6 +206,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       }
       setCalculatedPoints(null);
       setAirtimeProcessingFee(null);
+      setPointsCalcError(null);
       return;
     }
 
@@ -246,6 +260,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [utilityCalculatedCurrency, setUtilityCalculatedCurrency] = useState<string>('NGN');
   const [utilityProcessingFee, setUtilityProcessingFee] = useState<number | null>(null);
   const [isCalculatingUtilityPoints, setIsCalculatingUtilityPoints] = useState(false);
+  const [utilityCalcError, setUtilityCalcError] = useState<string | null>(null);
 
   useEffect(() => {
     const amt = Number(utilityAmount) || 0;
@@ -253,6 +268,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       if (amt >= 100) {
         const delayDebounceFn = setTimeout(async () => {
           setIsCalculatingUtilityPoints(true);
+          setUtilityCalcError(null);
           try {
             const res = await calculatePointsCost({
               type: 'ng-utility',
@@ -267,9 +283,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                 ? Number(res.processingFee)
                 : res.totalTenantDebit - res.currencyValue,
             );
-          } catch (_e) {
+          } catch (e) {
             setUtilityPoints(null);
             setUtilityProcessingFee(null);
+            setUtilityCalcError(e instanceof Error ? e.message : 'Failed to calculate points cost');
           } finally {
             setIsCalculatingUtilityPoints(false);
           }
@@ -278,12 +295,14 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       }
       setUtilityPoints(null);
       setUtilityProcessingFee(null);
+      setUtilityCalcError(null);
       return;
     }
 
     if (amt > 0 && selectedNgUtilityBiller) {
       const delayDebounceFn = setTimeout(async () => {
         setIsCalculatingUtilityPoints(true);
+        setUtilityCalcError(null);
         try {
           const res = await calculatePointsCost({
             type: 'ng-utility',
@@ -293,8 +312,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           setUtilityPoints(res.pointsCost);
           setUtilityCalculatedValue(res.currencyValue);
           setUtilityCalculatedCurrency(res.currencyCode);
-        } catch (_e) {
+        } catch (e) {
           setUtilityPoints(null);
+          setUtilityCalcError(e instanceof Error ? e.message : 'Failed to calculate points cost');
         } finally {
           setIsCalculatingUtilityPoints(false);
         }
@@ -424,11 +444,21 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     [giftCards, selectedCategory],
   );
 
+  const giftCardsForCounts = useMemo(
+    () =>
+      giftCards.filter((item) => {
+        const category = getGiftCardCategory(item);
+        const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
+        return !isNgAirtime;
+      }),
+    [giftCards],
+  );
+
   const filteredAllClaims = useMemo(
     () =>
       allClaims.filter((claim) => {
         if (!claimsSearch.trim()) return true;
-        const term = claimsSearch.toLowerCase();
+        const term = claimsSearch.trim().toLowerCase();
         const nameMatch = claim.rewardName?.toLowerCase().includes(term);
         const memberName = claim.member
           ? `${claim.member.firstName} ${claim.member.lastName}`.toLowerCase()
@@ -693,7 +723,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     return null;
                   }
 
-                  const count = filteredGiftCards.filter((item) => {
+                  const count = giftCardsForCounts.filter((item) => {
                     if (cat === 'All') return true;
                     return getGiftCardCategory(item) === cat;
                   }).length;
@@ -1008,7 +1038,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           <div className="flex justify-between text-xs text-muted-foreground font-medium">
                             <span>Processing Fee</span>
                             <span className="font-bold text-foreground">
-                              +₦{(airtimeProcessingFee ?? 0).toLocaleString()}
+                              {pointsCalcError
+                                ? '—'
+                                : `+₦${(airtimeProcessingFee ?? 0).toLocaleString()}`}
                             </span>
                           </div>
                         ) : (
@@ -1024,6 +1056,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           {isCalculatingPoints ? (
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Loader2 className="size-3 animate-spin" /> Calculating...
+                            </span>
+                          ) : pointsCalcError ? (
+                            <span className="text-xs text-destructive italic">
+                              {pointsCalcError}
                             </span>
                           ) : calculatedPoints ? (
                             <span className="text-lg font-black text-primary flex items-center gap-1">
@@ -1251,7 +1287,9 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           <div className="flex justify-between text-xs text-muted-foreground font-medium">
                             <span>Processing Fee</span>
                             <span className="font-bold text-foreground">
-                              +₦{(utilityProcessingFee ?? 0).toLocaleString()}
+                              {utilityCalcError
+                                ? '—'
+                                : `+₦${(utilityProcessingFee ?? 0).toLocaleString()}`}
                             </span>
                           </div>
                         ) : (
@@ -1267,6 +1305,10 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                           {isCalculatingUtilityPoints ? (
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <Loader2 className="size-3 animate-spin" /> Calculating...
+                            </span>
+                          ) : utilityCalcError ? (
+                            <span className="text-xs text-destructive italic">
+                              {utilityCalcError}
                             </span>
                           ) : utilityPoints ? (
                             <span className="text-lg font-black text-primary flex items-center gap-1">

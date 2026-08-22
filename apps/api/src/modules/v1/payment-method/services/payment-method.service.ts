@@ -449,7 +449,7 @@ export class PaymentMethodService {
         memberId: In(memberIds),
         currency: normalizedCurrency,
       },
-      order: { isPrimary: 'DESC', updatedAt: 'DESC' },
+      order: { isVerified: 'DESC', isPrimary: 'DESC', updatedAt: 'DESC' },
     });
 
     const methodMap = new Map<string, PaymentMethod>();

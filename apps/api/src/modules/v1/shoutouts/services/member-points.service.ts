@@ -493,21 +493,20 @@ export class MemberPointsService {
     if (missingIds.length > 0) {
       const startingBalance =
         (await this.tenantConfigService.getPointsStartingBalance(tenantId)) ?? 0;
-      const inserts = missingIds.map((memberId) =>
-        repo
-          .createQueryBuilder()
-          .insert()
-          .into(ShoutoutMemberPoints)
-          .values({
+      await repo
+        .createQueryBuilder()
+        .insert()
+        .into(ShoutoutMemberPoints)
+        .values(
+          missingIds.map((memberId) => ({
             tenantId,
             memberId,
             currentBalance: startingBalance,
             lastResetDate: new Date(),
-          })
-          .orIgnore()
-          .execute(),
-      );
-      await Promise.all(inserts);
+          })),
+        )
+        .orIgnore()
+        .execute();
       const freshRows = await repo.find({ where: { tenantId, memberId: In(missingIds) } });
       existingRows = [...existingRows, ...freshRows];
     }

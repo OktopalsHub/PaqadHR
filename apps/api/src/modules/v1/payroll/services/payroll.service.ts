@@ -98,7 +98,7 @@ export class PayrollService {
       await queryRunner.query(`SELECT id FROM tenants WHERE id = $1 FOR UPDATE`, [tenantId]);
       if (finalIdempotencyKey) {
         const existingByKey = await this.payrollRunRepository.findOne({
-          where: { idempotencyKey: finalIdempotencyKey, tenantId },
+          where: { idempotencyKey: finalIdempotencyKey },
         });
         if (existingByKey) {
           await queryRunner.rollbackTransaction();
@@ -131,8 +131,8 @@ export class PayrollService {
         payoutMode: null,
       };
       const savedPayrollRun = await this.payrollRunRepository.create(payrollRunData);
-      const payrollItems = dto.employeeIds.map((memberId) =>
-        this.payrollItemRepository.create({
+      for (const memberId of dto.employeeIds) {
+        await this.payrollItemRepository.create({
           payrollRunId: savedPayrollRun.id,
           memberId,
           status: PayrollItemStatus.PENDING,
@@ -143,9 +143,8 @@ export class PayrollService {
           paymentCurrency: dto.baseCurrency,
           paymentAmount: 0,
           exchangeRate: 1,
-        }),
-      );
-      await this.payrollItemRepository.save(payrollItems);
+        });
+      }
       await queryRunner.commitTransaction();
       await this.auditService.logPayrollCreated(
         { tenantId, payrollRunId: savedPayrollRun.id, performedById: createdById },
@@ -208,27 +207,22 @@ export class PayrollService {
       let totalDeductions = 0;
       let totalNetAmount = 0;
       const warnings: string[] = [];
-      const excludedMemberIds = payrollRun.items
-        .filter((item) => Boolean(item.metadata?.excludedFromRun))
-        .map((item) => item.memberId);
-      const memberIds = payrollRun.items.map((item) => item.memberId);
-      const readinessResults = await this.paymentMethodService.assessBulkPayrollReadiness(
-        tenantId,
-        memberIds,
-        payrollRun.baseCurrency,
-        excludedMemberIds,
-      );
-      const readinessMap = new Map(readinessResults.map((r) => [r.memberId, r]));
-
+      const readinessResults: PayrollPaymentReadiness[] = [];
       for (const item of payrollRun.items) {
         const excluded = Boolean(item.metadata?.excludedFromRun);
-        const readiness = readinessMap.get(item.memberId)!;
+        const readiness = await this.paymentMethodService.assessPayrollReadiness(
+          tenantId,
+          item.memberId,
+          payrollRun.baseCurrency,
+          excluded,
+        );
+        readinessResults.push(readiness);
         if (!readiness.ready && !excluded) {
           warnings.push(readiness.message);
         }
 
         const paymentMethod = readiness.paymentMethodId
-          ? await this.paymentMethodService.findById(readiness.paymentMethodId, tenantId)
+          ? await this.paymentMethodService.findById(readiness.paymentMethodId)
           : await this.paymentMethodService.resolvePayrollPaymentMethod(
               tenantId,
               item.memberId,
@@ -861,12 +855,11 @@ export class PayrollService {
     if (directReports.length === 0) {
       throw new ForbiddenException('Admin or manager access required');
     }
-    const items = await this.payrollItemRepository
-      .createQueryBuilder('item')
-      .select('DISTINCT item.payrollRunId', 'payrollRunId')
-      .where('item.memberId IN (:...memberIds)', { memberIds: directReports })
-      .getRawMany();
-    const runIds = items.map((item) => item.payrollRunId);
+    const items = await this.payrollItemRepository.find({
+      where: { memberId: In(directReports) },
+      select: ['payrollRunId'],
+    });
+    const runIds = [...new Set(items.map((item) => item.payrollRunId))];
     if (runIds.length === 0) {
       return { runs: [], total: 0 };
     }
@@ -914,28 +907,6 @@ export class PayrollService {
     return this.payrollRunRepository.findOne({
       where: { id, tenantId },
       relations: ['items', 'items.employee', 'createdBy', 'tenant'],
-      select: [
-        'id',
-        'title',
-        'frequency',
-        'periodStart',
-        'periodEnd',
-        'paymentDate',
-        'baseCurrency',
-        'status',
-        'totalGrossAmount',
-        'totalDeductions',
-        'totalNetAmount',
-        'employeeCount',
-        'tenantId',
-        'createdById',
-        'processedAt',
-        'payoutMode',
-        'idempotencyKey',
-        'metadata',
-        'createdAt',
-        'updatedAt',
-      ],
     });
   }
   async getPayrollRuns(
@@ -952,27 +923,6 @@ export class PayrollService {
         take: limit,
         skip: offset,
         relations: ['createdBy', 'tenant'],
-        select: [
-          'id',
-          'title',
-          'frequency',
-          'periodStart',
-          'periodEnd',
-          'paymentDate',
-          'baseCurrency',
-          'status',
-          'totalGrossAmount',
-          'totalDeductions',
-          'totalNetAmount',
-          'employeeCount',
-          'tenantId',
-          'createdById',
-          'processedAt',
-          'payoutMode',
-          'metadata',
-          'createdAt',
-          'updatedAt',
-        ],
       });
       return { runs: runs, total };
     } catch (error) {

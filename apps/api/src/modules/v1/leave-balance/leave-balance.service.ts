@@ -47,6 +47,27 @@ export class LeaveBalanceService {
     }
     return balance;
   }
+
+  async createLeaveBalancesBatch(
+    tenantId: string,
+    records: {
+      memberId: string;
+      leaveTypeId: string;
+      year: number;
+      totalDays: number;
+      usedDays: number;
+      remainingDays: number;
+    }[],
+  ): Promise<void> {
+    if (records.length === 0) return;
+    await this.leaveBalanceRepository.save(
+      records.map((r) => ({
+        ...r,
+        tenantId,
+      })),
+    );
+  }
+
   async listLeaveBalances(tenantId: string, memberIds?: string[]) {
     const rows = await this.leaveBalanceRepository.findAdminListWithLabels(tenantId, memberIds);
     return rows.map((row) => {

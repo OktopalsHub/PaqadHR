@@ -14,6 +14,7 @@ import {
   Heart,
   Loader2,
   MessageSquare,
+  Pencil,
   Plus,
   Repeat,
   Send,
@@ -144,6 +145,19 @@ export function ShoutoutTasksTab() {
   );
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newIsRecurring, setNewIsRecurring] = useState(false);
+
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editPoints, setEditPoints] = useState('15');
+  const [editCategory, setEditCategory] = useState('');
+  const [editIcon, setEditIcon] = useState('Sparkles');
+  const [editSubmissionType, setEditSubmissionType] = useState<'instant' | 'text' | 'file'>(
+    'instant',
+  );
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editIsRecurring, setEditIsRecurring] = useState(false);
 
   // Direct Point Assignment State
   const [isAssigningPoints, setIsAssigningPoints] = useState(false);
@@ -333,6 +347,51 @@ export function ShoutoutTasksTab() {
       invalidateAll();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete task');
+    }
+  };
+
+  const handleStartEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditTitle(task.title);
+    setEditDesc(task.description);
+    setEditPoints(String(task.points));
+    setEditCategory(task.category ?? '');
+    setEditIcon(task.icon);
+    setEditSubmissionType(task.submissionType);
+    setEditImageUrl(task.imageUrl ?? '');
+    setEditIsRecurring(task.isRecurring);
+    setIsEditing(true);
+  };
+
+  const handleUpdateTask = async () => {
+    if (!editingTask) return;
+    if (!editTitle.trim()) {
+      toast.error('Task title is required');
+      return;
+    }
+    setIsCreating(true);
+    try {
+      await apiClient(tenantPath(tenantId ?? '', `rewards/tasks/${editingTask.id}`), {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDesc.trim() || 'Complete this task to earn points.',
+          points: Number(editPoints) || 15,
+          icon: editIcon,
+          category: editCategory.trim() || undefined,
+          imageUrl: editImageUrl.trim() || undefined,
+          submissionType: editSubmissionType,
+          isRecurring: editIsRecurring,
+        }),
+      });
+      setIsEditing(false);
+      setEditingTask(null);
+      toast.success(`Task "${editTitle.trim()}" updated!`);
+      invalidateAll();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update task');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -637,6 +696,148 @@ export function ShoutoutTasksTab() {
         </Card>
       )}
 
+      {/* Edit Task Dialog */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Edit Task</DialogTitle>
+            <DialogDescription className="text-xs">
+              Update the task details below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label className="text-xs font-semibold">Task Title *</Label>
+              <Input
+                placeholder="e.g. Welcome Tour"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Points *</Label>
+              <Input
+                type="number"
+                min={1}
+                placeholder="15"
+                value={editPoints}
+                onChange={(e) => setEditPoints(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Category</Label>
+              <Input
+                placeholder="e.g. Onboarding"
+                value={editCategory}
+                onChange={(e) => setEditCategory(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Icon</Label>
+              <Select value={editIcon} onValueChange={setEditIcon}>
+                <SelectTrigger className="h-10 text-xs rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ICON_MAP).map(([name]) => (
+                    <SelectItem key={name} value={name} className="text-xs">
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Submission Type</Label>
+              <Select
+                value={editSubmissionType}
+                onValueChange={(v) => setEditSubmissionType(v as 'instant' | 'text' | 'file')}
+              >
+                <SelectTrigger className="h-10 text-xs rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="instant" className="text-xs">
+                    ⚡ Instant Claim
+                  </SelectItem>
+                  <SelectItem value="text" className="text-xs">
+                    ✍️ Text Verification
+                  </SelectItem>
+                  <SelectItem value="file" className="text-xs">
+                    📎 File Submission
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label className="text-xs font-semibold">Image URL</Label>
+              <Input
+                placeholder="https://example.com/image.png"
+                value={editImageUrl}
+                onChange={(e) => setEditImageUrl(e.target.value)}
+                className="h-10 text-xs rounded-xl"
+              />
+            </div>
+
+            <div className="sm:col-span-2 flex items-center justify-between p-3 rounded-xl border bg-muted/20">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-semibold text-foreground">Recurring Challenge</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Enable if employees can complete this multiple times
+                </p>
+              </div>
+              <Switch
+                checked={editIsRecurring}
+                onCheckedChange={setEditIsRecurring}
+                className="data-[state=checked]:bg-indigo-600"
+              />
+            </div>
+
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label className="text-xs font-semibold">Instructions / Description</Label>
+              <Textarea
+                placeholder="Provide details on what they need to complete or submit."
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                rows={2}
+                className="text-xs rounded-xl resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex justify-end gap-2 pt-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-10 text-xs font-semibold rounded-xl"
+              onClick={() => {
+                setIsEditing(false);
+                setEditingTask(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={isCreating}
+              className="h-10 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-1 rounded-xl"
+              onClick={handleUpdateTask}
+            >
+              {isCreating && <Loader2 className="size-3 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Submissions Pending Review — visible to anyone the backend returns items for (admin/owner/manager) */}
       {pendingSubmissions.length > 0 && (
         <div className="space-y-4">
@@ -833,14 +1034,24 @@ export function ShoutoutTasksTab() {
 
                       <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         {isAdmin && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-2 text-destructive hover:bg-destructive/10 rounded-lg"
-                            onClick={() => handleDeleteTask(task.id)}
-                          >
-                            <Trash2 className="size-4" />
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-muted-foreground hover:bg-muted rounded-lg"
+                              onClick={() => handleStartEdit(task)}
+                            >
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-destructive hover:bg-destructive/10 rounded-lg"
+                              onClick={() => handleDeleteTask(task.id)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </>
                         )}
 
                         <Button

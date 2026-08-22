@@ -15,14 +15,14 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
       payrollItemRepository.queryRunner,
     );
   }
-  async findByPayrollRunId(payrollRunId: string, tenantId: string): Promise<PayrollItem[]> {
+  async findByPayrollRunId(payrollRunId: string): Promise<PayrollItem[]> {
     return this.find({
       withDeleted: false,
       where: { payrollRunId },
       relations: ['employee', 'deductions', 'bonuses'],
     });
   }
-  async findByMemberId(memberId: string, tenantId: string): Promise<PayrollItem[]> {
+  async findByMemberId(memberId: string): Promise<PayrollItem[]> {
     return this.payrollItemRepository.find({
       where: { memberId },
       order: { createdAt: 'DESC' },
