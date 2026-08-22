@@ -18,7 +18,7 @@ import {
   useTenantSettings,
 } from '@/hooks/queries/use-tenant-settings';
 import { useUpdateTenant } from '@/hooks/queries/use-tenants';
-import { SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
+import { SUPPORTED_CRYPTO_CURRENCIES, SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -44,11 +44,12 @@ export function SettingsWorkspaceTab() {
   const [timezone, setTimezone] = useState('UTC');
   const [employeeCode, setEmployeeCode] = useState('');
   const [payrollCurrencies, setPayrollCurrencies] = useState<string[]>(['USD']);
+  const [cryptoEnabled, setCryptoEnabled] = useState(false);
   const [emailPayslipOnPublish, setEmailPayslipOnPublish] = useState(false);
   const [requireIdentityForPayroll, setRequireIdentityForPayroll] = useState(false);
 
   const workspaceCountry = tenant?.countryCode ?? settings?.settings?.holidays?.countryCode ?? '';
-  const countryLabel =
+  const _countryLabel =
     (countriesData?.countries ?? []).find((country) => country.code === workspaceCountry)?.name ??
     workspaceCountry;
 
@@ -62,6 +63,7 @@ export function SettingsWorkspaceTab() {
     const general = settings?.settings?.general;
     setEmailPayslipOnPublish(general?.emailPayslipOnPublish ?? false);
     setRequireIdentityForPayroll(settings?.settings?.employee?.requireIdentityForPayroll ?? false);
+    setCryptoEnabled(general?.cryptoEnabled ?? false);
     setPayrollCurrencies(
       resolveInitialPayrollCurrencies({
         countryCode: workspaceCountry,
@@ -131,6 +133,7 @@ export function SettingsWorkspaceTab() {
           language: existingGeneral?.language ?? 'en',
           currency: primaryCurrency,
           payrollCurrencies: payrollCurrencies.map((code) => code.toUpperCase()),
+          cryptoEnabled,
         },
       });
       toast.success('Workspace settings saved');
@@ -173,7 +176,6 @@ export function SettingsWorkspaceTab() {
     <div className="space-y-5">
       <ContentCard title="Workspace" bodyClassName="space-y-6 p-5">
         <div className="dashboard-soft-tile rounded-[8px] px-5 py-5">
-          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Branding</p>
           <div className="mt-4">
             <LogoUpload
               name={name || tenant?.name || 'Workspace'}
@@ -215,18 +217,6 @@ export function SettingsWorkspaceTab() {
               onChange={(e) => setEmployeeCode(e.target.value)}
               maxLength={10}
             />
-          </SettingsFieldHint>
-
-          <SettingsFieldHint htmlFor="workspace-country" label="Country" className="lg:col-span-2">
-            <Input
-              id="workspace-country"
-              value={countryLabel || '—'}
-              readOnly
-              className="bg-white/60 text-slate-500 dark:bg-slate-950/40 dark:text-slate-300"
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              Set during onboarding and cannot be changed.
-            </p>
           </SettingsFieldHint>
 
           <SettingsFieldHint
@@ -282,6 +272,33 @@ export function SettingsWorkspaceTab() {
                 </p>
               ) : null}
             </div>
+          </SettingsFieldHint>
+
+          <SettingsFieldHint label="Crypto payroll" className="lg:col-span-2">
+            <div className="flex items-center gap-3">
+              <Switch
+                id="crypto-enabled"
+                checked={cryptoEnabled}
+                onCheckedChange={setCryptoEnabled}
+                disabled={!isAdmin}
+              />
+              <label htmlFor="crypto-enabled" className="text-sm text-muted-foreground">
+                {cryptoEnabled ? 'Enabled' : 'Disabled'}
+              </label>
+            </div>
+            {cryptoEnabled && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {SUPPORTED_CRYPTO_CURRENCIES.map((code) => (
+                  <Badge
+                    key={code}
+                    variant="default"
+                    className="cursor-default px-3 py-1.5 text-xs"
+                  >
+                    {code}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </SettingsFieldHint>
 
           <div className="lg:col-span-2 flex justify-start sm:justify-end">

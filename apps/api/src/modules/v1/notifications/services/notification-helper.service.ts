@@ -1,13 +1,34 @@
 import { Injectable } from '@nestjs/common';
 
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
 import { NotificationService } from './notification.service';
+import { NotificationPreferenceService } from './notification-preference.service';
 
 @Injectable()
 export class NotificationHelperService {
-  constructor(private readonly notificationService: NotificationService) {}
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly preferenceService: NotificationPreferenceService,
+  ) {}
+
+  private async shouldSend(
+    recipientId: string,
+    notificationType: NotificationPreferenceType,
+    channel: NotificationChannel,
+  ): Promise<boolean> {
+    try {
+      return await this.preferenceService.shouldSendNotification(
+        recipientId,
+        notificationType,
+        channel,
+      );
+    } catch {
+      return true;
+    }
+  }
 
   async sendWelcomeNotification(
     recipientId: string,
@@ -458,9 +479,13 @@ export class NotificationHelperService {
       reason?: string;
     },
   ): Promise<void> {
+    const channel = NotificationChannel.IN_APP;
+    if (!(await this.shouldSend(recipientId, 'shoutout' as NotificationPreferenceType, channel))) {
+      return;
+    }
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.IN_APP,
+      channel,
       priority: NotificationPriority.LOW,
       title: 'Paq points awarded',
       message: `${variables.awardedBy} awarded you ${variables.points} Paq points${variables.reason ? `: ${variables.reason}` : ''}`,
@@ -483,9 +508,19 @@ export class NotificationHelperService {
       taskTitle: string;
     },
   ): Promise<void> {
+    const channel = NotificationChannel.IN_APP;
+    if (
+      !(await this.shouldSend(
+        recipientId,
+        'task_assignment' as NotificationPreferenceType,
+        channel,
+      ))
+    ) {
+      return;
+    }
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.IN_APP,
+      channel,
       priority: NotificationPriority.LOW,
       title: 'Task completed',
       message: `You earned ${variables.points} Paq points for completing "${variables.taskTitle}"`,
