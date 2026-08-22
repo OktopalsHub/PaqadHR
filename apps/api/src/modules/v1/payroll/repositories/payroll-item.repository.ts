@@ -15,19 +15,23 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
       payrollItemRepository.queryRunner,
     );
   }
-  async findByPayrollRunId(payrollRunId: string): Promise<PayrollItem[]> {
-    return this.find({
-      withDeleted: false,
-      where: { payrollRunId },
-      relations: ['employee', 'deductions', 'bonuses'],
-    });
+  async findByPayrollRunId(payrollRunId: string, tenantId: string): Promise<PayrollItem[]> {
+    return this.createQueryBuilder('item')
+      .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
+      .leftJoinAndSelect('item.employee', 'employee')
+      .leftJoinAndSelect('item.deductions', 'deductions')
+      .leftJoinAndSelect('item.bonuses', 'bonuses')
+      .where('item.payrollRunId = :payrollRunId', { payrollRunId })
+      .andWhere('item.deletedAt IS NULL')
+      .getMany();
   }
-  async findByMemberId(memberId: string): Promise<PayrollItem[]> {
-    return this.payrollItemRepository.find({
-      where: { memberId },
-      order: { createdAt: 'DESC' },
-      relations: ['payrollRun'],
-    });
+  async findByMemberId(memberId: string, tenantId: string): Promise<PayrollItem[]> {
+    return this.createQueryBuilder('item')
+      .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
+      .leftJoinAndSelect('item.payrollRun', 'payrollRun')
+      .where('item.memberId = :memberId', { memberId })
+      .orderBy('item.createdAt', 'DESC')
+      .getMany();
   }
   async paginate(
     options: FindManyOptions<PayrollItem>,

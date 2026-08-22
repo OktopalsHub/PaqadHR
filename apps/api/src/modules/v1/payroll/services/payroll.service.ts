@@ -98,7 +98,7 @@ export class PayrollService {
       await queryRunner.query(`SELECT id FROM tenants WHERE id = $1 FOR UPDATE`, [tenantId]);
       if (finalIdempotencyKey) {
         const existingByKey = await this.payrollRunRepository.findOne({
-          where: { idempotencyKey: finalIdempotencyKey },
+          where: { idempotencyKey: finalIdempotencyKey, tenantId },
         });
         if (existingByKey) {
           await queryRunner.rollbackTransaction();
@@ -222,7 +222,7 @@ export class PayrollService {
         }
 
         const paymentMethod = readiness.paymentMethodId
-          ? await this.paymentMethodService.findById(readiness.paymentMethodId)
+          ? await this.paymentMethodService.findById(readiness.paymentMethodId, tenantId)
           : await this.paymentMethodService.resolvePayrollPaymentMethod(
               tenantId,
               item.memberId,
@@ -858,6 +858,7 @@ export class PayrollService {
     const items = await this.payrollItemRepository.find({
       where: { memberId: In(directReports) },
       select: ['payrollRunId'],
+      relations: ['payrollRun'],
     });
     const runIds = [...new Set(items.map((item) => item.payrollRunId))];
     if (runIds.length === 0) {
