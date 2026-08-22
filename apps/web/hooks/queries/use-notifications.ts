@@ -3,6 +3,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import {
+  type BroadcastNotificationInput,
+  broadcastNotification,
+  deleteNotification,
   fetchNotifications,
   fetchUnreadNotificationCount,
   markAllNotificationsRead,
@@ -33,14 +36,15 @@ function notificationsEnabled(
   return enabled && !tenantLoading && !authLoading && isAuthenticated && Boolean(tenantId);
 }
 
-export function useNotifications(options?: { enabled?: boolean }) {
+export function useNotifications(options?: { enabled?: boolean; limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const keys = notificationQueryKeys(tenantId);
+  const limit = options?.limit ?? NOTIFICATIONS_LIMIT;
 
   return useQuery({
-    queryKey: keys.list,
-    queryFn: () => fetchNotifications(tenantId!, { limit: NOTIFICATIONS_LIMIT }),
+    queryKey: [...keys.list, limit] as const,
+    queryFn: () => fetchNotifications(tenantId!, { limit }),
     enabled: notificationsEnabled(
       tenantId,
       tenantLoading,
@@ -48,6 +52,7 @@ export function useNotifications(options?: { enabled?: boolean }) {
       isAuthenticated,
       options?.enabled ?? true,
     ),
+    refetchOnWindowFocus: true,
     retry: false,
   });
 }
@@ -62,6 +67,7 @@ export function useUnreadNotificationCount() {
     queryFn: () => fetchUnreadNotificationCount(tenantId!),
     enabled: notificationsEnabled(tenantId, tenantLoading, authLoading, isAuthenticated),
     refetchInterval: UNREAD_POLL_MS,
+    refetchOnWindowFocus: true,
     retry: false,
   });
 }
@@ -116,6 +122,40 @@ export function useMarkAllNotificationsRead() {
     mutationFn: () => {
       if (!tenantId) throw new Error('Workspace not selected');
       return markAllNotificationsRead(tenantId);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.list });
+      void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
+    },
+  });
+}
+
+export function useBroadcastNotification() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const keys = notificationQueryKeys(tenantId);
+
+  return useMutation({
+    mutationFn: (input: BroadcastNotificationInput) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return broadcastNotification(tenantId, input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: keys.list });
+      void queryClient.invalidateQueries({ queryKey: keys.unreadCount });
+    },
+  });
+}
+
+export function useDeleteNotification() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+  const keys = notificationQueryKeys(tenantId);
+
+  return useMutation({
+    mutationFn: (notificationId: string) => {
+      if (!tenantId) throw new Error('Workspace not selected');
+      return deleteNotification(tenantId, notificationId);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.list });

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -7,6 +8,7 @@ import {
   type MessageEvent,
   Param,
   Patch,
+  Post,
   Query,
   Req,
   Sse,
@@ -15,13 +17,17 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { interval, map, Observable } from 'rxjs';
 import { CurrentTenant, CurrentTenantMember } from 'src/common/decorators';
+import { NotificationChannel } from 'src/common/enums/notification-channel.enum';
+import { TenantMemberRole } from 'src/common/enums/tenant-member.enum';
 import { JwtAuthGuard } from 'src/common/guards';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type {
   IAuthenticatedUserRequest,
   MemberContext,
   TenantContext,
 } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
+import { BroadcastNotificationDto } from '../dto/broadcast-notification.dto';
 import type { Notification } from '../entities/notification.entity';
 import { NotificationService } from '../services/notification.service';
 import { SSENotificationService } from '../services/sse-notification.service';
@@ -69,6 +75,27 @@ export class NotificationController {
   ): Promise<{ count: number }> {
     const count = await this.notificationService.getUnreadCount(member.id, tenant?.id);
     return { count };
+  }
+  @Post('broadcast')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @ApiOperation({ summary: 'Broadcast a notification to all active tenant members (admin only)' })
+  @ApiResponse({ status: 201, description: 'Notification broadcast successfully' })
+  async broadcastToTenant(
+    @Body() dto: BroadcastNotificationDto,
+    @CurrentTenant() tenant: TenantContext | undefined,
+  ): Promise<{ success: boolean; recipients: number }> {
+    if (!tenant?.id) {
+      throw new BadRequestException('Tenant context is required');
+    }
+    const result = await this.notificationService.broadcastToTenant(tenant.id, {
+      title: dto.title,
+      message: dto.message,
+      channel: dto.channel ?? NotificationChannel.IN_APP,
+      ...(dto.priority ? { priority: dto.priority } : {}),
+      metadata: { type: 'tenant_broadcast' },
+    });
+    return { success: true, recipients: result.recipients };
   }
   @Patch('read-multiple')
   @ApiOperation({ summary: 'Mark multiple notifications as read' })

@@ -67,16 +67,21 @@ export class MemberPointsService {
       } catch {
         // fall back to 'Admin'
       }
-      for (const { memberId, points } of entries) {
-        this.notificationHelper
-          .sendPointsAwardedNotification(memberId, tenantId, {
+      const results = await Promise.allSettled(
+        entries.map(({ memberId, points }) =>
+          this.notificationHelper.sendPointsAwardedNotification(memberId, tenantId, {
             points,
             awardedBy: actorName,
             reason,
-          })
-          .catch((error) => {
-            this.logger.error('Failed to send points awarded notification', error);
-          });
+          }),
+        ),
+      );
+      const failures = results.filter((r) => r.status === 'rejected');
+      if (failures.length > 0) {
+        this.logger.error(
+          `Failed to send ${failures.length}/${entries.length} points awarded notifications`,
+          failures.map((f) => (f as PromiseRejectedResult).reason),
+        );
       }
     })();
   }
