@@ -176,7 +176,6 @@ export function SettingsWorkspaceTab() {
     <div className="space-y-5">
       <ContentCard title="Workspace" bodyClassName="space-y-6 p-5">
         <div className="dashboard-soft-tile rounded-[8px] px-5 py-5">
-          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">Branding</p>
           <div className="mt-4">
             <LogoUpload
               name={name || tenant?.name || 'Workspace'}
