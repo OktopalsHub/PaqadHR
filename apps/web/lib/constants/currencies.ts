@@ -13,6 +13,7 @@ export interface GeneralSettings {
   dateFormat?: string;
   currency?: string;
   payrollCurrencies?: string[];
+  cryptoEnabled?: boolean;
   language?: string;
   companyName?: string;
   paginationLimit?: number;

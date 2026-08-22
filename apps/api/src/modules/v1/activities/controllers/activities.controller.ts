@@ -31,6 +31,7 @@ export class ActivitiesController {
       action: admin ? action : undefined,
       resourceId: admin ? resourceId : undefined,
       mildOnly: !admin,
+      actorMemberId: admin ? undefined : member.id,
     });
   }
 }

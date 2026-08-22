@@ -37,8 +37,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useAddCompensation, useCurrentSalaries } from '@/hooks/queries/use-employment';
+import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import { SUPPORTED_PAYROLL_CURRENCIES } from '@/lib/constants/currencies';
 import { numberToWords } from '@/lib/number-to-words';
 import { useTenant } from '@/providers/tenant-provider';
 import type { Employee } from '../types/';
@@ -340,6 +340,12 @@ function SalaryDialog({
   onClose,
 }: SalaryDialogProps) {
   const addCompensation = useAddCompensation(memberId);
+  const { data: currencies } = useSupportedPaymentCurrencies();
+  const currencyOptions = useMemo(() => {
+    const fiat = currencies?.fiat ?? [];
+    const crypto = currencies?.crypto ?? [];
+    return [...fiat, ...crypto];
+  }, [currencies]);
 
   const handleSubmit = async () => {
     const rate = Number(payRate);
@@ -412,7 +418,7 @@ function SalaryDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUPPORTED_PAYROLL_CURRENCIES.map((code) => (
+                  {currencyOptions.map((code) => (
                     <SelectItem key={code} value={code}>
                       {code}
                     </SelectItem>

@@ -73,9 +73,6 @@ export function LogoUpload({ src, name, disabled = false, onUpload, onError }: L
         <p className="text-[28px] font-semibold tracking-tight text-slate-950 dark:text-slate-50">
           {name || 'Workspace'}
         </p>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Upload a square logo to keep branding consistent across the workspace.
-        </p>
         {!disabled ? (
           <>
             <input

@@ -17,6 +17,8 @@ export interface ListActivitiesQuery {
   resourceId?: string;
   /** When true, only return non-sensitive workspace-visible events. */
   mildOnly?: boolean;
+  /** Filter activities by the actor who performed them. */
+  actorMemberId?: string;
 }
 
 /** Actions omitted from the default workspace activity feed. */
@@ -113,6 +115,12 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
     } else if (DEFAULT_EXCLUDED_ACTIVITY_ACTIONS.length > 0) {
       qb.andWhere('activity.action NOT IN (:...excludedActions)', {
         excludedActions: [...DEFAULT_EXCLUDED_ACTIVITY_ACTIONS],
+      });
+    }
+
+    if (query.actorMemberId) {
+      qb.andWhere('activity.actorMemberId = :actorMemberId', {
+        actorMemberId: query.actorMemberId,
       });
     }
 
