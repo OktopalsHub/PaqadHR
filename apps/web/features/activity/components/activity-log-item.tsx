@@ -1,14 +1,11 @@
 'use client';
 
 import { format } from 'date-fns';
+import { ChevronRight } from 'lucide-react';
 import { PersonAvatar } from '@/components/person-avatar';
 import type { TenantActivity } from '@/lib/api/activities';
 import { cn } from '@/lib/utils';
-import {
-  formatActivityActor,
-  getActivityChangeEntries,
-  getActivityPresentation,
-} from '../lib/activity-format';
+import { formatActivityActor, getActivityPresentation } from '../lib/activity-format';
 
 type ActivityLogItemProps = {
   activity: TenantActivity;
@@ -18,7 +15,6 @@ type ActivityLogItemProps = {
 export function ActivityLogItem({ activity, onSelect }: ActivityLogItemProps) {
   const { icon: Icon, iconClassName, title } = getActivityPresentation(activity);
   const actor = formatActivityActor(activity.actorName);
-  const changeEntries = getActivityChangeEntries(activity);
   const createdAt = new Date(activity.createdAt);
   const timeLabel = format(createdAt, 'h:mm a');
   const failed = activity.status?.toLowerCase() === 'failed';
@@ -28,7 +24,7 @@ export function ActivityLogItem({ activity, onSelect }: ActivityLogItemProps) {
       type="button"
       onClick={() => onSelect(activity)}
       className={cn(
-        'cursor-pointer dashboard-soft-tile flex w-full items-start gap-3 rounded-[8px] border px-4 py-3.5 text-left transition-[border-color,box-shadow,background-color] hover:border-primary/25 hover:bg-white/85 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-slate-900/85',
+        'cursor-pointer dashboard-soft-tile flex w-full items-center gap-3 rounded-[8px] border px-4 py-3.5 text-left transition-[border-color,box-shadow,background-color] hover:border-primary/25 hover:bg-white/85 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:bg-slate-900/85',
         failed &&
           'border-destructive/25 bg-destructive/5 dark:border-destructive/30 dark:bg-destructive/10',
       )}
@@ -52,31 +48,6 @@ export function ActivityLogItem({ activity, onSelect }: ActivityLogItemProps) {
         >
           {title}
         </p>
-
-        {changeEntries.length > 0 ? (
-          <div className="mt-2 space-y-1.5">
-            {changeEntries.slice(0, 3).map((entry) => (
-              <div key={entry.field} className="min-w-0">
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
-                  {entry.field}
-                </p>
-                <div className="mt-0.5 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
-                  <span className="text-rose-700/90 dark:text-rose-300">
-                    <span className="font-medium text-slate-500 dark:text-slate-400">Before:</span>{' '}
-                    {entry.from}
-                  </span>
-                  <span className="text-emerald-700/90 dark:text-emerald-300">
-                    <span className="font-medium text-slate-500 dark:text-slate-400">After:</span>{' '}
-                    {entry.to}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {changeEntries.length > 3 ? (
-              <p className="text-xs text-slate-500">+{changeEntries.length - 3} more changes</p>
-            ) : null}
-          </div>
-        ) : null}
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
           <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
@@ -105,6 +76,8 @@ export function ActivityLogItem({ activity, onSelect }: ActivityLogItemProps) {
           ) : null}
         </div>
       </div>
+
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground/50" />
     </button>
   );
 }

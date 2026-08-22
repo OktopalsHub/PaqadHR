@@ -1,6 +1,6 @@
 'use client';
 
-import { AtSign, Coins, Hash, Loader2, Send, Smile, Sparkles, User, X } from 'lucide-react';
+import { AtSign, Coins, Hash, Loader2, Plus, Send, Smile, Sparkles, User, X } from 'lucide-react';
 import {
   forwardRef,
   useCallback,
@@ -68,13 +68,13 @@ const EMOJIS = [
 
 const WORD_CHAR = /[\p{L}\p{N}_'-]/u;
 
-type ActiveToken = { type: '@' | '#'; query: string; start: number };
+type ActiveToken = { type: '@' | '#' | '+'; query: string; start: number };
 
 function findActiveToken(value: string, caret: number): ActiveToken | null {
   let i = caret - 1;
   while (i >= 0 && WORD_CHAR.test(value[i])) i -= 1;
   const trigger = value[i];
-  if (trigger !== '@' && trigger !== '#') return null;
+  if (trigger !== '@' && trigger !== '#' && trigger !== '+') return null;
   if (i > 0 && WORD_CHAR.test(value[i - 1])) return null;
   return { type: trigger, query: value.slice(i + 1, caret), start: i };
 }
@@ -134,6 +134,10 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
 
     const suggestions = useMemo(() => {
       if (!active) return [];
+      if (active.type === '+') {
+        const commonPoints = [5, 10, 20, 50, 100];
+        return commonPoints.map((points) => ({ id: String(points), name: String(points) }));
+      }
       const source = active.type === '@' ? employees : categories;
       const query = active.query.toLowerCase();
       return source.filter((item) => item.name.toLowerCase().includes(query)).slice(0, 6);
@@ -199,7 +203,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
       if (!active) return;
       const before = message.slice(0, active.start);
       const after = message.slice(active.start + 1 + active.query.length);
-      const insert = `${active.type}${name} `;
+      const insert = active.type === '+' ? `${active.type}${name} ` : `${active.type}${name} `;
       const next = `${before}${insert}${after}`;
       setMessage(next);
       setActive(null);
@@ -213,7 +217,7 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
       });
     };
 
-    const insertTrigger = (trigger: '@' | '#') => {
+    const insertTrigger = (trigger: '@' | '#' | '+') => {
       insertAtCursor(trigger);
     };
 
@@ -314,6 +318,8 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   >
                     {active.type === '@' ? (
                       <User className="size-3.5 text-primary" />
+                    ) : active.type === '+' ? (
+                      <Coins className="size-3.5 text-primary" />
                     ) : (
                       <Hash className="size-3.5 text-primary" />
                     )}
@@ -413,6 +419,16 @@ export const ShoutoutComposer = forwardRef<ShoutoutComposerHandle, ShoutoutCompo
                   <Hash className="size-4 text-primary" />
                 </Button>
               ) : null}
+
+              <Button
+                variant="outline"
+                size="icon"
+                className="size-9 hover:bg-muted/80"
+                title="Add points"
+                onClick={() => insertTrigger('+')}
+              >
+                <Plus className="size-4 text-primary" />
+              </Button>
 
               <div className="relative" ref={emojiRef}>
                 <Button

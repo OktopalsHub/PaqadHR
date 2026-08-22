@@ -326,6 +326,10 @@
   }
   .culture-message {
     @apply border border-border/50 bg-muted/35 text-foreground;
+    font-family:
+      "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif;
+    font-size: 1rem;
+    line-height: 1.6;
   }
   .culture-points-pill {
     @apply inline-flex items-center rounded-full border border-primary/30 bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-foreground dark:text-primary;

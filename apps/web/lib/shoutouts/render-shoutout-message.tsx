@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import type { ShoutoutLookupItem } from './parse-shoutout';
 
 const WORD_CHAR = /[\p{L}\p{N}_'-]/u;
+const _EMOJI_REGEX = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/u;
+const EMOJI_SEQUENCE_REGEX = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]+/u;
 
 function isBoundary(char: string | undefined): boolean {
   return char === undefined || !WORD_CHAR.test(char);
@@ -112,7 +114,50 @@ export function renderShoutoutMessage(message: string, options: RenderOptions = 
       return message.length;
     })();
 
-    nodes.push(<span key={key++}>{message.slice(i, nextSpecial)}</span>);
+    const textSegment = message.slice(i, nextSpecial);
+
+    // Handle emojis with proper sizing using sequence matching
+    let lastIndex = 0;
+    const emojiRegex = new RegExp(EMOJI_SEQUENCE_REGEX);
+
+    const remainingText = textSegment.slice(lastIndex);
+    let match: RegExpExecArray | null = emojiRegex.exec(remainingText);
+
+    while (match !== null) {
+      const emojiText = match[0];
+      const emojiStart = lastIndex + match.index;
+
+      // Add text before emoji
+      if (emojiStart > lastIndex) {
+        nodes.push(<span key={key++}>{textSegment.slice(lastIndex, emojiStart)}</span>);
+      }
+
+      // Add emoji with proper styling
+      nodes.push(
+        <span
+          key={key++}
+          className="inline-flex items-center justify-center"
+          style={{ fontSize: '1.25em', lineHeight: '1' }}
+        >
+          {emojiText}
+        </span>,
+      );
+
+      lastIndex = emojiStart + emojiText.length;
+      emojiRegex.lastIndex = 0; // Reset regex for next match
+      match = emojiRegex.exec(textSegment.slice(lastIndex));
+    }
+
+    // Add remaining text after last emoji
+    if (lastIndex < textSegment.length) {
+      nodes.push(<span key={key++}>{textSegment.slice(lastIndex)}</span>);
+    }
+
+    // If no emojis found, add entire segment as text
+    if (lastIndex === 0) {
+      nodes.push(<span key={key++}>{textSegment}</span>);
+    }
+
     i = nextSpecial;
   }
 
