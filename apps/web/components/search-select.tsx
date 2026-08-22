@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 export type SearchSelectOption = {
   value: string;
   label: string;
+  icon?: ReactNode;
 };
 
 type SearchSelectProps = {
@@ -71,7 +72,10 @@ export function SearchSelect({
           disabled={disabled}
           className={cn('h-11 w-full justify-between rounded-[8px] px-3.5 font-normal', className)}
         >
-          <span className="truncate">{selected?.label ?? placeholder}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            {selected?.icon}
+            <span className="truncate">{selected?.label ?? placeholder}</span>
+          </span>
           <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -97,6 +101,7 @@ export function SearchSelect({
                       value === option.value ? 'opacity-100' : 'opacity-0',
                     )}
                   />
+                  {option.icon}
                   {option.label}
                 </CommandItem>
               ))}

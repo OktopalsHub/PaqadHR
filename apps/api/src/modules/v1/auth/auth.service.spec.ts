@@ -151,6 +151,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
         password: 'hashedpassword',
         isActive: true,
+        emailVerified: true,
         role: UserRole.BASIC,
       } as User;
       userRepository.findUserByEmail.mockResolvedValue(mockUser);
@@ -174,6 +175,23 @@ describe('AuthService', () => {
           action: 'LOGIN_FAILED',
           description: 'Invalid email or password',
         }),
+      );
+    });
+
+    it('should reject an unverified email even with correct credentials', async () => {
+      const mockUser = {
+        id: '1',
+        email: 'test@example.com',
+        password: 'hashedpassword',
+        isActive: true,
+        emailVerified: false,
+      } as User;
+      userRepository.findUserByEmail.mockResolvedValue(mockUser);
+      accountRepository.findOne.mockResolvedValue(null);
+      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
+
+      await expect(authService.validateUser('test@example.com', 'correctpassword')).rejects.toThrow(
+        'Verify your email address before signing in',
       );
     });
   });
@@ -328,6 +346,7 @@ describe('AuthService', () => {
       id: 'user-1',
       email: 'test@example.com',
       role: UserRole.BASIC,
+      emailVerified: true,
     } as User;
 
     it('rotates session token on refresh', async () => {
@@ -400,6 +419,31 @@ describe('AuthService', () => {
     });
   });
 
+  describe('verifyEmail', () => {
+    it('activates an account only after a valid email verification code', async () => {
+      const user = {
+        id: 'user-1',
+        email: 'test@example.com',
+        isActive: true,
+        emailVerified: false,
+      } as User;
+      userRepository.findUserByEmail.mockResolvedValue(user);
+      verificationRepository.findOne.mockResolvedValue({
+        id: 'verification-1',
+        identifier: 'email-verification:user-1',
+        token: 'hashed-code',
+        expiresAt: new Date(Date.now() + 60_000),
+      });
+      jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
+
+      const result = await authService.verifyEmail('test@example.com', '123456');
+
+      expect(result.emailVerified).toBe(true);
+      expect(userRepository.update).toHaveBeenCalledWith('user-1', { emailVerified: true });
+      expect(verificationRepository.delete).toHaveBeenCalledWith('verification-1');
+    });
+  });
+
   describe('resetPassword', () => {
     it('looks up reset token by sha256 hash', async () => {
       const rawToken = '550e8400-e29b-41d4-a716-446655440000';
@@ -420,7 +464,7 @@ describe('AuthService', () => {
       accountRepository.findOne.mockResolvedValue(null);
       jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('new-hash');
 
-      await authService.resetPassword(rawToken, 'new-password-1');
+      await authService.resetPassword(rawToken, 'NewPassword1!');
 
       expect(verificationRepository.findOne).toHaveBeenCalledWith({
         where: { token: sha256Hex(rawToken) },
@@ -442,6 +486,12 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
+    it('rejects a password that does not meet the password policy', async () => {
+      await expect(authService.register('test@example.com', 'numbers123', {})).rejects.toThrow(
+        'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.',
+      );
+    });
+
     it('returns the existing user when email and password match a credential account', async () => {
       const existingUser = {
         id: 'user-1',
@@ -459,7 +509,7 @@ describe('AuthService', () => {
       });
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
 
-      const result = await authService.register('test@example.com', 'correctpassword', {
+      const result = await authService.register('test@example.com', 'CorrectPassword1!', {
         ip: '127.0.0.1',
       });
 
@@ -484,11 +534,11 @@ describe('AuthService', () => {
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
 
       await expect(
-        authService.register('test@example.com', 'wrongpassword', { ip: '127.0.0.1' }),
+        authService.register('test@example.com', 'WrongPassword1!', { ip: '127.0.0.1' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('links a password when the email belongs to a Google-only account', async () => {
+    it('rejects registration when the email already belongs to a verified Google account', async () => {
       const existingUser = {
         id: 'user-1',
         email: 'test@example.com',
@@ -497,23 +547,9 @@ describe('AuthService', () => {
       } as User;
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
-      accountRepository.findOne
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ userId: 'user-1', providerId: 'google', accountId: 'google-123' });
-      jest.spyOn(PasswordService, 'hashPassword').mockResolvedValue('new-hash');
-
-      const result = await authService.register('test@example.com', 'newpassword123', {
-        ip: '127.0.0.1',
-      });
-
-      expect(result.user).toBe(existingUser);
-      expect(accountRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'user-1',
-          providerId: 'credential',
-          password: 'new-hash',
-        }),
-      );
+      await expect(
+        authService.register('test@example.com', 'NewPassword123!', { ip: '127.0.0.1' }),
+      ).rejects.toThrow('This email is already registered. Please sign in.');
       expect(userRepository.insertUser).not.toHaveBeenCalled();
     });
 
@@ -528,7 +564,7 @@ describe('AuthService', () => {
       accountRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
-        authService.register('test@example.com', 'password123', { ip: '127.0.0.1' }),
+        authService.register('test@example.com', 'Password123!', { ip: '127.0.0.1' }),
       ).rejects.toThrow(UnprocessableEntityException);
     });
   });

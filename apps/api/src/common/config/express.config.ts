@@ -38,7 +38,9 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   );
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
   const csrfAppDomain = process.env.APP_DOMAIN?.trim();
-  const csrfDeployed = Boolean(csrfAppDomain && csrfAppDomain !== 'localhost');
+  const csrfDeployed =
+    process.env.NODE_ENV === 'production' &&
+    Boolean(csrfAppDomain && csrfAppDomain !== 'localhost');
   const csrfProtection = csurf({
     cookie: {
       httpOnly: true,

@@ -12,6 +12,7 @@ interface JwtTokenPayload {
   sub: string;
   email: string;
   role: string;
+  emailVerified: boolean;
   sid?: string;
 }
 
@@ -31,7 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     });
   }
   async validate(payload: JwtTokenPayload): Promise<JwtPayload> {
-    if (!payload?.sub || !payload?.email || !payload?.role) {
+    if (!payload?.sub || !payload?.email || !payload?.role || !payload.emailVerified) {
       throw new UnauthorizedException('Invalid token');
     }
 
