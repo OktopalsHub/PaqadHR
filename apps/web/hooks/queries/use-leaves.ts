@@ -30,13 +30,19 @@ function useCanViewTeamLeaves() {
   return hasDirectReports(viewerId, employees);
 }
 
-export function useLeaves() {
+export function useLeaves(options?: { limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
   const canViewTeamLeaves = useCanViewTeamLeaves();
 
   return useQuery({
-    queryKey: [...queryKeys.leaves.all, tenantId, canViewTeamLeaves ? 'team' : 'self'],
+    queryKey: [
+      ...queryKeys.leaves.all,
+      tenantId,
+      canViewTeamLeaves ? 'team' : 'self',
+      options?.limit,
+    ],
     queryFn: canViewTeamLeaves ? fetchLeaves : fetchMyLeaves,
+    select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
     enabled: !tenantLoading && Boolean(tenantId),
   });
 }

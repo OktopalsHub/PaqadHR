@@ -237,11 +237,13 @@ export class PaymentMethodsController {
     },
   })
   async verifyPaymentMethod(
+    @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: string; notes?: string },
   ) {
     return this.paymentMethodService.verifyPaymentMethod(
       paymentMethodId,
+      tenantId,
       body.status as PaymentMethodStatus,
       body.notes,
     );
@@ -250,14 +252,27 @@ export class PaymentMethodsController {
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method by member ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method retrieved' })
-  async getPaymentMethodByMember(@Param('memberId') memberId: string) {
-    return this.paymentMethodService.findByMemberId(memberId);
+  async getPaymentMethodByMember(
+    @Param('tenantId') tenantId: string,
+    @Param('memberId') memberId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.findByMemberIdForRequester(
+      tenantId,
+      memberId,
+      member.id,
+      member.role,
+    );
   }
   @Get('details/:id')
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method details by ID (System use)' })
   @ApiResponse({ status: 200, description: 'Payment method details retrieved' })
-  async getPaymentMethodDetails(@Param('id') id: string) {
-    return this.paymentMethodService.findById(id);
+  async getPaymentMethodDetails(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.findByIdForMember(tenantId, id, member.id, member.role);
   }
 }

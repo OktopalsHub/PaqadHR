@@ -271,6 +271,9 @@ export function useUpdateAttendance() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.myRecords });
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.teamRecords });
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.monthly });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.dailyReport });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.stats });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.today });
     },
   });
 }
@@ -284,6 +287,9 @@ export function useDeleteAttendance() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.myRecords });
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.teamRecords });
       void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.monthly });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.dailyReport });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.stats });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.attendance.today });
     },
   });
 }

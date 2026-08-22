@@ -77,12 +77,15 @@ export class ShoutoutsService {
       }
     }
 
-    for (const recipientId of recipientIds) {
-      try {
-        await this.tenantMembersService.getTenantMemberId(tenantId, recipientId);
-      } catch {
-        throw new BadRequestException(`Recipient ${recipientId} is not a member of this tenant`);
-      }
+    const validMembers = await this.tenantMembersService.filterTenantMemberIds(
+      tenantId,
+      recipientIds,
+    );
+    const invalid = recipientIds.filter((id) => !validMembers.has(id));
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Recipient${invalid.length > 1 ? 's' : ''} ${invalid.join(', ')} ${invalid.length > 1 ? 'are' : 'is'} not a member of this tenant`,
+      );
     }
 
     let categoryIds = input.categoryIds ?? [];
@@ -104,13 +107,6 @@ export class ShoutoutsService {
     const totalPoints = recipients.reduce((sum, r) => sum + r.points, 0);
 
     const shoutout = await this.dataSource.transaction(async (manager) => {
-      await this.memberPointsService.validateSenderAllowance(
-        tenantId,
-        senderMemberId,
-        totalPoints,
-        manager,
-      );
-
       const saved = await this.shoutoutsRepository.insertShoutout(manager, {
         tenantId,
         createdBy: senderMemberId,
@@ -254,13 +250,15 @@ export class ShoutoutsService {
 
     const senderName = this.formatMemberName(shoutout.creator);
 
-    for (const recipient of shoutout.recipients) {
-      await this.notificationHelper.sendShoutoutNotification(recipient.recipientId, tenantId, {
-        senderName,
-        message: shoutout.message,
-        points: recipient.points,
-      });
-    }
+    await Promise.all(
+      shoutout.recipients.map((recipient) =>
+        this.notificationHelper.sendShoutoutNotification(recipient.recipientId, tenantId, {
+          senderName,
+          message: shoutout.message,
+          points: recipient.points,
+        }),
+      ),
+    );
   }
 
   private formatMemberName(member?: {
@@ -269,9 +267,9 @@ export class ShoutoutsService {
     preferredName?: string | null;
   }): string {
     if (!member) return 'Someone';
-    if (member.preferredName) return member.preferredName;
     const parts = [member.firstName, member.lastName].filter(Boolean);
-    return parts.length > 0 ? parts.join(' ') : 'Someone';
+    if (parts.length > 0) return parts.join(' ');
+    return member.preferredName || 'Someone';
   }
 
   private toShoutoutResponse(

@@ -212,11 +212,14 @@ async function fetchHolidayEvents(fromYear: number, toYear: number): Promise<Cal
   });
 }
 
-export async function fetchCalendarEvents(): Promise<CalendarEvent[]> {
+export async function fetchCalendarEvents(dateRange?: {
+  from: string;
+  to: string;
+}): Promise<CalendarEvent[]> {
   const tenantId = await resolveTenantId();
   const year = new Date().getFullYear();
-  const from = `${year - 1}-01-01`;
-  const to = `${year + 1}-12-31`;
+  const from = dateRange?.from ?? `${year - 1}-01-01`;
+  const to = dateRange?.to ?? `${year + 1}-12-31`;
 
   const [leaves, celebrations, interviews, holidays, manualEvents] = await Promise.all([
     fetchLeavesForCalendar({ status: 'approved', from, to, limit: 200 }).catch(() => []),

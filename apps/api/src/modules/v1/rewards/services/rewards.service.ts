@@ -340,6 +340,41 @@ export class RewardsService {
     return countries.some((code) => GeoLocationHelper.toStoredCountryCode(code) === catalogCountry);
   }
 
+  private expectedCurrencyForCatalogCountry(catalogCountry: string): string | null {
+    const map: Record<string, string> = {
+      NG: 'NGN',
+      US: 'USD',
+      GB: 'GBP',
+      CA: 'CAD',
+      AU: 'AUD',
+    };
+    if (map[catalogCountry]) return map[catalogCountry];
+    const euroCountries = [
+      'AT',
+      'BE',
+      'HR',
+      'CY',
+      'EE',
+      'FI',
+      'FR',
+      'DE',
+      'GR',
+      'IE',
+      'IT',
+      'LV',
+      'LT',
+      'LU',
+      'MT',
+      'NL',
+      'PT',
+      'SK',
+      'SI',
+      'ES',
+    ];
+    if (euroCountries.includes(catalogCountry)) return 'EUR';
+    return null;
+  }
+
   private countryDisplayName(code: string): string {
     try {
       const name = new Intl.DisplayNames(['en'], { type: 'region' }).of(code);
@@ -445,6 +480,8 @@ export class RewardsService {
 
     for (const p of settings.tremendousProducts ?? []) {
       if (!this.productMatchesCatalogCountry(p, catalogCountry)) continue;
+      const expectedCurrency = this.expectedCurrencyForCatalogCountry(catalogCountry);
+      if (expectedCurrency && p.currencyCode && p.currencyCode !== expectedCurrency) continue;
       const cat = this.getTremendousCategory(p.name, p.category, p.subcategory);
       if (!giftCardsEnabled) continue;
       if (!giftCardCategories.includes(cat)) continue;
@@ -1379,13 +1416,183 @@ export class RewardsService {
     });
   }
 
-  async getAllClaims(tenantId: string): Promise<RewardRedemption[]> {
-    return this.dataSource.getRepository(RewardRedemption).find({
+  async getAllClaims(tenantId: string) {
+    const claims = await this.dataSource.getRepository(RewardRedemption).find({
       where: { tenantId },
       relations: ['member'],
       order: { createdAt: 'DESC' },
       take: 100,
+      select: {
+        id: true,
+        tenantId: true,
+        memberId: true,
+        rewardId: true,
+        rewardName: true,
+        rewardType: true,
+        pointsSpent: true,
+        currencyValue: true,
+        currencyCode: true,
+        status: true,
+        providerRef: true,
+        recipient: true,
+        createdAt: true,
+        updatedAt: true,
+        processingStartedAt: true,
+        member: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+        },
+      },
     });
+    return claims;
+  }
+
+  async refundStaleClaim(redemption: RewardRedemption): Promise<boolean> {
+    const {
+      tenantId,
+      memberId,
+      id: redemptionId,
+      pointsSpent: pointsCost,
+      rewardType,
+    } = redemption;
+
+    // Find the original wallet debit
+    let originalDebitAmount = 0;
+    const originalDebit = await this.dataSource
+      .getRepository(TenantWalletTransaction)
+      .findOne({ where: { reference: redemptionId, type: 'SPENT' } });
+    if (originalDebit) {
+      originalDebitAmount = Math.abs(Number(originalDebit.amount));
+    }
+
+    const errorMessage = 'Claim expired — automatic refund by system';
+
+    await this.dataSource.transaction(async (manager) => {
+      const flip = await manager
+        .getRepository(RewardRedemption)
+        .createQueryBuilder()
+        .update(RewardRedemption)
+        .set({
+          status: 'FAILED' as RedemptionStatus,
+          providerRef: { ...redemption.providerRef, error: errorMessage },
+          processingStartedAt: null,
+        })
+        .where(
+          'id = :redemptionId AND tenant_id = :tenantId AND member_id = :memberId AND status = :pending',
+          {
+            redemptionId,
+            tenantId,
+            memberId,
+            pending: 'PENDING' as RedemptionStatus,
+          },
+        )
+        .execute();
+
+      if (!flip.affected) return;
+
+      // Refund member points
+      const pointsRepo = manager.getRepository(ShoutoutMemberPoints);
+      await pointsRepo
+        .createQueryBuilder()
+        .update(ShoutoutMemberPoints)
+        .set({ currentBalance: () => 'current_balance + :pointsCost' })
+        .where('tenant_id = :tenantId AND member_id = :memberId', {
+          tenantId,
+          memberId,
+          pointsCost,
+        })
+        .execute();
+
+      const txRepo = manager.getRepository(ShoutoutPointTransaction);
+      const updatedPoints = await pointsRepo.findOne({ where: { tenantId, memberId } });
+      if (updatedPoints) {
+        const refundTx = txRepo.create({
+          tenantId,
+          memberId,
+          type: ShoutoutPointTransactionType.REDEMPTION,
+          points: pointsCost,
+          runningBalance: updatedPoints.currentBalance,
+          description: `Refund: ${redemption.rewardName ?? redemption.rewardId} — ${errorMessage}`,
+          createdBy: memberId,
+        });
+        await txRepo.save(refundTx);
+      }
+
+      // Refund wallet
+      if (rewardType !== 'CUSTOM') {
+        const walletRepo = manager.getRepository(TenantWallet);
+        const wallet = await walletRepo
+          .createQueryBuilder('w')
+          .setLock('pessimistic_write')
+          .where('w.tenant_id = :tenantId', { tenantId })
+          .getOne();
+
+        if (wallet) {
+          const existingRefund = await manager
+            .getRepository(TenantWalletTransaction)
+            .findOne({ where: { reference: `refund:${redemptionId}`, type: 'REFUND' } });
+
+          if (!existingRefund && originalDebitAmount > 0) {
+            await manager
+              .getRepository(TenantWallet)
+              .createQueryBuilder()
+              .update(TenantWallet)
+              .set({ balanceAmount: () => 'balance_amount + :amount' })
+              .where('tenant_id = :tenantId', { tenantId, amount: originalDebitAmount })
+              .execute();
+
+            const refundTx = manager.getRepository(TenantWalletTransaction).create({
+              tenantWalletId: wallet.id,
+              type: 'REFUND',
+              amount: originalDebitAmount,
+              reference: `refund:${redemptionId}`,
+              description: `Refund: ${redemption.rewardName ?? redemption.rewardId}`,
+              status: 'COMPLETED',
+              rawAmount: originalDebitAmount,
+              metadata: { actorMemberId: memberId },
+            });
+            await manager.getRepository(TenantWalletTransaction).save(refundTx);
+          }
+        }
+      }
+
+      // Restore custom reward stock
+      if (rewardType === 'CUSTOM' && redemption.rewardId) {
+        const cr = await manager
+          .getRepository(CustomReward)
+          .findOne({ where: { id: redemption.rewardId, tenantId } });
+        if (cr && cr.stockLimit !== null) {
+          await manager.getRepository(CustomReward).update(cr.id, {
+            stockLimit: cr.stockLimit + 1,
+          });
+        }
+      }
+    });
+
+    void this.activitiesService
+      .queueActivity({
+        tenantId,
+        actorMemberId: memberId,
+        action: 'reward.refunded',
+        resourceType: 'reward',
+        resourceId: redemptionId,
+        description: `${redemption.rewardName ?? redemption.rewardId} refunded — claim expired`,
+        metadata: {
+          rewardName: redemption.rewardName ?? redemption.rewardId,
+          pointsCost,
+          rewardType,
+          reason: 'stale_claim_cleanup',
+        },
+      })
+      .catch((err) => {
+        this.logger.warn(
+          `Failed to queue refund activity for ${redemptionId}: ${err instanceof Error ? err.message : err}`,
+        );
+      });
+
+    return true;
   }
 
   async listTasks(tenantId: string, memberId: string) {
@@ -1664,6 +1871,53 @@ export class RewardsService {
           resourceId: saved.id,
           description: `Task "${data.title}" created`,
           metadata: { title: data.title, points: data.points },
+        })
+        .catch(() => {});
+    }
+    return saved;
+  }
+
+  async updateTask(
+    tenantId: string,
+    taskId: string,
+    data: {
+      title?: string;
+      description?: string;
+      points?: number;
+      icon?: string;
+      category?: string;
+      imageUrl?: string;
+      submissionType?: 'instant' | 'text' | 'file';
+      isRecurring?: boolean;
+    },
+    actorMemberId?: string,
+  ) {
+    const taskRepo = this.dataSource.getRepository(Task);
+    const task = await taskRepo.findOne({ where: { id: taskId, tenantId } });
+    if (!task) {
+      throw new BadRequestException('Task not found');
+    }
+
+    if (data.title !== undefined) task.title = data.title;
+    if (data.description !== undefined) task.description = data.description;
+    if (data.points !== undefined) task.points = data.points;
+    if (data.icon !== undefined) task.icon = data.icon;
+    if (data.category !== undefined) task.category = data.category || undefined;
+    if (data.imageUrl !== undefined) task.imageUrl = data.imageUrl || undefined;
+    if (data.submissionType !== undefined) task.submissionType = data.submissionType;
+    if (data.isRecurring !== undefined) task.isRecurring = data.isRecurring;
+
+    const saved = await taskRepo.save(task);
+    if (actorMemberId) {
+      void this.activitiesService
+        .queueActivity({
+          tenantId,
+          actorMemberId,
+          action: 'reward.task_updated',
+          resourceType: 'task',
+          resourceId: saved.id,
+          description: `Task "${saved.title}" updated`,
+          metadata: { title: saved.title, points: saved.points },
         })
         .catch(() => {});
     }

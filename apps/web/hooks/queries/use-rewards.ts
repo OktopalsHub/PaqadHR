@@ -100,12 +100,13 @@ export function useTenantWallet() {
   });
 }
 
-export function useWalletTransactions() {
+export function useWalletTransactions(options?: { limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: [...queryKeys.rewards.walletTransactions, tenantId],
+    queryKey: [...queryKeys.rewards.walletTransactions, tenantId, options?.limit],
     queryFn: fetchWalletTransactions,
+    select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
     enabled: !tenantLoading && Boolean(tenantId),
   });
 }
@@ -223,6 +224,7 @@ export function useManualTopupWallet() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
     },
   });
 }

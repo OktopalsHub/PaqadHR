@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,7 @@ export function AttendancePage() {
     isAdmin || (viewerMemberId ? hasDirectReports(viewerMemberId, employees) : false);
   const { enabled: clockInEnabled } = useClockInEnabled();
   const { isLoading } = useClockInInfo();
+  const [activeTab, setActiveTab] = useState('mine');
 
   if (isLoading && clockInEnabled) {
     return (
@@ -34,7 +36,7 @@ export function AttendancePage() {
 
   return (
     <AppPage className="space-y-6">
-      <Tabs defaultValue="mine" className="w-full gap-5">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-5">
         <div className="overflow-x-auto pb-1">
           <TabsList className="app-segmented-control">
             <TabsTrigger value="mine" className="app-segmented-trigger sm:px-6">
@@ -57,22 +59,30 @@ export function AttendancePage() {
         </div>
 
         <TabsContent value="mine" className="mt-0">
-          <AttendanceMyTab />
+          <Suspense fallback={<LoadingBlock />}>
+            <AttendanceMyTab />
+          </Suspense>
         </TabsContent>
 
         {canViewTeam ? (
           <TabsContent value="team" className="mt-0">
-            <AttendanceTeamTab />
+            <Suspense fallback={<LoadingBlock />}>
+              <AttendanceTeamTab />
+            </Suspense>
           </TabsContent>
         ) : null}
 
         <TabsContent value="exceptions" className="mt-0">
-          <AttendanceExceptionsTab />
+          <Suspense fallback={<LoadingBlock />}>
+            <AttendanceExceptionsTab />
+          </Suspense>
         </TabsContent>
 
         {isAdmin ? (
           <TabsContent value="reports" className="mt-0">
-            <AttendanceReportsTab />
+            <Suspense fallback={<LoadingBlock />}>
+              <AttendanceReportsTab />
+            </Suspense>
           </TabsContent>
         ) : null}
       </Tabs>

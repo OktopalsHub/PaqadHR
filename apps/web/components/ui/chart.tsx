@@ -1,9 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import * as RechartsPrimitive from 'recharts';
+import { Legend, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { cn } from '@/lib/utils';
+
+const RechartsPrimitive = { ResponsiveContainer, Tooltip, Legend };
 
 const THEMES = { light: '', dark: '.dark' } as const;
 

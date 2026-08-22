@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { LeaveBalance } from './entities/leave-balance.entity';
 
 @Injectable()
@@ -29,6 +29,23 @@ export class LeaveBalanceRepository extends Repository<LeaveBalance> {
         leaveTypeId,
         year,
       },
+    });
+  }
+  async findExistingBalances(
+    tenantId: string,
+    memberIds: string[],
+    leaveTypeIds: string[],
+    year: number,
+  ): Promise<Pick<LeaveBalance, 'memberId' | 'leaveTypeId'>[]> {
+    if (!memberIds.length || !leaveTypeIds.length) return [];
+    return this.leaveBalanceRepository.find({
+      where: {
+        tenantId,
+        memberId: In(memberIds),
+        leaveTypeId: In(leaveTypeIds),
+        year,
+      },
+      select: ['memberId', 'leaveTypeId'],
     });
   }
   async findByMember(tenantId: string, memberId: string, year: number): Promise<LeaveBalance[]> {

@@ -357,6 +357,28 @@ export class RewardsController {
     return this.rewardsService.createTask(tenantId, body, member.id);
   }
 
+  @Patch('tasks/:taskId')
+  @UseGuards(TenantRoleGuard)
+  @Roles(...ADMIN_ROLES)
+  async updateTask(
+    @Param('tenantId') tenantId: string,
+    @Param('taskId') taskId: string,
+    @Body()
+    body: {
+      title?: string;
+      description?: string;
+      points?: number;
+      icon?: string;
+      category?: string;
+      imageUrl?: string;
+      submissionType?: 'instant' | 'text' | 'file';
+      isRecurring?: boolean;
+    },
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.rewardsService.updateTask(tenantId, taskId, body, member.id);
+  }
+
   @Delete('tasks/:taskId')
   @UseGuards(TenantRoleGuard)
   @Roles(...ADMIN_ROLES)

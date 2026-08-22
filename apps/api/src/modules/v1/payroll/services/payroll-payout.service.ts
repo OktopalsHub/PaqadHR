@@ -87,17 +87,21 @@ export class PayrollPayoutService {
     }
 
     const merchantRef = event.merchantTxRef ?? event.reference;
+    const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
+    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
+    if (!tenantId) {
+      return { received: true };
+    }
+
     const changed = await this.applyTransferStatus(
       merchantRef,
       event.status,
       event.reference,
       PaymentProvider.NOMBA,
+      tenantId,
     );
-    if (changed) {
-      const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
-      if (parsed) {
-        await this.reconcilePayrollRunStatus(parsed[1]);
-      }
+    if (changed && parsed) {
+      await this.reconcilePayrollRunStatus(parsed[1], tenantId);
     }
     return { received: true };
   }
@@ -115,6 +119,7 @@ export class PayrollPayoutService {
       }
       const item = await this.payrollItemRepository.findOne({
         where: { transactionId: event.reference },
+        relations: ['payrollRun'],
       });
       if (!item) {
         return { received: true, matched: false };
@@ -122,17 +127,21 @@ export class PayrollPayoutService {
       merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
     }
 
+    const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
+    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
+    if (!tenantId) {
+      return { received: true, matched: true };
+    }
+
     const changed = await this.applyTransferStatus(
       merchantRef,
       event.status,
       event.reference,
       PaymentProvider.NOAH,
+      tenantId,
     );
     if (changed) {
-      const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
-      if (parsed) {
-        await this.reconcilePayrollRunStatus(parsed[1]);
-      }
+      await this.reconcilePayrollRunStatus(parsed![1], tenantId);
     }
     return { received: true, matched: true };
   }
@@ -143,18 +152,22 @@ export class PayrollPayoutService {
     status: string;
     amount?: number;
   }): Promise<{ received: boolean; matched: boolean }> {
+    const parsed = PAYROLL_REF_PATTERN.exec(payload.merchantRef);
+    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
+    if (!tenantId) {
+      return { received: true, matched: false };
+    }
+
     const changed = await this.applyTransferStatus(
       payload.merchantRef,
       payload.status,
       payload.transactionId,
       PaymentProvider.MONNIFY,
+      tenantId,
       payload.amount,
     );
-    if (changed) {
-      const parsed = PAYROLL_REF_PATTERN.exec(payload.merchantRef);
-      if (parsed) {
-        await this.reconcilePayrollRunStatus(parsed[1]);
-      }
+    if (changed && parsed) {
+      await this.reconcilePayrollRunStatus(parsed[1], tenantId);
     }
     return { received: true, matched: changed };
   }
@@ -173,6 +186,9 @@ export class PayrollPayoutService {
     for (const item of stuckItems) {
       const reference = item.transactionId;
       if (!reference) continue;
+
+      const tenantId = item.payrollRun?.tenantId;
+      if (!tenantId) continue;
 
       const merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
       const provider = this.resolveStoredProvider(item.paymentProvider);
@@ -200,15 +216,24 @@ export class PayrollPayoutService {
         status,
         reference,
         provider,
+        tenantId,
         amount,
       );
       if (changed) {
         updated += 1;
-        await this.reconcilePayrollRunStatus(item.payrollRunId);
+        await this.reconcilePayrollRunStatus(item.payrollRunId, tenantId);
       }
     }
 
     return { checked: stuckItems.length, updated };
+  }
+
+  private async resolveTenantId(payrollRunId: string): Promise<string | undefined> {
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId },
+      select: ['tenantId'],
+    });
+    return run?.tenantId;
   }
 
   /** Labels are human-readable; match loosely to enum for requery branching. */
@@ -228,6 +253,7 @@ export class PayrollPayoutService {
     rawStatus: string,
     transactionId: string,
     provider: PaymentProvider = PaymentProvider.NOMBA,
+    tenantId?: string,
     amount?: number,
   ): Promise<boolean> {
     const parsed = PAYROLL_REF_PATTERN.exec(merchantRef);
@@ -236,10 +262,18 @@ export class PayrollPayoutService {
     }
 
     const [, payrollRunId, itemId] = parsed;
+    const where: Record<string, unknown> = { id: itemId, payrollRunId };
+    if (tenantId) {
+      where.payrollRun = { tenantId };
+    }
     const item = await this.payrollItemRepository.findOne({
-      where: { id: itemId, payrollRunId },
+      where,
+      relations: ['payrollRun'],
     });
     if (!item) {
+      return false;
+    }
+    if (tenantId && item.payrollRun?.tenantId !== tenantId) {
       return false;
     }
 
@@ -303,16 +337,13 @@ export class PayrollPayoutService {
     return 'processing';
   }
 
-  async reconcilePayrollRunStatus(payrollRunId: string): Promise<void> {
-    const items = await this.payrollItemRepository.find({
-      where: { payrollRunId },
-    });
-    if (items.length === 0) {
+  async reconcilePayrollRunStatus(payrollRunId: string, tenantId: string): Promise<void> {
+    const run = await this.payrollRunRepository.findByIdWithItems(payrollRunId, tenantId);
+    if (!run) {
       return;
     }
-
-    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId } });
-    if (!run) {
+    const items = run.items;
+    if (items.length === 0) {
       return;
     }
 

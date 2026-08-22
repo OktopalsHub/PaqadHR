@@ -47,6 +47,27 @@ export class LeaveBalanceService {
     }
     return balance;
   }
+
+  async createLeaveBalancesBatch(
+    tenantId: string,
+    records: {
+      memberId: string;
+      leaveTypeId: string;
+      year: number;
+      totalDays: number;
+      usedDays: number;
+      remainingDays: number;
+    }[],
+  ): Promise<LeaveBalance[]> {
+    if (records.length === 0) return [];
+    return this.leaveBalanceRepository.save(
+      records.map((r) => ({
+        ...r,
+        tenantId,
+      })),
+    );
+  }
+
   async listLeaveBalances(tenantId: string, memberIds?: string[]) {
     const rows = await this.leaveBalanceRepository.findAdminListWithLabels(tenantId, memberIds);
     return rows.map((row) => {
@@ -135,6 +156,19 @@ export class LeaveBalanceService {
     year: number;
   }) {
     return this.leaveBalanceRepository.findByCriteria(criteria);
+  }
+  async findExistingBalances(
+    tenantId: string,
+    memberIds: string[],
+    leaveTypeIds: string[],
+    year: number,
+  ) {
+    return this.leaveBalanceRepository.findExistingBalances(
+      tenantId,
+      memberIds,
+      leaveTypeIds,
+      year,
+    );
   }
   async getBalancesByMember(tenantId: string, memberId: string, year: number) {
     return this.leaveBalanceRepository.find({

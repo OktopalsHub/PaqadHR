@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import { type AllowancePeriod, DateTimeHelper } from 'src/common/utils/date-time.helper';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
-import { DataSource, EntityManager } from 'typeorm';
+import { DataSource, EntityManager, In } from 'typeorm';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
@@ -481,24 +481,76 @@ export class MemberPointsService {
       createdBy: senderMemberId,
     });
 
-    for (const { recipientId, points: pointsEach } of recipients) {
-      let recipient = await this.ensureMemberRow(tenantId, recipientId, manager);
-      recipient = await this.ensureMonthlyReset(recipient, manager, allowancePeriod);
-      recipient.monthlyReceived += pointsEach;
-      recipient.currentBalance += pointsEach;
-      recipient.totalEarned += pointsEach;
-      await manager.save(recipient);
+    const uniqueRecipientIds = [...new Set(recipients.map((r) => r.recipientId))];
+    const repo = manager.getRepository(ShoutoutMemberPoints);
+    let existingRows = await repo.find({
+      where: { tenantId, memberId: In(uniqueRecipientIds) },
+    });
 
-      await this.memberPointsRepository.insertTransaction(manager, {
-        tenantId,
-        memberId: recipientId,
-        type: ShoutoutPointTransactionType.RECEIVED,
-        points: pointsEach,
-        runningBalance: recipient.currentBalance,
-        shoutoutId,
-        description: 'Received shoutout',
-        createdBy: senderMemberId,
-      });
+    const missingIds = uniqueRecipientIds.filter(
+      (id) => !existingRows.some((row) => row.memberId === id),
+    );
+    if (missingIds.length > 0) {
+      const startingBalance =
+        (await this.tenantConfigService.getPointsStartingBalance(tenantId)) ?? 0;
+      await repo
+        .createQueryBuilder()
+        .insert()
+        .into(ShoutoutMemberPoints)
+        .values(
+          missingIds.map((memberId) => ({
+            tenantId,
+            memberId,
+            currentBalance: startingBalance,
+            lastResetDate: new Date(),
+          })),
+        )
+        .orIgnore()
+        .execute();
+      const freshRows = await repo.find({ where: { tenantId, memberId: In(missingIds) } });
+      existingRows = [...existingRows, ...freshRows];
+    }
+
+    const pointsByRecipient = new Map<string, number>();
+    for (const { recipientId, points: pts } of recipients) {
+      pointsByRecipient.set(recipientId, (pointsByRecipient.get(recipientId) ?? 0) + pts);
+    }
+
+    const now = new Date();
+    for (const row of existingRows) {
+      if (!DateTimeHelper.isCurrentPeriod(row.lastResetDate, allowancePeriod)) {
+        row.monthlyGiven = 0;
+        row.monthlyReceived = 0;
+        row.lastResetDate = DateTimeHelper.getPeriodStart(allowancePeriod, now);
+        await repo.save(row);
+        await this.memberPointsRepository.insertTransaction(manager, {
+          tenantId,
+          memberId: row.memberId,
+          type: ShoutoutPointTransactionType.MONTHLY_RESET,
+          points: 0,
+          runningBalance: row.currentBalance,
+          description: `${allowancePeriod} points reset`,
+          createdBy: row.memberId,
+        });
+      }
+
+      const pts = pointsByRecipient.get(row.memberId) ?? 0;
+      if (pts > 0) {
+        row.monthlyReceived += pts;
+        row.currentBalance += pts;
+        row.totalEarned += pts;
+        await repo.save(row);
+        await this.memberPointsRepository.insertTransaction(manager, {
+          tenantId,
+          memberId: row.memberId,
+          type: ShoutoutPointTransactionType.RECEIVED,
+          points: pts,
+          runningBalance: row.currentBalance,
+          shoutoutId,
+          description: 'Received shoutout',
+          createdBy: senderMemberId,
+        });
+      }
     }
   }
 }
