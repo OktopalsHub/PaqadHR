@@ -327,7 +327,7 @@ describe('PayrollPayoutService', () => {
         'SUCCESS',
         'txn-1',
         'nomba' as never,
-        5000,
+        '5000',
       );
 
       expect(changed).toBe(false);

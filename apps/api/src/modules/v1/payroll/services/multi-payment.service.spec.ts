@@ -173,7 +173,7 @@ describe('MultiPaymentService', () => {
     } as never);
 
     expect(result.totalItems).toBe(1);
-    expect(payrollPayoutService.reconcilePayrollRunStatus).toHaveBeenCalledWith('run-1');
+    expect(payrollPayoutService.reconcilePayrollRunStatus).toHaveBeenCalledWith('run-1', 'tenant-1');
     expect(payrollItemRepository.update).toHaveBeenCalledWith(
       'item-1',
       expect.objectContaining({ status: PayrollItemStatus.PROCESSING }),
