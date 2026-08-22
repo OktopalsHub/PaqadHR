@@ -1,16 +1,14 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
 import { NotificationChannel } from '../../../../common/enums/notification-channel.enum';
+import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import { NotificationPriority } from '../../../../common/enums/notification-priority.enum';
 import { NotificationType } from '../../../../common/enums/notification-type.enum';
-import type { NotificationPreferenceType } from '../../../../common/enums/notification-preference-type.enum';
 import { NotificationService } from './notification.service';
 import { NotificationPreferenceService } from './notification-preference.service';
 
 @Injectable()
 export class NotificationHelperService {
-  private readonly logger = new Logger(NotificationHelperService.name);
-
   constructor(
     private readonly notificationService: NotificationService,
     private readonly preferenceService: NotificationPreferenceService,
@@ -22,7 +20,11 @@ export class NotificationHelperService {
     channel: NotificationChannel,
   ): Promise<boolean> {
     try {
-      return await this.preferenceService.shouldSendNotification(recipientId, notificationType, channel);
+      return await this.preferenceService.shouldSendNotification(
+        recipientId,
+        notificationType,
+        channel,
+      );
     } catch {
       return true;
     }
@@ -507,7 +509,13 @@ export class NotificationHelperService {
     },
   ): Promise<void> {
     const channel = NotificationChannel.IN_APP;
-    if (!(await this.shouldSend(recipientId, 'task_assignment' as NotificationPreferenceType, channel))) {
+    if (
+      !(await this.shouldSend(
+        recipientId,
+        'task_assignment' as NotificationPreferenceType,
+        channel,
+      ))
+    ) {
       return;
     }
     await this.notificationService.createNotification({

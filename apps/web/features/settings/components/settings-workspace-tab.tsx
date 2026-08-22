@@ -49,7 +49,7 @@ export function SettingsWorkspaceTab() {
   const [requireIdentityForPayroll, setRequireIdentityForPayroll] = useState(false);
 
   const workspaceCountry = tenant?.countryCode ?? settings?.settings?.holidays?.countryCode ?? '';
-  const countryLabel =
+  const _countryLabel =
     (countriesData?.countries ?? []).find((country) => country.code === workspaceCountry)?.name ??
     workspaceCountry;
 
