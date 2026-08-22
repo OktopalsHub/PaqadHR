@@ -1,6 +1,6 @@
 'use client';
 
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isValid } from 'date-fns';
 import {
   Banknote,
   Bell,
@@ -45,44 +45,51 @@ export function NotificationItem({
 }) {
   const isUnread = !notification.readAt;
   const Icon = iconFor(notification);
-  const timeLabel = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
+  const date = new Date(notification.createdAt);
+  const timeLabel = isValid(date) ? formatDistanceToNow(date, { addSuffix: true }) : '';
 
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(notification)}
+    <div
       className={cn(
-        'group hover:bg-muted/60 flex w-full cursor-pointer items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+        'group hover:bg-muted/60 flex w-full items-start gap-3 rounded-lg px-3 py-2.5 transition-colors',
         isUnread && 'bg-muted/40',
       )}
     >
-      <span
-        className={cn(
-          'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
-          isUnread ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
-        )}
-        aria-hidden
+      <button
+        type="button"
+        onClick={() => onSelect(notification)}
+        className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 text-left"
       >
-        <Icon className="size-4" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {isUnread ? (
-            <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
-          ) : null}
-          <p className={cn('truncate text-sm leading-snug', isUnread && 'font-medium')}>
-            {notification.title}
+        <span
+          className={cn(
+            'mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full',
+            isUnread ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+          )}
+          aria-hidden
+        >
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {isUnread ? (
+              <span className="size-1.5 shrink-0 rounded-full bg-primary" aria-hidden />
+            ) : null}
+            <p className={cn('truncate text-sm leading-snug', isUnread && 'font-medium')}>
+              {notification.title}
+            </p>
+          </div>
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+            {notification.message}
           </p>
+          {timeLabel ? <p className="mt-1 text-[10px] text-muted-foreground">{timeLabel}</p> : null}
         </div>
-        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{notification.message}</p>
-        <p className="mt-1 text-[10px] text-muted-foreground">{timeLabel}</p>
-      </div>
+      </button>
       {onDelete ? (
         <Button
           variant="ghost"
           size="icon"
           aria-label="Delete notification"
-          className="text-muted-foreground hover:text-destructive mt-0.5 hidden size-7 shrink-0 group-hover:flex"
+          className="text-muted-foreground hover:text-destructive mt-0.5 hidden size-7 shrink-0 group-hover:flex focus-visible:flex"
           onClick={(event) => {
             event.stopPropagation();
             onDelete(notification);
@@ -91,6 +98,6 @@ export function NotificationItem({
           <Trash2 className="size-3.5" />
         </Button>
       ) : null}
-    </button>
+    </div>
   );
 }

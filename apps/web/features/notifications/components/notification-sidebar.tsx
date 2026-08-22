@@ -3,6 +3,7 @@
 import { Megaphone } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -67,9 +68,11 @@ export function NotificationSidebar({
 
     const url = notification.actionData?.url;
     if (url) {
-      if (url.startsWith('http://') || url.startsWith('https://')) {
+      const hasProtocol = /^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(url);
+      const isInternalPath = url.startsWith('/') && !url.startsWith('//');
+      if (hasProtocol) {
         window.location.assign(url);
-      } else {
+      } else if (isInternalPath) {
         router.push(url);
       }
     }
@@ -78,7 +81,9 @@ export function NotificationSidebar({
   const handleDelete = async (notification: AppNotification) => {
     try {
       await deleteNotificationMutation.mutateAsync(notification.id);
-    } catch {}
+    } catch {
+      toast.error('Failed to delete notification');
+    }
   };
 
   return (

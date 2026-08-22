@@ -77,11 +77,14 @@ export interface BroadcastNotificationInput {
 export async function broadcastNotification(
   tenantId: string,
   input: BroadcastNotificationInput,
-): Promise<{ success: boolean }> {
-  return apiClient<{ success: boolean }>(`/tenants/${tenantId}/notifications/broadcast`, {
-    method: 'POST',
-    body: input,
-  });
+): Promise<{ success: boolean; recipients: number }> {
+  return apiClient<{ success: boolean; recipients: number }>(
+    `/tenants/${tenantId}/notifications/broadcast`,
+    {
+      method: 'POST',
+      body: input,
+    },
+  );
 }
 
 export async function subscribeToNotificationStream(

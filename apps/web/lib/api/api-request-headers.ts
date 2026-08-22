@@ -1,9 +1,6 @@
 import { AxiosHeaders } from 'axios';
 
-export function prepareApiRequestHeaders(
-  headersInit?: HeadersInit,
-  body?: BodyInit | null,
-): AxiosHeaders {
+export function prepareApiRequestHeaders(headersInit?: HeadersInit, body?: unknown): AxiosHeaders {
   const headers = new AxiosHeaders();
   if (headersInit) {
     const normalizedHeaders = new Headers(headersInit);
