@@ -126,10 +126,13 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     if (showAirtime) visibleTabs.push('airtime');
     if (showUtilities) visibleTabs.push('utilities');
     visibleTabs.push('perks');
+    if (isGiftCardsEnabled) visibleTabs.push('digital-cards');
+    visibleTabs.push('history');
+    if (isAdmin) visibleTabs.push('all-claims');
     if (!visibleTabs.includes(activeTab)) {
       setActiveTab(visibleTabs[0] ?? 'perks');
     }
-  }, [showAirtime, showUtilities, activeTab]);
+  }, [showAirtime, showUtilities, isGiftCardsEnabled, isAdmin, activeTab]);
   const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
     airtimeNetwork,
     selectedCountryCode === 'NG' && topupMode === 'data',

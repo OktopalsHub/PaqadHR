@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { FileUrlService } from 'src/common/services/file-url.service';
-import { type FindOneOptions, MoreThanOrEqual, Repository } from 'typeorm';
+import { type FindOneOptions, In, MoreThanOrEqual, Repository } from 'typeorm';
 import type { CelebrationResponseDto } from '../dto/celebrations-response.dto';
 import { TenantMember } from '../entities/tenant-member.entity';
 
@@ -91,6 +91,18 @@ export class TenantMemberRepository extends Repository<TenantMember> {
           status: true,
           reportsToId: true,
         },
+      },
+    });
+  }
+  async findByIdsAndTenantId(tenantId: string, memberIds: string[]): Promise<TenantMember[]> {
+    return this.tenantMemberRepository.find({
+      where: { tenantId, id: In(memberIds) },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        middleName: true,
+        preferredName: true,
       },
     });
   }
