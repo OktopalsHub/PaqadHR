@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { AppPage } from '@/components/app-page';
+import { LoadingBlock } from '@/components/loading-block';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { FeatureGate } from '@/features/billing/components/feature-gate';
 import { SettingsAttendanceTab } from '@/features/settings/components/settings-attendance-tab';
@@ -52,35 +53,59 @@ export function SettingsPage() {
 
       <Tabs value={visibleTab} className="space-y-5">
         <TabsContent value="profile" className="mt-0 data-[state=inactive]:hidden">
-          <SettingsProfileTab />
+          {visibleTab === 'profile' && (
+            <Suspense fallback={<LoadingBlock />}>
+              <SettingsProfileTab />
+            </Suspense>
+          )}
         </TabsContent>
         {visibleTabs.includes('workspace') ? (
           <TabsContent value="workspace" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsWorkspaceTab />
+            {visibleTab === 'workspace' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsWorkspaceTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {visibleTabs.includes('leave') ? (
           <TabsContent value="leave" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsLeaveTab />
+            {visibleTab === 'leave' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsLeaveTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {visibleTabs.includes('shoutouts') ? (
           <TabsContent value="shoutouts" className="mt-0 data-[state=inactive]:hidden">
-            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
-              <SettingsShoutoutsTab />
-            </FeatureGate>
+            {visibleTab === 'shoutouts' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+                  <SettingsShoutoutsTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {visibleTabs.includes('rewards') ? (
           <TabsContent value="rewards" className="mt-0 data-[state=inactive]:hidden">
-            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
-              <SettingsRewardsTab />
-            </FeatureGate>
+            {visibleTab === 'rewards' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+                  <SettingsRewardsTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {visibleTabs.includes('holidays') ? (
           <TabsContent value="holidays" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsHolidaysTab />
+            {visibleTab === 'holidays' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsHolidaysTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {/* Notifications tab temporarily hidden from settings
@@ -92,21 +117,33 @@ export function SettingsPage() {
         */}
         {visibleTabs.includes('attendance') ? (
           <TabsContent value="attendance" className="mt-0 data-[state=inactive]:hidden">
-            <FeatureGate feature={FeatureAccess.ATTENDANCE}>
-              <SettingsAttendanceTab />
-            </FeatureGate>
+            {visibleTab === 'attendance' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.ATTENDANCE}>
+                  <SettingsAttendanceTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {visibleTabs.includes('billing') ? (
           <TabsContent value="billing" className="mt-0 data-[state=inactive]:hidden">
-            <SettingsBillingTab />
+            {visibleTab === 'billing' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <SettingsBillingTab />
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
         {visibleTabs.includes('integrations') ? (
           <TabsContent value="integrations" className="mt-0 data-[state=inactive]:hidden">
-            <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
-              <SettingsIntegrationsTab />
-            </FeatureGate>
+            {visibleTab === 'integrations' && (
+              <Suspense fallback={<LoadingBlock />}>
+                <FeatureGate feature={FeatureAccess.INTEGRATIONS}>
+                  <SettingsIntegrationsTab />
+                </FeatureGate>
+              </Suspense>
+            )}
           </TabsContent>
         ) : null}
       </Tabs>

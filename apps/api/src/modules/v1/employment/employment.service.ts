@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
 import { PositionMemberService } from '../position/services/position-member.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
@@ -262,11 +262,27 @@ export class EmploymentService {
     >
   > {
     const salaryMap = new Map();
-    for (const memberId of tenantMemberIds) {
-      try {
-        const salaryInfo = await this.getEmploymentSalaryInfo(memberId, tenantId);
-        salaryMap.set(memberId, salaryInfo);
-      } catch {}
+    if (!tenantMemberIds.length) return salaryMap;
+    const [employments, tenant] = await Promise.all([
+      this.employmentRepository.find({
+        where: {
+          tenantMemberId: In(tenantMemberIds),
+          tenantId,
+          endDate: IsNull(),
+        },
+        relations: ['position'],
+      }),
+      this.tenantRepository.findOne({ where: { id: tenantId } }),
+    ]);
+    for (const employment of employments) {
+      const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
+      salaryMap.set(employment.tenantMemberId, {
+        employment,
+        baseSalary: employment.payRate,
+        payType: employment.payType,
+        paySchedule: employment.paySchedule,
+        currency,
+      });
     }
     return salaryMap;
   }

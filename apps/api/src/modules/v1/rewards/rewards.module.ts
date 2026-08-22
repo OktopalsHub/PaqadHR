@@ -25,6 +25,7 @@ import { RewardsListener } from './listeners/rewards.listener';
 import { CustomRewardsService } from './services/custom-rewards.service';
 import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
+import { RewardsClaimCronService } from './services/rewards-claim-cron.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
 import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
 
@@ -61,6 +62,7 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     TremendousApiService,
     RewardsListener,
     RewardsCatalogSyncCronService,
+    RewardsClaimCronService,
   ],
   exports: [RewardsService, TenantWalletService, TenantWalletTopupService],
 })

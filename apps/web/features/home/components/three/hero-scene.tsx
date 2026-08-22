@@ -3,7 +3,7 @@
 import { Float, MeshTransmissionMaterial } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useCallback, useMemo, useRef } from 'react';
-import * as THREE from 'three';
+import { BufferAttribute, BufferGeometry, type Mesh, type Points } from 'three';
 import { useBrandColor } from '@/hooks/use-brand-color';
 
 function Node({
@@ -15,7 +15,7 @@ function Node({
   color: string;
   scale?: number;
 }) {
-  const ref = useRef<THREE.Mesh>(null!);
+  const ref = useRef<Mesh>(null!);
   const t = useRef(Math.random() * Math.PI * 2);
   const baseY = position[1];
 
@@ -64,8 +64,8 @@ function Connections({
   }, [nodes, maxDist]);
 
   const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new BufferAttribute(positions, 3));
     return geo;
   }, [positions]);
 
@@ -77,7 +77,7 @@ function Connections({
 }
 
 function Particles({ count = 400 }: { count?: number }) {
-  const ref = useRef<THREE.Points>(null!);
+  const ref = useRef<Points>(null!);
 
   const positions = useMemo(() => {
     const arr = new Float32Array(count * 3);
@@ -90,8 +90,8 @@ function Particles({ count = 400 }: { count?: number }) {
   }, [count]);
 
   const geometry = useMemo(() => {
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new BufferAttribute(positions, 3));
     return geo;
   }, [positions]);
 
@@ -117,7 +117,7 @@ function Particles({ count = 400 }: { count?: number }) {
 }
 
 function GlassOrb({ brandColor }: { brandColor: string }) {
-  const ref = useRef<THREE.Mesh>(null!);
+  const ref = useRef<Mesh>(null!);
 
   useFrame((state) => {
     if (ref.current) {
@@ -150,7 +150,7 @@ function GlassOrb({ brandColor }: { brandColor: string }) {
 }
 
 function InnerGlow({ brandColor }: { brandColor: string }) {
-  const ref = useRef<THREE.Mesh>(null!);
+  const ref = useRef<Mesh>(null!);
 
   useFrame((state) => {
     if (ref.current) {

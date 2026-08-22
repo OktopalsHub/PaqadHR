@@ -303,7 +303,7 @@ export class PayrollPayoutService {
     return 'processing';
   }
 
-  async reconcilePayrollRunStatus(payrollRunId: string): Promise<void> {
+  async reconcilePayrollRunStatus(payrollRunId: string, tenantId?: string): Promise<void> {
     const items = await this.payrollItemRepository.find({
       where: { payrollRunId },
     });
@@ -311,7 +311,16 @@ export class PayrollPayoutService {
       return;
     }
 
-    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId } });
+    // If tenantId not provided, derive it from the payroll run
+    if (!tenantId) {
+      const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId } });
+      if (!run) {
+        return;
+      }
+      tenantId = run.tenantId;
+    }
+
+    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
     if (!run) {
       return;
     }

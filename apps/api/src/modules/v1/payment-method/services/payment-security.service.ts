@@ -7,10 +7,14 @@ import { PaymentSecurityRepository } from '../repositories/payment-security.repo
 export class PaymentSecurityService {
   constructor(private readonly paymentSecurityRepo: PaymentSecurityRepository) {}
 
-  async setPasscode(memberId: string, plainPasscode: string): Promise<PaymentSecurity | null> {
+  async setPasscode(
+    memberId: string,
+    tenantId: string,
+    plainPasscode: string,
+  ): Promise<PaymentSecurity | null> {
     const hashed = await PasswordService.hashPassword(plainPasscode);
     const security = await this.paymentSecurityRepo.findOne({
-      where: { member: { id: memberId } },
+      where: { member: { id: memberId, tenantId } },
     });
     if (!security) {
       return this.paymentSecurityRepo.save(
@@ -32,9 +36,13 @@ export class PaymentSecurityService {
     });
   }
 
-  async verifyPasscode(memberId: string, plainPasscode: string): Promise<boolean> {
+  async verifyPasscode(
+    memberId: string,
+    tenantId: string,
+    plainPasscode: string,
+  ): Promise<boolean> {
     const security = await this.paymentSecurityRepo.findOne({
-      where: { member: { id: memberId } },
+      where: { member: { id: memberId, tenantId } },
       select: ['id', 'paymentPasscode', 'passcodeAttempts', 'passcodeLockedUntil'],
     });
     if (!security) throw new ForbiddenException('No payment security set up');

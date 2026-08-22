@@ -12,7 +12,7 @@ import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constan
 import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { PasswordService } from 'src/common/utils';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { PaymentMethodType, TenantMemberRole } from '../../../../common/enums';
 import {
   AuditAction,
@@ -376,11 +376,12 @@ export class PaymentMethodService {
   }
   async verifyPaymentMethod(
     paymentMethodId: string,
+    tenantId: string,
     status: PaymentMethodStatus,
     notes?: string,
   ): Promise<PaymentMethod> {
     const paymentMethod = await this.paymentMethodRepository.findOne({
-      where: { id: paymentMethodId },
+      where: { id: paymentMethodId, tenantId },
     });
     if (!paymentMethod) {
       throw new NotFoundException('Payment method not found');
@@ -405,10 +406,10 @@ export class PaymentMethodService {
   async recordPaymentMethodUsage(paymentMethodId: string): Promise<void> {
     await this.paymentMethodRepository.update({ id: paymentMethodId }, { lastUsedAt: new Date() });
   }
-  async findByMemberId(memberId: string): Promise<PaymentMethod | null> {
+  async findByMemberId(memberId: string, tenantId: string): Promise<PaymentMethod | null> {
     try {
       return await this.paymentMethodRepository.findOne({
-        where: { memberId },
+        where: { memberId, tenantId },
         order: { updatedAt: 'DESC' },
       });
     } catch (error) {
@@ -423,103 +424,157 @@ export class PaymentMethodService {
     currency: string,
     excludedFromRun = false,
   ): Promise<PayrollPaymentReadiness> {
-    if (excludedFromRun) {
-      return {
-        memberId,
-        ready: false,
-        issues: [PayrollPaymentIssue.EXCLUDED_FROM_RUN],
-        message: 'Employee was removed from this payroll run and will not be paid.',
-      };
-    }
+    const results = await this.assessBulkPayrollReadiness(
+      tenantId,
+      [memberId],
+      currency,
+      excludedFromRun ? [memberId] : [],
+    );
+    return results[0];
+  }
 
+  async assessBulkPayrollReadiness(
+    tenantId: string,
+    memberIds: string[],
+    currency: string,
+    excludedMemberIds: string[] = [],
+  ): Promise<PayrollPaymentReadiness[]> {
     const normalizedCurrency = currency.toUpperCase();
     const runIsCrypto = isCryptoCurrency(normalizedCurrency);
-    const method = await this.resolvePayrollPaymentMethod(tenantId, memberId, normalizedCurrency);
+    const excludedSet = new Set(excludedMemberIds);
 
-    if (!method) {
-      return {
-        memberId,
-        ready: false,
-        issues: [PayrollPaymentIssue.MISSING_PAYMENT_METHOD],
-        message: runIsCrypto
-          ? `Add a verified ${normalizedCurrency} crypto wallet in payment settings to be included in this run.`
-          : `Add a verified ${normalizedCurrency} bank account in payment settings to be included in this run.`,
+    const paymentMethods = await this.paymentMethodRepository.find({
+      where: {
+        tenantId,
+        memberId: In(memberIds),
         currency: normalizedCurrency,
-      };
-    }
+      },
+      order: { isPrimary: 'DESC', updatedAt: 'DESC' },
+    });
 
-    const issues: PayrollPaymentIssue[] = [];
-
-    if (method.currency?.toUpperCase() !== normalizedCurrency) {
-      issues.push(PayrollPaymentIssue.CURRENCY_MISMATCH);
-    }
-
-    const methodIsCrypto = method.type === PaymentMethodType.CRYPTO;
-    if (runIsCrypto && !methodIsCrypto) {
-      issues.push(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH);
-    } else if (!runIsCrypto && methodIsCrypto) {
-      issues.push(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH);
-    }
-
-    if (!method.isVerified) {
-      issues.push(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD);
-    }
-    if (method.isLocked) {
-      issues.push(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD);
-    }
-
-    if (runIsCrypto || methodIsCrypto) {
-      const walletAddress =
-        (method.metadata?.walletAddress as string | undefined) ?? method.accountNumber;
-      if (!walletAddress?.trim()) {
-        issues.push(PayrollPaymentIssue.INCOMPLETE_WALLET_DETAILS);
+    const methodMap = new Map<string, PaymentMethod>();
+    for (const method of paymentMethods) {
+      if (method && !methodMap.has(method.memberId)) {
+        const decrypted = this.withDecrypted(method);
+        if (decrypted) {
+          methodMap.set(method.memberId, decrypted);
+        }
       }
-    } else {
-      if (
-        !method.accountNumber?.trim() ||
-        !method.accountName?.trim() ||
-        !method.bankName?.trim()
-      ) {
-        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
-      }
-      if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
-        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
-      }
-      if (requiresGlobalInstitutionCode(normalizedCurrency) && !method.bankCode?.trim()) {
-        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
-      }
-      if (normalizedCurrency !== 'NGN' && !method.country?.trim()) {
-        issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
-      }
-    }
-
-    if (!getSupportedPaymentCurrencies().includes(normalizedCurrency)) {
-      issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
     }
 
     const employeeSettings = await this.tenantConfigService.requireIdentityForPayroll(tenantId);
+    let members: { id: string; identityBvn?: string; identityNin?: string }[] = [];
     if (employeeSettings) {
-      const member = await this.tenantMemberRepository.findOne({
-        where: { id: memberId, tenantId },
+      const tenantMembers = await this.tenantMemberRepository.find({
+        where: { id: In(memberIds), tenantId },
+        select: ['id', 'identityBvn', 'identityNin'],
       });
-      if (!member?.identityBvn?.trim() && !member?.identityNin?.trim()) {
-        issues.push(PayrollPaymentIssue.MISSING_IDENTITY);
+      members = tenantMembers.map((m) => ({
+        id: m.id,
+        identityBvn: m.identityBvn ?? undefined,
+        identityNin: m.identityNin ?? undefined,
+      }));
+    }
+    const memberMap = new Map(members.map((m) => [m.id, m]));
+
+    const results: PayrollPaymentReadiness[] = [];
+    for (const memberId of memberIds) {
+      if (excludedSet.has(memberId)) {
+        results.push({
+          memberId,
+          ready: false,
+          issues: [PayrollPaymentIssue.EXCLUDED_FROM_RUN],
+          message: 'Employee was removed from this payroll run and will not be paid.',
+        });
+        continue;
       }
+
+      const method = methodMap.get(memberId);
+      if (!method) {
+        results.push({
+          memberId,
+          ready: false,
+          issues: [PayrollPaymentIssue.MISSING_PAYMENT_METHOD],
+          message: runIsCrypto
+            ? `Add a verified ${normalizedCurrency} crypto wallet in payment settings to be included in this run.`
+            : `Add a verified ${normalizedCurrency} bank account in payment settings to be included in this run.`,
+          currency: normalizedCurrency,
+        });
+        continue;
+      }
+
+      const issues: PayrollPaymentIssue[] = [];
+
+      if (method.currency?.toUpperCase() !== normalizedCurrency) {
+        issues.push(PayrollPaymentIssue.CURRENCY_MISMATCH);
+      }
+
+      const methodIsCrypto = method.type === PaymentMethodType.CRYPTO;
+      if (runIsCrypto && !methodIsCrypto) {
+        issues.push(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH);
+      } else if (!runIsCrypto && methodIsCrypto) {
+        issues.push(PayrollPaymentIssue.PAYMENT_RAIL_MISMATCH);
+      }
+
+      if (!method.isVerified) {
+        issues.push(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD);
+      }
+      if (method.isLocked) {
+        issues.push(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD);
+      }
+
+      if (runIsCrypto || methodIsCrypto) {
+        const walletAddress =
+          (method.metadata?.walletAddress as string | undefined) ?? method.accountNumber;
+        if (!walletAddress?.trim()) {
+          issues.push(PayrollPaymentIssue.INCOMPLETE_WALLET_DETAILS);
+        }
+      } else {
+        if (
+          !method.accountNumber?.trim() ||
+          !method.accountName?.trim() ||
+          !method.bankName?.trim()
+        ) {
+          issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+        }
+        if (normalizedCurrency === 'NGN' && !method.bankCode?.trim()) {
+          issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+        }
+        if (requiresGlobalInstitutionCode(normalizedCurrency) && !method.bankCode?.trim()) {
+          issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+        }
+        if (normalizedCurrency !== 'NGN' && !method.country?.trim()) {
+          issues.push(PayrollPaymentIssue.INCOMPLETE_BANK_DETAILS);
+        }
+      }
+
+      if (!getSupportedPaymentCurrencies().includes(normalizedCurrency)) {
+        issues.push(PayrollPaymentIssue.UNSUPPORTED_CURRENCY);
+      }
+
+      if (employeeSettings) {
+        const member = memberMap.get(memberId);
+        if (!member?.identityBvn?.trim() && !member?.identityNin?.trim()) {
+          issues.push(PayrollPaymentIssue.MISSING_IDENTITY);
+        }
+      }
+
+      const ready = issues.length === 0 && method.canReceivePayments;
+      const message = ready
+        ? 'Ready for payroll disbursement.'
+        : this.buildReadinessMessage(issues, runIsCrypto);
+
+      results.push({
+        memberId,
+        ready,
+        issues,
+        message,
+        paymentMethodId: method.id,
+        currency: method.currency ?? normalizedCurrency,
+      });
     }
 
-    const ready = issues.length === 0 && method.canReceivePayments;
-    const message = ready
-      ? 'Ready for payroll disbursement.'
-      : this.buildReadinessMessage(issues, runIsCrypto);
-
-    return {
-      memberId,
-      ready,
-      issues,
-      message,
-      paymentMethodId: method.id,
-      currency: method.currency ?? normalizedCurrency,
-    };
+    return results;
   }
 
   async resolvePayrollPaymentMethod(
@@ -624,10 +679,10 @@ export class PaymentMethodService {
     }));
   }
 
-  async findById(id: string): Promise<PaymentMethod | null> {
+  async findById(id: string, tenantId: string): Promise<PaymentMethod | null> {
     try {
       const method = await this.paymentMethodRepository.findOne({
-        where: { id },
+        where: { id, tenantId },
       });
       return this.withDecrypted(method);
     } catch (error) {

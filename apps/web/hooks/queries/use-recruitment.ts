@@ -90,12 +90,13 @@ export function useCandidatesByJob(jobId: string | null) {
   });
 }
 
-export function useAllCandidates(options?: { enabled?: boolean }) {
+export function useAllCandidates(options?: { enabled?: boolean; limit?: number }) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+    queryKey: [...queryKeys.recruitment.allCandidates, tenantId, options?.limit],
     queryFn: fetchAllCandidates,
+    select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
     enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     retry: false,
   });
@@ -129,6 +130,9 @@ export function useDeactivateJobOpening() {
     mutationFn: (jobId: string) => deactivateJobOpening(jobId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
     },
   });
 }
@@ -141,6 +145,9 @@ export function useCloseJobOpening() {
     mutationFn: (jobId: string) => closeJobOpening(jobId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
     },
   });
 }
@@ -153,6 +160,9 @@ export function useArchiveJobOpening() {
     mutationFn: (jobId: string) => archiveJobOpening(jobId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
     },
   });
 }
@@ -165,6 +175,9 @@ export function useDeleteJobOpening() {
     mutationFn: (jobId: string) => deleteJobOpening(jobId),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.recruitment.jobs, tenantId] });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.recruitment.allCandidates, tenantId],
+      });
     },
   });
 }

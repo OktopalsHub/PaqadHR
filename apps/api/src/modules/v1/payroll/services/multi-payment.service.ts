@@ -82,7 +82,7 @@ export class MultiPaymentService {
       payrollRun.title,
     );
     const summary = this.calculatePaymentSummary(payoutResults);
-    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
+    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
     return {
       totalItems: payrollRun.items.length,
       successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
@@ -131,7 +131,7 @@ export class MultiPaymentService {
       payrollRun.title,
     );
     const summary = this.calculatePaymentSummary(payoutResults);
-    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId);
+    await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
     return {
       totalItems: failedItems.length,
       successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
@@ -149,7 +149,7 @@ export class MultiPaymentService {
     if (!payrollRun) {
       throw new NotFoundException('Payroll run not found');
     }
-    const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId);
+    const items = await this.payrollItemRepository.findByPayrollRunId(payrollRunId, tenantId);
     const statusCounts = items.reduce(
       (acc, item) => {
         acc[item.status] = (acc[item.status] || 0) + 1;
@@ -271,6 +271,22 @@ export class MultiPaymentService {
           );
         }
 
+        if (item.paymentAmount >= PAYROLL_SECURITY_CONFIG.LARGE_PAYMENT_THRESHOLD) {
+          await this.auditService.logLargePaymentDetected(
+            {
+              tenantId,
+              payrollRunId,
+              performedById: _auditContext.performedById,
+              memberId: item.memberId,
+            },
+            {
+              paymentAmount: item.paymentAmount,
+              paymentCurrency: item.paymentCurrency,
+              threshold: PAYROLL_SECURITY_CONFIG.LARGE_PAYMENT_THRESHOLD,
+            },
+          );
+        }
+
         const readiness = await this.paymentMethodService.assessPayrollReadiness(
           tenantId,
           item.memberId,
@@ -281,7 +297,10 @@ export class MultiPaymentService {
           throw new BadRequestException(readiness.message);
         }
 
-        const paymentMethod = await this.paymentMethodService.findById(readiness.paymentMethodId);
+        const paymentMethod = await this.paymentMethodService.findById(
+          readiness.paymentMethodId,
+          tenantId,
+        );
         if (!paymentMethod) {
           throw new BadRequestException('Payment method not found');
         }

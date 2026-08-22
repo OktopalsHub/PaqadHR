@@ -306,7 +306,12 @@ export class PaymentMethodController {
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: PaymentMethodStatus; notes?: string },
   ) {
-    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, body.status, body.notes);
+    return this.paymentMethodService.verifyPaymentMethod(
+      paymentMethodId,
+      tenantId,
+      body.status,
+      body.notes,
+    );
   }
   @Get(':paymentMethodId/passcode-history')
   @UseGuards(TenantMemberGuard)

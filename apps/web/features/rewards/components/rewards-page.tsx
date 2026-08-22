@@ -118,7 +118,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [topupMode, setTopupMode] = useState<'airtime' | 'data'>('airtime');
   const [selectedBundleId, setSelectedBundleId] = useState<string>('');
-
+  const defaultTab = showAirtime ? 'airtime' : showUtilities ? 'utilities' : 'perks';
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const { data: nombaDataPlans = [], isLoading: dataPlansLoading } = useNombaDataPlans(
     airtimeNetwork,
     selectedCountryCode === 'NG' && topupMode === 'data',
@@ -404,33 +405,40 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
   const [claimsSearch, setClaimsSearch] = useState('');
 
-  const giftCards = catalog.filter((i) => i.type === 'TREMENDOUS');
-  const customPerks = catalog.filter((i) => i.type === 'CUSTOM');
+  const giftCards = useMemo(() => catalog.filter((i) => i.type === 'TREMENDOUS'), [catalog]);
+  const customPerks = useMemo(() => catalog.filter((i) => i.type === 'CUSTOM'), [catalog]);
   const availablePerkTemplates = useMemo(
     () => getAvailableCustomPerkTemplates(customPerks),
     [customPerks],
   );
 
-  const filteredGiftCards = giftCards.filter((item) => {
-    const category = getGiftCardCategory(item);
-    const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
-    if (isNgAirtime) return false;
+  const filteredGiftCards = useMemo(
+    () =>
+      giftCards.filter((item) => {
+        const category = getGiftCardCategory(item);
+        const isNgAirtime = item.countryCode === 'NG' && category === 'Airtime';
+        if (isNgAirtime) return false;
+        if (selectedCategory === 'All') return true;
+        return category === selectedCategory;
+      }),
+    [giftCards, selectedCategory],
+  );
 
-    if (selectedCategory === 'All') return true;
-    return category === selectedCategory;
-  });
-
-  const filteredAllClaims = allClaims.filter((claim) => {
-    if (!claimsSearch.trim()) return true;
-    const term = claimsSearch.toLowerCase();
-    const nameMatch = claim.rewardName?.toLowerCase().includes(term);
-    const memberName = claim.member
-      ? `${claim.member.firstName} ${claim.member.lastName}`.toLowerCase()
-      : '';
-    const phoneMatch = claim.recipient?.phone?.toLowerCase().includes(term);
-    const emailMatch = claim.recipient?.email?.toLowerCase().includes(term);
-    return nameMatch || memberName.includes(term) || phoneMatch || emailMatch;
-  });
+  const filteredAllClaims = useMemo(
+    () =>
+      allClaims.filter((claim) => {
+        if (!claimsSearch.trim()) return true;
+        const term = claimsSearch.toLowerCase();
+        const nameMatch = claim.rewardName?.toLowerCase().includes(term);
+        const memberName = claim.member
+          ? `${claim.member.firstName} ${claim.member.lastName}`.toLowerCase()
+          : '';
+        const phoneMatch = claim.recipient?.phone?.toLowerCase().includes(term);
+        const emailMatch = claim.recipient?.email?.toLowerCase().includes(term);
+        return nameMatch || memberName.includes(term) || phoneMatch || emailMatch;
+      }),
+    [allClaims, claimsSearch],
+  );
 
   const handleClaim = async (item: CatalogItem) => {
     if (pointsBalance && pointsBalance.currentBalance < item.pointsCost) {
@@ -582,8 +590,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     );
   }
 
-  const defaultTab = showAirtime ? 'airtime' : showUtilities ? 'utilities' : 'perks';
-
   const content = (
     <>
       {!isTab ? (
@@ -597,7 +603,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         totalEarned={pointsBalance?.totalEarned ?? 0}
       />
 
-      <Tabs defaultValue={defaultTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="h-auto w-full justify-start flex-wrap gap-1.5 p-1.5 bg-muted/60">
           {showAirtime && (
             <TabsTrigger
@@ -687,10 +693,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                     return null;
                   }
 
-                  const count = giftCards.filter((item) => {
-                    const isNgAirtime =
-                      item.countryCode === 'NG' && getGiftCardCategory(item) === 'Airtime';
-                    if (isNgAirtime) return false;
+                  const count = filteredGiftCards.filter((item) => {
                     if (cat === 'All') return true;
                     return getGiftCardCategory(item) === cat;
                   }).length;
@@ -1571,24 +1574,6 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                                 </p>
                               )}
 
-                              {(claim.voucher?.code || claim.voucher?.instructions) && (
-                                <div className="mt-2 text-xs space-y-1 bg-muted/50 p-2.5 rounded-lg border border-border/40">
-                                  {claim.voucher?.code && (
-                                    <p className="font-mono font-bold text-foreground">
-                                      Code:{' '}
-                                      <span className="select-all bg-background px-1.5 py-0.5 rounded border">
-                                        {claim.voucher.code}
-                                      </span>
-                                      {claim.voucher.pin ? ` · PIN: ${claim.voucher.pin}` : ''}
-                                    </p>
-                                  )}
-                                  {claim.voucher?.instructions && (
-                                    <p className="text-[10px] text-muted-foreground italic leading-normal pt-1">
-                                      {claim.voucher.instructions}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
                               {claim.status === 'FAILED' && claim.providerRef?.error && (
                                 <p className="mt-1 text-[11px] text-red-500 font-semibold leading-tight">
                                   Error: {claim.providerRef.error}

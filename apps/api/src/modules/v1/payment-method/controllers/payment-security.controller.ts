@@ -15,22 +15,28 @@ export class PaymentSecurityController {
 
   @Post(':memberId/set-passcode')
   async setPasscode(
+    @Param('tenantId') tenantId: string,
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() dto: SetPasscodeDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     assertSelfOrAdmin(member, memberId);
-    return this.paymentSecurityService.setPasscode(memberId, dto.passcode);
+    return this.paymentSecurityService.setPasscode(memberId, tenantId, dto.passcode);
   }
 
   @Post(':memberId/verify-passcode')
   async verifyPasscode(
+    @Param('tenantId') tenantId: string,
     @Param('memberId', ParseUUIDPipe) memberId: string,
     @Body() dto: VerifyPasscodeDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     assertSelfOrAdmin(member, memberId);
-    const verified = await this.paymentSecurityService.verifyPasscode(memberId, dto.passcode);
+    const verified = await this.paymentSecurityService.verifyPasscode(
+      memberId,
+      tenantId,
+      dto.passcode,
+    );
     return { verified };
   }
 }

@@ -52,6 +52,14 @@ export class LeaveBalanceInitializationService {
     const targetYear = year || new Date().getFullYear();
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
     const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive);
+    const activeLeaveTypeIds = activeLeaveTypes.map((lt) => lt.id);
+    const existingBalances = await this.leaveBalanceService.findExistingBalances(
+      tenantId,
+      memberIds,
+      activeLeaveTypeIds,
+      targetYear,
+    );
+    const existingSet = new Set(existingBalances.map((b) => `${b.memberId}:${b.leaveTypeId}`));
     const results: {
       memberId: string;
       balancesCreated: number;
@@ -60,13 +68,7 @@ export class LeaveBalanceInitializationService {
     for (const memberId of memberIds) {
       const memberBalances: LeaveBalance[] = [];
       for (const leaveType of activeLeaveTypes) {
-        const existingBalance = await this.leaveBalanceService.findByCriteria({
-          tenantId,
-          memberId,
-          leaveTypeId: leaveType.id,
-          year: targetYear,
-        });
-        if (!existingBalance) {
+        if (!existingSet.has(`${memberId}:${leaveType.id}`)) {
           const newBalance = await this.leaveBalanceService.createLeaveBalance(
             tenantId,
             memberId,

@@ -150,15 +150,17 @@ describe('MultiPaymentService', () => {
       ready: true,
       paymentMethodId: 'pm-1',
     });
-    (paymentMethodService.findById as jest.Mock).mockResolvedValue({
-      id: 'pm-1',
-      accountNumber: '1234567890',
-      accountName: 'Ada',
-      bankCode: '058',
-      bankName: 'GTBank',
-      currency: 'NGN',
-      country: 'NG',
-    });
+    (paymentMethodService.findById as jest.Mock).mockImplementation(
+      (id: string, tenantId: string) => ({
+        id: 'pm-1',
+        accountNumber: '1234567890',
+        accountName: 'Ada',
+        bankCode: '058',
+        bankName: 'GTBank',
+        currency: 'NGN',
+        country: 'NG',
+      }),
+    );
     (paymentProvider.createPayment as jest.Mock).mockResolvedValue({
       success: true,
       transactionId: 'txn-1',
@@ -225,15 +227,17 @@ describe('MultiPaymentService', () => {
       ready: true,
       paymentMethodId: 'pm-1',
     });
-    (paymentMethodService.findById as jest.Mock).mockResolvedValue({
-      id: 'pm-1',
-      accountNumber: '1234567890',
-      accountName: 'Ada',
-      bankCode: '058',
-      bankName: 'GTBank',
-      currency: 'NGN',
-      country: 'NG',
-    });
+    (paymentMethodService.findById as jest.Mock).mockImplementation(
+      (id: string, tenantId: string) => ({
+        id: 'pm-1',
+        accountNumber: '1234567890',
+        accountName: 'Ada',
+        bankCode: '058',
+        bankName: 'GTBank',
+        currency: 'NGN',
+        country: 'NG',
+      }),
+    );
     (paymentProvider.createPayment as jest.Mock).mockResolvedValue({
       success: true,
       transactionId: 'txn-2',
@@ -290,15 +294,17 @@ describe('MultiPaymentService', () => {
       ready: true,
       paymentMethodId: 'pm-1',
     });
-    (paymentMethodService.findById as jest.Mock).mockResolvedValue({
-      id: 'pm-1',
-      accountNumber: '1234567890',
-      accountName: 'Ada',
-      bankCode: '058',
-      bankName: 'GTBank',
-      currency: 'NGN',
-      country: 'NG',
-    });
+    (paymentMethodService.findById as jest.Mock).mockImplementation(
+      (id: string, tenantId: string) => ({
+        id: 'pm-1',
+        accountNumber: '1234567890',
+        accountName: 'Ada',
+        bankCode: '058',
+        bankName: 'GTBank',
+        currency: 'NGN',
+        country: 'NG',
+      }),
+    );
     (paymentProvider.createPayment as jest.Mock).mockResolvedValue({
       success: true,
       transactionId: 'txn-retry',

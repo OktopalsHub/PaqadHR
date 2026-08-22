@@ -2,7 +2,7 @@
 
 import { ArrowUpRight, Briefcase, Building2, CalendarClock, Users } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { LoadingBlock } from '@/components/loading-block';
@@ -81,22 +81,35 @@ export const Dashboard = () => {
     (isAdmin && canAccessRecruitment && (jobsError || overviewError));
 
   const jobs = jobsData?.jobs ?? [];
-  const openRoles = jobs.filter((job) => job.status === 'ACTIVE').length;
-  const pendingLeaves = leaves.filter((leave) => leave.status?.toLowerCase() === 'pending').length;
-  const recentLeaves = [...leaves]
-    .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
-    .slice(0, 6);
-
-  const departmentCount = new Set(employees.map((employee) => employee.department).filter(Boolean))
-    .size;
-
-  const pipelineStages = [
-    { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
-    { label: 'Draft', count: jobs.filter((job) => job.status === 'DRAFT').length },
-    { label: 'Closed', count: jobs.filter((job) => job.status === 'CLOSED').length },
-    { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
-  ];
-  const pipelineMax = Math.max(1, ...pipelineStages.map((stage) => stage.count));
+  const openRoles = useMemo(() => jobs.filter((job) => job.status === 'ACTIVE').length, [jobs]);
+  const pendingLeaves = useMemo(
+    () => leaves.filter((leave) => leave.status?.toLowerCase() === 'pending').length,
+    [leaves],
+  );
+  const recentLeaves = useMemo(
+    () =>
+      [...leaves]
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+        .slice(0, 6),
+    [leaves],
+  );
+  const departmentCount = useMemo(
+    () => new Set(employees.map((employee) => employee.department).filter(Boolean)).size,
+    [employees],
+  );
+  const pipelineStages = useMemo(
+    () => [
+      { label: 'Active', count: jobs.filter((job) => job.status === 'ACTIVE').length },
+      { label: 'Draft', count: jobs.filter((job) => job.status === 'DRAFT').length },
+      { label: 'Closed', count: jobs.filter((job) => job.status === 'CLOSED').length },
+      { label: 'Archived', count: jobs.filter((job) => job.status === 'ARCHIVED').length },
+    ],
+    [jobs],
+  );
+  const pipelineMax = useMemo(
+    () => Math.max(1, ...pipelineStages.map((stage) => stage.count)),
+    [pipelineStages],
+  );
   const contentCardHeaderClassName = 'border-b border-border/60 px-5 py-4';
   const contentCardTitleClassName = 'text-[17px] font-semibold text-foreground';
   const statCards = [
@@ -138,9 +151,13 @@ export const Dashboard = () => {
       ? 'grid gap-4 md:grid-cols-2 xl:grid-cols-3'
       : 'grid gap-4 md:grid-cols-2 xl:grid-cols-4';
 
-  const handleSelectJobDetails = (job: JobOpening) => {
+  const handleSelectJobDetails = useCallback((job: JobOpening) => {
     setSelectedJobId(job.id);
-  };
+  }, []);
+
+  const handleJobDetailOpenChange = useCallback((open: boolean) => {
+    if (!open) setSelectedJobId(null);
+  }, []);
 
   if (isLoading) {
     return (
@@ -335,9 +352,7 @@ export const Dashboard = () => {
           <JobDetailSheet
             jobId={selectedJobId}
             open={Boolean(selectedJobId)}
-            onOpenChange={(open) => {
-              if (!open) setSelectedJobId(null);
-            }}
+            onOpenChange={handleJobDetailOpenChange}
           />
         </>
       ) : null}

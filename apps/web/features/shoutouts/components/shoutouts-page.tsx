@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Coins, Heart, Sparkles, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
@@ -13,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FeatureGate } from '@/features/billing/components/feature-gate';
-import { RewardsPage } from '@/features/rewards/components/rewards-page';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import {
@@ -41,6 +41,11 @@ import {
   type ShoutoutSubmitPayload,
 } from './shoutout-composer';
 import { ShoutoutTasksTab } from './shoutout-tasks-tab';
+
+const RewardsPage = dynamic(
+  () => import('@/features/rewards/components/rewards-page').then((m) => m.RewardsPage),
+  { ssr: false },
+);
 
 function allowancePeriodLabel(period?: string): string {
   if (period === 'weekly') return 'weekly';

@@ -136,6 +136,19 @@ export class LeaveBalanceService {
   }) {
     return this.leaveBalanceRepository.findByCriteria(criteria);
   }
+  async findExistingBalances(
+    tenantId: string,
+    memberIds: string[],
+    leaveTypeIds: string[],
+    year: number,
+  ) {
+    return this.leaveBalanceRepository.findExistingBalances(
+      tenantId,
+      memberIds,
+      leaveTypeIds,
+      year,
+    );
+  }
   async getBalancesByMember(tenantId: string, memberId: string, year: number) {
     return this.leaveBalanceRepository.find({
       where: { tenantId, memberId, year },

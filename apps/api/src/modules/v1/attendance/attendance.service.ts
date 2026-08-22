@@ -532,30 +532,31 @@ export class AttendanceService {
         },
         relations: ['tenantMember', 'tenantMember.user'],
       });
-      const transformedAttendances = await Promise.all(
-        attendances.map(async (attendance) => {
-          const member = attendance.tenantMember;
-          const department = member
-            ? await this.departmentUtils.getMemberDepartment(tenantId, member.id)
-            : null;
-          return {
-            ...attendance,
-            member: member
-              ? {
-                  id: member.id,
-                  firstName: member.firstName,
-                  lastName: member.lastName,
-                  email: member.user?.email || null,
-                  department: this.departmentUtils.formatDepartmentResponse(department),
-                  avatar: member.avatarKey,
-                  role: member.role,
-                  employeeNumber: member.employeeNumber,
-                  status: member.isActive ? 'ACTIVE' : 'INACTIVE',
-                }
-              : null,
-          };
-        }),
+      const memberIds = [...new Set(attendances.map((a) => a.tenantMember?.id).filter(Boolean))];
+      const departmentMap = await this.departmentUtils.getDepartmentsByMemberIds(
+        tenantId,
+        memberIds,
       );
+      const transformedAttendances = attendances.map((attendance) => {
+        const member = attendance.tenantMember;
+        const department = member ? (departmentMap.get(member.id) ?? null) : null;
+        return {
+          ...attendance,
+          member: member
+            ? {
+                id: member.id,
+                firstName: member.firstName,
+                lastName: member.lastName,
+                email: member.user?.email || null,
+                department: this.departmentUtils.formatDepartmentResponse(department),
+                avatar: member.avatarKey,
+                role: member.role,
+                employeeNumber: member.employeeNumber,
+                status: member.isActive ? 'ACTIVE' : 'INACTIVE',
+              }
+            : null,
+        };
+      });
       const totalEmployees = await this.tenantMembersService.getTenantMembersCount(tenantId);
       const presentCount = attendances.filter((a) => a.status === 'PRESENT').length;
       const absentCount = attendances.filter((a) => a.status === 'ABSENT').length;
@@ -873,28 +874,49 @@ export class AttendanceService {
           },
         } as TenantSettings;
       }
-      const membersAttendance: unknown[] = [];
-      for (const member of members.records) {
-        const attendanceRecords = await this.attendanceRepository.find({
+      const paginatedMemberIds = members.records.map((m) => m.id);
+      const [allAttendanceRecords, departmentMap] = await Promise.all([
+        this.attendanceRepository.find({
           where: {
             tenantId,
-            tenantMemberId: member.id,
+            tenantMemberId: In(paginatedMemberIds),
             date: Between(startOfMonth, endOfMonth),
           },
-        });
-        let memberLeaves: LeaveResponseDto[] = [];
-        try {
-          const leavesResult = await this.leaveService.getLeavesByMember(tenantId, member.id, {
-            page: 1,
-            limit: 100,
-          });
-          memberLeaves = leavesResult.records.filter(
-            (leave) =>
-              leave.status === 'APPROVED' &&
-              new Date(leave.startDate) <= endOfMonth &&
-              new Date(leave.endDate) >= startOfMonth,
-          );
-        } catch (_error) {}
+        }),
+        this.departmentUtils.getDepartmentsByMemberIds(tenantId, paginatedMemberIds),
+      ]);
+      const attendanceByMember = new Map<string, typeof allAttendanceRecords>();
+      for (const record of allAttendanceRecords) {
+        const list = attendanceByMember.get(record.tenantMemberId) || [];
+        list.push(record);
+        attendanceByMember.set(record.tenantMemberId, list);
+      }
+      const leavesByMember = new Map<string, LeaveResponseDto[]>();
+      await Promise.all(
+        members.records.map(async (member) => {
+          try {
+            const leavesResult = await this.leaveService.getLeavesByMember(tenantId, member.id, {
+              page: 1,
+              limit: 100,
+            });
+            leavesByMember.set(
+              member.id,
+              leavesResult.records.filter(
+                (leave) =>
+                  leave.status === 'APPROVED' &&
+                  new Date(leave.startDate) <= endOfMonth &&
+                  new Date(leave.endDate) >= startOfMonth,
+              ),
+            );
+          } catch (_error) {
+            leavesByMember.set(member.id, []);
+          }
+        }),
+      );
+      const membersAttendance: unknown[] = [];
+      for (const member of members.records) {
+        const attendanceRecords = attendanceByMember.get(member.id) || [];
+        const memberLeaves = leavesByMember.get(member.id) || [];
         const dailyAttendance: Array<{
           date: string;
           day: number;
@@ -972,7 +994,7 @@ export class AttendanceService {
             lastName: member.lastName,
             email: member.user?.email,
             department: this.departmentUtils.formatDepartmentResponse(
-              await this.departmentUtils.getMemberDepartment(tenantId, member.id),
+              departmentMap.get(member.id) ?? null,
             ),
             employeeNumber: member.employeeNumber,
             avatar: member.avatarKey,
