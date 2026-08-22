@@ -9,6 +9,8 @@ export interface MonnifyAirtimeInput {
   phoneNumber: string;
   network: MonnifyTelcoNetwork;
   merchantTxRef: string;
+  /** Provider product code for a user-selected data bundle (avoids price collisions). */
+  productCode?: string;
 }
 
 export interface MonnifyDataPlan {
@@ -243,14 +245,18 @@ export class MonnifyBillApiService {
   private async resolveDataProduct(
     network: MonnifyTelcoNetwork,
     amount: number,
+    planCode?: string,
   ): Promise<MonnifyProduct> {
     // Telco data bundles live under DATA_BUNDLE; DATA only lists ISPs
     // (Spectranet, Smile, Swift).
     const biller = await this.resolveBiller('DATA_BUNDLE', network);
     const products = await this.listProducts(this.billerId(biller)!);
+    const candidates = products.filter((row) => this.productId(row));
+    // Prefer the exact bundle the user picked; several plans can share a price.
     const product =
-      products.find((row) => this.productId(row) && this.productAmount(row) === amount) ??
-      products.find((row) => this.productId(row) === String(amount)) ??
+      (planCode ? candidates.find((row) => this.productId(row) === planCode) : undefined) ??
+      candidates.find((row) => this.productAmount(row) === amount) ??
+      candidates.find((row) => this.productId(row) === String(amount)) ??
       null;
     if (!product || !this.productId(product)) {
       throw new BadRequestException(
@@ -380,7 +386,7 @@ export class MonnifyBillApiService {
     transactionId: string | null;
     status: string;
   }> {
-    const product = await this.resolveDataProduct(input.network, input.amount);
+    const product = await this.resolveDataProduct(input.network, input.amount, input.productCode);
     return this.purchase(product, input);
   }
 

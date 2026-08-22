@@ -81,6 +81,8 @@ export interface ClaimInput {
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
   topupKind?: 'airtime' | 'data';
+  /** Provider product code from the data-plans listing (Monnify path). */
+  dataPlanCode?: string;
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -189,7 +191,8 @@ export class RewardsService {
         throw new BadRequestException('Data plans are temporarily unavailable.');
       }
       const plans = await this.monnifyBillApi.listDataPlans(network);
-      return plans.map(({ amount, plan }) => ({ amount, plan }));
+      // Keep productCode so claims can vend the exact bundle the user picked.
+      return plans.map(({ amount, plan, productCode }) => ({ amount, plan, productCode }));
     }
     if (!this.nombaBillApi.isConfigured()) {
       throw new BadRequestException('Data plans are temporarily unavailable.');
@@ -1320,6 +1323,7 @@ export class RewardsService {
         phoneNumber: input.recipientPhone,
         network: input.airtimeNetwork,
         merchantTxRef: redemption.id,
+        productCode: input.dataPlanCode,
       };
       result = isData
         ? await this.monnifyBillApi.purchaseDataBundle(purchaseInput)
@@ -1353,8 +1357,9 @@ export class RewardsService {
     }
 
     // Provider still processing the vend. Money may already have left the
-    // wallet, so never refund here — keep the redemption in PROCESSING for
-    // webhook/reconciliation to resolve it.
+    // wallet, so never refund here — keep the redemption in PROCESSING with a
+    // fresh lease so the stale-claim cron can reset it to PENDING (and a
+    // later claim can retry) if the provider never confirms.
     if (result.status !== 'PENDING') {
       throw new Error(
         `${isData ? 'Data bundle' : 'Airtime'} purchase failed: status ${result.status}`,
@@ -1370,7 +1375,7 @@ export class RewardsService {
       voucher: {
         instructions: `Your ${isData ? 'data bundle' : 'airtime'} is being confirmed with the network. This usually completes within a few minutes.`,
       },
-      processingStartedAt: null,
+      processingStartedAt: () => 'NOW()',
     });
   }
 
@@ -1409,7 +1414,8 @@ export class RewardsService {
     }
 
     // Same money-safety rule as airtime/data: a pending utility vend may have
-    // been debited, so keep the redemption in PROCESSING instead of refunding.
+    // been debited, so keep the redemption in PROCESSING with a fresh lease
+    // (stale-claim cron can reset it for retry) instead of refunding.
     if (result.status !== 'PENDING') {
       throw new Error(`Electricity purchase failed: status ${result.status}`);
     }
@@ -1424,7 +1430,7 @@ export class RewardsService {
         instructions:
           'Your utility payment is being confirmed with the provider. This usually completes within a few minutes.',
       },
-      processingStartedAt: null,
+      processingStartedAt: () => 'NOW()',
     });
   }
 

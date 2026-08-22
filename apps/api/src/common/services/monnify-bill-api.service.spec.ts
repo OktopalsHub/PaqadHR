@@ -242,4 +242,46 @@ describe('MonnifyBillApiService', () => {
     expect(String(calls[0][0])).toContain('category_code=DATA_BUNDLE');
     expect(JSON.parse(calls[3][1].body)).toMatchObject({ productCode: '19882' });
   });
+
+  it('vends the exact selected data bundle when plans share a price', async () => {
+    const service = new MonnifyBillApiService(monnifyApi);
+
+    const duplicatedPricePlans = [
+      {
+        code: '19875',
+        name: 'N500_Oneoff 1.55GB (7 Days)',
+        price: 260,
+        priceType: 'FIXED',
+        category: { code: 'DATA_BUNDLE', name: 'DATA_BUNDLE' },
+      },
+      {
+        code: '19882',
+        name: 'Camp-Boost_200_Oneoff 525MB (2 Days)',
+        price: 260,
+        priceType: 'FIXED',
+        category: { code: 'DATA_BUNDLE', name: 'DATA_BUNDLE' },
+      },
+    ];
+
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(okBody({ content: [{ code: 'GLO', name: 'GLO' }] }))
+      .mockResolvedValueOnce(okBody({ content: duplicatedPricePlans }))
+      .mockResolvedValueOnce(okBody({ requireValidationRef: false }))
+      .mockResolvedValueOnce(
+        okBody({ transactionReference: 'mfy-tx-4', vendStatus: 'SUCCESS' }),
+      ) as unknown as typeof fetch;
+
+    // User picked Camp-Boost (19882); both plans cost 260, so the code must decide.
+    await service.purchaseDataBundle({
+      amount: 260,
+      phoneNumber: '08012345678',
+      network: 'GLO',
+      merchantTxRef: 'redemption-4',
+      productCode: '19882',
+    });
+
+    const calls = (global.fetch as jest.Mock).mock.calls;
+    expect(JSON.parse(calls[3][1].body)).toMatchObject({ productCode: '19882' });
+  });
 });
