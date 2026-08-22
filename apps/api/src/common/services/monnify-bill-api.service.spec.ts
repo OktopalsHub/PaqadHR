@@ -34,14 +34,10 @@ describe('MonnifyBillApiService', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(
-        okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]),
-      )
+      .mockResolvedValueOnce(okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]))
       .mockResolvedValueOnce(okBody([{ billerCode: 'MTN_AIRTIME', name: 'MTN' }]))
       .mockResolvedValueOnce(okBody([{ productCode: 'MTN_VTU', name: 'MTN Airtime' }]))
-      .mockResolvedValueOnce(
-        okBody({ requireValidationRef: true, validationReference: 'val-1' }),
-      )
+      .mockResolvedValueOnce(okBody({ requireValidationRef: true, validationReference: 'val-1' }))
       .mockResolvedValueOnce(
         okBody({
           transactionReference: 'mfy-tx-1',
@@ -79,9 +75,7 @@ describe('MonnifyBillApiService', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(
-        okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]),
-      )
+      .mockResolvedValueOnce(okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]))
       .mockResolvedValueOnce(okBody([{ billerCode: 'AIRTEL_AIRTIME', name: 'Airtel' }]))
       .mockResolvedValueOnce(okBody([{ productCode: 'AIRTEL_VTU', name: 'Airtel Airtime' }]))
       .mockResolvedValueOnce(okBody({ requireValidationRef: false }))
@@ -121,9 +115,7 @@ describe('MonnifyBillApiService', () => {
 
     global.fetch = jest
       .fn()
-      .mockResolvedValueOnce(
-        okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]),
-      )
+      .mockResolvedValueOnce(okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]))
       .mockResolvedValueOnce(okBody([{ billerCode: 'MTN_AIRTIME', name: 'MTN' }]))
       .mockResolvedValueOnce(okBody([{ productCode: 'MTN_VTU', name: 'MTN Airtime' }]))
       .mockResolvedValueOnce(okBody({ requireValidationRef: false }))

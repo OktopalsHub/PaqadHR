@@ -123,7 +123,9 @@ export class MonnifyBillApiService {
       );
       throw new BadRequestException('Monnify billing error: no airtime category found');
     }
-    this.logger.log(`Found airtime category: ${airtimeCategory.categoryName} (${airtimeCategory.categoryCode})`);
+    this.logger.log(
+      `Found airtime category: ${airtimeCategory.categoryName} (${airtimeCategory.categoryCode})`,
+    );
     return airtimeCategory.categoryCode;
   }
 
@@ -143,7 +145,9 @@ export class MonnifyBillApiService {
       );
       throw new BadRequestException('Monnify billing error: no data category found');
     }
-    this.logger.log(`Found data category: ${dataCategory.categoryName} (${dataCategory.categoryCode})`);
+    this.logger.log(
+      `Found data category: ${dataCategory.categoryName} (${dataCategory.categoryCode})`,
+    );
     return dataCategory.categoryCode;
   }
 
@@ -235,10 +239,9 @@ export class MonnifyBillApiService {
   }
 
   async listBillerCategories(): Promise<MonnifyBillerCategory[]> {
-    const body = await this.requestGet<MonnifyBillerCategory[] | { content?: MonnifyBillerCategory[] }>(
-      '/api/v1/vas/bills-payment/biller-categories',
-      { size: '100', page: '0' },
-    );
+    const body = await this.requestGet<
+      MonnifyBillerCategory[] | { content?: MonnifyBillerCategory[] }
+    >('/api/v1/vas/bills-payment/biller-categories', { size: '100', page: '0' });
     const categories = Array.isArray(body) ? body : (body.content ?? []);
     this.logger.log(`Fetched ${categories.length} biller categories from Monnify`);
     return categories;
@@ -366,7 +369,9 @@ export class MonnifyBillApiService {
     productCode: string,
     customerId: string,
   ): Promise<{ validationReference?: string; requireValidationRef: boolean }> {
-    this.logger.log(`Validating customer with productCode: ${productCode}, customerId: ${customerId}`);
+    this.logger.log(
+      `Validating customer with productCode: ${productCode}, customerId: ${customerId}`,
+    );
     const body = await this.requestPost<MonnifyValidateBody>(
       '/api/v1/vas/bills-payment/validate-customer',
       { productCode, customerId },
@@ -438,20 +443,20 @@ export class MonnifyBillApiService {
 
   private normalizePhoneNumber(phoneNumber: string): string {
     let normalized = phoneNumber.replace(/\s+/g, '').replace(/[-()]/g, '');
-    
+
     // If starts with +234, remove the + and keep 234
     if (normalized.startsWith('+234')) {
       normalized = normalized.replace('+234', '234');
     }
     // If starts with 0, replace with 234 (Nigeria country code)
     else if (normalized.startsWith('0')) {
-      normalized = '234' + normalized.substring(1);
+      normalized = `234${normalized.substring(1)}`;
     }
     // If doesn't start with 234, assume it needs country code
     else if (!normalized.startsWith('234')) {
-      normalized = '234' + normalized;
+      normalized = `234${normalized}`;
     }
-    
+
     return normalized;
   }
 
