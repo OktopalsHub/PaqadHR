@@ -1338,19 +1338,37 @@ export class RewardsService {
         : await this.nombaBillApi.purchaseAirtime(purchaseInput);
     }
 
-    if (!result.success) {
+    if (result.success) {
+      await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
+        status: 'SUCCESS' as RedemptionStatus,
+        providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
+        voucher: {
+          instructions: isData
+            ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
+            : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+        },
+        processingStartedAt: null,
+      });
+      return;
+    }
+
+    // Provider still processing the vend. Money may already have left the
+    // wallet, so never refund here — keep the redemption in PROCESSING for
+    // webhook/reconciliation to resolve it.
+    if (result.status !== 'PENDING') {
       throw new Error(
         `${isData ? 'Data bundle' : 'Airtime'} purchase failed: status ${result.status}`,
       );
     }
 
+    this.logger.warn(
+      `Top-up still pending at provider for redemption ${redemption.id}; leaving it in PROCESSING`,
+    );
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
-      status: 'SUCCESS' as RedemptionStatus,
+      status: 'PROCESSING' as RedemptionStatus,
       providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
       voucher: {
-        instructions: isData
-          ? `Data bundle of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`
-          : `Airtime of ${redemption.currencyCode} ${redemption.currencyValue} sent to ${input.recipientPhone}`,
+        instructions: `Your ${isData ? 'data bundle' : 'airtime'} is being confirmed with the network. This usually completes within a few minutes.`,
       },
       processingStartedAt: null,
     });
@@ -1376,18 +1394,36 @@ export class RewardsService {
       ? await this.monnifyBillApi.purchaseElectricity(purchaseInput)
       : await this.nombaBillApi.purchaseElectricity(purchaseInput);
 
-    if (!result.success) {
+    if (result.success) {
+      const instructions = result.token
+        ? `Utility payment successful. Prepaid token: ${result.token}`
+        : `Utility payment successful. Reference: ${result.transactionId}`;
+
+      await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
+        status: 'SUCCESS' as RedemptionStatus,
+        providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
+        voucher: { code: result.token || undefined, instructions },
+        processingStartedAt: null,
+      });
+      return;
+    }
+
+    // Same money-safety rule as airtime/data: a pending utility vend may have
+    // been debited, so keep the redemption in PROCESSING instead of refunding.
+    if (result.status !== 'PENDING') {
       throw new Error(`Electricity purchase failed: status ${result.status}`);
     }
 
-    const instructions = result.token
-      ? `Utility payment successful. Prepaid token: ${result.token}`
-      : `Utility payment successful. Reference: ${result.transactionId}`;
-
+    this.logger.warn(
+      `Utility payment still pending at provider for redemption ${redemption.id}; leaving it in PROCESSING`,
+    );
     await this.dataSource.getRepository(RewardRedemption).update(redemption.id, {
-      status: 'SUCCESS' as RedemptionStatus,
+      status: 'PROCESSING' as RedemptionStatus,
       providerRef: { ...redemption.providerRef, txRef: result.transactionId ?? undefined },
-      voucher: { code: result.token || undefined, instructions },
+      voucher: {
+        instructions:
+          'Your utility payment is being confirmed with the provider. This usually completes within a few minutes.',
+      },
       processingStartedAt: null,
     });
   }

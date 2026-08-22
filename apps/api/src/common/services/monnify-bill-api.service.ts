@@ -25,17 +25,22 @@ interface MonnifyApiEnvelope<T> {
 }
 
 interface MonnifyBiller {
+  // Sandbox VAS API returns { code, name }; older docs mention billerCode.
   billerCode?: string;
+  code?: string;
   name?: string;
   categoryCode?: string;
 }
 
 interface MonnifyProduct {
   productCode?: string;
+  code?: string;
   name?: string;
   amount?: number | string;
   minAmount?: number | string;
   maxAmount?: number | string;
+  price?: number | string;
+  category?: { code?: string };
 }
 
 interface MonnifyValidateBody {
@@ -59,6 +64,9 @@ interface MonnifyVendBody {
 export class MonnifyBillApiService {
   private readonly logger = new Logger(MonnifyBillApiService.name);
   private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+  // Overridable in tests to avoid real sleeps while polling vend status.
+  static VEND_POLL_ATTEMPTS = 3;
+  static VEND_POLL_DELAY_MS = 2000;
   private readonly billerCache = new Map<string, { expiresAt: number; billers: MonnifyBiller[] }>();
   private readonly productCache = new Map<
     string,
@@ -95,6 +103,22 @@ export class MonnifyBillApiService {
   private matchesNetwork(name: string | undefined, network: MonnifyTelcoNetwork): boolean {
     const haystack = (name ?? '').toLowerCase();
     return this.networkMatchers(network).some((needle) => haystack.includes(needle));
+  }
+
+  private billerId(biller: MonnifyBiller): string | undefined {
+    return biller.code ?? biller.billerCode;
+  }
+
+  private productId(product: MonnifyProduct): string | undefined {
+    return product.code ?? product.productCode;
+  }
+
+  private describeBillers(billers: MonnifyBiller[], limit = 10): string {
+    if (billers.length === 0) return 'biller list was empty';
+    return `returned: ${billers
+      .slice(0, limit)
+      .map((biller) => `${this.billerId(biller) ?? '?'} (${biller.name ?? '?'})`)
+      .join(', ')}`;
   }
 
   private async requestGet<T>(path: string, query?: Record<string, string>): Promise<T> {
@@ -177,21 +201,21 @@ export class MonnifyBillApiService {
   }
 
   private async resolveBiller(
-    categoryCode: 'AIRTIME' | 'DATA',
+    categoryCode: 'AIRTIME' | 'DATA_BUNDLE' | 'ELECTRICITY',
     network: MonnifyTelcoNetwork,
   ): Promise<MonnifyBiller> {
     const billers = await this.listBillers(categoryCode);
     const match = billers.find((biller) => this.matchesNetwork(biller.name, network));
-    if (!match?.billerCode) {
+    if (!match || !this.billerId(match)) {
       throw new BadRequestException(
-        `Monnify billing error: no ${categoryCode.toLowerCase()} biller for ${network}`,
+        `Monnify billing error: no ${categoryCode.toLowerCase()} biller for ${network} (${this.describeBillers(billers)})`,
       );
     }
     return match;
   }
 
   private productAmount(product: MonnifyProduct): number | null {
-    const raw = product.amount ?? product.minAmount;
+    const raw = product.price ?? product.amount ?? product.minAmount;
     if (raw == null) return null;
     const amount = Number(raw);
     return Number.isFinite(amount) ? amount : null;
@@ -199,12 +223,18 @@ export class MonnifyBillApiService {
 
   private async resolveAirtimeProduct(network: MonnifyTelcoNetwork): Promise<MonnifyProduct> {
     const biller = await this.resolveBiller('AIRTIME', network);
-    const products = await this.listProducts(biller.billerCode!);
+    const products = await this.listProducts(this.billerId(biller)!);
+    const isAirtimeCategory = (row: MonnifyProduct): boolean =>
+      (row.category?.code ?? '').toUpperCase() === 'AIRTIME';
     const product =
-      products.find((row) => /airtime/i.test(row.name ?? '')) ??
-      products.find((row) => row.productCode) ??
+      products.find(
+        (row) =>
+          this.productId(row) && isAirtimeCategory(row) && /airtime|top.?up/i.test(row.name ?? ''),
+      ) ??
+      products.find((row) => this.productId(row) && isAirtimeCategory(row)) ??
+      products.find((row) => this.productId(row)) ??
       null;
-    if (!product?.productCode) {
+    if (!product || !this.productId(product)) {
       throw new BadRequestException(`Monnify billing error: no airtime product for ${network}`);
     }
     return product;
@@ -214,13 +244,15 @@ export class MonnifyBillApiService {
     network: MonnifyTelcoNetwork,
     amount: number,
   ): Promise<MonnifyProduct> {
-    const biller = await this.resolveBiller('DATA', network);
-    const products = await this.listProducts(biller.billerCode!);
+    // Telco data bundles live under DATA_BUNDLE; DATA only lists ISPs
+    // (Spectranet, Smile, Swift).
+    const biller = await this.resolveBiller('DATA_BUNDLE', network);
+    const products = await this.listProducts(this.billerId(biller)!);
     const product =
-      products.find((row) => this.productAmount(row) === amount) ??
-      products.find((row) => row.productCode === String(amount)) ??
+      products.find((row) => this.productId(row) && this.productAmount(row) === amount) ??
+      products.find((row) => this.productId(row) === String(amount)) ??
       null;
-    if (!product?.productCode) {
+    if (!product || !this.productId(product)) {
       throw new BadRequestException(
         `Monnify billing error: no data product for ${network} at amount ${amount}`,
       );
@@ -230,16 +262,17 @@ export class MonnifyBillApiService {
 
   async listDataPlans(telco: string): Promise<MonnifyDataPlan[]> {
     const network = telco.toUpperCase() as MonnifyTelcoNetwork;
-    const biller = await this.resolveBiller('DATA', network);
-    const products = await this.listProducts(biller.billerCode!);
+    const biller = await this.resolveBiller('DATA_BUNDLE', network);
+    const products = await this.listProducts(this.billerId(biller)!);
     return products
       .map((row) => {
         const amount = this.productAmount(row);
-        if (amount == null || !row.productCode) return null;
+        const id = this.productId(row);
+        if (amount == null || !id) return null;
         return {
           amount,
-          plan: row.name || row.productCode,
-          productCode: row.productCode,
+          plan: row.name || id,
+          productCode: id,
         };
       })
       .filter((row): row is MonnifyDataPlan => row != null);
@@ -261,6 +294,12 @@ export class MonnifyBillApiService {
     return { requireValidationRef, validationReference };
   }
 
+  private async requeryVend(vendReference: string): Promise<MonnifyVendBody> {
+    return this.requestGet<MonnifyVendBody>('/api/v1/vas/bills-payment/requery', {
+      reference: vendReference,
+    });
+  }
+
   private async vend(input: {
     productCode: string;
     customerId: string;
@@ -278,12 +317,33 @@ export class MonnifyBillApiService {
       body.validationReference = input.validationReference;
     }
 
-    const result = await this.requestPost<MonnifyVendBody>('/api/v1/vas/bills-payment/vend', body);
-    const status = (result.vendStatus ?? result.status ?? 'UNKNOWN').toUpperCase();
+    let result = await this.requestPost<MonnifyVendBody>('/api/v1/vas/bills-payment/vend', body);
+    const pendingStatuses = ['IN_PROGRESS', 'PROCESSING', 'PENDING'];
+    const isTerminal = (value: MonnifyVendBody): string => {
+      const status = (value.vendStatus ?? value.status ?? '').toUpperCase();
+      // Normalize a never-settled vend so callers can branch on PENDING.
+      if (!status || pendingStatuses.includes(status)) return 'PENDING';
+      return status;
+    };
+    for (let attempt = 0; attempt < MonnifyBillApiService.VEND_POLL_ATTEMPTS; attempt++) {
+      if (isTerminal(result) !== 'PENDING') break;
+      await new Promise((resolve) => setTimeout(resolve, MonnifyBillApiService.VEND_POLL_DELAY_MS));
+      try {
+        result = await this.requeryVend(input.vendReference);
+      } catch (error) {
+        this.logger.warn(
+          `Monnify billing requery failed for ${input.vendReference}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+    const status = isTerminal(result);
     const success = status === 'SUCCESS' || status === 'COMPLETED' || status === 'SUCCESSFUL';
     return {
       success,
-      transactionId: result.transactionReference ?? result.vendReference ?? input.vendReference,
+      transactionId:
+        result.transactionReference ??
+        result.vendReference ??
+        (success ? input.vendReference : null),
       status,
     };
   }
@@ -293,9 +353,10 @@ export class MonnifyBillApiService {
     input: MonnifyAirtimeInput,
   ): Promise<{ success: boolean; transactionId: string | null; status: string }> {
     const customerId = input.phoneNumber.replace(/\s+/g, '');
-    const validation = await this.validateCustomer(product.productCode!, customerId);
+    const id = this.productId(product)!;
+    const validation = await this.validateCustomer(id, customerId);
     return this.vend({
-      productCode: product.productCode!,
+      productCode: id,
       customerId,
       vendAmount: input.amount,
       vendReference: input.merchantTxRef,
@@ -326,10 +387,11 @@ export class MonnifyBillApiService {
   async listElectricityBillers(): Promise<Array<{ id: string; name: string }>> {
     const billers = await this.listBillers('ELECTRICITY');
     return billers
-      .filter((biller) => Boolean(biller.billerCode))
-      .map((biller) => ({
-        id: String(biller.billerCode),
-        name: biller.name || String(biller.billerCode),
+      .map((biller) => ({ biller, id: this.billerId(biller) }))
+      .filter((row): row is { biller: MonnifyBiller; id: string } => Boolean(row.id))
+      .map((row) => ({
+        id: row.id,
+        name: row.biller.name || row.id,
       }));
   }
 
@@ -340,10 +402,12 @@ export class MonnifyBillApiService {
     const products = await this.listProducts(billerCode);
     const needle = serviceType.toLowerCase();
     const product =
-      products.find((row) => (row.name ?? '').toLowerCase().includes(needle)) ??
-      products.find((row) => row.productCode) ??
+      products.find(
+        (row) => this.productId(row) && (row.name ?? '').toLowerCase().includes(needle),
+      ) ??
+      products.find((row) => this.productId(row)) ??
       null;
-    if (!product?.productCode) {
+    if (!product || !this.productId(product)) {
       throw new BadRequestException(
         `Monnify billing error: no ${serviceType.toLowerCase()} electricity product for ${billerCode}`,
       );
@@ -365,7 +429,7 @@ export class MonnifyBillApiService {
     const customerId = meterNumber.replace(/\s+/g, '');
     const body = await this.requestPost<MonnifyValidateBody>(
       '/api/v1/vas/bills-payment/validate-customer',
-      { productCode: product.productCode, customerId },
+      { productCode: this.productId(product), customerId },
     );
     return {
       customerName: body.customerName ?? null,
@@ -389,9 +453,10 @@ export class MonnifyBillApiService {
   }> {
     const product = await this.resolveElectricityProduct(input.billerId, input.serviceType);
     const customerId = input.meterNumber.replace(/\s+/g, '');
-    const validation = await this.validateCustomer(product.productCode!, customerId);
+    const id = this.productId(product)!;
+    const validation = await this.validateCustomer(id, customerId);
     const result = await this.vend({
-      productCode: product.productCode!,
+      productCode: id,
       customerId,
       vendAmount: input.amount,
       vendReference: input.merchantTxRef,
