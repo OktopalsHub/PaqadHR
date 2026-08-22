@@ -336,6 +336,7 @@ describe('AuthService', () => {
       sessionRepository.findOne.mockResolvedValue({
         token: 'old-session',
         userId: 'user-1',
+        createdAt: new Date(Date.now() - 3_600_000),
         expiresAt: new Date(Date.now() + 60_000),
       });
       sessionRepository.save.mockImplementation(async (session) => session);
@@ -369,6 +370,7 @@ describe('AuthService', () => {
       let activeSession = {
         token: 'old-session',
         userId: 'user-1',
+        createdAt: new Date(Date.now() - 3_600_000),
         expiresAt: new Date(Date.now() + 60_000),
       };
 
@@ -382,6 +384,7 @@ describe('AuthService', () => {
         activeSession = {
           token: session.token,
           userId: session.userId,
+          createdAt: session.createdAt,
           expiresAt: session.expiresAt,
         };
         return activeSession;

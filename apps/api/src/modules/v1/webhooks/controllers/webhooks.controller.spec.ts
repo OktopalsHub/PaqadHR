@@ -37,8 +37,8 @@ describe('WebhooksController', () => {
       mockNoahWebhookService as unknown as NoahWebhookService,
       mockBachsWebhookService as unknown as BachsWebhookService,
       mockPolarWebhookService as unknown as PolarWebhookService,
-      mockTremendousWebhookService as unknown as TremendousWebhookService,
       mockSlackWebhookService as unknown as SlackWebhookService,
+      mockTremendousWebhookService as unknown as TremendousWebhookService,
     );
   });
 

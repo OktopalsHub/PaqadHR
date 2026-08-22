@@ -58,9 +58,9 @@ export class LeaveBalanceService {
       usedDays: number;
       remainingDays: number;
     }[],
-  ): Promise<void> {
-    if (records.length === 0) return;
-    await this.leaveBalanceRepository.save(
+  ): Promise<LeaveBalance[]> {
+    if (records.length === 0) return [];
+    return this.leaveBalanceRepository.save(
       records.map((r) => ({
         ...r,
         tenantId,

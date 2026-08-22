@@ -51,8 +51,8 @@ describe('RewardsService claim idempotency', () => {
       id: idempotencyKey,
       tenantId: 'tenant-1',
       memberId: 'member-1',
-      rewardType: 'RELOADLY',
-      rewardId: 'reloadly_NG_101',
+      rewardType: 'TREMENDOUS' as const,
+      rewardId: 'tremendous_NG_101',
       rewardName: 'Amazon NG',
       pointsSpent: 100,
       currencyValue: 1000,
@@ -81,12 +81,13 @@ describe('RewardsService claim idempotency', () => {
 
     const result = await service.claim('tenant-1', 'member-1', {
       idempotencyKey,
-      rewardType: 'RELOADLY',
-      rewardId: 'reloadly_NG_101',
+      rewardType: 'TREMENDOUS',
+      rewardId: 'tremendous_NG_101',
       rewardName: 'Amazon NG',
       pointsCost: 100,
       currencyValue: 1000,
       currencyCode: 'NGN',
+      recipientEmail: 'test@example.com',
     });
 
     expect(result).toBe(existing);

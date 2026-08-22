@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { runCronJob } from 'src/common/utils/cron-logging.util';
-import { LessThan, Not, Repository } from 'typeorm';
+import { In, LessThan, Not, Repository } from 'typeorm';
 import { RedemptionStatus, RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsService } from './rewards.service';
 
@@ -66,7 +66,7 @@ export class RewardsClaimCronService {
         where: {
           status: 'PENDING',
           createdAt: LessThan(stalePendingCutoff),
-          ...(resetIds.size > 0 ? { id: Not(Array.from(resetIds)) } : {}),
+          ...(resetIds.size > 0 ? { id: Not(In(Array.from(resetIds))) } : {}),
         },
       });
 

@@ -50,12 +50,13 @@ export class LeaveBalanceInitializationService {
   }
   async bulkInitializeLeaveBalances(tenantId: string, memberIds: string[], year?: number) {
     const targetYear = year || new Date().getFullYear();
+    const uniqueMemberIds = [...new Set(memberIds)];
     const leaveTypes = await this.leaveTypeService.listLeaveTypes(tenantId);
     const activeLeaveTypes = leaveTypes.filter((lt) => lt.isActive);
     const activeLeaveTypeIds = activeLeaveTypes.map((lt) => lt.id);
     const existingBalances = await this.leaveBalanceService.findExistingBalances(
       tenantId,
-      memberIds,
+      uniqueMemberIds,
       activeLeaveTypeIds,
       targetYear,
     );
@@ -67,7 +68,7 @@ export class LeaveBalanceInitializationService {
       leaveTypeId: string;
       totalDays: number;
     }[] = [];
-    for (const memberId of memberIds) {
+    for (const memberId of uniqueMemberIds) {
       for (const leaveType of activeLeaveTypes) {
         if (!existingSet.has(`${memberId}:${leaveType.id}`)) {
           missingRecords.push({
@@ -79,9 +80,10 @@ export class LeaveBalanceInitializationService {
       }
     }
 
-    // Batch insert all missing records
+    // Batch insert all missing records and capture the returned entities
+    let savedBalances: LeaveBalance[] = [];
     if (missingRecords.length > 0) {
-      await this.leaveBalanceService.createLeaveBalancesBatch(
+      savedBalances = await this.leaveBalanceService.createLeaveBalancesBatch(
         tenantId,
         missingRecords.map((r) => ({
           memberId: r.memberId,
@@ -94,16 +96,18 @@ export class LeaveBalanceInitializationService {
       );
     }
 
-    // Build result per member
-    const createdCountMap = new Map<string, number>();
-    for (const r of missingRecords) {
-      createdCountMap.set(r.memberId, (createdCountMap.get(r.memberId) ?? 0) + 1);
+    // Group saved balances by memberId
+    const balancesByMember = new Map<string, LeaveBalance[]>();
+    for (const balance of savedBalances) {
+      const list = balancesByMember.get(balance.memberId) ?? [];
+      list.push(balance);
+      balancesByMember.set(balance.memberId, list);
     }
 
-    return memberIds.map((memberId) => ({
+    return uniqueMemberIds.map((memberId) => ({
       memberId,
-      balancesCreated: createdCountMap.get(memberId) ?? 0,
-      balances: [] as LeaveBalance[],
+      balancesCreated: balancesByMember.get(memberId)?.length ?? 0,
+      balances: balancesByMember.get(memberId) ?? [],
     }));
   }
   async initializeNewLeaveTypeForAllMembers(
