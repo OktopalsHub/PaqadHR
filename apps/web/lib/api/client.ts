@@ -15,6 +15,7 @@ import {
   type FetchWithCsrfOptions,
   isCsrfErrorResponse,
 } from './fetch-with-csrf';
+import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 const CSRF_HEADER = 'x-csrf-token';
 
@@ -89,6 +90,7 @@ export async function ensureCsrfToken(force = false): Promise<string> {
   csrfTokenPromise = (async () => {
     try {
       const { data } = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
+        timeout: API_REQUEST_TIMEOUT_MS,
         withCredentials: true,
       });
       if (!data.csrfToken) {
@@ -174,6 +176,7 @@ async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPay
 
 const http = axios.create({
   baseURL: resolveApiV1Base(),
+  timeout: API_REQUEST_TIMEOUT_MS,
   withCredentials: true,
 });
 

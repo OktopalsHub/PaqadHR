@@ -114,7 +114,15 @@ export function ResetPasswordForm({ token }: ResetPasswordFormProps) {
               <FormItem>
                 <FormLabel>Confirm password</FormLabel>
                 <FormControl>
-                  <PasswordInput autoComplete="new-password" {...field} />
+                  <PasswordInput
+                    autoComplete="new-password"
+                    {...field}
+                    onFocus={() => setIsPasswordFocused(true)}
+                    onBlur={() => {
+                      field.onBlur();
+                      setIsPasswordFocused(false);
+                    }}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>

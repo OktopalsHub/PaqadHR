@@ -176,7 +176,7 @@ export function AcceptInvitePage() {
       <div className="space-y-4 text-center">
         <h1 className="text-2xl font-semibold tracking-tight">Invitation unavailable</h1>
         <p className="text-sm text-muted-foreground">{loadError ?? 'Invitation not found.'}</p>
-        <Button asChild variant="outline">
+        <Button asChild variant="brandSolid">
           <Link href="/signin">Go to sign in</Link>
         </Button>
       </div>

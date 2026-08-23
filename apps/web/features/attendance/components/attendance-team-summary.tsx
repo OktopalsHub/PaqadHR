@@ -4,7 +4,6 @@ import { ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
-import { PersonAvatar } from '@/components/person-avatar';
 import {
   AppTable,
   AppTableBodyRow,
@@ -23,7 +22,6 @@ import {
   statusLabel,
 } from '@/features/attendance/lib/attendance-utils';
 import { useMonthlyTimesheet } from '@/hooks/queries/use-attendance';
-import { useEmployees } from '@/hooks/queries/use-employees';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import type { MonthlyTimesheetMember } from '@/lib/api/attendance';
 import type { TenantSettingsResponse } from '@/lib/api/tenant-settings';
@@ -78,11 +76,9 @@ function isHolidayDate(
 
 function MemberSummaryRow({
   entry,
-  avatar,
   tenantSettings,
 }: {
   entry: MonthlyTimesheetMember;
-  avatar?: string;
   tenantSettings?: TenantSettingsResponse;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -145,15 +141,12 @@ function MemberSummaryRow({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-8 px-1"
+              className="size-7 rounded-sm bg-primary p-0 text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               onClick={() => setExpanded((open) => !open)}
             >
               {expanded ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
             </Button>
-            <div className="flex items-center gap-2">
-              <PersonAvatar src={avatar} name={name} className="h-7 w-7 flex-shrink-0" />
-              <span className="font-medium">{name}</span>
-            </div>
+            <span className="font-medium">{name}</span>
           </div>
         </AppTableCell>
         <AppTableCell className="text-muted-foreground">
@@ -173,7 +166,6 @@ export function AttendanceTeamSummary({ month, year }: { month: number; year: nu
   const [page, setPage] = useState(1);
 
   const { data, isLoading } = useMonthlyTimesheet(month, year, page);
-  const { data: employees = [] } = useEmployees();
   const { data: tenantSettings } = useTenantSettings();
 
   const members = useMemo(() => data?.members ?? [], [data?.members]);
@@ -207,17 +199,13 @@ export function AttendanceTeamSummary({ month, year }: { month: number; year: nu
               </AppTableHeaderRow>
             </AppTableHeaderSection>
             <AppTableBodySection>
-              {members.map((entry) => {
-                const employee = employees.find((emp) => emp.id === entry.member.id);
-                return (
-                  <MemberSummaryRow
-                    key={entry.member.id}
-                    entry={entry}
-                    avatar={employee?.avatar}
-                    tenantSettings={tenantSettings}
-                  />
-                );
-              })}
+              {members.map((entry) => (
+                <MemberSummaryRow
+                  key={entry.member.id}
+                  entry={entry}
+                  tenantSettings={tenantSettings}
+                />
+              ))}
             </AppTableBodySection>
           </AppTable>
           {pagination && pagination.totalPages > 1 ? (

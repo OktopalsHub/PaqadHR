@@ -72,8 +72,13 @@ export class AuthController {
 
   @Post('register/resend-verification')
   @Public()
-  async resendEmailVerification(@Body() body: ResendEmailVerificationDto) {
-    return this.authService.resendEmailVerification(body.email);
+  async resendEmailVerification(
+    @Body() body: ResendEmailVerificationDto,
+    @Ip() ipParam: string,
+    @Req() req: Request,
+  ) {
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
+    return this.authService.resendEmailVerification(body.email, ip);
   }
 
   @Post('register/verify-email')

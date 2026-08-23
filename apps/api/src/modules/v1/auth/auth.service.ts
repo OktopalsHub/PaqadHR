@@ -389,7 +389,19 @@ export class AuthService {
     });
   }
 
-  async resendEmailVerification(email: string): Promise<{ message: string }> {
+  async resendEmailVerification(email: string, ip?: string): Promise<{ message: string }> {
+    if (ip) {
+      const ipRate = await this.rateLimitService.checkRateLimit(
+        `email-verification:resend-ip:${ip}`,
+        {
+          rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 10 }],
+        },
+      );
+      if (!ipRate.allowed) {
+        throw new BadRequestException('Too many verification requests. Please try again later.');
+      }
+    }
+
     const user = await this.userRepository.findUserByEmail(StringUtility.trimAndLowerCase(email));
     if (user && !user.emailVerified) {
       await this.sendEmailVerificationOtp(user);

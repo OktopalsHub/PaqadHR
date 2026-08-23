@@ -1,4 +1,8 @@
-import { UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import {
+  BadRequestException,
+  UnauthorizedException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -40,6 +44,7 @@ describe('AuthService', () => {
     find: jest.Mock;
   };
   let jwtService: { sign: jest.Mock; verify: jest.Mock };
+  let rateLimitService: { checkRateLimit: jest.Mock };
 
   beforeEach(async () => {
     const mockUserRepository = {
@@ -90,6 +95,7 @@ describe('AuthService', () => {
       clearLockout: jest.fn(),
       isLocked: jest.fn().mockReturnValue(false),
     };
+    rateLimitService = mockRateLimitService;
     const mockZeptomailEmailService = {
       sendTemplateEmail: jest.fn().mockResolvedValue({ success: true }),
     };
@@ -441,6 +447,22 @@ describe('AuthService', () => {
       expect(result.emailVerified).toBe(true);
       expect(userRepository.update).toHaveBeenCalledWith('user-1', { emailVerified: true });
       expect(verificationRepository.delete).toHaveBeenCalledWith('verification-1');
+    });
+  });
+
+  describe('resendEmailVerification', () => {
+    it('limits requests by IP before looking up the account', async () => {
+      rateLimitService.checkRateLimit.mockResolvedValueOnce({ allowed: false, retryAfter: 60 });
+
+      await expect(
+        authService.resendEmailVerification('test@example.com', '203.0.113.1'),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(rateLimitService.checkRateLimit).toHaveBeenCalledWith(
+        'email-verification:resend-ip:203.0.113.1',
+        { rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 10 }] },
+      );
+      expect(userRepository.findUserByEmail).not.toHaveBeenCalled();
     });
   });
 

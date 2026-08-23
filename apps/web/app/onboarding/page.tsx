@@ -17,8 +17,8 @@ export default function OnboardingPage() {
         className={cn(
           'grid h-full w-full min-w-0 gap-4 lg:gap-5 xl:items-stretch',
           isExpandedStep
-            ? 'xl:grid-cols-[minmax(16rem,0.84fr)_minmax(0,1.16fr)] xl:gap-6 2xl:grid-cols-[minmax(17rem,0.9fr)_minmax(0,56rem)] 2xl:gap-8'
-            : 'xl:grid-cols-[minmax(18rem,0.95fr)_minmax(0,1.05fr)] xl:gap-8 2xl:grid-cols-[minmax(18rem,1fr)_minmax(0,45rem)] 2xl:gap-10',
+            ? 'sm:grid-cols-[minmax(15rem,0.84fr)_minmax(0,1.16fr)] sm:items-stretch xl:grid-cols-[minmax(16rem,0.84fr)_minmax(0,1.16fr)] xl:gap-6 2xl:grid-cols-[minmax(17rem,0.9fr)_minmax(0,56rem)] 2xl:gap-8'
+            : 'sm:grid-cols-[minmax(15rem,0.95fr)_minmax(0,1.05fr)] sm:items-stretch xl:grid-cols-[minmax(18rem,0.95fr)_minmax(0,1.05fr)] xl:gap-8 2xl:grid-cols-[minmax(18rem,1fr)_minmax(0,45rem)] 2xl:gap-10',
         )}
       >
         <section
@@ -69,7 +69,7 @@ export default function OnboardingPage() {
 
             <div
               className={cn(
-                'grid sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2',
+                'grid grid-cols-1 2xl:grid-cols-2',
                 isExpandedStep ? 'mt-auto gap-2 pt-6' : 'mt-auto gap-2.5',
               )}
             >
@@ -140,7 +140,7 @@ export default function OnboardingPage() {
 
         <div
           className={cn(
-            'min-w-0 w-full xl:justify-self-end',
+            'min-w-0 w-full sm:justify-self-end',
             isExpandedStep
               ? 'xl:max-w-[52rem] 2xl:max-w-[56rem]'
               : 'xl:max-w-[43rem] 2xl:max-w-[45rem]',
