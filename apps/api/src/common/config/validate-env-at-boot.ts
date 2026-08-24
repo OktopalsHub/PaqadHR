@@ -44,6 +44,7 @@ export function validateEnvAtBoot(): void {
   const isProduction = (process.env.NODE_ENV || 'development') === 'production';
   const errors: string[] = [];
   const warnings: string[] = [];
+  const cookieCrossSite = process.env.COOKIE_CROSS_SITE?.trim().toLowerCase();
   const nombaLive = process.env.NOMBA_LIVE === 'true';
   const monnifyLive = isMonnifyLive();
   const noahProduction = process.env.NOAH_ENVIRONMENT === 'production';
@@ -55,6 +56,19 @@ export function validateEnvAtBoot(): void {
   for (const key of CRITICAL) {
     if (!process.env[key]?.trim()) {
       errors.push(`${key} is not set`);
+    }
+  }
+
+  if (cookieCrossSite !== undefined && !['true', 'false'].includes(cookieCrossSite)) {
+    errors.push('COOKIE_CROSS_SITE must be true or false');
+  }
+  if (isProduction && cookieCrossSite !== 'true') {
+    errors.push('COOKIE_CROSS_SITE=true is required in production');
+  }
+  if (cookieCrossSite === 'true') {
+    const appDomain = process.env.APP_DOMAIN?.trim();
+    if (!appDomain || appDomain === 'localhost') {
+      errors.push('COOKIE_CROSS_SITE=true requires a non-localhost APP_DOMAIN');
     }
   }
 

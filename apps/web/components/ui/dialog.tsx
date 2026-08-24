@@ -14,6 +14,10 @@ function hasDialogDescription(children: React.ReactNode): boolean {
   });
 }
 
+export function hasExplicitAriaDescribedBy(props: object): boolean {
+  return Object.hasOwn(props, 'aria-describedby');
+}
+
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
@@ -50,12 +54,12 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
-  'aria-describedby': ariaDescribedBy,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
 }) {
   const includesDescription = hasDialogDescription(children);
+  const hasExplicitDescription = hasExplicitAriaDescribedBy(props);
 
   return (
     <DialogPortal data-slot="dialog-portal">
@@ -66,8 +70,8 @@ function DialogContent({
           'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
           className,
         )}
-        {...(ariaDescribedBy !== undefined
-          ? { 'aria-describedby': ariaDescribedBy }
+        {...(hasExplicitDescription
+          ? { 'aria-describedby': props['aria-describedby'] }
           : includesDescription
             ? {}
             : { 'aria-describedby': undefined })}

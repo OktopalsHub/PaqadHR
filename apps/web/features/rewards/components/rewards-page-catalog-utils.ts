@@ -126,6 +126,6 @@ export function getAvailableCustomPerkTemplates(customPerks: CatalogItem[]): Cat
   );
 }
 
-export function dataPlanId(plan: { amount: number; plan: string }) {
-  return `${plan.amount}:${plan.plan}`;
+export function dataPlanId(plan: { amount: number; plan: string; productCode?: string }) {
+  return plan.productCode ?? `${plan.amount}:${plan.plan}`;
 }

@@ -466,6 +466,23 @@ describe('AuthService', () => {
     });
   });
 
+  describe('sendEmailVerificationOtp', () => {
+    it('persists the code but does not fail registration when email delivery is unavailable', async () => {
+      const user = { id: 'user-1', email: 'test@example.com' } as User;
+      verificationRepository.create.mockImplementation((data) => data);
+      zeptomailEmailService.sendTemplateEmail.mockRejectedValue(new Error('provider down'));
+
+      await expect(authService.sendEmailVerificationOtp(user)).resolves.toBeUndefined();
+
+      expect(verificationRepository.save).toHaveBeenCalled();
+      expect(zeptomailEmailService.sendTemplateEmail).toHaveBeenCalledWith(
+        'test@example.com',
+        'otp-verification',
+        expect.objectContaining({ purposeLabel: 'verifying your email address' }),
+      );
+    });
+  });
+
   describe('resetPassword', () => {
     it('looks up reset token by sha256 hash', async () => {
       const rawToken = '550e8400-e29b-41d4-a716-446655440000';

@@ -8,6 +8,7 @@ import helmet, { type HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
 import morgan from 'morgan';
 import passport from 'passport';
+import { resolveCookieDomain, usesCrossSiteCookies } from './cookie-deployment';
 import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
@@ -37,17 +38,15 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     }),
   );
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
-  const csrfAppDomain = process.env.APP_DOMAIN?.trim();
-  const csrfDeployed =
-    process.env.NODE_ENV === 'production' &&
-    Boolean(csrfAppDomain && csrfAppDomain !== 'localhost');
+  const crossSiteCookies = usesCrossSiteCookies();
+  const cookieDomain = resolveCookieDomain();
   const csrfProtection = csurf({
     cookie: {
       httpOnly: true,
-      sameSite: csrfDeployed ? 'none' : 'lax',
-      secure: csrfDeployed,
+      sameSite: crossSiteCookies ? 'none' : 'lax',
+      secure: crossSiteCookies,
       maxAge: 3600000,
-      ...(csrfDeployed && csrfAppDomain ? { domain: `.${csrfAppDomain}` } : {}),
+      ...(cookieDomain ? { domain: cookieDomain } : {}),
     },
     ignoreMethods: ['GET', 'HEAD', 'OPTIONS'],
   });

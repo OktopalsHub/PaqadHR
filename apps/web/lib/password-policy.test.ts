@@ -9,4 +9,5 @@ test('accepts only passwords that meet every requirement', () => {
   assert.equal(isStrongPassword('StrongPassword!'), false);
   assert.equal(isStrongPassword('StrongPassword1'), false);
   assert.equal(isStrongPassword('Short1!'), false);
+  assert.equal(isStrongPassword('Strong Pass1!'), false);
 });

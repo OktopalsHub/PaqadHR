@@ -16,6 +16,8 @@ const BASE_ENV: Record<string, string> = {
   R2_PUBLIC_ID: 'public-id',
   TRUSTED_ORIGINS: 'https://app.example.com',
   NODE_ENV: 'production',
+  APP_DOMAIN: 'example.com',
+  COOKIE_CROSS_SITE: 'true',
 };
 
 function withEnv(overrides: Record<string, string | undefined>): void {
@@ -48,6 +50,16 @@ describe('validateEnvAtBoot', () => {
   it('fails when NOMBA_LIVE=true without webhook signature key', () => {
     withEnv({ NOMBA_LIVE: 'true' });
     expect(() => validateEnvAtBoot()).toThrow(/NOMBA_WEBHOOK_SIGNATURE_KEY/);
+  });
+
+  it('requires explicit secure cross-site cookies in production', () => {
+    withEnv({ COOKIE_CROSS_SITE: 'false' });
+    expect(() => validateEnvAtBoot()).toThrow(/COOKIE_CROSS_SITE=true/);
+  });
+
+  it('rejects invalid cross-site cookie configuration', () => {
+    withEnv({ COOKIE_CROSS_SITE: 'enabled' });
+    expect(() => validateEnvAtBoot()).toThrow(/COOKIE_CROSS_SITE must be true or false/);
   });
 
   it('warns when NOMBA_LIVE=true outside production NODE_ENV but still boots', () => {

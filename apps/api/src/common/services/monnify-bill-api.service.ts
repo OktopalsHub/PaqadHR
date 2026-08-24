@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, GatewayTimeoutException, Injectable, Logger } from '@nestjs/common';
 import { getMonnifyBaseUrl, isMonnifyConfigured } from '../config/monnify.config';
 import { MonnifyApiService } from './monnify-api.service';
 
@@ -9,6 +9,7 @@ export interface MonnifyAirtimeInput {
   phoneNumber: string;
   network: MonnifyTelcoNetwork;
   merchantTxRef: string;
+  dataPlanCode?: string;
 }
 
 export interface MonnifyDataPlan {
@@ -59,6 +60,7 @@ interface MonnifyVendBody {
 export class MonnifyBillApiService {
   private readonly logger = new Logger(MonnifyBillApiService.name);
   private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+  private static readonly REQUEST_TIMEOUT_MS = 10 * 1000;
   private readonly billerCache = new Map<string, { expiresAt: number; billers: MonnifyBiller[] }>();
   private readonly productCache = new Map<
     string,
@@ -97,6 +99,23 @@ export class MonnifyBillApiService {
     return this.networkMatchers(network).some((needle) => haystack.includes(needle));
   }
 
+  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(MonnifyBillApiService.REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const name = error instanceof Error ? error.name : undefined;
+      if (name === 'AbortError' || name === 'TimeoutError') {
+        const path = new URL(url).pathname;
+        this.logger.warn(`Monnify billing request timed out: ${init.method ?? 'GET'} ${path}`);
+        throw new GatewayTimeoutException('Monnify billing service timed out. Please try again.');
+      }
+      throw error;
+    }
+  }
+
   private async requestGet<T>(path: string, query?: Record<string, string>): Promise<T> {
     this.ensureConfigured();
     const token = await this.monnifyApi.getAccessToken();
@@ -107,7 +126,7 @@ export class MonnifyBillApiService {
       }
     }
 
-    const response = await fetch(url.toString(), {
+    const response = await this.fetchWithTimeout(url.toString(), {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -123,7 +142,7 @@ export class MonnifyBillApiService {
   private async requestPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
     this.ensureConfigured();
     const token = await this.monnifyApi.getAccessToken();
-    const response = await fetch(`${getMonnifyBaseUrl()}${path}`, {
+    const response = await this.fetchWithTimeout(`${getMonnifyBaseUrl()}${path}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -177,7 +196,7 @@ export class MonnifyBillApiService {
   }
 
   private async resolveBiller(
-    categoryCode: 'AIRTIME' | 'DATA',
+    categoryCode: 'AIRTIME' | 'DATA_BUNDLE',
     network: MonnifyTelcoNetwork,
   ): Promise<MonnifyBiller> {
     const billers = await this.listBillers(categoryCode);
@@ -213,16 +232,24 @@ export class MonnifyBillApiService {
   private async resolveDataProduct(
     network: MonnifyTelcoNetwork,
     amount: number,
+    dataPlanCode?: string,
   ): Promise<MonnifyProduct> {
-    const biller = await this.resolveBiller('DATA', network);
+    const biller = await this.resolveBiller('DATA_BUNDLE', network);
     const products = await this.listProducts(biller.billerCode!);
-    const product =
-      products.find((row) => this.productAmount(row) === amount) ??
-      products.find((row) => row.productCode === String(amount)) ??
-      null;
+    const product = dataPlanCode
+      ? products.find((row) => row.productCode === dataPlanCode)
+      : (products.find((row) => this.productAmount(row) === amount) ??
+        products.find((row) => row.productCode === String(amount)));
     if (!product?.productCode) {
       throw new BadRequestException(
-        `Monnify billing error: no data product for ${network} at amount ${amount}`,
+        dataPlanCode
+          ? 'Monnify billing error: the selected data plan is no longer available'
+          : `Monnify billing error: no data product for ${network} at amount ${amount}`,
+      );
+    }
+    if (dataPlanCode && this.productAmount(product) !== amount) {
+      throw new BadRequestException(
+        'Monnify billing error: selected data plan amount does not match',
       );
     }
     return product;
@@ -230,7 +257,7 @@ export class MonnifyBillApiService {
 
   async listDataPlans(telco: string): Promise<MonnifyDataPlan[]> {
     const network = telco.toUpperCase() as MonnifyTelcoNetwork;
-    const biller = await this.resolveBiller('DATA', network);
+    const biller = await this.resolveBiller('DATA_BUNDLE', network);
     const products = await this.listProducts(biller.billerCode!);
     return products
       .map((row) => {
@@ -319,7 +346,7 @@ export class MonnifyBillApiService {
     transactionId: string | null;
     status: string;
   }> {
-    const product = await this.resolveDataProduct(input.network, input.amount);
+    const product = await this.resolveDataProduct(input.network, input.amount, input.dataPlanCode);
     return this.purchase(product, input);
   }
 

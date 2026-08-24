@@ -383,10 +383,20 @@ export class AuthService {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       }),
     );
-    await this.zeptomailEmailService.sendTemplateEmail(user.email, 'otp-verification', {
-      code,
-      purposeLabel: 'verifying your email address',
-    });
+    try {
+      await this.zeptomailEmailService.sendTemplateEmail(user.email, 'otp-verification', {
+        code,
+        purposeLabel: 'verifying your email address',
+      });
+    } catch (error) {
+      // The account and one-time code are already persisted. Keep registration
+      // successful so the user can request a replacement code after an email
+      // provider outage.
+      this.logger.error(
+        'Failed to send email verification code',
+        error instanceof Error ? error.name : 'Unknown email provider error',
+      );
+    }
   }
 
   async resendEmailVerification(email: string, ip?: string): Promise<{ message: string }> {

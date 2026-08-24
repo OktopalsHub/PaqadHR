@@ -547,6 +547,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         recipientPhone: airtimePhone.trim(),
         airtimeNetwork,
         topupKind: topupMode,
+        dataPlanCode: selectedBundle?.productCode,
       });
 
       if (result.status === 'SUCCESS') {

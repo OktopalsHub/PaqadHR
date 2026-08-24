@@ -4,11 +4,19 @@ import { generateInitialsSvg, getBankByName, getBankLogo } from '@theonlyrasheed
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 
+export function fallbackSafeBankName(name: string): string {
+  // The logo library interpolates derived initials into SVG XML. Replacing
+  // XML-reserved characters before it derives those initials keeps the data
+  // URI valid for names such as "A & B Bank".
+  return name.replace(/[&<>'"]/g, ' ');
+}
+
 export function BankLogo({ name, className }: { name: string; className?: string }) {
   const bank = useMemo(() => getBankByName(name), [name]);
+  const fallbackName = useMemo(() => fallbackSafeBankName(bank?.name ?? name), [bank?.name, name]);
   const fallbackLogo = useMemo(
-    () => generateInitialsSvg(bank?.name ?? name, { format: 'data-uri', size: 48 }),
-    [bank?.name, name],
+    () => generateInitialsSvg(fallbackName, { format: 'data-uri', size: 48 }),
+    [fallbackName],
   );
   const remoteLogo = useMemo(() => (bank?.hasCustomLogo ? getBankLogo(bank) : null), [bank]);
   const [src, setSrc] = useState(fallbackLogo);

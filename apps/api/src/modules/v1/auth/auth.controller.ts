@@ -16,6 +16,10 @@ import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import {
+  resolveCookieDomain,
+  usesCrossSiteCookies,
+} from '../../../common/config/cookie-deployment';
 import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -267,14 +271,12 @@ export class AuthController {
   }
 
   private cookieOptions() {
-    const appDomain = process.env.APP_DOMAIN?.trim();
-    const deployed =
-      process.env.NODE_ENV === 'production' && Boolean(appDomain && appDomain !== 'localhost');
-    const domain = deployed ? `.${appDomain}` : undefined;
+    const crossSiteCookies = usesCrossSiteCookies();
+    const domain = resolveCookieDomain();
     return {
       httpOnly: true,
-      secure: deployed,
-      sameSite: deployed ? ('none' as const) : ('lax' as const),
+      secure: crossSiteCookies,
+      sameSite: crossSiteCookies ? ('none' as const) : ('lax' as const),
       path: '/',
       ...(domain ? { domain } : {}),
     };

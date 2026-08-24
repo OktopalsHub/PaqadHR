@@ -3,6 +3,7 @@ export const PASSWORD_REQUIREMENTS = [
   { label: 'One uppercase letter', matches: (password: string) => /[A-Z]/.test(password) },
   { label: 'One lowercase letter', matches: (password: string) => /[a-z]/.test(password) },
   { label: 'One number', matches: (password: string) => /\d/.test(password) },
+  { label: 'No spaces', matches: (password: string) => !/\s/.test(password) },
   {
     label: 'One special character',
     matches: (password: string) => /[^A-Za-z0-9\s]/.test(password),

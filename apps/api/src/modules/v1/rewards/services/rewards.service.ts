@@ -81,6 +81,7 @@ export interface ClaimInput {
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
   topupKind?: 'airtime' | 'data';
+  dataPlanCode?: string;
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -189,7 +190,7 @@ export class RewardsService {
         throw new BadRequestException('Data plans are temporarily unavailable.');
       }
       const plans = await this.monnifyBillApi.listDataPlans(network);
-      return plans.map(({ amount, plan }) => ({ amount, plan }));
+      return plans.map(({ amount, plan, productCode }) => ({ amount, plan, productCode }));
     }
     if (!this.nombaBillApi.isConfigured()) {
       throw new BadRequestException('Data plans are temporarily unavailable.');
@@ -1320,6 +1321,7 @@ export class RewardsService {
         phoneNumber: input.recipientPhone,
         network: input.airtimeNetwork,
         merchantTxRef: redemption.id,
+        dataPlanCode: input.dataPlanCode,
       };
       result = isData
         ? await this.monnifyBillApi.purchaseDataBundle(purchaseInput)
