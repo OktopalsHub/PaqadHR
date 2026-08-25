@@ -9,6 +9,10 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
+import {
+  STRONG_PASSWORD_MESSAGE,
+  STRONG_PASSWORD_REGEX,
+} from 'src/common/constants/password-policy.constant';
 import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
@@ -93,6 +97,9 @@ export class AuthService {
       }
       throw new UnauthorizedException('User account is inactive');
     }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Verify your email address before signing in');
+    }
     return user;
   }
 
@@ -119,6 +126,7 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      emailVerified: user.emailVerified,
       sid: sessionToken,
     };
     const accessToken = this.jwtService.sign(payload, {
@@ -159,6 +167,9 @@ export class AuthService {
   ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!user.isActive) {
       throw new UnauthorizedException('User account is inactive');
+    }
+    if (!user.emailVerified) {
+      throw new UnauthorizedException('Verify your email address before signing in');
     }
     const ip = GeoLocationHelper.resolveClientIp(geo.headers ?? {}, undefined, geo.ip);
     if (!user.countryCode && !GeoLocationHelper.isLocalhost(ip)) {
@@ -242,9 +253,17 @@ export class AuthService {
     inviteToken?: string,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
+      if (!STRONG_PASSWORD_REGEX.test(password)) {
+        throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+      }
       const normalizedEmail = StringUtility.trimAndLowerCase(email);
       const emailExist = await this.userRepository.findUserByEmail(normalizedEmail);
       if (emailExist) {
+        if (emailExist.emailVerified) {
+          throw new UnprocessableEntityException(
+            'This email is already registered. Please sign in.',
+          );
+        }
         const user = await this.resolveExistingUserOnRegister(emailExist, password);
         let invitation: IInvitationResponseDto | { error: string } | null = null;
         if (inviteToken) {
@@ -272,6 +291,7 @@ export class AuthService {
             }
           }
         }
+        await this.sendEmailVerificationOtp(user);
         return { user, invitation };
       }
 
@@ -323,14 +343,115 @@ export class AuthService {
           }
         }
       }
+      await this.sendEmailVerificationOtp(user);
       return { user, invitation };
     } catch (error) {
       this.logger.error('Error during user registration:', error);
-      if (error instanceof UnprocessableEntityException || error instanceof UnauthorizedException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof UnprocessableEntityException ||
+        error instanceof UnauthorizedException
+      ) {
         throw error;
       }
       throw new UnprocessableEntityException('Registration failed. Please try again.');
     }
+  }
+
+  private emailVerificationIdentifier(userId: string): string {
+    return `email-verification:${userId}`;
+  }
+
+  async sendEmailVerificationOtp(user: User): Promise<void> {
+    const rate = await this.rateLimitService.checkRateLimit(`email-verification:send:${user.id}`, {
+      rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 3 }],
+    });
+    if (!rate.allowed) {
+      throw new BadRequestException(
+        `Too many verification code requests. Try again in ${rate.retryAfter ?? 60}s`,
+      );
+    }
+
+    const code = String(randomInt(100000, 999999));
+    const identifier = this.emailVerificationIdentifier(user.id);
+    const hashedCode = await PasswordService.hashPassword(code);
+    await this.verificationRepository.delete({ identifier });
+    await this.verificationRepository.save(
+      this.verificationRepository.create({
+        identifier,
+        token: hashedCode,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      }),
+    );
+    try {
+      await this.zeptomailEmailService.sendTemplateEmail(user.email, 'otp-verification', {
+        code,
+        purposeLabel: 'verifying your email address',
+      });
+    } catch (error) {
+      // The account and one-time code are already persisted. Keep registration
+      // successful so the user can request a replacement code after an email
+      // provider outage.
+      this.logger.error(
+        'Failed to send email verification code',
+        error instanceof Error ? error.name : 'Unknown email provider error',
+      );
+    }
+  }
+
+  async resendEmailVerification(email: string, ip?: string): Promise<{ message: string }> {
+    if (ip) {
+      const ipRate = await this.rateLimitService.checkRateLimit(
+        `email-verification:resend-ip:${ip}`,
+        {
+          rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 10 }],
+        },
+      );
+      if (!ipRate.allowed) {
+        throw new BadRequestException('Too many verification requests. Please try again later.');
+      }
+    }
+
+    const user = await this.userRepository.findUserByEmail(StringUtility.trimAndLowerCase(email));
+    if (user && !user.emailVerified) {
+      await this.sendEmailVerificationOtp(user);
+    }
+    return { message: 'If this account needs verification, a code was sent.' };
+  }
+
+  async verifyEmail(email: string, code: string): Promise<User> {
+    const user = await this.userRepository.findUserByEmail(StringUtility.trimAndLowerCase(email));
+    if (!user || user.emailVerified) {
+      throw new UnauthorizedException('Invalid or expired verification code');
+    }
+
+    const lockKey = `email-verification:${user.id}`;
+    const lock = await this.rateLimitService.getLockout(lockKey);
+    if (this.rateLimitService.isLocked(lock)) {
+      throw new UnauthorizedException('Too many failed attempts. Try again later.');
+    }
+
+    const verification = await this.verificationRepository.findOne({
+      where: { identifier: this.emailVerificationIdentifier(user.id) },
+    });
+    const codeValid =
+      verification &&
+      verification.expiresAt >= new Date() &&
+      (await PasswordService.verifyPassword(verification.token, code));
+    if (!codeValid) {
+      await this.rateLimitService.recordLockoutFailure(
+        lockKey,
+        this.maxOtpFailedAttempts,
+        this.otpLockDurationMinutes * 60 * 1000,
+      );
+      throw new UnauthorizedException('Invalid or expired verification code');
+    }
+
+    await this.userRepository.update(user.id, { emailVerified: true });
+    user.emailVerified = true;
+    await this.verificationRepository.delete(verification.id);
+    await this.rateLimitService.clearLockout(lockKey);
+    return user;
   }
 
   async findOrCreateGoogleUser(
@@ -417,6 +538,10 @@ export class AuthService {
     const user = await this.userRepository.findUser(payload.sub);
     if (!user) {
       throw new UnauthorizedException('User not found');
+    }
+    if (!user.emailVerified) {
+      await this.sessionRepository.delete({ userId: user.id });
+      throw new UnauthorizedException('Verify your email address before signing in');
     }
 
     if (!payload.sid) {
@@ -530,6 +655,9 @@ export class AuthService {
   }
 
   async resetPassword(token: string, newPassword: string) {
+    if (!STRONG_PASSWORD_REGEX.test(newPassword)) {
+      throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+    }
     const verification = await this.verificationRepository.findOne({
       where: { token: sha256Hex(token) },
     });
@@ -662,6 +790,9 @@ export class AuthService {
   }
 
   async changePassword(userId: string, otpProof: string, newPassword: string) {
+    if (!STRONG_PASSWORD_REGEX.test(newPassword)) {
+      throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
+    }
     this.assertOtpProof(otpProof, userId, 'password_change');
 
     const account = await this.accountRepository.findOne({

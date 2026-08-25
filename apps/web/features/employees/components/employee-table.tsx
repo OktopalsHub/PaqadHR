@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { memo } from 'react';
-import { PersonAvatar } from '@/components/person-avatar';
 import {
   AppTable,
   AppTableBodyRow,
@@ -73,26 +72,12 @@ export const EmployeeTable = memo(
                   {canLinkToDetail(employee) ? (
                     <Link
                       href={tenantHref(`employees/${employee.id}`)}
-                      className="flex items-center gap-3 hover:underline"
+                      className="text-sm font-semibold text-slate-800 hover:underline"
                     >
-                      <PersonAvatar
-                        src={employee.avatar}
-                        name={employee.name}
-                        className="size-8 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
-                        fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                      />
-                      <span className="text-sm font-semibold text-slate-800">{employee.name}</span>
+                      {employee.name}
                     </Link>
                   ) : (
-                    <div className="flex items-center gap-3">
-                      <PersonAvatar
-                        src={employee.avatar}
-                        name={employee.name}
-                        className="size-8 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
-                        fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                      />
-                      <span className="text-sm font-semibold text-slate-800">{employee.name}</span>
-                    </div>
+                    <span className="text-sm font-semibold text-slate-800">{employee.name}</span>
                   )}
                 </AppTableCell>
                 <AppTableCell>{employee.email}</AppTableCell>

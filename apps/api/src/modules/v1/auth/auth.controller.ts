@@ -16,10 +16,21 @@ import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import type { JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
+import {
+  resolveCookieDomain,
+  usesCrossSiteCookies,
+  usesSecureCookies,
+} from '../../../common/config/cookie-deployment';
 import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ChangePasswordDto, SendOtpDto, VerifyOtpDto } from './dto/otp.dto';
+import {
+  ChangePasswordDto,
+  ResendEmailVerificationDto,
+  SendOtpDto,
+  VerifyEmailDto,
+  VerifyOtpDto,
+} from './dto/otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -32,8 +43,9 @@ interface AuthUserResponse {
   };
 }
 
-interface RegisterResponse extends AuthUserResponse {
-  invitation?: unknown;
+interface RegisterResponse {
+  email: string;
+  verificationRequired: true;
 }
 
 type AuthenticatedRequest = Request & { user: User };
@@ -49,28 +61,47 @@ export class AuthController {
     @Body() body: RegisterDto,
     @Ip() ipParam: string,
     @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
   ): Promise<RegisterResponse> {
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
-    const { user, invitation } = await this.authService.register(
+    const { user } = await this.authService.register(
       body.email,
       body.password,
       { ip, headers: req.headers },
       undefined,
     );
+    return {
+      email: user.email,
+      verificationRequired: true,
+    };
+  }
+
+  @Post('register/resend-verification')
+  @Public()
+  async resendEmailVerification(
+    @Body() body: ResendEmailVerificationDto,
+    @Ip() ipParam: string,
+    @Req() req: Request,
+  ) {
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
+    return this.authService.resendEmailVerification(body.email, ip);
+  }
+
+  @Post('register/verify-email')
+  @Public()
+  async verifyEmail(
+    @Body() body: VerifyEmailDto,
+    @Ip() ipParam: string,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthUserResponse> {
+    const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ipParam);
+    const user = await this.authService.verifyEmail(body.email, body.code);
     const { accessToken, refreshToken } = await this.authService.login(user, {
       ip,
       headers: req.headers,
     });
     this.setAuthCookies(res, accessToken, refreshToken, false);
-    return {
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-      },
-      ...(invitation ? { invitation } : {}),
-    };
+    return { user: { id: user.id, email: user.email, role: user.role } };
   }
 
   @Post('login')
@@ -241,13 +272,13 @@ export class AuthController {
   }
 
   private cookieOptions() {
-    const appDomain = process.env.APP_DOMAIN?.trim();
-    const deployed = Boolean(appDomain && appDomain !== 'localhost');
-    const domain = deployed ? `.${appDomain}` : undefined;
+    const crossSiteCookies = usesCrossSiteCookies();
+    const secureCookies = usesSecureCookies();
+    const domain = resolveCookieDomain();
     return {
       httpOnly: true,
-      secure: deployed,
-      sameSite: deployed ? ('none' as const) : ('lax' as const),
+      secure: secureCookies,
+      sameSite: crossSiteCookies ? ('none' as const) : ('lax' as const),
       path: '/',
       ...(domain ? { domain } : {}),
     };

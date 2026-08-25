@@ -1323,7 +1323,7 @@ export class RewardsService {
         phoneNumber: input.recipientPhone,
         network: input.airtimeNetwork,
         merchantTxRef: redemption.id,
-        productCode: input.dataPlanCode,
+        dataPlanCode: input.dataPlanCode,
       };
       result = isData
         ? await this.monnifyBillApi.purchaseDataBundle(purchaseInput)

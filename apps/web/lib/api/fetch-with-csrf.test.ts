@@ -131,3 +131,29 @@ test('preserves method and headers from Request inputs before applying CSRF head
   assert.equal(new Headers(calls[0].headers).get('content-type'), 'application/json');
   assert.equal(new Headers(calls[0].headers).get(CSRF_HEADER), 'token-1');
 });
+
+test('times out a fetch attempt that never settles', async () => {
+  const originalSetTimeout = globalThis.setTimeout;
+  let timeoutCallback: (() => void) | undefined;
+  globalThis.setTimeout = ((callback: () => void) => {
+    timeoutCallback = callback;
+    return 1 as unknown as ReturnType<typeof setTimeout>;
+  }) as typeof setTimeout;
+
+  try {
+    const request = executeFetchWithCsrf('https://example.com/api/v1/notifications', undefined, {
+      fetchImpl: async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+        }),
+      ensureCsrfToken: async () => 'token-1',
+      clearCsrfToken: () => {},
+      csrfHeader: CSRF_HEADER,
+    });
+
+    timeoutCallback?.();
+    await assert.rejects(request, /Request timed out/);
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+  }
+});

@@ -25,30 +25,36 @@ export function DepartmentCard({
   const isHexOrRgb = color.startsWith('#') || color.startsWith('rgb') || color.startsWith('hsl');
 
   return (
-    <Card className="app-card">
+    <Card className="app-card gap-0 bg-card/80 py-0 shadow-sm">
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+          <CardHeader className="cursor-pointer px-4 py-3.5 transition-colors hover:bg-muted/30">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <div
-                  className={`p-3 rounded-lg text-white flex items-center justify-center ${!isHexOrRgb ? color : ''}`}
+                  className={`flex size-9 shrink-0 items-center justify-center rounded-md text-white ${!isHexOrRgb ? color : ''}`}
                   style={isHexOrRgb ? { backgroundColor: color } : undefined}
                 >
-                  <Building size={20} />
+                  <Building size={14} />
                 </div>
-                <div>
-                  <CardTitle className="text-lg">{department.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{department.description}</p>
+                <div className="min-w-0">
+                  <CardTitle className="text-sm">{department.name}</CardTitle>
+                  {department.description ? (
+                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                      {department.description}
+                    </p>
+                  ) : null}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">{memberCount} members</Badge>
+              <div className="ml-3 flex shrink-0 items-center gap-1">
+                <Badge variant="secondary" className="px-1.5 py-0 text-[11px] font-medium">
+                  {memberCount} members
+                </Badge>
                 {canManage ? <DepartmentEditButton department={department} /> : null}
                 {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="size-4" />
                 ) : (
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="size-4" />
                 )}
               </div>
             </div>

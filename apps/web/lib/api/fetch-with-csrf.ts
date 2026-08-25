@@ -1,3 +1,5 @@
+import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
+
 export type FetchWithCsrfOptions = RequestInit & {
   skipCsrf?: boolean;
 };
@@ -7,6 +9,7 @@ export type FetchWithCsrfDeps = {
   ensureCsrfToken: (force?: boolean) => Promise<string>;
   clearCsrfToken: () => void;
   csrfHeader: string;
+  requestTimeoutMs?: number;
 };
 
 const UNSAFE_HTTP_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -42,6 +45,40 @@ function getRequestDefaults(input: RequestInfo | URL): {
   };
 }
 
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  deps: FetchWithCsrfDeps,
+): Promise<Response> {
+  const controller = new AbortController();
+  const callerSignal = init.signal;
+  let timedOut = false;
+  const onCallerAbort = () => controller.abort(callerSignal?.reason);
+
+  if (callerSignal?.aborted) {
+    onCallerAbort();
+  } else {
+    callerSignal?.addEventListener('abort', onCallerAbort, { once: true });
+  }
+
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, deps.requestTimeoutMs ?? API_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await deps.fetchImpl(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (timedOut) {
+      throw new Error('Request timed out. Please try again.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener('abort', onCallerAbort);
+  }
+}
+
 export async function executeFetchWithCsrf(
   input: RequestInfo | URL,
   init: FetchWithCsrfOptions | undefined,
@@ -62,24 +99,32 @@ export async function executeFetchWithCsrf(
     headers.set(deps.csrfHeader, await deps.ensureCsrfToken());
   }
 
-  let response = await deps.fetchImpl(input, {
-    ...init,
-    method,
-    headers,
-    credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
-  });
+  let response = await fetchWithTimeout(
+    input,
+    {
+      ...init,
+      method,
+      headers,
+      credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
+    },
+    deps,
+  );
 
   if (needsCsrf) {
     const payload = await parseResponsePayload(response.clone());
     if (isCsrfErrorResponse(response.status, payload)) {
       deps.clearCsrfToken();
       headers.set(deps.csrfHeader, await deps.ensureCsrfToken(true));
-      response = await deps.fetchImpl(input, {
-        ...init,
-        method,
-        headers,
-        credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
-      });
+      response = await fetchWithTimeout(
+        input,
+        {
+          ...init,
+          method,
+          headers,
+          credentials: init?.credentials ?? requestDefaults.credentials ?? 'include',
+        },
+        deps,
+      );
     }
   }
 

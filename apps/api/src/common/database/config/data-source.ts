@@ -99,6 +99,7 @@ const AppDataSource = {
     Migrations.NotificationCleanup1787006225581,
     Migrations.RewardsJsonColumns1787008579275,
     Migrations.NotificationCleanupFix1787100000000,
+    Migrations.BackfillExistingVerifiedUsers1787521285997,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

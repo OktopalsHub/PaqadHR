@@ -11,7 +11,10 @@ import {
   loadUserTenantsWithRetry,
   login as loginRequest,
   logoutRequest,
+  persistUserSession,
+  type RegistrationResponse,
   register as registerRequest,
+  verifyEmail as verifyEmailRequest,
   waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
 import { startProactiveRefresh, stopProactiveRefresh } from '@/lib/api/auth-refresh';
@@ -26,7 +29,8 @@ import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 interface AuthContextType {
   user: User | null;
   login: (input: LoginInput) => Promise<void>;
-  register: (input: SignupInput) => Promise<void>;
+  register: (input: SignupInput) => Promise<RegistrationResponse>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -111,21 +115,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerMutation = useMutation({
     mutationFn: registerRequest,
-    onSuccess: async (user) => {
-      queryClient.setQueryData(queryKeys.auth.session, user);
-      await bootstrapCsrf();
+    onSuccess: () => {
       toast.success(
         <ToastMessage
-          title="Registration Successful"
-          description="Your account has been created!"
+          title="Check your email"
+          description="Enter the verification code to activate your account."
         />,
       );
-      await navigateAfterAuth();
     },
     onError: (error: Error) => {
       toast.error(<ToastMessage title="Registration Failed" description={error.message} />);
     },
   });
+
+  const verifyEmail = useCallback(
+    async (email: string, code: string) => {
+      await verifyEmailRequest(email, code);
+      await bootstrapCsrf();
+
+      const profile = await waitForAuthenticatedProfile({ attempts: 5, baseDelayMs: 150 });
+      if (!profile) {
+        throw new Error('Email verified, but we could not start your session. Please sign in.');
+      }
+
+      const tenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
+      const user = persistUserSession(profile, tenants.length === 0);
+      setCached(cacheKeys.auth.session, user, { ttl: 30 * 60 * 1000 });
+      queryClient.setQueryData(queryKeys.auth.session, user);
+      queryClient.setQueryData(queryKeys.tenants.all, tenants);
+
+      const redirect = readRedirectParam();
+      const href = await resolvePostAuthHref({ tenants, redirect });
+      goToHref(href, router.replace);
+    },
+    [queryClient, router],
+  );
 
   const logout = useCallback(async () => {
     stopProactiveRefresh();
@@ -149,8 +173,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await loginMutation.mutateAsync(input);
       },
       register: async (input) => {
-        await registerMutation.mutateAsync(input);
+        return registerMutation.mutateAsync(input);
       },
+      verifyEmail,
       logout,
       // Only trust auth state after first server fetch completes (not from placeholder/cached data)
       isAuthenticated: sessionQuery.isFetched && Boolean(sessionQuery.data),
@@ -165,6 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionQuery.isFetched,
       loginMutation,
       registerMutation,
+      verifyEmail,
       logout,
     ],
   );

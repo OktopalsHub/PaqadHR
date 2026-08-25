@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import './globals.css';
+import { NetworkActivityIndicator } from '@/components/network-activity-indicator';
 import { Toaster } from '@/components/ui/sonner';
 import { brandFaviconUrls } from '@/lib/brand';
 import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
@@ -35,6 +36,7 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning nonce={nonce}>
       <body className="antialiased font-sans">
         <QueryProvider>
+          <NetworkActivityIndicator />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

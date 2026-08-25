@@ -3,6 +3,7 @@
 import { Banknote, CheckCircle2, Loader2, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { BankLogo } from '@/components/bank-logo';
 import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
 import { SearchSelect } from '@/components/search-select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -366,7 +367,12 @@ export function PaymentSettingsSection() {
   }, []);
 
   const bankOptions = useMemo(
-    () => banks.map((bank) => ({ value: bank.code, label: bank.name })),
+    () =>
+      banks.map((bank) => ({
+        value: bank.code,
+        label: bank.name,
+        icon: <BankLogo name={bank.name} />,
+      })),
     [banks],
   );
 
