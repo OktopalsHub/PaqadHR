@@ -8,7 +8,7 @@ import helmet, { type HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
 import morgan from 'morgan';
 import passport from 'passport';
-import { resolveCookieDomain, usesCrossSiteCookies } from './cookie-deployment';
+import { resolveCookieDomain, usesCrossSiteCookies, usesSecureCookies } from './cookie-deployment';
 import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
 type RequestWithRawBody = Request & { rawBody?: Buffer };
@@ -39,12 +39,13 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   );
   app.use(express.urlencoded({ limit: '10mb', extended: true }));
   const crossSiteCookies = usesCrossSiteCookies();
+  const secureCookies = usesSecureCookies();
   const cookieDomain = resolveCookieDomain();
   const csrfProtection = csurf({
     cookie: {
       httpOnly: true,
       sameSite: crossSiteCookies ? 'none' : 'lax',
-      secure: crossSiteCookies,
+      secure: secureCookies,
       maxAge: 3600000,
       ...(cookieDomain ? { domain: cookieDomain } : {}),
     },

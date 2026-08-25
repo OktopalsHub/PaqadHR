@@ -4,6 +4,10 @@ export function usesCrossSiteCookies(): boolean {
   return process.env.COOKIE_CROSS_SITE?.trim().toLowerCase() === CROSS_SITE_COOKIE_VALUE;
 }
 
+export function usesSecureCookies(): boolean {
+  return process.env.NODE_ENV === 'production' || usesCrossSiteCookies();
+}
+
 export function resolveCookieDomain(): string | undefined {
   if (!usesCrossSiteCookies()) return undefined;
 

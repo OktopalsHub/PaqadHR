@@ -1,4 +1,4 @@
-import { resolveCookieDomain, usesCrossSiteCookies } from './cookie-deployment';
+import { resolveCookieDomain, usesCrossSiteCookies, usesSecureCookies } from './cookie-deployment';
 
 describe('cookie deployment configuration', () => {
   const originalEnv = { ...process.env };
@@ -12,6 +12,7 @@ describe('cookie deployment configuration', () => {
     process.env.APP_DOMAIN = 'localhost';
 
     expect(usesCrossSiteCookies()).toBe(false);
+    expect(usesSecureCookies()).toBe(false);
     expect(resolveCookieDomain()).toBeUndefined();
   });
 
@@ -20,6 +21,14 @@ describe('cookie deployment configuration', () => {
     process.env.APP_DOMAIN = 'staging.paqadhr.com';
 
     expect(usesCrossSiteCookies()).toBe(true);
+    expect(usesSecureCookies()).toBe(true);
     expect(resolveCookieDomain()).toBe('.staging.paqadhr.com');
+  });
+
+  it('uses secure cookies in production even for same-site deployments', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.COOKIE_CROSS_SITE = 'false';
+
+    expect(usesSecureCookies()).toBe(true);
   });
 });

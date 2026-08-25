@@ -19,6 +19,7 @@ import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
   resolveCookieDomain,
   usesCrossSiteCookies,
+  usesSecureCookies,
 } from '../../../common/config/cookie-deployment';
 import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
@@ -272,10 +273,11 @@ export class AuthController {
 
   private cookieOptions() {
     const crossSiteCookies = usesCrossSiteCookies();
+    const secureCookies = usesSecureCookies();
     const domain = resolveCookieDomain();
     return {
       httpOnly: true,
-      secure: crossSiteCookies,
+      secure: secureCookies,
       sameSite: crossSiteCookies ? ('none' as const) : ('lax' as const),
       path: '/',
       ...(domain ? { domain } : {}),
