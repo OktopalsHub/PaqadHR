@@ -74,7 +74,10 @@ export function useUpdatePosition() {
     mutationFn: ({ id, input }: { id: string; input: UpdatePositionInput }) =>
       updatePosition(id, input),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -85,7 +88,10 @@ export function useDeletePosition() {
   return useMutation({
     mutationFn: (id: string) => deletePosition(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -96,7 +102,10 @@ export function useRestorePosition() {
   return useMutation({
     mutationFn: (id: string) => restorePosition(id),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.positions.all });
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.positions.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUpRight, Briefcase, Building2, CalendarClock, Users } from 'lucide-react';
+import { ArrowUpRight, Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
@@ -56,17 +56,25 @@ export const Dashboard = () => {
     data: employees = [],
     isLoading: employeesLoading,
     isError: employeesError,
+    refetch: refetchEmployees,
   } = useEmployees();
-  const { data: leaves = [], isLoading: leavesLoading, isError: leavesError } = useLeaves();
+  const {
+    data: leaves = [],
+    isLoading: leavesLoading,
+    isError: leavesError,
+    refetch: refetchLeaves,
+  } = useLeaves();
   const {
     data: jobsData,
     isLoading: jobsLoading,
     isError: jobsError,
+    refetch: refetchJobs,
   } = useJobOpenings({ enabled: recruitmentQueriesEnabled });
   const {
     overview,
     isLoading: overviewLoading,
     jobsError: overviewError,
+    refetch: refetchOverview,
   } = useRecruitmentOverview({ enabled: recruitmentQueriesEnabled });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
@@ -167,21 +175,34 @@ export const Dashboard = () => {
     );
   }
 
-  if (hasError) {
-    return (
-      <AppPage>
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load dashboard</AlertTitle>
-          <AlertDescription>
-            Some workspace data could not be loaded. Refresh the page or try again shortly.
-          </AlertDescription>
-        </Alert>
-      </AppPage>
-    );
-  }
+  const retryDashboard = () => {
+    void refetchEmployees();
+    void refetchLeaves();
+    if (recruitmentQueriesEnabled) {
+      void refetchJobs();
+      void refetchOverview();
+    }
+  };
 
   return (
     <AppPage className="space-y-6">
+      {hasError ? (
+        <Alert
+          variant="destructive"
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <AlertTitle>Some dashboard data is unavailable</AlertTitle>
+            <AlertDescription>
+              Your workspace is still available. You can retry the affected data now.
+            </AlertDescription>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={retryDashboard}>
+            <RefreshCw className="size-4" aria-hidden="true" />
+            Retry
+          </Button>
+        </Alert>
+      ) : null}
       {recruitmentAccess.showRecruitmentCallToAction ? (
         <div className="flex justify-stretch sm:justify-end">
           <Button
@@ -241,7 +262,15 @@ export const Dashboard = () => {
           }
           bodyClassName="p-4"
         >
-          {recentLeaves.length === 0 ? (
+          {leavesError ? (
+            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+              <CalendarClock className="size-10 text-muted-foreground" />
+              <p className="text-sm">Leave requests could not be loaded right now.</p>
+              <Button variant="outline" size="sm" onClick={() => void refetchLeaves()}>
+                Try again
+              </Button>
+            </div>
+          ) : recentLeaves.length === 0 ? (
             <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <CalendarClock className="size-10 text-muted-foreground" />
               <p className="text-sm">No leave requests yet.</p>
