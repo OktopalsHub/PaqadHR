@@ -31,6 +31,10 @@ export function normalizeNoahSigningPrivateKeyPem(raw: string): string {
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
     key = key.slice(1, -1).trim();
   }
+
+  while (key.includes('\\\\n')) {
+    key = key.replace(/\\\\n/g, '\\n');
+  }
   if (key.includes('\\n')) {
     key = key.replace(/\\n/g, '\n');
   }

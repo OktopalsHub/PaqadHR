@@ -25,6 +25,14 @@ describe('getNoahSigningPrivateKey', () => {
     );
   });
 
+  it('expands double-escaped \\\\n from pasted env values', () => {
+    process.env.NOAH_SIGNING_PRIVATE_KEY =
+      '-----BEGIN EC PRIVATE KEY-----\\\\nABC\\\\n-----END EC PRIVATE KEY-----';
+    expect(getNoahSigningPrivateKey()).toBe(
+      '-----BEGIN EC PRIVATE KEY-----\nABC\n-----END EC PRIVATE KEY-----',
+    );
+  });
+
   it('strips surrounding quotes', () => {
     process.env.NOAH_SIGNING_PRIVATE_KEY =
       '"-----BEGIN EC PRIVATE KEY-----\\nABC\\n-----END EC PRIVATE KEY-----"';
