@@ -104,25 +104,14 @@ export function SettingsWorkspaceTab() {
       }
     }
 
-    const primaryCurrency = payrollCurrencies[0]?.toUpperCase();
-    const previousPrimary = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
-    const currencyChanging = Boolean(primaryCurrency && primaryCurrency !== previousPrimary);
-    if (currencyChanging) {
-      const confirmed = window.confirm(
-        `Change workspace default from ${previousPrimary} to ${primaryCurrency}? Employees still paid in ${previousPrimary} must have their salary currency updated first. If your rewards wallet already has a balance, the change will be blocked until the balance is spent.`,
-      );
-      if (!confirmed) return;
-    }
-
     try {
-      // preferredCurrency only when it actually changes — cryptoEnabled lives in
-      // tenant settings and must not hit the rewards-wallet currency lock.
+      // Payroll currencies / crypto are settings only — never rewrite preferredCurrency
+      // (that field is unrelated and can trip the rewards-wallet currency lock).
       await updateTenant.mutateAsync({
         tenantId,
         input: {
           name: name.trim(),
           timezone: timezone.trim() || 'UTC',
-          ...(currencyChanging ? { preferredCurrency: primaryCurrency } : {}),
           ...(employeeCode.trim() ? { employeeCode: employeeCode.trim().toUpperCase() } : {}),
         },
       });
@@ -134,9 +123,6 @@ export function SettingsWorkspaceTab() {
           timezone: timezone.trim() || 'UTC',
           dateFormat: existingGeneral?.dateFormat ?? 'YYYY-MM-DD',
           language: existingGeneral?.language ?? 'en',
-          currency: currencyChanging
-            ? primaryCurrency
-            : (existingGeneral?.currency ?? previousPrimary),
           payrollCurrencies: payrollCurrencies.map((code) => code.toUpperCase()),
           cryptoEnabled,
         },
@@ -144,6 +130,22 @@ export function SettingsWorkspaceTab() {
       toast.success('Workspace settings saved');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save workspace');
+    }
+  };
+
+  const saveCryptoSettings = async (value: boolean) => {
+    try {
+      const existingGeneral = settings?.settings?.general;
+      await patchSettings.mutateAsync({
+        general: {
+          ...existingGeneral,
+          cryptoEnabled: value,
+        },
+      });
+      toast.success(value ? 'Crypto payroll enabled' : 'Crypto payroll disabled');
+    } catch (err) {
+      setCryptoEnabled(!value);
+      toast.error(err instanceof Error ? err.message : 'Failed to save crypto payroll setting');
     }
   };
 
@@ -239,7 +241,11 @@ export function SettingsWorkspaceTab() {
             />
           </SettingsFieldHint>
 
-          <SettingsFieldHint label="Payroll currencies" className="lg:col-span-2">
+          <SettingsFieldHint
+            label="Payroll currencies"
+            className="lg:col-span-2"
+            hint="Employees can be paid in any enabled currency. This is separate from your rewards wallet currency."
+          >
             <div className="dashboard-soft-tile rounded-[8px] px-4 py-4">
               <div className="flex flex-wrap gap-2">
                 {SUPPORTED_FIAT_CURRENCIES.map((code) => {
@@ -267,25 +273,29 @@ export function SettingsWorkspaceTab() {
               </div>
               {payrollCurrencies.length > 0 ? (
                 <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                  Default:{' '}
+                  Enabled:{' '}
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {payrollCurrencies[0]}
+                    {payrollCurrencies.join(', ')}
                   </span>
-                  {payrollCurrencies.length > 1
-                    ? ` · Also enabled: ${payrollCurrencies.slice(1).join(', ')}`
-                    : ''}
                 </p>
               ) : null}
             </div>
           </SettingsFieldHint>
 
-          <SettingsFieldHint label="Crypto payroll" className="lg:col-span-2">
+          <SettingsFieldHint
+            label="Crypto payroll"
+            className="lg:col-span-2"
+            hint="Allow crypto payout rails (USDC, USDT, BTC, ETH). Independent from rewards wallet funding."
+          >
             <div className="flex items-center gap-3">
               <Switch
                 id="crypto-enabled"
                 checked={cryptoEnabled}
-                onCheckedChange={setCryptoEnabled}
-                disabled={!isAdmin}
+                onCheckedChange={(checked) => {
+                  setCryptoEnabled(checked);
+                  void saveCryptoSettings(checked);
+                }}
+                disabled={!isAdmin || patchSettings.isPending}
               />
               <label htmlFor="crypto-enabled" className="text-sm text-muted-foreground">
                 {cryptoEnabled ? 'Enabled' : 'Disabled'}
