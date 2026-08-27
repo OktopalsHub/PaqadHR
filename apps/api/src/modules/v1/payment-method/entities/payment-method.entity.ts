@@ -45,14 +45,14 @@ export class PaymentMethod extends BaseEntity {
   @Column({
     name: 'account_name',
     type: 'varchar',
-    length: 160,
+    length: 255,
     nullable: true,
   })
   accountName: string | null;
   @Column({
     name: 'account_number',
     type: 'varchar',
-    length: 60,
+    length: 255,
     nullable: true,
   })
   accountNumber: string | null;

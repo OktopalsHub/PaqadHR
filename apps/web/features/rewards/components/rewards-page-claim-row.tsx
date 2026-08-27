@@ -12,12 +12,14 @@ export function ClaimRow({ claim }: { claim: RewardRedemption }) {
     FAILED: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
   };
 
+  const isAirtime = claim.rewardType === 'NOMBA_AIRTIME' || claim.rewardType === 'MONNIFY_AIRTIME';
+  const isUtility = claim.rewardType === 'NOMBA_UTILITY' || claim.rewardType === 'MONNIFY_UTILITY';
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border/60 p-3 bg-card shadow-sm">
       <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {claim.rewardType === 'NOMBA_AIRTIME' ? (
+        {isAirtime ? (
           <Phone className="size-4" />
-        ) : claim.rewardType === 'NOMBA_UTILITY' ? (
+        ) : isUtility ? (
           <Zap className="size-4 text-indigo-600" />
         ) : claim.rewardType === 'CUSTOM' ? (
           <Sparkles className="size-4" />

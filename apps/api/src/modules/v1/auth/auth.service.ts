@@ -88,7 +88,7 @@ export class AuthService {
           description: 'Login attempt with inactive account',
           severity: AuditSeverity.HIGH,
           status: AuditStatus.FAILED,
-          metadata: { email, reason: 'account_inactive' },
+          metadata: { emailHash: sha256Hex(email), reason: 'account_inactive' },
         });
       }
       throw new UnauthorizedException('User account is inactive');
@@ -110,7 +110,7 @@ export class AuthService {
       description: 'Invalid email or password',
       severity: AuditSeverity.MEDIUM,
       status: AuditStatus.FAILED,
-      metadata: { email, reason },
+      metadata: { emailHash: sha256Hex(email), reason },
     });
   }
 
@@ -187,7 +187,7 @@ export class AuthService {
         severity: AuditSeverity.LOW,
         status: AuditStatus.SUCCESS,
         metadata: {
-          email: user.email,
+          emailHash: sha256Hex(user.email),
           ip,
           countryCode: user.countryCode,
         },
@@ -240,8 +240,13 @@ export class AuthService {
     password: string,
     geo: GeoRequestContext = {},
     inviteToken?: string,
+    termsAccepted?: boolean,
+    privacyPolicyVersion?: string,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
+      if (termsAccepted !== true) {
+        throw new BadRequestException('You must accept the terms and privacy policy to register');
+      }
       const normalizedEmail = StringUtility.trimAndLowerCase(email);
       const emailExist = await this.userRepository.findUserByEmail(normalizedEmail);
       if (emailExist) {
@@ -286,7 +291,7 @@ export class AuthService {
         role: UserRole.BASIC,
         countryCode,
         emailVerified: false,
-        metadata: buildUserConsentMetadata(true),
+        metadata: buildUserConsentMetadata(true, privacyPolicyVersion),
       });
 
       await this.accountRepository.save(
@@ -391,6 +396,7 @@ export class AuthService {
       role: UserRole.BASIC,
       countryCode,
       emailVerified: true,
+      metadata: buildUserConsentMetadata(true, undefined),
     });
 
     await this.accountRepository.save(
@@ -523,7 +529,10 @@ export class AuthService {
         resetLink,
       });
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${normalizedEmail}`, error);
+      this.logger.error(
+        `Failed to send password reset email to ${sha256Hex(normalizedEmail).slice(0, 16)}`,
+        error,
+      );
     }
 
     return { message: 'If email exists, a reset link was sent' };

@@ -7,15 +7,19 @@ export interface UserMetadata {
   consent?: UserConsentMetadata;
 }
 
-export function buildUserConsentMetadata(termsAccepted = true): UserMetadata {
-  if (!termsAccepted) {
+export function buildUserConsentMetadata(
+  termsAccepted = true,
+  privacyPolicyVersion?: string,
+): UserMetadata {
+  if (termsAccepted !== true) {
     throw new Error('Terms must be accepted to register');
   }
 
   return {
     consent: {
       termsAcceptedAt: new Date().toISOString(),
-      privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION || '1.0',
+      privacyPolicyVersion:
+        privacyPolicyVersion?.trim() || process.env.PRIVACY_POLICY_VERSION || '1.0',
     },
   };
 }

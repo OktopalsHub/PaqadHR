@@ -37,6 +37,8 @@ interface MonnifyBiller {
 interface MonnifyBillerCategory {
   categoryCode?: string;
   categoryName?: string;
+  code?: string;
+  name?: string;
 }
 
 interface MonnifyProduct {
@@ -109,46 +111,72 @@ export class MonnifyBillApiService {
 
   private async findAirtimeCategory(): Promise<string> {
     const categories = await this.listBillerCategories();
-    const airtimeCategory = categories.find(
-      (cat) =>
-        (cat.categoryName?.toLowerCase().includes('airtime') ||
-          cat.categoryCode?.toLowerCase().includes('airtime')) ??
-        false,
-    );
-    if (!airtimeCategory?.categoryCode) {
+    const airtimeCategory = categories.find((cat) => {
+      const name = (this.categoryName(cat) ?? '').toLowerCase();
+      const code = (this.categoryCode(cat) ?? '').toLowerCase();
+      return (
+        name.includes('airtime') ||
+        code.includes('airtime') ||
+        name.includes('vtu') ||
+        code.includes('vtu') ||
+        name.includes('topup') ||
+        code.includes('topup')
+      );
+    });
+    if (!this.categoryCode(airtimeCategory!)) {
       this.logger.error(
         `No airtime category found. Available categories: ${categories
-          .map((c) => `${c.categoryName} (${c.categoryCode})`)
+          .map((c) => `${this.categoryName(c) ?? '?'} (${this.categoryCode(c) ?? '?'})`)
           .join(', ')}`,
       );
       throw new BadRequestException('Monnify billing error: no airtime category found');
     }
     this.logger.log(
-      `Found airtime category: ${airtimeCategory.categoryName} (${airtimeCategory.categoryCode})`,
+      `Found airtime category: ${this.categoryName(airtimeCategory!)!} (${this.categoryCode(airtimeCategory!)!})`,
     );
-    return airtimeCategory.categoryCode;
+    return this.categoryCode(airtimeCategory!)!;
   }
 
   private async findDataCategory(): Promise<string> {
     const categories = await this.listBillerCategories();
-    const dataCategory = categories.find(
-      (cat) =>
-        (cat.categoryName?.toLowerCase().includes('data') ||
-          cat.categoryCode?.toLowerCase().includes('data')) ??
-        false,
-    );
-    if (!dataCategory?.categoryCode) {
+    // Prefer DATA_BUNDLE over generic DATA (which may list ISPs)
+    const prioritized = [...categories].sort((a, b) => {
+      const aScore =
+        (this.categoryCode(a) ?? '').toUpperCase().includes('DATA_BUNDLE') ||
+        (this.categoryName(a) ?? '').toLowerCase().includes('data_bundle')
+          ? 0
+          : 1;
+      const bScore =
+        (this.categoryCode(b) ?? '').toUpperCase().includes('DATA_BUNDLE') ||
+        (this.categoryName(b) ?? '').toLowerCase().includes('data_bundle')
+          ? 0
+          : 1;
+      return aScore - bScore;
+    });
+    const dataCategory = prioritized.find((cat) => {
+      const name = (this.categoryName(cat) ?? '').toLowerCase();
+      const code = (this.categoryCode(cat) ?? '').toLowerCase();
+      return (
+        name.includes('data_bundle') ||
+        code.includes('data_bundle') ||
+        name.includes('data bundle') ||
+        code.includes('data bundle') ||
+        (name.includes('data') && !name.includes('electricity')) ||
+        (code.includes('data') && !code.includes('electricity'))
+      );
+    });
+    if (!this.categoryCode(dataCategory!)) {
       this.logger.error(
         `No data category found. Available categories: ${categories
-          .map((c) => `${c.categoryName} (${c.categoryCode})`)
+          .map((c) => `${this.categoryName(c) ?? '?'} (${this.categoryCode(c) ?? '?'})`)
           .join(', ')}`,
       );
       throw new BadRequestException('Monnify billing error: no data category found');
     }
     this.logger.log(
-      `Found data category: ${dataCategory.categoryName} (${dataCategory.categoryCode})`,
+      `Found data category: ${this.categoryName(dataCategory!)!} (${this.categoryCode(dataCategory!)!})`,
     );
-    return dataCategory.categoryCode;
+    return this.categoryCode(dataCategory!)!;
   }
 
   private matchesNetwork(name: string | undefined, network: MonnifyTelcoNetwork): boolean {
@@ -162,6 +190,14 @@ export class MonnifyBillApiService {
 
   private productId(product: MonnifyProduct): string | undefined {
     return product.code ?? product.productCode;
+  }
+
+  private categoryCode(cat: MonnifyBillerCategory): string | undefined {
+    return cat.categoryCode ?? cat.code;
+  }
+
+  private categoryName(cat: MonnifyBillerCategory): string | undefined {
+    return cat.categoryName ?? cat.name;
   }
 
   private describeBillers(billers: MonnifyBiller[], limit = 10): string {
@@ -228,7 +264,7 @@ export class MonnifyBillApiService {
     const billers = Array.isArray(body) ? body : (body.content ?? []);
     this.logger.log(
       `Fetched ${billers.length} billers for category ${categoryCode}: ${billers
-        .map((b) => `${b.name} (${b.billerCode})`)
+        .map((b) => `${b.name} (${this.billerId(b) ?? '?'})`)
         .join(', ')}`,
     );
     this.billerCache.set(categoryCode, {
@@ -260,7 +296,7 @@ export class MonnifyBillApiService {
     const products = Array.isArray(body) ? body : (body.content ?? []);
     this.logger.log(
       `Fetched ${products.length} products for biller ${billerCode}: ${products
-        .map((p) => `${p.name} (${p.productCode})`)
+        .map((p) => `${p.name} (${this.productId(p) ?? '?'})`)
         .join(', ')}`,
     );
     this.productCache.set(billerCode, {
@@ -279,21 +315,21 @@ export class MonnifyBillApiService {
     const billers = await this.listBillers(actualCategoryCode);
     this.logger.log(
       `Looking for ${network} biller in ${actualCategoryCode}. Available billers: ${billers
-        .map((b) => `${b.name} (${b.billerCode})`)
+        .map((b) => `${b.name} (${this.billerId(b) ?? '?'})`)
         .join(', ')}`,
     );
     const match = billers.find((biller) => this.matchesNetwork(biller.name, network));
     if (!match || !this.billerId(match)) {
       this.logger.error(
         `No biller found for network ${network} in category ${actualCategoryCode}. Available billers: ${billers
-          .map((b) => `${b.name} (${b.billerCode})`)
+          .map((b) => `${b.name} (${this.billerId(b) ?? '?'})`)
           .join(', ')}`,
       );
       throw new BadRequestException(
         `Monnify billing error: no ${categoryCode.toLowerCase()} biller for ${network} (${this.describeBillers(billers)})`,
       );
     }
-    this.logger.log(`Found matching biller: ${match.name} (${match.billerCode})`);
+    this.logger.log(`Found matching biller: ${match.name} (${this.billerId(match) ?? '?'})`);
     return match;
   }
 
@@ -403,6 +439,9 @@ export class MonnifyBillApiService {
     const body: Record<string, unknown> = {
       productCode: input.productCode,
       customerId: input.customerId,
+      // Docs use amount/reference, legacy code uses vendAmount/vendReference — send both for compat
+      amount: input.vendAmount,
+      reference: input.vendReference,
       vendAmount: input.vendAmount,
       vendReference: input.vendReference,
     };
@@ -441,35 +480,70 @@ export class MonnifyBillApiService {
     };
   }
 
-  private normalizePhoneNumber(phoneNumber: string): string {
+  private normalizePhoneToLocal(phoneNumber: string): string {
     let normalized = phoneNumber.replace(/\s+/g, '').replace(/[-()]/g, '');
-
-    // If starts with +234, remove the + and keep 234
-    if (normalized.startsWith('+234')) {
-      normalized = normalized.replace('+234', '234');
-    }
-    // If starts with 0, replace with 234 (Nigeria country code)
-    else if (normalized.startsWith('0')) {
-      normalized = `234${normalized.substring(1)}`;
-    }
-    // If doesn't start with 234, assume it needs country code
-    else if (!normalized.startsWith('234')) {
-      normalized = `234${normalized}`;
-    }
-
+    if (normalized.startsWith('+234')) normalized = `0${normalized.slice(4)}`;
+    else if (normalized.startsWith('234')) normalized = `0${normalized.slice(3)}`;
+    // keep 0 prefix as Monnify sandbox expects local format; strip leading + if any
+    if (normalized.startsWith('+')) normalized = normalized.slice(1);
     return normalized;
+  }
+
+  private normalizePhoneToIntl(phoneNumber: string): string {
+    let normalized = phoneNumber.replace(/\s+/g, '').replace(/[-()]/g, '');
+    if (normalized.startsWith('+234')) normalized = normalized.replace('+234', '234');
+    else if (normalized.startsWith('0')) normalized = `234${normalized.substring(1)}`;
+    else if (!normalized.startsWith('234')) normalized = `234${normalized}`;
+    if (normalized.startsWith('+')) normalized = normalized.slice(1);
+    return normalized;
+  }
+
+  // @deprecated - use normalizePhoneToLocal / normalizePhoneToIntl
+  private normalizePhoneNumber(phoneNumber: string): string {
+    return this.normalizePhoneToLocal(phoneNumber);
+  }
+
+  private isInvalidCustomerIdError(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+    return msg.includes('invalid customerid') || msg.includes('invalid customer');
   }
 
   private async purchase(
     product: MonnifyProduct,
     input: MonnifyAirtimeInput,
   ): Promise<{ success: boolean; transactionId: string | null; status: string }> {
-    const customerId = this.normalizePhoneNumber(input.phoneNumber);
     const id = this.productId(product)!;
+    const localId = this.normalizePhoneToLocal(input.phoneNumber);
+    const intlId = this.normalizePhoneToIntl(input.phoneNumber);
+
+    // Basic length guard (Nigeria: 11 local, 13 intl)
+    if (localId.length !== 11 || !localId.startsWith('0')) {
+      this.logger.warn(
+        `Phone format looks unusual before Monnify vend: ${localId.slice(-4)} length=${localId.length}`,
+      );
+    }
+
     this.logger.log(
-      `Processing purchase -> customerId ending ${customerId.slice(-4)}, amount: ${input.amount}`,
+      `Processing purchase -> customerId ending ${localId.slice(-4)}, amount: ${input.amount}, productCode: ${id}`,
     );
-    const validation = await this.validateCustomer(id, customerId);
+
+    // Try local format first (070...), fallback to intl (234...) if Monnify says invalid customerId
+    let customerId = localId;
+    let validation: { validationReference?: string; requireValidationRef: boolean };
+    try {
+      validation = await this.validateCustomer(id, customerId);
+    } catch (error) {
+      if (customerId !== intlId && this.isInvalidCustomerIdError(error)) {
+        this.logger.warn(
+          `Monnify validate failed with local ${customerId.slice(-4)}, retrying with intl ${intlId.slice(-4)} for product ${id}`,
+        );
+        customerId = intlId;
+        validation = await this.validateCustomer(id, customerId);
+      } else {
+        throw error;
+      }
+    }
+
     return this.vend({
       productCode: id,
       customerId,
@@ -501,21 +575,21 @@ export class MonnifyBillApiService {
 
   async listElectricityBillers(): Promise<Array<{ id: string; name: string }>> {
     const categories = await this.listBillerCategories();
-    const electricityCategory = categories.find(
-      (cat) =>
-        (cat.categoryName?.toLowerCase().includes('electricity') ||
-          cat.categoryCode?.toLowerCase().includes('electricity')) ??
-        false,
-    );
-    if (!electricityCategory?.categoryCode) {
+    const electricityCategory = categories.find((cat) => {
+      const name = (this.categoryName(cat) ?? '').toLowerCase();
+      const code = (this.categoryCode(cat) ?? '').toLowerCase();
+      return name.includes('electricity') || code.includes('electricity');
+    });
+    const electricityCode = this.categoryCode(electricityCategory!);
+    if (!electricityCode) {
       this.logger.error(
         `No electricity category found. Available categories: ${categories
-          .map((c) => `${c.categoryName} (${c.categoryCode})`)
+          .map((c) => `${this.categoryName(c) ?? '?'} (${this.categoryCode(c) ?? '?'})`)
           .join(', ')}`,
       );
       return [];
     }
-    const billers = await this.listBillers(electricityCategory.categoryCode);
+    const billers = await this.listBillers(electricityCode);
     return billers
       .map((biller) => ({ biller, id: this.billerId(biller) }))
       .filter((row): row is { biller: MonnifyBiller; id: string } => Boolean(row.id))

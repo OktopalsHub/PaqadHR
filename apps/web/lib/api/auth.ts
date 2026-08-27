@@ -161,6 +161,8 @@ export async function register(input: SignupInput): Promise<User> {
     body: JSON.stringify({
       email: input.email,
       password: input.password,
+      termsAccepted: input.agreeToTerms,
+      privacyPolicyVersion: '1.0',
     }),
     skipCsrf: true,
   });

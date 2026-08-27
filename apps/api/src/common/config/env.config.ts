@@ -55,6 +55,9 @@ export interface IEnvironment {
   ENCRYPTION: {
     KEY: string;
   };
+  PRIVACY: {
+    POLICY_VERSION: string;
+  };
 }
 
 export const ENVIRONMENT: IEnvironment = {
@@ -95,5 +98,8 @@ export const ENVIRONMENT: IEnvironment = {
   },
   ENCRYPTION: {
     KEY: env.getRequired('ENCRYPTION_KEY'),
+  },
+  PRIVACY: {
+    POLICY_VERSION: env.getOptional('PRIVACY_POLICY_VERSION', '1.0'),
   },
 };

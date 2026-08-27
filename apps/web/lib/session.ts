@@ -17,15 +17,17 @@ function sharedCookieDomain(): string | undefined {
 function writeTenantSlugCookie(slug: string, maxAge: number) {
   const domain = sharedCookieDomain();
   const domainPart = domain ? `; Domain=${domain}` : '';
+  const securePart = window.location.protocol === 'https:' ? '; Secure' : '';
   // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
-  document.cookie = `tenant_slug=${encodeURIComponent(slug)}; path=/${domainPart}; max-age=${maxAge}; SameSite=Lax`;
+  document.cookie = `tenant_slug=${encodeURIComponent(slug)}; path=/${domainPart}; max-age=${maxAge}; SameSite=Lax${securePart}`;
 }
 
 function clearTenantSlugCookie() {
   const domain = sharedCookieDomain();
   const domainPart = domain ? `; Domain=${domain}` : '';
+  const securePart = window.location.protocol === 'https:' ? '; Secure' : '';
   // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
-  document.cookie = `tenant_slug=; path=/${domainPart}; max-age=0; SameSite=Lax`;
+  document.cookie = `tenant_slug=; path=/${domainPart}; max-age=0; SameSite=Lax${securePart}`;
 }
 
 /** User profile is loaded from the API only — never cached in localStorage (GDPR/NDPR). */
@@ -61,7 +63,7 @@ export function readTenantId(): string | null {
 export function persistTenantSlug(slug: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TENANT_SLUG_KEY, slug);
-  writeTenantSlugCookie(slug, 31536000);
+  writeTenantSlugCookie(slug, 2592000); // 30 days per GDPR storage limitation
 }
 
 export function readTenantSlug(): string | null {

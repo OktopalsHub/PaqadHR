@@ -11,6 +11,10 @@ node_modules
 !apps/api/README.md
 !apps/web/README.md
 
+# agents — local only (skills are installed via `npx skills add mattpocock/skills`)
+.agents/
+skills-lock.json
+
 # turbo
 .turbo
 

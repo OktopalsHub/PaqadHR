@@ -63,10 +63,15 @@ describe('MonnifyBillApiService', () => {
     expect(String(vendCall[0])).toContain('/api/v1/vas/bills-payment/vend');
     expect(JSON.parse(vendCall[1].body)).toMatchObject({
       productCode: 'MTN_VTU',
-      customerId: '2348012345678',
+      customerId: '08012345678',
       vendAmount: 500,
       vendReference: 'redemption-1',
       validationReference: 'val-1',
+    });
+    // validate was called with same local id
+    const validateCall = (global.fetch as jest.Mock).mock.calls[3];
+    expect(JSON.parse(validateCall[1].body)).toMatchObject({
+      customerId: '08012345678',
     });
   });
 
@@ -104,7 +109,7 @@ describe('MonnifyBillApiService', () => {
     expect(String(vendCall[0])).toContain('/api/v1/vas/bills-payment/vend');
     expect(JSON.parse(vendCall[1].body)).toMatchObject({
       productCode: 'AIRTEL_VTU',
-      customerId: '2347012345678',
+      customerId: '07012345678',
       vendAmount: 300,
       vendReference: 'redemption-2',
     });
@@ -143,7 +148,53 @@ describe('MonnifyBillApiService', () => {
     const vendCall = (global.fetch as jest.Mock).mock.calls[4];
     expect(String(vendCall[0])).toContain('/api/v1/vas/bills-payment/vend');
     expect(JSON.parse(vendCall[1].body)).toMatchObject({
-      customerId: '2348012345678',
+      customerId: '08012345678',
     });
+  });
+
+  it('retries with intl format when local validation returns invalid customerId', async () => {
+    const service = new MonnifyBillApiService(monnifyApi);
+
+    global.fetch = jest
+      .fn()
+      // discovery
+      .mockResolvedValueOnce(okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]))
+      .mockResolvedValueOnce(okBody([{ billerCode: 'MTN_AIRTIME', name: 'MTN' }]))
+      .mockResolvedValueOnce(okBody([{ productCode: 'MTN_VTU', name: 'MTN Airtime' }]))
+      // first validate -> invalid customerId
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          requestSuccessful: false,
+          responseMessage: 'invalid customerId',
+        }),
+      } as unknown as Response)
+      // retry validate with 234 -> success
+      .mockResolvedValueOnce(okBody({ requireValidationRef: false }))
+      .mockResolvedValueOnce(
+        okBody({
+          transactionReference: 'mfy-tx-retry',
+          vendReference: 'redemption-retry',
+          vendStatus: 'SUCCESS',
+        }),
+      ) as unknown as typeof fetch;
+
+    const result = await service.purchaseAirtime({
+      amount: 500,
+      phoneNumber: '08012345678',
+      network: 'MTN',
+      merchantTxRef: 'redemption-retry',
+    });
+
+    expect(result).toEqual({
+      success: true,
+      transactionId: 'mfy-tx-retry',
+      status: 'SUCCESS',
+    });
+
+    const firstValidate = JSON.parse((global.fetch as jest.Mock).mock.calls[3][1].body);
+    expect(firstValidate.customerId).toBe('08012345678');
+    const secondValidate = JSON.parse((global.fetch as jest.Mock).mock.calls[4][1].body);
+    expect(secondValidate.customerId).toBe('2348012345678');
   });
 });

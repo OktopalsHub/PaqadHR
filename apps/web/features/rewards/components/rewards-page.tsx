@@ -94,7 +94,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   const isAirtimeEnabled = settings?.airtimeEnabled ?? true;
   const isGiftCardsEnabled = settings?.giftCardsEnabled ?? true;
   const isUtilitiesEnabled = settings?.utilityPaymentsEnabled ?? true;
-  const { data: _providers, isLoading: _Loading } = useRewardProviders();
+  const { data: rewardProviders, isLoading: _Loading } = useRewardProviders();
+  const isMonnifyActive = rewardProviders?.ngBillsProvider === 'monnify';
   const isNgAvailable = isNgWorkspace || allowedCatalogCountries.includes('NG');
   const redemptionCountry = isNgAvailable ? 'NG' : tenantCountry;
   const showAirtime = isAirtimeEnabled && isNgAvailable;
@@ -384,11 +385,12 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
       const billerName = selectedNgUtilityBiller?.name;
 
       const rewardName = `${billerName} Utility Payment`;
+      const ngUtilityType = isMonnifyActive ? 'MONNIFY_UTILITY' : 'NOMBA_UTILITY';
 
       const result = await claimReward.mutateAsync({
         idempotencyKey,
-        rewardType: 'NOMBA_UTILITY',
-        rewardId: 'NOMBA_UTILITY',
+        rewardType: ngUtilityType,
+        rewardId: ngUtilityType,
         rewardName,
         pointsCost: utilityPoints,
         currencyValue: amount,
@@ -531,6 +533,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     const idempotencyKey = createClaimIdempotencyKey();
     try {
       const selectedBundle = topupMode === 'data' ? selectedDataPlan : null;
+      const ngAirtimeType = isMonnifyActive ? 'MONNIFY_AIRTIME' : 'NOMBA_AIRTIME';
 
       const rewardName = selectedBundle
         ? `${airtimeNetwork} ${selectedBundle.plan} Data Bundle`
@@ -538,8 +541,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
 
       const result = await claimReward.mutateAsync({
         idempotencyKey,
-        rewardType: 'NOMBA_AIRTIME',
-        rewardId: 'NOMBA_AIRTIME',
+        rewardType: ngAirtimeType,
+        rewardId: ngAirtimeType,
         rewardName,
         pointsCost: calculatedPoints,
         currencyValue: amount,
@@ -547,6 +550,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         recipientPhone: airtimePhone.trim(),
         airtimeNetwork,
         topupKind: topupMode,
+        dataPlanCode: selectedBundle?.productCode,
       });
 
       if (result.status === 'SUCCESS') {
@@ -1585,11 +1589,13 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
                         >
                           <div className="flex items-start gap-3.5 min-w-0">
                             <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
-                              {claim.rewardType === 'NOMBA_AIRTIME' ? (
+                              {claim.rewardType === 'NOMBA_AIRTIME' ||
+                              claim.rewardType === 'MONNIFY_AIRTIME' ? (
                                 <Phone className="size-5" />
                               ) : claim.rewardType === 'CUSTOM' ? (
                                 <Sparkles className="size-5 text-amber-500" />
-                              ) : claim.rewardType === 'NOMBA_UTILITY' ? (
+                              ) : claim.rewardType === 'NOMBA_UTILITY' ||
+                                claim.rewardType === 'MONNIFY_UTILITY' ? (
                                 <Zap className="size-5 text-indigo-600" />
                               ) : (
                                 <ShoppingBag className="size-5" />

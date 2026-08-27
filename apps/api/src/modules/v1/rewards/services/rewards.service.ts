@@ -32,6 +32,9 @@ import { TenantConfigService } from '../../tenant-settings/services/tenant-confi
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { CustomReward } from '../entities/custom-reward.entity';
 import {
+  isNgAirtimeRewardType,
+  isNgRewardType,
+  isNgUtilityRewardType,
   type RedemptionStatus,
   RewardRedemption,
   type RewardType,
@@ -169,19 +172,26 @@ export class RewardsService {
     return resolveNgRewardsAirtimeProvider() === PaymentProvider.MONNIFY;
   }
 
-  private assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
-    const _isNgCurrency =
-      (input.currencyCode ?? settings.rewardsCurrency).toUpperCase() === 'NGN' &&
-      settings.rewardsCurrency.toUpperCase() === 'NGN';
+  private isMonnifyRewardType(rewardType: RewardType): boolean {
+    return rewardType === 'MONNIFY_AIRTIME' || rewardType === 'MONNIFY_UTILITY';
+  }
 
-    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
-      const configured = this.useMonnifyNgBills()
-        ? this.monnifyBillApi.isConfigured()
-        : this.nombaBillApi.isConfigured();
-      if (!configured) {
-        throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
-      }
-      return;
+  private resolveProviderForReward(rewardType: RewardType): PaymentProvider {
+    if (this.isMonnifyRewardType(rewardType)) return PaymentProvider.MONNIFY;
+    if (rewardType === 'NOMBA_AIRTIME' || rewardType === 'NOMBA_UTILITY')
+      return PaymentProvider.NOMBA;
+    // For non-NG types, fall back to current NG Bills env (not used)
+    return this.useMonnifyNgBills() ? PaymentProvider.MONNIFY : PaymentProvider.NOMBA;
+  }
+
+  private assertNgNombaRouting(input: ClaimInput, settings: RewardsSettings): void {
+    if (!isNgRewardType(input.rewardType)) return;
+
+    const configured = this.useMonnifyNgBills()
+      ? this.monnifyBillApi.isConfigured()
+      : this.nombaBillApi.isConfigured();
+    if (!configured) {
+      throw new BadRequestException('Nigeria redemptions are temporarily unavailable.');
     }
   }
 
@@ -940,7 +950,7 @@ export class RewardsService {
     currencyValue: number,
     feePercentage: number,
   ): Promise<ClaimCostBreakdown> {
-    if (input.rewardType === 'NOMBA_AIRTIME' || input.rewardType === 'NOMBA_UTILITY') {
+    if (isNgRewardType(input.rewardType)) {
       const calc = await this.calculateLocalRewardCost(tenantId, currencyValue);
       return {
         totalTenantDebit: calc.totalTenantDebit,
@@ -1188,12 +1198,12 @@ export class RewardsService {
       await this.fulfillTremendous(redemption, input);
       return;
     }
-    if (input.rewardType === 'NOMBA_AIRTIME') {
-      await this.fulfillNombaTopup(redemption, input);
+    if (isNgAirtimeRewardType(input.rewardType)) {
+      await this.fulfillNgTopup(redemption, input);
       return;
     }
-    if (input.rewardType === 'NOMBA_UTILITY') {
-      await this.fulfillNombaUtility(redemption, input);
+    if (isNgUtilityRewardType(input.rewardType)) {
+      await this.fulfillNgUtility(redemption, input);
       return;
     }
     if (input.rewardType === 'CUSTOM') {
@@ -1308,7 +1318,7 @@ export class RewardsService {
     });
   }
 
-  private async fulfillNombaTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
+  private async fulfillNgTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.recipientPhone || !input.airtimeNetwork) {
       throw new Error('Phone number and network are required for mobile top-up');
     }
@@ -1379,10 +1389,12 @@ export class RewardsService {
     });
   }
 
-  private async fulfillNombaUtility(
-    redemption: RewardRedemption,
-    input: ClaimInput,
-  ): Promise<void> {
+  // @deprecated alias for tests
+  private async fulfillNombaTopup(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
+    return this.fulfillNgTopup(redemption, input);
+  }
+
+  private async fulfillNgUtility(redemption: RewardRedemption, input: ClaimInput): Promise<void> {
     if (!input.accountNumber || !input.billerId || !input.serviceType) {
       throw new Error('Meter number, biller ID, and service type are required for utility payment');
     }
@@ -1395,7 +1407,8 @@ export class RewardsService {
       merchantTxRef: redemption.id,
     };
 
-    const result = this.useMonnifyNgBills()
+    const useMonnify = this.useMonnifyNgBills();
+    const result = useMonnify
       ? await this.monnifyBillApi.purchaseElectricity(purchaseInput)
       : await this.nombaBillApi.purchaseElectricity(purchaseInput);
 
@@ -1432,6 +1445,14 @@ export class RewardsService {
       },
       processingStartedAt: () => 'NOW()',
     });
+  }
+
+  // @deprecated alias for tests
+  private async fulfillNombaUtility(
+    redemption: RewardRedemption,
+    input: ClaimInput,
+  ): Promise<void> {
+    return this.fulfillNgUtility(redemption, input);
   }
 
   private async fulfillCustom(redemption: RewardRedemption): Promise<void> {
@@ -2202,6 +2223,7 @@ export class RewardsService {
         airtime: this.monnifyBillApi.isConfigured(),
         utility: this.monnifyBillApi.isConfigured(),
       },
+      ngBillsProvider: this.useMonnifyNgBills() ? ('monnify' as const) : ('nomba' as const),
     };
   }
 

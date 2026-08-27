@@ -39,6 +39,8 @@ export function useNombaDataPlans(network: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE',
   });
 }
 
+export const useNgDataPlans = useNombaDataPlans;
+
 export function useUtilityBillers(countryCode: string) {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 

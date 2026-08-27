@@ -57,6 +57,8 @@ export class AuthController {
       body.password,
       { ip, headers: req.headers },
       undefined,
+      body.termsAccepted,
+      body.privacyPolicyVersion,
     );
     const { accessToken, refreshToken } = await this.authService.login(user, {
       ip,

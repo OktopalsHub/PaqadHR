@@ -4,7 +4,32 @@ import { resolveTenantId } from '@/lib/api/tenants';
 /** Maximum wallet top-up amount per checkout or auto-topup request (mirrors API DTO). */
 export const WALLET_TOPUP_MAX_AMOUNT = 10_000_000;
 
-export type RewardType = 'TREMENDOUS' | 'NOMBA_AIRTIME' | 'NOMBA_UTILITY' | 'CUSTOM';
+export type RewardType =
+  | 'TREMENDOUS'
+  | 'NOMBA_AIRTIME'
+  | 'NOMBA_UTILITY'
+  | 'MONNIFY_AIRTIME'
+  | 'MONNIFY_UTILITY'
+  | 'CUSTOM';
+
+export const NG_AIRTIME_REWARD_TYPES: readonly RewardType[] = [
+  'NOMBA_AIRTIME',
+  'MONNIFY_AIRTIME',
+] as const;
+export const NG_UTILITY_REWARD_TYPES: readonly RewardType[] = [
+  'NOMBA_UTILITY',
+  'MONNIFY_UTILITY',
+] as const;
+
+export function isNgAirtimeRewardType(value: string): boolean {
+  return (NG_AIRTIME_REWARD_TYPES as readonly string[]).includes(value);
+}
+export function isNgUtilityRewardType(value: string): boolean {
+  return (NG_UTILITY_REWARD_TYPES as readonly string[]).includes(value);
+}
+export function isNgRewardType(value: string): boolean {
+  return isNgAirtimeRewardType(value) || isNgUtilityRewardType(value);
+}
 export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
 
 export interface CatalogItem {
@@ -116,6 +141,8 @@ export interface ClaimInput {
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
   topupKind?: 'airtime' | 'data';
+  /** Monnify data bundle productCode (avoids price collisions). */
+  dataPlanCode?: string;
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -202,6 +229,7 @@ export async function deleteCustomReward(rewardId: string) {
 export interface NombaDataPlan {
   amount: number;
   plan: string;
+  productCode?: string;
 }
 
 export async function fetchNombaDataPlans(
@@ -210,6 +238,10 @@ export async function fetchNombaDataPlans(
   const tenantId = await resolveTenantId();
   return apiClient<NombaDataPlan[]>(tenantPath(tenantId, `rewards/data-plans/${network}`));
 }
+
+/** @deprecated alias for backwards compat */
+export const fetchNgDataPlans = fetchNombaDataPlans;
+export type NgDataPlan = NombaDataPlan;
 
 export type UtilityBiller = {
   id: string | number;
@@ -332,6 +364,7 @@ export interface RewardProviders {
   tremendous: { giftCards: boolean };
   nomba: { airtime: boolean; utility: boolean };
   monnify: { airtime: boolean; utility: boolean };
+  ngBillsProvider?: 'nomba' | 'monnify';
 }
 
 export async function fetchRewardProviders(): Promise<RewardProviders> {

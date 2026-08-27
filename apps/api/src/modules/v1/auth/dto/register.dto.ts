@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  Equals,
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { NormalizeEmail } from 'src/common/decorators';
 
 export class RegisterDto {
@@ -19,4 +28,15 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @ApiProperty({ description: 'Must accept terms and privacy policy', example: true })
+  @IsBoolean()
+  @Equals(true, { message: 'You must accept the terms and privacy policy to register' })
+  termsAccepted: boolean;
+
+  @ApiPropertyOptional({ description: 'Privacy policy version accepted', example: '1.0' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  privacyPolicyVersion?: string;
 }

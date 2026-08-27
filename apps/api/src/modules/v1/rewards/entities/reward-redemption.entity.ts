@@ -2,8 +2,37 @@ import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 
-export type RewardType = 'TREMENDOUS' | 'NOMBA_AIRTIME' | 'NOMBA_UTILITY' | 'CUSTOM';
+export type RewardType =
+  | 'TREMENDOUS'
+  | 'NOMBA_AIRTIME'
+  | 'NOMBA_UTILITY'
+  | 'MONNIFY_AIRTIME'
+  | 'MONNIFY_UTILITY'
+  | 'CUSTOM';
 export type RedemptionStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED';
+
+export const NG_AIRTIME_REWARD_TYPES: readonly RewardType[] = [
+  'NOMBA_AIRTIME',
+  'MONNIFY_AIRTIME',
+] as const;
+export const NG_UTILITY_REWARD_TYPES: readonly RewardType[] = [
+  'NOMBA_UTILITY',
+  'MONNIFY_UTILITY',
+] as const;
+export const NG_REWARD_TYPES: readonly RewardType[] = [
+  ...NG_AIRTIME_REWARD_TYPES,
+  ...NG_UTILITY_REWARD_TYPES,
+] as const;
+
+export function isNgAirtimeRewardType(value: string): boolean {
+  return (NG_AIRTIME_REWARD_TYPES as readonly string[]).includes(value);
+}
+export function isNgUtilityRewardType(value: string): boolean {
+  return (NG_UTILITY_REWARD_TYPES as readonly string[]).includes(value);
+}
+export function isNgRewardType(value: string): boolean {
+  return (NG_REWARD_TYPES as readonly string[]).includes(value);
+}
 
 export interface RecipientInfo {
   email?: string;

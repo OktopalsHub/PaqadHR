@@ -33,14 +33,19 @@ export function CatalogCard({
   const typeColors: Record<string, string> = {
     TREMENDOUS: 'bg-violet-500/10 text-violet-600 border-violet-200 dark:border-violet-800',
     NOMBA_AIRTIME: 'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
+    MONNIFY_AIRTIME:
+      'bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:border-emerald-800',
     NOMBA_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
+    MONNIFY_UTILITY: 'bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800',
     CUSTOM: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-800',
   };
 
   const typeLabels: Record<string, string> = {
     TREMENDOUS: 'Digital Voucher',
     NOMBA_AIRTIME: 'Airtime',
+    MONNIFY_AIRTIME: 'Airtime',
     NOMBA_UTILITY: 'Utility',
+    MONNIFY_UTILITY: 'Utility',
     CUSTOM: isTemplate ? 'Template Perk' : 'Custom Perk',
   };
 

@@ -23,7 +23,9 @@ export default function PrivacyPage() {
       </header>
       <main className="mx-auto max-w-3xl px-6 py-12 prose prose-neutral">
         <h1>Privacy Policy</h1>
-        <p className="text-muted-foreground">Last updated: July 2026</p>
+        <p className="text-muted-foreground">
+          Last updated: July 2026 — Policy version 1.0 (see PRIVACY_POLICY_VERSION)
+        </p>
         <p>
           PaqadHR (&quot;Paqad&quot;, &quot;we&quot;, &quot;us&quot;) provides HR and payroll
           software for teams. This policy explains how we collect, use, store, and protect personal
@@ -184,9 +186,19 @@ export default function PrivacyPage() {
         </ul>
         <p>
           Account holders can <strong>export</strong> or <strong>delete</strong> their data from
-          Settings → Privacy. Employees should contact their workspace administrator for employment
-          records held on their behalf. Applicants may contact the hiring organisation or{' '}
-          <a href="mailto:privacy@paqad.com">privacy@paqad.com</a>.
+          Settings → Privacy. You can also <strong>withdraw consent</strong> (Art.7),{' '}
+          <strong>restrict processing</strong> (Art.18), or <strong>object</strong> (Art.21) via
+          Settings → Privacy or by contacting us. Employees should contact their workspace
+          administrator for employment records held on their behalf. Applicants may contact the
+          hiring organisation or <a href="mailto:privacy@paqad.com">privacy@paqad.com</a>.
+        </p>
+        <h2>Cookies</h2>
+        <p>
+          We use only essential cookies: <code>access_token</code> and <code>refresh_token</code>{' '}
+          (httpOnly, Secure, SameSite for auth), <code>csrf</code> for protection, and{' '}
+          <code>tenant_slug</code> for workspace routing (30-day, Secure where available). No
+          third-party tracking or analytics cookies are set. See Settings → Privacy for
+          export/delete controls.
         </p>
 
         <h2>Children</h2>
