@@ -8,16 +8,14 @@ import type { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class BackfillExistingVerifiedUsers1787521285997 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
-    // Migrations run in one transaction. This lock prevents a registration
-    // from being inserted with `email_verified = FALSE` between this check and
-    // the update, which would otherwise incorrectly mark that new account as
-    // verified. Registrations resume as soon as this migration commits.
-    await queryRunner.query('LOCK TABLE "user" IN SHARE ROW EXCLUSIVE MODE;');
-
+    // CURRENT_TIMESTAMP is fixed at the migration transaction's start. This
+    // identifies legacy accounts without taking a table lock that blocks new
+    // registrations while the one-time backfill runs.
     await queryRunner.query(`
       UPDATE "user"
       SET email_verified = TRUE
-      WHERE email_verified = FALSE;
+      WHERE email_verified = FALSE
+        AND created_at < CURRENT_TIMESTAMP;
     `);
   }
 
