@@ -68,7 +68,6 @@ export const Dashboard = () => {
     data: jobsData,
     isLoading: jobsLoading,
     isError: jobsError,
-    refetch: refetchJobs,
   } = useJobOpenings({ enabled: recruitmentQueriesEnabled });
   const {
     overview,
@@ -179,7 +178,6 @@ export const Dashboard = () => {
     void refetchEmployees();
     void refetchLeaves();
     if (recruitmentQueriesEnabled) {
-      void refetchJobs();
       void refetchOverview();
     }
   };

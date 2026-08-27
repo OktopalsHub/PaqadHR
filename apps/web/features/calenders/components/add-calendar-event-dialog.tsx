@@ -172,7 +172,13 @@ export function AddCalendarEventDialog({
       );
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add event');
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : event
+            ? 'Failed to update event'
+            : 'Failed to add event',
+      );
     } finally {
       setBusy(false);
     }
