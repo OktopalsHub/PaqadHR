@@ -1,6 +1,6 @@
 'use client';
 
-import { Banknote, CheckCircle2, Loader2, Pencil, ShieldCheck, Trash2 } from 'lucide-react';
+import { Banknote, CheckCircle2, Loader2, Pencil, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { BankLogo } from '@/components/bank-logo';
@@ -9,6 +9,7 @@ import { SearchSelect } from '@/components/search-select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,11 +22,13 @@ import {
 } from '@/components/ui/select';
 import { PasswordInput } from '@/features/auth/components/form-fields/password-input';
 import {
-  useChangePaymentMethodPasscode,
+  useChangePaymentPasscode,
   useCreatePaymentMethod,
   useDeletePaymentMethod,
   useNigerianBanks,
   usePaymentMethods,
+  usePaymentPasscodeStatus,
+  useSubmitPaymentMethodForVerification,
   useSupportedPaymentCurrencies,
   useUpdatePaymentMethod,
 } from '@/hooks/queries/use-payment-methods';
@@ -49,26 +52,35 @@ const COUNTRY_BY_CURRENCY: Record<string, string> = {
 function statusBadgeVariant(status: string) {
   if (status === 'verified') return 'default' as const;
   if (status === 'rejected') return 'destructive' as const;
+  if (status === 'draft') return 'outline' as const;
   return 'secondary' as const;
+}
+
+function statusLabel(status: string) {
+  if (status === 'pending_verification') return 'Pending review';
+  if (status === 'draft') return 'Draft';
+  return status.replaceAll('_', ' ');
 }
 
 function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
   const updateMethod = useUpdatePaymentMethod();
   const deleteMethod = useDeletePaymentMethod();
-  const changePasscode = useChangePaymentMethodPasscode();
+  const submitMethod = useSubmitPaymentMethodForVerification();
   const [editOpen, setEditOpen] = useState(false);
-  const [passcodeOpen, setPasscodeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [submitOpen, setSubmitOpen] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
+  const [otpMode, setOtpMode] = useState<'edit' | 'submit'>('edit');
   const [currentPasscode, setCurrentPasscode] = useState('');
-  const [newPasscode, setNewPasscode] = useState('');
   const [accountName, setAccountName] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [bankName, setBankName] = useState('');
   const [institutionCode, setInstitutionCode] = useState('');
+  const [makePrimary, setMakePrimary] = useState(method.isPrimary);
 
   const payoutConfig = getPayoutFieldConfig(method.currency);
   const isGlobalBank = isGlobalBankCurrency(method.currency);
+  const canSubmit = method.status === 'draft' || method.status === 'rejected';
 
   useEffect(() => {
     if (!editOpen) return;
@@ -77,11 +89,12 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
     setAccountNumber('');
     setInstitutionCode('');
     setCurrentPasscode('');
-  }, [editOpen]);
+    setMakePrimary(method.isPrimary);
+  }, [editOpen, method.isPrimary]);
 
   const handleEdit = async (otpProof: string) => {
     if (currentPasscode.length !== 6) {
-      toast.error('Current passcode is required');
+      toast.error('Payment passcode is required');
       return;
     }
     if (isGlobalBank && (accountNumber.trim() || institutionCode.trim())) {
@@ -109,6 +122,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
           accountNumber: accountNumber.trim() || undefined,
           bankName: bankName.trim() || undefined,
           bankCode: institutionCode.trim() || undefined,
+          isPrimary: makePrimary,
         },
       });
       toast.success('Payment method updated');
@@ -121,29 +135,34 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 
   const requestEdit = () => {
     if (currentPasscode.length !== 6) {
-      toast.error('Current passcode is required');
+      toast.error('Payment passcode is required');
       return;
     }
+    setOtpMode('edit');
     setOtpOpen(true);
   };
 
-  const handleChangePasscode = async () => {
-    if (currentPasscode.length !== 6 || newPasscode.length !== 6) {
-      toast.error('Passcodes must be exactly 6 digits');
+  const requestSubmit = () => {
+    if (currentPasscode.length !== 6) {
+      toast.error('Payment passcode is required');
       return;
     }
+    setOtpMode('submit');
+    setOtpOpen(true);
+  };
+
+  const handleSubmitForReview = async (otpProof: string) => {
     try {
-      await changePasscode.mutateAsync({
+      await submitMethod.mutateAsync({
         paymentMethodId: method.id,
-        currentPasscode,
-        newPasscode,
+        passcode: currentPasscode,
+        otpProof,
       });
-      toast.success('Passcode changed');
-      setPasscodeOpen(false);
+      toast.success('Submitted for admin verification');
+      setSubmitOpen(false);
       setCurrentPasscode('');
-      setNewPasscode('');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Passcode change failed');
+      toast.error(err instanceof Error ? err.message : 'Submit failed');
     }
   };
 
@@ -163,12 +182,15 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
   };
 
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap items-center gap-1">
+      {canSubmit ? (
+        <Button size="sm" variant="outline" onClick={() => setSubmitOpen(true)}>
+          <Send className="mr-1 size-3.5" />
+          Submit for review
+        </Button>
+      ) : null}
       <Button size="sm" variant="ghost" onClick={() => setEditOpen(true)}>
         <Pencil className="size-3.5" />
-      </Button>
-      <Button size="sm" variant="ghost" onClick={() => setPasscodeOpen(true)}>
-        Passcode
       </Button>
       <Button size="sm" variant="ghost" onClick={() => setDeleteOpen(true)}>
         <Trash2 className="size-3.5 text-destructive" />
@@ -219,8 +241,16 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
                 }}
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id={`primary-${method.id}`}
+                checked={makePrimary}
+                onCheckedChange={(checked) => setMakePrimary(checked === true)}
+              />
+              <Label htmlFor={`primary-${method.id}`}>Use for payroll ({method.currency})</Label>
+            </div>
             <div className="space-y-2">
-              <Label>Current passcode</Label>
+              <Label>Payment passcode</Label>
               <PasswordInput
                 maxLength={6}
                 value={currentPasscode}
@@ -234,46 +264,44 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
         </DialogContent>
       </Dialog>
 
-      <OtpVerificationDialog
-        open={otpOpen}
-        onOpenChange={setOtpOpen}
-        purpose="payment_method"
-        title="Verify to update payment method"
-        onVerified={(proof) => void handleEdit(proof)}
-      />
-
-      <Dialog open={passcodeOpen} onOpenChange={setPasscodeOpen}>
+      <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Change passcode</DialogTitle>
+            <DialogTitle>Submit for verification</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Send {method.displayInfo} ({method.currency}) to your admin for review.
+            </p>
             <div className="space-y-2">
-              <Label>Current passcode</Label>
+              <Label>Payment passcode</Label>
               <PasswordInput
                 maxLength={6}
                 value={currentPasscode}
                 onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               />
             </div>
-            <div className="space-y-2">
-              <Label>New passcode</Label>
-              <PasswordInput
-                maxLength={6}
-                value={newPasscode}
-                onChange={(e) => setNewPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
-            <Button
-              className="w-full"
-              disabled={changePasscode.isPending}
-              onClick={handleChangePasscode}
-            >
-              Update passcode
+            <Button className="w-full" disabled={submitMethod.isPending} onClick={requestSubmit}>
+              {submitMethod.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              Submit for review
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      <OtpVerificationDialog
+        open={otpOpen}
+        onOpenChange={setOtpOpen}
+        purpose="payment_method"
+        title={
+          otpMode === 'submit'
+            ? 'Verify to submit payment method'
+            : 'Verify to update payment method'
+        }
+        onVerified={(proof) =>
+          void (otpMode === 'submit' ? handleSubmitForReview(proof) : handleEdit(proof))
+        }
+      />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
@@ -282,10 +310,10 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <p className="text-sm text-muted-foreground">
-              This removes the bank account from payroll. Enter your passcode to confirm.
+              This removes the bank account from payroll. Enter your payment passcode to confirm.
             </p>
             <div className="space-y-2">
-              <Label>Passcode</Label>
+              <Label>Payment passcode</Label>
               <PasswordInput
                 maxLength={6}
                 value={currentPasscode}
@@ -309,9 +337,12 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 
 export function PaymentSettingsSection() {
   const { data: methods = [], isLoading, isError, error } = usePaymentMethods();
+  const { data: passcodeStatus } = usePaymentPasscodeStatus();
   const { data: currencies } = useSupportedPaymentCurrencies();
   const createMethod = useCreatePaymentMethod();
+  const changePasscode = useChangePaymentPasscode();
   const [openForm, setOpenForm] = useState(false);
+  const [passcodeDialogOpen, setPasscodeDialogOpen] = useState(false);
   const [currency, setCurrency] = useState('NGN');
   const [bankCode, setBankCode] = useState('');
   const [bankName, setBankName] = useState('');
@@ -319,15 +350,19 @@ export function PaymentSettingsSection() {
   const [accountNumber, setAccountNumber] = useState('');
   const [institutionCode, setInstitutionCode] = useState('');
   const [passcode, setPasscode] = useState('');
+  const [isPrimary, setIsPrimary] = useState(true);
   const [lookupVerified, setLookupVerified] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupPending, setLookupPending] = useState(false);
   const [lookupUnavailable, setLookupUnavailable] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
+  const [currentPasscode, setCurrentPasscode] = useState('');
+  const [newPasscode, setNewPasscode] = useState('');
 
   const [walletAddress, setWalletAddress] = useState('');
   const [cryptoNetwork, setCryptoNetwork] = useState('');
 
+  const hasPasscode = passcodeStatus?.hasPasscode ?? methods.length > 0;
   const fiatOptions = useMemo(() => currencies?.fiat ?? [], [currencies]);
   const cryptoOptions = useMemo(() => currencies?.crypto ?? [], [currencies]);
   const currencyOptions = useMemo(
@@ -346,6 +381,7 @@ export function PaymentSettingsSection() {
   });
   const isGlobalBank = isGlobalBankCurrency(currency);
   const payoutConfig = getPayoutFieldConfig(currency);
+  const hasPrimaryForCurrency = methods.some((m) => m.currency === currency && m.isPrimary);
 
   useEffect(() => {
     if (currencyOptions.length === 0) return;
@@ -364,7 +400,8 @@ export function PaymentSettingsSection() {
     setLookupError(null);
     setLookupPending(false);
     setLookupUnavailable(false);
-  }, []);
+    setIsPrimary(!hasPrimaryForCurrency);
+  }, [hasPrimaryForCurrency]);
 
   const bankOptions = useMemo(
     () =>
@@ -519,7 +556,7 @@ export function PaymentSettingsSection() {
         country: isCrypto ? 'NG' : (COUNTRY_BY_CURRENCY[currency] ?? 'NG'),
         passcode,
         otpProof,
-        isPrimary: true,
+        isPrimary,
       });
       setOpenForm(false);
       setBankName('');
@@ -535,12 +572,28 @@ export function PaymentSettingsSection() {
       setLookupPending(false);
       setLookupUnavailable(false);
       toast.success(
-        lookupVerified
+        lookupVerified || isCrypto
           ? 'Payment settings saved.'
-          : 'Payment settings saved. An admin may need to verify your account.',
+          : 'Payment settings saved as draft. Submit for verification when ready.',
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save payment settings');
+    }
+  };
+
+  const handleChangePasscode = async () => {
+    if (currentPasscode.length !== 6 || newPasscode.length !== 6) {
+      toast.error('Passcodes must be exactly 6 digits');
+      return;
+    }
+    try {
+      await changePasscode.mutateAsync({ currentPasscode, newPasscode });
+      toast.success('Payment passcode changed');
+      setPasscodeDialogOpen(false);
+      setCurrentPasscode('');
+      setNewPasscode('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Passcode change failed');
     }
   };
 
@@ -569,7 +622,7 @@ export function PaymentSettingsSection() {
             ? 'For NGN accounts, enter your account number and bank.'
             : isGlobalBank && payoutConfig
               ? payoutConfig.help
-              : 'Enter your bank details. An admin must verify non-NGN accounts before payroll can be sent.'}
+              : 'Enter your bank details, then submit for verification. Mark the account you want payroll sent to as primary.'}
         </AlertDescription>
       </Alert>
 
@@ -585,10 +638,20 @@ export function PaymentSettingsSection() {
               <div>
                 <p className="text-sm font-medium">{method.displayInfo}</p>
                 <p className="text-xs text-muted-foreground">{method.currency}</p>
+                {method.status === 'rejected' && method.verificationNotes ? (
+                  <p className="mt-1 text-xs text-destructive">
+                    Rejected: {method.verificationNotes}
+                  </p>
+                ) : null}
+                {method.status === 'draft' ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Draft — submit for admin verification when ready.
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={statusBadgeVariant(method.status)}>
-                  {method.status.replaceAll('_', ' ')}
+                  {statusLabel(method.status)}
                 </Badge>
                 {method.isPrimary ? <Badge variant="secondary">Primary</Badge> : null}
                 {method.canReceivePayments ? (
@@ -605,6 +668,14 @@ export function PaymentSettingsSection() {
           ))}
         </div>
       )}
+
+      {hasPasscode ? (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setPasscodeDialogOpen(true)}>
+            Change payment passcode
+          </Button>
+        </div>
+      ) : null}
 
       {openForm ? (
         <div className="grid gap-3 rounded-lg border border-border/60 p-4 sm:grid-cols-2">
@@ -647,135 +718,130 @@ export function PaymentSettingsSection() {
                 />
               </div>
             </>
-          ) : (
+          ) : isNgn ? (
             <>
               <div className="space-y-2 sm:col-span-2">
-                <Label>{payoutConfig?.accountLabel ?? 'Account number'}</Label>
-                <Input
-                  value={accountNumber}
-                  onChange={(e) => {
-                    if (payoutConfig) {
-                      setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
-                      return;
-                    }
-                    setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, isNgn ? 10 : 17));
+                <Label>Bank</Label>
+                <SearchSelect
+                  options={bankOptions}
+                  value={bankCode}
+                  onValueChange={(value) => {
+                    setBankCode(value);
+                    const selected = banks.find((bank) => bank.code === value);
+                    setBankName(selected?.name ?? '');
                   }}
-                  inputMode={payoutConfig?.accountAlphanumeric ? 'text' : 'numeric'}
-                  placeholder={
-                    isNgn
-                      ? '10-digit account number'
-                      : (payoutConfig?.accountPlaceholder ?? 'Account number')
+                  placeholder={banksLoading ? 'Loading banks…' : 'Search bank'}
+                  disabled={banksLoading}
+                />
+                {banksError ? (
+                  <p className="text-xs text-destructive">
+                    {banksQueryError instanceof Error
+                      ? banksQueryError.message
+                      : 'Could not load banks'}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account number</Label>
+                <Input
+                  inputMode="numeric"
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="10-digit account number"
+                />
+                {lookupPending ? (
+                  <p className="text-xs text-muted-foreground">Looking up account…</p>
+                ) : null}
+                {lookupVerified ? (
+                  <p className="flex items-center gap-1 text-xs text-emerald-600">
+                    <CheckCircle2 className="size-3" />
+                    Account verified
+                  </p>
+                ) : null}
+                {lookupError ? <p className="text-xs text-destructive">{lookupError}</p> : null}
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account name</Label>
+                <Input
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  readOnly={lookupVerified && !lookupUnavailable}
+                />
+              </div>
+            </>
+          ) : isGlobalBank && payoutConfig ? (
+            <>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Bank name</Label>
+                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{payoutConfig.institutionLabel}</Label>
+                <Input
+                  value={institutionCode}
+                  placeholder={payoutConfig.institutionPlaceholder}
+                  onChange={(e) =>
+                    setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
                   }
                 />
               </div>
-
-              {isNgn ? (
-                <>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Bank</Label>
-                    {banksLoading ? (
-                      <p className="text-sm text-muted-foreground">Loading banks…</p>
-                    ) : (
-                      <SearchSelect
-                        options={bankOptions}
-                        value={bankCode}
-                        onValueChange={(code) => {
-                          setBankCode(code);
-                          const selected = banks.find((bank) => bank.code === code);
-                          setBankName(selected?.name ?? '');
-                        }}
-                        placeholder="Select your bank"
-                        searchPlaceholder="Search banks…"
-                        emptyMessage={
-                          banksError
-                            ? 'Could not load banks. Try again in a moment.'
-                            : 'No banks found.'
-                        }
-                      />
-                    )}
-                    {banksError ? (
-                      <p className="text-xs text-destructive">
-                        {banksQueryError instanceof Error
-                          ? banksQueryError.message
-                          : 'Could not load Nigerian banks'}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Account name</Label>
-                    <div className="relative">
-                      <Input
-                        value={accountName}
-                        readOnly={!lookupUnavailable || lookupVerified}
-                        placeholder={
-                          lookupPending
-                            ? 'Looking up account…'
-                            : lookupUnavailable
-                              ? 'Name on the account'
-                              : 'Verified automatically'
-                        }
-                        onChange={(e) => {
-                          if (lookupVerified || !lookupUnavailable) return;
-                          setAccountName(e.target.value);
-                        }}
-                      />
-                      {lookupPending ? (
-                        <Loader2 className="absolute right-3 top-2.5 size-4 animate-spin text-muted-foreground" />
-                      ) : lookupVerified ? (
-                        <CheckCircle2 className="absolute right-3 top-2.5 size-4 text-green-600" />
-                      ) : null}
-                    </div>
-                    {lookupError ? (
-                      <p className="text-xs text-destructive">{lookupError}</p>
-                    ) : lookupVerified ? (
-                      <p className="text-xs text-muted-foreground">Account verified</p>
-                    ) : null}
-                  </div>
-                </>
-              ) : isGlobalBank && payoutConfig ? (
-                <>
-                  <div className="space-y-2">
-                    <Label>Bank name</Label>
-                    <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{payoutConfig.institutionLabel}</Label>
-                    <Input
-                      value={institutionCode}
-                      placeholder={payoutConfig.institutionPlaceholder}
-                      onChange={(e) =>
-                        setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Account name</Label>
-                    <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label>Bank name</Label>
-                    <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Account name</Label>
-                    <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
-                  </div>
-                </>
-              )}
+              <div className="space-y-2 sm:col-span-2">
+                <Label>{payoutConfig.accountLabel}</Label>
+                <Input
+                  value={accountNumber}
+                  placeholder={payoutConfig.accountPlaceholder}
+                  onChange={(e) =>
+                    setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig))
+                  }
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account name</Label>
+                <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-2">
+                <Label>Bank name</Label>
+                <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Account name</Label>
+                <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Account number</Label>
+                <Input
+                  value={accountNumber}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17))}
+                />
+              </div>
             </>
           )}
 
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <Checkbox
+              id="is-primary"
+              checked={isPrimary}
+              onCheckedChange={(checked) => setIsPrimary(checked === true)}
+            />
+            <Label htmlFor="is-primary">Use for payroll ({currency})</Label>
+          </div>
+
           <div className="space-y-2 sm:col-span-2">
-            <Label>6-digit passcode</Label>
+            <Label>{hasPasscode ? 'Enter payment passcode' : 'Set payment passcode'}</Label>
             <PasswordInput
               inputMode="numeric"
               maxLength={6}
               value={passcode}
               onChange={(e) => setPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
             />
+            <p className="text-xs text-muted-foreground">
+              {hasPasscode
+                ? 'Use the same 6-digit passcode for all payment actions.'
+                : 'Create a 6-digit passcode. You will use it for all payment accounts.'}
+            </p>
           </div>
           <div className="flex gap-2 sm:col-span-2">
             <Button disabled={createMethod.isPending} onClick={handleSubmit}>
@@ -792,6 +858,39 @@ export function PaymentSettingsSection() {
           {methods.length ? 'Add another account' : 'Add bank account'}
         </Button>
       )}
+
+      <Dialog open={passcodeDialogOpen} onOpenChange={setPasscodeDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change payment passcode</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-2">
+            <div className="space-y-2">
+              <Label>Current passcode</Label>
+              <PasswordInput
+                maxLength={6}
+                value={currentPasscode}
+                onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>New passcode</Label>
+              <PasswordInput
+                maxLength={6}
+                value={newPasscode}
+                onChange={(e) => setNewPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
+            </div>
+            <Button
+              className="w-full"
+              disabled={changePasscode.isPending}
+              onClick={() => void handleChangePasscode()}
+            >
+              Update passcode
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <OtpVerificationDialog
         open={otpOpen}

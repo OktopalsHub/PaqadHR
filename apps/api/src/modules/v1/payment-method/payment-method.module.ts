@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
@@ -31,6 +32,7 @@ import { PaymentSecurityService } from './services/payment-security.service';
     TenantsModule,
     TenantMembersModule,
     TenantConfigModule,
+    NotificationsModule,
   ],
   controllers: [PaymentMethodController, PaymentSecurityController],
   providers: [
@@ -39,6 +41,6 @@ import { PaymentSecurityService } from './services/payment-security.service';
     PaymentSecurityService,
     PaymentSecurityRepository,
   ],
-  exports: [PaymentMethodService],
+  exports: [PaymentMethodService, PaymentSecurityService],
 })
 export class PaymentMethodModule {}

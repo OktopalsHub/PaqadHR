@@ -5,13 +5,11 @@ import {
   Logger,
   NotFoundException,
   ServiceUnavailableException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
-import { PasswordService } from 'src/common/utils';
 import { In, Repository } from 'typeorm';
 import { PaymentMethodType, TenantMemberRole } from '../../../../common/enums';
 import {
@@ -33,13 +31,16 @@ import { NombaTransferApiService } from '../../../../common/services/nomba-trans
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { AuthService } from '../../auth/auth.service';
+import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import type {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
+  SubmitForVerificationDto,
   UpdatePaymentMethodDto,
+  VerifyPaymentMethodDto,
 } from '../dto/payment-method.dto';
 import { PaymentMethod } from '../entities/payment-method.entity';
 import { PaymentMethodPasscodeHistory } from '../entities/payment-method-passcode-history.entity';
@@ -49,12 +50,11 @@ import {
   requiresGlobalInstitutionCode,
   validateGlobalBankFields,
 } from '../utils/global-bank-validation.util';
+import { PaymentSecurityService } from './payment-security.service';
 
 @Injectable()
 export class PaymentMethodService {
   private readonly logger = new Logger(PaymentMethodService.name);
-  private readonly maxFailedAttempts = 5;
-  private readonly lockDurationMinutes = 30;
   constructor(
     @InjectRepository(PaymentMethod)
     private readonly paymentMethodRepository: Repository<PaymentMethod>,
@@ -71,6 +71,8 @@ export class PaymentMethodService {
     private readonly tenantConfigService: TenantConfigService,
     private readonly tenantsService: TenantsService,
     private readonly authService: AuthService,
+    private readonly paymentSecurityService: PaymentSecurityService,
+    private readonly notificationHelperService: NotificationHelperService,
   ) {}
   async getAllowedCurrencies(tenantId: string): Promise<string[]> {
     try {
@@ -96,12 +98,12 @@ export class PaymentMethodService {
       if (dto.passcode.length !== 6) {
         throw new BadRequestException('Passcode must be exactly 6 characters');
       }
-      const passcodeHash = await PasswordService.hashPassword(dto.passcode);
+      await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, dto.passcode);
       if (dto.isPrimary) {
         await this.unsetPrimaryMethods(tenantId, memberId, dto.currency);
       }
 
-      let status = PaymentMethodStatus.PENDING_VERIFICATION;
+      let status = PaymentMethodStatus.DRAFT;
       let accountName = dto.accountName;
       let verifiedAt: Date | null = null;
 
@@ -160,23 +162,16 @@ export class PaymentMethodService {
         isPrimary: dto.isPrimary || false,
         status,
         verifiedAt,
-        passcodeHash,
-        passcodeSetAt: new Date(),
-        lastPasscodeChange: new Date(),
+        passcodeHash: null,
+        passcodeSetAt: null,
+        lastPasscodeChange: null,
         metadata: {
           ...(dto.metadata ?? {}),
           ...(dto.cryptoNetwork ? { cryptoNetwork: dto.cryptoNetwork } : {}),
           ...(dto.walletAddress ? { walletAddress: dto.walletAddress } : {}),
         },
       });
-      const savedMethod = await this.paymentMethodRepository.save(paymentMethod);
-      await this.trackPasscodeChange(
-        savedMethod.id,
-        memberId,
-        PasscodeChangeReason.INITIAL_SETUP,
-        'Initial passcode setup during payment method creation',
-      );
-      return savedMethod;
+      return await this.paymentMethodRepository.save(paymentMethod);
     } catch (error) {
       this.logger.error('Error creating payment method:', error);
       throw error;
@@ -196,7 +191,11 @@ export class PaymentMethodService {
     if (!paymentMethod) {
       throw new NotFoundException('Payment method not found');
     }
-    await this.verifyPasscode(paymentMethod, dto.currentPasscode);
+    await this.paymentSecurityService.ensureOrVerifyPasscode(
+      memberId,
+      tenantId,
+      dto.currentPasscode,
+    );
     if (dto.isPrimary && !paymentMethod.isPrimary && paymentMethod.currency) {
       await this.unsetPrimaryMethods(tenantId, memberId, paymentMethod.currency);
     }
@@ -230,7 +229,13 @@ export class PaymentMethodService {
       if (resolved.bankName) {
         dto.bankName = resolved.bankName;
       }
-    } else if (dto.accountNumber || dto.bankCode) {
+    } else if (
+      dto.accountNumber ||
+      dto.bankCode ||
+      dto.accountName ||
+      dto.bankName ||
+      (dto.country !== undefined && dto.country !== paymentMethod.country)
+    ) {
       const accNumber = dto.accountNumber ?? this.decryptField(paymentMethod.accountNumber) ?? '';
       const bCode = dto.bankCode ?? paymentMethod.bankCode ?? '';
       if (updatedCurrency && requiresGlobalInstitutionCode(updatedCurrency)) {
@@ -242,8 +247,9 @@ export class PaymentMethodService {
           dto.bankCode = normalizeInstitutionCode(updatedCurrency, bCode);
         }
       }
-      status = PaymentMethodStatus.PENDING_VERIFICATION;
+      status = PaymentMethodStatus.DRAFT;
       verifiedAt = null;
+      paymentMethod.submittedAt = null;
     }
 
     Object.assign(paymentMethod, {
@@ -260,22 +266,9 @@ export class PaymentMethodService {
       status,
       verifiedAt,
     });
-    if (dto.newPasscode) {
-      if (dto.newPasscode.length !== 6) {
-        throw new BadRequestException('New passcode must be exactly 6 characters');
-      }
-      paymentMethod.passcodeHash = await PasswordService.hashPassword(dto.newPasscode);
-      paymentMethod.lastPasscodeChange = new Date();
-      await this.trackPasscodeChange(
-        paymentMethodId,
-        memberId,
-        PasscodeChangeReason.USER_REQUESTED,
-        'Passcode changed during payment method update',
-      );
-    }
-    const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
-    return updatedMethod;
+    return this.paymentMethodRepository.save(paymentMethod);
   }
+
   async changePasscode(
     paymentMethodId: string,
     tenantId: string,
@@ -288,22 +281,20 @@ export class PaymentMethodService {
     if (!paymentMethod) {
       throw new NotFoundException('Payment method not found');
     }
-    await this.verifyPasscode(paymentMethod, dto.currentPasscode);
-    if (dto.newPasscode.length !== 6) {
-      throw new BadRequestException('New passcode must be exactly 6 characters');
-    }
-    paymentMethod.passcodeHash = await PasswordService.hashPassword(dto.newPasscode);
-    paymentMethod.lastPasscodeChange = new Date();
-    paymentMethod.failedPasscodeAttempts = 0;
-    paymentMethod.lockedUntil = null;
-    await this.paymentMethodRepository.save(paymentMethod);
+    await this.paymentSecurityService.changePasscode(
+      memberId,
+      tenantId,
+      dto.currentPasscode,
+      dto.newPasscode,
+    );
     await this.trackPasscodeChange(
       paymentMethodId,
       memberId,
       PasscodeChangeReason.USER_REQUESTED,
-      'Passcode changed via dedicated passcode change endpoint',
+      'Member payment passcode changed',
     );
   }
+
   async getPaymentMethods(
     tenantId: string,
     memberId: string,
@@ -312,7 +303,8 @@ export class PaymentMethodService {
     const query = this.paymentMethodRepository
       .createQueryBuilder('pm')
       .where('pm.tenantId = :tenantId', { tenantId })
-      .andWhere('pm.memberId = :memberId', { memberId });
+      .andWhere('pm.memberId = :memberId', { memberId })
+      .andWhere('pm.status != :suspended', { suspended: PaymentMethodStatus.SUSPENDED });
     if (currency) {
       query.andWhere('pm.currency = :currency', {
         currency: currency.toUpperCase(),
@@ -322,6 +314,7 @@ export class PaymentMethodService {
       .orderBy('pm.isPrimary', 'DESC')
       .addOrderBy('pm.createdAt', 'DESC')
       .getMany();
+    const memberLocked = await this.paymentSecurityService.isLocked(memberId, tenantId);
     return methods.map((method) => ({
       id: method.id,
       type: method.type,
@@ -330,9 +323,12 @@ export class PaymentMethodService {
       status: method.status,
       isPrimary: method.isPrimary,
       isVerified: method.isVerified,
-      canReceivePayments: method.canReceivePayments,
+      canReceivePayments: method.isVerified && !memberLocked,
       lastUsedAt: method.lastUsedAt,
       createdAt: method.createdAt,
+      verificationNotes:
+        method.status === PaymentMethodStatus.REJECTED ? method.verificationNotes : null,
+      submittedAt: method.submittedAt,
     }));
   }
   async getPrimaryPaymentMethod(
@@ -362,45 +358,138 @@ export class PaymentMethodService {
     if (!paymentMethod) {
       throw new NotFoundException('Payment method not found');
     }
-    if (paymentMethod.passcodeHash) {
-      if (!passcode) {
-        throw new BadRequestException('Passcode is required to delete this payment method');
-      }
-      await this.verifyPasscode(paymentMethod, passcode);
+    if (!passcode) {
+      throw new BadRequestException('Passcode is required to delete this payment method');
     }
+    await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, passcode);
     paymentMethod.status = PaymentMethodStatus.SUSPENDED;
     paymentMethod.accountNumber = null;
     paymentMethod.passcodeHash = null;
     paymentMethod.isPrimary = false;
     await this.paymentMethodRepository.save(paymentMethod);
   }
+
+  async submitForVerification(
+    paymentMethodId: string,
+    tenantId: string,
+    memberId: string,
+    userId: string,
+    dto: SubmitForVerificationDto,
+  ): Promise<PaymentMethod> {
+    this.authService.assertOtpProof(dto.otpProof, userId, 'payment_method');
+    const paymentMethod = await this.paymentMethodRepository.findOne({
+      where: { id: paymentMethodId, tenantId, memberId },
+      relations: ['member'],
+    });
+    if (!paymentMethod) {
+      throw new NotFoundException('Payment method not found');
+    }
+    if (
+      paymentMethod.status !== PaymentMethodStatus.DRAFT &&
+      paymentMethod.status !== PaymentMethodStatus.REJECTED
+    ) {
+      throw new BadRequestException(
+        'Only draft or rejected payment methods can be submitted for verification',
+      );
+    }
+    await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, dto.passcode);
+    paymentMethod.status = PaymentMethodStatus.PENDING_VERIFICATION;
+    paymentMethod.submittedAt = new Date();
+    paymentMethod.verificationNotes = null;
+    const saved = await this.paymentMethodRepository.save(paymentMethod);
+
+    const employeeName = paymentMethod.member
+      ? `${paymentMethod.member.firstName ?? ''} ${paymentMethod.member.lastName ?? ''}`.trim()
+      : 'Employee';
+    const currency = paymentMethod.currency ?? 'NGN';
+
+    void this.notificationHelperService
+      .sendPaymentMethodSubmittedEmployeeNotification(memberId, tenantId, {
+        currency,
+        paymentMethodId: saved.id,
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send payment submit employee notification', error);
+      });
+
+    void this.notifyAdminsOfPaymentSubmission(tenantId, employeeName, currency, saved.id).catch(
+      (error) => {
+        this.logger.error('Failed to notify admins of payment submission', error);
+      },
+    );
+
+    return saved;
+  }
+
   async verifyPaymentMethod(
     paymentMethodId: string,
     tenantId: string,
-    status: PaymentMethodStatus,
-    notes?: string,
+    dto: VerifyPaymentMethodDto,
   ): Promise<PaymentMethod> {
+    const allowed = [
+      PaymentMethodStatus.VERIFIED,
+      PaymentMethodStatus.REJECTED,
+      PaymentMethodStatus.SUSPENDED,
+    ];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException('Status must be verified, rejected, or suspended');
+    }
+    if (dto.status === PaymentMethodStatus.REJECTED && !dto.notes?.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+
     const paymentMethod = await this.paymentMethodRepository.findOne({
       where: { id: paymentMethodId, tenantId },
     });
     if (!paymentMethod) {
       throw new NotFoundException('Payment method not found');
     }
-    paymentMethod.status = status;
-    paymentMethod.verificationNotes = notes || null;
-    if (status === PaymentMethodStatus.VERIFIED) {
+    if (
+      (dto.status === PaymentMethodStatus.VERIFIED ||
+        dto.status === PaymentMethodStatus.REJECTED) &&
+      paymentMethod.status !== PaymentMethodStatus.PENDING_VERIFICATION
+    ) {
+      throw new BadRequestException(
+        'Only payment methods pending verification can be approved or rejected',
+      );
+    }
+    paymentMethod.status = dto.status;
+    paymentMethod.verificationNotes = dto.notes?.trim() || null;
+    if (dto.status === PaymentMethodStatus.VERIFIED) {
       paymentMethod.verifiedAt = new Date();
     }
     const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
     await this.auditLogsService.queueAuditLog({
       action: AuditAction.UPDATE,
-      description: `Payment method verification set to ${status}`,
+      description: `Payment method verification set to ${dto.status}`,
       severity: AuditSeverity.MEDIUM,
       status: AuditStatus.SUCCESS,
       resourceType: 'payment_method',
       resourceId: paymentMethodId,
       tenantId: paymentMethod.tenantId,
     });
+
+    if (dto.status === PaymentMethodStatus.VERIFIED) {
+      void this.notificationHelperService
+        .sendPaymentMethodVerifiedNotification(paymentMethod.memberId, tenantId, {
+          currency: paymentMethod.currency ?? 'NGN',
+          paymentMethodId,
+        })
+        .catch((error) => {
+          this.logger.error('Failed to send payment verified notification', error);
+        });
+    } else if (dto.status === PaymentMethodStatus.REJECTED) {
+      void this.notificationHelperService
+        .sendPaymentMethodRejectedNotification(paymentMethod.memberId, tenantId, {
+          currency: paymentMethod.currency ?? 'NGN',
+          reason: dto.notes?.trim() ?? 'No reason provided',
+          paymentMethodId,
+        })
+        .catch((error) => {
+          this.logger.error('Failed to send payment rejected notification', error);
+        });
+    }
+
     return updatedMethod;
   }
   async recordPaymentMethodUsage(paymentMethodId: string): Promise<void> {
@@ -451,6 +540,8 @@ export class PaymentMethodService {
       },
       order: { status: 'DESC', isPrimary: 'DESC', updatedAt: 'DESC' },
     });
+
+    const lockedMembers = await this.paymentSecurityService.getLockedMemberIds(tenantId, memberIds);
 
     const methodMap = new Map<string, PaymentMethod>();
     for (const method of paymentMethods) {
@@ -519,7 +610,7 @@ export class PaymentMethodService {
       if (!method.isVerified) {
         issues.push(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD);
       }
-      if (method.isLocked) {
+      if (lockedMembers.has(memberId)) {
         issues.push(PayrollPaymentIssue.LOCKED_PAYMENT_METHOD);
       }
 
@@ -559,10 +650,10 @@ export class PaymentMethodService {
         }
       }
 
-      const ready = issues.length === 0 && method.canReceivePayments;
+      const ready = issues.length === 0 && method.isVerified && !lockedMembers.has(memberId);
       const message = ready
         ? 'Ready for payroll disbursement.'
-        : this.buildReadinessMessage(issues, runIsCrypto);
+        : this.buildReadinessMessage(issues, runIsCrypto, method.status);
 
       results.push({
         memberId,
@@ -605,7 +696,11 @@ export class PaymentMethodService {
     return this.withDecrypted(fallback);
   }
 
-  private buildReadinessMessage(issues: PayrollPaymentIssue[], runIsCrypto = false): string {
+  private buildReadinessMessage(
+    issues: PayrollPaymentIssue[],
+    runIsCrypto = false,
+    methodStatus?: PaymentMethodStatus,
+  ): string {
     if (issues.includes(PayrollPaymentIssue.MISSING_PAYMENT_METHOD)) {
       return runIsCrypto
         ? 'Payment settings are not set up yet. Add a crypto wallet for this currency to be included.'
@@ -617,6 +712,16 @@ export class PaymentMethodService {
         : 'This run pays to bank accounts. Add a matching bank account (not a crypto wallet) for this currency.';
     }
     if (issues.includes(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD)) {
+      if (methodStatus === PaymentMethodStatus.DRAFT) {
+        return runIsCrypto
+          ? 'Crypto wallet is saved as draft. Submit it for admin verification to be included in payroll.'
+          : 'Bank details are saved as draft. Submit them for admin verification to be included in payroll.';
+      }
+      if (methodStatus === PaymentMethodStatus.REJECTED) {
+        return runIsCrypto
+          ? 'Crypto wallet was rejected. Update details and resubmit for verification.'
+          : 'Bank details were rejected. Update details and resubmit for verification.';
+      }
       return runIsCrypto
         ? 'Crypto wallet is pending verification. This employee will miss payment until an admin verifies it.'
         : 'Bank details are pending verification. This employee will miss payment until an admin verifies their account.';
@@ -649,8 +754,14 @@ export class PaymentMethodService {
       employeeName: string;
       currency: string;
       displayInfo: string;
+      bankName?: string;
+      accountName?: string;
+      institutionCode?: string;
+      accountLast4?: string;
+      isPrimary: boolean;
       status: PaymentMethodStatus;
       createdAt: Date;
+      submittedAt: Date | null;
     }>
   > {
     const methods = await this.paymentMethodRepository.find({
@@ -659,7 +770,7 @@ export class PaymentMethodService {
         status: PaymentMethodStatus.PENDING_VERIFICATION,
       },
       relations: ['member'],
-      order: { createdAt: 'ASC' },
+      order: { submittedAt: 'ASC', createdAt: 'ASC' },
     });
 
     return methods.map((method) => ({
@@ -674,8 +785,10 @@ export class PaymentMethodService {
       accountName: this.decryptField(method.accountName) ?? undefined,
       institutionCode: method.bankCode ?? undefined,
       accountLast4: this.maskAccountLast4(method.accountNumber),
+      isPrimary: method.isPrimary,
       status: method.status,
       createdAt: method.createdAt,
+      submittedAt: method.submittedAt,
     }));
   }
 
@@ -783,38 +896,29 @@ export class PaymentMethodService {
     if (!account) return undefined;
     return account.length >= 4 ? account.slice(-4) : account;
   }
-  private async verifyPasscode(paymentMethod: PaymentMethod, passcode: string): Promise<void> {
-    if (!paymentMethod.passcodeHash) {
-      throw new BadRequestException(
-        'Payment method does not have a passcode set. Please set a passcode first.',
-      );
-    }
-    if (!passcode) {
-      throw new BadRequestException('Passcode is required');
-    }
-    if (paymentMethod.isLocked) {
-      throw new UnauthorizedException(
-        `Payment method is locked until ${paymentMethod.lockedUntil?.toISOString()}`,
-      );
-    }
-    const isValid = await PasswordService.verifyPassword(paymentMethod.passcodeHash, passcode);
-    if (!isValid) {
-      paymentMethod.failedPasscodeAttempts += 1;
-      if (paymentMethod.failedPasscodeAttempts >= this.maxFailedAttempts) {
-        paymentMethod.lockedUntil = new Date(Date.now() + this.lockDurationMinutes * 60 * 1000);
-        this.logger.warn(
-          `Payment method ${paymentMethod.id} locked due to failed passcode attempts`,
-        );
-      }
-      await this.paymentMethodRepository.save(paymentMethod);
-      throw new UnauthorizedException('Invalid passcode');
-    }
-    if (paymentMethod.failedPasscodeAttempts > 0) {
-      paymentMethod.failedPasscodeAttempts = 0;
-      paymentMethod.lockedUntil = null;
-      await this.paymentMethodRepository.save(paymentMethod);
-    }
+
+  private async notifyAdminsOfPaymentSubmission(
+    tenantId: string,
+    employeeName: string,
+    currency: string,
+    paymentMethodId: string,
+  ): Promise<void> {
+    const admins = await this.tenantMemberRepository.find({
+      where: [
+        { tenantId, role: TenantMemberRole.OWNER },
+        { tenantId, role: TenantMemberRole.ADMIN },
+      ],
+      select: ['id'],
+    });
+    const recipientIds = admins.map((admin) => admin.id);
+    if (recipientIds.length === 0) return;
+    await this.notificationHelperService.sendPaymentMethodSubmittedAdminNotification(
+      recipientIds,
+      tenantId,
+      { employeeName, currency, paymentMethodId },
+    );
   }
+
   private async validatePaymentMethodData(dto: CreatePaymentMethodDto): Promise<void> {
     const isCrypto = dto.type === PaymentMethodType.CRYPTO || isCryptoCurrency(dto.currency);
 
@@ -967,7 +1071,7 @@ export class PaymentMethodService {
         return {
           accountName: trimmedName,
           bankName: bankName?.trim() || undefined,
-          status: PaymentMethodStatus.PENDING_VERIFICATION,
+          status: PaymentMethodStatus.DRAFT,
           verifiedAt: null,
         };
       }

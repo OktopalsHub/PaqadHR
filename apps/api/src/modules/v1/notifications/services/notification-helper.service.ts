@@ -586,4 +586,106 @@ export class NotificationHelperService {
       },
     });
   }
+
+  async sendPaymentMethodSubmittedAdminNotification(
+    recipientIds: string[],
+    tenantId: string,
+    variables: {
+      employeeName: string;
+      currency: string;
+      paymentMethodId: string;
+    },
+  ): Promise<void> {
+    if (recipientIds.length === 0) return;
+    await this.notificationService.createBulkNotifications({
+      recipientIds,
+      tenantId,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.MEDIUM,
+      title: `Payment details to review: ${variables.employeeName}`,
+      message: `${variables.employeeName} submitted a ${variables.currency} payment account for verification.`,
+      metadata: {
+        type: 'payment_method_review',
+        status: 'pending_verification',
+        paymentMethodId: variables.paymentMethodId,
+        currency: variables.currency,
+      },
+    });
+  }
+
+  async sendPaymentMethodSubmittedEmployeeNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      currency: string;
+      paymentMethodId: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.LOW,
+      title: 'Payment details submitted for review',
+      message: `Your ${variables.currency} payment account was submitted for admin verification.`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'payment_method_review',
+        status: 'pending_verification',
+        paymentMethodId: variables.paymentMethodId,
+        currency: variables.currency,
+      },
+    });
+  }
+
+  async sendPaymentMethodVerifiedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      currency: string;
+      paymentMethodId: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.MEDIUM,
+      title: 'Payment account verified',
+      message: `Your ${variables.currency} payment account was approved and is ready for payroll.`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'payment_method_review',
+        status: 'verified',
+        paymentMethodId: variables.paymentMethodId,
+        currency: variables.currency,
+      },
+    });
+  }
+
+  async sendPaymentMethodRejectedNotification(
+    recipientId: string,
+    tenantId: string,
+    variables: {
+      currency: string;
+      reason: string;
+      paymentMethodId: string;
+    },
+  ): Promise<void> {
+    await this.notificationService.createNotification({
+      type: NotificationType.USER,
+      channel: NotificationChannel.IN_APP,
+      priority: NotificationPriority.HIGH,
+      title: 'Payment account rejected',
+      message: `Your ${variables.currency} payment account was rejected. Reason: ${variables.reason}`,
+      recipientId,
+      tenantId,
+      metadata: {
+        type: 'payment_method_review',
+        status: 'rejected',
+        paymentMethodId: variables.paymentMethodId,
+        currency: variables.currency,
+      },
+    });
+  }
 }

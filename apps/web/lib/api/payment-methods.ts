@@ -47,8 +47,10 @@ export interface PendingPaymentMethod {
   accountName?: string;
   institutionCode?: string;
   accountLast4?: string;
+  isPrimary: boolean;
   status: string;
   createdAt: string;
+  submittedAt: string | null;
 }
 
 export async function fetchPendingPaymentMethods(): Promise<PendingPaymentMethod[]> {
@@ -59,12 +61,28 @@ export async function fetchPendingPaymentMethods(): Promise<PendingPaymentMethod
 export async function verifyPaymentMethod(
   paymentMethodId: string,
   status: 'verified' | 'rejected',
+  notes?: string,
 ): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/verify`), {
     method: 'POST',
-    body: JSON.stringify({ status: status.toUpperCase() }),
+    body: JSON.stringify({ status, notes }),
   });
+}
+
+export async function submitPaymentMethodForVerification(
+  paymentMethodId: string,
+  passcode: string,
+  otpProof: string,
+): Promise<PaymentMethodSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient(
+    tenantPath(tenantId, `payment-methods/${paymentMethodId}/submit-for-verification`),
+    {
+      method: 'POST',
+      body: JSON.stringify({ passcode, otpProof }),
+    },
+  );
 }
 
 export type NigerianBank = { code: string; name: string };
@@ -98,7 +116,6 @@ export type UpdatePaymentMethodInput = {
   country?: string;
   currentPasscode: string;
   otpProof: string;
-  newPasscode?: string;
   isPrimary?: boolean;
 };
 
@@ -124,17 +141,5 @@ export async function deletePaymentMethod(
   await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}`), {
     method: 'DELETE',
     body: JSON.stringify(passcode ? { passcode } : {}),
-  });
-}
-
-export async function changePaymentMethodPasscode(
-  paymentMethodId: string,
-  currentPasscode: string,
-  newPasscode: string,
-): Promise<void> {
-  const tenantId = await resolveTenantId();
-  await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/passcode`), {
-    method: 'PUT',
-    body: JSON.stringify({ currentPasscode, newPasscode }),
   });
 }

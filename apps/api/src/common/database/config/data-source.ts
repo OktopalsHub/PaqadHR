@@ -101,6 +101,7 @@ const AppDataSource = {
     Migrations.NotificationCleanupFix1787100000000,
     Migrations.BackfillExistingVerifiedUsers1787521285997,
     Migrations.WidenPaymentMethodEncryptedColumns1787866777469,
+    Migrations.PaymentMethodSubmittedAtAndSecurityBackfill1787870704946,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

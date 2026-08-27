@@ -2,16 +2,19 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
   ValidateIf,
 } from 'class-validator';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentMethodType } from 'src/common/enums';
+import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 
 export class CreatePaymentMethodDto {
   @ApiProperty({
@@ -124,13 +127,14 @@ export class CreatePaymentMethodDto {
   @IsBoolean()
   isPrimary?: boolean;
   @ApiProperty({
-    description: 'Security passcode (exactly 6 digits)',
+    description: 'Member payment passcode (exactly 6 digits)',
     example: '123456',
   })
   @IsNotEmpty({ message: 'Passcode is required' })
   @IsString()
   @MinLength(6, { message: 'Passcode must be exactly 6 characters' })
   @MaxLength(6, { message: 'Passcode must be exactly 6 characters' })
+  @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
   passcode: string;
   @ApiProperty({
     description: 'Email OTP proof from POST /auth/otp/verify',
@@ -210,10 +214,13 @@ export class UpdatePaymentMethodDto {
   @IsBoolean()
   isPrimary?: boolean;
   @ApiProperty({
-    description: 'Current passcode for verification',
+    description: 'Current member payment passcode for verification',
   })
   @IsNotEmpty({ message: 'Current passcode is required' })
   @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
   currentPasscode: string;
   @ApiProperty({
     description: 'Email OTP proof from POST /auth/otp/verify',
@@ -222,15 +229,6 @@ export class UpdatePaymentMethodDto {
   @IsString()
   otpProof: string;
   @ApiProperty({
-    description: 'New passcode (optional, exactly 6 digits)',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @MinLength(6, { message: 'New passcode must be exactly 6 characters' })
-  @MaxLength(6, { message: 'New passcode must be exactly 6 characters' })
-  newPasscode?: string;
-  @ApiProperty({
     description: 'Additional metadata',
     required: false,
   })
@@ -238,12 +236,16 @@ export class UpdatePaymentMethodDto {
   @IsObject()
   metadata?: Record<string, unknown>;
 }
+
 export class PasscodeChangeDto {
   @ApiProperty({
     description: 'Current passcode',
   })
   @IsNotEmpty({ message: 'Current passcode is required' })
   @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
   currentPasscode: string;
   @ApiProperty({
     description: 'New passcode (exactly 6 digits)',
@@ -252,8 +254,48 @@ export class PasscodeChangeDto {
   @IsString()
   @MinLength(6, { message: 'New passcode must be exactly 6 characters' })
   @MaxLength(6, { message: 'New passcode must be exactly 6 characters' })
+  @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
   newPasscode: string;
 }
+
+export class SubmitForVerificationDto {
+  @ApiProperty({ description: 'Member payment passcode (exactly 6 digits)' })
+  @IsNotEmpty({ message: 'Passcode is required' })
+  @IsString()
+  @MinLength(6)
+  @MaxLength(6)
+  @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
+  passcode: string;
+
+  @ApiProperty({ description: 'Email OTP proof from POST /auth/otp/verify' })
+  @IsNotEmpty({ message: 'Email verification is required' })
+  @IsString()
+  otpProof: string;
+}
+
+export class VerifyPaymentMethodDto {
+  @ApiProperty({
+    description: 'Verification decision',
+    enum: [
+      PaymentMethodStatus.VERIFIED,
+      PaymentMethodStatus.REJECTED,
+      PaymentMethodStatus.SUSPENDED,
+    ],
+  })
+  @IsIn([PaymentMethodStatus.VERIFIED, PaymentMethodStatus.REJECTED, PaymentMethodStatus.SUSPENDED])
+  status: PaymentMethodStatus;
+
+  @ApiProperty({
+    description: 'Verification notes (required when rejecting)',
+    required: false,
+  })
+  @ValidateIf((o) => o.status === PaymentMethodStatus.REJECTED)
+  @IsNotEmpty({ message: 'Rejection reason is required' })
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+}
+
 export class SwitchPaymentTypeDto {
   @ApiProperty({
     description: 'Payment method type',
@@ -267,5 +309,6 @@ export class SwitchPaymentTypeDto {
   })
   @IsNotEmpty()
   @IsString()
+  @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
   passcode: string;
 }

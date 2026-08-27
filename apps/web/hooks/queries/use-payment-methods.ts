@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { UpdatePaymentMethodInput } from '@/lib/api/payment-methods';
 import {
-  changePaymentMethodPasscode,
   createPaymentMethod,
   deletePaymentMethod,
   fetchNigerianBanks,
@@ -11,9 +10,11 @@ import {
   fetchPendingPaymentMethods,
   fetchSupportedPaymentCurrencies,
   lookupNigerianBankAccount,
+  submitPaymentMethodForVerification,
   updatePaymentMethod,
   verifyPaymentMethod,
 } from '@/lib/api/payment-methods';
+import { changePaymentPasscode, fetchPaymentPasscodeStatus } from '@/lib/api/payment-security';
 import { queryKeys } from '@/lib/query/keys';
 import type { CreatePaymentMethodInput } from '@/lib/schemas/payment-method';
 import { useTenant } from '@/providers/tenant-provider';
@@ -25,6 +26,17 @@ export function usePaymentMethods() {
     queryKey: [...queryKeys.paymentMethods.all, tenantId],
     queryFn: fetchPaymentMethods,
     enabled: !tenantLoading && Boolean(tenantId),
+  });
+}
+
+export function usePaymentPasscodeStatus() {
+  const { tenantId, tenant, isLoading: tenantLoading } = useTenant();
+  const memberId = tenant?.member?.id;
+
+  return useQuery({
+    queryKey: [...queryKeys.paymentMethods.passcodeStatus, tenantId, memberId],
+    queryFn: () => fetchPaymentPasscodeStatus(memberId!),
+    enabled: !tenantLoading && Boolean(tenantId) && Boolean(memberId),
   });
 }
 
@@ -51,6 +63,9 @@ export function useCreatePaymentMethod() {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.paymentMethods.pending, tenantId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.passcodeStatus, tenantId],
+      });
     },
   });
 }
@@ -73,16 +88,43 @@ export function useVerifyPaymentMethod() {
     mutationFn: ({
       paymentMethodId,
       status,
+      notes,
     }: {
       paymentMethodId: string;
       status: 'verified' | 'rejected';
-    }) => verifyPaymentMethod(paymentMethodId, status),
+      notes?: string;
+    }) => verifyPaymentMethod(paymentMethodId, status, notes),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.paymentMethods.pending, tenantId],
       });
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.paymentMethods.all, tenantId],
+      });
+    },
+  });
+}
+
+export function useSubmitPaymentMethodForVerification() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({
+      paymentMethodId,
+      passcode,
+      otpProof,
+    }: {
+      paymentMethodId: string;
+      passcode: string;
+      otpProof: string;
+    }) => submitPaymentMethodForVerification(paymentMethodId, passcode, otpProof),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.all, tenantId],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.pending, tenantId],
       });
     },
   });
@@ -122,6 +164,9 @@ export function useUpdatePaymentMethod() {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.paymentMethods.all, tenantId],
       });
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.pending, tenantId],
+      });
     },
   });
 }
@@ -141,16 +186,26 @@ export function useDeletePaymentMethod() {
   });
 }
 
-export function useChangePaymentMethodPasscode() {
+export function useChangePaymentPasscode() {
+  const queryClient = useQueryClient();
+  const { tenantId, tenant } = useTenant();
+  const memberId = tenant?.member?.id;
+
   return useMutation({
     mutationFn: ({
-      paymentMethodId,
       currentPasscode,
       newPasscode,
     }: {
-      paymentMethodId: string;
       currentPasscode: string;
       newPasscode: string;
-    }) => changePaymentMethodPasscode(paymentMethodId, currentPasscode, newPasscode),
+    }) => {
+      if (!memberId) throw new Error('Member not found');
+      return changePaymentPasscode(memberId, currentPasscode, newPasscode);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.passcodeStatus, tenantId],
+      });
+    },
   });
 }

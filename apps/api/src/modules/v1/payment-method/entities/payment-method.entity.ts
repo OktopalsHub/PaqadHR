@@ -63,7 +63,7 @@ export class PaymentMethod extends BaseEntity {
   @Column({
     type: 'enum',
     enum: PaymentMethodStatus,
-    default: PaymentMethodStatus.PENDING_VERIFICATION,
+    default: PaymentMethodStatus.DRAFT,
     comment: 'Payment method verification status',
   })
   status: PaymentMethodStatus;
@@ -118,6 +118,13 @@ export class PaymentMethod extends BaseEntity {
     comment: 'When payment method was verified',
   })
   verifiedAt: Date | null;
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    name: 'submitted_at',
+    comment: 'When employee submitted this method for admin verification',
+  })
+  submittedAt: Date | null;
   @Column({
     type: 'varchar',
     length: 500,

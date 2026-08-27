@@ -89,6 +89,7 @@ export const queryKeys = {
     all: ['payment-methods'] as const,
     currencies: ['payment-methods', 'currencies'] as const,
     pending: ['payment-methods', 'pending'] as const,
+    passcodeStatus: ['payment-methods', 'passcode-status'] as const,
     banks: (tenantId: string) => ['payment-methods', 'banks', tenantId] as const,
   },
   member: {

@@ -241,12 +241,10 @@ export class PaymentMethodsController {
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: string; notes?: string },
   ) {
-    return this.paymentMethodService.verifyPaymentMethod(
-      paymentMethodId,
-      tenantId,
-      body.status as PaymentMethodStatus,
-      body.notes,
-    );
+    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, tenantId, {
+      status: body.status as PaymentMethodStatus,
+      notes: body.notes,
+    });
   }
   @Get('member/:memberId')
   @UseGuards(TenantMemberGuard)

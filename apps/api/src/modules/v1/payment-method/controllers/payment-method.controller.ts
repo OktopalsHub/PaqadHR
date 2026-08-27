@@ -13,17 +13,23 @@ import {
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SUPPORTED_CRYPTO_CURRENCIES } from 'src/common/constants/crypto-currencies.constant';
-import { CurrentTenantMember, CurrentUser } from 'src/common/decorators';
+import {
+  CurrentTenantMember,
+  CurrentUser,
+  RateLimit,
+  RateLimitPresets,
+} from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
-import type { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
+  SubmitForVerificationDto,
   UpdatePaymentMethodDto,
+  VerifyPaymentMethodDto,
 } from '../dto/payment-method.dto';
 import { PaymentMethodService } from '../services/payment-method.service';
 
@@ -36,36 +42,11 @@ export class PaymentMethodController {
   ) {}
   @Post()
   @UseGuards(TenantMemberGuard)
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Create bank payment method' })
   @ApiResponse({
     status: 201,
     description: 'Payment method created successfully',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        type: { type: 'string', enum: ['BANK'], default: 'BANK' },
-        currency: { type: 'string', example: 'USD' },
-        displayName: { type: 'string', example: 'My Primary Account' },
-        bankName: { type: 'string', example: 'Chase Bank' },
-        bankCode: { type: 'string', example: '021000021' },
-        accountName: { type: 'string', example: 'John Doe' },
-        accountNumber: {
-          type: 'string',
-          example: '1234567890',
-          description: 'Max 17 digits (supports various countries)',
-        },
-        country: { type: 'string', example: 'US' },
-        passcode: {
-          type: 'string',
-          example: '123456',
-          description: 'uired exactly 6-digit passcode',
-        },
-        isPrimary: { type: 'boolean', example: false },
-      },
-      required: ['currency', 'bankName', 'accountName', 'accountNumber', 'country', 'passcode'],
-    },
   })
   async createPaymentMethod(
     @Param('tenantId') tenantId: string,
@@ -121,36 +102,11 @@ export class PaymentMethodController {
   }
   @Put(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Update bank payment method' })
   @ApiResponse({
     status: 200,
     description: 'Payment method updated successfully',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        displayName: { type: 'string' },
-        bankName: { type: 'string' },
-        bankCode: { type: 'string' },
-        accountName: { type: 'string' },
-        accountNumber: {
-          type: 'string',
-          description: 'Max 17 digits (supports various countries)',
-        },
-        country: { type: 'string' },
-        currentPasscode: {
-          type: 'string',
-          description: 'uired current passcode',
-        },
-        newPasscode: {
-          type: 'string',
-          description: 'Optional new passcode (exactly 6 digits)',
-        },
-        isPrimary: { type: 'boolean' },
-      },
-      required: ['currentPasscode'],
-    },
   })
   async updatePaymentMethod(
     @Param('tenantId') tenantId: string,
@@ -170,21 +126,9 @@ export class PaymentMethodController {
   @Put(':paymentMethodId/passcode')
   @UseGuards(TenantMemberGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Change payment method passcode' })
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @ApiOperation({ summary: 'Change member payment passcode (legacy path)' })
   @ApiResponse({ status: 204, description: 'Passcode changed successfully' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        currentPasscode: { type: 'string', description: 'Current passcode' },
-        newPasscode: {
-          type: 'string',
-          description: 'New passcode (exactly 6 digits)',
-        },
-      },
-      required: ['currentPasscode', 'newPasscode'],
-    },
-  })
   async changePasscode(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
@@ -196,25 +140,11 @@ export class PaymentMethodController {
   @Delete(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Delete payment method' })
   @ApiResponse({
     status: 204,
     description: 'Payment method deleted successfully',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Passcode required if payment method has passcode set',
-  })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        passcode: {
-          type: 'string',
-          description: 'Passcode for deletion (required if payment method has passcode)',
-        },
-      },
-    },
   })
   async deletePaymentMethod(
     @Param('tenantId') tenantId: string,
@@ -261,6 +191,14 @@ export class PaymentMethodController {
       member.role,
     );
   }
+  @Get('admin/pending')
+  @UseGuards(TenantMemberGuard, TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @ApiOperation({ summary: 'List payment methods awaiting admin verification' })
+  async listPendingVerification(@Param('tenantId') tenantId: string) {
+    return this.paymentMethodService.listPendingVerificationForTenant(tenantId);
+  }
+
   @Get(':id')
   @UseGuards(TenantMemberGuard)
   @ApiOperation({ summary: 'Get payment method by ID' })
@@ -275,12 +213,25 @@ export class PaymentMethodController {
   ) {
     return this.paymentMethodService.findByIdForMember(tenantId, id, member.id, member.role);
   }
-  @Get('admin/pending')
-  @UseGuards(TenantMemberGuard, TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  @ApiOperation({ summary: 'List payment methods awaiting admin verification' })
-  async listPendingVerification(@Param('tenantId') tenantId: string) {
-    return this.paymentMethodService.listPendingVerificationForTenant(tenantId);
+
+  @Post(':paymentMethodId/submit-for-verification')
+  @UseGuards(TenantMemberGuard)
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @ApiOperation({ summary: 'Submit payment method for admin verification' })
+  async submitForVerification(
+    @Param('tenantId') tenantId: string,
+    @Param('paymentMethodId') paymentMethodId: string,
+    @Body() dto: SubmitForVerificationDto,
+    @CurrentTenantMember() member: MemberContext,
+    @CurrentUser() request: { auth?: { principalId?: string } },
+  ) {
+    return this.paymentMethodService.submitForVerification(
+      paymentMethodId,
+      tenantId,
+      member.id,
+      request.auth?.principalId ?? '',
+      dto,
+    );
   }
 
   @Post(':paymentMethodId/verify')
@@ -291,27 +242,13 @@ export class PaymentMethodController {
     status: 200,
     description: 'Payment method verification updated',
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        status: { type: 'string', enum: ['VERIFIED', 'REJECTED', 'SUSPENDED'] },
-        notes: { type: 'string', description: 'Verification notes' },
-      },
-      required: ['status'],
-    },
-  })
+  @ApiBody({ type: VerifyPaymentMethodDto })
   async verifyPaymentMethod(
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
-    @Body() body: { status: PaymentMethodStatus; notes?: string },
+    @Body() body: VerifyPaymentMethodDto,
   ) {
-    return this.paymentMethodService.verifyPaymentMethod(
-      paymentMethodId,
-      tenantId,
-      body.status,
-      body.notes,
-    );
+    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, tenantId, body);
   }
   @Get(':paymentMethodId/passcode-history')
   @UseGuards(TenantMemberGuard)

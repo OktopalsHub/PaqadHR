@@ -17,6 +17,8 @@ export const paymentMethodSummarySchema = z.object({
   canReceivePayments: z.boolean(),
   lastUsedAt: z.string().nullable().optional(),
   createdAt: z.string(),
+  verificationNotes: z.string().nullable().optional(),
+  submittedAt: z.string().nullable().optional(),
 });
 
 export type PaymentMethodSummary = z.infer<typeof paymentMethodSummarySchema>;
