@@ -22,7 +22,18 @@ test('initial payroll currencies remove unsupported and duplicate codes', () => 
       countryCode: 'NG',
       settingsPayrollCurrencies: ['usd', 'NGN', 'usd', 'kes', 'ngn'],
     }),
-    ['NGN', 'USD'],
+    ['USD', 'NGN'],
+  );
+});
+
+test('saved payroll currencies keep tenant preferred as primary without forcing country default', () => {
+  assert.deepEqual(
+    resolveInitialPayrollCurrencies({
+      countryCode: 'NG',
+      settingsPayrollCurrencies: ['USD', 'NGN'],
+      tenantPreferredCurrency: 'USD',
+    }),
+    ['USD', 'NGN'],
   );
 });
 

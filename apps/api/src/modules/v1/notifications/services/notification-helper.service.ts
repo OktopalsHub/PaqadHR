@@ -358,7 +358,8 @@ export class NotificationHelperService {
 
     await this.notificationService.createNotification({
       type: NotificationType.USER,
-      channel: NotificationChannel.BOTH,
+      channel:
+        variables.status === 'processing' ? NotificationChannel.IN_APP : NotificationChannel.BOTH,
       priority:
         variables.status === 'failed' ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
       title: `Reward ${variables.status}`,

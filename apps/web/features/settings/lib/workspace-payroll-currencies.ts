@@ -67,10 +67,21 @@ export function resolveInitialPayrollCurrencies({
   tenantPreferredCurrency,
 }: ResolveInitialPayrollCurrenciesInput): string[] {
   const defaultCurrency = getDefaultPayrollCurrencyForCountry(countryCode);
-  const fromSettings = settingsPayrollCurrencies?.map((code) => code.toUpperCase()).filter(Boolean);
+  const allowed = new Set<string>(SUPPORTED_FIAT_CURRENCIES);
+  const fromSettings = settingsPayrollCurrencies
+    ?.map((code) => code.toUpperCase())
+    .filter((code) => allowed.has(code));
 
   if (fromSettings && fromSettings.length > 0) {
-    return withDefaultCurrencyFirst(fromSettings, defaultCurrency);
+    // Preserve saved primary (first chip). Do not force country default ahead of it —
+    // that rewrote preferredCurrency on every Save and tripped the rewards-wallet lock
+    // when toggling unrelated flags like cryptoEnabled.
+    const unique = Array.from(new Set(fromSettings));
+    const preferred = tenantPreferredCurrency?.trim().toUpperCase();
+    if (preferred && unique.includes(preferred)) {
+      return [preferred, ...unique.filter((code) => code !== preferred)];
+    }
+    return unique;
   }
 
   const primary = (settingsCurrency ?? tenantPreferredCurrency ?? defaultCurrency).toUpperCase();

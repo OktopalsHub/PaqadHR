@@ -45,6 +45,8 @@ describe('TenantsService', () => {
       employmentRepository as never,
       walletRepository as never,
       walletTransactionRepository as never,
+      { queueAuditLog: jest.fn().mockResolvedValue(undefined) } as never,
+      {} as never,
     );
   });
 
@@ -113,6 +115,35 @@ describe('TenantsService', () => {
       );
 
       expect(tenantRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('allows non-currency updates when rewards wallet is funded', async () => {
+      tenantRepository.findById.mockResolvedValue({
+        id: 'tenant-1',
+        slug: 'acme',
+        preferredCurrency: 'NGN',
+        countryCode: 'NG',
+        name: 'Acme',
+      });
+      walletRepository.findOne.mockResolvedValue({
+        id: 'wallet-1',
+        currencyCode: 'NGN',
+        balanceAmount: 5000,
+      });
+      walletTransactionRepository.count.mockResolvedValue(2);
+      tenantRepository.findOne.mockResolvedValue({
+        id: 'tenant-1',
+        slug: 'acme',
+        preferredCurrency: 'NGN',
+        countryCode: 'NG',
+        name: 'Acme HR',
+      });
+
+      await expect(
+        service.updateTenant('tenant-1', { name: 'Acme HR', preferredCurrency: 'NGN' }),
+      ).resolves.toEqual(expect.objectContaining({ name: 'Acme HR', preferredCurrency: 'NGN' }));
+
+      expect(tenantRepository.update).toHaveBeenCalled();
     });
   });
 });

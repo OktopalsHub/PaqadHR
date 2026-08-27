@@ -106,7 +106,8 @@ export function SettingsWorkspaceTab() {
 
     const primaryCurrency = payrollCurrencies[0]?.toUpperCase();
     const previousPrimary = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
-    if (primaryCurrency && primaryCurrency !== previousPrimary) {
+    const currencyChanging = Boolean(primaryCurrency && primaryCurrency !== previousPrimary);
+    if (currencyChanging) {
       const confirmed = window.confirm(
         `Change workspace default from ${previousPrimary} to ${primaryCurrency}? Employees still paid in ${previousPrimary} must have their salary currency updated first. If your rewards wallet already has a balance, the change will be blocked until the balance is spent.`,
       );
@@ -114,12 +115,14 @@ export function SettingsWorkspaceTab() {
     }
 
     try {
+      // preferredCurrency only when it actually changes — cryptoEnabled lives in
+      // tenant settings and must not hit the rewards-wallet currency lock.
       await updateTenant.mutateAsync({
         tenantId,
         input: {
           name: name.trim(),
           timezone: timezone.trim() || 'UTC',
-          preferredCurrency: primaryCurrency,
+          ...(currencyChanging ? { preferredCurrency: primaryCurrency } : {}),
           ...(employeeCode.trim() ? { employeeCode: employeeCode.trim().toUpperCase() } : {}),
         },
       });
@@ -131,7 +134,9 @@ export function SettingsWorkspaceTab() {
           timezone: timezone.trim() || 'UTC',
           dateFormat: existingGeneral?.dateFormat ?? 'YYYY-MM-DD',
           language: existingGeneral?.language ?? 'en',
-          currency: primaryCurrency,
+          currency: currencyChanging
+            ? primaryCurrency
+            : (existingGeneral?.currency ?? previousPrimary),
           payrollCurrencies: payrollCurrencies.map((code) => code.toUpperCase()),
           cryptoEnabled,
         },
