@@ -189,15 +189,6 @@ function ShoutoutsPageContent() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="space-y-1.5">
-          <p className="dashboard-outline-label text-[11px] font-semibold uppercase">
-            Culture & rewards
-          </p>
-          <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
-            Shoutouts & Recognition
-          </h1>
-        </div>
-
         {pointsBalance ? (
           <div className="dashboard-soft-tile flex min-w-0 flex-col gap-3 rounded-[8px] px-4 py-3 sm:min-w-[320px] sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -400,11 +391,6 @@ function ShoutoutsPageContent() {
         </TabsContent>
 
         <TabsContent value="redeem" className="mt-0 space-y-4">
-          <div>
-            <h2 className="text-xl font-semibold tracking-tight text-slate-950 dark:text-slate-50">
-              Redeem Rewards
-            </h2>
-          </div>
           {featureAccessLoading ? (
             <LoadingBlock />
           ) : (

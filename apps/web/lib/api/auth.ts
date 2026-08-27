@@ -11,6 +11,11 @@ type AuthResponse = {
   user: { id: string; email: string; role: string };
 };
 
+export type RegistrationResponse = {
+  email: string;
+  verificationRequired: true;
+};
+
 export type ProfileResponse = {
   id: string;
   email: string;
@@ -155,8 +160,8 @@ export async function login(input: LoginInput): Promise<User> {
   return user;
 }
 
-export async function register(input: SignupInput): Promise<User> {
-  const response = await apiClient<AuthResponse>('/auth/register', {
+export async function register(input: SignupInput): Promise<RegistrationResponse> {
+  return apiClient<RegistrationResponse>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({
       email: input.email,
@@ -164,11 +169,23 @@ export async function register(input: SignupInput): Promise<User> {
     }),
     skipCsrf: true,
   });
+}
 
-  await bootstrapCsrf();
-  const user = mapAuthUser(response.user, true);
-  persistSession();
-  return user;
+export async function resendEmailVerification(email: string): Promise<void> {
+  await apiClient('/auth/register/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+    skipCsrf: true,
+  });
+}
+
+export async function verifyEmail(email: string, code: string): Promise<User> {
+  const response = await apiClient<AuthResponse>('/auth/register/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ email, code }),
+    skipCsrf: true,
+  });
+  return mapAuthUser(response.user, true);
 }
 
 export async function logoutRequest(): Promise<void> {

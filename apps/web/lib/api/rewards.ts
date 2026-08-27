@@ -116,6 +116,7 @@ export interface ClaimInput {
   providerProductId?: number;
   airtimeNetwork?: 'MTN' | 'AIRTEL' | 'GLO' | '9MOBILE';
   topupKind?: 'airtime' | 'data';
+  dataPlanCode?: string;
   billerId?: string | number;
   accountNumber?: string;
   serviceType?: string;
@@ -202,6 +203,7 @@ export async function deleteCustomReward(rewardId: string) {
 export interface NombaDataPlan {
   amount: number;
   plan: string;
+  productCode?: string;
 }
 
 export async function fetchNombaDataPlans(

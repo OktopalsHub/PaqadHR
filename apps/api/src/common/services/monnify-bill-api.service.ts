@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, GatewayTimeoutException, Injectable, Logger } from '@nestjs/common';
 import { getMonnifyBaseUrl, isMonnifyConfigured } from '../config/monnify.config';
 import { MonnifyApiService } from './monnify-api.service';
 
@@ -10,7 +10,7 @@ export interface MonnifyAirtimeInput {
   network: MonnifyTelcoNetwork;
   merchantTxRef: string;
   /** Provider product code for a user-selected data bundle (avoids price collisions). */
-  productCode?: string;
+  dataPlanCode?: string;
 }
 
 export interface MonnifyDataPlan {
@@ -71,6 +71,7 @@ interface MonnifyVendBody {
 export class MonnifyBillApiService {
   private readonly logger = new Logger(MonnifyBillApiService.name);
   private static readonly CACHE_TTL_MS = 15 * 60 * 1000;
+  private static readonly REQUEST_TIMEOUT_MS = 10 * 1000;
   // Overridable in tests to avoid real sleeps while polling vend status.
   static VEND_POLL_ATTEMPTS = 3;
   static VEND_POLL_DELAY_MS = 2000;
@@ -129,21 +130,16 @@ export class MonnifyBillApiService {
     return airtimeCategory.categoryCode;
   }
 
-  private async findDataCategory(): Promise<string> {
+  private async findDataBundleCategory(): Promise<string> {
     const categories = await this.listBillerCategories();
     const dataCategory = categories.find(
       (cat) =>
-        (cat.categoryName?.toLowerCase().includes('data') ||
-          cat.categoryCode?.toLowerCase().includes('data')) ??
+        cat.categoryCode?.toUpperCase() === 'DATA_BUNDLE' ||
+        cat.categoryName?.toLowerCase().includes('data bundle') ||
         false,
     );
     if (!dataCategory?.categoryCode) {
-      this.logger.error(
-        `No data category found. Available categories: ${categories
-          .map((c) => `${c.categoryName} (${c.categoryCode})`)
-          .join(', ')}`,
-      );
-      throw new BadRequestException('Monnify billing error: no data category found');
+      throw new BadRequestException('Monnify billing error: no data bundle category found');
     }
     this.logger.log(
       `Found data category: ${dataCategory.categoryName} (${dataCategory.categoryCode})`,
@@ -154,6 +150,23 @@ export class MonnifyBillApiService {
   private matchesNetwork(name: string | undefined, network: MonnifyTelcoNetwork): boolean {
     const haystack = (name ?? '').toLowerCase();
     return this.networkMatchers(network).some((needle) => haystack.includes(needle));
+  }
+
+  private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+    try {
+      return await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(MonnifyBillApiService.REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const name = error instanceof Error ? error.name : undefined;
+      if (name === 'AbortError' || name === 'TimeoutError') {
+        const path = new URL(url).pathname;
+        this.logger.warn(`Monnify billing request timed out: ${init.method ?? 'GET'} ${path}`);
+        throw new GatewayTimeoutException('Monnify billing service timed out. Please try again.');
+      }
+      throw error;
+    }
   }
 
   private billerId(biller: MonnifyBiller): string | undefined {
@@ -182,7 +195,7 @@ export class MonnifyBillApiService {
       }
     }
 
-    const response = await fetch(url.toString(), {
+    const response = await this.fetchWithTimeout(url.toString(), {
       method: 'GET',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -198,7 +211,7 @@ export class MonnifyBillApiService {
   private async requestPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
     this.ensureConfigured();
     const token = await this.monnifyApi.getAccessToken();
-    const response = await fetch(`${getMonnifyBaseUrl()}${path}`, {
+    const response = await this.fetchWithTimeout(`${getMonnifyBaseUrl()}${path}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -271,11 +284,13 @@ export class MonnifyBillApiService {
   }
 
   private async resolveBiller(
-    categoryCode: 'AIRTIME' | 'DATA_BUNDLE' | 'ELECTRICITY',
+    categoryCode: 'AIRTIME' | 'DATA_BUNDLE',
     network: MonnifyTelcoNetwork,
   ): Promise<MonnifyBiller> {
     const actualCategoryCode =
-      categoryCode === 'AIRTIME' ? await this.findAirtimeCategory() : await this.findDataCategory();
+      categoryCode === 'AIRTIME'
+        ? await this.findAirtimeCategory()
+        : await this.findDataBundleCategory();
     const billers = await this.listBillers(actualCategoryCode);
     this.logger.log(
       `Looking for ${network} biller in ${actualCategoryCode}. Available billers: ${billers
@@ -326,22 +341,29 @@ export class MonnifyBillApiService {
   private async resolveDataProduct(
     network: MonnifyTelcoNetwork,
     amount: number,
-    planCode?: string,
+    dataPlanCode?: string,
   ): Promise<MonnifyProduct> {
     // Telco data bundles live under DATA_BUNDLE; DATA only lists ISPs
     // (Spectranet, Smile, Swift).
     const biller = await this.resolveBiller('DATA_BUNDLE', network);
     const products = await this.listProducts(this.billerId(biller)!);
     const candidates = products.filter((row) => this.productId(row));
-    // Prefer the exact bundle the user picked; several plans can share a price.
-    const product =
-      (planCode ? candidates.find((row) => this.productId(row) === planCode) : undefined) ??
-      candidates.find((row) => this.productAmount(row) === amount) ??
-      candidates.find((row) => this.productId(row) === String(amount)) ??
-      null;
+    // A provided code is authoritative: never substitute another plan at the
+    // same price when a selected bundle was removed or changed by Monnify.
+    const product = dataPlanCode
+      ? candidates.find((row) => this.productId(row) === dataPlanCode)
+      : (candidates.find((row) => this.productAmount(row) === amount) ??
+        candidates.find((row) => this.productId(row) === String(amount)));
     if (!product || !this.productId(product)) {
       throw new BadRequestException(
-        `Monnify billing error: no data product for ${network} at amount ${amount}`,
+        dataPlanCode
+          ? 'Monnify billing error: the selected data plan is no longer available'
+          : `Monnify billing error: no data product for ${network} at amount ${amount}`,
+      );
+    }
+    if (dataPlanCode && this.productAmount(product) !== amount) {
+      throw new BadRequestException(
+        'Monnify billing error: selected data plan amount does not match',
       );
     }
     return product;
@@ -381,9 +403,6 @@ export class MonnifyBillApiService {
     );
     const validationReference =
       body.validationReference ?? body.vendInstruction?.validationReference;
-    this.logger.log(
-      `Customer validation result - requireValidationRef: ${requireValidationRef}, validationReference: ${validationReference}`,
-    );
     return { requireValidationRef, validationReference };
   }
 
@@ -423,10 +442,8 @@ export class MonnifyBillApiService {
       await new Promise((resolve) => setTimeout(resolve, MonnifyBillApiService.VEND_POLL_DELAY_MS));
       try {
         result = await this.requeryVend(input.vendReference);
-      } catch (error) {
-        this.logger.warn(
-          `Monnify billing requery failed for ${input.vendReference}: ${error instanceof Error ? error.message : error}`,
-        );
+      } catch {
+        this.logger.warn('Monnify billing requery failed');
       }
     }
     const status = isTerminal(result);
@@ -466,9 +483,6 @@ export class MonnifyBillApiService {
   ): Promise<{ success: boolean; transactionId: string | null; status: string }> {
     const customerId = this.normalizePhoneNumber(input.phoneNumber);
     const id = this.productId(product)!;
-    this.logger.log(
-      `Processing purchase -> customerId ending ${customerId.slice(-4)}, amount: ${input.amount}`,
-    );
     const validation = await this.validateCustomer(id, customerId);
     return this.vend({
       productCode: id,
@@ -495,7 +509,7 @@ export class MonnifyBillApiService {
     transactionId: string | null;
     status: string;
   }> {
-    const product = await this.resolveDataProduct(input.network, input.amount, input.productCode);
+    const product = await this.resolveDataProduct(input.network, input.amount, input.dataPlanCode);
     return this.purchase(product, input);
   }
 

@@ -1,5 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsString, Length, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsString, Length, Matches, MinLength } from 'class-validator';
+import {
+  STRONG_PASSWORD_MESSAGE,
+  STRONG_PASSWORD_REGEX,
+} from 'src/common/constants/password-policy.constant';
+import { NormalizeEmail } from 'src/common/decorators';
 
 export const OTP_PURPOSES = ['password_change', 'payment_method'] as const;
 export type OtpPurpose = (typeof OTP_PURPOSES)[number];
@@ -21,6 +26,22 @@ export class VerifyOtpDto {
   code: string;
 }
 
+export class VerifyEmailDto {
+  @IsEmail()
+  @NormalizeEmail()
+  email: string;
+
+  @IsString()
+  @Length(6, 6)
+  code: string;
+}
+
+export class ResendEmailVerificationDto {
+  @IsEmail()
+  @NormalizeEmail()
+  email: string;
+}
+
 export class ChangePasswordDto {
   @ApiProperty()
   @IsString()
@@ -30,5 +51,6 @@ export class ChangePasswordDto {
   @ApiProperty()
   @IsString()
   @MinLength(8)
+  @Matches(STRONG_PASSWORD_REGEX, { message: STRONG_PASSWORD_MESSAGE })
   newPassword: string;
 }

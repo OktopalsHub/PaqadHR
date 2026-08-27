@@ -7,6 +7,7 @@ import axios, {
 } from 'axios';
 import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
+import { beginNetworkActivity } from '@/lib/network-activity';
 import { prepareApiRequestHeaders } from './api-request-headers';
 import { resolveApiErrorMessage } from './client-error-message';
 import {
@@ -14,6 +15,7 @@ import {
   type FetchWithCsrfOptions,
   isCsrfErrorResponse,
 } from './fetch-with-csrf';
+import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 const CSRF_HEADER = 'x-csrf-token';
 
@@ -88,6 +90,7 @@ export async function ensureCsrfToken(force = false): Promise<string> {
   csrfTokenPromise = (async () => {
     try {
       const { data } = await axios.get<{ csrfToken: string }>(`${getApiOrigin()}/csrf/token`, {
+        timeout: API_REQUEST_TIMEOUT_MS,
         withCredentials: true,
       });
       if (!data.csrfToken) {
@@ -173,6 +176,7 @@ async function parseAxiosErrorPayload(response: AxiosResponse): Promise<ErrorPay
 
 const http = axios.create({
   baseURL: resolveApiV1Base(),
+  timeout: API_REQUEST_TIMEOUT_MS,
   withCredentials: true,
 });
 
@@ -236,12 +240,17 @@ export async function fetchWithCsrf(
   input: RequestInfo | URL,
   init?: FetchWithCsrfOptions,
 ): Promise<Response> {
-  return executeFetchWithCsrf(input, init, {
-    fetchImpl: fetch,
-    ensureCsrfToken,
-    clearCsrfToken,
-    csrfHeader: CSRF_HEADER,
-  });
+  const finishActivity = beginNetworkActivity();
+  try {
+    return await executeFetchWithCsrf(input, init, {
+      fetchImpl: fetch,
+      ensureCsrfToken,
+      clearCsrfToken,
+      csrfHeader: CSRF_HEADER,
+    });
+  } finally {
+    finishActivity();
+  }
 }
 
 export async function apiClient<T>(
@@ -249,6 +258,7 @@ export async function apiClient<T>(
   init?: ApiClientOptions,
   isRetry = false,
 ): Promise<T> {
+  const finishActivity = beginNetworkActivity();
   const headers = prepareApiRequestHeaders(init?.headers, init?.body);
 
   const config: ApiRequestConfig = {
@@ -261,17 +271,21 @@ export async function apiClient<T>(
     headers,
   };
 
-  const response = await http(config).catch((err: unknown) => {
-    if (err instanceof ApiError) throw err;
-    if (err instanceof TypeError) {
-      throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
+  try {
+    const response = await http(config).catch((err: unknown) => {
+      if (err instanceof ApiError) throw err;
+      if (err instanceof TypeError) {
+        throw new ApiError('Could not reach the server. Check your connection and try again.', 0);
+      }
+      throw err;
+    });
+
+    if (response.status === 204) {
+      return undefined as T;
     }
-    throw err;
-  });
 
-  if (response.status === 204) {
-    return undefined as T;
+    return response.data as T;
+  } finally {
+    finishActivity();
   }
-
-  return response.data as T;
 }

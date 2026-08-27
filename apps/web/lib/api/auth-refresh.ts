@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { clearSessionStorage } from '@/lib/session';
+import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
 function resolveApiV1Base(): string {
   return normalizeApiV1Base(
@@ -35,7 +36,11 @@ export async function refreshAccessToken(): Promise<boolean> {
       const response = await axios.post(
         `${resolveApiV1Base()}/auth/refresh`,
         {},
-        { withCredentials: true, headers: { 'Content-Type': 'application/json' } },
+        {
+          timeout: API_REQUEST_TIMEOUT_MS,
+          withCredentials: true,
+          headers: { 'Content-Type': 'application/json' },
+        },
       );
       if (response.status >= 200 && response.status < 300) {
         consecutiveFailures = 0;

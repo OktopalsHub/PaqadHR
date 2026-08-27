@@ -23,6 +23,7 @@ import {
 } from '@/hooks/queries/use-member-profile';
 import { useAuth } from '@/hooks/use-auth';
 import { changePassword, fetchAuthSecurity } from '@/lib/api/auth';
+import { isStrongPassword, STRONG_PASSWORD_MESSAGE } from '@/lib/password-policy';
 
 export function SettingsProfileTab() {
   const { user } = useAuth();
@@ -79,8 +80,8 @@ export function SettingsProfileTab() {
       setOtpOpen(true);
       return;
     }
-    if (newPassword.length < 8) {
-      toast.error('Password must be at least 8 characters');
+    if (!isStrongPassword(newPassword)) {
+      toast.error(STRONG_PASSWORD_MESSAGE);
       return;
     }
     if (newPassword !== confirmPassword) {

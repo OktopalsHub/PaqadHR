@@ -75,6 +75,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
           position: {
             id: true,
             title: true,
+            color: true,
           },
         },
         departmentMemberships: {
@@ -84,6 +85,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
           department: {
             id: true,
             name: true,
+            color: true,
           },
         },
         employments: {
@@ -144,6 +146,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
           position: {
             id: true,
             title: true,
+            color: true,
           },
         },
         departmentMemberships: {
@@ -153,6 +156,7 @@ export class TenantMemberRepository extends Repository<TenantMember> {
           department: {
             id: true,
             name: true,
+            color: true,
           },
         },
         employments: {
