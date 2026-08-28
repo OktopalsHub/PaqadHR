@@ -1,9 +1,20 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,13 +40,19 @@ import {
   REMINDER_OPTIONS,
   todayDateKey,
 } from '@/features/calenders/lib/calendar-event-form';
-import { createCalendarEvent } from '@/lib/api/calendar-events';
+import {
+  type CalendarEventRecord,
+  createCalendarEvent,
+  deleteCalendarEvent,
+  updateCalendarEvent,
+} from '@/lib/api/calendar-events';
 import { queryKeys } from '@/lib/query/keys';
 
 type AddCalendarEventDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultDate?: string;
+  event?: CalendarEventRecord | null;
 };
 
 const DEFAULT_START_TIME = '09:00';
@@ -45,6 +62,7 @@ export function AddCalendarEventDialog({
   open,
   onOpenChange,
   defaultDate,
+  event,
 }: AddCalendarEventDialogProps) {
   const queryClient = useQueryClient();
   const [spanMode, setSpanMode] = useState<EventSpanMode>('single');
@@ -58,21 +76,26 @@ export function AddCalendarEventDialog({
   const [reminder, setReminder] = useState('none');
   const [type, setType] = useState('meeting');
   const [busy, setBusy] = useState(false);
+  const isEditing = Boolean(event);
 
   useEffect(() => {
     if (!open) return;
     const date = defaultDate ?? todayDateKey();
-    setSpanMode('single');
-    setTitle('');
-    setDescription('');
-    setStartDate(date);
-    setEndDate(date);
-    setAllDay(true);
-    setStartTime(DEFAULT_START_TIME);
-    setEndTime(DEFAULT_END_TIME);
-    setReminder('none');
-    setType('meeting');
-  }, [open, defaultDate]);
+    const isRange = Boolean(event && event.startDate !== event.endDate);
+    setSpanMode(isRange ? 'range' : 'single');
+    setTitle(event?.title ?? '');
+    setDescription(event?.description ?? '');
+    setStartDate(event?.startDate ?? date);
+    setEndDate(event?.endDate ?? date);
+    setAllDay(event?.allDay ?? true);
+    setStartTime(event?.startTime?.slice(0, 5) ?? DEFAULT_START_TIME);
+    setEndTime(event?.endTime?.slice(0, 5) ?? DEFAULT_END_TIME);
+    setReminder(
+      REMINDER_OPTIONS.find((option) => option.minutes === (event?.reminderMinutes ?? null))
+        ?.value ?? 'none',
+    );
+    setType(event?.type ?? 'meeting');
+  }, [open, defaultDate, event]);
 
   const handleSpanModeChange = (value: string) => {
     if (value !== 'single' && value !== 'range') return;
@@ -121,9 +144,11 @@ export function AddCalendarEventDialog({
 
     setBusy(true);
     try {
-      await createCalendarEvent({
+      const input = {
         title: title.trim(),
-        description: description.trim() || undefined,
+        // Updates must be able to clear a previous description; creation can
+        // still omit an empty optional field.
+        description: isEditing ? description.trim() : description.trim() || undefined,
         startDate,
         endDate,
         allDay: spanMode === 'range' ? true : allDay,
@@ -131,12 +156,44 @@ export function AddCalendarEventDialog({
         endTime: !allDay && spanMode === 'single' ? endTime : undefined,
         reminderMinutes: reminderOption?.minutes ?? null,
         type,
-      });
+      };
+      if (event) {
+        await updateCalendarEvent(event.id, input);
+      } else {
+        await createCalendarEvent(input);
+      }
       await queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events });
-      toast.success(spanMode === 'single' ? 'Event added for this day' : 'Multi-day event added');
+      toast.success(
+        event
+          ? 'Event updated'
+          : spanMode === 'single'
+            ? 'Event added for this day'
+            : 'Multi-day event added',
+      );
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add event');
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : event
+            ? 'Failed to update event'
+            : 'Failed to add event',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!event) return;
+    setBusy(true);
+    try {
+      await deleteCalendarEvent(event.id);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events });
+      toast.success('Event deleted');
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete event');
     } finally {
       setBusy(false);
     }
@@ -146,7 +203,7 @@ export function AddCalendarEventDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add calendar event</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit calendar event' : 'Add calendar event'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -288,12 +345,43 @@ export function AddCalendarEventDialog({
         </div>
 
         <DialogFooter>
+          {event ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="mr-auto border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Trash2 className="size-4" aria-hidden="true" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove “{event.title}” from the calendar.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={busy}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => void handleDelete()}
+                  >
+                    Delete event
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button disabled={busy} onClick={handleSubmit}>
             {busy ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
-            Save event
+            {isEditing ? 'Save changes' : 'Save event'}
           </Button>
         </DialogFooter>
       </DialogContent>

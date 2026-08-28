@@ -1,8 +1,9 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import type { Locale } from 'date-fns';
 import { ar, de, es, fr, ja } from 'date-fns/locale';
-import { Plus, Settings2 } from 'lucide-react';
+import { Eye, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
@@ -19,7 +20,25 @@ import type {
   CalendarView as ReuiCalendarView,
 } from '@/components/reui/event-calendar/event-calendar-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -33,9 +52,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AddCalendarEventDialog } from '@/features/calenders/components/add-calendar-event-dialog';
-import { paqadEventsToReui } from '@/features/calenders/lib/calendar-reui-mapper';
+import {
+  type PaqadEventMeta,
+  paqadEventsToReui,
+} from '@/features/calenders/lib/calendar-reui-mapper';
 import { formatDateKey } from '@/features/calenders/lib/calendar-utils';
 import { useCalendarEvents } from '@/hooks/queries/use-calendar';
+import { type CalendarEventRecord, deleteCalendarEvent } from '@/lib/api/calendar-events';
+import { formatDate } from '@/lib/format-date';
+import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import { CalendarToolbar } from './calendar-toolbar';
 
@@ -459,10 +484,17 @@ export const CalendarView = () => {
   const { tenant } = useTenant();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+  const queryClient = useQueryClient();
 
   const [selectedTypes, setSelectedTypes] = useState<Record<string, boolean>>(DEFAULT_FILTERS);
   const [addOpen, setAddOpen] = useState(false);
   const [addDialogDate, setAddDialogDate] = useState<string | undefined>();
+  const [eventDetails, setEventDetails] = useState<CalendarEventRecord | null>(null);
+  const [selectedManualEvent, setSelectedManualEvent] = useState<CalendarEventRecord | null>(null);
+  const [eventPendingDeletion, setEventPendingDeletion] = useState<CalendarEventRecord | null>(
+    null,
+  );
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [settings, setSettings] = useState<CalendarSettings>(DEFAULT_SETTINGS);
   const [view, setView] = useState<ReuiCalendarView>('month');
   const { data: events = [], isLoading, isError, error } = useCalendarEvents();
@@ -477,7 +509,10 @@ export const CalendarView = () => {
     [events, selectedTypes],
   );
 
-  const reuiEvents = useMemo(() => paqadEventsToReui(filteredEvents), [filteredEvents]);
+  const reuiEvents = useMemo(
+    () => paqadEventsToReui(filteredEvents, { editableManualEvents: isAdmin }),
+    [filteredEvents, isAdmin],
+  );
 
   const toggleTypeFilter = (type: string) => {
     setSelectedTypes((prev) => ({ ...prev, [type]: !prev[type] }));
@@ -487,6 +522,25 @@ export const CalendarView = () => {
     const target = day ?? new Date();
     setAddDialogDate(formatDateKey(target));
     setAddOpen(true);
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!eventPendingDeletion) return;
+
+    setIsDeletingEvent(true);
+    try {
+      await deleteCalendarEvent(eventPendingDeletion.id);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events });
+      if (selectedManualEvent?.id === eventPendingDeletion.id) {
+        setSelectedManualEvent(null);
+      }
+      toast.success('Event deleted');
+      setEventPendingDeletion(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete event');
+    } finally {
+      setIsDeletingEvent(false);
+    }
   };
 
   return (
@@ -529,7 +583,7 @@ export const CalendarView = () => {
                 }
                 interactions={{
                   ...settings.interactions,
-                  // events come from the API read-only; creation is admin-only
+                  // Only manually created events become editable for workspace admins.
                   drag: false,
                   resize: false,
                   selectSlot: settings.interactions.selectSlot && isAdmin,
@@ -551,8 +605,76 @@ export const CalendarView = () => {
                 }}
                 onEventClick={(occurrence) => {
                   const source = occurrence.event.data?.source;
+                  const manualEvent = (occurrence.event.data as PaqadEventMeta | undefined)?.source
+                    ?.manualEvent;
+                  if (isAdmin && manualEvent) {
+                    setSelectedManualEvent(manualEvent);
+                    return;
+                  }
                   if (!source?.description) return;
                   toast.info(source.title, { description: source.description });
+                }}
+                renderEventTooltip={({ occurrence }) => {
+                  const source = (occurrence.event.data as PaqadEventMeta | undefined)?.source;
+                  if (!source) return null;
+
+                  const manualEvent = source.manualEvent;
+                  return (
+                    <div className="min-w-56 space-y-2 text-left">
+                      <div className="space-y-0.5">
+                        <p className="font-semibold">{source.title}</p>
+                        {source.time ? (
+                          <p className="text-primary-foreground/80">{source.time}</p>
+                        ) : null}
+                        {source.description ? (
+                          <p className="text-primary-foreground/80">{source.description}</p>
+                        ) : null}
+                      </div>
+                      {isAdmin && manualEvent ? (
+                        <div className="flex flex-wrap items-center gap-2 border-t border-primary-foreground/20 pt-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setEventDetails(manualEvent);
+                            }}
+                          >
+                            <Eye className="size-3" aria-hidden="true" />
+                            View details
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 px-2 text-xs"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setSelectedManualEvent(manualEvent);
+                            }}
+                          >
+                            <Pencil className="size-3" aria-hidden="true" />
+                            Edit
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-red-200 hover:bg-red-500/20 hover:text-red-100"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setEventPendingDeletion(manualEvent);
+                            }}
+                          >
+                            <Trash2 className="size-3" aria-hidden="true" />
+                            Delete
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
                 }}
               >
                 <div className="flex flex-wrap items-center gap-2 pe-2">
@@ -583,6 +705,94 @@ export const CalendarView = () => {
         onOpenChange={setAddOpen}
         defaultDate={addDialogDate}
       />
+      <AddCalendarEventDialog
+        open={Boolean(selectedManualEvent)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedManualEvent(null);
+        }}
+        event={selectedManualEvent}
+      />
+      <Dialog
+        open={Boolean(eventDetails)}
+        onOpenChange={(open) => {
+          if (!open) setEventDetails(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{eventDetails?.title}</DialogTitle>
+            <DialogDescription>
+              {eventDetails?.type.replace(/_/g, ' ') ?? 'Calendar event'}
+            </DialogDescription>
+          </DialogHeader>
+          {eventDetails ? (
+            <dl className="grid gap-4 text-sm">
+              <div className="rounded-[8px] border border-border/70 bg-muted/30 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Date
+                </dt>
+                <dd className="mt-1 font-medium text-foreground">
+                  {formatDate(eventDetails.startDate)}
+                  {eventDetails.endDate !== eventDetails.startDate
+                    ? ` – ${formatDate(eventDetails.endDate)}`
+                    : ''}
+                </dd>
+              </div>
+              <div className="rounded-[8px] border border-border/70 bg-muted/30 p-3">
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Time
+                </dt>
+                <dd className="mt-1 font-medium text-foreground">
+                  {eventDetails.allDay !== false
+                    ? 'All day'
+                    : `${eventDetails.startTime?.slice(0, 5) ?? '—'} – ${eventDetails.endTime?.slice(0, 5) ?? '—'}`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Description
+                </dt>
+                <dd className="mt-1 whitespace-pre-wrap text-foreground">
+                  {eventDetails.description || 'No description provided.'}
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEventDetails(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <AlertDialog
+        open={Boolean(eventPendingDeletion)}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingEvent) setEventPendingDeletion(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove “{eventPendingDeletion?.title}” from the calendar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingEvent}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeletingEvent}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(event) => {
+                event.preventDefault();
+                void handleDeleteEvent();
+              }}
+            >
+              {isDeletingEvent ? 'Deleting…' : 'Delete event'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppPage>
   );
 };
