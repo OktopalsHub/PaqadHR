@@ -338,7 +338,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 export function PaymentSettingsSection() {
   const { data: methods = [], isLoading, isError, error } = usePaymentMethods();
   const { data: passcodeStatus } = usePaymentPasscodeStatus();
-  const { data: currencies } = useSupportedPaymentCurrencies();
+  const { data: currencies, refetch: refetchCurrencies } = useSupportedPaymentCurrencies();
   const createMethod = useCreatePaymentMethod();
   const changePasscode = useChangePaymentPasscode();
   const [openForm, setOpenForm] = useState(false);
@@ -396,12 +396,19 @@ export function PaymentSettingsSection() {
     setBankName('');
     setAccountName('');
     setAccountNumber('');
+    setWalletAddress('');
+    setCryptoNetwork('');
     setLookupVerified(false);
     setLookupError(null);
     setLookupPending(false);
     setLookupUnavailable(false);
     setIsPrimary(!hasPrimaryForCurrency);
   }, [hasPrimaryForCurrency]);
+
+  const openAddForm = () => {
+    void refetchCurrencies();
+    setOpenForm(true);
+  };
 
   const bankOptions = useMemo(
     () =>
@@ -854,7 +861,7 @@ export function PaymentSettingsSection() {
           </div>
         </div>
       ) : (
-        <Button size="sm" variant="outline" onClick={() => setOpenForm(true)}>
+        <Button size="sm" variant="outline" onClick={openAddForm}>
           {methods.length ? 'Add another account' : 'Add bank account'}
         </Button>
       )}

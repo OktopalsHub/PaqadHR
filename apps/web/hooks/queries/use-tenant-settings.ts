@@ -37,6 +37,14 @@ export function usePatchTenantSettings() {
           queryKey: [...queryKeys.attendance.clockInInfo, tenantId],
         });
       }
+      if (
+        variables.general?.cryptoEnabled !== undefined ||
+        variables.general?.payrollCurrencies !== undefined
+      ) {
+        void queryClient.invalidateQueries({
+          queryKey: [...queryKeys.paymentMethods.currencies, tenantId],
+        });
+      }
     },
   });
 }

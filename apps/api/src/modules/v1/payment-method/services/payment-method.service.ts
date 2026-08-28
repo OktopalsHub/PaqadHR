@@ -949,8 +949,15 @@ export class PaymentMethodService {
     validateGlobalBankFields(currency, dto.accountNumber, dto.bankCode);
   }
   private async assertCurrencyAllowed(tenantId: string, currency: string): Promise<void> {
-    const allowed = await this.getAllowedCurrencies(tenantId);
     const normalized = currency.toUpperCase();
+    if (isCryptoCurrency(normalized)) {
+      const cryptoEnabled = await this.tenantConfigService.isCryptoEnabled(tenantId);
+      if (!cryptoEnabled) {
+        throw new BadRequestException('Crypto payouts are not enabled for this workspace');
+      }
+      return;
+    }
+    const allowed = await this.getAllowedCurrencies(tenantId);
     if (!allowed.includes(normalized)) {
       throw new BadRequestException(
         `Currency ${normalized} is not enabled for this workspace. Allowed: ${allowed.join(', ')}`,

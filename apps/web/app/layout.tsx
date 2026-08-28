@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import './globals.css';
+import { AppVersionWatcher } from '@/components/app-version-watcher';
 import { NetworkActivityIndicator } from '@/components/network-activity-indicator';
 import { Toaster } from '@/components/ui/sonner';
 import { brandFaviconUrls } from '@/lib/brand';
@@ -37,6 +38,7 @@ export default async function RootLayout({
       <body className="antialiased font-sans">
         <QueryProvider>
           <NetworkActivityIndicator />
+          <AppVersionWatcher />
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
