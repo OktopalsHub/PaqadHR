@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
 import { Repository } from 'typeorm';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import { Department } from '../../departments/entities/department.entity';
 import type { CreateJobOpeningDto } from '../dto/index';
@@ -22,6 +23,7 @@ export class JobOpeningService {
     @InjectRepository(Department)
     private readonly departmentRepository: Repository<Department>,
     private readonly activitiesService: ActivitiesService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   async createJob(
     tenantId: string,
@@ -156,6 +158,8 @@ export class JobOpeningService {
         metadata: { title: job.title },
       })
       .catch(() => {});
+
+    this.productAnalytics.capture(memberId, 'job_published', { tenantId });
 
     return updatedJob;
   }

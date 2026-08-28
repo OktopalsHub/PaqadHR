@@ -4,6 +4,7 @@ import { formatNombaSenderName } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { ShoutoutPointTransactionType } from 'src/common/enums/shoutout-point-transaction-type.enum';
 import type { RewardsSettings } from 'src/common/interfaces/rewards-settings.interface';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
 import { NombaBillApiService } from 'src/common/services/nomba-bill-api.service';
@@ -117,6 +118,7 @@ export class RewardsService {
     private readonly emailTemplateService: EmailTemplateService,
     private readonly emailService: ZeptomailEmailService,
     private readonly notificationHelper: NotificationHelperService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   private async toWalletCurrency(
@@ -1163,6 +1165,8 @@ export class RewardsService {
           `Failed to queue reward redemption activity: ${err instanceof Error ? err.message : err}`,
         );
       });
+
+    this.productAnalytics.capture(memberId, 'reward_redeemed', { tenantId });
 
     void this.notificationHelper
       .sendRewardRedemptionNotification(memberId, tenantId, {

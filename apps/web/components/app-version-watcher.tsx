@@ -1,5 +1,6 @@
 'use client';
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import {
@@ -78,6 +79,10 @@ export function AppVersionWatcher() {
 
     const handleChunkFailure = (error: unknown) => {
       if (!isStaleChunkError(error)) return;
+
+      Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+        tags: { stale_chunk: 'true' },
+      });
 
       if (shouldReloadForChunkError(initialBuildId)) {
         markChunkReloadAttempted(initialBuildId);

@@ -3,6 +3,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { StringUtility } from 'src/common/utils/string.util';
 import { Repository } from 'typeorm';
@@ -41,6 +42,7 @@ export class TenantOnboardingService {
     private positionService: PositionService,
     private positionMemberService: PositionMemberService,
     private eventEmitter: EventEmitter2,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async completeTenantOnboarding(
@@ -79,6 +81,17 @@ export class TenantOnboardingService {
 
     const planSlug = data.planSlug?.trim().toLowerCase() || 'growth';
     const trial = await this.subscriptionsService.startTrial(pricingResult.tenant.id, planSlug);
+
+    this.productAnalytics.capture(data.createdBy!, 'onboarding_completed', {
+      userId: data.createdBy!,
+      tenantId: pricingResult.tenant.id,
+      plan: trial.plan?.slug ?? planSlug,
+    });
+    this.productAnalytics.capture(data.createdBy!, 'workspace_activated', {
+      userId: data.createdBy!,
+      tenantId: pricingResult.tenant.id,
+      plan: trial.plan?.slug ?? planSlug,
+    });
 
     const defaults = GeoLocationHelper.getCountryDefaults(pricingResult.lockedRegion);
 

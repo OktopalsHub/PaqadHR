@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateCandidateDto } from '../dto/create-candidate.dto';
 import type { CreatePipelineCandidateDto } from '../dto/create-pipeline-candidate.dto';
@@ -16,6 +17,7 @@ export class CandidateService {
     private readonly candidateRepository: CandidateRepository,
     private readonly jobOpeningService: JobOpeningService,
     private readonly activitiesService: ActivitiesService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   async createPipelineCandidate(
     tenantId: string,
@@ -132,7 +134,11 @@ export class CandidateService {
         },
       },
     });
-    return this.candidateRepository.save(entity);
+    const saved = await this.candidateRepository.save(entity);
+    this.productAnalytics.capture('anonymous', 'application_submitted', {
+      tenantId: job.tenantId,
+    });
+    return saved;
   }
   async getCandidatesByTenant(tenantId: string): Promise<Candidate[]> {
     return this.candidateRepository.findByTenantOnly(tenantId);

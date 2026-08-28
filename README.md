@@ -196,9 +196,10 @@ Copy environment template files:
 
 ```bash
 cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
 ```
 
-Configure your PostgreSQL connection and other secrets in `apps/api/.env`. Then start both apps:
+Configure your PostgreSQL connection and other secrets in `apps/api/.env` (and web vars in `apps/web/.env`). Variable descriptions live in `apps/api/.env.local.example` and `apps/web/.env.local.example`. Then start both apps:
 
 ```bash
 pnpm dev

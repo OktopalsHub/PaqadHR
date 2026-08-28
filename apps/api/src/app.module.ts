@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SentryModule } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { dataSourceOptions } from './common/config';
@@ -15,6 +16,7 @@ import { IntegrationModule } from './common/integrations/integrations.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { ManagerAccessModule } from './common/modules/manager-access.module';
 import { RateLimitModule } from './common/modules/rate-limit.module';
+import { ObservabilityModule } from './common/observability/observability.module';
 import { ErrorResponseService } from './common/services/error-response.service';
 import { ActivitiesModule } from './modules/v1/activities/activities.module';
 import { AddressModule } from './modules/v1/address/address.module';
@@ -53,6 +55,8 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
 
 @Module({
   imports: [
+    SentryModule.forRoot(),
+    ObservabilityModule,
     TypeOrmModule.forRoot(dataSourceOptions),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),

@@ -95,12 +95,12 @@ export default function PrivacyPage() {
 
         <h2>Cookies &amp; local storage</h2>
         <p>
-          Paqad uses <strong>essential cookies only</strong> today: httpOnly authentication cookies,
-          CSRF protection, and workspace navigation preferences needed to run the service. We do not
-          use advertising or third-party analytics cookies. The web app may store short-lived
-          session cache data (for example, your profile for faster page loads) in session storage
-          until you close the tab or sign out. Theme preference may be stored in local storage on
-          your device.
+          Paqad uses <strong>essential cookies only</strong> for authentication, CSRF protection,
+          and workspace navigation. We do not use advertising cookies. Product analytics (when
+          enabled) runs in cookieless mode with short-lived in-memory identifiers only — no
+          third-party analytics cookies. The web app may store short-lived session cache data (for
+          example, your profile for faster page loads) in session storage until you close the tab or
+          sign out. Theme preference may be stored in local storage on your device.
         </p>
 
         <h2>How we use data</h2>
@@ -131,6 +131,13 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Cloudflare Turnstile</strong> — bot protection on public forms
+          </li>
+          <li>
+            <strong>Sentry</strong> — error and performance monitoring (when enabled)
+          </li>
+          <li>
+            <strong>PostHog</strong> — privacy-oriented product analytics (EU, cookieless when
+            enabled)
           </li>
         </ul>
         <p>

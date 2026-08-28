@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, sha256Hex } from 'src/common/utils';
 import { UserRole } from '../../../common/enums';
@@ -117,6 +118,10 @@ describe('AuthService', () => {
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: RateLimitService, useValue: mockRateLimitService },
         { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
+        {
+          provide: ProductAnalyticsService,
+          useValue: { capture: jest.fn(), identify: jest.fn() },
+        },
       ],
     }).compile();
     authService = module.get<AuthService>(AuthService);
@@ -526,7 +531,9 @@ describe('AuthService', () => {
 
   describe('register', () => {
     it('rejects a password that does not meet the password policy', async () => {
-      await expect(authService.register('test@example.com', 'numbers123', {})).rejects.toThrow(
+      await expect(
+        authService.register('test@example.com', 'numbers123', {}, undefined, true),
+      ).rejects.toThrow(
         'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.',
       );
     });
@@ -548,9 +555,15 @@ describe('AuthService', () => {
       });
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
 
-      const result = await authService.register('test@example.com', 'CorrectPassword1!', {
-        ip: '127.0.0.1',
-      });
+      const result = await authService.register(
+        'test@example.com',
+        'CorrectPassword1!',
+        {
+          ip: '127.0.0.1',
+        },
+        undefined,
+        true,
+      );
 
       expect(result.user).toBe(existingUser);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
@@ -573,7 +586,13 @@ describe('AuthService', () => {
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
 
       await expect(
-        authService.register('test@example.com', 'WrongPassword1!', { ip: '127.0.0.1' }),
+        authService.register(
+          'test@example.com',
+          'WrongPassword1!',
+          { ip: '127.0.0.1' },
+          undefined,
+          true,
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -587,7 +606,13 @@ describe('AuthService', () => {
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
       await expect(
-        authService.register('test@example.com', 'NewPassword123!', { ip: '127.0.0.1' }),
+        authService.register(
+          'test@example.com',
+          'NewPassword123!',
+          { ip: '127.0.0.1' },
+          undefined,
+          true,
+        ),
       ).rejects.toThrow('This email is already registered. Please sign in.');
       expect(userRepository.insertUser).not.toHaveBeenCalled();
     });
@@ -603,7 +628,13 @@ describe('AuthService', () => {
       accountRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
-        authService.register('test@example.com', 'Password123!', { ip: '127.0.0.1' }),
+        authService.register(
+          'test@example.com',
+          'Password123!',
+          { ip: '127.0.0.1' },
+          undefined,
+          true,
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
     });
   });

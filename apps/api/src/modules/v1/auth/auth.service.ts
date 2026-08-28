@@ -16,6 +16,7 @@ import {
 import { UserRole } from 'src/common/enums';
 import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-action.enum';
 import type { IInvitationResponseDto } from 'src/common/interfaces/iinvitation-response-dto.interface';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { GeoLocationHelper, PasswordService, StringUtility, sha256Hex } from 'src/common/utils';
 import type { GeoRequestContext } from 'src/common/utils/geo-location.util';
@@ -58,6 +59,7 @@ export class AuthService {
     private readonly auditLogsService: AuditLogsService,
     private readonly rateLimitService: RateLimitService,
     private readonly zeptomailEmailService: ZeptomailEmailService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async validateUser(
@@ -109,6 +111,14 @@ export class AuthService {
     reason: string,
   ) {
     if (!auditContext) return;
+    this.productAnalytics.capture(
+      auditContext.userId ?? 'anonymous',
+      'login_failed',
+      {
+        userId: auditContext.userId,
+      },
+      { reason },
+    );
     await this.auditLogsService.queueAuditLog({
       userId: auditContext.userId ?? null,
       ipAddress: auditContext.ipAddress ?? null,
@@ -204,6 +214,8 @@ export class AuthService {
         },
       });
     }
+    this.productAnalytics.capture(user.id, 'login_succeeded', { userId: user.id });
+    this.productAnalytics.identify(user.id, { userId: user.id });
     return tokens;
   }
 
@@ -296,6 +308,8 @@ export class AuthService {
           }
         }
         await this.sendEmailVerificationOtp(user);
+        this.productAnalytics.capture('anonymous', 'signup_started');
+        this.productAnalytics.capture(user.id, 'signup_completed', { userId: user.id });
         return { user, invitation };
       }
 
@@ -348,6 +362,8 @@ export class AuthService {
         }
       }
       await this.sendEmailVerificationOtp(user);
+      this.productAnalytics.capture('anonymous', 'signup_started');
+      this.productAnalytics.capture(user.id, 'signup_completed', { userId: user.id });
       return { user, invitation };
     } catch (error) {
       this.logger.error('Error during user registration:', error);
@@ -455,6 +471,8 @@ export class AuthService {
     user.emailVerified = true;
     await this.verificationRepository.delete(verification.id);
     await this.rateLimitService.clearLockout(lockKey);
+    this.productAnalytics.capture(user.id, 'email_verified', { userId: user.id });
+    this.productAnalytics.identify(user.id, { userId: user.id });
     return user;
   }
 
