@@ -117,7 +117,7 @@ export class AuthService {
       description: 'Invalid email or password',
       severity: AuditSeverity.MEDIUM,
       status: AuditStatus.FAILED,
-      metadata: { email, reason },
+      metadata: { reason },
     });
   }
 
@@ -251,8 +251,12 @@ export class AuthService {
     password: string,
     geo: GeoRequestContext = {},
     inviteToken?: string,
+    termsAccepted?: boolean,
   ): Promise<{ user: User; invitation?: unknown }> {
     try {
+      if (termsAccepted !== true) {
+        throw new BadRequestException('You must accept the terms and privacy policy to register');
+      }
       if (!STRONG_PASSWORD_REGEX.test(password)) {
         throw new BadRequestException(STRONG_PASSWORD_MESSAGE);
       }
@@ -306,7 +310,7 @@ export class AuthService {
         role: UserRole.BASIC,
         countryCode,
         emailVerified: false,
-        metadata: buildUserConsentMetadata(true),
+        metadata: buildUserConsentMetadata(termsAccepted),
       });
 
       await this.accountRepository.save(
@@ -512,6 +516,7 @@ export class AuthService {
       role: UserRole.BASIC,
       countryCode,
       emailVerified: true,
+      metadata: buildUserConsentMetadata(true),
     });
 
     await this.accountRepository.save(
@@ -648,7 +653,7 @@ export class AuthService {
         resetLink,
       });
     } catch (error) {
-      this.logger.error(`Failed to send password reset email to ${normalizedEmail}`, error);
+      this.logger.error('Failed to send password reset email', error);
     }
 
     return { message: 'If email exists, a reset link was sent' };

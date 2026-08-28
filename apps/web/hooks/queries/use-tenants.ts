@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import type { CreateTenantInput, UpdateTenantInput } from '@/lib/api/tenants';
 import {
   createTenant,
+  deleteTenant,
   fetchUserTenants,
   invalidateTenantCache,
   updateTenant,
@@ -56,6 +57,18 @@ export function useUpdateTenant() {
   return useMutation({
     mutationFn: ({ tenantId, input }: { tenantId: string; input: UpdateTenantInput }) =>
       updateTenant(tenantId, input),
+    onSuccess: () => {
+      invalidateTenantCache();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
+    },
+  });
+}
+
+export function useDeleteTenant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (tenantId: string) => deleteTenant(tenantId),
     onSuccess: () => {
       invalidateTenantCache();
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });

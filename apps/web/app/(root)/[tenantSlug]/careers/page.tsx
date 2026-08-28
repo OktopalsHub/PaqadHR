@@ -15,6 +15,7 @@ import {
   Star,
   Upload,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -99,6 +100,7 @@ export default function PublicCareersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [agreeToPrivacy, setAgreeToPrivacy] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleTurnstileSuccess = useCallback((token: string) => {
@@ -186,6 +188,11 @@ export default function PublicCareersPage() {
       return;
     }
 
+    if (!agreeToPrivacy) {
+      toast.error('Please accept the privacy policy to submit your application.');
+      return;
+    }
+
     if (turnstileSiteKey && !turnstileToken) {
       toast.error('Please complete the security check before submitting.');
       return;
@@ -229,6 +236,7 @@ export default function PublicCareersPage() {
         experience: {
           years: 0,
         },
+        dataProcessingConsent: true,
         turnstileToken: turnstileToken ?? undefined,
       };
 
@@ -800,7 +808,17 @@ export default function PublicCareersPage() {
                       Apply for {selectedJob.title}
                     </SheetTitle>
                     <SheetDescription>
-                      Submit your application details below. All fields marked with * are required.
+                      Submit your application details below. Fields marked with * are required. Your
+                      data will be processed by {tenant.name} via Paqad to evaluate your
+                      application. See our{' '}
+                      <Link href="/privacy" className="text-primary hover:underline">
+                        Privacy Policy
+                      </Link>{' '}
+                      or contact{' '}
+                      <a href="mailto:privacy@paqad.com" className="text-primary hover:underline">
+                        privacy@paqad.com
+                      </a>{' '}
+                      to request access or deletion of application data.
                     </SheetDescription>
                   </SheetHeader>
 
@@ -1049,11 +1067,30 @@ export default function PublicCareersPage() {
                         </div>
                       ) : null}
 
-                      <div className="pt-6 border-t flex flex-col gap-2">
+                      <div className="flex items-start gap-2 border-t pt-4">
+                        <Checkbox
+                          id="apply-privacy-consent"
+                          checked={agreeToPrivacy}
+                          onCheckedChange={(checked) => setAgreeToPrivacy(checked === true)}
+                          disabled={isSubmitting}
+                        />
+                        <Label
+                          htmlFor="apply-privacy-consent"
+                          className="text-sm leading-5 text-muted-foreground"
+                        >
+                          I agree that my application data will be processed according to the{' '}
+                          <Link href="/privacy" className="text-primary hover:underline">
+                            Privacy Policy
+                          </Link>
+                          .
+                        </Label>
+                      </div>
+
+                      <div className="pt-4 border-t flex flex-col gap-2">
                         <Button
                           type="submit"
                           size="lg"
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || !agreeToPrivacy}
                           className="w-full flex items-center justify-center gap-2"
                         >
                           {isSubmitting ? (

@@ -16,6 +16,12 @@ export const LandingFooter = () => {
           <Link href="/privacy" className="hover:text-foreground">
             Privacy
           </Link>
+          <Link href="/dpa" className="hover:text-foreground">
+            DPA
+          </Link>
+          <Link href="/subprocessors" className="hover:text-foreground">
+            Subprocessors
+          </Link>
           <Link href="/terms" className="hover:text-foreground">
             Terms
           </Link>

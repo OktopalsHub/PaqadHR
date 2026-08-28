@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
+import { PrivacyConsentGate } from '@/features/auth/components/privacy-consent-gate';
 import {
   clearSession,
   getSession,
@@ -195,7 +196,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <PrivacyConsentGate />
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

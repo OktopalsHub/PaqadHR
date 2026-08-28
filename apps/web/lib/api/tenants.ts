@@ -35,6 +35,11 @@ export async function updateTenant(tenantId: string, input: UpdateTenantInput): 
   });
 }
 
+export async function deleteTenant(tenantId: string): Promise<void> {
+  await apiClient(`/tenants/${tenantId}`, { method: 'DELETE' });
+  invalidateTenantCache();
+}
+
 export async function fetchUserTenants() {
   const data = await apiClient<unknown>('/tenants/user/me?limit=50');
   const parsed = paginatedTenantsSchema.parse(data);

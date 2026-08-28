@@ -68,6 +68,7 @@ export class AuthController {
       body.password,
       { ip, headers: req.headers },
       undefined,
+      body.termsAccepted,
     );
     return {
       email: user.email,
