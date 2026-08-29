@@ -81,3 +81,7 @@ export * from './1787100000000-notification-cleanup-fix';
 export * from './1787521285997-backfill-existing-verified-users';
 export * from './1787866777469-WidenPaymentMethodEncryptedColumns';
 export * from './1787870704946-PaymentMethodSubmittedAtAndSecurityBackfill';
+export * from './1787950600190-ApiKeys';
+export * from './1787950604839-PendingAgentActions';
+export * from './1787950608947-AgentActionIdempotency';
+export * from './1787950615610-TenantActivityActorColumns';

@@ -78,6 +78,10 @@ export function getApiOrigin(): string {
   return getApiV1Base().replace(/\/api\/v1$/, '');
 }
 
+export function getAgentGatewayUrl(): string {
+  return `${getApiOrigin()}/agent/actions`;
+}
+
 export function tenantPath(tenantId: string, path = ''): string {
   const suffix = path.startsWith('/') ? path : path ? `/${path}` : '';
   return `/tenants/${tenantId}${suffix}`;

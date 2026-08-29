@@ -42,6 +42,7 @@ async function bootstrap() {
       { path: '/csrf/token', method: RequestMethod.GET },
       { path: '/docs', method: RequestMethod.GET },
       { path: '/integrations/oauth/callback', method: RequestMethod.GET },
+      { path: '/agent/actions', method: RequestMethod.POST },
     ],
   });
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });

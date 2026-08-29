@@ -10,6 +10,8 @@ import { dataSourceOptions } from './common/config';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
+import { ApiKeyRouteGuard } from './common/guards/api-key-route.guard';
+import { AppAuthGuard } from './common/guards/app-auth.guard';
 import { FeatureAccessGuard } from './common/guards/feature-access.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
@@ -20,7 +22,9 @@ import { ObservabilityModule } from './common/observability/observability.module
 import { ErrorResponseService } from './common/services/error-response.service';
 import { ActivitiesModule } from './modules/v1/activities/activities.module';
 import { AddressModule } from './modules/v1/address/address.module';
+import { AgentActionsModule } from './modules/v1/agent-actions/agent-actions.module';
 import { AnalyticsModule } from './modules/v1/analytics/analytics.module';
+import { ApiKeysModule } from './modules/v1/api-keys/api-keys.module';
 import { AttendanceModule } from './modules/v1/attendance/attendance.module';
 import { AuditLogsModule } from './modules/v1/audit-logs/audit-logs.module';
 import { AuditLogsService } from './modules/v1/audit-logs/services/audit-logs.service';
@@ -66,6 +70,8 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     ActivitiesModule,
     ManagerAccessModule,
     AuthModule,
+    ApiKeysModule,
+    AgentActionsModule,
     UsersModule,
     TenantsModule,
     TenantMembersModule,
@@ -102,6 +108,9 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
   providers: [
     AppService,
     ErrorResponseService,
+    JwtAuthGuard,
+    AppAuthGuard,
+    ApiKeyRouteGuard,
     {
       provide: APP_FILTER,
       useFactory: (errorResponseService: ErrorResponseService) =>
@@ -116,7 +125,11 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     },
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useClass: AppAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyRouteGuard,
     },
     {
       provide: APP_GUARD,

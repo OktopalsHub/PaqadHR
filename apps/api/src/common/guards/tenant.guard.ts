@@ -27,7 +27,7 @@ export class TenantGuard implements CanActivate {
     ]);
     if (isAuthOnly) {
       const request = context.switchToHttp().getRequest();
-      if (!request.user) {
+      if (!request.user && !request.auth?.principalId) {
         throw new ForbiddenException('Authentication required');
       }
       return true;

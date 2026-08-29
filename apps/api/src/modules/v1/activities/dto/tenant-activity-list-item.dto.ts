@@ -6,6 +6,8 @@ export interface TenantActivityListItemDto {
   id: string;
   tenantId: string;
   actorMemberId: string | null;
+  actorType: string;
+  correlationId: string | null;
   actorName: string | null;
   actorAvatarUrl: string | null;
   action: string;
@@ -18,7 +20,12 @@ export interface TenantActivityListItemDto {
   createdAt: Date;
 }
 
-const TENANT_HIDDEN_METADATA_KEYS = ['provider', 'paymentProvider'] as const;
+const TENANT_HIDDEN_METADATA_KEYS = [
+  'provider',
+  'paymentProvider',
+  'apiKeyId',
+  'result',
+] as const;
 
 function sanitizeTenantActivityMetadata(
   metadata: Record<string, unknown> | null,
@@ -48,6 +55,8 @@ export function toTenantActivityListItem(
     id: activity.id,
     tenantId: activity.tenantId,
     actorMemberId: activity.actorMemberId,
+    actorType: activity.actorType,
+    correlationId: activity.correlationId,
     actorName: formatMemberDisplayName(activity.actorMember),
     actorAvatarUrl: formatActorAvatarUrl(activity, fileUrlService),
     action: activity.action,

@@ -39,7 +39,22 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       },
     }),
   );
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
+  app.use(
+    express.urlencoded({
+      limit: '10mb',
+      extended: true,
+      verify: (req, _res, buf) => {
+        const path = (req as Request).originalUrl ?? (req as Request).url ?? '';
+        if (
+          path.startsWith('/api/v1/webhooks') ||
+          path.startsWith('/api/v1/subscriptions/webhooks') ||
+          path.startsWith('/api/v1/payroll/webhooks')
+        ) {
+          (req as RequestWithRawBody).rawBody = buf;
+        }
+      },
+    }),
+  );
   const crossSiteCookies = usesCrossSiteCookies();
   const secureCookies = usesSecureCookies();
   const cookieDomain = resolveCookieDomain();

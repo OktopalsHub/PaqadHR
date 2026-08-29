@@ -9,6 +9,7 @@ WORKDIR /app
 FROM base AS dependencies
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
+COPY packages/contracts/package.json ./packages/contracts/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 FROM base AS builder
@@ -16,6 +17,8 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/apps/api/node_modules ./apps/api/node_modules
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api ./apps/api
+COPY packages/contracts ./packages/contracts
+RUN pnpm --filter @paqadhr/contracts build
 WORKDIR /app/apps/api
 RUN pnpm build
 
@@ -30,6 +33,8 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 COPY --from=dependencies /app/node_modules /app/node_modules
 COPY --from=dependencies /app/apps/api/node_modules ./node_modules
 COPY --from=builder /app/apps/api/dist ./dist
+COPY --from=builder /app/packages/contracts/dist /app/packages/contracts/dist
+COPY --from=builder /app/packages/contracts/package.json /app/packages/contracts/package.json
 # Runtime readFileSync resolves to /app/constants from dist/common/constants/
 COPY constants /app/constants
 COPY apps/api/package.json ./

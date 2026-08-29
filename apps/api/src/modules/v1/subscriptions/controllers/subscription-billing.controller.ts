@@ -17,7 +17,7 @@ import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { CreateSubscriptionCheckoutDto } from '../dto/create-subscription-checkout.dto';
-import { UpdatePaymentMethodDto } from '../dto/update-payment-method.dto';
+import { UpdateSubscriptionPaymentMethodDto } from '../dto/update-subscription-payment-method.dto';
 import { BillingGatewayGuard } from '../guards/billing-gateway.guard';
 import { SubscriptionBillingService } from '../services/subscription-billing.service';
 
@@ -74,7 +74,7 @@ export class SubscriptionBillingController {
   @ApiOperation({ summary: 'Start Nomba checkout to update saved card' })
   updatePaymentMethod(
     @Param('tenantId', ParseUUIDPipe) tenantId: string,
-    @Body() dto: UpdatePaymentMethodDto,
+    @Body() dto: UpdateSubscriptionPaymentMethodDto,
     @Req() req: IAuthenticatedMemberRequest,
   ) {
     const userId = req.auth?.principalId;

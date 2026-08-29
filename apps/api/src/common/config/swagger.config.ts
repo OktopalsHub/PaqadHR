@@ -1,27 +1,33 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { OpenAPIObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
 
-export function setupSwagger(app: INestApplication): void {
+export function buildOpenApiDocument(app: INestApplication): OpenAPIObject {
   const config = new DocumentBuilder()
     .setTitle('PaqadHR API')
     .setDescription(
       'Welcome to the **PaqadHR**. \n\n' +
         'PaqadHR is a multi-tenant Human Resource Management platform. All tenant-scoped endpoints follow the pattern ' +
-        '`/api/v1/tenants/{tenantId}/...`. Authentication uses JWT Bearer tokens — obtain one via `POST /api/v1/auth/login`. \n\n' +
+        '`/api/v1/tenants/{tenantId}/...`. Authentication uses JWT Bearer tokens or tenant API keys (`Bearer paq_...`). \n\n' +
         'Tags are organized by feature area. Use the filter box above to search endpoints.',
     )
     .setVersion('1.0')
-    .addServer('http://localhost:9001', 'Local Server')
+    .addServer('http://localhost:9001/api', 'Local Server')
     .addBearerAuth(
       {
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'JWT',
-        description: 'Enter JWT token',
+        description: 'Enter JWT token or API key (paq_...)',
         in: 'header',
       },
       'JWT-auth',
+    )
+    .addTag('API Keys', 'Tenant-scoped API keys for programmatic and agent access.')
+    .addTag(
+      'Agent Actions',
+      'Semantic agent action gateway with idempotency and audit attribution.',
     )
     .addTag(
       'Tenant Onboarding',
@@ -100,10 +106,14 @@ export function setupSwagger(app: INestApplication): void {
     .addTag('App', 'Core application health check routes and general server info.')
     .build();
 
-  const document = SwaggerModule.createDocument(app, config, {
+  return SwaggerModule.createDocument(app, config, {
     operationIdFactory: (_controllerKey: string, methodKey: string) => methodKey,
     deepScanRoutes: true,
   });
+}
+
+export function setupSwagger(app: INestApplication): void {
+  const document = buildOpenApiDocument(app);
 
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {

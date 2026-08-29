@@ -64,6 +64,13 @@ export const queryKeys = {
     unmatchedUsers: (integrationId: string) =>
       ['integrations', 'unmatched-users', integrationId] as const,
   },
+  apiKeys: {
+    all: (tenantId: string) => ['api-keys', tenantId] as const,
+    scopes: (tenantId: string) => ['api-keys', 'scopes', tenantId] as const,
+  },
+  agentApprovals: {
+    pending: (tenantId: string) => ['agent-approvals', 'pending', tenantId] as const,
+  },
   payroll: {
     all: ['payroll'] as const,
     detail: (id: string) => ['payroll', id] as const,

@@ -23,6 +23,7 @@ import { LeaveResponseDto } from './dto/leave-response.dto';
 import { ListLeavesQueryDto } from './dto/list-leaves-query.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
 import { LeaveService } from './leave.service';
+import { LeaveAuthorizationService } from './services/leave-authorization.service';
 
 @ApiTags('Leaves')
 @Controller('tenants/:tenantId/leaves')
@@ -31,6 +32,7 @@ import { LeaveService } from './leave.service';
 export class LeaveController {
   constructor(
     private readonly leaveService: LeaveService,
+    private readonly leaveAuthorizationService: LeaveAuthorizationService,
     private readonly managerAccessService: ManagerAccessService,
   ) {}
 
@@ -80,17 +82,10 @@ export class LeaveController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     const { status, from, to, ...pagination } = query;
-    const filters = { status, from, to };
-    if (isTenantAdmin(member)) {
-      return this.leaveService.listLeavesByTenant(tenantId, pagination, filters);
-    }
-    const directReports = await this.managerAccessService.getDirectReportIds(tenantId, member.id);
-    if (directReports.length === 0) {
-      throw new ForbiddenException('Admin or manager access required');
-    }
-    return this.leaveService.listLeavesByTenant(tenantId, pagination, {
-      ...filters,
-      requesterIds: directReports,
+    return this.leaveAuthorizationService.listPendingLeavesForApprover(tenantId, member, pagination, {
+      status,
+      from,
+      to,
     });
   }
 
@@ -168,15 +163,7 @@ export class LeaveController {
     @Body('comments') comments: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    const leave = await this.leaveService.getLeave(tenantId, leaveId);
-    if (leave.requester?.id === member.id) {
-      throw new ForbiddenException('You cannot approve your own leave request');
-    }
-    if (leave.requester?.id) {
-      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
-    } else {
-      throw new ForbiddenException('Admin or manager access required');
-    }
+    await this.leaveAuthorizationService.assertCanApproveOrReject(tenantId, member, leaveId);
     return this.leaveService.approveLeave(tenantId, leaveId, member.id, comments);
   }
 
@@ -187,15 +174,7 @@ export class LeaveController {
     @Body('comments') comments: string,
     @CurrentTenantMember() member: MemberContext,
   ) {
-    const leave = await this.leaveService.getLeave(tenantId, leaveId);
-    if (leave.requester?.id === member.id) {
-      throw new ForbiddenException('You cannot reject your own leave request');
-    }
-    if (leave.requester?.id) {
-      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
-    } else {
-      throw new ForbiddenException('Admin or manager access required');
-    }
+    await this.leaveAuthorizationService.assertCanApproveOrReject(tenantId, member, leaveId);
     return this.leaveService.rejectLeave(tenantId, leaveId, member.id, comments);
   }
 }

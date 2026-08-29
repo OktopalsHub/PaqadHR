@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
@@ -304,6 +304,9 @@ export class LeaveService {
     if (leave.requestedBy === approverId) {
       throw new ForbiddenException('You cannot approve your own leave request');
     }
+    if (leave.status !== LeaveStatus.PENDING) {
+      throw new BadRequestException('Leave request is not pending');
+    }
     await this.checkLeaveBalance(
       tenantId,
       leave.requestedBy,
@@ -349,6 +352,9 @@ export class LeaveService {
     }
     if (leave.requestedBy === approverId) {
       throw new ForbiddenException('You cannot approve your own leave request');
+    }
+    if (leave.status !== LeaveStatus.PENDING) {
+      throw new BadRequestException('Leave request is not pending');
     }
     await this.leaveRepository.update(leave.id, {
       status: LeaveStatus.REJECTED,

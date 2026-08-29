@@ -201,10 +201,10 @@ export class WebhooksController {
     } catch {
       throw new BadRequestException('Malformed Slack payload');
     }
-    await this.slackWebhookService.handleInteractiveComponent(
+    const result = await this.slackWebhookService.handleInteractiveComponent(
       payload as unknown as SlackInteractivePayload,
     );
-    return { ok: true };
+    return result ?? { ok: true };
   }
 
   @Post('slack/slash-commands')
