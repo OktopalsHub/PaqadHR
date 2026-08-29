@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { CandidateSource, CandidateStatus } from 'src/common/enums';
 import { ActivitiesService } from '../../activities/services/activities.service';
 import type { CreateCandidateDto } from '../dto/create-candidate.dto';
@@ -78,6 +79,10 @@ export class CandidateService {
   }
 
   async applyForJob(jobId: string, createCandidateDto: CreateCandidateDto): Promise<Candidate> {
+    if (!createCandidateDto.dataProcessingConsent) {
+      throw new BadRequestException('You must accept the privacy policy to submit an application');
+    }
+
     const job = await this.jobOpeningService.getActiveJob(jobId);
     const normalizedEmail = createCandidateDto.email.trim().toLowerCase();
     const existingApplication = await this.candidateRepository.findByEmailAndJob(
@@ -119,7 +124,13 @@ export class CandidateService {
       githubUrl: createCandidateDto.githubUrl,
       skills: createCandidateDto.skills,
       experience: createCandidateDto.experience,
-      customAnswers: createCandidateDto.customAnswers,
+      customAnswers: {
+        ...(createCandidateDto.customAnswers ?? {}),
+        _privacyConsent: {
+          dataProcessingConsentAt: new Date().toISOString(),
+          privacyPolicyVersion: getPrivacyPolicyVersion(),
+        },
+      },
     });
     return this.candidateRepository.save(entity);
   }

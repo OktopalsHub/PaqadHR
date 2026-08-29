@@ -266,17 +266,48 @@ describe('AuthService', () => {
       } as User);
       accountRepository.create.mockImplementation((data) => data);
 
-      await authService.findOrCreateGoogleUser('google-new', 'new@example.com', {
-        ip: '8.8.8.8',
-        headers: {},
-      });
+      await authService.findOrCreateGoogleUser(
+        'google-new',
+        'new@example.com',
+        {
+          ip: '8.8.8.8',
+          headers: {},
+        },
+        true,
+        '1.0',
+      );
 
       expect(userRepository.insertUser).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'new@example.com',
           countryCode: 'US',
+          metadata: expect.objectContaining({
+            consent: expect.objectContaining({
+              privacyPolicyVersion: expect.any(String),
+            }),
+          }),
         }),
       );
+    });
+
+    it('rejects new Google signup without verified consent', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, false),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects new Google signup when accepted policy version is stale', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, true, '0.9'),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
     });
   });
 
@@ -526,7 +557,9 @@ describe('AuthService', () => {
 
   describe('register', () => {
     it('rejects a password that does not meet the password policy', async () => {
-      await expect(authService.register('test@example.com', 'numbers123', {})).rejects.toThrow(
+      await expect(
+        authService.register('test@example.com', 'numbers123', {}, undefined, true),
+      ).rejects.toThrow(
         'Password must be at least 8 characters and include an uppercase letter, lowercase letter, number, and special character.',
       );
     });
@@ -538,7 +571,9 @@ describe('AuthService', () => {
         password: 'hashedpassword',
         isActive: true,
         role: UserRole.BASIC,
-      } as User;
+        emailVerified: false,
+        metadata: { other: 'keep' },
+      } as unknown as User;
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
       accountRepository.findOne.mockResolvedValue({
@@ -548,12 +583,27 @@ describe('AuthService', () => {
       });
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(true);
 
-      const result = await authService.register('test@example.com', 'CorrectPassword1!', {
-        ip: '127.0.0.1',
-      });
+      const result = await authService.register(
+        'test@example.com',
+        'CorrectPassword1!',
+        { ip: '127.0.0.1' },
+        undefined,
+        true,
+      );
 
       expect(result.user).toBe(existingUser);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
+      expect(userRepository.update).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            other: 'keep',
+            consent: expect.objectContaining({
+              privacyPolicyVersion: expect.any(String),
+            }),
+          }),
+        }),
+      );
     });
 
     it('rejects registration when the email exists but the password is wrong', async () => {
@@ -573,7 +623,13 @@ describe('AuthService', () => {
       jest.spyOn(PasswordService, 'verifyPassword').mockResolvedValue(false);
 
       await expect(
-        authService.register('test@example.com', 'WrongPassword1!', { ip: '127.0.0.1' }),
+        authService.register(
+          'test@example.com',
+          'WrongPassword1!',
+          { ip: '127.0.0.1' },
+          undefined,
+          true,
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -587,7 +643,13 @@ describe('AuthService', () => {
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
       await expect(
-        authService.register('test@example.com', 'NewPassword123!', { ip: '127.0.0.1' }),
+        authService.register(
+          'test@example.com',
+          'NewPassword123!',
+          { ip: '127.0.0.1' },
+          undefined,
+          true,
+        ),
       ).rejects.toThrow('This email is already registered. Please sign in.');
       expect(userRepository.insertUser).not.toHaveBeenCalled();
     });
@@ -603,7 +665,13 @@ describe('AuthService', () => {
       accountRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 
       await expect(
-        authService.register('test@example.com', 'Password123!', { ip: '127.0.0.1' }),
+        authService.register(
+          'test@example.com',
+          'Password123!',
+          { ip: '127.0.0.1' },
+          undefined,
+          true,
+        ),
       ).rejects.toThrow(UnprocessableEntityException);
     });
   });

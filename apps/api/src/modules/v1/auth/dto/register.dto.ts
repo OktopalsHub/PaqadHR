@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, Matches, MinLength } from 'class-validator';
+import {
+  Equals,
+  IsBoolean,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MinLength,
+} from 'class-validator';
 import {
   STRONG_PASSWORD_MESSAGE,
   STRONG_PASSWORD_REGEX,
@@ -24,4 +33,9 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  @Equals(true, { message: 'You must accept the terms and privacy policy to register' })
+  termsAccepted: boolean;
 }

@@ -1,3 +1,5 @@
+import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
+
 export interface UserConsentMetadata {
   termsAcceptedAt?: string;
   privacyPolicyVersion?: string;
@@ -15,11 +17,23 @@ export function buildUserConsentMetadata(termsAccepted = true): UserMetadata {
   return {
     consent: {
       termsAcceptedAt: new Date().toISOString(),
-      privacyPolicyVersion: process.env.PRIVACY_POLICY_VERSION || '1.0',
+      privacyPolicyVersion: getPrivacyPolicyVersion(),
     },
   };
 }
 
 export function getUserConsent(metadata?: UserMetadata | null): UserConsentMetadata | null {
   return metadata?.consent ?? null;
+}
+
+export function getCurrentPrivacyPolicyVersion(): string {
+  return getPrivacyPolicyVersion();
+}
+
+export function needsPrivacyPolicyReconsent(metadata?: UserMetadata | null): boolean {
+  const acceptedVersion = getUserConsent(metadata)?.privacyPolicyVersion;
+  if (!acceptedVersion) {
+    return true;
+  }
+  return acceptedVersion !== getCurrentPrivacyPolicyVersion();
 }
