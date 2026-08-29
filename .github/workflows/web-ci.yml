@@ -65,6 +65,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
           NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
           NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+          NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
 
   cf-build:
     runs-on: ubuntu-latest
@@ -102,6 +103,7 @@ jobs:
           NEXT_PUBLIC_APP_URL: ${{ steps.env.outputs.app_url }}
           NEXT_PUBLIC_APP_DOMAIN: paqadhr.com
           NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS: 'true'
+          NEXT_PUBLIC_APP_BUILD_ID: ${{ github.sha }}
 
   build-and-publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
@@ -161,6 +163,7 @@ jobs:
             NEXT_PUBLIC_APP_URL=${{ steps.env.outputs.app_url }}
             NEXT_PUBLIC_APP_DOMAIN=paqadhr.com
             NEXT_PUBLIC_USE_SUBDOMAIN_TENANTS=true
+            NEXT_PUBLIC_APP_BUILD_ID=${{ github.sha }}
             NEXT_PUBLIC_TURNSTILE_SITE_KEY=${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
             NEXT_PUBLIC_R2_PUBLIC_URL=${{ secrets.NEXT_PUBLIC_R2_PUBLIC_URL }}
           cache-from: type=gha

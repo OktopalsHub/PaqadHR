@@ -51,10 +51,11 @@ export function getBreadcrumbs(pathname: string, tailLabel?: string | null): Bre
     }
 
     currentPath += `/${part}`;
-    segments.push({
-      label: labelForSegment(part),
-      href: isLast ? undefined : currentPath,
-    });
+    segments.push(
+      isLast
+        ? { label: labelForSegment(part) }
+        : { label: labelForSegment(part), href: currentPath },
+    );
   }
 
   const trimmedTailLabel = tailLabel?.trim();
