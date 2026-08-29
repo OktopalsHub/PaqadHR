@@ -67,6 +67,8 @@ export function PrivacySection() {
       try {
         await logoutRequest();
       } catch {
+        // Server unreachable — still clear client state below
+      } finally {
         clearClientSession();
       }
       toast.success('Account deleted');

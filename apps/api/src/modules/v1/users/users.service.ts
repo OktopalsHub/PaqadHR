@@ -1,28 +1,14 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
-import { EncryptionService } from 'src/common/services/encryption.service';
 import { StringUtility } from 'src/common/utils';
-import { In, Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { AuditAction, AuditSeverity, AuditStatus } from '../../../common/enums/audit-action.enum';
-import { Address } from '../address/entities/address.entity';
-import { Attendance } from '../attendance/entities/attendance.entity';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
 import { Verification } from '../auth/entities/verification.entity';
-import { Document } from '../document/entities/document.entity';
-import { Education } from '../education/entities/education.entity';
-import { EmergencyContact } from '../emergency-contact/entities/emergency-contact.entity';
-import { Employment } from '../employment/entities/employment.entity';
-import { Leave } from '../leave/entities/leave.entity';
-import { Notification } from '../notifications/entities/notification.entity';
-import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
-import { PaymentMethod } from '../payment-method/entities/payment-method.entity';
-import { PayrollItem } from '../payroll/entities/payroll-item.entity';
-import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
-import type { User } from './entities/user.entity';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { User } from './entities/user.entity';
 import {
   buildUserConsentMetadata,
   getCurrentPrivacyPolicyVersion,
@@ -38,39 +24,10 @@ export class UsersService {
 
   constructor(
     private readonly userRepository: UserRepository,
-    @InjectRepository(Session)
-    private readonly sessionRepository: Repository<Session>,
-    @InjectRepository(Account)
-    private readonly accountRepository: Repository<Account>,
-    @InjectRepository(Verification)
-    private readonly verificationRepository: Repository<Verification>,
-    @InjectRepository(TenantMember)
-    private readonly tenantMemberRepository: Repository<TenantMember>,
-    @InjectRepository(PaymentMethod)
-    private readonly paymentMethodRepository: Repository<PaymentMethod>,
-    @InjectRepository(Employment)
-    private readonly employmentRepository: Repository<Employment>,
-    @InjectRepository(Document)
-    private readonly documentRepository: Repository<Document>,
-    @InjectRepository(Leave)
-    private readonly leaveRepository: Repository<Leave>,
-    @InjectRepository(Attendance)
-    private readonly attendanceRepository: Repository<Attendance>,
-    @InjectRepository(Education)
-    private readonly educationRepository: Repository<Education>,
-    @InjectRepository(EmergencyContact)
-    private readonly emergencyContactRepository: Repository<EmergencyContact>,
-    @InjectRepository(Address)
-    private readonly addressRepository: Repository<Address>,
-    @InjectRepository(PayrollItem)
-    private readonly payrollItemRepository: Repository<PayrollItem>,
-    @InjectRepository(NotificationPreference)
-    private readonly notificationPreferenceRepository: Repository<NotificationPreference>,
-    @InjectRepository(Notification)
-    private readonly notificationRepository: Repository<Notification>,
+    private readonly tenantMembersService: TenantMembersService,
+    private readonly dataSource: DataSource,
     private readonly auditLogsService: AuditLogsService,
     private readonly r2Service: CloudflareR2Service,
-    private readonly encryptionService: EncryptionService,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -87,98 +44,46 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const members = await this.tenantMemberRepository.find({ where: { userId } });
-    const memberIds = members.map((member) => member.id);
-
     const fileKeys = new Set<string>();
     if (user.imageKey) {
       fileKeys.add(user.imageKey);
     }
-    for (const member of members) {
-      if (member.avatarKey) {
-        fileKeys.add(member.avatarKey);
-      }
-    }
 
-    if (memberIds.length > 0) {
-      const memberDocuments = await this.documentRepository.find({
-        where: { tenantMemberId: In(memberIds) },
-        select: ['id', 'fileKey'],
-      });
-      for (const document of memberDocuments) {
-        if (document.fileKey) {
-          fileKeys.add(document.fileKey);
-        }
-      }
+    let membershipCount = 0;
 
-      await this.paymentMethodRepository
-        .createQueryBuilder()
-        .update(PaymentMethod)
-        .set({
-          accountNumber: null,
-          accountName: null,
-          bankCode: null,
-          bankName: null,
-          passcodeHash: null,
-          status: PaymentMethodStatus.SUSPENDED,
-          isPrimary: false,
-        })
-        .where('member_id IN (:...memberIds)', { memberIds })
-        .execute();
+    await this.dataSource.transaction(async (manager) => {
+      const scrubResult = await this.tenantMembersService.scrubPersonalData(userId, manager);
+      membershipCount = scrubResult.membershipCount;
+      for (const key of scrubResult.fileKeys) {
+        fileKeys.add(key);
+      }
 
       await Promise.all([
-        this.emergencyContactRepository.delete({ tenantMemberId: In(memberIds) }),
-        this.addressRepository.delete({ tenantMemberId: In(memberIds) }),
-        this.educationRepository.delete({ tenantMemberId: In(memberIds) }),
-        this.leaveRepository.update({ requestedBy: In(memberIds) }, { reason: '', comments: '' }),
-        this.attendanceRepository.update({ tenantMemberId: In(memberIds) }, { notes: '' }),
-        this.employmentRepository.update({ tenantMemberId: In(memberIds) }, { comments: '' }),
-        this.notificationRepository.delete({ recipientId: In(memberIds) }),
-        this.documentRepository.delete({ tenantMemberId: In(memberIds) }),
-        this.tenantMemberRepository.update(
-          { userId },
-          {
-            firstName: null,
-            lastName: null,
-            middleName: null,
-            preferredName: null,
-            phone: null,
-            dateOfBirth: null,
-            gender: null,
-            identityBvn: null,
-            identityNin: null,
-            avatarKey: null,
-            isActive: false,
-            leaveDate: new Date(),
-          },
-        ),
+        manager.getRepository(Session).delete({ userId }),
+        manager.getRepository(Account).delete({ userId }),
+        manager.getRepository(Verification).delete({ identifier: `email-verification:${userId}` }),
+        manager.getRepository(Verification).delete({ identifier: `reset:${userId}` }),
+        manager
+          .getRepository(Verification)
+          .createQueryBuilder()
+          .delete()
+          .where('identifier LIKE :pattern', { pattern: `otp:%:${userId}` })
+          .execute(),
       ]);
-      await this.tenantMemberRepository.softDelete({ userId });
-    }
 
-    await Promise.all([
-      this.sessionRepository.delete({ userId }),
-      this.accountRepository.delete({ userId }),
-      this.verificationRepository.delete({ identifier: `email-verification:${userId}` }),
-      this.verificationRepository.delete({ identifier: `reset:${userId}` }),
-      this.verificationRepository
-        .createQueryBuilder()
-        .delete()
-        .where('identifier LIKE :pattern', { pattern: `otp:%:${userId}` })
-        .execute(),
-    ]);
-
-    const tombstoneEmail = buildDeletedUserEmail(userId);
-    await this.userRepository.update(userId, {
-      email: tombstoneEmail,
-      password: null,
-      isActive: false,
-      name: null,
-      imageKey: null,
-      countryCode: null,
-      metadata: null,
+      const tombstoneEmail = buildDeletedUserEmail(userId);
+      const userRepo = manager.getRepository(User);
+      await userRepo.update(userId, {
+        email: tombstoneEmail,
+        password: null,
+        isActive: false,
+        name: null,
+        imageKey: null,
+        countryCode: null,
+        metadata: null,
+      });
+      await userRepo.softDelete(userId);
     });
-    await this.userRepository.softDelete(userId);
 
     for (const fileKey of fileKeys) {
       try {
@@ -199,50 +104,15 @@ export class UsersService {
         resourceType: 'user',
         resourceId: userId,
         userId,
-        metadata: { membershipCount: members.length },
+        metadata: { membershipCount },
       })
       .catch(() => {});
   }
 
   async exportUserData(userId: string): Promise<Record<string, unknown>> {
     const user = await this.getProfile(userId);
-    const members = await this.tenantMemberRepository.find({
-      where: { userId },
-      relations: ['tenant'],
-    });
-    const memberIds = members.map((member) => member.id);
     const consent = getUserConsent(user.metadata);
-
-    const [
-      employments,
-      documents,
-      leaves,
-      attendances,
-      educations,
-      emergencyContacts,
-      addresses,
-      payrollItems,
-      paymentMethods,
-      notificationPreferences,
-      notifications,
-    ] =
-      memberIds.length > 0
-        ? await Promise.all([
-            this.employmentRepository.find({ where: { tenantMemberId: In(memberIds) } }),
-            this.documentRepository.find({ where: { tenantMemberId: In(memberIds) } }),
-            this.leaveRepository.find({ where: { requestedBy: In(memberIds) } }),
-            this.attendanceRepository.find({ where: { tenantMemberId: In(memberIds) } }),
-            this.educationRepository.find({ where: { tenantMemberId: In(memberIds) } }),
-            this.emergencyContactRepository.find({ where: { tenantMemberId: In(memberIds) } }),
-            this.addressRepository.find({ where: { tenantMemberId: In(memberIds) } }),
-            this.payrollItemRepository.find({ where: { memberId: In(memberIds) } }),
-            this.paymentMethodRepository.find({ where: { memberId: In(memberIds) } }),
-            this.notificationPreferenceRepository.find({
-              where: { tenantMemberId: In(memberIds) },
-            }),
-            this.notificationRepository.find({ where: { recipientId: In(memberIds) } }),
-          ])
-        : [[], [], [], [], [], [], [], [], [], [], []];
+    const memberExport = await this.tenantMembersService.loadPersonalDataForExport(userId);
 
     const exportPayload = {
       exportedAt: new Date().toISOString(),
@@ -254,163 +124,10 @@ export class UsersService {
         consent,
         createdAt: user.createdAt,
       },
-      memberships: members.map((member) => ({
-        id: member.id,
-        tenantId: member.tenantId,
-        tenantName: member.tenant?.name,
-        role: member.role,
-        firstName: member.firstName,
-        lastName: member.lastName,
-        phone: member.phone,
-        dateOfBirth: member.dateOfBirth,
-        gender: member.gender,
-        identityBvn: this.decryptOptional(member.identityBvn),
-        identityNin: this.decryptOptional(member.identityNin),
-        joinDate: member.joinDate,
-        leaveDate: member.leaveDate,
-        isActive: member.isActive,
-      })),
-      employment: employments.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        tenantId: row.tenantId,
-        startDate: row.startDate,
-        endDate: row.endDate,
-        status: row.status,
-        payType: row.payType,
-        paySchedule: row.paySchedule,
-        payRate: row.payRate,
-        currency: row.currency,
-        comments: row.comments,
-      })),
-      documents: documents.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        tenantId: row.tenantId,
-        name: row.name,
-        type: row.type,
-        fileKey: row.fileKey,
-        issueDate: row.issueDate,
-        expiryDate: row.expiryDate,
-        description: row.description,
-        isVerified: row.isVerified,
-      })),
-      leaves: leaves.map((row) => ({
-        id: row.id,
-        tenantId: row.tenantId,
-        requestedBy: row.requestedBy,
-        leaveTypeId: row.leaveTypeId,
-        startDate: row.startDate,
-        endDate: row.endDate,
-        duration: row.duration,
-        status: row.status,
-        reason: row.reason,
-        comments: row.comments,
-      })),
-      attendance: attendances.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        tenantId: row.tenantId,
-        date: row.date,
-        clockIn: row.clockIn,
-        clockOut: row.clockOut,
-        workHours: row.workHours,
-        status: row.status,
-        notes: row.notes,
-      })),
-      education: educations.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        tenantId: row.tenantId,
-        title: row.title,
-        degreeType: row.degreeType,
-        institution: row.institution,
-        fieldOfStudy: row.fieldOfStudy,
-        startDate: row.startDate,
-        endDate: row.endDate,
-        description: row.description,
-        gpa: row.gpa,
-      })),
-      emergencyContacts: emergencyContacts.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        tenantId: row.tenantId,
-        fullName: row.fullName,
-        phoneNumber: row.phoneNumber,
-        email: row.email,
-        relationship: row.relationship,
-        address: row.address,
-        isPrimary: row.isPrimary,
-      })),
-      addresses: addresses.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        country: row.country,
-        city: row.city,
-        state: row.state,
-        street: row.street,
-        postalCode: row.postalCode,
-      })),
-      payrollItems: payrollItems.map((row) => ({
-        id: row.id,
-        memberId: row.memberId,
-        payrollRunId: row.payrollRunId,
-        status: row.status,
-        baseSalary: row.baseSalary,
-        baseSalaryCurrency: row.baseSalaryCurrency,
-        grossAmount: row.grossAmount,
-        adjustments: row.adjustments,
-        deductions: row.deductions,
-        netAmount: row.netAmount,
-        paymentCurrency: row.paymentCurrency,
-        paymentAmount: row.paymentAmount,
-        exchangeRate: row.exchangeRate,
-        paidAt: row.paidAt,
-        description: row.description,
-      })),
-      paymentMethods: paymentMethods.map((row) => ({
-        id: row.id,
-        memberId: row.memberId,
-        tenantId: row.tenantId,
-        type: row.type,
-        currency: row.currency,
-        bankName: row.bankName,
-        bankCode: row.bankCode,
-        accountName: this.decryptOptional(row.accountName),
-        accountNumber: this.decryptOptional(row.accountNumber),
-        country: row.country,
-        isPrimary: row.isPrimary,
-        status: row.status,
-        displayName: row.displayName,
-      })),
-      notificationPreferences: notificationPreferences.map((row) => ({
-        id: row.id,
-        tenantMemberId: row.tenantMemberId,
-        notificationType: row.notificationType,
-        preferredChannel: row.preferredChannel,
-        isEnabled: row.isEnabled,
-        emailEnabled: row.emailEnabled,
-        inAppEnabled: row.inAppEnabled,
-        quietHoursStart: row.quietHoursStart,
-        quietHoursEnd: row.quietHoursEnd,
-        quietDays: row.quietDays,
-      })),
-      notifications: notifications.map((row) => ({
-        id: row.id,
-        tenantId: row.tenantId,
-        recipientId: row.recipientId,
-        type: row.type,
-        channel: row.channel,
-        priority: row.priority,
-        status: row.status,
-        title: row.title,
-        message: row.message,
-        sentAt: row.sentAt,
-        deliveredAt: row.deliveredAt,
-        readAt: row.readAt,
-        expiresAt: row.expiresAt,
-      })),
+      ...memberExport,
     };
+
+    const memberships = (memberExport.memberships as unknown[]) ?? [];
 
     void this.auditLogsService
       .queueAuditLog({
@@ -422,7 +139,7 @@ export class UsersService {
         resourceId: userId,
         userId,
         metadata: {
-          membershipCount: members.length,
+          membershipCount: memberships.length,
           sections: Object.keys(exportPayload).filter((key) => key !== 'exportedAt'),
         },
       })
@@ -468,17 +185,6 @@ export class UsersService {
         },
       })
       .catch(() => {});
-  }
-
-  private decryptOptional(value?: string | null): string | null {
-    if (!value?.trim()) {
-      return null;
-    }
-    try {
-      return this.encryptionService.decrypt(value);
-    } catch {
-      return null;
-    }
   }
 
   async getUsers(): Promise<User[]> {

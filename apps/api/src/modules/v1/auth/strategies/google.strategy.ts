@@ -6,6 +6,7 @@ import { StringUtility } from 'src/common/utils';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import type { User } from '../../users/entities/user.entity';
 import { AuthService } from '../auth.service';
+import { verifyGoogleOAuthState } from '../utils/google-oauth-state.util';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -30,6 +31,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     const { id, emails } = profile;
     const email = StringUtility.trimAndLowerCase(emails[0].value);
     const ip = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, req.ip);
-    return this.authService.findOrCreateGoogleUser(id, email, { ip, headers: req.headers });
+    const stateParam = typeof req.query?.state === 'string' ? req.query.state : undefined;
+    const { termsAccepted } = verifyGoogleOAuthState(stateParam);
+    return this.authService.findOrCreateGoogleUser(
+      id,
+      email,
+      { ip, headers: req.headers },
+      termsAccepted,
+    );
   }
 }

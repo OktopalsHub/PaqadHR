@@ -34,6 +34,7 @@ import {
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 
 interface AuthUserResponse {
   user: {
@@ -133,12 +134,15 @@ export class AuthController {
 
   @Get('google')
   @Public()
-  @UseGuards(AuthGuard('google'))
-  async googleLogin(@Query('redirect_uri') _redirectUri?: string) {}
+  @UseGuards(GoogleAuthGuard)
+  async googleLogin(
+    @Query('redirect_uri') _redirectUri?: string,
+    @Query('termsAccepted') _termsAccepted?: string,
+  ) {}
 
   @Get('google/callback')
   @Public()
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleAuthGuard)
   async googleCallback(
     @Req() req: AuthenticatedRequest,
     @Ip() ipParam: string,

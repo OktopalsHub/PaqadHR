@@ -8,29 +8,32 @@ import {
 } from '@/lib/api/privacy';
 import { queryKeys } from '@/lib/query/keys';
 
-export function usePrivacyConsentStatus(enabled = true) {
+export function usePrivacyConsentStatus(userId: string | undefined, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.privacy.consent,
+    queryKey: queryKeys.privacy.consent(userId ?? 'anonymous'),
     queryFn: fetchPrivacyConsentStatus,
-    enabled,
+    enabled: Boolean(userId) && enabled,
     staleTime: 60_000,
   });
 }
 
-export function useAcceptPrivacyPolicy() {
+export function useAcceptPrivacyPolicy(userId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: acceptPrivacyPolicy,
     onSuccess: () => {
-      queryClient.setQueryData<PrivacyConsentStatus>(queryKeys.privacy.consent, (current) =>
-        current
-          ? {
-              ...current,
-              acceptedVersion: current.currentVersion,
-              needsReconsent: false,
-            }
-          : current,
+      if (!userId) return;
+      queryClient.setQueryData<PrivacyConsentStatus>(
+        queryKeys.privacy.consent(userId),
+        (current) =>
+          current
+            ? {
+                ...current,
+                acceptedVersion: current.currentVersion,
+                needsReconsent: false,
+              }
+            : current,
       );
     },
   });

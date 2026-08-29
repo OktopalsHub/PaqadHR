@@ -58,7 +58,7 @@ export const SocialAuthButtons = () => {
         disabled={!agreeToTerms}
         className="h-12 w-full rounded-[16px] border-slate-200/90 bg-white/92 text-[15px] font-semibold text-slate-800 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.28)] hover:border-emerald-200 hover:bg-white disabled:opacity-60"
         onClick={() => {
-          window.location.assign(getGoogleAuthUrl());
+          window.location.assign(getGoogleAuthUrl(true));
         }}
       >
         <GoogleIcon className="size-5" />

@@ -418,6 +418,7 @@ export function SettingsWorkspaceTab() {
             onChange={(event) => setDeleteConfirmName(event.target.value)}
             placeholder="Workspace name"
             autoComplete="off"
+            aria-label="Workspace name confirmation"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteWorkspaceOpen(false)}>
@@ -434,12 +435,17 @@ export function SettingsWorkspaceTab() {
                 void deleteTenantMutation
                   .mutateAsync(tenantId)
                   .then(async () => {
-                    const tenants = await fetchUserTenants();
                     toast.success('Workspace deleted');
                     setDeleteWorkspaceOpen(false);
                     setDeleteConfirmName('');
-                    const href = await resolvePostAuthHref({ tenants });
-                    goToHref(href, router.push);
+                    try {
+                      const tenants = await fetchUserTenants();
+                      const href = await resolvePostAuthHref({ tenants });
+                      goToHref(href, router.push);
+                    } catch {
+                      toast.error('Workspace deleted, but we could not refresh your workspaces.');
+                      goToHref('/signin', router.push);
+                    }
                   })
                   .catch((err: unknown) => {
                     toast.error(err instanceof Error ? err.message : 'Delete failed');
