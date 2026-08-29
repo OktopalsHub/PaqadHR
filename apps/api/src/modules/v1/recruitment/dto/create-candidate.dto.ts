@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  Equals,
   IsBoolean,
   IsDate,
   IsEmail,
@@ -206,4 +207,12 @@ export class CreateCandidateDto {
   @IsOptional()
   @IsString()
   turnstileToken?: string;
+
+  @ApiProperty({
+    description: 'Applicant consent to process application data per the privacy policy',
+    example: true,
+  })
+  @IsBoolean()
+  @Equals(true, { message: 'You must accept the privacy policy to submit an application' })
+  dataProcessingConsent: boolean;
 }

@@ -106,6 +106,9 @@ export const queryKeys = {
     list: ['notifications', 'list'] as const,
     unreadCount: ['notifications', 'unread-count'] as const,
   },
+  privacy: {
+    consent: (userId: string) => ['privacy', 'consent', userId] as const,
+  },
   activities: {
     list: (tenantId: string) => ['activities', 'list', tenantId] as const,
   },

@@ -88,10 +88,20 @@ export default function PrivacyPage() {
             applicable.
           </li>
           <li>
-            <strong>Consent:</strong> where required (e.g. marketing, optional cookies, or explicit
-            applicant submissions).
+            <strong>Consent:</strong> where required (e.g. explicit applicant submissions or other
+            optional processing you opt into).
           </li>
         </ul>
+
+        <h2>Cookies &amp; local storage</h2>
+        <p>
+          Paqad uses <strong>essential cookies only</strong> today: httpOnly authentication cookies,
+          CSRF protection, and workspace navigation preferences needed to run the service. We do not
+          use advertising or third-party analytics cookies. The web app may store short-lived
+          session cache data (for example, your profile for faster page loads) in session storage
+          until you close the tab or sign out. Theme preference may be stored in local storage on
+          your device.
+        </p>
 
         <h2>How we use data</h2>
         <p>
@@ -124,7 +134,10 @@ export default function PrivacyPage() {
           </li>
         </ul>
         <p>
-          A current subprocessor list is available on request at{' '}
+          A current subprocessor list is published at{' '}
+          <Link href="/subprocessors">paqad.com/subprocessors</Link>. Our{' '}
+          <Link href="/dpa">Data Processing Agreement summary</Link> describes processor
+          obligations. For a signed DPA or subprocessor schedule, contact{' '}
           <a href="mailto:privacy@paqad.com">privacy@paqad.com</a>.
         </p>
 
@@ -143,8 +156,12 @@ export default function PrivacyPage() {
             active and as needed to provide the service.
           </li>
           <li>
-            <strong>Deleted accounts:</strong> login credentials and direct identifiers are
-            anonymised or removed; some records may be retained in backups for a limited period.
+            <strong>Deleted accounts:</strong> your login credentials, direct profile identifiers,
+            emergency contacts, addresses, education history, uploaded profile documents, and linked
+            payout details are scrubbed or removed. Payroll amounts, employment records, and other
+            workforce data entered by your employer may be retained by that organisation for legal,
+            tax, and contractual obligations. Tombstoned account rows may remain in backups for a
+            limited period.
           </li>
           <li>
             <strong>Payroll &amp; tax records:</strong> retained as required by applicable law and
@@ -153,6 +170,8 @@ export default function PrivacyPage() {
           <li>
             <strong>Recruitment applications:</strong> retained according to the hiring
             organisation&apos;s settings and legal requirements, then deleted or anonymised.
+            Applicants may contact <a href="mailto:privacy@paqad.com">privacy@paqad.com</a> to
+            request access or deletion.
           </li>
           <li>
             <strong>Security logs:</strong> typically retained up to 90 days unless needed for an

@@ -1,11 +1,22 @@
 'use client';
 
+import { Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ContentCard } from '@/components/content-card';
 import { LogoUpload } from '@/components/logo-upload';
 import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { SettingsFieldHint } from '@/features/settings/components/settings-field-hint';
@@ -17,8 +28,10 @@ import {
   useSupportedHolidayCountries,
   useTenantSettings,
 } from '@/hooks/queries/use-tenant-settings';
-import { useUpdateTenant } from '@/hooks/queries/use-tenants';
+import { useDeleteTenant, useUpdateTenant } from '@/hooks/queries/use-tenants';
+import { fetchUserTenants } from '@/lib/api/tenants';
 import { SUPPORTED_CRYPTO_CURRENCIES, SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
+import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -28,15 +41,18 @@ const timezoneOptions = Intl.supportedValuesOf('timeZone').map((tz) => ({
 }));
 
 export function SettingsWorkspaceTab() {
+  const router = useRouter();
   const { tenant, tenantId } = useTenant();
   const { data: settings } = useTenantSettings();
   const { data: countriesData } = useSupportedHolidayCountries();
   const updateTenant = useUpdateTenant();
+  const deleteTenantMutation = useDeleteTenant();
   const patchSettings = usePatchTenantSettings();
   const logoUpload = useWorkspaceLogoUpload();
 
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+  const isOwner = role === 'owner';
   const tenantLogoUrl = (tenant as { logoUrl?: string | null } | null)?.logoUrl ?? null;
 
   const [name, setName] = useState('');
@@ -47,6 +63,8 @@ export function SettingsWorkspaceTab() {
   const [cryptoEnabled, setCryptoEnabled] = useState(false);
   const [emailPayslipOnPublish, setEmailPayslipOnPublish] = useState(false);
   const [requireIdentityForPayroll, setRequireIdentityForPayroll] = useState(false);
+  const [deleteWorkspaceOpen, setDeleteWorkspaceOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   const workspaceCountry = tenant?.countryCode ?? settings?.settings?.holidays?.countryCode ?? '';
   const _countryLabel =
@@ -364,6 +382,81 @@ export function SettingsWorkspaceTab() {
           </SettingsFieldHint>
         </div>
       </ContentCard>
+
+      {isOwner ? (
+        <ContentCard title="Delete workspace">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Soft-delete this workspace. Members lose access immediately. Payroll and employment
+              records may remain for legal retention. Contact support to restore within the grace
+              period.
+            </p>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={deleteTenantMutation.isPending}
+              onClick={() => setDeleteWorkspaceOpen(true)}
+            >
+              <Trash2 className="mr-1 size-4" />
+              Delete workspace
+            </Button>
+          </div>
+        </ContentCard>
+      ) : null}
+
+      <Dialog open={deleteWorkspaceOpen} onOpenChange={setDeleteWorkspaceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete workspace?</DialogTitle>
+            <DialogDescription>
+              This removes access for all members. Type the workspace name{' '}
+              <strong>{tenant?.name}</strong> to confirm.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={deleteConfirmName}
+            onChange={(event) => setDeleteConfirmName(event.target.value)}
+            placeholder="Workspace name"
+            autoComplete="off"
+            aria-label="Workspace name confirmation"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteWorkspaceOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={
+                deleteTenantMutation.isPending ||
+                deleteConfirmName.trim() !== (tenant?.name ?? '').trim()
+              }
+              onClick={() => {
+                if (!tenantId) return;
+                void deleteTenantMutation
+                  .mutateAsync(tenantId)
+                  .then(async () => {
+                    toast.success('Workspace deleted');
+                    setDeleteWorkspaceOpen(false);
+                    setDeleteConfirmName('');
+                    try {
+                      const tenants = await fetchUserTenants();
+                      const href = await resolvePostAuthHref({ tenants });
+                      goToHref(href, router.push);
+                    } catch {
+                      toast.error('Workspace deleted, but we could not refresh your workspaces.');
+                      goToHref('/signin', router.push);
+                    }
+                  })
+                  .catch((err: unknown) => {
+                    toast.error(err instanceof Error ? err.message : 'Delete failed');
+                  });
+              }}
+            >
+              Delete workspace
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -103,8 +103,7 @@ export class ApplicationController {
     const clientIp = this.resolveClientIp(req, ip);
     await this.assertApplicationRateLimit(`apply:${jobId}`, clientIp);
     await this.assertTurnstile(createCandidateDto.turnstileToken, clientIp);
-    const { turnstileToken: _turnstileToken, ...candidateData } = createCandidateDto;
-    const candidate = await this.candidateService.applyForJob(jobId, candidateData);
+    const candidate = await this.candidateService.applyForJob(jobId, createCandidateDto);
     return PublicApplicationMapper.toResponse(candidate);
   }
 

@@ -206,6 +206,7 @@ export type PublicApplicationPayload = {
   coverLetterFilename?: string;
   customAnswers: Record<string, PublicApplicationCustomAnswer>;
   experience: { years: number };
+  dataProcessingConsent: boolean;
 };
 
 export async function submitPublicApplication(

@@ -14,6 +14,7 @@ import { AuthService } from './auth.service';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
 
 @Module({
@@ -33,7 +34,14 @@ import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
     UsersModule,
     TenantMembersModule,
   ],
-  providers: [AuthService, UserRepository, JwtStrategy, LocalStrategy, GoogleStrategy],
+  providers: [
+    AuthService,
+    UserRepository,
+    JwtStrategy,
+    LocalStrategy,
+    GoogleStrategy,
+    GoogleAuthGuard,
+  ],
   exports: [AuthService],
   controllers: [AuthController],
 })

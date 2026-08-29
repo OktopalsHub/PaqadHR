@@ -15,6 +15,10 @@ import {
 } from '@/lib/api/tenant-settings';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
+import {
+  paymentMethodCurrenciesQueryKey,
+  shouldInvalidatePaymentMethodCurrencies,
+} from './tenant-settings-invalidation';
 
 export function useTenantSettings() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
@@ -35,6 +39,11 @@ export function usePatchTenantSettings() {
       if (variables.attendance !== undefined) {
         void queryClient.invalidateQueries({
           queryKey: [...queryKeys.attendance.clockInInfo, tenantId],
+        });
+      }
+      if (shouldInvalidatePaymentMethodCurrencies(variables)) {
+        void queryClient.invalidateQueries({
+          queryKey: paymentMethodCurrenciesQueryKey(tenantId),
         });
       }
     },
