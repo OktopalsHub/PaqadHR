@@ -274,6 +274,7 @@ describe('AuthService', () => {
           headers: {},
         },
         true,
+        '1.0',
       );
 
       expect(userRepository.insertUser).toHaveBeenCalledWith(
@@ -295,6 +296,22 @@ describe('AuthService', () => {
 
       await expect(
         authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, false),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects new Google signup when accepted policy version is stale', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser(
+          'google-new',
+          'new@example.com',
+          {},
+          true,
+          '0.9',
+        ),
       ).rejects.toThrow(BadRequestException);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
     });

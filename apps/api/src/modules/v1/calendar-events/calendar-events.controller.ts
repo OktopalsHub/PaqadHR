@@ -52,15 +52,20 @@ export class CalendarEventsController {
     @Param('tenantId') tenantId: string,
     @Param('eventId') eventId: string,
     @Body() dto: UpdateCalendarEventDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.calendarEventsService.update(tenantId, eventId, dto);
+    return this.calendarEventsService.update(tenantId, eventId, dto, member.id);
   }
 
   @Delete(':eventId')
   @HttpCode(204)
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.ADMIN, TenantMemberRole.OWNER)
-  async remove(@Param('tenantId') tenantId: string, @Param('eventId') eventId: string) {
-    await this.calendarEventsService.remove(tenantId, eventId);
+  async remove(
+    @Param('tenantId') tenantId: string,
+    @Param('eventId') eventId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    await this.calendarEventsService.remove(tenantId, eventId, member.id);
   }
 }

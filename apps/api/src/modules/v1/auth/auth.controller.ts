@@ -24,6 +24,7 @@ import {
 import type { User } from '../users/entities/user.entity';
 import { AuthService } from './auth.service';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { GoogleConsentDto } from './dto/google-consent.dto';
 import {
   ChangePasswordDto,
   ResendEmailVerificationDto,
@@ -35,6 +36,12 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import {
+  createGoogleOAuthConsentClaims,
+  GOOGLE_OAUTH_CONSENT_COOKIE,
+  GOOGLE_OAUTH_CONSENT_TTL_MS,
+  signGoogleOAuthConsent,
+} from './utils/google-oauth-state.util';
 
 interface AuthUserResponse {
   user: {
@@ -132,13 +139,25 @@ export class AuthController {
     };
   }
 
+  @Post('google/consent')
+  @Public()
+  prepareGoogleConsent(
+    @Body() body: GoogleConsentDto,
+    @Res({ passthrough: true }) res: Response,
+  ): { ok: true } {
+    void body;
+    const token = signGoogleOAuthConsent(createGoogleOAuthConsentClaims());
+    res.cookie(GOOGLE_OAUTH_CONSENT_COOKIE, token, {
+      ...this.cookieOptions(),
+      maxAge: GOOGLE_OAUTH_CONSENT_TTL_MS,
+    });
+    return { ok: true };
+  }
+
   @Get('google')
   @Public()
   @UseGuards(GoogleAuthGuard)
-  async googleLogin(
-    @Query('redirect_uri') _redirectUri?: string,
-    @Query('termsAccepted') _termsAccepted?: string,
-  ) {}
+  async googleLogin(@Query('redirect_uri') _redirectUri?: string) {}
 
   @Get('google/callback')
   @Public()
@@ -156,6 +175,7 @@ export class AuthController {
       false,
     );
     this.setAuthCookies(res, accessToken, refreshToken, false);
+    res.clearCookie(GOOGLE_OAUTH_CONSENT_COOKIE, this.cookieOptions());
     const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     res.redirect(`${frontend}/google/complete`);
   }

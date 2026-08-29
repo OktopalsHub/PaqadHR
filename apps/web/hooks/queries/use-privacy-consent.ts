@@ -8,6 +8,18 @@ import {
 } from '@/lib/api/privacy';
 import { queryKeys } from '@/lib/query/keys';
 
+/** Pure cache updater — acceptance touches only the given user's consent entry. */
+export function applyAcceptedPrivacyConsentCache(
+  current: PrivacyConsentStatus | undefined,
+): PrivacyConsentStatus | undefined {
+  if (!current) return current;
+  return {
+    ...current,
+    acceptedVersion: current.currentVersion,
+    needsReconsent: false,
+  };
+}
+
 export function usePrivacyConsentStatus(userId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: queryKeys.privacy.consent(userId ?? 'anonymous'),
@@ -26,14 +38,7 @@ export function useAcceptPrivacyPolicy(userId: string | undefined) {
       if (!userId) return;
       queryClient.setQueryData<PrivacyConsentStatus>(
         queryKeys.privacy.consent(userId),
-        (current) =>
-          current
-            ? {
-                ...current,
-                acceptedVersion: current.currentVersion,
-                needsReconsent: false,
-              }
-            : current,
+        applyAcceptedPrivacyConsentCache,
       );
     },
   });

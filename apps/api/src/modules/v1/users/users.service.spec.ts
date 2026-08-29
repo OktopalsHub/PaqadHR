@@ -160,4 +160,51 @@ describe('UsersService', () => {
     await expect(service.deleteAccount('user-1')).rejects.toThrow('db failed');
     expect(r2Service.deleteFile).not.toHaveBeenCalled();
   });
+
+  it('audits failed file keys when R2 purge fails after commit', async () => {
+    const { service, userRepository, tenantMembersService, dataSource, r2Service, auditLogsService } =
+      createService();
+
+    (userRepository.findUser as jest.Mock).mockResolvedValue({
+      id: 'user-1',
+      email: 'test@example.com',
+      imageKey: 'avatars/user.png',
+    });
+    (dataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
+      const manager = {
+        getRepository: (entity: { name?: string }) => {
+          const name = entity.name ?? String(entity);
+          if (name.includes('Verification')) {
+            return {
+              delete: jest.fn(),
+              createQueryBuilder: () => ({
+                delete: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                execute: jest.fn(),
+              }),
+            };
+          }
+          return { delete: jest.fn(), update: jest.fn(), softDelete: jest.fn() };
+        },
+      };
+      return cb(manager);
+    });
+    (tenantMembersService.scrubPersonalData as jest.Mock).mockResolvedValue({
+      membershipCount: 0,
+      fileKeys: [],
+    });
+    (r2Service.deleteFile as jest.Mock).mockRejectedValue(new Error('r2 down'));
+
+    await service.deleteAccount('user-1');
+
+    expect(r2Service.deleteFile).toHaveBeenCalledTimes(2);
+    expect(auditLogsService.queueAuditLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'FAILED',
+        metadata: expect.objectContaining({
+          failedFileKeys: ['avatars/user.png'],
+        }),
+      }),
+    );
+  });
 });

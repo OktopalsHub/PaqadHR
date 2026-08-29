@@ -85,26 +85,38 @@ export class UsersService {
       await userRepo.softDelete(userId);
     });
 
+    const failedFileKeys: string[] = [];
     for (const fileKey of fileKeys) {
       try {
         await this.r2Service.deleteFile(fileKey);
-      } catch (error) {
-        this.logger.warn(
-          `Failed to purge file during account deletion: ${error instanceof Error ? error.message : String(error)}`,
-        );
+      } catch {
+        try {
+          await this.r2Service.deleteFile(fileKey);
+        } catch (error) {
+          failedFileKeys.push(fileKey);
+          this.logger.error(
+            `Failed to purge file during account deletion after retry: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
     }
 
     void this.auditLogsService
       .queueAuditLog({
         action: AuditAction.USER_DELETED,
-        description: `User account deleted`,
+        description:
+          failedFileKeys.length > 0
+            ? 'User account deleted with incomplete file purge'
+            : 'User account deleted',
         severity: AuditSeverity.HIGH,
-        status: AuditStatus.SUCCESS,
+        status: failedFileKeys.length > 0 ? AuditStatus.FAILED : AuditStatus.SUCCESS,
         resourceType: 'user',
         resourceId: userId,
         userId,
-        metadata: { membershipCount },
+        metadata: {
+          membershipCount,
+          ...(failedFileKeys.length > 0 ? { failedFileKeys } : {}),
+        },
       })
       .catch(() => {});
   }

@@ -9,6 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ENVIRONMENT } from 'src/common/config/env.config';
+import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import {
   STRONG_PASSWORD_MESSAGE,
   STRONG_PASSWORD_REGEX,
@@ -468,6 +469,7 @@ export class AuthService {
     email: string,
     geo: GeoRequestContext = {},
     termsAccepted = false,
+    acceptedPolicyVersion?: string,
   ): Promise<User> {
     const normalizedEmail = StringUtility.trimAndLowerCase(email);
 
@@ -518,6 +520,13 @@ export class AuthService {
 
     if (termsAccepted !== true) {
       throw new BadRequestException('You must accept the terms and privacy policy to continue');
+    }
+
+    const currentVersion = getPrivacyPolicyVersion();
+    if (!acceptedPolicyVersion || acceptedPolicyVersion !== currentVersion) {
+      throw new BadRequestException(
+        'The privacy policy was updated. Please accept the current policy and try again.',
+      );
     }
 
     const countryCode = await GeoLocationHelper.resolveUserCountryCode(geo);

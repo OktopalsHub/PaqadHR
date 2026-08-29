@@ -7,7 +7,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import {
+  isCryptoCurrency,
+  normalizeCryptoNetwork,
+} from 'src/common/constants/crypto-currencies.constant';
 import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { In, Repository } from 'typeorm';
@@ -262,7 +265,7 @@ export class PaymentMethodService {
         : paymentMethod.accountNumber,
       country: dto.country ?? paymentMethod.country,
       isPrimary: dto.isPrimary ?? paymentMethod.isPrimary,
-      metadata: dto.metadata ?? paymentMethod.metadata,
+      metadata: this.resolveUpdatedMetadata(paymentMethod, dto.metadata),
       status,
       verifiedAt,
     });
@@ -930,6 +933,7 @@ export class PaymentMethodService {
       if (!dto.currency?.trim()) {
         throw new BadRequestException('Crypto payment method requires a currency code');
       }
+      dto.cryptoNetwork = this.assertAndCanonicalizeCryptoNetwork(dto.currency, dto.cryptoNetwork);
       return;
     }
 
@@ -948,6 +952,40 @@ export class PaymentMethodService {
     }
     validateGlobalBankFields(currency, dto.accountNumber, dto.bankCode);
   }
+
+  private resolveUpdatedMetadata(
+    paymentMethod: PaymentMethod,
+    metadata: Record<string, unknown> | undefined,
+  ): Record<string, unknown> | null {
+    if (metadata === undefined) {
+      return paymentMethod.metadata;
+    }
+    const isCrypto =
+      paymentMethod.type === PaymentMethodType.CRYPTO ||
+      isCryptoCurrency(paymentMethod.currency ?? '');
+    if (!isCrypto) {
+      return metadata;
+    }
+    const cryptoNetwork = this.assertAndCanonicalizeCryptoNetwork(
+      paymentMethod.currency ?? '',
+      metadata.cryptoNetwork,
+    );
+    return { ...metadata, cryptoNetwork };
+  }
+
+  private assertAndCanonicalizeCryptoNetwork(currency: string, network: unknown): string {
+    if (typeof network !== 'string' || !network.trim()) {
+      throw new BadRequestException('Crypto payment method requires a network');
+    }
+    const canonicalNetwork = normalizeCryptoNetwork(currency, network);
+    if (!canonicalNetwork) {
+      throw new BadRequestException(
+        `Unsupported network for ${currency.toUpperCase()}: ${network.trim()}`,
+      );
+    }
+    return canonicalNetwork;
+  }
+
   private async assertCurrencyAllowed(tenantId: string, currency: string): Promise<void> {
     const normalized = currency.toUpperCase();
     if (isCryptoCurrency(normalized)) {

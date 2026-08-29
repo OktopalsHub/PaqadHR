@@ -1,25 +1,45 @@
-describe('google-oauth-state', () => {
+describe('google-oauth-consent', () => {
   beforeEach(() => {
     jest.resetModules();
     jest.doMock('src/common/config/env.config', () => ({
       ENVIRONMENT: { JWT: { ACCESS_SECRET: 'test-access-secret-min-32-chars!!' } },
     }));
+    jest.doMock('src/common/config/privacy.config', () => ({
+      getPrivacyPolicyVersion: () => '1.0',
+    }));
   });
 
-  it('round-trips termsAccepted and rejects tampering', async () => {
+  it('round-trips consent claims and rejects tampering or version drift helpers', async () => {
     const { createHmac } = await import('node:crypto');
-    const { signGoogleOAuthState, verifyGoogleOAuthState } = await import(
-      './google-oauth-state.util'
-    );
+    const {
+      consentTokensMatch,
+      createGoogleOAuthConsentClaims,
+      signGoogleOAuthConsent,
+      verifyGoogleOAuthConsent,
+    } = await import('./google-oauth-state.util');
 
-    const accepted = signGoogleOAuthState(true);
-    expect(verifyGoogleOAuthState(accepted)).toEqual({ termsAccepted: true });
-    expect(verifyGoogleOAuthState(signGoogleOAuthState(false))).toEqual({ termsAccepted: false });
-    expect(verifyGoogleOAuthState(undefined)).toEqual({ termsAccepted: false });
-    expect(verifyGoogleOAuthState(`${accepted}x`)).toEqual({ termsAccepted: false });
+    const claims = createGoogleOAuthConsentClaims();
+    expect(claims.termsAccepted).toBe(true);
+    expect(claims.privacyPolicyVersion).toBe('1.0');
 
-    const [payload] = accepted.split('.');
+    const token = signGoogleOAuthConsent(claims);
+    expect(verifyGoogleOAuthConsent(token)).toEqual(claims);
+    expect(consentTokensMatch(token, token)).toBe(true);
+    expect(consentTokensMatch(token, `${token}x`)).toBe(false);
+    expect(verifyGoogleOAuthConsent(undefined)).toBeNull();
+    expect(verifyGoogleOAuthConsent(`${token}x`)).toBeNull();
+
+    const [payload] = token.split('.');
     const forgedSig = createHmac('sha256', 'wrong-secret').update(payload).digest('base64url');
-    expect(verifyGoogleOAuthState(`${payload}.${forgedSig}`)).toEqual({ termsAccepted: false });
+    expect(verifyGoogleOAuthConsent(`${payload}.${forgedSig}`)).toBeNull();
+
+    expect(
+      verifyGoogleOAuthConsent(
+        signGoogleOAuthConsent({
+          ...claims,
+          termsAccepted: false,
+        }),
+      )?.termsAccepted,
+    ).toBe(false);
   });
 });
