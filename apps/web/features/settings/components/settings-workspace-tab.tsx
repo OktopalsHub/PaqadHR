@@ -285,7 +285,7 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             label="Crypto payroll"
             className="lg:col-span-2"
-            hint="Allow crypto payout rails (USDC, USDT, BTC, ETH). Independent from rewards wallet funding."
+            hint="Allow crypto payout rails (USDC, USDT). Independent from rewards wallet funding."
           >
             <div className="flex items-center gap-3">
               <Switch

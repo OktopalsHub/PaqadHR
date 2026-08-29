@@ -46,7 +46,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -100,7 +100,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Configure Nomba/Monnify (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -373,17 +373,22 @@ export class MultiPaymentService {
   }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
     for (const item of items) {
+      const priorRetry =
+        typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+      const metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
       item.status = PayrollItemStatus.PENDING;
       item.failureReason = null;
       item.transactionId = null;
       item.paymentProvider = null;
       item.paidAt = null;
+      item.metadata = metadata;
       await this.payrollItemRepository.update(item.id, {
         status: PayrollItemStatus.PENDING,
         failureReason: null,
         transactionId: null,
         paymentProvider: null,
         paidAt: null,
+        metadata,
       });
     }
   }

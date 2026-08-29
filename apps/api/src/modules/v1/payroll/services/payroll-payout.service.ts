@@ -4,6 +4,7 @@ import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
+import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
@@ -12,7 +13,11 @@ import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 
-const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
+import {
+  buildPayrollMerchantRef,
+} from '../utils/payroll-merchant-ref.util';
+
+const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})(?:_r(\d+))?$/i;
 const PAYROLL_AMOUNT_TOLERANCE = 1;
 
 const SUCCESS_STATUSES = new Set([
@@ -42,6 +47,7 @@ export class PayrollPayoutService {
     private readonly nombaTransferApi: NombaTransferApiService,
     private readonly noahApi: NoahApiService,
     private readonly monnifyApi: MonnifyApiService,
+    private readonly fincraApi: FincraApiService,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly payrollRunRepository: PayrollRunRepository,
     @InjectRepository(PayrollItem)
@@ -146,6 +152,32 @@ export class PayrollPayoutService {
     return { received: true, matched: true };
   }
 
+  async processFincraPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
+    const event = this.fincraApi.parsePayoutWebhook(payload);
+    if (!event) {
+      return { received: true, matched: false };
+    }
+
+    const parsed = PAYROLL_REF_PATTERN.exec(event.merchantRef);
+    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
+    if (!tenantId) {
+      return { received: true, matched: false };
+    }
+
+    const changed = await this.applyTransferStatus(
+      event.merchantRef,
+      event.status,
+      event.reference,
+      PaymentProvider.FINCRA,
+      tenantId,
+      event.amount,
+    );
+    if (changed && parsed) {
+      await this.reconcilePayrollRunStatus(parsed[1], tenantId);
+    }
+    return { received: true, matched: changed };
+  }
+
   async processMonnifyPayload(payload: {
     merchantRef: string;
     transactionId: string;
@@ -187,10 +219,15 @@ export class PayrollPayoutService {
       const reference = item.transactionId;
       if (!reference) continue;
 
-      const tenantId = item.payrollRun?.tenantId;
+      const tenantId =
+        item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
       if (!tenantId) continue;
 
-      const merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
+      const retryAttempt =
+        typeof item.metadata?.payoutRetryCount === 'number'
+          ? item.metadata.payoutRetryCount
+          : 0;
+      const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
       const provider = this.resolveStoredProvider(item.paymentProvider);
       let status: string | null = null;
       let amount: number | undefined;
@@ -205,6 +242,10 @@ export class PayrollPayoutService {
         const verified = await this.monnifyApi.getDisbursementStatus(reference);
         status = verified.status;
         amount = verified.amount;
+      } else if (provider === PaymentProvider.FINCRA) {
+        const verified = await this.fincraApi.getPayoutStatus(merchantRef);
+        status = verified?.status ?? null;
+        amount = verified?.amount;
       } else {
         status = await this.nombaTransferApi.getTransactionStatus(reference);
       }
@@ -239,6 +280,9 @@ export class PayrollPayoutService {
   /** Labels are human-readable; match loosely to enum for requery branching. */
   private resolveStoredProvider(stored: string | null | undefined): PaymentProvider {
     const value = (stored ?? '').toLowerCase();
+    if (value.includes('fincra')) {
+      return PaymentProvider.FINCRA;
+    }
     if (value.includes('noah') || value.includes('international') || value.includes('crypto')) {
       return PaymentProvider.NOAH;
     }

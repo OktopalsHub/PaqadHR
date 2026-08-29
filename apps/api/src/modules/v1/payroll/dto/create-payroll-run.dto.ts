@@ -125,7 +125,7 @@ export class CreatePayrollRunDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(getSupportedPaymentCurrencies(), {
     message:
-      'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, BTC, ETH, USDT, USDC)',
+      'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, USDT, USDC)',
   })
   baseCurrency: string;
   @ApiProperty({

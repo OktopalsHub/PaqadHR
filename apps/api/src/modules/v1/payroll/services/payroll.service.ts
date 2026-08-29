@@ -718,7 +718,7 @@ export class PayrollService {
   async processPayroll(dto: ProcessPayrollWithAudit): Promise<void> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({

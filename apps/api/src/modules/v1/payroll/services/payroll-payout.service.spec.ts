@@ -1,3 +1,4 @@
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import type { NoahApiService } from 'src/common/services/noah-api.service';
 import type { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
@@ -28,6 +29,11 @@ describe('PayrollPayoutService', () => {
       getDisbursementStatus: jest.fn(),
     };
 
+    const fincraApi = {
+      parsePayoutWebhook: jest.fn(),
+      getPayoutStatus: jest.fn(),
+    };
+
     const payrollItemRepository = {
       findOne: jest.fn(),
       find: jest.fn().mockResolvedValue([]),
@@ -52,6 +58,7 @@ describe('PayrollPayoutService', () => {
       nombaTransferApi,
       noahApi,
       monnifyApi as never,
+      fincraApi as never,
       payrollItemRepository,
       payrollRunRepository as never,
       payrollItemRepo,
@@ -62,6 +69,7 @@ describe('PayrollPayoutService', () => {
       nombaTransferApi,
       noahApi,
       monnifyApi,
+      fincraApi,
       payrollItemRepository,
       payrollItemRepo,
       payrollRunRepository,
@@ -207,6 +215,11 @@ describe('PayrollPayoutService', () => {
     it('applies transfer status for valid transfer webhooks', async () => {
       const { service, nombaTransferApi } = createService();
       (nombaTransferApi.verifyWebhookSignature as jest.Mock).mockReturnValue(true);
+      (nombaTransferApi.parseTransferWebhook as jest.Mock).mockReturnValue({
+        merchantTxRef: MERCHANT_REF,
+        reference: 'txn-123',
+        status: 'SUCCESS',
+      });
       const rawBody = JSON.stringify({
         eventId: 'evt-1',
         reference: 'txn-123',
@@ -224,7 +237,7 @@ describe('PayrollPayoutService', () => {
         MERCHANT_REF,
         'SUCCESS',
         'txn-123',
-        'nomba',
+        PaymentProvider.NOMBA,
         'tenant-1',
       );
     });
@@ -256,7 +269,7 @@ describe('PayrollPayoutService', () => {
       (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
       (payrollItemRepository.find as jest.Mock).mockResolvedValue([item]);
       const payrollRunRepository = (service as any).payrollRunRepository;
-      payrollRunRepository.findOne.mockResolvedValue({ id: RUN_ID, status: 'PROCESSING' });
+      payrollRunRepository.findOne.mockResolvedValue({ id: RUN_ID, tenantId: 'tenant-1' });
 
       const result = await service.processNoahPayload({
         EventType: 'Transaction',
@@ -294,9 +307,9 @@ describe('PayrollPayoutService', () => {
         MERCHANT_REF,
         'SUCCESS',
         'txn-stuck',
-        'nomba',
-        undefined,
+        PaymentProvider.NOMBA,
         'tenant-1',
+        undefined,
       );
     });
 
@@ -325,14 +338,44 @@ describe('PayrollPayoutService', () => {
       const result = await service.requeryStuckPayouts();
 
       expect(result.updated).toBe(1);
-      expect(monnifyApi.getDisbursementStatus).toHaveBeenCalledWith('mon-txn-1', 'tenant-1');
+      expect(monnifyApi.getDisbursementStatus).toHaveBeenCalledWith('mon-txn-1');
       expect(applySpy).toHaveBeenCalledWith(
         MERCHANT_REF,
         'SUCCESS',
         'mon-txn-1',
-        'monnify',
-        1000,
+        PaymentProvider.MONNIFY,
         'tenant-1',
+        1000,
+      );
+    });
+
+    it('resolves tenantId via payrollRunId when payrollRun relation is not loaded', async () => {
+      const { service, nombaTransferApi, payrollItemRepo, payrollRunRepository } = createService();
+      const stuckItem = {
+        ...baseItem(),
+        transactionId: 'txn-stuck',
+        updatedAt: new Date(Date.now() - 20 * 60 * 1000),
+        payrollRunId: RUN_ID,
+      };
+      (payrollItemRepo.find as jest.Mock).mockResolvedValue([stuckItem]);
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      (nombaTransferApi.getTransactionStatus as jest.Mock).mockResolvedValue('SUCCESS');
+      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+
+      const result = await service.requeryStuckPayouts();
+
+      expect(result).toEqual({ checked: 1, updated: 1 });
+      expect(payrollRunRepository.findOne).toHaveBeenCalledWith({
+        where: { id: RUN_ID },
+        select: ['tenantId'],
+      });
+      expect(applySpy).toHaveBeenCalledWith(
+        MERCHANT_REF,
+        'SUCCESS',
+        'txn-stuck',
+        PaymentProvider.NOMBA,
+        'tenant-1',
+        undefined,
       );
     });
 

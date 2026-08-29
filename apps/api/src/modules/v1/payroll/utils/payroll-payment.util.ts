@@ -5,6 +5,8 @@ import type { CreatePaymentData } from 'src/common/interfaces/create-payment-dat
 import type { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 
+import { buildPayrollMerchantRef } from './payroll-merchant-ref.util';
+
 export function buildPayrollPaymentData(
   item: PayrollItem,
   paymentMethod: PaymentMethod,
@@ -13,6 +15,8 @@ export function buildPayrollPaymentData(
   payrollRunTitle?: string,
 ): CreatePaymentData {
   const meta = paymentMethod.metadata ?? {};
+  const retryAttempt =
+    typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
   const baseDescription = payrollRunTitle
     ? `${payrollRunTitle} for ${employeeName}`
     : `Payroll payment for ${employeeName}`;
@@ -32,7 +36,7 @@ export function buildPayrollPaymentData(
     countryCode: paymentMethod.country ?? undefined,
     network: isCrypto ? ((meta.cryptoNetwork as string | undefined) ?? undefined) : undefined,
     senderName: formatNombaSenderName(tenantName),
-    merchantTxRef: `payroll_${item.payrollRunId}_${item.id}`,
+    merchantTxRef: buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt),
     paymentRail: typeof meta.nombaPaymentMethod === 'string' ? meta.nombaPaymentMethod : undefined,
     institutionCode:
       typeof meta.institutionCode === 'string'

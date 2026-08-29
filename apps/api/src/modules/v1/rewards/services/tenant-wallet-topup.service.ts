@@ -7,6 +7,7 @@ import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { BachsApiService } from 'src/common/services/bachs-api.service';
+import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defaults.util';
@@ -37,10 +38,12 @@ import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import {
   buildBachsWalletTopupOrderRef,
+  buildFincraWalletTopupOrderRef,
   buildMonnifyWalletTopupOrderRef,
   buildNoahWalletTopupOrderRef,
   buildNombaWalletTopupOrderRef,
   isBachsWalletTopupOrderRef,
+  isFincraWalletTopupOrderRef,
   isMonnifyWalletTopupOrderRef,
   isNoahWalletTopupOrderRef,
   isNombaWalletTopupOrderRef,
@@ -59,6 +62,7 @@ export class TenantWalletTopupService {
     private readonly nombaApi: NombaApiService,
     private readonly monnifyApi: MonnifyApiService,
     private readonly noahApi: NoahApiService,
+    private readonly fincraApi: FincraApiService,
     private readonly bachsApi: BachsApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
@@ -122,6 +126,9 @@ export class TenantWalletTopupService {
     if (provider === PaymentProvider.NOAH && !this.noahApi.isConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
+    if (provider === PaymentProvider.FINCRA && !this.fincraApi.isCheckoutConfigured()) {
+      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
+    }
     if (provider === PaymentProvider.BACHS) {
       if (
         !this.bachsApi.isConfigured() ||
@@ -145,7 +152,9 @@ export class TenantWalletTopupService {
           ? buildMonnifyWalletTopupOrderRef(tenantId)
           : provider === PaymentProvider.BACHS
             ? buildBachsWalletTopupOrderRef(tenantId)
-            : buildNoahWalletTopupOrderRef(tenantId);
+            : provider === PaymentProvider.FINCRA
+              ? buildFincraWalletTopupOrderRef(tenantId)
+              : buildNoahWalletTopupOrderRef(tenantId);
 
     const meta = {
       tenantId,
@@ -206,7 +215,23 @@ export class TenantWalletTopupService {
                   orderReference: session.reference ?? orderReference,
                   transactionReference: undefined as string | undefined,
                 }))
-            : await this.noahApi
+            : provider === PaymentProvider.FINCRA
+              ? await this.fincraApi
+                  .createPayinCheckout({
+                    amount,
+                    currency,
+                    customerEmail,
+                    customerName: customerEmail.split('@')[0] || 'Customer',
+                    reference: orderReference,
+                    redirectUrl: callbackUrl,
+                    metadata: { ...meta, orderReference },
+                  })
+                  .then((session) => ({
+                    checkoutLink: session.checkoutLink,
+                    orderReference: session.orderReference,
+                    transactionReference: undefined as string | undefined,
+                  }))
+              : await this.noahApi
                 .createPayinCheckout({
                   orderReference,
                   customerEmail,
@@ -244,6 +269,7 @@ export class TenantWalletTopupService {
     const isMonnifyRef = isMonnifyWalletTopupOrderRef(input.orderReference, input.tenantId);
     const isNoahRef = isNoahWalletTopupOrderRef(input.orderReference, input.tenantId);
     const isBachsRef = isBachsWalletTopupOrderRef(input.orderReference, input.tenantId);
+    const isFincraRef = isFincraWalletTopupOrderRef(input.orderReference, input.tenantId);
 
     if (billingProvider === PaymentProvider.NOMBA && !isNombaRef) {
       this.logger.warn(
@@ -261,6 +287,10 @@ export class TenantWalletTopupService {
     }
     if (billingProvider === PaymentProvider.BACHS && !isBachsRef) {
       this.logger.warn(`Bachs wallet checkout reference mismatch for ${input.orderReference}`);
+      return { received: true, credited: false };
+    }
+    if (billingProvider === PaymentProvider.FINCRA && !isFincraRef) {
+      this.logger.warn(`Fincra wallet checkout reference mismatch for ${input.orderReference}`);
       return { received: true, credited: false };
     }
 
@@ -306,7 +336,17 @@ export class TenantWalletTopupService {
                     }
                   : null,
               )
-            : await this.nombaApi.verifyTransaction(input.orderReference);
+            : billingProvider === PaymentProvider.FINCRA
+              ? await this.fincraApi.verifyPayinStatus(input.orderReference).then((result) =>
+                  result
+                    ? {
+                        status: result.status,
+                        amount: result.amount,
+                        metaData: result.metadata,
+                      }
+                    : null,
+                )
+              : await this.nombaApi.verifyTransaction(input.orderReference);
 
     const status = verified?.status?.toLowerCase() ?? '';
     if (
@@ -480,7 +520,7 @@ export class TenantWalletTopupService {
       tenant?.countryCode,
       wallet.currencyCode,
     );
-    if (walletProvider === PaymentProvider.BACHS) {
+    if (walletProvider === PaymentProvider.BACHS || walletProvider === PaymentProvider.FINCRA) {
       this.logger.debug(
         `Skipping auto-topup for tenant ${tenantId}: saved-card top-up is unavailable on ${walletProvider}`,
       );
@@ -546,7 +586,7 @@ export class TenantWalletTopupService {
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
 
-    if (provider === PaymentProvider.BACHS) {
+    if (provider === PaymentProvider.BACHS || provider === PaymentProvider.FINCRA) {
       throw new BadRequestException(
         audience === 'admin' ? WALLET_SAVED_CARD_UNSUPPORTED : WALLET_UNAVAILABLE_MEMBER,
       );

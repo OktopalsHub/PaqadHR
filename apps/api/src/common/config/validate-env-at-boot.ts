@@ -1,5 +1,9 @@
 import { Logger } from '@nestjs/common';
 import {
+  isFincraLive,
+  isFincraConfigured,
+} from './fincra.config';
+import {
   isMonnifyLive,
   MONNIFY_PRODUCTION_BASE_URL,
   MONNIFY_SANDBOX_BASE_URL,
@@ -28,6 +32,14 @@ function resolveNgRewardsDepositProvider(): string {
   return (process.env.NG_REWARDS_DEPOSIT_PROVIDER || process.env.NG_WALLET_PAYMENTS_PROVIDER || '')
     .trim()
     .toLowerCase();
+}
+
+function resolveIntlPayrollProvider(): string {
+  return (process.env.INTL_PAYROLL_PROVIDER || 'noah').trim().toLowerCase();
+}
+
+function resolveIntlRewardsDepositProvider(): string {
+  return (process.env.INTL_REWARDS_DEPOSIT_PROVIDER || 'noah').trim().toLowerCase();
 }
 
 function resolveNgRewardsAirtimeProvider(): string {
@@ -232,9 +244,12 @@ export function validateEnvAtBoot(): void {
   if (ngPayrollProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
     warnings.push('NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
+  if (ngPayrollProvider === 'fincra' && !isFincraConfigured()) {
+    warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete');
+  }
   if (ngPayrollProvider === 'bachs') {
     warnings.push(
-      'NG_PAYROLL_PROVIDER must be nomba or monnify — use NG_REWARDS_DEPOSIT_PROVIDER=bachs for Bachs wallet deposits only',
+      'NG_PAYROLL_PROVIDER must be nomba, monnify, or fincra — use NG_REWARDS_DEPOSIT_PROVIDER=bachs for Bachs wallet deposits only',
     );
   }
   if (ngRewardsDepositProvider === 'bachs' && !process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN?.trim()) {
@@ -247,6 +262,26 @@ export function validateEnvAtBoot(): void {
   }
   if (ngRewardsAirtimeProvider !== 'nomba' && ngRewardsAirtimeProvider !== 'monnify') {
     warnings.push('NG_REWARDS_AIRTIME_PROVIDER must be nomba or monnify');
+  }
+
+  const intlPayrollProvider = resolveIntlPayrollProvider();
+  const intlRewardsDepositProvider = resolveIntlRewardsDepositProvider();
+  if (intlPayrollProvider !== 'noah' && intlPayrollProvider !== 'fincra') {
+    warnings.push('INTL_PAYROLL_PROVIDER must be noah or fincra');
+  }
+  if (intlRewardsDepositProvider !== 'noah' && intlRewardsDepositProvider !== 'fincra') {
+    warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER must be noah or fincra');
+  }
+  if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
+    warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete');
+  }
+  if (intlRewardsDepositProvider === 'fincra' && !isFincraConfigured()) {
+    warnings.push(
+      'INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete',
+    );
+  }
+  if (isFincraLive() && !process.env.FINCRA_WEBHOOK_SECRET?.trim()) {
+    warnings.push('FINCRA_LIVE=true but FINCRA_WEBHOOK_SECRET is empty');
   }
 
   const monnifyBase = process.env.MONNIFY_BASE_URL?.trim().replace(/\/$/, '');

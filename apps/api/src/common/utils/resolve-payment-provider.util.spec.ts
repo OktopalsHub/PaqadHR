@@ -13,7 +13,7 @@ describe('resolvePaymentProvider', () => {
 
   it('routes crypto to Noah', () => {
     expect(resolvePaymentProvider('USDC')).toBe(PaymentProvider.NOAH);
-    expect(resolvePaymentProvider('BTC', PaymentMethodType.BANK)).toBe(PaymentProvider.NOAH);
+    expect(resolvePaymentProvider('USDT')).toBe(PaymentProvider.NOAH);
   });
 
   it('routes CRYPTO method type to Noah even for NG tenant currency', () => {
@@ -23,5 +23,6 @@ describe('resolvePaymentProvider', () => {
   it('labels providers', () => {
     expect(paymentProviderLabel(PaymentProvider.NOMBA)).toBe('Local bank transfer');
     expect(paymentProviderLabel(PaymentProvider.NOAH)).toBe('International transfer');
+    expect(paymentProviderLabel(PaymentProvider.FINCRA)).toBe('Fincra transfer');
   });
 });

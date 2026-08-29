@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { FincraApiService } from '../services/fincra-api.service';
 import { BachsApiService } from '../services/bachs-api.service';
 import { MonnifyApiService } from '../services/monnify-api.service';
 import { NoahApiService } from '../services/noah-api.service';
 import { NombaTransferApiService } from '../services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from '../services/payment-provider-factory.service';
+import { FincraProvider } from './fincra.provider';
 import { MonnifyProvider } from './monnify.provider';
 import { NoahProvider } from './noah.provider';
 import { NombaProvider } from './nomba.provider';
@@ -13,6 +15,8 @@ import { NombaProvider } from './nomba.provider';
     NombaTransferApiService,
     NombaProvider,
     MonnifyProvider,
+    FincraApiService,
+    FincraProvider,
     BachsApiService,
     MonnifyApiService,
     NoahApiService,
@@ -23,6 +27,8 @@ import { NombaProvider } from './nomba.provider';
     NombaTransferApiService,
     NombaProvider,
     MonnifyProvider,
+    FincraApiService,
+    FincraProvider,
     BachsApiService,
     MonnifyApiService,
     NoahApiService,

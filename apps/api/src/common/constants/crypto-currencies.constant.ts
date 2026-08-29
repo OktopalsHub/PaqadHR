@@ -1,5 +1,5 @@
-/** Crypto currencies routed through Noah (intersect with NoahProvider support). */
-export const SUPPORTED_CRYPTO_CURRENCIES = ['BTC', 'ETH', 'USDT', 'USDC'] as const;
+/** Stablecoins routed through Noah or Fincra. */
+export const SUPPORTED_CRYPTO_CURRENCIES = ['USDT', 'USDC'] as const;
 
 export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[number];
 

@@ -714,7 +714,7 @@ export function PaymentSettingsSection() {
                 <Input
                   value={cryptoNetwork}
                   onChange={(e) => setCryptoNetwork(e.target.value)}
-                  placeholder="e.g. ethereum, bitcoin, tron"
+                  placeholder="e.g. ERC20, TRC20, Solana"
                 />
               </div>
             </>
