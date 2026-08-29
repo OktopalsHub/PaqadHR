@@ -105,6 +105,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
   const showTrialWelcome = isWelcome || !overview.subscription;
   const isOnTrial = overview.subscription?.isOnTrial && overview.entitled && !overview.needsPayment;
+  const canStartTrial = overview.trialEligible !== false;
 
   const pageShell = (content: ReactNode) =>
     isMarketing ? <div className="space-y-8">{content}</div> : <AppPage>{content}</AppPage>;
@@ -121,12 +122,18 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
             </div>
           )}
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            {isOnTrial ? 'Your workspace trial is active' : 'Choose a plan to start your trial'}
+            {isOnTrial
+              ? 'Your workspace trial is active'
+              : canStartTrial
+                ? 'Choose a plan to start your trial'
+                : 'Choose a plan to continue'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {isOnTrial
               ? `You have ${overview.subscription?.daysRemaining ?? 14} days left on your free trial. Pick a plan or continue to your workspace.`
-              : 'Start with 14 days free on any plan. No card required.'}
+              : canStartTrial
+                ? 'Start with 14 days free on any plan. No card required.'
+                : 'Your free trial was used on another workspace. Subscribe to activate this one.'}
           </p>
         </div>
 
@@ -165,7 +172,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         )}
 
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-          {overview.canManageBilling ? (
+          {overview.canManageBilling && canStartTrial ? (
             <Button
               size="lg"
               className="min-w-[220px]"
@@ -184,6 +191,23 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
               )}
             </Button>
           ) : null}
+          {overview.canManageBilling && !canStartTrial && !isOnTrial ? (
+            <Button
+              size="lg"
+              className="min-w-[220px]"
+              disabled={checkout.isPending || !selectedPlan}
+              onClick={() => void handleCheckout(selectedPlan)}
+            >
+              {checkout.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Redirecting…
+                </>
+              ) : (
+                'Subscribe'
+              )}
+            </Button>
+          ) : null}
           {isOnTrial && tenant?.slug ? (
             <Button
               size="lg"
@@ -197,7 +221,9 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Payroll and automated batch payouts are included on every plan during your trial.
+          {canStartTrial || isOnTrial
+            ? 'Payroll and automated batch payouts are included on every plan during your trial.'
+            : 'Payroll included on every plan · Manual pay & bank export are free'}
         </p>
       </div>,
     );

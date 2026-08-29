@@ -247,14 +247,25 @@ export class GeoLocationHelper {
    * current value is null or GLOBAL-equivalent.
    */
   static async autoFillCountryCode<
-    T extends { countryCode: string | null; preferredCurrency: string | null },
+    T extends {
+      countryCode: string | null;
+      preferredCurrency: string | null;
+      pricingLocked?: boolean;
+    },
   >(
     tenant: T,
     clientIp?: string | null,
     headers?: Record<string, string | string[] | undefined>,
+    options?: {
+      userCountryCode?: string | null;
+      siblingTenant?: { countryCode: string | null; preferredCurrency: string | null } | null;
+    },
   ): Promise<T> {
     const current = GeoLocationHelper.toStoredCountryCode(tenant.countryCode);
     if (current && current !== DEFAULT_COUNTRY) {
+      return tenant;
+    }
+    if (tenant.pricingLocked) {
       return tenant;
     }
 
@@ -264,9 +275,23 @@ export class GeoLocationHelper {
       headers,
     });
 
-    if (detected.countryCode && detected.countryCode !== DEFAULT_COUNTRY) {
-      tenant.countryCode = detected.countryCode;
-      const defaults = GeoLocationHelper.getCountryDefaults(detected.countryCode);
+    let countryCode = detected.countryCode;
+    if (countryCode === DEFAULT_COUNTRY && options?.userCountryCode) {
+      const fromUser = GeoLocationHelper.toStoredCountryCode(options.userCountryCode);
+      if (fromUser) {
+        countryCode = fromUser;
+      }
+    }
+    if (countryCode === DEFAULT_COUNTRY && options?.siblingTenant?.countryCode) {
+      const fromSibling = GeoLocationHelper.toStoredCountryCode(options.siblingTenant.countryCode);
+      if (fromSibling) {
+        countryCode = fromSibling;
+      }
+    }
+
+    if (countryCode && countryCode !== DEFAULT_COUNTRY) {
+      tenant.countryCode = countryCode;
+      const defaults = GeoLocationHelper.getCountryDefaults(countryCode);
       tenant.preferredCurrency = defaults.currency;
     }
 

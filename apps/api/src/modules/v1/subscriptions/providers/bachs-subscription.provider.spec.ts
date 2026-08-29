@@ -2,6 +2,49 @@ import { BachsApiService } from 'src/common/services/bachs-api.service';
 import { BillingChargeType } from '../constants/billing.constants';
 import { BachsSubscriptionProvider } from './bachs-subscription.provider';
 
+describe('BachsSubscriptionProvider.createCheckout', () => {
+  it('omits billing_currency so Bachs hosted checkout can switch currency', async () => {
+    const createCheckoutSession = jest.fn().mockResolvedValue({
+      checkout_id: 'chk_1',
+      checkout_url: 'https://checkout.bachs.io/chk_1',
+      reference: 'ref_1',
+    });
+    const provider = new BachsSubscriptionProvider({
+      createCheckoutSession,
+    } as unknown as BachsApiService);
+
+    const planPrice = {
+      currency: 'USD',
+      bachsProductId: 'prod_usd_1',
+      plan: { slug: 'scale', name: 'Scale' },
+      calculateMonthlyPrice: () => ({ totalPrice: 99 }),
+    } as never;
+
+    await provider.createCheckout(
+      'user@example.com',
+      {
+        tenantId: '11111111-1111-1111-1111-111111111111',
+        planId: 'plan-1',
+        planPriceId: 'price-1',
+      },
+      planPrice,
+      'https://app.example.com/ws/billing?billing=success',
+      2,
+    );
+
+    expect(createCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        productId: 'prod_usd_1',
+        quantity: 2,
+        metadata: expect.objectContaining({
+          billingCurrency: 'USD',
+        }),
+      }),
+    );
+    expect(createCheckoutSession.mock.calls[0][0]).not.toHaveProperty('billingCurrency');
+  });
+});
+
 describe('BachsSubscriptionProvider.parseWebhook', () => {
   const provider = new BachsSubscriptionProvider({} as BachsApiService);
 

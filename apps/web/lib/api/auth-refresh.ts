@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
+import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { clearSessionStorage } from '@/lib/session';
 import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
@@ -18,6 +19,11 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000;
 
 let visibilityHandler: (() => void) | null = null;
+let onRefreshSuccess: (() => void) | null = null;
+
+export function setRefreshCallbacks(callbacks: { onSuccess?: () => void }): void {
+  onRefreshSuccess = callbacks.onSuccess ?? null;
+}
 
 export function invalidateSession() {
   stopProactiveRefresh();
@@ -25,6 +31,14 @@ export function invalidateSession() {
   if (typeof window !== 'undefined') {
     window.localStorage.removeItem('paqad_access_token');
     window.localStorage.removeItem('paqad_refresh_token');
+  }
+}
+
+function handleRefreshExpired(): void {
+  stopProactiveRefresh();
+  invalidateSession();
+  if (typeof window !== 'undefined') {
+    window.location.assign(authPageUrl('/signin'));
   }
 }
 
@@ -44,12 +58,19 @@ export async function refreshAccessToken(): Promise<boolean> {
       );
       if (response.status >= 200 && response.status < 300) {
         consecutiveFailures = 0;
+        onRefreshSuccess?.();
         return true;
       }
       consecutiveFailures++;
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        handleRefreshExpired();
+      }
       return false;
     } catch {
       consecutiveFailures++;
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        handleRefreshExpired();
+      }
       return false;
     } finally {
       refreshPromise = null;

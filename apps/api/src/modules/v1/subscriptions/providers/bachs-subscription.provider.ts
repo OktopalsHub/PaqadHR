@@ -73,13 +73,13 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       customerName: email.split('@')[0] || 'Customer',
       successUrl,
       cancelUrl,
-      billingCurrency: planPrice.currency.toUpperCase(),
       reference: orderReference,
       metadata: {
         ...metadata,
         quantity: seats,
         billingType: BillingChargeType.SUBSCRIPTION,
         planSlug,
+        billingCurrency: planPrice.currency.toUpperCase(),
       },
     });
 

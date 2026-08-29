@@ -213,7 +213,7 @@ export function SettingsProfileTab() {
         <PaymentSettingsSection />
       </ContentCard>
 
-      <ContentCard title="Delete account">
+      <ContentCard title="Privacy & data">
         <PrivacySection />
       </ContentCard>
     </div>

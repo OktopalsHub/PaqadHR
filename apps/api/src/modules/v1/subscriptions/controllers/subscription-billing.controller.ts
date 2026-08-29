@@ -36,7 +36,11 @@ export class SubscriptionBillingController {
   ) {
     const role = req.member?.role;
     const canManageBilling = role === TenantMemberRole.OWNER || role === TenantMemberRole.ADMIN;
-    return this.subscriptionBillingService.getBillingOverview(tenantId, canManageBilling);
+    return this.subscriptionBillingService.getBillingOverview(
+      tenantId,
+      canManageBilling,
+      req.auth?.principalId,
+    );
   }
 
   @Post('tenant/:tenantId/checkout')
@@ -65,6 +69,7 @@ export class SubscriptionBillingController {
       userId,
       dto.successUrl,
       clientIp,
+      req.headers,
     );
   }
 

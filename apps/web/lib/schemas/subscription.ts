@@ -68,6 +68,7 @@ export const billingOverviewSchema = billingStatusSchema.extend({
   hasPaymentMethodOnFile: z.boolean().optional(),
   billingHistory: z.array(billingHistoryEntrySchema).optional(),
   needsPayment: z.boolean().optional(),
+  trialEligible: z.boolean().optional(),
   billingContact: billingContactSchema.optional(),
   ownerEmail: z.string().nullable().optional(),
   paymentMethodBrand: z.string().nullable().optional(),

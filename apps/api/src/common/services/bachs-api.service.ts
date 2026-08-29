@@ -94,7 +94,7 @@ export class BachsApiService {
             quantity: input.quantity,
           },
         ],
-        billing_currency: input.billingCurrency,
+        ...(input.billingCurrency ? { billing_currency: input.billingCurrency } : {}),
         success_url: input.successUrl,
         cancel_url: input.cancelUrl,
         reference: input.reference,

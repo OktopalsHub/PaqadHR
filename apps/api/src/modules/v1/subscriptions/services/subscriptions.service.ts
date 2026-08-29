@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { Repository } from 'typeorm';
@@ -12,7 +13,9 @@ import {
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
 import { PlansService } from '../../plans/services/plans.service';
+import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { User } from '../../users/entities/user.entity';
 import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
 import { SUBSCRIPTION_TRIAL_DAYS } from '../constants/billing.constants';
 import type { ActivateSubscriptionDto } from '../dto/activate-subscription.dto';
@@ -33,6 +36,8 @@ export class SubscriptionsService {
     private readonly subscriptionRepository: Repository<TenantSubscription>,
     @InjectRepository(Tenant)
     private readonly tenantRepository: Repository<Tenant>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
     private readonly plansService: PlansService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
@@ -410,24 +415,24 @@ export class SubscriptionsService {
 
   async createTrialSubscription(
     tenantId: string,
-    options?: { trialDays?: number; planSlug?: string; clientIp?: string | null },
+    options?: {
+      trialDays?: number;
+      planSlug?: string;
+      clientIp?: string | null;
+      headers?: Record<string, string | string[] | undefined>;
+      userId?: string | null;
+    },
   ): Promise<TenantSubscription> {
     const existing = await this.getTenantSubscription(tenantId);
     if (existing) {
       return existing;
     }
 
-    const tenant = await this.tenantRepository.findOne({
-      where: { id: tenantId },
+    const tenant = await this.resolveAndLockTenantRegion(tenantId, {
+      clientIp: options?.clientIp,
+      headers: options?.headers,
+      userId: options?.userId,
     });
-    if (!tenant) {
-      throw new NotFoundException('Tenant not found');
-    }
-
-    await GeoLocationHelper.autoFillCountryCode(tenant, options?.clientIp);
-    if (GeoLocationHelper.toStoredCountryCode(tenant.countryCode)) {
-      await this.tenantRepository.save(tenant);
-    }
 
     const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
       tenant.countryCode,
@@ -472,22 +477,22 @@ export class SubscriptionsService {
   async setTrialPlan(
     tenantId: string,
     planSlug: string,
-    clientIp?: string | null,
+    options: {
+      clientIp?: string | null;
+      headers?: Record<string, string | string[] | undefined>;
+      userId?: string | null;
+    } = {},
   ): Promise<TenantSubscription> {
     const subscription = await this.getTenantSubscription(tenantId);
     if (!subscription || subscription.status !== SubscriptionStatus.TRIAL) {
       throw new BadRequestException('Trial is not active');
     }
 
-    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
-    if (!tenant) {
-      throw new NotFoundException('Tenant not found');
-    }
-
-    await GeoLocationHelper.autoFillCountryCode(tenant, clientIp);
-    if (GeoLocationHelper.toStoredCountryCode(tenant.countryCode)) {
-      await this.tenantRepository.save(tenant);
-    }
+    const tenant = await this.resolveAndLockTenantRegion(tenantId, {
+      clientIp: options.clientIp,
+      headers: options.headers,
+      userId: options.userId,
+    });
 
     const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
       tenant.countryCode,
@@ -601,17 +606,118 @@ export class SubscriptionsService {
     return { subscription, pricingMismatch: null };
   }
 
+  async hasUserEverUsedTrial(userId: string): Promise<boolean> {
+    const count = await this.subscriptionRepository
+      .createQueryBuilder('sub')
+      .innerJoin(TenantMember, 'tm', 'tm.tenantId = sub.tenantId')
+      .where('tm.userId = :userId', { userId })
+      .andWhere('tm.role = :role', { role: TenantMemberRole.OWNER })
+      .andWhere('(sub.status = :trial OR sub.trialEndsAt IS NOT NULL)', {
+        trial: SubscriptionStatus.TRIAL,
+      })
+      .getCount();
+    return count > 0;
+  }
+
+  async isTrialEligible(userId: string | null | undefined, tenantId: string): Promise<boolean> {
+    const existing = await this.getTenantSubscription(tenantId);
+    if (existing?.status === SubscriptionStatus.TRIAL) {
+      return true;
+    }
+    if (!userId) {
+      return true;
+    }
+    return !(await this.hasUserEverUsedTrial(userId));
+  }
+
+  private async findLockedSiblingTenantRegion(
+    userId: string,
+    excludeTenantId: string,
+  ): Promise<{ countryCode: string | null; preferredCurrency: string | null } | null> {
+    const sibling = await this.tenantRepository
+      .createQueryBuilder('tenant')
+      .innerJoin(TenantMember, 'member', 'member.tenantId = tenant.id')
+      .where('member.userId = :userId', { userId })
+      .andWhere('member.role = :role', { role: TenantMemberRole.OWNER })
+      .andWhere('tenant.id != :excludeTenantId', { excludeTenantId })
+      .andWhere('tenant.pricingLocked = true')
+      .andWhere('tenant.countryCode IS NOT NULL')
+      .orderBy('tenant.createdAt', 'ASC')
+      .getOne();
+
+    if (!sibling) {
+      return null;
+    }
+
+    return {
+      countryCode: sibling.countryCode,
+      preferredCurrency: sibling.preferredCurrency,
+    };
+  }
+
+  async resolveAndLockTenantRegion(
+    tenantId: string,
+    options: {
+      clientIp?: string | null;
+      headers?: Record<string, string | string[] | undefined>;
+      userId?: string | null;
+    } = {},
+  ): Promise<Tenant> {
+    const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!tenant) {
+      throw new NotFoundException('Tenant not found');
+    }
+    if (tenant.pricingLocked) {
+      return tenant;
+    }
+
+    let userCountryCode: string | null = null;
+    let siblingTenant: { countryCode: string | null; preferredCurrency: string | null } | null =
+      null;
+
+    if (options.userId) {
+      const user = await this.userRepository.findOne({ where: { id: options.userId } });
+      userCountryCode = user?.countryCode ?? null;
+      siblingTenant = await this.findLockedSiblingTenantRegion(options.userId, tenantId);
+    }
+
+    await GeoLocationHelper.autoFillCountryCode(tenant, options.clientIp, options.headers, {
+      userCountryCode,
+      siblingTenant,
+    });
+
+    const storedCountry = GeoLocationHelper.toStoredCountryCode(tenant.countryCode);
+    if (storedCountry) {
+      return this.setTenantRegion(tenantId, {
+        countryCode: storedCountry,
+        timezone: tenant.timezone ?? undefined,
+        preferredCurrency: tenant.preferredCurrency ?? undefined,
+      });
+    }
+
+    return tenant;
+  }
+
   async startTrial(
     tenantId: string,
     planSlug: string,
-    clientIp?: string | null,
+    options: {
+      clientIp?: string | null;
+      headers?: Record<string, string | string[] | undefined>;
+      userId?: string | null;
+    } = {},
   ): Promise<TenantSubscription> {
     const existing = await this.getTenantSubscription(tenantId);
     if (existing?.status === SubscriptionStatus.ACTIVE) {
       throw new BadRequestException('Workspace already has an active subscription');
     }
     if (existing?.status === SubscriptionStatus.TRIAL) {
-      return this.setTrialPlan(tenantId, planSlug, clientIp);
+      return this.setTrialPlan(tenantId, planSlug, options);
+    }
+    if (options.userId && (await this.hasUserEverUsedTrial(options.userId))) {
+      throw new BadRequestException(
+        'You have already used your free trial on another workspace. Subscribe to continue.',
+      );
     }
     if (existing) {
       await this.subscriptionRepository.remove(existing);
@@ -619,7 +725,7 @@ export class SubscriptionsService {
     return this.createTrialSubscription(tenantId, {
       planSlug,
       trialDays: SUBSCRIPTION_TRIAL_DAYS,
-      clientIp,
+      ...options,
     });
   }
 

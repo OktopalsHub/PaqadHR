@@ -511,7 +511,7 @@ export class SubscriptionBillingService {
     return resolveSeatCount(count);
   }
 
-  async getBillingOverview(tenantId: string, canManageBilling: boolean) {
+  async getBillingOverview(tenantId: string, canManageBilling: boolean, userId?: string | null) {
     const [tenant, billingStatus, seatCount, rawSubscription, tenantSettings] = await Promise.all([
       this.tenantRepository.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
       this.subscriptionsService.getBillingStatus(tenantId),
@@ -545,6 +545,7 @@ export class SubscriptionBillingService {
 
     const sub = billingStatus.subscription;
     const needsPayment = this.subscriptionsService.computeNeedsPayment(sub);
+    const trialEligible = await this.subscriptionsService.isTrialEligible(userId, tenantId);
 
     const billingHistory = (alignedSubscription?.billingHistory ?? []).map((entry) => ({
       date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
@@ -581,6 +582,7 @@ export class SubscriptionBillingService {
       lastPaymentFailureCode: alignedSubscription?.lastPaymentFailureReason ?? null,
       billingHistory,
       needsPayment,
+      trialEligible,
       billingContact: canManageBilling ? (tenantSettings?.settings.billing ?? {}) : {},
       ownerEmail: canManageBilling ? (tenant.createdBy?.email ?? null) : null,
       billingProvider: alignedSubscription?.billingProvider ?? this.providerForCountry(countryCode),
@@ -610,6 +612,7 @@ export class SubscriptionBillingService {
     userId: string,
     successUrl?: string,
     clientIp?: string | null,
+    headers?: Record<string, string | string[] | undefined>,
   ) {
     const normalizedSlug = planSlug.trim().toLowerCase();
     const plan = await this.plansService.findPlanBySlug(normalizedSlug);
@@ -626,14 +629,17 @@ export class SubscriptionBillingService {
     if (!tenant) throw new NotFoundException('Tenant not found');
     if (!user) throw new NotFoundException('User not found');
 
-    await GeoLocationHelper.autoFillCountryCode(tenant, clientIp);
-    if (GeoLocationHelper.toStoredCountryCode(tenant.countryCode)) {
-      await this.tenantRepository.save(tenant);
-    }
+    await this.subscriptionsService.resolveAndLockTenantRegion(tenantId, {
+      clientIp,
+      headers,
+      userId,
+    });
+    const lockedTenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
+    if (!lockedTenant) throw new NotFoundException('Tenant not found');
 
     const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
-      tenant.countryCode,
-      tenant.preferredCurrency,
+      lockedTenant.countryCode,
+      lockedTenant.preferredCurrency,
     );
 
     const currentPlanSlug =
@@ -2001,16 +2007,37 @@ export class SubscriptionBillingService {
     );
     const expectedAmount = calculatePerSeatTotal(planPrice, seatCount);
     const normalizedPaid = normalizeWebhookAmount(payment.amount, expectedAmount, payment.currency);
+    const planCurrency = planPrice.currency.toUpperCase();
+    const paidCurrency = (payment.currency ?? planCurrency).toUpperCase();
+    const sameCurrency = paidCurrency === planCurrency;
 
-    if (
-      !Number.isFinite(normalizedPaid) ||
-      !isAmountWithinTolerance(normalizedPaid, expectedAmount)
+    if (sameCurrency) {
+      if (
+        !Number.isFinite(normalizedPaid) ||
+        !isAmountWithinTolerance(normalizedPaid, expectedAmount)
+      ) {
+        this.logger.error(
+          `Payment amount mismatch for tenant ${payment.tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
+        );
+        throw new BadRequestException('Payment amount does not match server quote');
+      }
+    } else if (
+      provider === BillingProvider.BACHS &&
+      Number.isFinite(payment.amount) &&
+      payment.amount > 0
     ) {
+      this.logger.warn(
+        `Bachs cross-currency payment for tenant ${payment.tenantId}: catalog ${planCurrency}, paid ${paidCurrency} ${payment.amount}`,
+      );
+    } else {
       this.logger.error(
-        `Nomba amount mismatch for tenant ${payment.tenantId}: expected ${expectedAmount}, got ${normalizedPaid}`,
+        `Cross-currency payment rejected for tenant ${payment.tenantId}: expected ${planCurrency}, got ${paidCurrency}`,
       );
       throw new BadRequestException('Payment amount does not match server quote');
     }
+
+    const recordedAmount =
+      sameCurrency && Number.isFinite(normalizedPaid) ? normalizedPaid : Number(payment.amount);
 
     if (this.requiresCardToken(provider) && !payment.tokenKey?.trim()) {
       throw new BadRequestException('Missing card token for subscription billing');
@@ -2156,7 +2183,7 @@ export class SubscriptionBillingService {
         ...(subscription.billingHistory ?? []),
         {
           date: now,
-          amount: normalizedPaid,
+          amount: recordedAmount,
           currency: payment.currency,
           status: 'paid' as const,
           invoiceId: payment.reference,

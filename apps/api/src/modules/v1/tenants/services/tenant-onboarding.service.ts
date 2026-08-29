@@ -80,7 +80,11 @@ export class TenantOnboardingService {
     );
 
     const planSlug = data.planSlug?.trim().toLowerCase() || 'growth';
-    const trial = await this.subscriptionsService.startTrial(pricingResult.tenant.id, planSlug);
+    const trial = await this.subscriptionsService.startTrial(pricingResult.tenant.id, planSlug, {
+      clientIp: userIpAddress,
+      headers: options?.headers,
+      userId: data.createdBy,
+    });
 
     this.productAnalytics.capture(data.createdBy!, 'onboarding_completed', {
       userId: data.createdBy!,

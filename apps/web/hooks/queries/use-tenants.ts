@@ -33,6 +33,7 @@ export function useUserTenants(options?: { enabled?: boolean }) {
     },
     enabled: options?.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnWindowFocus: true,
     refetchOnMount: false,
     // Use cached data as initial data for instant render
     initialData: cachedTenants ?? undefined,
