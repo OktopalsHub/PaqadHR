@@ -1,6 +1,5 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect, useRef } from 'react';
 import {
   isStaleChunkError,

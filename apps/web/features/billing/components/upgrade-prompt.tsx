@@ -61,7 +61,10 @@ function useUpgradeOptions(feature: string | null) {
 
   const handleUpgrade = useCallback(
     (planSlug: string) => {
-      captureClientEvent('upgrade_prompt_clicked', { feature, plan: planSlug });
+      captureClientEvent('upgrade_prompt_clicked', {
+        ...(feature ? { feature } : {}),
+        plan: planSlug,
+      });
       if (!tenant?.slug) return;
       window.location.assign(`/${tenant.slug}/subscribe?plan=${planSlug}`);
     },

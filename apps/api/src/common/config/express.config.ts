@@ -149,6 +149,8 @@ export const ExpressSetup = (app: NestExpressApplication) => {
         'X-CSRF-Token',
         'x-tenant-id',
         'X-Tenant-ID',
+        'x-correlation-id',
+        'X-Correlation-Id',
       ],
       exposedHeaders: [
         'Content-Type',
@@ -161,6 +163,8 @@ export const ExpressSetup = (app: NestExpressApplication) => {
         'Access-Control-Allow-Credentials',
         'x-csrf-token',
         'X-CSRF-Token',
+        'x-correlation-id',
+        'X-Correlation-Id',
       ],
       optionsSuccessStatus: 200,
     }),

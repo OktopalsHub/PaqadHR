@@ -24,11 +24,7 @@ export function ObservabilityProvider({ children, userId }: ObservabilityProvide
 
   useEffect(() => {
     resetCorrelationId();
-    capturePageview(
-      typeof window !== 'undefined'
-        ? `${window.location.pathname}${window.location.search}`
-        : pathname,
-    );
+    capturePageview(pathname);
   }, [pathname]);
 
   return children;
