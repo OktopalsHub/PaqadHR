@@ -405,9 +405,15 @@ export function PaymentSettingsSection() {
     setIsPrimary(!hasPrimaryForCurrency);
   }, [hasPrimaryForCurrency]);
 
-  const openAddForm = () => {
-    void refetchCurrencies();
-    setOpenForm(true);
+  const openAddForm = async () => {
+    try {
+      await refetchCurrencies({ throwOnError: true });
+      setWalletAddress('');
+      setCryptoNetwork('');
+      setOpenForm(true);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not refresh currencies');
+    }
   };
 
   const bankOptions = useMemo(
@@ -490,6 +496,10 @@ export function PaymentSettingsSection() {
     if (isCrypto) {
       if (!walletAddress.trim()) {
         toast.error('Wallet address is required');
+        return;
+      }
+      if (!cryptoNetwork.trim()) {
+        toast.error('Network is required');
         return;
       }
     } else if (isNgn) {
@@ -721,7 +731,7 @@ export function PaymentSettingsSection() {
                 <Input
                   value={cryptoNetwork}
                   onChange={(e) => setCryptoNetwork(e.target.value)}
-                  placeholder="e.g. ethereum, bitcoin, tron"
+                  placeholder="e.g. Bitcoin, Ethereum, Base"
                 />
               </div>
             </>

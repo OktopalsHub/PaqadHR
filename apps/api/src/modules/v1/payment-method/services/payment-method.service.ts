@@ -7,7 +7,10 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import {
+  isCryptoCurrency,
+  normalizeCryptoNetwork,
+} from 'src/common/constants/crypto-currencies.constant';
 import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { In, Repository } from 'typeorm';
@@ -930,6 +933,16 @@ export class PaymentMethodService {
       if (!dto.currency?.trim()) {
         throw new BadRequestException('Crypto payment method requires a currency code');
       }
+      if (!dto.cryptoNetwork?.trim()) {
+        throw new BadRequestException('Crypto payment method requires a network');
+      }
+      const canonicalNetwork = normalizeCryptoNetwork(dto.currency, dto.cryptoNetwork);
+      if (!canonicalNetwork) {
+        throw new BadRequestException(
+          `Unsupported network for ${dto.currency.toUpperCase()}: ${dto.cryptoNetwork.trim()}`,
+        );
+      }
+      dto.cryptoNetwork = canonicalNetwork;
       return;
     }
 
