@@ -2,15 +2,18 @@
 
 import * as Sentry from '@sentry/nextjs';
 import { useEffect, useRef } from 'react';
-import { toast } from 'sonner';
 import {
   isStaleChunkError,
   markChunkReloadAttempted,
   shouldReloadForChunkError,
 } from '@/lib/app-version/chunk-reload';
+import { parseVersionBuildId } from '@/lib/app-version/parse-version';
+import {
+  markVersionReloadAttempted,
+  shouldReloadForVersion,
+} from '@/lib/app-version/version-reload';
 
 const POLL_MS = 5 * 60_000;
-const DISMISSED_KEY = 'paqadhr-version-dismissed';
 
 function getInitialBuildId(): string {
   return process.env.NEXT_PUBLIC_APP_BUILD_ID?.trim() || 'dev';
@@ -20,48 +23,51 @@ async function fetchRemoteBuildId(): Promise<string | null> {
   try {
     const res = await fetch(`/version.json?ts=${Date.now()}`, { cache: 'no-store' });
     if (!res.ok) return null;
-    const data = (await res.json()) as { buildId?: string };
-    return typeof data.buildId === 'string' ? data.buildId : null;
+    return parseVersionBuildId(await res.json());
   } catch {
     return null;
   }
 }
 
-function showUpdateToast(onDismiss?: () => void) {
-  toast('New version available', {
-    description: 'Refresh to get the latest updates.',
-    duration: Number.POSITIVE_INFINITY,
-    action: {
-      label: 'Refresh',
-      onClick: () => window.location.reload(),
-    },
-    onDismiss,
-  });
+function reloadIfMarked(mark: () => boolean): void {
+  if (mark()) {
+    window.location.reload();
+  }
 }
 
 export function AppVersionWatcher() {
   const initialBuildId = getInitialBuildId();
-  const notifiedRef = useRef(false);
+  const pendingRemoteRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') return;
 
+    const trySilentReload = (remoteBuildId: string) => {
+      if (!shouldReloadForVersion(remoteBuildId)) return;
+
+      if (document.visibilityState === 'visible') {
+        pendingRemoteRef.current = remoteBuildId;
+        return;
+      }
+
+      reloadIfMarked(() => markVersionReloadAttempted(remoteBuildId));
+    };
+
     const checkVersion = async () => {
       const remoteBuildId = await fetchRemoteBuildId();
       if (!remoteBuildId || remoteBuildId === initialBuildId) return;
-
-      const dismissed = sessionStorage.getItem(DISMISSED_KEY);
-      if (dismissed === remoteBuildId || notifiedRef.current) return;
-
-      notifiedRef.current = true;
-      showUpdateToast(() => {
-        sessionStorage.setItem(DISMISSED_KEY, remoteBuildId);
-        notifiedRef.current = false;
-      });
+      trySilentReload(remoteBuildId);
     };
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') void checkVersion();
+      if (document.visibilityState === 'visible') {
+        void checkVersion();
+        return;
+      }
+
+      const pending = pendingRemoteRef.current;
+      if (!pending || !shouldReloadForVersion(pending)) return;
+      reloadIfMarked(() => markVersionReloadAttempted(pending));
     };
 
     void checkVersion();
@@ -79,23 +85,8 @@ export function AppVersionWatcher() {
 
     const handleChunkFailure = (error: unknown) => {
       if (!isStaleChunkError(error)) return;
-
-      Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
-        tags: { stale_chunk: 'true' },
-      });
-
-      if (shouldReloadForChunkError(initialBuildId)) {
-        markChunkReloadAttempted(initialBuildId);
-        window.location.reload();
-        return;
-      }
-
-      if (!notifiedRef.current) {
-        notifiedRef.current = true;
-        showUpdateToast(() => {
-          notifiedRef.current = false;
-        });
-      }
+      if (!shouldReloadForChunkError(initialBuildId)) return;
+      reloadIfMarked(() => markChunkReloadAttempted(initialBuildId));
     };
 
     const onError = (event: ErrorEvent) => {

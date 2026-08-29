@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { getGoogleAuthUrl } from '@/lib/api/google-auth';
+import { getGoogleAuthUrl, prepareGoogleAuthConsent } from '@/lib/api/google-auth';
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -32,6 +33,19 @@ function GoogleIcon({ className }: { className?: string }) {
 
 export const SocialAuthButtons = () => {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  const handleGoogle = async () => {
+    if (!agreeToTerms || starting) return;
+    try {
+      setStarting(true);
+      await prepareGoogleAuthConsent();
+      window.location.assign(getGoogleAuthUrl());
+    } catch (err) {
+      setStarting(false);
+      toast.error(err instanceof Error ? err.message : 'Could not start Google sign-in');
+    }
+  };
 
   return (
     <div className="space-y-3">
@@ -55,14 +69,14 @@ export const SocialAuthButtons = () => {
       <Button
         type="button"
         variant="outline"
-        disabled={!agreeToTerms}
+        disabled={!agreeToTerms || starting}
         className="h-12 w-full rounded-[16px] border-slate-200/90 bg-white/92 text-[15px] font-semibold text-slate-800 shadow-[0_16px_38px_-30px_rgba(15,23,42,0.28)] hover:border-emerald-200 hover:bg-white disabled:opacity-60"
         onClick={() => {
-          window.location.assign(getGoogleAuthUrl());
+          void handleGoogle();
         }}
       >
         <GoogleIcon className="size-5" />
-        Continue with Google
+        {starting ? 'Continuing…' : 'Continue with Google'}
       </Button>
     </div>
   );

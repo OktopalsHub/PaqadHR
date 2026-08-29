@@ -271,17 +271,48 @@ describe('AuthService', () => {
       } as User);
       accountRepository.create.mockImplementation((data) => data);
 
-      await authService.findOrCreateGoogleUser('google-new', 'new@example.com', {
-        ip: '8.8.8.8',
-        headers: {},
-      });
+      await authService.findOrCreateGoogleUser(
+        'google-new',
+        'new@example.com',
+        {
+          ip: '8.8.8.8',
+          headers: {},
+        },
+        true,
+        '1.0',
+      );
 
       expect(userRepository.insertUser).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'new@example.com',
           countryCode: 'US',
+          metadata: expect.objectContaining({
+            consent: expect.objectContaining({
+              privacyPolicyVersion: expect.any(String),
+            }),
+          }),
         }),
       );
+    });
+
+    it('rejects new Google signup without verified consent', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, false),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects new Google signup when accepted policy version is stale', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, true, '0.9'),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
     });
   });
 
@@ -545,7 +576,9 @@ describe('AuthService', () => {
         password: 'hashedpassword',
         isActive: true,
         role: UserRole.BASIC,
-      } as User;
+        emailVerified: false,
+        metadata: { other: 'keep' },
+      } as unknown as User;
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
       accountRepository.findOne.mockResolvedValue({
@@ -558,15 +591,24 @@ describe('AuthService', () => {
       const result = await authService.register(
         'test@example.com',
         'CorrectPassword1!',
-        {
-          ip: '127.0.0.1',
-        },
+        { ip: '127.0.0.1' },
         undefined,
         true,
       );
 
       expect(result.user).toBe(existingUser);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
+      expect(userRepository.update).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            other: 'keep',
+            consent: expect.objectContaining({
+              privacyPolicyVersion: expect.any(String),
+            }),
+          }),
+        }),
+      );
     });
 
     it('rejects registration when the email exists but the password is wrong', async () => {

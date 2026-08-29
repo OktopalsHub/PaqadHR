@@ -26,7 +26,7 @@ export class Tenant extends BaseEntity {
   slug: string;
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
-  @Column({ name: 'invite_code', unique: true })
+  @Column({ name: 'invite_code', type: 'varchar', length: 6, unique: true })
   inviteCode: string;
   @Column({ name: 'employee_code', nullable: true })
   employeeCode: string;

@@ -217,7 +217,7 @@ export class TenantOnboardingService {
       slug,
       industry: data.industry,
       companySize: data.companySize,
-      inviteCode: this.generateInviteCode(),
+      inviteCode: StringUtility.generateInviteCode(),
       employeeCode,
       createdBy: { id: data.createdBy } as Tenant['createdBy'],
     });
@@ -271,10 +271,6 @@ export class TenantOnboardingService {
       base = 't';
     }
     return `${base}-${suffix}`;
-  }
-
-  private generateInviteCode(): string {
-    return randomBytes(3).toString('hex').toUpperCase();
   }
 
   private resolveMemberNames(

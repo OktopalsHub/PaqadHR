@@ -112,9 +112,10 @@ export class CreatePaymentMethodDto {
   @ApiProperty({
     description: 'Blockchain network for crypto payouts',
     required: false,
-    example: 'ethereum',
+    example: 'Ethereum',
   })
-  @IsOptional()
+  @ValidateIf((o) => o.type === PaymentMethodType.CRYPTO || isCryptoCurrency(o.currency))
+  @IsNotEmpty({ message: 'Network is required for crypto payment method' })
   @IsString()
   @MaxLength(32)
   cryptoNetwork?: string;

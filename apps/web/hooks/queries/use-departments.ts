@@ -61,7 +61,10 @@ export function useUpdateDepartment() {
     mutationFn: ({ id, input }: { id: string; input: UpdateDepartmentInput }) =>
       updateDepartment(id, input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.departments.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }
@@ -72,7 +75,10 @@ export function useDeleteDepartment() {
   return useMutation({
     mutationFn: (id: string) => deleteDepartment(id),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.departments.all });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.departments.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+      ]);
     },
   });
 }

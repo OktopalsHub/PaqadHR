@@ -162,6 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearSession();
     queryClient.setQueryData(queryKeys.auth.session, null);
     queryClient.removeQueries({ queryKey: queryKeys.tenants.all });
+    queryClient.removeQueries({ queryKey: ['privacy', 'consent'] });
     clearAppCache();
     toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
     window.location.assign(authPageUrl('/signin'));
