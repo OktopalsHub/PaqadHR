@@ -162,8 +162,14 @@ describe('UsersService', () => {
   });
 
   it('audits failed file keys when R2 purge fails after commit', async () => {
-    const { service, userRepository, tenantMembersService, dataSource, r2Service, auditLogsService } =
-      createService();
+    const {
+      service,
+      userRepository,
+      tenantMembersService,
+      dataSource,
+      r2Service,
+      auditLogsService,
+    } = createService();
 
     (userRepository.findUser as jest.Mock).mockResolvedValue({
       id: 'user-1',

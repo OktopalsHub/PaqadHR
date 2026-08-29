@@ -1,5 +1,5 @@
-import { Equals, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Equals, IsBoolean } from 'class-validator';
 
 export class GoogleConsentDto {
   @ApiProperty({ example: true })

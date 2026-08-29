@@ -305,13 +305,7 @@ describe('AuthService', () => {
       userRepository.findUserByEmail.mockResolvedValue(null);
 
       await expect(
-        authService.findOrCreateGoogleUser(
-          'google-new',
-          'new@example.com',
-          {},
-          true,
-          '0.9',
-        ),
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, true, '0.9'),
       ).rejects.toThrow(BadRequestException);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
     });

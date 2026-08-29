@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 import { ENVIRONMENT } from 'src/common/config/env.config';
+import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
 
 export const GOOGLE_OAUTH_CONSENT_COOKIE = 'google_oauth_consent';
 export const GOOGLE_OAUTH_CONSENT_TTL_MS = 10 * 60 * 1000;
