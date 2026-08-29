@@ -20,6 +20,7 @@ import type {
   SlackSlashCommandPayload,
   SlackUrlVerificationPayload,
 } from 'src/common/integrations/integration.types';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
@@ -48,7 +49,30 @@ export class WebhooksController {
     private readonly polarWebhookService: PolarWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
     private readonly tremendousWebhookService: TremendousWebhookService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
+
+  private trackWebhook<T>(provider: string, result: Promise<T>): Promise<T> {
+    return result
+      .then((value) => {
+        this.productAnalytics.capture(
+          'system',
+          'webhook_processed',
+          {},
+          { provider, ok: true, type: 'dispatch' },
+        );
+        return value;
+      })
+      .catch((error) => {
+        this.productAnalytics.capture(
+          'system',
+          'webhook_processed',
+          {},
+          { provider, ok: false, type: 'dispatch' },
+        );
+        throw error;
+      });
+  }
 
   @Post('nomba')
   @Public()
@@ -59,10 +83,13 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.nombaWebhookService.dispatch(
-      rawBody,
-      resolveNombaSignature(headers),
-      resolveNombaTimestamp(headers),
+    return this.trackWebhook(
+      'nomba',
+      this.nombaWebhookService.dispatch(
+        rawBody,
+        resolveNombaSignature(headers),
+        resolveNombaTimestamp(headers),
+      ),
     );
   }
 
@@ -75,7 +102,10 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.monnifyWebhookService.dispatch(rawBody, resolveMonnifySignature(headers));
+    return this.trackWebhook(
+      'monnify',
+      this.monnifyWebhookService.dispatch(rawBody, resolveMonnifySignature(headers)),
+    );
   }
 
   @Post('noah')
@@ -87,7 +117,10 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.noahWebhookService.dispatch(rawBody, resolveNoahSignature(headers));
+    return this.trackWebhook(
+      'noah',
+      this.noahWebhookService.dispatch(rawBody, resolveNoahSignature(headers)),
+    );
   }
 
   @Post('bachs')
@@ -99,10 +132,13 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.bachsWebhookService.dispatch(
-      rawBody,
-      headers['x-bachs-signature'] ?? headers['X-Bachs-Signature'] ?? '',
-      headers['x-bachs-timestamp'] ?? headers['X-Bachs-Timestamp'] ?? '',
+    return this.trackWebhook(
+      'bachs',
+      this.bachsWebhookService.dispatch(
+        rawBody,
+        headers['x-bachs-signature'] ?? headers['X-Bachs-Signature'] ?? '',
+        headers['x-bachs-timestamp'] ?? headers['X-Bachs-Timestamp'] ?? '',
+      ),
     );
   }
 
@@ -115,7 +151,7 @@ export class WebhooksController {
     if (!rawBody) {
       throw new UnauthorizedException('Missing raw webhook body');
     }
-    return this.polarWebhookService.dispatch(rawBody, headers);
+    return this.trackWebhook('polar', this.polarWebhookService.dispatch(rawBody, headers));
   }
 
   @Post('slack/events')
@@ -198,6 +234,6 @@ export class WebhooksController {
   @ApiOperation({ summary: 'Tremendous reward fulfillment webhook' })
   async handleTremendousWebhook(@Req() req: RawBodyRequestType) {
     const rawBody = req.rawBody?.toString('utf8') ?? '';
-    return this.tremendousWebhookService.dispatch(rawBody);
+    return this.trackWebhook('tremendous', this.tremendousWebhookService.dispatch(rawBody));
   }
 }

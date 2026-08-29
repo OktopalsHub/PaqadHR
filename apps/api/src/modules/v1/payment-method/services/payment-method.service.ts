@@ -27,6 +27,7 @@ import {
   PayrollPaymentIssue,
   type PayrollPaymentReadiness,
 } from '../../../../common/interfaces/payroll-payment-readiness.interface';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { EncryptionService } from '../../../../common/services/encryption.service';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { MonnifyApiService } from '../../../../common/services/monnify-api.service';
@@ -76,6 +77,7 @@ export class PaymentMethodService {
     private readonly authService: AuthService,
     private readonly paymentSecurityService: PaymentSecurityService,
     private readonly notificationHelperService: NotificationHelperService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   async getAllowedCurrencies(tenantId: string): Promise<string[]> {
     try {
@@ -400,6 +402,12 @@ export class PaymentMethodService {
     paymentMethod.submittedAt = new Date();
     paymentMethod.verificationNotes = null;
     const saved = await this.paymentMethodRepository.save(paymentMethod);
+
+    this.productAnalytics.capture(userId, 'payment_method_submitted', {
+      userId,
+      tenantId,
+      role: 'member',
+    });
 
     const employeeName = paymentMethod.member
       ? `${paymentMethod.member.firstName ?? ''} ${paymentMethod.member.lastName ?? ''}`.trim()

@@ -8,6 +8,7 @@ import { brandFaviconUrls } from '@/lib/brand';
 import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
 import { AuthProvider } from '@/providers/auth-provider';
 import { CsrfBootstrap } from '@/providers/csrf-bootstrap';
+import { ObservabilityBridge } from '@/providers/observability-bridge';
 import { QueryProvider } from '@/providers/query-provider';
 import { TenantProvider } from '@/providers/tenant-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
@@ -47,7 +48,9 @@ export default async function RootLayout({
           >
             <AuthProvider>
               <CsrfBootstrap />
-              <TenantProvider>{children}</TenantProvider>
+              <ObservabilityBridge>
+                <TenantProvider>{children}</TenantProvider>
+              </ObservabilityBridge>
             </AuthProvider>
             <Toaster position="top-center" invert richColors closeButton />
           </ThemeProvider>

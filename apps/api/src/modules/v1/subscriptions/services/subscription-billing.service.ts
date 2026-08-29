@@ -9,6 +9,7 @@ import {
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
@@ -98,6 +99,7 @@ export class SubscriptionBillingService {
     private readonly billingEventRepository: Repository<BillingEvent>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    private readonly productAnalytics: ProductAnalyticsService,
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
 
@@ -430,6 +432,12 @@ export class SubscriptionBillingService {
       provider,
     );
 
+    if (hasPlanMetadata && subscription.status === SubscriptionStatus.ACTIVE) {
+      this.productAnalytics.capture('system', 'subscription_activated', {
+        tenantId: event.tenantId,
+      });
+    }
+
     // Bachs catalog trial must not survive a paid Paqad checkout — end it so Bachs shows active.
     if (
       hasPlanMetadata &&
@@ -699,6 +707,12 @@ export class SubscriptionBillingService {
       quantity,
     };
 
+    this.productAnalytics.capture(userId, 'subscription_checkout_started', {
+      userId,
+      tenantId,
+      plan: normalizedSlug,
+    });
+
     const checkout = await this.billingProviderFactory
       .getProviderForCountry(countryCode)
       .createCheckout(
@@ -806,7 +820,9 @@ export class SubscriptionBillingService {
       subscription.pausedAt = null;
     }
 
-    return this.subscriptionRepository.save(subscription);
+    const saved = await this.subscriptionRepository.save(subscription);
+    this.productAnalytics.capture('system', 'subscription_cancelled', { tenantId });
+    return saved;
   }
 
   /** Undo a scheduled cancellation (`cancelAtPeriodEnd`). Pause is not supported. */

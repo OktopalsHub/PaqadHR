@@ -8,6 +8,7 @@ import helmet, { type HelmetOptions } from 'helmet';
 import helmetCsp from 'helmet-csp';
 import morgan from 'morgan';
 import passport from 'passport';
+import { correlationIdMiddleware } from '../observability/correlation-id.middleware';
 import { resolveCookieDomain, usesCrossSiteCookies, usesSecureCookies } from './cookie-deployment';
 import { isTrustedOrigin, resolveTrustedOrigins } from './trusted-origins';
 
@@ -18,6 +19,7 @@ export function isWalletMoneyPath(path: string): boolean {
 }
 
 export const ExpressSetup = (app: NestExpressApplication) => {
+  app.use(correlationIdMiddleware);
   app.use(cookieParser());
   if (process.env.NODE_ENV !== 'production') {
     app.use(morgan('dev'));
@@ -147,6 +149,8 @@ export const ExpressSetup = (app: NestExpressApplication) => {
         'X-CSRF-Token',
         'x-tenant-id',
         'X-Tenant-ID',
+        'x-correlation-id',
+        'X-Correlation-Id',
       ],
       exposedHeaders: [
         'Content-Type',
@@ -159,6 +163,8 @@ export const ExpressSetup = (app: NestExpressApplication) => {
         'Access-Control-Allow-Credentials',
         'x-csrf-token',
         'X-CSRF-Token',
+        'x-correlation-id',
+        'X-Correlation-Id',
       ],
       optionsSuccessStatus: 200,
     }),

@@ -45,6 +45,13 @@ export default function SubprocessorsPage() {
           <li>
             <strong>Cloudflare Turnstile</strong> — bot protection on public forms
           </li>
+          <li>
+            <strong>Sentry</strong> — error and performance monitoring (when enabled)
+          </li>
+          <li>
+            <strong>PostHog</strong> — privacy-oriented product analytics (EU, cookieless when
+            enabled)
+          </li>
         </ul>
 
         <p>
