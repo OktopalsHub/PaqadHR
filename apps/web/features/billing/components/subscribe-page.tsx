@@ -1,13 +1,20 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Loader2, Sparkles } from 'lucide-react';
+import { Building2, ChevronDown, CreditCard, Loader2, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import {
   useBillingOverview,
@@ -15,7 +22,8 @@ import {
   useStartTrial,
 } from '@/hooks/queries/use-billing';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
-import { goToTenantPath, subscribePageUrl, tenantPath } from '@/lib/navigation/tenant-routes';
+import { formatWorkspaceName } from '@/lib/format-name';
+import { goToTenantPath, subscribePageUrl, tenantPath, tenantRoot } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -27,7 +35,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { tenant } = useTenant();
+  const { tenant, tenants, setTenantId } = useTenant();
   const { data: overview, isLoading, isError, error, refetch } = useBillingOverview();
   const checkout = useCreateSubscriptionCheckout();
   const startTrial = useStartTrial();
@@ -50,6 +58,58 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   }, [overview?.subscription?.plan]);
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
+
+  const switchableTenants = useMemo(
+    () => tenants.filter((t) => t.id !== tenant?.id),
+    [tenants, tenant?.id],
+  );
+
+  const dashboardHref = useMemo(() => {
+    if (!tenants.length) return null;
+    const target = tenants.find((t) => t.id !== tenant?.id) ?? tenants.find((t) => t.isActive) ?? tenants[0];
+    if (!target?.slug) return null;
+    try {
+      return tenantRoot(target.slug);
+    } catch {
+      return `/${target.slug}`;
+    }
+  }, [tenants, tenant?.id]);
+
+  const SwitchBanner = useMemo(() => {
+    if (switchableTenants.length === 0) return null;
+    return (
+      <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2 text-xs sm:text-sm">
+        <Building2 className="size-4 text-muted-foreground" />
+        <span className="text-muted-foreground">
+          Not ready for <span className="font-medium text-foreground">{formatWorkspaceName(tenant?.name)}</span>?
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-7 rounded-full px-3 text-xs font-semibold">
+              Switch workspace <ChevronDown className="ml-1 size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-64 rounded-xl">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Your workspaces</DropdownMenuLabel>
+            {tenants.map((item) => (
+              <DropdownMenuItem key={item.id} onClick={() => setTenantId(item.id)} className="gap-2">
+                <span className="min-w-0 flex-1 truncate font-medium">{formatWorkspaceName(item.name)}</span>
+                {item.id === tenant?.id ? <span className="text-xs text-primary">Current</span> : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {dashboardHref ? (
+          <span className="hidden items-center gap-2 sm:flex">
+            <span className="text-muted-foreground">·</span>
+            <a href={dashboardHref} className="font-medium text-primary hover:underline">
+              Go to dashboard
+            </a>
+          </span>
+        ) : null}
+      </div>
+    );
+  }, [switchableTenants.length, tenants, tenant?.id, tenant?.name, dashboardHref, setTenantId]);
 
   const pageShell = useCallback(
     (content: ReactNode) =>
@@ -117,6 +177,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   if (showTrialWelcome) {
     return pageShell(
       <div className="w-full space-y-8 py-4">
+        {SwitchBanner}
         <div className="space-y-2 text-center">
           {isMarketing ? (
             <p className="text-sm font-medium text-primary">Pricing</p>
@@ -229,6 +290,13 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
             ? 'Payroll and automated batch payouts are included on every plan during your trial.'
             : 'Payroll included on every plan · Manual pay & bank export are free'}
         </p>
+        {dashboardHref ? (
+          <div className="flex justify-center pt-2">
+            <a href={dashboardHref} className="text-sm font-medium text-primary hover:underline">
+              ← Back to dashboard
+            </a>
+          </div>
+        ) : null}
       </div>,
     );
   }
@@ -251,6 +319,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
   return pageShell(
     <div className="w-full space-y-8 py-4">
+      {SwitchBanner}
       <div className="space-y-2 text-center">
         {isMarketing ? <p className="text-sm font-medium text-primary">Pricing</p> : null}
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
@@ -322,6 +391,13 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         <CreditCard className="size-4" />
         Secure checkout
       </div>
+      {dashboardHref ? (
+        <div className="flex justify-center pt-2">
+          <a href={dashboardHref} className="text-sm font-medium text-primary hover:underline">
+            ← Back to dashboard
+          </a>
+        </div>
+      ) : null}
     </div>,
   );
 }

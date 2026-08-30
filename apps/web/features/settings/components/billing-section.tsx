@@ -211,7 +211,10 @@ export function BillingSection() {
   }, [searchParams]);
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
-  const billingHistory = overview?.billingHistory ?? [];
+  const billingHistory = useMemo(
+    () => (overview?.billingHistory ?? []).filter((e) => !(e.status === 'paid' && Number(e.amount) === 0)),
+    [overview?.billingHistory],
+  );
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading billing details…</p>;

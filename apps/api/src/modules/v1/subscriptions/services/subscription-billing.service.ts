@@ -547,14 +547,16 @@ export class SubscriptionBillingService {
     const needsPayment = this.subscriptionsService.computeNeedsPayment(sub);
     const trialEligible = await this.subscriptionsService.isTrialEligible(userId, tenantId);
 
-    const billingHistory = (alignedSubscription?.billingHistory ?? []).map((entry) => ({
-      date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
-      amount: entry.amount,
-      currency: entry.currency,
-      status: entry.status,
-      invoiceId: entry.invoiceId ?? null,
-      failureReason: entry.failureReason ?? null,
-    }));
+    const billingHistory = (alignedSubscription?.billingHistory ?? [])
+      .filter((entry) => !(entry.status === 'paid' && Number(entry.amount) === 0))
+      .map((entry) => ({
+        date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
+        amount: entry.amount,
+        currency: entry.currency,
+        status: entry.status,
+        invoiceId: entry.invoiceId ?? null,
+        failureReason: entry.failureReason ?? null,
+      }));
 
     return {
       ...billingStatus,
@@ -1475,16 +1477,10 @@ export class SubscriptionBillingService {
     ) {
       const syncRef = `sync_${subscription.externalSubscriptionId}_${periodEnd.toISOString()}`;
       if (!(await this.hasProcessedEvent(syncRef, subscription.billingProvider))) {
-        subscription.billingHistory = [
-          ...(subscription.billingHistory ?? []),
-          {
-            date: new Date(),
-            amount: 0,
-            currency: subscription.planPrice?.currency ?? 'USD',
-            status: 'paid' as const,
-            invoiceId: syncRef,
-          },
-        ];
+        // Period advanced via provider sync; record event for audit but do NOT
+        // fabricate a $0 invoice in billingHistory. Real invoices must come from
+        // payment webhooks (applyRenewalSuccess/processInitialPaymentSuccess) or
+        // renewal cron which carry the actual amount.
         await this.recordBillingEvent(
           syncRef,
           'subscription_period_synced',
