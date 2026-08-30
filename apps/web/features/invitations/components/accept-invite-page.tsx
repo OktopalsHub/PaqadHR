@@ -168,7 +168,11 @@ export function AcceptInvitePage() {
 
   useEffect(() => {
     hasSyncedDetailsRef.current = false;
-  }, []);
+    setFirstName('');
+    setLastName('');
+    setPreferredName('');
+    setPassword('');
+  }, [token, email]);
 
   if (isLoading || authLoading) {
     return (

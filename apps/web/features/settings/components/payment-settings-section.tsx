@@ -480,10 +480,11 @@ export function PaymentSettingsSection() {
   const lookupPending =
     shouldShowLookupPending && (isDebouncingLookup || bankLookupMutation.isPending);
   const lookupVerified =
+    !isDebouncingLookup &&
     bankLookupMutation.isSuccess &&
     Boolean(bankLookupMutation.data?.accountName) &&
-    bankLookupMutation.data.accountNumber === debouncedAccount &&
-    bankLookupMutation.data.bankCode === debouncedBankCode;
+    bankLookupMutation.data.accountNumber === normalizedAccount &&
+    bankLookupMutation.data.bankCode === bankCode;
   const rawLookupError = bankLookupMutation.error
     ? bankLookupMutation.error instanceof Error
       ? bankLookupMutation.error.message
@@ -506,18 +507,25 @@ export function PaymentSettingsSection() {
     ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
     : rawLookupError;
 
-  // Clear account name when inputs become invalid or verification fails (non-unavailable) — mirrors original effect
+  // Clear account name when inputs become invalid, verification fails, or live fields diverge during debounce
   useEffect(() => {
     if (!isNgn) return;
     const normalized = accountNumber.replace(/\D/g, '');
-    if (normalized.length !== 10 || !bankCode) {
+    if (normalized.length !== 10 || !bankCode || (isDebouncingLookup && !lookupUnavailable)) {
       if (!lookupUnavailable) setAccountName('');
       return;
     }
     if (bankLookupMutation.isError && !lookupUnavailable) {
       setAccountName('');
     }
-  }, [accountNumber, bankCode, isNgn, lookupUnavailable, bankLookupMutation.isError]);
+  }, [
+    accountNumber,
+    bankCode,
+    isNgn,
+    lookupUnavailable,
+    isDebouncingLookup,
+    bankLookupMutation.isError,
+  ]);
 
   const handleSubmit = () => {
     if (isCrypto) {
@@ -536,6 +544,10 @@ export function PaymentSettingsSection() {
       }
       if (accountNumber.replace(/\D/g, '').length !== 10) {
         toast.error('Enter a valid 10-digit Naira account number');
+        return;
+      }
+      if (lookupPending && !lookupUnavailable) {
+        toast.error('Waiting for account verification…');
         return;
       }
       if (!lookupVerified && !accountName.trim()) {
