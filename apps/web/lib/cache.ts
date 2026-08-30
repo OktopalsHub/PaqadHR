@@ -49,13 +49,17 @@ function evictLruMemory(): void {
   }
 }
 
-function ensureMemoryCapacity(newSize: number): void {
+function ensureMemoryCapacity(newSize: number): boolean {
+  if (newSize > MEMORY_MAX_BYTES) {
+    return false;
+  }
   while (
     (memoryCache.size >= MEMORY_MAX_ENTRIES || memoryBytes + newSize > MEMORY_MAX_BYTES) &&
     memoryCache.size > 0
   ) {
     evictLruMemory();
   }
+  return true;
 }
 
 if (typeof window !== 'undefined') {
@@ -134,14 +138,15 @@ export function getCached<T>(key: string): T | null {
     // Promote to memory for next read (great hybrid)
     try {
       const size = estimateSize(parsed);
-      ensureMemoryCapacity(size);
-      memoryCache.set(key, {
-        value: parsed,
-        expiresAt: expiry ? Number(expiry) : Date.now() + DEFAULT_CACHE_TTL,
-        size,
-        hits: 0,
-      });
-      memoryBytes += size;
+      if (ensureMemoryCapacity(size)) {
+        memoryCache.set(key, {
+          value: parsed,
+          expiresAt: expiry ? Number(expiry) : Date.now() + DEFAULT_CACHE_TTL,
+          size,
+          hits: 0,
+        });
+        memoryBytes += size;
+      }
     } catch {}
     memoryHits++;
     return parsed;
@@ -167,11 +172,14 @@ export function setCached<T>(key: string, data: T, options?: CacheOptions): void
     try {
       const size = estimateSize(data);
       const existing = memoryCache.get(key);
-      if (existing) memoryBytes -= existing.size;
-      ensureMemoryCapacity(size);
-      memoryCache.delete(key);
-      memoryCache.set(key, { value: data, expiresAt: expiry, size, hits: 0 });
-      memoryBytes += size;
+      if (existing) {
+        memoryBytes -= existing.size;
+        memoryCache.delete(key);
+      }
+      if (ensureMemoryCapacity(size)) {
+        memoryCache.set(key, { value: data, expiresAt: expiry, size, hits: 0 });
+        memoryBytes += size;
+      }
     } catch {}
 
     // Persistent layer — sessionStorage (survives reload, per-tab)

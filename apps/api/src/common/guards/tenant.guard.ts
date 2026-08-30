@@ -57,12 +57,16 @@ export class TenantGuard implements CanActivate {
     }
     const request = context.switchToHttp().getRequest();
     const requestTenant = request.tenant;
-    if (!requestTenant) {
-      throw new ForbiddenException('Tenant context is required');
+    if (requestTenant) {
+      if (!requestTenant.isActive) {
+        throw new ForbiddenException('Tenant is not active');
+      }
+      return true;
     }
-    if (!requestTenant.isActive) {
-      throw new ForbiddenException('Tenant is not active');
+    // Defer to controller-level TenantMemberGuard when scope comes from route/header only
+    if (hasTenantScope && !explicitRequireTenant) {
+      return true;
     }
-    return true;
+    throw new ForbiddenException('Tenant context is required');
   }
 }

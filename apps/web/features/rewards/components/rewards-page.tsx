@@ -174,6 +174,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   // JIT Points calculation for top-ups via React Query + debounce (tenant-scoped, replaces manual useEffect fetch)
   const debouncedAirtimeAmount = useDebounce(airtimeAmount, 500);
   const airtimeAmountNumber = Number(debouncedAirtimeAmount) || 0;
+  const isDebouncingAirtime = debouncedAirtimeAmount !== airtimeAmount;
   const airtimeShouldFetch =
     Boolean(tenantId) && selectedCountryCode === 'NG' && airtimeAmountNumber >= 100;
 
@@ -198,7 +199,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         : airtimePointsQuery.data.totalTenantDebit - airtimePointsQuery.data.currencyValue
       : null
     : null;
-  const isCalculatingPoints = airtimePointsQuery.isFetching;
+  const isCalculatingPoints =
+    airtimeShouldFetch && (isDebouncingAirtime || airtimePointsQuery.isFetching);
   const pointsCalcError = airtimePointsQuery.error
     ? airtimePointsQuery.error instanceof Error
       ? airtimePointsQuery.error.message
@@ -249,6 +251,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
   // Utility points calculation via React Query + debounce (tenant-scoped, replaces manual useEffect fetch)
   const debouncedUtilityAmount = useDebounce(utilityAmount, 500);
   const utilityAmountNumber = Number(debouncedUtilityAmount) || 0;
+  const isDebouncingUtility = debouncedUtilityAmount !== utilityAmount;
   const utilityNgGenericEnabled =
     Boolean(tenantId) && utilityCountryCode === 'NG' && utilityAmountNumber >= 100;
   const utilityBillerSpecificEnabled =
@@ -289,7 +292,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
         ? Number(utilityPointsQuery.data.processingFee)
         : utilityPointsQuery.data.totalTenantDebit - utilityPointsQuery.data.currencyValue
       : null;
-  const isCalculatingUtilityPoints = utilityPointsQuery.isFetching;
+  const isCalculatingUtilityPoints =
+    utilityShouldFetch && (isDebouncingUtility || utilityPointsQuery.isFetching);
   const utilityCalcError = utilityPointsQuery.error
     ? utilityPointsQuery.error instanceof Error
       ? utilityPointsQuery.error.message

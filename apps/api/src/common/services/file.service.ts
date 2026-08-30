@@ -107,14 +107,12 @@ export class FileService {
     const finalContentType = contentType || this.getContentType(sanitizedOriginalName);
     assertImageUploadContentType(location, finalContentType);
     assertCandidateDocumentContentType(location, finalContentType);
-    // H-2: Enforce size cap if client provided contentLength
+    // H-2: Require contentLength so presigned PUT is size-bound
     const maxSize = FILE_SIZE_LIMITS[location] ?? 10 * 1024 * 1024;
-    if (contentLength !== undefined) {
-      if (contentLength <= 0 || contentLength > maxSize) {
-        throw new BadRequestException(
-          `File size must be between 1 and ${maxSize} bytes for ${location}`,
-        );
-      }
+    if (contentLength === undefined || contentLength <= 0 || contentLength > maxSize) {
+      throw new BadRequestException(
+        `File size must be between 1 and ${maxSize} bytes for ${location}`,
+      );
     }
     const expires = expiresIn || this.defaultExpiresIn;
     try {

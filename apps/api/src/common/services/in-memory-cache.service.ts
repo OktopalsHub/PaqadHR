@@ -110,6 +110,9 @@ export class InMemoryCacheService implements OnModuleDestroy {
   }
 
   private ensureCapacity(newEntrySize: number): void {
+    if (newEntrySize > this.maxMemoryBytes) {
+      return;
+    }
     while (
       (this.store.size >= this.maxEntries ||
         this.memoryBytes + newEntrySize > this.maxMemoryBytes) &&
@@ -124,10 +127,17 @@ export class InMemoryCacheService implements OnModuleDestroy {
     const effectiveTtl = this.enforcePiiTtlCap ? Math.min(ttl, 5 * 60 * 1000) : ttl;
     const size = this.estimateSize(value);
     const existing = this.store.get(key);
-    if (existing) this.memoryBytes -= existing.size;
+    if (existing) {
+      this.memoryBytes -= existing.size;
+      this.store.delete(key);
+    }
+    if (size > this.maxMemoryBytes) {
+      this.logger.warn(
+        `Cache [${this.namespace}] entry too large (${size} bytes) — skipping insert for key ${key}`,
+      );
+      return;
+    }
     this.ensureCapacity(size);
-    // Delete then set to move to end (MRU)
-    this.store.delete(key);
     this.store.set(key, {
       value,
       expiresAt: Date.now() + effectiveTtl,

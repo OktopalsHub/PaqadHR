@@ -1,5 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { FileUploadLocation } from '../enums/file-upload-location.enum';
 
 export const ALLOWED_UPLOAD_CONTENT_TYPES = [
@@ -36,4 +46,10 @@ export class GenerateUploadUrlDto {
     enum: ALLOWED_UPLOAD_CONTENT_TYPES,
   })
   contentType?: string;
+
+  @ApiProperty({ description: 'File size in bytes', example: 102400 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  contentLength: number;
 }

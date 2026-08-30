@@ -3,10 +3,7 @@
 import { useMemo } from 'react';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import type { FeatureAccess } from '@/lib/constants/feature-access';
-import {
-  type FeatureAccessMap,
-  hasPlanFeatureAccess,
-} from '@/lib/constants/feature-access-resolver';
+import { hasPlanFeatureAccess } from '@/lib/constants/feature-access-resolver';
 import { isPlanSlug, type PlanSlug } from '@/lib/constants/plan-catalog';
 
 type FeatureAccessOverviewQuery = Pick<
@@ -42,19 +39,15 @@ export function useFeatureAccess(
     return currentPlan?.features ?? {};
   }, [overview]);
 
-  const featuresKey = JSON.stringify(features);
-
   const hasFeature = useMemo(
     () =>
       (feature: FeatureAccess): boolean => {
         if (!featureGatingEnabled) {
           return true;
         }
-
-        const parsed = JSON.parse(featuresKey) as FeatureAccessMap;
-        return hasPlanFeatureAccess(parsed, feature);
+        return hasPlanFeatureAccess(features, feature);
       },
-    [featureGatingEnabled, featuresKey],
+    [featureGatingEnabled, features],
   );
 
   return { currentPlan, hasFeature, featureGatingEnabled, isLoading };

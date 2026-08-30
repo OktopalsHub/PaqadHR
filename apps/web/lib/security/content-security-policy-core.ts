@@ -56,8 +56,8 @@ export function buildContentSecurityPolicyFromSources(
     connectSources.push('ws:', 'wss:');
   }
 
-  // Great CSP — strict, nonce-based, minimal unsafe, upgrade-insecure-requests
-  return [
+  // Great CSP — strict, nonce-based, minimal unsafe; transport upgrade only in production
+  const directives = [
     "default-src 'self'",
     `script-src ${scriptSources.join(' ')}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
@@ -69,7 +69,11 @@ export function buildContentSecurityPolicyFromSources(
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    'upgrade-insecure-requests',
-    'block-all-mixed-content',
-  ].join('; ');
+  ];
+
+  if (!options.isDevelopment) {
+    directives.push('upgrade-insecure-requests', 'block-all-mixed-content');
+  }
+
+  return directives.join('; ');
 }

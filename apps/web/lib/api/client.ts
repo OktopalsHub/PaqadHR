@@ -266,6 +266,7 @@ export async function apiClient<T>(
     method: init?.method ?? 'GET',
     data: init?.body ?? init?.data,
     params: init?.params,
+    signal: init?.signal,
     _isRetry: isRetry,
     skipCsrf: init?.skipCsrf,
     headers,

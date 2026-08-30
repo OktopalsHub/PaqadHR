@@ -19,12 +19,12 @@ function resolveJwtAccessExpiresIn(): string | number {
     if (n >= 10000) return Math.floor(n / 1000);
     return n;
   }
-  if (!/^\d+(s|m|h|d)$/.test(raw)) {
+  if (!/^\d+(s|m|h|d)$/.test(raw.toLowerCase())) {
     // eslint-disable-next-line no-console
     console.warn(`[warn] ACCESS_EXPIRES_IN "${raw}" is not a valid duration, using 15m`);
     return '15m';
   }
-  return raw as JwtExpiresIn;
+  return raw.toLowerCase() as JwtExpiresIn;
 }
 
 export interface IEnvironment {

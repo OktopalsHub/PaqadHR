@@ -5,6 +5,7 @@ import {
   MONNIFY_SANDBOX_BASE_URL,
 } from './monnify.config';
 import { getNoahSigningPrivateKeyValidationWarning } from './noah.config';
+import { parseDurationToMs } from './parse-duration.util';
 import { resolveTrustedOrigins } from './trusted-origins';
 
 const CRITICAL = [
@@ -278,17 +279,10 @@ export function validateEnvAtBoot(): void {
 
   // M-1: Enforce 15m max per SECURITY.md §1
   const accessExpiresIn = process.env.ACCESS_EXPIRES_IN?.trim() || '15m';
-  const parsedMs = (() => {
-    if (/^\d+$/.test(accessExpiresIn)) {
-      const n = Number(accessExpiresIn);
-      return n >= 10000 ? n : n * 1000;
-    }
-    const m = accessExpiresIn.toLowerCase().match(/^(\d+)(s|m|h|d)$/);
-    if (!m) return NaN;
-    const mult: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-    return Number(m[1]) * (mult[m[2]] ?? 0);
-  })();
-  if (!Number.isNaN(parsedMs) && parsedMs > 15 * 60 * 1000) {
+  const parsedMs = parseDurationToMs(accessExpiresIn);
+  if (parsedMs === null) {
+    errors.push(`ACCESS_EXPIRES_IN has invalid format (got ${accessExpiresIn})`);
+  } else if (parsedMs > 15 * 60 * 1000) {
     errors.push(
       `ACCESS_EXPIRES_IN must be <=15m per SECURITY.md high-security mandate (got ${accessExpiresIn})`,
     );

@@ -43,6 +43,7 @@ export async function requestUploadUrl(
   originalName: string,
   contentType?: string,
   tenantId?: string,
+  contentLength?: number,
 ): Promise<UploadUrlResponse> {
   const resolvedTenantId = tenantId || (await resolveTenantId());
   return apiClient<UploadUrlResponse>(tenantPath(resolvedTenantId, 'files/upload-url'), {
@@ -51,6 +52,7 @@ export async function requestUploadUrl(
       location,
       originalName,
       contentType,
+      contentLength,
     }),
   });
 }
@@ -71,6 +73,8 @@ export async function uploadViaPresignedUrl(
     location,
     file.name,
     file.type || undefined,
+    undefined,
+    file.size,
   );
   await uploadFileToPresignedUrl(uploadUrl, file);
   return { fileName, fileKey };
@@ -80,8 +84,9 @@ export async function requestDocumentUploadUrl(
   originalName: string,
   contentType?: string,
   tenantId?: string,
+  contentLength?: number,
 ): Promise<UploadUrlResponse> {
-  return requestUploadUrl('documents', originalName, contentType, tenantId);
+  return requestUploadUrl('documents', originalName, contentType, tenantId, contentLength);
 }
 
 export async function uploadMemberAvatar(file: File) {
