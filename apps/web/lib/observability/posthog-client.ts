@@ -25,11 +25,6 @@ export function capturePageview(path?: string): void {
   posthog.capture('$pageview', path ? { $current_url: path } : undefined);
 }
 
-export function identifyUser(userId: string): void {
-  if (!initialized || !userId) return;
-  posthog.identify(userId);
-}
-
 export function captureClientEvent(
   event: string,
   properties?: Record<string, string | number | boolean>,

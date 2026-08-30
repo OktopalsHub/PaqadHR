@@ -14,6 +14,7 @@ import { TenantMemberMapper, TenantMemberResponseDto } from './dto/tenant-member
 import { UpdateMemberProfileDto } from './dto/update-member-profile.dto';
 import { UpdateTenantMemberDto } from './dto/update-tenant-member.dto';
 import { UpdateTenantMemberStatusDto } from './dto/update-tenant-member-status.dto';
+import { ManageEmployeeOrganizationGuard } from './guards/manage-employee-organization.guard';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { TenantMembersService } from './tenant-members.service';
 
@@ -139,8 +140,7 @@ export class TenantMembersController {
   }
 
   @Patch('/members/:memberId')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   @ApiOperation({
     summary: 'Update tenant member details',
     description: 'Update tenant member information such as department and reports to',
@@ -160,7 +160,7 @@ export class TenantMembersController {
       memberId,
       tenantId,
       updateDto,
-      actor.id,
+      actor,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }

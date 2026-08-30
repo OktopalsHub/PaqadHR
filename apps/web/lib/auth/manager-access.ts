@@ -5,6 +5,17 @@ export function isTenantAdmin(role?: string | null): boolean {
   return normalized === 'owner' || normalized === 'admin';
 }
 
+export const MANAGE_EMPLOYEE_ORGANIZATION_PERMISSION = 'manage_employee_organization';
+
+export function canManageEmployeeOrganization(
+  role?: string | null,
+  permissions?: string[] | null,
+): boolean {
+  return (
+    isTenantAdmin(role) || Boolean(permissions?.includes(MANAGE_EMPLOYEE_ORGANIZATION_PERMISSION))
+  );
+}
+
 export function canManageMember(
   viewerMemberId: string,
   targetMember: Pick<ApiTenantMember, 'id' | 'reportsToId'>,

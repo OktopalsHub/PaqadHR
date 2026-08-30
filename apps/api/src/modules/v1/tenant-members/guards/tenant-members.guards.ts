@@ -56,6 +56,7 @@ export class TenantMemberGuard implements CanActivate {
       id: member.id,
       role: member.role as TenantMemberRole,
       memberId: member.id,
+      permissions: member.permissions ?? [],
     };
 
     request.tenant = {
@@ -76,6 +77,7 @@ export class TenantMemberGuard implements CanActivate {
         id: member.id,
         role: member.role as TenantMemberRole,
         memberId: member.id,
+        permissions: member.permissions ?? [],
       },
     });
 

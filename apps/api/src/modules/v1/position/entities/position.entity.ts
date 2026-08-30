@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, OneToMany } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, ManyToOne, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import type { Employment } from '../../employment/entities/employment.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
@@ -18,6 +18,8 @@ export class Position extends BaseEntity {
   color?: string;
   @Column({ name: 'tenant_id' })
   tenantId: string;
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date | null;
   @ManyToOne(
     () => Tenant,
     (tenant) => tenant.positions,

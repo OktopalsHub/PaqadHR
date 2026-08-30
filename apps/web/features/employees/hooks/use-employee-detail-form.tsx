@@ -42,6 +42,9 @@ type EmployeeDetailFormOptions = {
   canEditPersonal?: boolean;
   isSelf?: boolean;
   isAdmin?: boolean;
+  canManageOrganization?: boolean;
+  canManagePermissions?: boolean;
+  canManageRole?: boolean;
 };
 
 export function useEmployeeDetailForm(
@@ -143,11 +146,12 @@ export function useEmployeeDetailForm(
         }
       }
 
-      if (options?.isAdmin) {
+      if (options?.canManageOrganization) {
         await updateEmployee(employee.id, {
-          role: employee.workspaceRole,
           departmentId: employee.departmentId || null,
           reportsToId: employee.reportsToId || null,
+          ...(options?.canManageRole ? { role: employee.workspaceRole } : {}),
+          ...(options?.canManagePermissions ? { permissions: employee.permissions } : {}),
         });
       }
 
@@ -278,6 +282,10 @@ export function useEmployeeDetailForm(
     educationDialogOpen,
     setEducationDialogOpen,
     handleInputChange,
+    handlePermissionsChange: (permissions: string[]) => {
+      setEmployee((prev) => ({ ...prev, permissions }));
+      setIsDirty(true);
+    },
     handleNestedInputChange,
     handleSaveChanges,
     handleAvatarUpdated: (avatarUrl: string) => {

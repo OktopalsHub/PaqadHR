@@ -52,6 +52,7 @@ export class HeaderTenantMemberGuard implements CanActivate {
       id: member.id,
       role: member.role as TenantMemberRole,
       memberId: member.id,
+      permissions: member.permissions ?? [],
     };
 
     tenantContext.updateContext({
@@ -65,6 +66,7 @@ export class HeaderTenantMemberGuard implements CanActivate {
         id: member.id,
         role: member.role as TenantMemberRole,
         memberId: member.id,
+        permissions: member.permissions ?? [],
       },
     });
 

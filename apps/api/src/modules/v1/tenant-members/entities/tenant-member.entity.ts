@@ -1,4 +1,4 @@
-import { Gender, TenantMemberRole } from 'src/common/enums';
+import { Gender, TenantMemberPermission, TenantMemberRole } from 'src/common/enums';
 import {
   Column,
   DeleteDateColumn,
@@ -60,6 +60,12 @@ export class TenantMember extends BaseEntity {
   identityNin: string | null;
   @Column({ default: TenantMemberRole.MEMBER })
   role: string;
+  @Column('varchar', {
+    name: 'permissions',
+    array: true,
+    default: () => "'{}'",
+  })
+  permissions: TenantMemberPermission[];
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
   @Column({ name: 'avatar_key', type: 'varchar', nullable: true })

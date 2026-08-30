@@ -1,4 +1,5 @@
 import { ProductAnalyticsService } from './product-analytics.service';
+import { pseudonymizeAnalyticsIdentifier } from './pseudonymize-analytics-identifier';
 import { sanitizeAnalyticsProperties } from './sanitize-analytics-properties';
 
 describe('sanitizeAnalyticsProperties', () => {
@@ -40,5 +41,13 @@ describe('ProductAnalyticsService', () => {
     expect(() => {
       service.capture('user-1', 'login_succeeded', { userId: 'user-1' });
     }).not.toThrow();
+  });
+
+  it('creates a stable pseudonymous identifier without retaining the raw ID', () => {
+    const identifier = pseudonymizeAnalyticsIdentifier('actor', 'user-123', 'test-salt');
+
+    expect(identifier).toMatch(/^actor_[a-f0-9]{64}$/);
+    expect(identifier).not.toContain('user-123');
+    expect(identifier).toBe(pseudonymizeAnalyticsIdentifier('actor', 'user-123', 'test-salt'));
   });
 });

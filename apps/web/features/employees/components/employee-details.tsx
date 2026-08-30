@@ -11,7 +11,7 @@ import { fetchMemberAddress } from '@/lib/api/address';
 import { fetchEducationRecords } from '@/lib/api/education';
 import { fetchEmergencyContacts } from '@/lib/api/emergency-contacts';
 import { fetchTenantMemberById, fetchTenantMembers } from '@/lib/api/employees';
-import { canManageMember } from '@/lib/auth/manager-access';
+import { canManageEmployeeOrganization, canManageMember } from '@/lib/auth/manager-access';
 import { formatDisplayName } from '@/lib/format-name';
 import type { ApiTenantMember } from '@/lib/mappers/employee';
 import { queryKeys } from '@/lib/query/keys';
@@ -99,9 +99,14 @@ function EmployeeDetailFormReady({
   const { tenant } = useTenant();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
+  const isOwner = role === 'owner';
+  const canManageOrganization = canManageEmployeeOrganization(
+    tenant?.member?.role,
+    tenant?.member?.permissions,
+  );
   const isSelf = tenant?.member?.id === memberId;
   const canEditPersonal = isSelf;
-  const canEditOrg = isAdmin;
+  const canEditOrg = canManageOrganization;
   const canEdit = canEditPersonal || canEditOrg;
   const memberTenantRole = member.role?.toLowerCase();
   const canManageStatus = isAdmin && !isSelf && memberTenantRole !== 'owner';
@@ -110,12 +115,21 @@ function EmployeeDetailFormReady({
   const form = useEmployeeDetailForm(
     member,
     { emergencyContacts, education, address },
-    { managerName, canEdit, canEditPersonal, isSelf, isAdmin },
+    {
+      managerName,
+      canEdit,
+      canEditPersonal,
+      isSelf,
+      isAdmin,
+      canManageOrganization,
+      canManagePermissions: isOwner,
+      canManageRole: isAdmin && !isSelf && memberTenantRole !== 'owner',
+    },
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-6">
+      <div className="flex flex-col gap-6 xl:flex-row">
         <EmployeeDetailSidebar
           employee={form.employee}
           memberId={memberId}
@@ -124,6 +138,7 @@ function EmployeeDetailFormReady({
           isAdmin={isAdmin}
           canManageStatus={canManageStatus}
           canManageRole={isAdmin && !isSelf && memberTenantRole !== 'owner'}
+          canManagePermissions={isOwner && !isSelf && memberTenantRole !== 'owner'}
           statusUpdatePending={statusMutation.isPending}
           isDirty={form.isDirty}
           isSaving={form.isSaving}
@@ -140,6 +155,7 @@ function EmployeeDetailFormReady({
             });
           }}
           onInputChange={form.handleInputChange}
+          onPermissionsChange={form.handlePermissionsChange}
           onAvatarUpdated={form.handleAvatarUpdated}
         />
         <EmployeeDetailTabs
@@ -147,6 +163,7 @@ function EmployeeDetailFormReady({
           memberId={memberId}
           viewerMemberId={tenant?.member?.id}
           isAdmin={isAdmin}
+          canManageOrganization={canManageOrganization}
           canEditPersonal={canEditPersonal}
         />
       </div>
@@ -185,6 +202,7 @@ function EmployeeDetailContent() {
   const isSelf = viewerMemberId === id;
   const canViewDetail =
     isSelf ||
+    canManageEmployeeOrganization(tenant?.member?.role, tenant?.member?.permissions) ||
     (Boolean(viewerMemberId && targetMember) &&
       canManageMember(viewerMemberId!, targetMember!, role));
 

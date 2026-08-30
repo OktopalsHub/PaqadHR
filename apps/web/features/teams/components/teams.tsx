@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDepartments } from '@/hooks/queries/use-departments';
-import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { canManageEmployeeOrganization } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
 import { CreateDepartmentDialog } from './create-department-dialog';
 import { DepartmentCard } from './department-card';
@@ -25,7 +25,10 @@ export const Teams = ({
   setCreateOpenExternal?: (open: boolean) => void;
 }) => {
   const { tenant } = useTenant();
-  const isAdmin = isTenantAdmin(tenant?.member?.role);
+  const canManageOrganization = canManageEmployeeOrganization(
+    tenant?.member?.role,
+    tenant?.member?.permissions,
+  );
   const [searchTerm, setSearchTerm] = useState('');
   const [createOpenInternal, setCreateOpenInternal] = useState(false);
   const createOpen = createOpenExternal !== undefined ? createOpenExternal : createOpenInternal;
@@ -64,7 +67,7 @@ export const Teams = ({
 
   return (
     <AppPage>
-      {!hidePageActions && isAdmin ? (
+      {!hidePageActions && canManageOrganization ? (
         <PageActions>
           <Button
             variant="brandSolid"
@@ -78,7 +81,9 @@ export const Teams = ({
         </PageActions>
       ) : null}
 
-      {isAdmin ? <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} /> : null}
+      {canManageOrganization ? (
+        <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
+      ) : null}
 
       {isError ? (
         <Alert variant="destructive">
@@ -123,7 +128,7 @@ export const Teams = ({
                   department={dept}
                   isExpanded={expandedDepts.includes(dept.id)}
                   onToggle={() => toggleDepartment(dept.id)}
-                  canManage={isAdmin}
+                  canManage={canManageOrganization}
                 />
               ))}
             </div>

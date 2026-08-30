@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PostHog } from 'posthog-node';
-import { getRequestCorrelationId } from './correlation-id.storage';
+import { pseudonymizeAnalyticsIdentifier } from './pseudonymize-analytics-identifier';
 import { sanitizeAnalyticsProperties } from './sanitize-analytics-properties';
 
 export type ProductAnalyticsContext = {
@@ -15,16 +15,20 @@ export type ProductAnalyticsContext = {
 export class ProductAnalyticsService implements OnModuleDestroy {
   private readonly logger = new Logger(ProductAnalyticsService.name);
   private readonly client: PostHog | null;
+  private readonly identifierSalt: string | null;
 
   constructor() {
     const apiKey = process.env.POSTHOG_API_KEY?.trim();
+    const identifierSalt = process.env.POSTHOG_IDENTIFIER_SALT?.trim();
     const host = process.env.POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
 
-    if (!apiKey) {
+    if (!apiKey || !identifierSalt) {
       this.client = null;
+      this.identifierSalt = null;
       return;
     }
 
+    this.identifierSalt = identifierSalt;
     this.client = new PostHog(apiKey, {
       host,
       flushAt: 1,
@@ -38,13 +42,15 @@ export class ProductAnalyticsService implements OnModuleDestroy {
     context: ProductAnalyticsContext = {},
     properties?: Record<string, unknown>,
   ): void {
-    if (!this.client || !distinctId) return;
+    const identifierSalt = this.identifierSalt;
+    if (!this.client || !distinctId || !identifierSalt) return;
 
     const merged = {
-      tenant_id: context.tenantId,
+      tenant_id: context.tenantId
+        ? pseudonymizeAnalyticsIdentifier('tenant', context.tenantId, identifierSalt)
+        : undefined,
       role: context.role,
       plan: context.plan,
-      correlation_id: context.correlationId ?? getRequestCorrelationId(),
       ...properties,
     };
 
@@ -53,7 +59,7 @@ export class ProductAnalyticsService implements OnModuleDestroy {
     setImmediate(() => {
       try {
         this.client?.capture({
-          distinctId,
+          distinctId: pseudonymizeAnalyticsIdentifier('actor', distinctId, identifierSalt),
           event,
           properties: sanitized,
         });
@@ -65,10 +71,13 @@ export class ProductAnalyticsService implements OnModuleDestroy {
   }
 
   identify(distinctId: string, context: ProductAnalyticsContext = {}): void {
-    if (!this.client || !distinctId) return;
+    const identifierSalt = this.identifierSalt;
+    if (!this.client || !distinctId || !identifierSalt) return;
 
     const properties = sanitizeAnalyticsProperties({
-      tenant_id: context.tenantId,
+      tenant_id: context.tenantId
+        ? pseudonymizeAnalyticsIdentifier('tenant', context.tenantId, identifierSalt)
+        : undefined,
       role: context.role,
       plan: context.plan,
     });
@@ -76,7 +85,7 @@ export class ProductAnalyticsService implements OnModuleDestroy {
     setImmediate(() => {
       try {
         this.client?.identify({
-          distinctId,
+          distinctId: pseudonymizeAnalyticsIdentifier('actor', distinctId, identifierSalt),
           properties,
         });
       } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { readTabParam, replaceTabInUrl } from '@/lib/navigation/tab-query';
 
 export function useUrlTab<T extends string>(
@@ -12,10 +12,13 @@ export function useUrlTab<T extends string>(
   const searchParams = useSearchParams();
   const search = searchParams.toString();
   const [activeTab, setActiveTab] = useState<T>(() => readTabParam(search, isValid, fallback));
+  const previousTab = useRef(activeTab);
+  const urlUpdateQueued = useRef(false);
 
   useEffect(() => {
     const onPopState = () => {
-      setActiveTab(readTabParam(window.location.search, isValid, fallback));
+      const tab = readTabParam(window.location.search, isValid, fallback);
+      setActiveTab(tab);
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
@@ -27,12 +30,17 @@ export function useUrlTab<T extends string>(
 
   const setTab = useCallback(
     (tab: T) => {
-      setActiveTab((previous) => {
-        replaceTabInUrl(pathname, tab, { previousTab: previous });
-        return tab;
+      if (tab === activeTab) return;
+      previousTab.current = activeTab;
+      setActiveTab(tab);
+      urlUpdateQueued.current = true;
+      queueMicrotask(() => {
+        if (!urlUpdateQueued.current) return;
+        replaceTabInUrl(pathname, tab, { previousTab: previousTab.current });
+        urlUpdateQueued.current = false;
       });
     },
-    [pathname],
+    [activeTab, pathname],
   );
 
   return [activeTab, setTab];

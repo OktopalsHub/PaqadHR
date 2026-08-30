@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Loader2, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -76,6 +77,7 @@ export function AddCalendarEventDialog({
   const [reminder, setReminder] = useState('none');
   const [type, setType] = useState('meeting');
   const [busy, setBusy] = useState(false);
+  const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
   const isEditing = Boolean(event);
 
   useEffect(() => {
@@ -121,24 +123,7 @@ export function AddCalendarEventDialog({
   };
 
   const handleSubmit = async () => {
-    if (!title.trim() || !startDate || !endDate) {
-      toast.error('Title and date are required');
-      return;
-    }
-    if (endDate < startDate) {
-      toast.error('End date cannot be before start date');
-      return;
-    }
-    if (!allDay && spanMode === 'single') {
-      if (!startTime || !endTime) {
-        toast.error('Start and end times are required');
-        return;
-      }
-      if (endTime <= startTime) {
-        toast.error('End time must be after start time');
-        return;
-      }
-    }
+    if (!validateForm()) return;
 
     const reminderOption = REMINDER_OPTIONS.find((item) => item.value === reminder);
 
@@ -184,6 +169,32 @@ export function AddCalendarEventDialog({
     }
   };
 
+  const validateForm = () => {
+    if (!title.trim() || !startDate || !endDate) {
+      toast.error('Title and date are required');
+      return false;
+    }
+    if (endDate < startDate) {
+      toast.error('End date cannot be before start date');
+      return false;
+    }
+    if (!allDay && spanMode === 'single') {
+      if (!startTime || !endTime) {
+        toast.error('Start and end times are required');
+        return false;
+      }
+      if (endTime <= startTime) {
+        toast.error('End time must be after start time');
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const requestSave = () => {
+    if (validateForm()) setSaveConfirmationOpen(true);
+  };
+
   const handleDelete = async () => {
     if (!event) return;
     setBusy(true);
@@ -200,191 +211,203 @@ export function AddCalendarEventDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit calendar event' : 'Add calendar event'}</DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{isEditing ? 'Edit calendar event' : 'Add calendar event'}</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Event type</Label>
-            <ToggleGroup
-              type="single"
-              value={spanMode}
-              onValueChange={handleSpanModeChange}
-              className="grid w-full grid-cols-2"
-            >
-              <ToggleGroupItem value="single" className="text-xs sm:text-sm">
-                Single day
-              </ToggleGroupItem>
-              <ToggleGroupItem value="range" className="text-xs sm:text-sm">
-                Date range
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="event-title">Title</Label>
-            <Input
-              id="event-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Team standup, offsite, etc."
-            />
-          </div>
-
-          {spanMode === 'single' ? (
+          <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="event-date">Date</Label>
+              <Label>Event type</Label>
+              <ToggleGroup
+                type="single"
+                value={spanMode}
+                onValueChange={handleSpanModeChange}
+                className="grid w-full grid-cols-2"
+              >
+                <ToggleGroupItem value="single" className="text-xs sm:text-sm">
+                  Single day
+                </ToggleGroupItem>
+                <ToggleGroupItem value="range" className="text-xs sm:text-sm">
+                  Date range
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="event-title">Title</Label>
               <Input
-                id="event-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => handleStartDateChange(e.target.value)}
+                id="event-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Team standup, offsite, etc."
               />
             </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+
+            {spanMode === 'single' ? (
               <div className="space-y-2">
-                <Label htmlFor="event-start-date">From</Label>
+                <Label htmlFor="event-date">Date</Label>
                 <Input
-                  id="event-start-date"
+                  id="event-date"
                   type="date"
                   value={startDate}
                   onChange={(e) => handleStartDateChange(e.target.value)}
                 />
               </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="event-start-date">From</Label>
+                  <Input
+                    id="event-start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-end-date">To</Label>
+                  <Input
+                    id="event-end-date"
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {spanMode === 'single' ? (
+              <div className="space-y-3 rounded-lg border border-border/60 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="all-day">All day</Label>
+                  </div>
+                  <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
+                </div>
+                {!allDay ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="start-time">Start time</Label>
+                      <Input
+                        id="start-time"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="end-time">End time</Label>
+                      <Input
+                        id="end-time"
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="event-end-date">To</Label>
-                <Input
-                  id="event-end-date"
-                  type="date"
-                  value={endDate}
-                  min={startDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                />
+                <Label>Category</Label>
+                <Select value={type} onValueChange={setType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="meeting">Meeting</SelectItem>
+                    <SelectItem value="all_hands">All hands</SelectItem>
+                    <SelectItem value="reminder">Reminder</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Reminder</Label>
+                <Select value={reminder} onValueChange={setReminder}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {REMINDER_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          )}
 
-          {spanMode === 'single' ? (
-            <div className="space-y-3 rounded-lg border border-border/60 p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <Label htmlFor="all-day">All day</Label>
-                </div>
-                <Switch id="all-day" checked={allDay} onCheckedChange={setAllDay} />
-              </div>
-              {!allDay ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="start-time">Start time</Label>
-                    <Input
-                      id="start-time"
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="end-time">End time</Label>
-                    <Input
-                      id="end-time"
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="meeting">Meeting</SelectItem>
-                  <SelectItem value="all_hands">All hands</SelectItem>
-                  <SelectItem value="reminder">Reminder</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Reminder</Label>
-              <Select value={reminder} onValueChange={setReminder}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {REMINDER_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="event-description">Description</Label>
+              <Textarea
+                id="event-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Optional notes for the team"
+              />
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="event-description">Description</Label>
-            <Textarea
-              id="event-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Optional notes for the team"
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
-          {event ? (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="mr-auto border-red-200 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this event?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently remove “{event.title}” from the calendar.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    disabled={busy}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => void handleDelete()}
-                  >
-                    Delete event
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : null}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button disabled={busy} onClick={handleSubmit}>
-            {busy ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
-            {isEditing ? 'Save changes' : 'Save event'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <DialogFooter>
+            {event ? (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="mr-auto">
+                    <Trash2 className="size-4" aria-hidden="true" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove “{event.title}” from the calendar.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      disabled={busy}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={() => void handleDelete()}
+                    >
+                      Delete event
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button disabled={busy} onClick={requestSave}>
+              {busy ? <Loader2 className="mr-1 size-4 animate-spin" /> : null}
+              {isEditing ? 'Save changes' : 'Save event'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <ConfirmActionDialog
+        open={saveConfirmationOpen}
+        onOpenChange={setSaveConfirmationOpen}
+        title={isEditing ? 'Save event changes?' : 'Create calendar event?'}
+        description={
+          isEditing
+            ? 'The updates to this calendar event will be saved.'
+            : 'This event will be added to the workspace calendar.'
+        }
+        actionLabel={isEditing ? 'Save changes' : 'Create event'}
+        isPending={busy}
+        onConfirm={() => void handleSubmit()}
+      />
+    </>
   );
 }

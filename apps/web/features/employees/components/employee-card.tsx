@@ -5,7 +5,7 @@ import { memo } from 'react';
 import { PersonAvatar } from '@/components/person-avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import { canManageMember } from '@/lib/auth/manager-access';
+import { canManageEmployeeOrganization, canManageMember } from '@/lib/auth/manager-access';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 
@@ -13,14 +13,19 @@ interface EmployeeCardsProps {
   employees: Employee[];
   viewerMemberId?: string;
   viewerRole?: string | null;
+  viewerPermissions?: string[];
 }
 
 export const EmployeeCards = memo(
-  ({ employees, viewerMemberId, viewerRole }: EmployeeCardsProps) => {
+  ({ employees, viewerMemberId, viewerRole, viewerPermissions }: EmployeeCardsProps) => {
     const tenantHref = useTenantHref();
 
     const canLinkToDetail = (employee: Employee) =>
-      Boolean(viewerMemberId && canManageMember(viewerMemberId, employee, viewerRole));
+      Boolean(
+        viewerMemberId &&
+          (canManageMember(viewerMemberId, employee, viewerRole) ||
+            canManageEmployeeOrganization(viewerRole, viewerPermissions)),
+      );
 
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1680px]:grid-cols-6">
@@ -82,7 +87,7 @@ export const EmployeeCards = memo(
                         Dept
                       </dt>
                       <dd className="min-w-0">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           {employee.department ? (
                             <span
                               className="size-1.5 shrink-0 rounded-full border border-black/10"

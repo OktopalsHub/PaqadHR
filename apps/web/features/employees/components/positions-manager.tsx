@@ -4,9 +4,20 @@ import { Edit, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { LoadingBlock } from '@/components/loading-block';
 import { PageActions } from '@/components/page-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   AppTable,
   AppTableBodyRow,
@@ -120,7 +131,12 @@ function PositionTable({
                     <Button variant="ghost" size="icon" onClick={() => onEdit(position)}>
                       <Edit className="size-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => void onDelete(position.id)}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => onDelete(position.id)}
+                    >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
                   </div>
@@ -157,6 +173,10 @@ export function PositionsManager({
   const setCreateOpen =
     setCreateOpenExternal !== undefined ? setCreateOpenExternal : setCreateOpenInternal;
   const [editingPosition, setEditingPosition] = useState<ApiPosition | null>(null);
+  const [positionPendingDeletion, setPositionPendingDeletion] = useState<ApiPosition | null>(null);
+  const [pendingPositionAction, setPendingPositionAction] = useState<'create' | 'update' | null>(
+    null,
+  );
 
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
@@ -168,6 +188,7 @@ export function PositionsManager({
     setFormDescription('');
     setFormIsActive('true');
     setSelectedColor(COLORS[0]);
+    setPendingPositionAction(null);
   };
 
   const openEdit = (position: ApiPosition) => {
@@ -178,12 +199,15 @@ export function PositionsManager({
     setEditingPosition(position);
   };
 
-  const handleCreate = async () => {
+  const requestCreate = () => {
     if (!formTitle.trim()) {
       toast.error('Position title is required');
       return;
     }
+    setPendingPositionAction('create');
+  };
 
+  const handleCreate = async () => {
     try {
       await createPosition.mutateAsync({
         title: formTitle.trim(),
@@ -199,13 +223,17 @@ export function PositionsManager({
     }
   };
 
-  const handleUpdate = async () => {
+  const requestUpdate = () => {
     if (!editingPosition) return;
     if (!formTitle.trim()) {
       toast.error('Position title is required');
       return;
     }
+    setPendingPositionAction('update');
+  };
 
+  const handleUpdate = async () => {
+    if (!editingPosition) return;
     try {
       await updatePosition.mutateAsync({
         id: editingPosition.id,
@@ -228,6 +256,7 @@ export function PositionsManager({
     try {
       await deletePosition.mutateAsync(id);
       toast.success('Position deleted');
+      setPositionPendingDeletion(null);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete position');
     }
@@ -356,7 +385,7 @@ export function PositionsManager({
             </DialogHeader>
             {formDialog}
             <DialogFooter>
-              <Button disabled={createPosition.isPending} onClick={() => void handleCreate()}>
+              <Button disabled={createPosition.isPending} onClick={requestCreate}>
                 {createPosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Create position
               </Button>
@@ -378,7 +407,11 @@ export function PositionsManager({
                 <PositionTable
                   positions={activePositions}
                   onEdit={openEdit}
-                  onDelete={handleDelete}
+                  onDelete={(id) =>
+                    setPositionPendingDeletion(
+                      positions.find((position) => position.id === id) ?? null,
+                    )
+                  }
                   canManage={isAdmin}
                 />
               ) : null}
@@ -391,7 +424,11 @@ export function PositionsManager({
                   <PositionTable
                     positions={inactivePositions}
                     onEdit={openEdit}
-                    onDelete={handleDelete}
+                    onDelete={(id) =>
+                      setPositionPendingDeletion(
+                        positions.find((position) => position.id === id) ?? null,
+                      )
+                    }
                     faded
                     canManage={isAdmin}
                   />
@@ -418,7 +455,7 @@ export function PositionsManager({
             </DialogHeader>
             {formDialog}
             <DialogFooter>
-              <Button disabled={updatePosition.isPending} onClick={() => void handleUpdate()}>
+              <Button disabled={updatePosition.isPending} onClick={requestUpdate}>
                 {updatePosition.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
                 Save changes
               </Button>
@@ -426,6 +463,47 @@ export function PositionsManager({
           </DialogContent>
         </Dialog>
       ) : null}
+      <ConfirmActionDialog
+        open={pendingPositionAction !== null}
+        onOpenChange={(open) => !open && setPendingPositionAction(null)}
+        title={pendingPositionAction === 'update' ? 'Save position changes?' : 'Create position?'}
+        description={
+          pendingPositionAction === 'update'
+            ? 'The changes to this position will be applied to your workspace.'
+            : `“${formTitle.trim()}” will be added to your workspace.`
+        }
+        actionLabel={pendingPositionAction === 'update' ? 'Save changes' : 'Create position'}
+        isPending={createPosition.isPending || updatePosition.isPending}
+        onConfirm={() => {
+          if (pendingPositionAction === 'create') void handleCreate();
+          if (pendingPositionAction === 'update') void handleUpdate();
+        }}
+      />
+      <AlertDialog
+        open={Boolean(positionPendingDeletion)}
+        onOpenChange={(open) => !open && setPositionPendingDeletion(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete position?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {positionPendingDeletion?.title} will no longer be available for assignment. Existing
+              position history remains unchanged.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() =>
+                positionPendingDeletion && void handleDelete(positionPendingDeletion.id)
+              }
+            >
+              Delete position
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

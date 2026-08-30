@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Teams } from '@/features/teams/components/teams';
 import { useDepartments } from '@/hooks/queries/use-departments';
 import { useEmployees } from '@/hooks/queries/use-employees';
+import { canManageEmployeeOrganization } from '@/lib/auth/manager-access';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 import { useEmployeeFilters } from '../hooks/';
@@ -40,6 +41,10 @@ export const EmployeeList = () => {
   const viewerMemberId = tenant?.member?.id;
   const adminRole = role?.toLowerCase();
   const isAdmin = adminRole === 'owner' || adminRole === 'admin';
+  const canManageOrganization = canManageEmployeeOrganization(
+    tenant?.member?.role,
+    tenant?.member?.permissions,
+  );
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: departments = [] } = useDepartments();
 
@@ -83,7 +88,7 @@ export const EmployeeList = () => {
           label: 'Invite',
           onClick: () => setInviteOpen(true),
         }
-      : activeTab === 'departments' && isAdmin
+      : activeTab === 'departments' && canManageOrganization
         ? {
             label: 'Add department',
             onClick: () => setCreateDeptOpen(true),
@@ -165,6 +170,7 @@ export const EmployeeList = () => {
                 employees={currentEmployees}
                 viewerMemberId={viewerMemberId}
                 viewerRole={role}
+                viewerPermissions={tenant?.member?.permissions}
               />
             ) : (
               <div className="p-4">
@@ -172,6 +178,7 @@ export const EmployeeList = () => {
                   employees={currentEmployees}
                   viewerMemberId={viewerMemberId}
                   viewerRole={role}
+                  viewerPermissions={tenant?.member?.permissions}
                 />
               </div>
             )}

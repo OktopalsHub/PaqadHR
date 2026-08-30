@@ -121,6 +121,7 @@ export class TenantsController {
             : undefined,
           gender: tenant.membership!.gender || undefined,
           role: tenant.membership!.role,
+          permissions: tenant.membership!.permissions ?? [],
           employeeNumber: tenant.membership!.employeeNumber || undefined,
           isActive: tenant.membership!.isActive,
           joinDate: tenant.membership!.joinDate.toISOString(),

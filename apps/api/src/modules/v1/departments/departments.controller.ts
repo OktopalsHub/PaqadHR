@@ -11,15 +11,16 @@ import {
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
-import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
-import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { CreateTeamDto } from '../teams/dto/create-team.dto';
 import { TeamsService } from '../teams/teams.service';
+import { ManageEmployeeOrganizationGuard } from '../tenant-members/guards/manage-employee-organization.guard';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DepartmentsService } from './departments.service';
+import { AddDepartmentMemberDto } from './dto/add-department-member.dto';
+import { AssignDepartmentManagerDto } from './dto/assign-department-manager.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department-response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -63,8 +64,7 @@ export class DepartmentsController {
     return this.departmentsService.getDepartment(tenantId, id);
   }
   @Post()
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async createDepartment(
     @Param('tenantId') tenantId: string,
     @Body() dto: CreateDepartmentDto,
@@ -73,8 +73,7 @@ export class DepartmentsController {
     return this.departmentsService.createDepartment(tenantId, member.id, dto);
   }
   @Patch(':id')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async updateDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -84,8 +83,7 @@ export class DepartmentsController {
     return this.departmentsService.updateDepartment(tenantId, id, dto, member.id);
   }
   @Delete(':id')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async deleteDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -98,8 +96,7 @@ export class DepartmentsController {
     return this.teamsService.getTeams(tenantId, { departmentId: id });
   }
   @Post(':id/teams')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async createDepartmentTeam(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
@@ -112,12 +109,11 @@ export class DepartmentsController {
     });
   }
   @Patch(':id/manager')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async assignDepartmentManager(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { managerId: string },
+    @Body() dto: AssignDepartmentManagerDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.departmentsService.updateDepartment(
@@ -128,19 +124,17 @@ export class DepartmentsController {
     );
   }
   @Post(':id/members')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async addMemberToDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { memberId: string },
+    @Body() dto: AddDepartmentMemberDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId, member.id);
   }
   @Delete(':id/members/:memberId')
-  @UseGuards(TenantRoleGuard)
-  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  @UseGuards(ManageEmployeeOrganizationGuard)
   async removeMemberFromDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,

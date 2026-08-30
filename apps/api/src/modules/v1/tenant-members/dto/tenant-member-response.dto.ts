@@ -49,6 +49,8 @@ export class TenantMemberResponseDto {
   employeeNumber?: string;
   @ApiProperty({ description: 'Member role' })
   role: string;
+  @ApiProperty({ description: 'Fine-grained member permissions', type: [String] })
+  permissions: string[];
   @ApiProperty({ description: 'Whether member is active' })
   isActive: boolean;
   @ApiProperty({ description: 'Avatar storage key', required: false })
@@ -109,6 +111,7 @@ export class TenantMemberMapper {
       gender: member.gender ?? undefined,
       employeeNumber: member.employeeNumber ?? undefined,
       role: member.role,
+      permissions: member.permissions ?? [],
       isActive: member.isActive,
       avatarKey: member.avatarKey ?? undefined,
       joinDate: member.joinDate,

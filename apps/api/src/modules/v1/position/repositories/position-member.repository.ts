@@ -39,10 +39,14 @@ export class PositionMemberRepository extends Repository<PositionMember> {
     return this.positionMemberRepository.save(assignment);
   }
   async getPositionHistory(tenantId: string, tenantMemberId: string): Promise<PositionMember[]> {
-    return this.positionMemberRepository.find({
-      where: { tenantMemberId },
-      relations: ['position'],
-      order: { assignedAt: 'DESC' },
-    });
+    return this.positionMemberRepository
+      .createQueryBuilder('assignment')
+      .innerJoinAndSelect('assignment.member', 'member')
+      .innerJoinAndSelect('assignment.position', 'position')
+      .where('assignment.tenantMemberId = :tenantMemberId', { tenantMemberId })
+      .andWhere('member.tenantId = :tenantId', { tenantId })
+      .andWhere('position.tenantId = :tenantId', { tenantId })
+      .orderBy('assignment.assignedAt', 'DESC')
+      .getMany();
   }
 }

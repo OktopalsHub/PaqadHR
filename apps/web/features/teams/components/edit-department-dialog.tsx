@@ -3,6 +3,7 @@
 import { Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useDeleteDepartment, useUpdateDepartment } from '@/hooks/queries/use-departments';
 import type { Department } from '@/lib/schemas/department';
 
@@ -45,19 +47,25 @@ export function EditDepartmentDialog({
   const [description, setDescription] = useState(department.description ?? '');
   const [selectedColor, setSelectedColor] = useState(department.color ?? COLORS[0]);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
 
   const reset = () => {
     setName(department.name);
     setDescription(department.description ?? '');
     setSelectedColor(department.color ?? COLORS[0]);
     setConfirmDelete(false);
+    setSaveConfirmationOpen(false);
   };
 
-  const handleSave = async () => {
+  const requestSave = () => {
     if (name.trim().length < 2) {
       toast.error('Department name must be at least 2 characters');
       return;
     }
+    setSaveConfirmationOpen(true);
+  };
+
+  const handleSave = async () => {
     try {
       await updateDepartment.mutateAsync({
         id: department.id,
@@ -178,17 +186,22 @@ export function EditDepartmentDialog({
                 <Trash2 className="mr-1.5 size-3.5" />
                 Delete
               </Button>
-              <Button
-                type="button"
-                disabled={updateDepartment.isPending}
-                onClick={() => void handleSave()}
-              >
+              <Button type="button" disabled={updateDepartment.isPending} onClick={requestSave}>
                 {updateDepartment.isPending ? 'Saving…' : 'Save changes'}
               </Button>
             </DialogFooter>
           </div>
         )}
       </DialogContent>
+      <ConfirmActionDialog
+        open={saveConfirmationOpen}
+        onOpenChange={setSaveConfirmationOpen}
+        title="Save department changes?"
+        description={`The updates to “${department.name}” will be applied to your workspace.`}
+        actionLabel="Save changes"
+        isPending={updateDepartment.isPending}
+        onConfirm={() => void handleSave()}
+      />
     </Dialog>
   );
 }
@@ -201,18 +214,23 @@ export function DepartmentEditButton({ department }: DepartmentActionsProps) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-7 shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-        aria-label="Edit department"
-      >
-        <Pencil className="size-3.5" />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(true);
+            }}
+            aria-label="Edit department"
+          >
+            <Pencil className="size-3.5" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="top">Edit department</TooltipContent>
+      </Tooltip>
       <EditDepartmentDialog department={department} open={open} onOpenChange={setOpen} />
     </>
   );

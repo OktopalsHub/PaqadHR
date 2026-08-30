@@ -13,7 +13,7 @@ import {
   AppTableHeaderSection,
 } from '@/components/ui/app-table';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import { canManageMember } from '@/lib/auth/manager-access';
+import { canManageEmployeeOrganization, canManageMember } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
@@ -22,15 +22,20 @@ interface EmployeeTableProps {
   employees: Employee[];
   viewerMemberId?: string;
   viewerRole?: string | null;
+  viewerPermissions?: string[];
 }
 
 export const EmployeeTable = memo(
-  ({ employees, viewerMemberId, viewerRole }: EmployeeTableProps) => {
+  ({ employees, viewerMemberId, viewerRole, viewerPermissions }: EmployeeTableProps) => {
     const tenantHref = useTenantHref();
     const { tenant } = useTenant();
 
     const canLinkToDetail = (employee: Employee) =>
-      Boolean(viewerMemberId && canManageMember(viewerMemberId, employee, viewerRole));
+      Boolean(
+        viewerMemberId &&
+          (canManageMember(viewerMemberId, employee, viewerRole) ||
+            canManageEmployeeOrganization(viewerRole, viewerPermissions)),
+      );
 
     const getEmployeeId = (employee: Employee) => {
       if (!employee.employeeNumber) return '—';

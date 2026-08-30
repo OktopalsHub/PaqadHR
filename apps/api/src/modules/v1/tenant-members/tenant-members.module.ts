@@ -21,6 +21,7 @@ import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantCounter } from './entities/tenant-counter.entity';
 import { TenantMember } from './entities/tenant-member.entity';
 import { HeaderTenantMemberGuard } from './guards/header-tenant-member.guard';
+import { ManageEmployeeOrganizationGuard } from './guards/manage-employee-organization.guard';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { PublicTenantMembersController } from './public-tenant-members.controller';
 import { TenantCounterRepository } from './repositories/tenant-counter.repository';
@@ -60,7 +61,14 @@ import { TenantMembersService } from './tenant-members.service';
     TenantCounterRepository,
     TenantMemberGuard,
     HeaderTenantMemberGuard,
+    ManageEmployeeOrganizationGuard,
   ],
-  exports: [TenantMembersService, TenantMemberGuard, HeaderTenantMemberGuard, TypeOrmModule],
+  exports: [
+    TenantMembersService,
+    TenantMemberGuard,
+    HeaderTenantMemberGuard,
+    ManageEmployeeOrganizationGuard,
+    TypeOrmModule,
+  ],
 })
 export class TenantMembersModule {}
