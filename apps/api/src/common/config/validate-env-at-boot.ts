@@ -288,10 +288,16 @@ export function validateEnvAtBoot(): void {
     );
   }
 
-  // M-4: In-memory rate limits — single-instance only (no Redis required)
+  // M-4: In-memory rate limits — single process only (no Redis required)
+  const pm2Instances = Number(process.env.instances ?? process.env.PM2_INSTANCES ?? 1);
+  if (isProduction && pm2Instances > 1) {
+    errors.push(
+      `PM2 is running ${pm2Instances} workers — in-memory rate limits are per-process and security thresholds multiply. Use pm2 -i 1 (see apps/api/Dockerfile).`,
+    );
+  }
   if (isProduction) {
     warnings.push(
-      'Using in-memory rate limits — safe for single-instance deployments only, not multi-pod',
+      'Using in-memory rate limits — requires single PM2 worker (-i 1) and single container; not safe for horizontal scale',
     );
   }
 

@@ -29,7 +29,9 @@ export class RateLimitService implements OnModuleDestroy {
       namespace: 'lockout',
       enforcePiiTtlCap: false,
     });
-    this.logger.log('Rate limits using in-memory LRU cache (single-instance)');
+    this.logger.log(
+      'Rate limits using in-memory LRU cache — requires single PM2 worker (-i 1) without Redis',
+    );
   }
 
   onModuleDestroy(): void {

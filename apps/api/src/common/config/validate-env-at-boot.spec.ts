@@ -141,4 +141,9 @@ describe('validateEnvAtBoot', () => {
     withEnv({});
     expect(() => validateEnvAtBoot()).not.toThrow();
   });
+
+  it('fails when PM2 runs multiple workers in production', () => {
+    withEnv({ instances: '4' });
+    expect(() => validateEnvAtBoot()).toThrow(/PM2 is running 4 workers/);
+  });
 });
