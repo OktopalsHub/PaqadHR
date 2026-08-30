@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { CreditCard, Loader2, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
@@ -36,11 +36,12 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const isWelcome = searchParams.get('welcome') === '1';
   const isMarketing = variant === 'marketing';
 
+  const billingParam = searchParams.get('billing');
   useEffect(() => {
-    if (searchParams.get('billing') === 'success') {
+    if (billingParam === 'success') {
       toast.success('Payment received. Welcome back!');
     }
-  }, [searchParams]);
+  }, [billingParam]);
 
   useEffect(() => {
     if (overview?.subscription?.plan) {
@@ -49,6 +50,12 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   }, [overview?.subscription?.plan]);
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
+
+  const pageShell = useCallback(
+    (content: ReactNode) =>
+      isMarketing ? <div className="space-y-8">{content}</div> : <AppPage>{content}</AppPage>,
+    [isMarketing],
+  );
 
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
@@ -107,9 +114,6 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const isOnTrial = overview.subscription?.isOnTrial && overview.entitled && !overview.needsPayment;
   const canStartTrial = overview.trialEligible !== false;
 
-  const pageShell = (content: ReactNode) =>
-    isMarketing ? <div className="space-y-8">{content}</div> : <AppPage>{content}</AppPage>;
-
   if (showTrialWelcome) {
     return pageShell(
       <div className="w-full space-y-8 py-4">
@@ -133,7 +137,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
               ? `You have ${overview.subscription?.daysRemaining ?? 14} days left on your free trial. Pick a plan or continue to your workspace.`
               : canStartTrial
                 ? 'Start with 14 days free on any plan. No card required.'
-                : 'Your free trial was used on another workspace. Subscribe to activate this one.'}
+                : 'Your free trial was used on another workspace. Subscribe to activate this workspace.'}
           </p>
         </div>
 

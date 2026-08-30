@@ -1,7 +1,8 @@
 'use client';
 
+import { useMutation } from '@tanstack/react-query';
 import { Banknote, CheckCircle2, Loader2, Pencil, Send, ShieldCheck, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BankLogo } from '@/components/bank-logo';
 import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
@@ -32,6 +33,7 @@ import {
   useSupportedPaymentCurrencies,
   useUpdatePaymentMethod,
 } from '@/hooks/queries/use-payment-methods';
+import { useDebounce } from '@/hooks/use-debounce';
 import { lookupNigerianBankAccount } from '@/lib/api/payment-methods';
 import {
   getPayoutFieldConfig,
@@ -41,6 +43,7 @@ import {
   validateGlobalBankFields,
 } from '@/lib/payout-bank-fields';
 import type { PaymentMethodSummary } from '@/lib/schemas/payment-method';
+import { useTenant } from '@/providers/tenant-provider';
 
 const COUNTRY_BY_CURRENCY: Record<string, string> = {
   NGN: 'NG',
@@ -336,6 +339,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 }
 
 export function PaymentSettingsSection() {
+  const { tenantId } = useTenant();
   const { data: methods = [], isLoading, isError, error } = usePaymentMethods();
   const { data: passcodeStatus } = usePaymentPasscodeStatus();
   const { data: currencies, refetch: refetchCurrencies } = useSupportedPaymentCurrencies();
@@ -351,10 +355,6 @@ export function PaymentSettingsSection() {
   const [institutionCode, setInstitutionCode] = useState('');
   const [passcode, setPasscode] = useState('');
   const [isPrimary, setIsPrimary] = useState(true);
-  const [lookupVerified, setLookupVerified] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [lookupPending, setLookupPending] = useState(false);
-  const [lookupUnavailable, setLookupUnavailable] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
   const [currentPasscode, setCurrentPasscode] = useState('');
   const [newPasscode, setNewPasscode] = useState('');
@@ -398,10 +398,6 @@ export function PaymentSettingsSection() {
     setAccountNumber('');
     setWalletAddress('');
     setCryptoNetwork('');
-    setLookupVerified(false);
-    setLookupError(null);
-    setLookupPending(false);
-    setLookupUnavailable(false);
     setIsPrimary(!hasPrimaryForCurrency);
   }, [hasPrimaryForCurrency]);
 
@@ -426,71 +422,110 @@ export function PaymentSettingsSection() {
     [banks],
   );
 
+  // Bank account lookup via mutation + debounce (PII-safe: no cache, no key leakage, SECURITY.md §5)
+  const normalizedAccount = accountNumber.replace(/\D/g, '');
+  const debouncedAccount = useDebounce(normalizedAccount, 500);
+  const debouncedBankCode = useDebounce(bankCode, 500);
+  const selectedBankNameForLookup = banks.find((bank) => bank.code === debouncedBankCode)?.name;
+  const bankLookupEnabled =
+    isNgn &&
+    openForm &&
+    debouncedAccount.length === 10 &&
+    Boolean(debouncedBankCode) &&
+    Boolean(tenantId);
+
+  const bankLookupMutation = useMutation({
+    mutationFn: (vars: { accountNumber: string; bankCode: string; bankName?: string }) =>
+      lookupNigerianBankAccount(vars),
+  });
+  const bankLookupRequestRef = useRef(0);
+
   useEffect(() => {
-    if (!isNgn) {
-      setLookupVerified(false);
-      setLookupError(null);
-      setLookupPending(false);
-      setLookupUnavailable(false);
+    if (!bankLookupEnabled) {
+      bankLookupMutation.reset();
       return;
     }
+    const requestId = ++bankLookupRequestRef.current;
+    bankLookupMutation.mutate(
+      {
+        accountNumber: debouncedAccount,
+        bankCode: debouncedBankCode,
+        bankName: selectedBankNameForLookup,
+      },
+      {
+        onSuccess: (data) => {
+          if (requestId !== bankLookupRequestRef.current) return;
+          if (data.accountNumber !== debouncedAccount || data.bankCode !== debouncedBankCode) {
+            return;
+          }
+          setAccountName(data.accountName);
+          setBankName(data.bankName);
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debouncedAccount,
+    debouncedBankCode,
+    bankLookupEnabled,
+    selectedBankNameForLookup,
+    bankLookupMutation.reset,
+    bankLookupMutation.mutate,
+  ]);
 
+  const isDebouncingLookup =
+    debouncedAccount !== normalizedAccount || debouncedBankCode !== bankCode;
+  const shouldShowLookupPending =
+    isNgn && openForm && normalizedAccount.length === 10 && Boolean(bankCode);
+  const lookupPending =
+    shouldShowLookupPending && (isDebouncingLookup || bankLookupMutation.isPending);
+  const lookupVerified =
+    !isDebouncingLookup &&
+    bankLookupMutation.isSuccess &&
+    Boolean(bankLookupMutation.data?.accountName) &&
+    bankLookupMutation.data.accountNumber === normalizedAccount &&
+    bankLookupMutation.data.bankCode === bankCode;
+  const rawLookupError = bankLookupMutation.error
+    ? bankLookupMutation.error instanceof Error
+      ? bankLookupMutation.error.message
+      : 'Could not verify account'
+    : null;
+  const lookupErrorStatus =
+    bankLookupMutation.error &&
+    typeof bankLookupMutation.error === 'object' &&
+    'status' in bankLookupMutation.error
+      ? Number((bankLookupMutation.error as { status: number }).status)
+      : 0;
+  const lookupUnavailable = Boolean(
+    rawLookupError &&
+      (lookupErrorStatus === 503 ||
+        /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
+          rawLookupError,
+        )),
+  );
+  const lookupError = lookupUnavailable
+    ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
+    : rawLookupError;
+
+  // Clear account name when inputs become invalid, verification fails, or live fields diverge during debounce
+  useEffect(() => {
+    if (!isNgn) return;
     const normalized = accountNumber.replace(/\D/g, '');
-    if (normalized.length !== 10 || !bankCode) {
-      setLookupVerified(false);
-      setLookupError(null);
-      setLookupPending(false);
-      if (!lookupUnavailable) {
-        setAccountName('');
-      }
+    if (normalized.length !== 10 || !bankCode || (isDebouncingLookup && !lookupUnavailable)) {
+      if (!lookupUnavailable) setAccountName('');
       return;
     }
-
-    let cancelled = false;
-    setLookupPending(true);
-    const timer = window.setTimeout(async () => {
-      try {
-        const selectedBank = banks.find((bank) => bank.code === bankCode);
-        const result = await lookupNigerianBankAccount({
-          accountNumber: normalized,
-          bankCode,
-          bankName: selectedBank?.name,
-        });
-        if (cancelled) return;
-        setAccountName(result.accountName);
-        setBankName(result.bankName);
-        setLookupVerified(true);
-        setLookupError(null);
-        setLookupUnavailable(false);
-      } catch (err) {
-        if (cancelled) return;
-        const status = typeof err === 'object' && err && 'status' in err ? Number(err.status) : 0;
-        const message = err instanceof Error ? err.message : 'Could not verify account';
-        const unavailable =
-          status === 503 ||
-          /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
-            message,
-          );
-        setLookupVerified(false);
-        setLookupUnavailable(unavailable);
-        setLookupError(
-          unavailable
-            ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
-            : message,
-        );
-        if (!unavailable) {
-          setAccountName('');
-        }
-      } finally {
-        if (!cancelled) setLookupPending(false);
-      }
-    }, 500);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [accountNumber, bankCode, banks, isNgn, lookupUnavailable]);
+    if (bankLookupMutation.isError && !lookupUnavailable) {
+      setAccountName('');
+    }
+  }, [
+    accountNumber,
+    bankCode,
+    isNgn,
+    lookupUnavailable,
+    isDebouncingLookup,
+    bankLookupMutation.isError,
+  ]);
 
   const handleSubmit = () => {
     if (isCrypto) {
@@ -509,6 +544,10 @@ export function PaymentSettingsSection() {
       }
       if (accountNumber.replace(/\D/g, '').length !== 10) {
         toast.error('Enter a valid 10-digit Naira account number');
+        return;
+      }
+      if (lookupPending && !lookupUnavailable) {
+        toast.error('Waiting for account verification…');
         return;
       }
       if (!lookupVerified && !accountName.trim()) {
@@ -584,10 +623,6 @@ export function PaymentSettingsSection() {
       setWalletAddress('');
       setCryptoNetwork('');
       setPasscode('');
-      setLookupVerified(false);
-      setLookupError(null);
-      setLookupPending(false);
-      setLookupUnavailable(false);
       toast.success(
         lookupVerified || isCrypto
           ? 'Payment settings saved.'

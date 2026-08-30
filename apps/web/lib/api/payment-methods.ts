@@ -95,15 +95,19 @@ export async function fetchNigerianBanks(): Promise<NigerianBank[]> {
   return result.banks;
 }
 
-export async function lookupNigerianBankAccount(input: {
-  accountNumber: string;
-  bankCode: string;
-  bankName?: string;
-}): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
+export async function lookupNigerianBankAccount(
+  input: {
+    accountNumber: string;
+    bankCode: string;
+    bankName?: string;
+  },
+  signal?: AbortSignal,
+): Promise<{ accountNumber: string; accountName: string; bankCode: string; bankName: string }> {
   const tenantId = await resolveTenantId();
   return apiClient(tenantPath(tenantId, 'payment-methods/bank-lookup'), {
     method: 'POST',
     body: JSON.stringify(input),
+    signal,
   });
 }
 

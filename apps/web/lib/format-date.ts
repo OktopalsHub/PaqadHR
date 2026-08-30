@@ -1,12 +1,9 @@
-import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
+import { format } from 'date-fns';
 
-dayjs.extend(utc);
-
-export function formatDate(value: string | Date, pattern = 'MMM D, YYYY'): string {
-  return dayjs(value).format(pattern);
+export function formatDate(value: string | Date, pattern = 'MMM d, yyyy'): string {
+  return format(typeof value === 'string' ? new Date(value) : value, pattern);
 }
 
-export function formatDateTime(value: string | Date, pattern = 'MMM D, YYYY h:mm A'): string {
-  return dayjs(value).format(pattern);
+export function formatDateTime(value: string | Date, pattern = 'MMM d, yyyy h:mm a'): string {
+  return format(typeof value === 'string' ? new Date(value) : value, pattern);
 }

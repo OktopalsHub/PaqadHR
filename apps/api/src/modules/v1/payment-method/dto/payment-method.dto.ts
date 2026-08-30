@@ -1,20 +1,47 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
   IsIn,
   IsNotEmpty,
-  IsObject,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
   MinLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import { PaymentMethodType } from 'src/common/enums';
 import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
+
+// M-5: Strict metadata allow-list to prevent mass-assignment / stored XSS (API3)
+export class PaymentMethodMetadataDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  walletAddress?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  cryptoNetwork?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  bankName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  bankCode?: string;
+
+  // Allow index for service compatibility (Record<string, unknown> assignable) — extra keys stripped by whitelist
+  [key: string]: unknown;
+}
 
 export class CreatePaymentMethodDto {
   @ApiProperty({
@@ -146,10 +173,12 @@ export class CreatePaymentMethodDto {
   @ApiProperty({
     description: 'Additional metadata',
     required: false,
+    type: PaymentMethodMetadataDto,
   })
   @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
+  @ValidateNested()
+  @Type(() => PaymentMethodMetadataDto)
+  metadata?: PaymentMethodMetadataDto;
 }
 export class UpdatePaymentMethodDto {
   @ApiProperty({
@@ -232,10 +261,12 @@ export class UpdatePaymentMethodDto {
   @ApiProperty({
     description: 'Additional metadata',
     required: false,
+    type: PaymentMethodMetadataDto,
   })
   @IsOptional()
-  @IsObject()
-  metadata?: Record<string, unknown>;
+  @ValidateNested()
+  @Type(() => PaymentMethodMetadataDto)
+  metadata?: PaymentMethodMetadataDto;
 }
 
 export class PasscodeChangeDto {
@@ -312,4 +343,23 @@ export class SwitchPaymentTypeDto {
   @IsString()
   @Matches(/^\d{6}$/, { message: 'Passcode must be exactly 6 digits' })
   passcode: string;
+}
+
+export class BankLookupDto {
+  @ApiProperty({ description: '10-digit account number', example: '0123456789' })
+  @IsString()
+  @Matches(/^\d{10}$/, { message: 'Account number must be exactly 10 digits' })
+  accountNumber!: string;
+
+  @ApiProperty({ description: 'Bank code', example: '058' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  bankCode!: string;
+
+  @ApiProperty({ description: 'Bank name', required: false })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  bankName?: string;
 }
