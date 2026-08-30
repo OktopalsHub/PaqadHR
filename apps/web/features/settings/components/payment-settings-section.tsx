@@ -2,7 +2,7 @@
 
 import { useMutation } from '@tanstack/react-query';
 import { Banknote, CheckCircle2, Loader2, Pencil, Send, ShieldCheck, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BankLogo } from '@/components/bank-logo';
 import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
@@ -438,17 +438,31 @@ export function PaymentSettingsSection() {
     mutationFn: (vars: { accountNumber: string; bankCode: string; bankName?: string }) =>
       lookupNigerianBankAccount(vars),
   });
+  const bankLookupRequestRef = useRef(0);
 
   useEffect(() => {
-    if (bankLookupEnabled) {
-      bankLookupMutation.mutate({
+    if (!bankLookupEnabled) {
+      bankLookupMutation.reset();
+      return;
+    }
+    const requestId = ++bankLookupRequestRef.current;
+    bankLookupMutation.mutate(
+      {
         accountNumber: debouncedAccount,
         bankCode: debouncedBankCode,
         bankName: selectedBankNameForLookup,
-      });
-    } else {
-      bankLookupMutation.reset();
-    }
+      },
+      {
+        onSuccess: (data) => {
+          if (requestId !== bankLookupRequestRef.current) return;
+          if (data.accountNumber !== debouncedAccount || data.bankCode !== debouncedBankCode) {
+            return;
+          }
+          setAccountName(data.accountName);
+          setBankName(data.bankName);
+        },
+      },
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     debouncedAccount,
@@ -466,7 +480,10 @@ export function PaymentSettingsSection() {
   const lookupPending =
     shouldShowLookupPending && (isDebouncingLookup || bankLookupMutation.isPending);
   const lookupVerified =
-    bankLookupMutation.isSuccess && Boolean(bankLookupMutation.data?.accountName);
+    bankLookupMutation.isSuccess &&
+    Boolean(bankLookupMutation.data?.accountName) &&
+    bankLookupMutation.data.accountNumber === debouncedAccount &&
+    bankLookupMutation.data.bankCode === debouncedBankCode;
   const rawLookupError = bankLookupMutation.error
     ? bankLookupMutation.error instanceof Error
       ? bankLookupMutation.error.message
@@ -488,14 +505,6 @@ export function PaymentSettingsSection() {
   const lookupError = lookupUnavailable
     ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
     : rawLookupError;
-
-  // Sync verified lookup result into editable draft (intentional)
-  useEffect(() => {
-    if (bankLookupMutation.data?.accountName) {
-      setAccountName(bankLookupMutation.data.accountName);
-      setBankName(bankLookupMutation.data.bankName);
-    }
-  }, [bankLookupMutation.data]);
 
   // Clear account name when inputs become invalid or verification fails (non-unavailable) — mirrors original effect
   useEffect(() => {

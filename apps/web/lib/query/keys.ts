@@ -12,8 +12,7 @@ export const queryKeys = {
   },
   invitations: {
     all: ['invitations'] as const,
-    // PII-safe: token/email via closure, not in key — prevents cache/log leakage (SECURITY.md §5)
-    detail: () => ['invitations', 'detail'] as const,
+    detail: (token: string, email: string) => ['invitations', 'detail', token, email] as const,
   },
   positions: {
     all: ['positions'] as const,

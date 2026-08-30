@@ -15,6 +15,8 @@ export interface InMemoryCacheOptions {
   defaultTtlMs?: number; // default 5m
   cleanupIntervalMs?: number; // default 60s
   namespace?: string;
+  /** When true (default), cap TTL at 5m for PII safety. Disable for rate-limit/lockout stores. */
+  enforcePiiTtlCap?: boolean;
 }
 
 export interface CacheStats {
@@ -42,6 +44,7 @@ export class InMemoryCacheService implements OnModuleDestroy {
   private readonly maxMemoryBytes: number;
   private readonly defaultTtlMs: number;
   private readonly namespace: string;
+  private readonly enforcePiiTtlCap: boolean;
   private hits = 0;
   private misses = 0;
   private evictions = 0;
@@ -54,6 +57,7 @@ export class InMemoryCacheService implements OnModuleDestroy {
     this.maxMemoryBytes = options?.maxMemoryBytes ?? 50 * 1024 * 1024; // 50MB
     this.defaultTtlMs = options?.defaultTtlMs ?? 5 * 60 * 1000;
     this.namespace = options?.namespace ?? 'default';
+    this.enforcePiiTtlCap = options?.enforcePiiTtlCap ?? true;
     const interval = options?.cleanupIntervalMs ?? 60 * 1000;
     if (interval > 0) {
       this.cleanupTimer = setInterval(() => this.evictExpired(), interval);
@@ -117,8 +121,7 @@ export class InMemoryCacheService implements OnModuleDestroy {
 
   set<T>(key: string, value: T, ttlMs?: number, tenantId?: string): void {
     const ttl = ttlMs ?? this.defaultTtlMs;
-    // Enforce MAX_CACHE_TTL for PII safety (SECURITY.md §5) — callers with longer TTL get capped
-    const effectiveTtl = Math.min(ttl, 5 * 60 * 1000);
+    const effectiveTtl = this.enforcePiiTtlCap ? Math.min(ttl, 5 * 60 * 1000) : ttl;
     const size = this.estimateSize(value);
     const existing = this.store.get(key);
     if (existing) this.memoryBytes -= existing.size;

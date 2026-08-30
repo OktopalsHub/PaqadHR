@@ -36,7 +36,7 @@ export function AcceptInvitePage() {
   const queryClient = useQueryClient();
 
   const invitationQuery = useQuery({
-    queryKey: queryKeys.invitations.detail(),
+    queryKey: queryKeys.invitations.detail(token, email),
     queryFn: ({ signal }) => fetchInvitationDetails(token, email, signal),
     enabled: Boolean(token) && Boolean(email),
     retry: false,
@@ -44,15 +44,14 @@ export function AcceptInvitePage() {
     gcTime: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchOnMount: false,
   });
 
   // Ensure sensitive invitation data does not persist in cache after unmount/navigation (SECURITY.md §5)
   useEffect(() => {
     return () => {
-      queryClient.removeQueries({ queryKey: queryKeys.invitations.detail() });
+      queryClient.removeQueries({ queryKey: queryKeys.invitations.detail(token, email) });
     };
-  }, [queryClient]);
+  }, [queryClient, token, email]);
 
   const details: InvitationDetails | null = invitationQuery.data ?? null;
   const isLoading = invitationQuery.isLoading;

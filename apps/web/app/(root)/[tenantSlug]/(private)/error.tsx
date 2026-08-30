@@ -4,7 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function PrivateError({
-  error,
+  error: _error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -15,7 +15,7 @@ export default function PrivateError({
       <AlertCircle className="size-12 text-destructive" />
       <h2 className="text-xl font-semibold">Something went wrong</h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        {error.message || 'An unexpected error occurred. Please try again.'}
+        An unexpected error occurred. Please try again.
       </p>
       <Button onClick={reset} variant="outline">
         Try again

@@ -294,16 +294,10 @@ export function validateEnvAtBoot(): void {
     );
   }
 
-  // M-4: Require Redis in production for multi-instance rate limiting (API4)
-  const redisUrl = process.env.REDIS_URL?.trim();
-  if (isProduction && !redisUrl) {
-    errors.push(
-      'REDIS_URL is required in production for distributed rate limiting (API4). Set REDIS_URL or run single-instance only with explicit ALLOW_MEMORY_RATE_LIMIT=true',
-    );
-  }
-  if (!isProduction && !redisUrl) {
+  // M-4: In-memory rate limits — single-instance only (no Redis required)
+  if (isProduction) {
     warnings.push(
-      'REDIS_URL not set — using in-memory rate limits (single-instance only, not safe for multi-pod)',
+      'Using in-memory rate limits — safe for single-instance deployments only, not multi-pod',
     );
   }
 

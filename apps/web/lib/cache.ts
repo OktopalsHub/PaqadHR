@@ -59,9 +59,11 @@ function ensureMemoryCapacity(newSize: number): void {
 }
 
 if (typeof window !== 'undefined') {
-  const timer = setInterval(evictExpiredMemory, CLEANUP_INTERVAL_MS);
-  // @ts-expect-error — unref not available in browser, but safe for Node tests
-  timer.unref?.();
+  const timer: ReturnType<typeof setInterval> = setInterval(
+    evictExpiredMemory,
+    CLEANUP_INTERVAL_MS,
+  );
+  (timer as unknown as { unref?: () => void }).unref?.();
 }
 
 const CACHE_PREFIX = 'paqad_cache_';
