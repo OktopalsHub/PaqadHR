@@ -2,11 +2,7 @@ import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { createClient, type RedisClientType } from 'redis';
 import type { RateLimitConfig } from '../interfaces/rate-limit-config.interface';
 import type { RateLimitResult } from '../interfaces/rate-limit-result.interface';
-
-interface RateLimitEntry {
-  count: number;
-  resetTime: number;
-}
+import { InMemoryCacheService } from './in-memory-cache.service';
 
 export interface LockoutState {
   count: number;
@@ -16,35 +12,64 @@ export interface LockoutState {
 @Injectable()
 export class RateLimitService implements OnModuleDestroy {
   private readonly logger = new Logger(RateLimitService.name);
-  private readonly store = new Map<string, RateLimitEntry>();
-  private readonly lockoutStore = new Map<string, LockoutState>();
+  // Great in-memory fallback — LRU + TTL + size bounds + tenant isolation (no Redis required)
+  private readonly inMemoryRateLimitCache: InMemoryCacheService;
+  private readonly inMemoryLockoutCache: InMemoryCacheService;
   private readonly redis: RedisClientType | null;
   private readonly redisReady: Promise<void> | null;
 
   constructor() {
+    // Great in-memory caches — 5000 entries, 10MB each, LRU eviction, 1m cleanup
+    this.inMemoryRateLimitCache = new InMemoryCacheService({
+      maxEntries: 5000,
+      maxMemoryBytes: 10 * 1024 * 1024,
+      defaultTtlMs: 15 * 60 * 1000,
+      namespace: 'rate-limit',
+    });
+    this.inMemoryLockoutCache = new InMemoryCacheService({
+      maxEntries: 2000,
+      maxMemoryBytes: 5 * 1024 * 1024,
+      defaultTtlMs: 30 * 60 * 1000,
+      namespace: 'lockout',
+    });
     const url = process.env.REDIS_URL?.trim();
     if (url) {
       this.redis = createClient({ url });
       this.redisReady = this.redis
         .connect()
         .then(() => {
-          this.logger.log('Rate limits using Redis');
+          this.logger.log('Rate limits using Redis (primary) + great in-memory fallback ready');
         })
         .catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
           this.logger.error(
-            `Redis connection failed; falling back to in-memory rate limits: ${message}`,
+            `Redis connection failed; using great in-memory rate limits: ${message}`,
           );
         });
     } else {
       this.redis = null;
       this.redisReady = null;
+      this.logger.log(
+        'Rate limits using great in-memory LRU cache (Redis not configured) — production single-instance or dev only',
+      );
     }
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.redisReady;
     await this.redis?.quit();
+    this.inMemoryRateLimitCache.onModuleDestroy();
+    this.inMemoryLockoutCache.onModuleDestroy();
+  }
+
+  getInMemoryStats(): {
+    rateLimit: ReturnType<InMemoryCacheService['getStats']>;
+    lockout: ReturnType<InMemoryCacheService['getStats']>;
+  } {
+    return {
+      rateLimit: this.inMemoryRateLimitCache.getStats(),
+      lockout: this.inMemoryLockoutCache.getStats(),
+    };
   }
 
   async checkRateLimit(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
@@ -79,27 +104,24 @@ export class RateLimitService implements OnModuleDestroy {
       };
     }
 
-    let entry = this.store.get(key);
-    if (!entry || now >= entry.resetTime) {
-      entry = { count: 0, resetTime: now + windowMs };
-      this.store.set(key, entry);
-    }
+    // Great in-memory path — atomic incrWithTtl via LRU cache
+    const result = this.inMemoryRateLimitCache.incrWithTtl(`ratelimit:${key}`, windowMs);
+    const count = result.count;
+    const resetTime = result.resetTime;
 
-    entry.count += 1;
-
-    if (entry.count > maxRequests) {
+    if (count > maxRequests) {
       return {
         allowed: false,
         remaining: 0,
-        resetTime: entry.resetTime,
-        retryAfter: Math.ceil((entry.resetTime - now) / 1000),
+        resetTime,
+        retryAfter: Math.ceil((resetTime - now) / 1000),
       };
     }
 
     return {
       allowed: true,
-      remaining: Math.max(0, maxRequests - entry.count),
-      resetTime: entry.resetTime,
+      remaining: Math.max(0, maxRequests - count),
+      resetTime,
     };
   }
 
@@ -109,7 +131,7 @@ export class RateLimitService implements OnModuleDestroy {
       await this.redis.del(`ratelimit:${key}`);
       return;
     }
-    this.store.delete(key);
+    this.inMemoryRateLimitCache.delete(`ratelimit:${key}`);
   }
 
   async getLockout(key: string): Promise<LockoutState | undefined> {
@@ -118,7 +140,7 @@ export class RateLimitService implements OnModuleDestroy {
       const raw = await this.redis.get(`lockout:${key}`);
       return raw ? (JSON.parse(raw) as LockoutState) : undefined;
     }
-    return this.lockoutStore.get(key);
+    return this.inMemoryLockoutCache.get<LockoutState>(`lockout:${key}`);
   }
 
   async recordLockoutFailure(
@@ -139,7 +161,10 @@ export class RateLimitService implements OnModuleDestroy {
         : lockDurationMs;
       await this.redis.set(`lockout:${key}`, JSON.stringify(entry), { PX: ttlMs });
     } else {
-      this.lockoutStore.set(key, entry);
+      const ttlMs = entry.lockedUntil
+        ? Math.max(entry.lockedUntil - Date.now(), lockDurationMs)
+        : lockDurationMs;
+      this.inMemoryLockoutCache.set(`lockout:${key}`, entry, ttlMs);
     }
 
     return entry;
@@ -151,7 +176,7 @@ export class RateLimitService implements OnModuleDestroy {
       await this.redis.del(`lockout:${key}`);
       return;
     }
-    this.lockoutStore.delete(key);
+    this.inMemoryLockoutCache.delete(`lockout:${key}`);
   }
 
   isLocked(state: LockoutState | undefined): boolean {

@@ -1,5 +1,6 @@
 'use client';
 
+import { useQuery } from '@tanstack/react-query';
 import {
   Check,
   Gift,
@@ -45,6 +46,7 @@ import {
 } from '@/hooks/queries/use-rewards';
 import { useMyPointsBalance } from '@/hooks/queries/use-shoutouts';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
+import { useDebounce } from '@/hooks/use-debounce';
 import {
   type CatalogItem,
   calculatePointsCost,
@@ -52,6 +54,7 @@ import {
   type RewardRedemption,
 } from '@/lib/api/rewards';
 import { PAQ_POINTS_NAME } from '@/lib/constants/paq-points';
+import { queryKeys } from '@/lib/query/keys';
 import { cn } from '@/lib/utils';
 import { mapMemberWalletError } from '@/lib/wallet-error-message';
 import { useTenant } from '@/providers/tenant-provider';
@@ -77,7 +80,7 @@ function createClaimIdempotencyKey(): string {
 }
 
 export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
-  const { tenant } = useTenant();
+  const { tenant, tenantId } = useTenant();
   const { data: tenantSettings } = useTenantSettings();
   const role = tenant?.member?.role?.toLowerCase();
   const isAdmin = role === 'owner' || role === 'admin';
@@ -168,53 +171,39 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     }
   }, [nombaDataPlans, topupMode, selectedCountryCode, selectedBundleId]);
 
-  // JIT Points calculation states for top-ups
-  const [calculatedPoints, setCalculatedPoints] = useState<number | null>(null);
-  const [_calculatedValue, setCalculatedValue] = useState<number | null>(null);
-  const [calculatedCurrency, setCalculatedCurrency] = useState<string>('NGN');
-  const [airtimeProcessingFee, setAirtimeProcessingFee] = useState<number | null>(null);
-  const [isCalculatingPoints, setIsCalculatingPoints] = useState(false);
-  const [pointsCalcError, setPointsCalcError] = useState<string | null>(null);
+  // JIT Points calculation for top-ups via React Query + debounce (tenant-scoped, replaces manual useEffect fetch)
+  const debouncedAirtimeAmount = useDebounce(airtimeAmount, 500);
+  const airtimeAmountNumber = Number(debouncedAirtimeAmount) || 0;
+  const airtimeShouldFetch =
+    Boolean(tenantId) && selectedCountryCode === 'NG' && airtimeAmountNumber >= 100;
 
-  useEffect(() => {
-    const amt = Number(airtimeAmount) || 0;
-    if (selectedCountryCode === 'NG') {
-      if (amt >= 100) {
-        const delayDebounceFn = setTimeout(async () => {
-          setIsCalculatingPoints(true);
-          setPointsCalcError(null);
-          try {
-            const res = await calculatePointsCost({
-              type: 'ng-airtime',
-              billerId: 0,
-              amount: amt,
-            });
-            setCalculatedPoints(res.pointsCost);
-            setCalculatedValue(res.currencyValue);
-            setCalculatedCurrency(res.currencyCode);
-            setAirtimeProcessingFee(
-              'processingFee' in res
-                ? Number(res.processingFee)
-                : res.totalTenantDebit - res.currencyValue,
-            );
-          } catch (e) {
-            setCalculatedPoints(null);
-            setAirtimeProcessingFee(null);
-            setPointsCalcError(e instanceof Error ? e.message : 'Failed to calculate points cost');
-          } finally {
-            setIsCalculatingPoints(false);
-          }
-        }, 500);
-        return () => clearTimeout(delayDebounceFn);
-      }
-      setCalculatedPoints(null);
-      setAirtimeProcessingFee(null);
-      setPointsCalcError(null);
-      return;
-    }
+  const airtimePointsQuery = useQuery({
+    queryKey: queryKeys.rewards.pointsCost(tenantId ?? '', 'ng-airtime', 0, airtimeAmountNumber),
+    queryFn: ({ signal }) =>
+      calculatePointsCost({ type: 'ng-airtime', billerId: 0, amount: airtimeAmountNumber }, signal),
+    enabled: airtimeShouldFetch,
+    staleTime: 60_000,
+    gcTime: 0,
+    retry: false,
+  });
 
-    setCalculatedPoints(null);
-  }, [airtimeAmount, selectedCountryCode]);
+  const calculatedPoints = airtimeShouldFetch
+    ? (airtimePointsQuery.data?.pointsCost ?? null)
+    : null;
+  const calculatedCurrency = airtimePointsQuery.data?.currencyCode ?? 'NGN';
+  const airtimeProcessingFee = airtimeShouldFetch
+    ? airtimePointsQuery.data
+      ? 'processingFee' in airtimePointsQuery.data
+        ? Number(airtimePointsQuery.data.processingFee)
+        : airtimePointsQuery.data.totalTenantDebit - airtimePointsQuery.data.currencyValue
+      : null
+    : null;
+  const isCalculatingPoints = airtimePointsQuery.isFetching;
+  const pointsCalcError = airtimePointsQuery.error
+    ? airtimePointsQuery.error instanceof Error
+      ? airtimePointsQuery.error.message
+      : 'Failed to calculate points cost'
+    : null;
 
   // Utility Bill States
   const [utilityCountryCode, setUtilityCountryCode] = useState(redemptionCountry);
@@ -257,75 +246,55 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
     billerId: string | null;
   } | null>(null);
 
-  // Utility points calculation states
-  const [utilityPoints, setUtilityPoints] = useState<number | null>(null);
-  const [_utilityCalculatedValue, setUtilityCalculatedValue] = useState<number | null>(null);
-  const [utilityCalculatedCurrency, setUtilityCalculatedCurrency] = useState<string>('NGN');
-  const [utilityProcessingFee, setUtilityProcessingFee] = useState<number | null>(null);
-  const [isCalculatingUtilityPoints, setIsCalculatingUtilityPoints] = useState(false);
-  const [utilityCalcError, setUtilityCalcError] = useState<string | null>(null);
+  // Utility points calculation via React Query + debounce (tenant-scoped, replaces manual useEffect fetch)
+  const debouncedUtilityAmount = useDebounce(utilityAmount, 500);
+  const utilityAmountNumber = Number(debouncedUtilityAmount) || 0;
+  const utilityNgGenericEnabled =
+    Boolean(tenantId) && utilityCountryCode === 'NG' && utilityAmountNumber >= 100;
+  const utilityBillerSpecificEnabled =
+    Boolean(tenantId) &&
+    utilityCountryCode !== 'NG' &&
+    utilityAmountNumber > 0 &&
+    Boolean(selectedNgUtilityBiller);
+  const utilityShouldFetch = utilityNgGenericEnabled || utilityBillerSpecificEnabled;
+  const utilityBillerId = utilityNgGenericEnabled
+    ? 0
+    : utilityBillerSpecificEnabled
+      ? Number(selectedNgUtilityBiller!.id)
+      : 0;
 
-  useEffect(() => {
-    const amt = Number(utilityAmount) || 0;
-    if (utilityCountryCode === 'NG') {
-      if (amt >= 100) {
-        const delayDebounceFn = setTimeout(async () => {
-          setIsCalculatingUtilityPoints(true);
-          setUtilityCalcError(null);
-          try {
-            const res = await calculatePointsCost({
-              type: 'ng-utility',
-              billerId: 0,
-              amount: amt,
-            });
-            setUtilityPoints(res.pointsCost);
-            setUtilityCalculatedValue(res.currencyValue);
-            setUtilityCalculatedCurrency(res.currencyCode);
-            setUtilityProcessingFee(
-              'processingFee' in res
-                ? Number(res.processingFee)
-                : res.totalTenantDebit - res.currencyValue,
-            );
-          } catch (e) {
-            setUtilityPoints(null);
-            setUtilityProcessingFee(null);
-            setUtilityCalcError(e instanceof Error ? e.message : 'Failed to calculate points cost');
-          } finally {
-            setIsCalculatingUtilityPoints(false);
-          }
-        }, 500);
-        return () => clearTimeout(delayDebounceFn);
-      }
-      setUtilityPoints(null);
-      setUtilityProcessingFee(null);
-      setUtilityCalcError(null);
-      return;
-    }
+  const utilityPointsQuery = useQuery({
+    queryKey: queryKeys.rewards.pointsCost(
+      tenantId ?? '',
+      'ng-utility',
+      utilityBillerId,
+      utilityAmountNumber,
+    ),
+    queryFn: ({ signal }) =>
+      calculatePointsCost(
+        { type: 'ng-utility', billerId: utilityBillerId, amount: utilityAmountNumber },
+        signal,
+      ),
+    enabled: utilityShouldFetch,
+    staleTime: 60_000,
+    gcTime: 0,
+    retry: false,
+  });
 
-    if (amt > 0 && selectedNgUtilityBiller) {
-      const delayDebounceFn = setTimeout(async () => {
-        setIsCalculatingUtilityPoints(true);
-        setUtilityCalcError(null);
-        try {
-          const res = await calculatePointsCost({
-            type: 'ng-utility',
-            billerId: Number(selectedNgUtilityBiller.id),
-            amount: amt,
-          });
-          setUtilityPoints(res.pointsCost);
-          setUtilityCalculatedValue(res.currencyValue);
-          setUtilityCalculatedCurrency(res.currencyCode);
-        } catch (e) {
-          setUtilityPoints(null);
-          setUtilityCalcError(e instanceof Error ? e.message : 'Failed to calculate points cost');
-        } finally {
-          setIsCalculatingUtilityPoints(false);
-        }
-      }, 500);
-      return () => clearTimeout(delayDebounceFn);
-    }
-    setUtilityPoints(null);
-  }, [utilityAmount, utilityCountryCode, selectedNgUtilityBiller?.id, selectedNgUtilityBiller]);
+  const utilityPoints = utilityShouldFetch ? (utilityPointsQuery.data?.pointsCost ?? null) : null;
+  const utilityCalculatedCurrency = utilityPointsQuery.data?.currencyCode ?? 'NGN';
+  const utilityProcessingFee =
+    utilityNgGenericEnabled && utilityPointsQuery.data
+      ? 'processingFee' in utilityPointsQuery.data
+        ? Number(utilityPointsQuery.data.processingFee)
+        : utilityPointsQuery.data.totalTenantDebit - utilityPointsQuery.data.currencyValue
+      : null;
+  const isCalculatingUtilityPoints = utilityPointsQuery.isFetching;
+  const utilityCalcError = utilityPointsQuery.error
+    ? utilityPointsQuery.error instanceof Error
+      ? utilityPointsQuery.error.message
+      : 'Failed to calculate points cost'
+    : null;
 
   const handleLookupMeter = async () => {
     if (!utilityAccountNumber.trim()) {

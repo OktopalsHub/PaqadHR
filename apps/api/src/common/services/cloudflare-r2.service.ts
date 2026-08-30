@@ -87,12 +87,16 @@ export class CloudflareR2Service {
       Bucket: string;
       Key: string;
       ContentType?: string;
+      ContentLength?: number;
       ACL?: 'public-read';
     } = {
       Bucket: this.bucketName,
       Key: fileKey,
       ContentType: options.contentType,
     };
+    if (options.contentLength !== undefined) {
+      commandInput.ContentLength = options.contentLength;
+    }
     if (options.public === true) {
       commandInput.ACL = 'public-read';
     }

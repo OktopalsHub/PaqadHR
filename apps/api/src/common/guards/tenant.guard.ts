@@ -36,11 +36,18 @@ export class TenantGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    const requireTenant =
-      this.reflector.getAllAndOverride<boolean>(REQUIRE_TENANT_KEY, [
-        context.getHandler(),
-        context.getClass(),
-      ]) ?? false;
+    const explicitRequireTenant = this.reflector.getAllAndOverride<boolean>(REQUIRE_TENANT_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    // Defense-in-depth: auto-require tenant for any tenant-scoped route (BOLA prevention H-1)
+    // If route contains :tenantId or x-tenant-id header or tenant context, enforce isolation even without @RequireTenant
+    const requestEarly = context.switchToHttp().getRequest();
+    const hasTenantScope =
+      Boolean(requestEarly?.params?.tenantId) ||
+      Boolean(requestEarly?.headers?.['x-tenant-id']) ||
+      Boolean(tenantContext.getCurrentTenant()?.id);
+    const requireTenant = explicitRequireTenant ?? hasTenantScope;
     if (!requireTenant) {
       return true;
     }

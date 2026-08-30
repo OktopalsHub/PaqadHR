@@ -12,6 +12,7 @@ import { ForbiddenAuditFilter } from './common/filters/forbidden-audit.filter';
 import { JwtAuthGuard } from './common/guards';
 import { FeatureAccessGuard } from './common/guards/feature-access.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
+import { TenantMemberGuard } from './common/guards/tenant-member.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { ManagerAccessModule } from './common/modules/manager-access.module';
@@ -121,6 +122,10 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     {
       provide: APP_GUARD,
       useClass: TenantGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantMemberGuard,
     },
     {
       provide: APP_GUARD,

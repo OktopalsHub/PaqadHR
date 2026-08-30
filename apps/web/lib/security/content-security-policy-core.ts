@@ -56,6 +56,7 @@ export function buildContentSecurityPolicyFromSources(
     connectSources.push('ws:', 'wss:');
   }
 
+  // Great CSP — strict, nonce-based, minimal unsafe, upgrade-insecure-requests
   return [
     "default-src 'self'",
     `script-src ${scriptSources.join(' ')}`,
@@ -68,5 +69,7 @@ export function buildContentSecurityPolicyFromSources(
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
+    'upgrade-insecure-requests',
+    'block-all-mixed-content',
   ].join('; ');
 }

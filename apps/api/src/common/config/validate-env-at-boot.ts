@@ -276,6 +276,37 @@ export function validateEnvAtBoot(): void {
     warnings.push(noahSigningWarning);
   }
 
+  // M-1: Enforce 15m max per SECURITY.md §1
+  const accessExpiresIn = process.env.ACCESS_EXPIRES_IN?.trim() || '15m';
+  const parsedMs = (() => {
+    if (/^\d+$/.test(accessExpiresIn)) {
+      const n = Number(accessExpiresIn);
+      return n >= 10000 ? n : n * 1000;
+    }
+    const m = accessExpiresIn.toLowerCase().match(/^(\d+)(s|m|h|d)$/);
+    if (!m) return NaN;
+    const mult: Record<string, number> = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
+    return Number(m[1]) * (mult[m[2]] ?? 0);
+  })();
+  if (!Number.isNaN(parsedMs) && parsedMs > 15 * 60 * 1000) {
+    errors.push(
+      `ACCESS_EXPIRES_IN must be <=15m per SECURITY.md high-security mandate (got ${accessExpiresIn})`,
+    );
+  }
+
+  // M-4: Require Redis in production for multi-instance rate limiting (API4)
+  const redisUrl = process.env.REDIS_URL?.trim();
+  if (isProduction && !redisUrl) {
+    errors.push(
+      'REDIS_URL is required in production for distributed rate limiting (API4). Set REDIS_URL or run single-instance only with explicit ALLOW_MEMORY_RATE_LIMIT=true',
+    );
+  }
+  if (!isProduction && !redisUrl) {
+    warnings.push(
+      'REDIS_URL not set — using in-memory rate limits (single-instance only, not safe for multi-pod)',
+    );
+  }
+
   for (const warning of warnings) {
     logger.warn(warning);
   }

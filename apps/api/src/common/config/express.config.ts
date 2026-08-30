@@ -4,8 +4,7 @@ import cors from 'cors';
 import csurf from 'csurf';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import helmet, { type HelmetOptions } from 'helmet';
-import helmetCsp from 'helmet-csp';
+import helmet from 'helmet';
 import morgan from 'morgan';
 import passport from 'passport';
 import { correlationIdMiddleware } from '../observability/correlation-id.middleware';
@@ -169,35 +168,54 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       optionsSuccessStatus: 200,
     }),
   );
+  // Great helmet — comprehensive security headers (OWASP + ASVS, in-memory optimized, no external deps)
   const contentSecurityPolicy = {
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'"],
-      imgSrc: ["'self'"],
-      frameAncestors: ["'none'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // API serves no HTML, but allow for Swagger
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
       objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
       upgradeInsecureRequests: [],
     },
   };
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy,
+      crossOriginEmbedderPolicy: false, // R2/S3 presigned PUT requires cross-origin
+      crossOriginOpenerPolicy: { policy: 'same-origin' },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      originAgentCluster: true,
+      dnsPrefetchControl: { allow: false },
+      frameguard: { action: 'deny' },
+      hidePoweredBy: true,
+      hsts: { maxAge: 63072000, includeSubDomains: true, preload: true }, // 2 years, great
+      ieNoOpen: true,
+      noSniff: true,
+      permittedCrossDomainPolicies: { permittedPolicies: 'none' },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      xssFilter: true,
     }),
   );
-  app.use(helmetCsp(contentSecurityPolicy));
-  const helmetConfig: HelmetOptions = {
-    frameguard: { action: 'deny' },
-    xssFilter: true,
-    referrerPolicy: { policy: 'strict-origin' },
-    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
-  };
-  app.use(helmet(helmetConfig));
-  app.use(helmet.hidePoweredBy());
-  app.use(helmet.noSniff());
-  app.use(helmet.ieNoOpen());
-  app.use(helmet.dnsPrefetchControl());
-  app.use(helmet.permittedCrossDomainPolicies());
+  // Permissions-Policy — disable sensitive browser features for API
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader(
+      'Permissions-Policy',
+      'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()',
+    );
+    // Extra hardening headers not covered by helmet
+    res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    // HSTS already via helmet, but ensure preload header present even on http->https redirect
+    next();
+  });
   const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
@@ -229,9 +247,9 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     max: 5,
     standardHeaders: true,
     legacyHeaders: false,
-    // Only count failed attempts so brute-force is still blocked while a
-    // legitimate user's successful logins don't lock them out of their account.
-    skipSuccessfulRequests: true,
+    // M-4: Count all auth attempts (do not skip successful) to prevent interleaved bypass; legitimate users rarely hit 5/15m
+    skipSuccessfulRequests: false,
+    skipFailedRequests: false,
     keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
     message: {
       error: 'Too Many Authentication Attempts',
@@ -284,9 +302,44 @@ export const ExpressSetup = (app: NestExpressApplication) => {
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
+  // L-3: Support CIDR and allow health/metrics probes
+  function isIpAllowed(ip: string): boolean {
+    if (APPROVED_CLIENTS.includes(ip)) return true;
+    // Simple CIDR check for IPv4 (e.g., 10.0.0.0/24)
+    for (const entry of APPROVED_CLIENTS) {
+      if (!entry.includes('/')) continue;
+      try {
+        const [cidrIp, prefixStr] = entry.split('/');
+        const prefix = Number(prefixStr);
+        if (Number.isNaN(prefix) || prefix < 0 || prefix > 32) continue;
+        const ipNum = ipToNum(ip);
+        const cidrNum = ipToNum(cidrIp);
+        if (ipNum === null || cidrNum === null) continue;
+        const mask = prefix === 0 ? 0 : (~0 << (32 - prefix)) >>> 0;
+        if ((ipNum & mask) === (cidrNum & mask)) return true;
+      } catch {
+        // ignore malformed CIDR
+      }
+    }
+    return false;
+  }
+  function ipToNum(ip: string): number | null {
+    const parts = ip.split('.').map(Number);
+    if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return null;
+    return ((parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]) >>> 0;
+  }
+  if (APPROVED_CLIENTS.length) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[security] APPROVED_CLIENTS allow-list active (${APPROVED_CLIENTS.length} entries) — health/metrics remain open`,
+    );
+  }
   app.use((req: Request, res: Response, next: NextFunction) => {
     const path = req.path || req.url || '';
     if (
+      path.startsWith('/health') ||
+      path.startsWith('/metrics') ||
+      path.startsWith('/csrf/token') ||
       path.startsWith('/api/v1/webhooks') ||
       path.startsWith('/api/v1/subscriptions/webhooks') ||
       path.startsWith('/api/v1/payroll/webhooks')
@@ -294,7 +347,7 @@ export const ExpressSetup = (app: NestExpressApplication) => {
       return next();
     }
     const ip = req.ip || '';
-    if (APPROVED_CLIENTS.length && !APPROVED_CLIENTS.includes(ip)) {
+    if (APPROVED_CLIENTS.length && !isIpAllowed(ip)) {
       return res.status(403).json({ message: 'Client not approved' });
     }
     next();

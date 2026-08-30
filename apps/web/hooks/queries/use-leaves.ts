@@ -63,13 +63,11 @@ export function useCreateLeave() {
   return useMutation({
     mutationFn: (input: CreateLeaveInput) => createLeave(input),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.leaves.balances,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.calendar.events,
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events }),
+      ]);
     },
   });
 }
@@ -81,13 +79,11 @@ export function useApproveLeave() {
     mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
       approveLeave(leaveId, comments),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.leaves.balances,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.calendar.events,
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events }),
+      ]);
     },
   });
 }
@@ -99,13 +95,11 @@ export function useRejectLeave() {
     mutationFn: ({ leaveId, comments }: { leaveId: string; comments?: string }) =>
       rejectLeave(leaveId, comments),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.leaves.balances,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: queryKeys.calendar.events,
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.leaves.balances }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events }),
+      ]);
     },
   });
 }

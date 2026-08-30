@@ -963,7 +963,10 @@ export class PaymentMethodService {
 
   private resolveUpdatedMetadata(
     paymentMethod: PaymentMethod,
-    metadata: Record<string, unknown> | undefined,
+    metadata:
+      | Record<string, unknown>
+      | import('../dto/payment-method.dto').PaymentMethodMetadataDto
+      | undefined,
   ): Record<string, unknown> | null {
     if (metadata === undefined) {
       return paymentMethod.metadata;

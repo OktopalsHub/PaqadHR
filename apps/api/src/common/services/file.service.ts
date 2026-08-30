@@ -32,6 +32,17 @@ const CANDIDATE_DOCUMENT_MIME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
+// H-2: File size caps per location (API4) — enforced via presigned ContentLength + HEAD verification
+export const FILE_SIZE_LIMITS: Record<FileUploadLocation, number> = {
+  [FileUploadLocation.LOGO]: 2 * 1024 * 1024, // 2 MB
+  [FileUploadLocation.EMPLOYEES_AVATAR]: 2 * 1024 * 1024,
+  [FileUploadLocation.AVATARS]: 2 * 1024 * 1024,
+  [FileUploadLocation.RESUMES]: 5 * 1024 * 1024, // 5 MB
+  [FileUploadLocation.COVER_LETTERS]: 5 * 1024 * 1024,
+  [FileUploadLocation.DOCUMENTS]: 10 * 1024 * 1024,
+  [FileUploadLocation.ATTACHMENTS]: 10 * 1024 * 1024,
+} as const;
+
 export function isPublicUploadLocation(location: FileUploadLocation): boolean {
   return PUBLIC_UPLOAD_LOCATIONS.has(location);
 }
@@ -81,7 +92,7 @@ export class FileService {
     }
   }
   async generateUploadUrl(request: GenerateUploadUrlRequest): Promise<GenerateUploadUrlResponse> {
-    const { tenantId, location, originalName, contentType, expiresIn } = request;
+    const { tenantId, location, originalName, contentType, contentLength, expiresIn } = request;
     if (!tenantId) {
       throw new UnauthorizedException('Tenant ID is required');
     }
@@ -96,6 +107,15 @@ export class FileService {
     const finalContentType = contentType || this.getContentType(sanitizedOriginalName);
     assertImageUploadContentType(location, finalContentType);
     assertCandidateDocumentContentType(location, finalContentType);
+    // H-2: Enforce size cap if client provided contentLength
+    const maxSize = FILE_SIZE_LIMITS[location] ?? 10 * 1024 * 1024;
+    if (contentLength !== undefined) {
+      if (contentLength <= 0 || contentLength > maxSize) {
+        throw new BadRequestException(
+          `File size must be between 1 and ${maxSize} bytes for ${location}`,
+        );
+      }
+    }
     const expires = expiresIn || this.defaultExpiresIn;
     try {
       const { uploadUrl, fileKey } = await this.r2Service.generateUploadUrl({
@@ -103,6 +123,7 @@ export class FileService {
         location,
         fileName,
         contentType: finalContentType,
+        contentLength,
         expiresIn: expires,
         public: isPublicUploadLocation(location),
       });

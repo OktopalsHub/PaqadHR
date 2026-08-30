@@ -166,6 +166,7 @@ export async function fetchPublicJobs(
     employmentType?: string;
     location?: string;
   },
+  signal?: AbortSignal,
 ): Promise<{ jobs: JobOpening[]; total: number }> {
   const query = new URLSearchParams();
   query.set('tenantId', tenantId);
@@ -178,6 +179,7 @@ export async function fetchPublicJobs(
   const data = await apiClient<unknown>(`/jobs?${query.toString()}`, {
     method: 'GET',
     skipCsrf: true,
+    signal,
   });
 
   return jobsListResponseSchema.parse(data);

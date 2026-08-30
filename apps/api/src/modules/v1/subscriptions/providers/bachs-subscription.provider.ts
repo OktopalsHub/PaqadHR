@@ -66,22 +66,33 @@ export class BachsSubscriptionProvider implements ISubscriptionBillingProvider {
       ? successUrl.replace('billing=success', 'billing=cancelled')
       : undefined;
 
-    const result = await this.bachsApi.createCheckoutSession({
-      productId,
-      quantity: seats,
-      customerEmail: email,
-      customerName: email.split('@')[0] || 'Customer',
-      successUrl,
-      cancelUrl,
-      reference: orderReference,
-      metadata: {
-        ...metadata,
+    let result: { checkout_id: string; checkout_url: string; reference?: string };
+    try {
+      result = await this.bachsApi.createCheckoutSession({
+        productId,
         quantity: seats,
-        billingType: BillingChargeType.SUBSCRIPTION,
-        planSlug,
+        customerEmail: email,
+        customerName: email.split('@')[0] || 'Customer',
+        successUrl,
+        cancelUrl,
+        reference: orderReference,
         billingCurrency: planPrice.currency.toUpperCase(),
-      },
-    });
+        metadata: {
+          ...metadata,
+          quantity: seats,
+          billingType: BillingChargeType.SUBSCRIPTION,
+          planSlug,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message.includes('not enabled for this account')) {
+        throw new BadRequestException(
+          `Billing is not available for ${planPrice.currency.toUpperCase()} payments in this region. Please contact support.`,
+        );
+      }
+      throw error;
+    }
 
     return {
       id: result.checkout_id,
