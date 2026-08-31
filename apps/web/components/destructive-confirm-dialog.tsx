@@ -19,6 +19,7 @@ type DestructiveConfirmDialogProps = {
   actionLabel: string;
   onConfirm: () => void;
   isPending?: boolean;
+  preventAutoClose?: boolean;
 };
 
 export function DestructiveConfirmDialog({
@@ -29,6 +30,7 @@ export function DestructiveConfirmDialog({
   actionLabel,
   onConfirm,
   isPending = false,
+  preventAutoClose = false,
 }: DestructiveConfirmDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -42,7 +44,10 @@ export function DestructiveConfirmDialog({
           <AlertDialogAction
             disabled={isPending}
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            onClick={onConfirm}
+            onClick={(event) => {
+              if (preventAutoClose) event.preventDefault();
+              onConfirm();
+            }}
           >
             {isPending ? 'Working…' : actionLabel}
           </AlertDialogAction>

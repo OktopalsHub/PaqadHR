@@ -138,8 +138,6 @@ export class TenantMembershipDto {
     example: 'OWNER',
   })
   role: string;
-  @ApiProperty({ description: 'Fine-grained member permissions', type: [String] })
-  permissions: string[];
   @ApiProperty({
     description: 'Member join date',
     example: '2024-01-01T00:00:00.000Z',
@@ -229,8 +227,6 @@ export class TenantMemberInfoDto {
     example: 'OWNER',
   })
   role: string;
-  @ApiProperty({ description: 'Fine-grained member permissions', type: [String] })
-  permissions: string[];
   @ApiProperty({
     description: 'Member active status',
     example: true,

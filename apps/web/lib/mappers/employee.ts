@@ -12,7 +12,6 @@ export type ApiTenantMember = {
   gender?: string;
   employeeNumber?: string;
   role: string;
-  permissions?: string[];
   isActive: boolean;
   joinDate?: string;
   avatarUrl?: string;
@@ -27,7 +26,6 @@ export type ApiTenantMember = {
 export function formatApiTenantMember(member: ApiTenantMember): ApiTenantMember {
   return {
     ...member,
-    permissions: member.permissions ?? [],
     firstName: formatDisplayName(member.firstName, member.firstName),
     lastName: formatDisplayName(member.lastName, member.lastName),
     middleName: member.middleName ? formatDisplayName(member.middleName) : member.middleName,

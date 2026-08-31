@@ -1,7 +1,7 @@
 import type { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddPositionDeletedAt1787873000000 implements MigrationInterface {
-  name = 'AddPositionDeletedAt1787873000000';
+export class AddPositionDeletedAt1788205216357 implements MigrationInterface {
+  name = 'AddPositionDeletedAt1788205216357';
 
   async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('ALTER TABLE position ADD COLUMN deleted_at TIMESTAMP NULL;');

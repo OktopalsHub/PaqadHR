@@ -11,6 +11,21 @@ export type ProductAnalyticsContext = {
   correlationId?: string;
 };
 
+export function buildAnalyticsProperties(
+  context: ProductAnalyticsContext,
+  properties: Record<string, unknown> | undefined,
+  identifierSalt: string,
+): Record<string, string | number | boolean> {
+  return sanitizeAnalyticsProperties({
+    ...properties,
+    role: context.role,
+    plan: context.plan,
+    tenant_id: context.tenantId
+      ? pseudonymizeAnalyticsIdentifier('tenant', context.tenantId, identifierSalt)
+      : undefined,
+  });
+}
+
 @Injectable()
 export class ProductAnalyticsService implements OnModuleDestroy {
   private readonly logger = new Logger(ProductAnalyticsService.name);
@@ -45,16 +60,7 @@ export class ProductAnalyticsService implements OnModuleDestroy {
     const identifierSalt = this.identifierSalt;
     if (!this.client || !distinctId || !identifierSalt) return;
 
-    const merged = {
-      tenant_id: context.tenantId
-        ? pseudonymizeAnalyticsIdentifier('tenant', context.tenantId, identifierSalt)
-        : undefined,
-      role: context.role,
-      plan: context.plan,
-      ...properties,
-    };
-
-    const sanitized = sanitizeAnalyticsProperties(merged);
+    const sanitized = buildAnalyticsProperties(context, properties, identifierSalt);
 
     setImmediate(() => {
       try {

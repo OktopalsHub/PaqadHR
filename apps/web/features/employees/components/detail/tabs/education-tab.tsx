@@ -17,6 +17,7 @@ interface EducationTabProps {
 
 export function EducationTab({ form, canEdit = false }: EducationTabProps) {
   const [educationPendingDeletion, setEducationPendingDeletion] = useState<string | null>(null);
+  const [isDeletingEducation, setIsDeletingEducation] = useState(false);
   const {
     employee,
     educationDialogOpen,
@@ -94,13 +95,22 @@ export function EducationTab({ form, canEdit = false }: EducationTabProps) {
       />
       <DestructiveConfirmDialog
         open={Boolean(educationPendingDeletion)}
-        onOpenChange={(open) => !open && setEducationPendingDeletion(null)}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingEducation) setEducationPendingDeletion(null);
+        }}
         title="Remove education record?"
         description="This education record will be permanently deleted from the employee profile."
         actionLabel="Remove record"
+        isPending={isDeletingEducation}
+        preventAutoClose
         onConfirm={() => {
-          if (educationPendingDeletion) handleDeleteEducation(educationPendingDeletion);
-          setEducationPendingDeletion(null);
+          if (!educationPendingDeletion || isDeletingEducation) return;
+          setIsDeletingEducation(true);
+          void handleDeleteEducation(educationPendingDeletion)
+            .then((deleted) => {
+              if (deleted) setEducationPendingDeletion(null);
+            })
+            .finally(() => setIsDeletingEducation(false));
         }}
       />
     </TabsContent>

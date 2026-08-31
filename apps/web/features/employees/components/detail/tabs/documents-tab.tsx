@@ -127,6 +127,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
       void queryClient.invalidateQueries({ queryKey: [...documentsQueryKey, 'all'] });
       toast.success('Document uploaded');
       setUploadOpen(false);
+      setUploadConfirmationOpen(false);
       setUploadName('');
       setSelectedFile(null);
       setUploadType(UPLOAD_DOCUMENT_TYPES[0].value);

@@ -43,7 +43,6 @@ type EmployeeDetailFormOptions = {
   isSelf?: boolean;
   isAdmin?: boolean;
   canManageOrganization?: boolean;
-  canManagePermissions?: boolean;
   canManageRole?: boolean;
 };
 
@@ -151,7 +150,6 @@ export function useEmployeeDetailForm(
           departmentId: employee.departmentId || null,
           reportsToId: employee.reportsToId || null,
           ...(options?.canManageRole ? { role: employee.workspaceRole } : {}),
-          ...(options?.canManagePermissions ? { permissions: employee.permissions } : {}),
         });
       }
 
@@ -231,8 +229,10 @@ export function useEmployeeDetailForm(
         emergencyContacts: prev.emergencyContacts.filter((contact) => contact.id !== contactId),
       }));
       toast.success('Emergency contact removed');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove emergency contact');
+      return false;
     }
   };
 
@@ -267,8 +267,10 @@ export function useEmployeeDetailForm(
         education: prev.education.filter((record) => record.id !== educationId),
       }));
       toast.success('Education record removed');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove education record');
+      return false;
     }
   };
 
@@ -282,10 +284,6 @@ export function useEmployeeDetailForm(
     educationDialogOpen,
     setEducationDialogOpen,
     handleInputChange,
-    handlePermissionsChange: (permissions: string[]) => {
-      setEmployee((prev) => ({ ...prev, permissions }));
-      setIsDirty(true);
-    },
     handleNestedInputChange,
     handleSaveChanges,
     handleAvatarUpdated: (avatarUrl: string) => {

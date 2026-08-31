@@ -182,6 +182,7 @@ export function EmploymentTab({
         comments: comments.trim() || undefined,
       });
       toast.success('Salary added');
+      setPendingAction(null);
       setSalaryDialogOpen(false);
       resetSalaryDialog();
     } catch (err) {
@@ -209,6 +210,7 @@ export function EmploymentTab({
         assignedAt: positionEffectiveDate,
       });
       toast.success('Position updated');
+      setPendingAction(null);
       setPositionDialogOpen(false);
       resetPositionDialog();
     } catch (err) {

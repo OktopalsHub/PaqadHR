@@ -10,7 +10,6 @@ import { type Employee, employeeListSchema, employeeSchema } from '@/lib/schemas
 
 export type UpdateEmployeeInput = {
   role?: string;
-  permissions?: string[];
   departmentId?: string | null;
   reportsToId?: string | null;
 };

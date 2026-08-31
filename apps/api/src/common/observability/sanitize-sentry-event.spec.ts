@@ -23,4 +23,22 @@ describe('sanitizeSentryEvent', () => {
       'Failed for [redacted-email] with Bearer [redacted-token]',
     );
   });
+
+  it('redacts Basic authentication, cookies, password assignments, and API keys in text', () => {
+    const event = sanitizeSentryEvent({
+      message: [
+        'Authorization: Basic dXNlcjpwYXNzd29yZA==',
+        'Cookie: session=super-secret',
+        'password=super-secret api_key=sk_live_abcdefghijklmno',
+        'jwt eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature',
+      ].join('\n'),
+    });
+
+    expect(event.message).not.toContain('dXNlcjpwYXNzd29yZA==');
+    expect(event.message).not.toContain('super-secret');
+    expect(event.message).not.toContain('sk_live_abcdefghijklmno');
+    expect(event.message).not.toContain('eyJhbGciOiJIUzI1NiJ9');
+    expect(event.message).toContain('Authorization: [redacted]');
+    expect(event.message).toContain('Cookie: [redacted]');
+  });
 });

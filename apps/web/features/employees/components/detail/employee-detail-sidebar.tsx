@@ -17,7 +17,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useMemberAvatarUpload } from '@/hooks/queries/use-image-upload';
-import { MANAGE_EMPLOYEE_ORGANIZATION_PERMISSION } from '@/lib/auth/manager-access';
 import { type EmployeeDetailState, employeeDisplayName } from '../../lib/employee-detail-state';
 import { EmployeeWorkspaceStatus } from './employee-workspace-status';
 
@@ -34,7 +33,6 @@ interface EmployeeDetailSidebarProps {
   isAdmin?: boolean;
   canManageStatus?: boolean;
   canManageRole?: boolean;
-  canManagePermissions?: boolean;
   statusUpdatePending?: boolean;
   isDirty?: boolean;
   isSaving?: boolean;
@@ -42,7 +40,6 @@ interface EmployeeDetailSidebarProps {
   onSave?: () => void;
   onMemberStatusChange?: (isActive: boolean) => void;
   onInputChange: (field: string, value: string) => void;
-  onPermissionsChange?: (permissions: string[]) => void;
   onAvatarUpdated?: (avatarUrl: string) => void;
 }
 
@@ -53,7 +50,6 @@ export function EmployeeDetailSidebar({
   canEdit = true,
   canManageStatus = false,
   canManageRole = false,
-  canManagePermissions = false,
   statusUpdatePending = false,
   isDirty = false,
   isSaving = false,
@@ -61,7 +57,6 @@ export function EmployeeDetailSidebar({
   onSave,
   onMemberStatusChange,
   onInputChange,
-  onPermissionsChange,
   onAvatarUpdated,
 }: EmployeeDetailSidebarProps) {
   const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
@@ -166,35 +161,6 @@ export function EmployeeDetailSidebar({
                   </SelectContent>
                 </Select>
               </div>
-            ) : null}
-
-            {canManagePermissions ? (
-              <label className="flex items-start gap-3 rounded-lg border border-border/60 p-3 text-sm">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4 accent-primary"
-                  checked={employee.permissions.includes(MANAGE_EMPLOYEE_ORGANIZATION_PERMISSION)}
-                  onChange={(event) => {
-                    const permissions = event.target.checked
-                      ? [
-                          ...new Set([
-                            ...employee.permissions,
-                            MANAGE_EMPLOYEE_ORGANIZATION_PERMISSION,
-                          ]),
-                        ]
-                      : employee.permissions.filter(
-                          (permission) => permission !== MANAGE_EMPLOYEE_ORGANIZATION_PERMISSION,
-                        );
-                    onPermissionsChange?.(permissions);
-                  }}
-                />
-                <span>
-                  <span className="block font-medium">Can manage employee organization</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Allows department, reporting-line, and position changes without admin access.
-                  </span>
-                </span>
-              </label>
             ) : null}
 
             <div>

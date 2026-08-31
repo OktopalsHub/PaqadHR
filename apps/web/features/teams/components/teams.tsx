@@ -10,7 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDepartments } from '@/hooks/queries/use-departments';
-import { canManageEmployeeOrganization } from '@/lib/auth/manager-access';
+import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { useTenant } from '@/providers/tenant-provider';
 import { CreateDepartmentDialog } from './create-department-dialog';
 import { DepartmentCard } from './department-card';
@@ -25,10 +25,7 @@ export const Teams = ({
   setCreateOpenExternal?: (open: boolean) => void;
 }) => {
   const { tenant } = useTenant();
-  const canManageOrganization = canManageEmployeeOrganization(
-    tenant?.member?.role,
-    tenant?.member?.permissions,
-  );
+  const canManageOrganization = isTenantAdmin(tenant?.member?.role);
   const [searchTerm, setSearchTerm] = useState('');
   const [createOpenInternal, setCreateOpenInternal] = useState(false);
   const createOpen = createOpenExternal !== undefined ? createOpenExternal : createOpenInternal;

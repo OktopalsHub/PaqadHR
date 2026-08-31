@@ -65,7 +65,6 @@ export function createEmployeeDetailState(
     name,
     preferredName: member.preferredName ?? '',
     workspaceRole: member.role,
-    permissions: member.permissions ?? [],
     position: member.position?.title ?? '',
     department: member.department?.name ?? '',
     departmentId: member.department?.id ?? '',

@@ -8,7 +8,6 @@ export interface MemberContext {
   id: string;
   role: string;
   memberId: string;
-  permissions?: string[];
 }
 export interface RequestContext {
   tenant?: TenantContext;

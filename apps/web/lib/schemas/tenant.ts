@@ -4,7 +4,6 @@ export const tenantMemberSchema = z
   .object({
     id: z.string(),
     role: z.string().optional(),
-    permissions: z.array(z.string()).default([]),
     isActive: z.boolean().optional(),
   })
   .passthrough();

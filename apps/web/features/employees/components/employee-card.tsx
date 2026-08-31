@@ -5,7 +5,7 @@ import { memo } from 'react';
 import { PersonAvatar } from '@/components/person-avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
-import { canManageEmployeeOrganization, canManageMember } from '@/lib/auth/manager-access';
+import { canManageMember } from '@/lib/auth/manager-access';
 import type { Employee } from '../types/';
 import { getStatusStyles } from '../utils/';
 
@@ -13,19 +13,14 @@ interface EmployeeCardsProps {
   employees: Employee[];
   viewerMemberId?: string;
   viewerRole?: string | null;
-  viewerPermissions?: string[];
 }
 
 export const EmployeeCards = memo(
-  ({ employees, viewerMemberId, viewerRole, viewerPermissions }: EmployeeCardsProps) => {
+  ({ employees, viewerMemberId, viewerRole }: EmployeeCardsProps) => {
     const tenantHref = useTenantHref();
 
     const canLinkToDetail = (employee: Employee) =>
-      Boolean(
-        viewerMemberId &&
-          (canManageMember(viewerMemberId, employee, viewerRole) ||
-            canManageEmployeeOrganization(viewerRole, viewerPermissions)),
-      );
+      Boolean(viewerMemberId && canManageMember(viewerMemberId, employee, viewerRole));
 
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 min-[1680px]:grid-cols-6">

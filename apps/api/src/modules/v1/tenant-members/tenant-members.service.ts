@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EmploymentStatus, TenantMemberPermission, TenantMemberRole } from 'src/common/enums';
+import { EmploymentStatus, TenantMemberRole } from 'src/common/enums';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import type { MemberContext } from 'src/common/interfaces';
 import { EncryptionService } from 'src/common/services/encryption.service';
@@ -127,7 +127,6 @@ export class TenantMembersService {
   ): Promise<Record<string, string>> {
     return {
       role: member.role,
-      permissions: (member.permissions ?? []).join(', ') || 'None',
       department: this.activeDepartmentName(member),
       reportsTo: await this.resolveMemberLabel(this.activeReportsToId(member), tenantId),
     };
@@ -335,16 +334,10 @@ export class TenantMembersService {
     actor: MemberContext,
   ): Promise<TenantMember> {
     const isAdmin = actor.role === TenantMemberRole.ADMIN || actor.role === TenantMemberRole.OWNER;
-    const canManageOrganization =
-      isAdmin || actor.permissions?.includes(TenantMemberPermission.MANAGE_EMPLOYEE_ORGANIZATION);
-    if (!canManageOrganization) {
-      throw new ForbiddenException('Employee organization management access is required');
-    }
-    if (!isAdmin && (updateDto.role !== undefined || updateDto.permissions !== undefined)) {
-      throw new ForbiddenException('Only workspace admins can change roles or permissions');
-    }
-    if (updateDto.permissions !== undefined && actor.role !== TenantMemberRole.OWNER) {
-      throw new ForbiddenException('Only the workspace owner can grant or revoke permissions');
+    if (!isAdmin) {
+      throw new ForbiddenException(
+        'Only workspace owners and admins can manage employee organization',
+      );
     }
     const member = await this.getTenantMember(memberId, tenantId);
     const before = await this.snapshotOrgFields(member, tenantId);
@@ -439,10 +432,6 @@ export class TenantMembersService {
       }
       updateData.role = updateDto.role;
     }
-    if (updateDto.permissions !== undefined) {
-      updateData.permissions = [...new Set(updateDto.permissions)];
-    }
-
     if (Object.keys(updateData).length > 0) {
       await this.tenantMemberRepository.update(
         member.id,
@@ -461,8 +450,7 @@ export class TenantMembersService {
     if (
       updateDto.departmentId !== undefined ||
       updateDto.reportsToId !== undefined ||
-      updateDto.role !== undefined ||
-      updateDto.permissions !== undefined
+      updateDto.role !== undefined
     ) {
       this.eventEmitter.emit('tenant.member.changed', new TenantMemberChangedEvent(tenantId));
     }

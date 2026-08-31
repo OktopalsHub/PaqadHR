@@ -17,6 +17,7 @@ interface EmergencyContactsTabProps {
 
 export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContactsTabProps) {
   const [contactPendingDeletion, setContactPendingDeletion] = useState<string | null>(null);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
   const {
     employee,
     emergencyContactDialogOpen,
@@ -111,13 +112,22 @@ export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContact
       />
       <DestructiveConfirmDialog
         open={Boolean(contactPendingDeletion)}
-        onOpenChange={(open) => !open && setContactPendingDeletion(null)}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingContact) setContactPendingDeletion(null);
+        }}
         title="Remove emergency contact?"
         description="This emergency contact will be permanently deleted from the employee profile."
         actionLabel="Remove contact"
+        isPending={isDeletingContact}
+        preventAutoClose
         onConfirm={() => {
-          if (contactPendingDeletion) handleDeleteEmergencyContact(contactPendingDeletion);
-          setContactPendingDeletion(null);
+          if (!contactPendingDeletion || isDeletingContact) return;
+          setIsDeletingContact(true);
+          void handleDeleteEmergencyContact(contactPendingDeletion)
+            .then((deleted) => {
+              if (deleted) setContactPendingDeletion(null);
+            })
+            .finally(() => setIsDeletingContact(false));
         }}
       />
     </TabsContent>

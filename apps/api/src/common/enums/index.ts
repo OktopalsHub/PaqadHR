@@ -19,5 +19,4 @@ export * from './relationship-type.enum';
 export * from './shoutout-point-transaction-type.enum';
 export * from './subscription.enum';
 export * from './tenant-member.enum';
-export * from './tenant-member-permission.enum';
 export * from './user.enum';

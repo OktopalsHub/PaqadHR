@@ -10,10 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
+import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
+import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
-import { ManageEmployeeOrganizationGuard } from '../../tenant-members/guards/manage-employee-organization.guard';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { AssignPositionDto } from '../dto/assign-position.dto';
 import { PositionMemberService } from '../services/position-member.service';
@@ -46,7 +47,8 @@ export class PositionMemberController {
   }
 
   @Post('member/:memberId/assign')
-  @UseGuards(ManageEmployeeOrganizationGuard)
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async assignPosition(
     @Param('tenantId') tenantId: string,

@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsArray, IsEnum, IsOptional, IsUUID } from 'class-validator';
-import { TenantMemberPermission, TenantMemberRole } from 'src/common/enums';
+import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { TenantMemberRole } from 'src/common/enums';
 
 export class UpdateTenantMemberDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
@@ -30,16 +30,4 @@ export class UpdateTenantMemberDto {
   })
   @IsOptional()
   reportsToId?: string;
-
-  @IsArray()
-  @IsEnum(TenantMemberPermission, { each: true })
-  @IsOptional()
-  @ApiProperty({
-    description:
-      'Fine-grained member permissions. Only workspace owners can grant or revoke these.',
-    enum: TenantMemberPermission,
-    isArray: true,
-    required: false,
-  })
-  permissions?: TenantMemberPermission[];
 }
