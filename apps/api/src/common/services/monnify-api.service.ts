@@ -110,7 +110,7 @@ export interface MonnifySingleTransferInput {
 export class MonnifyApiService {
   private readonly logger = new Logger(MonnifyApiService.name);
   private cachedToken?: { token: string; expiresAt: number };
-  private static readonly REQUEST_TIMEOUT_MS = 90_000;
+  private static readonly REQUEST_TIMEOUT_MS = 15_000;
   private static readonly CHECKOUT_UNAVAILABLE =
     'Checkout is temporarily unavailable. Please try again later or contact support.';
 

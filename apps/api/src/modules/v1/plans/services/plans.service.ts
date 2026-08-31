@@ -8,12 +8,44 @@ import { PlanPrice } from '../entities/plan-price.entity';
 @Injectable()
 export class PlansService {
   private readonly logger = new Logger(PlansService.name);
+  private readonly priceCache = new Map<string, { data: PlanPrice[]; expiresAt: number }>();
+  private readonly PRICE_CACHE_TTL_MS = 5 * 60 * 1000;
+
   constructor(
     @InjectRepository(Plan)
     private readonly planRepository: Repository<Plan>,
     @InjectRepository(PlanPrice)
     private readonly planPriceRepository: Repository<PlanPrice>,
   ) {}
+
+  private getCachedPrices(countryCode: string): PlanPrice[] | null {
+    const key = countryCode.toUpperCase();
+    const entry = this.priceCache.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.priceCache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+
+  private setCachedPrices(countryCode: string, data: PlanPrice[]): void {
+    const key = countryCode.toUpperCase();
+    if (this.priceCache.size > 100) {
+      const first = this.priceCache.keys().next().value as string | undefined;
+      if (first) this.priceCache.delete(first);
+    }
+    this.priceCache.set(key, { data, expiresAt: Date.now() + this.PRICE_CACHE_TTL_MS });
+  }
+
+  private invalidatePriceCache(countryCode?: string): void {
+    if (countryCode) {
+      this.priceCache.delete(countryCode.toUpperCase());
+      if (countryCode.toUpperCase() !== 'GLOBAL') this.priceCache.delete('GLOBAL');
+    } else {
+      this.priceCache.clear();
+    }
+  }
   async findAllPlans(): Promise<Plan[]> {
     return this.planRepository.find({
       where: { isActive: true },
@@ -32,24 +64,31 @@ export class PlansService {
   }
   async getPricesForCountry(countryCode: string): Promise<PlanPrice[]> {
     const normalized = (countryCode || 'GLOBAL').toUpperCase();
+    const cached = this.getCachedPrices(normalized);
+    if (cached) return cached;
+
     const prices = await this.planPriceRepository.find({
       where: { countryCode: normalized, isActive: true },
       relations: ['plan'],
       order: { plan: { sortOrder: 'ASC' } },
     });
     if (prices.length > 0) {
+      this.setCachedPrices(normalized, prices);
       return prices;
     }
     // NG must never silently fall back to GLOBAL/USD — missing NGN seed is a hard miss.
     if (normalized === 'NG') {
       this.logger.warn('No active NG plan_prices rows found; refusing GLOBAL/USD fallback');
+      this.setCachedPrices(normalized, []);
       return [];
     }
-    return this.planPriceRepository.find({
+    const globalPrices = await this.planPriceRepository.find({
       where: { countryCode: 'GLOBAL', isActive: true },
       relations: ['plan'],
       order: { plan: { sortOrder: 'ASC' } },
     });
+    this.setCachedPrices(normalized, globalPrices);
+    return globalPrices;
   }
   async getPlanPriceById(planPriceId: string): Promise<PlanPrice | null> {
     return this.planPriceRepository.findOne({
@@ -134,7 +173,9 @@ export class PlansService {
   }
   async createPlanPrice(data: Partial<PlanPrice>): Promise<PlanPrice> {
     const price = this.planPriceRepository.create(data);
-    return this.planPriceRepository.save(price);
+    const saved = await this.planPriceRepository.save(price);
+    this.invalidatePriceCache((saved as any).countryCode);
+    return saved;
   }
   async updatePlanPrice(id: string, updates: Partial<PlanPrice>): Promise<PlanPrice> {
     await this.planPriceRepository.update(
@@ -148,6 +189,7 @@ export class PlansService {
     if (!price) {
       throw new NotFoundException('Plan price not found');
     }
+    this.invalidatePriceCache(price.countryCode);
     return price;
   }
   calculatePrice(

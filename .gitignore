@@ -56,3 +56,5 @@ next-env.d.ts
 .cursor
 .cursorrules
 mcp
+.unlighthouse
+unlighthouse.cookies.json

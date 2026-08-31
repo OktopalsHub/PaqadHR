@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api/client';
+import { cacheKeys, getCached, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import type { BillingOverview, BillingStatus, CheckoutResponse } from '@/lib/schemas/subscription';
 
 export async function fetchLandingPricing(): Promise<{ currency: string; countryCode: string }> {
@@ -13,11 +14,27 @@ export async function startTrial(tenantId: string, planSlug: string) {
 }
 
 export async function fetchBillingStatus(tenantId: string): Promise<BillingStatus> {
-  return apiClient<BillingStatus>(`/subscriptions/tenant/${tenantId}/billing-status`);
+  const data = await apiClient<BillingStatus>(`/subscriptions/tenant/${tenantId}/billing-status`);
+  try {
+    setCached(cacheKeys.billing.status(tenantId), data, { ttl: MAX_CACHE_TTL });
+  } catch {}
+  return data;
 }
 
 export async function fetchBillingOverview(tenantId: string): Promise<BillingOverview> {
-  return apiClient<BillingOverview>(`/subscriptions/tenant/${tenantId}/billing-overview`);
+  const data = await apiClient<BillingOverview>(`/subscriptions/tenant/${tenantId}/billing-overview`);
+  try {
+    setCached(cacheKeys.billing.overview(tenantId), data, { ttl: MAX_CACHE_TTL });
+  } catch {}
+  return data;
+}
+
+export function getCachedBillingOverview(tenantId: string): BillingOverview | null {
+  try {
+    return getCached<BillingOverview>(cacheKeys.billing.overview(tenantId));
+  } catch {
+    return null;
+  }
 }
 
 export async function createSubscriptionCheckout(

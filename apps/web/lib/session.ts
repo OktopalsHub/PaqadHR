@@ -28,6 +28,20 @@ function clearTenantSlugCookie() {
   document.cookie = `tenant_slug=; path=/${domainPart}; max-age=0; SameSite=Lax`;
 }
 
+function writeTenantIdCookie(tenantId: string, maxAge: number) {
+  const domain = sharedCookieDomain();
+  const domainPart = domain ? `; Domain=${domain}` : '';
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
+  document.cookie = `tenant_id=${encodeURIComponent(tenantId)}; path=/${domainPart}; max-age=${maxAge}; SameSite=Lax`;
+}
+
+function clearTenantIdCookie() {
+  const domain = sharedCookieDomain();
+  const domainPart = domain ? `; Domain=${domain}` : '';
+  // biome-ignore lint/suspicious/noDocumentCookie: Cookie Store API is not widely supported yet
+  document.cookie = `tenant_id=; path=/${domainPart}; max-age=0; SameSite=Lax`;
+}
+
 /** User profile is loaded from the API only — never cached in localStorage (GDPR/NDPR). */
 export function persistSession(): void {
   // Intentionally no-op: auth state lives in httpOnly cookies + server profile fetch.
@@ -46,11 +60,13 @@ export function clearSessionStorage() {
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
   clearTenantSlugCookie();
+  clearTenantIdCookie();
 }
 
 export function persistTenantId(tenantId: string) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(TENANT_KEY, tenantId);
+  writeTenantIdCookie(tenantId, 31536000);
 }
 
 export function readTenantId(): string | null {
@@ -74,4 +90,5 @@ export function clearTenantId() {
   localStorage.removeItem(TENANT_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
   clearTenantSlugCookie();
+  clearTenantIdCookie();
 }

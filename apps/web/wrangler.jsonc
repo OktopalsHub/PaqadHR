@@ -35,7 +35,7 @@
   },
   "routes": [
     {
-      "pattern": "dev.paqadhr.com",
+      "pattern": "dev.paqadhr.com/*",
       "custom_domain": true
     },
     {
@@ -79,11 +79,11 @@
       },
       "routes": [
         {
-          "pattern": "paqadhr.com",
+          "pattern": "paqadhr.com/*",
           "custom_domain": true
         },
         {
-          "pattern": "www.paqadhr.com",
+          "pattern": "www.paqadhr.com/*",
           "custom_domain": true
         },
         {

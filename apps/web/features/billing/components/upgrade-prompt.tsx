@@ -6,7 +6,7 @@ import { useCallback, useEffect, useId, useMemo, useRef } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
-import { useBillingOverview } from '@/hooks/queries/use-billing';
+import { useBillingOverview, usePrefetchBillingOverview } from '@/hooks/queries/use-billing';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import { ApiError } from '@/lib/api/client';
 import type { FeatureAccess } from '@/lib/constants/feature-access';
@@ -40,6 +40,7 @@ function getFocusableElements(container: HTMLElement): HTMLElement[] {
 function useUpgradeOptions(feature: string | null) {
   const { tenant } = useTenant();
   const { data: overview } = useBillingOverview();
+  const prefetchBilling = usePrefetchBillingOverview();
 
   const currentPlanSlug = overview?.subscription?.plan?.toLowerCase();
   const currentPlan = currentPlanSlug && isPlanSlug(currentPlanSlug) ? currentPlanSlug : 'starter';
@@ -72,7 +73,7 @@ function useUpgradeOptions(feature: string | null) {
     [feature, tenant?.slug, router],
   );
 
-  return { currentPlan, plansForFeature, sortedPlans, handleUpgrade };
+  return { currentPlan, plansForFeature, sortedPlans, handleUpgrade, prefetchBilling };
 }
 
 export function isUpgradeRequiredError(error: unknown): boolean {
@@ -109,7 +110,8 @@ export function UpgradeRequiredPanel({
   titleId,
   descriptionId,
 }: UpgradeRequiredPanelProps) {
-  const { currentPlan, plansForFeature, sortedPlans, handleUpgrade } = useUpgradeOptions(feature);
+  const { currentPlan, plansForFeature, sortedPlans, handleUpgrade, prefetchBilling } =
+    useUpgradeOptions(feature);
   const fallbackPlan = plansForFeature[0];
 
   useEffect(() => {
@@ -171,6 +173,8 @@ export function UpgradeRequiredPanel({
                       className="w-full sm:w-auto"
                       size="sm"
                       onClick={() => handleUpgrade(plan.slug)}
+                      onMouseEnter={prefetchBilling}
+                      onFocus={prefetchBilling}
                     >
                       Upgrade
                     </Button>
@@ -182,6 +186,8 @@ export function UpgradeRequiredPanel({
             <Button
               className="w-full sm:w-auto sm:self-start"
               onClick={() => handleUpgrade(fallbackPlan)}
+              onMouseEnter={prefetchBilling}
+              onFocus={prefetchBilling}
             >
               View upgrade options
             </Button>

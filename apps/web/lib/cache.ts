@@ -233,6 +233,10 @@ export const cacheKeys = {
   tenants: {
     all: 'tenants_all',
   },
+  billing: {
+    overview: (tenantId: string) => tenantCacheKey(tenantId, 'billing_overview'),
+    status: (tenantId: string) => tenantCacheKey(tenantId, 'billing_status'),
+  },
 } as const;
 
 export function tenantCacheKey(tenantId: string, key: string): string {

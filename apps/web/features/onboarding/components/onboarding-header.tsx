@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { usePrefetchBillingOverview } from '@/hooks/queries/use-billing';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { tenantRoot } from '@/lib/navigation/tenant-routes';
 import { useAuth } from '@/hooks/use-auth';
@@ -20,6 +21,11 @@ import { useTenant } from '@/providers/tenant-provider';
 export function OnboardingHeader() {
   const { logout, isAuthenticated, isLoading: authLoading } = useAuth();
   const { tenants, tenant, setTenantId, isLoading: tenantLoading } = useTenant();
+  const prefetchBilling = usePrefetchBillingOverview();
+
+  useEffect(() => {
+    if (tenant?.id) prefetchBilling();
+  }, [tenant?.id, prefetchBilling]);
 
   const isLoading = authLoading || tenantLoading;
 

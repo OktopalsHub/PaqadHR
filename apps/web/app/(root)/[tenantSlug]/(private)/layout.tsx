@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ForgottenSessionModal } from '@/features/attendance/components/forgotten-session-modal';
 import { SubscriptionGate } from '@/features/billing/components/subscription-gate';
@@ -7,6 +8,13 @@ import { AppSidebar } from '@/features/navigations/components/app-sidebar';
 import { AppTopBar } from '@/features/navigations/components/app-topbar';
 import { TenantSlugGate } from '@/features/navigations/components/tenant-slug-gate';
 import { BreadcrumbProvider } from '@/providers/breadcrumb-provider';
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default function TenantLayout({
   children,

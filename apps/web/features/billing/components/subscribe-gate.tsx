@@ -1,8 +1,10 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingSpinner } from '@/components/loading-block';
+import { billingOverviewQueryOptions } from '@/hooks/queries/use-billing';
 import { useAuth } from '@/hooks/use-auth';
 import { authPageUrl, subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
@@ -19,8 +21,15 @@ export function SubscribeGate({ children }: { children: React.ReactNode }) {
     isLoading: tenantLoading,
     hasResolvedTenants,
   } = useTenant();
+  const queryClient = useQueryClient();
 
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
+
+  // Intent prefetch: start billing fetch as soon as tenant is known, in parallel with gate render
+  useEffect(() => {
+    if (!tenant?.id) return;
+    void queryClient.prefetchQuery(billingOverviewQueryOptions(tenant.id));
+  }, [tenant?.id, queryClient]);
 
   useEffect(() => {
     if (authLoading) return;

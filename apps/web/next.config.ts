@@ -6,6 +6,28 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname, '../..'),
   },
+  experimental: {
+    optimizePackageImports: [
+      'framer-motion',
+      'lucide-react',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-select',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-avatar',
+      '@radix-ui/react-popover',
+      'recharts',
+      'date-fns',
+      'embla-carousel-react',
+      'three',
+      '@react-three/fiber',
+      '@react-three/drei',
+      'posthog-js',
+      'axios',
+      'zod',
+      '@tanstack/react-query',
+    ],
+  },
   async headers() {
     return [
       {

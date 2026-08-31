@@ -15,6 +15,7 @@ import {
   useBillingOverview,
   useCancelSubscription,
   useCreateSubscriptionCheckout,
+  usePrefetchBillingOverview,
   useResumeSubscription,
   useUpdatePaymentMethod,
 } from '@/hooks/queries/use-billing';
@@ -273,6 +274,7 @@ export function BillingSection() {
     }
   };
 
+  const prefetchBilling = usePrefetchBillingOverview();
   const goToSubscribe = () => {
     if (!tenant?.slug) return;
     router.push(subscribePagePath({ workspace: tenant.slug }));
@@ -361,7 +363,13 @@ export function BillingSection() {
                   )}
                 </Button>
                 {isCancelledOrExpired || !overview.subscription ? (
-                  <Button size="sm" variant="outline" onClick={goToSubscribe}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={goToSubscribe}
+                    onMouseEnter={prefetchBilling}
+                    onFocus={prefetchBilling}
+                  >
                     Choose a plan
                   </Button>
                 ) : null}

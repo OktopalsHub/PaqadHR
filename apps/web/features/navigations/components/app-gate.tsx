@@ -72,11 +72,29 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   ]);
 
   if (isLoading || !hasResolvedTenants) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 p-6 text-center">
+        <div
+          className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary"
+          aria-hidden="true"
+        />
+        <h1 className="text-sm font-medium text-muted-foreground">Loading workspace…</h1>
+        <p className="sr-only">Please wait while we load your workspace.</p>
+      </div>
+    );
   }
 
   if (!isAuthenticated) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 p-6 text-center">
+        <div
+          className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary"
+          aria-hidden="true"
+        />
+        <h1 className="text-sm font-medium text-muted-foreground">Redirecting to sign in…</h1>
+        <p className="text-xs text-muted-foreground">Please wait while we redirect you.</p>
+      </div>
+    );
   }
 
   if (isError) {

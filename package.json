@@ -17,11 +17,17 @@
     "test": "turbo test",
     "deploy": "pnpm --filter web deploy",
     "cf-deploy": "pnpm --filter web cf-deploy",
-    "cf-typegen": "pnpm --filter web cf-typegen"
+    "cf-typegen": "pnpm --filter web cf-typegen",
+    "unlighthouse": "unlighthouse",
+    "unlighthouse:landing": "unlighthouse --urls \"/\"",
+    "unlighthouse:prod": "UNLIGHTHOUSE_SITE=https://dev.paqadhr.com unlighthouse --site https://dev.paqadhr.com",
+    "unlighthouse:auth": "node scripts/unlighthouse-auth.mjs && UNLIGHTHOUSE_PRIVATE=1 unlighthouse",
+    "unlighthouse:ci": "unlighthouse --site http://localhost:3000 --desktop"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.0",
-    "turbo": "^2.9.16"
+    "turbo": "^2.9.16",
+    "unlighthouse": "^0.18.0"
   },
   "dependencies": {
     "zeptomail": "^8.0.1"

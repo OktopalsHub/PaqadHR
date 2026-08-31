@@ -102,6 +102,7 @@ export class NombaApiService {
         client_id: getNombaClientId(),
         client_secret: getNombaClientSecret(),
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     const payload = (await response.json()) as NombaTokenResponse;
@@ -124,6 +125,7 @@ export class NombaApiService {
         accountId: getNombaAccountId(),
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
     });
 
     const payload = (await response.json()) as T & {
@@ -236,6 +238,7 @@ export class NombaApiService {
           Authorization: `Bearer ${token}`,
           accountId: getNombaAccountId(),
         },
+        signal: AbortSignal.timeout(8_000),
       });
 
       const payload = (await response.json()) as NombaVerifyResponse;

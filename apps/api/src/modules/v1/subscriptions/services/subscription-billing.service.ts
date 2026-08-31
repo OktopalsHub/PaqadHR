@@ -34,7 +34,8 @@ import { TenantMember } from '../../tenant-members/entities/tenant-member.entity
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
-import { isBillingGatewayEnabled } from '../config/billing.config';
+import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../config/billing.config';
+import { isPayrollGatewayEnabled } from '../../payroll/config/payroll-disbursement.config';
 import {
   BillingChargeType,
   CARD_UPDATE_VERIFY_AMOUNT,
@@ -511,10 +512,34 @@ export class SubscriptionBillingService {
     return resolveSeatCount(count);
   }
 
+  private async healBachsTrialingPaidSubscriptionSafe(
+    subscription: TenantSubscription,
+  ): Promise<TenantSubscription> {
+    try {
+      // Avoid blocking billing-overview on slow external provider — 1.5s timeout
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('heal timeout')), 1500),
+      );
+      return await Promise.race([this.healBachsTrialingPaidSubscription(subscription), timeout]);
+    } catch {
+      return subscription;
+    }
+  }
+
   async getBillingOverview(tenantId: string, canManageBilling: boolean, userId?: string | null) {
-    const [tenant, billingStatus, seatCount, rawSubscription, tenantSettings] = await Promise.all([
-      this.tenantRepository.findOne({ where: { id: tenantId }, relations: ['createdBy'] }),
-      this.subscriptionsService.getBillingStatus(tenantId),
+    const [tenant, seatCount, rawSubscription, tenantSettings] = await Promise.all([
+      this.tenantRepository.findOne({
+        where: { id: tenantId },
+        relations: ['createdBy'],
+        select: {
+          id: true,
+          name: true,
+          countryCode: true,
+          preferredCurrency: true,
+          slug: true,
+          createdBy: { id: true, email: true },
+        },
+      } as any),
       this.getTenantSeatCount(tenantId),
       this.subscriptionsService.getTenantSubscription(tenantId),
       this.tenantSettingsService.getTenantSettings(tenantId).catch(() => null),
@@ -525,7 +550,7 @@ export class SubscriptionBillingService {
     }
 
     const subscription = rawSubscription
-      ? await this.healBachsTrialingPaidSubscription(rawSubscription)
+      ? await this.healBachsTrialingPaidSubscriptionSafe(rawSubscription)
       : null;
 
     const { subscription: alignedSubscription, pricingMismatch } =
@@ -535,20 +560,75 @@ export class SubscriptionBillingService {
       tenant.countryCode,
       tenant.preferredCurrency,
     );
-    const planPrices = await this.plansService.getPricesForCountry(countryCode);
-    const _paymentsEnabled = isBillingGatewayEnabled();
+    const [planPrices, trialEligible] = await Promise.all([
+      this.plansService.getPricesForCountry(countryCode),
+      this.subscriptionsService.isTrialEligible(userId, tenantId),
+    ]);
 
     const plans = planPrices
       .filter((price) => price.plan?.isActive)
       .map((price) => this.toPlanQuote(price, seatCount))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const sub = billingStatus.subscription;
-    const needsPayment = this.subscriptionsService.computeNeedsPayment(sub);
-    const trialEligible = await this.subscriptionsService.isTrialEligible(userId, tenantId);
+    // Build billingStatus locally to avoid duplicate getTenantSubscription DB round-trip
+    let billingStatus: {
+      paymentsEnabled: boolean;
+      payrollGatewayEnabled: boolean;
+      featureGatingEnabled: boolean;
+      entitled: boolean;
+      needsPayment: boolean;
+      subscription: {
+        status: string;
+        plan: string;
+        trialEndsAt: Date | null;
+        isOnTrial: boolean;
+        daysRemaining: number | null;
+        currentPeriodEnd: Date;
+        nextBillingDate: Date;
+      } | null;
+    };
+    if (!alignedSubscription) {
+      billingStatus = {
+        paymentsEnabled: isBillingGatewayEnabled(),
+        payrollGatewayEnabled: isPayrollGatewayEnabled(),
+        featureGatingEnabled: isFeatureGatingEnabled(),
+        entitled: false,
+        needsPayment: true,
+        subscription: null,
+      };
+    } else {
+      let daysRemaining: number | null = null;
+      if (alignedSubscription.trialEndsAt) {
+        const ms = alignedSubscription.trialEndsAt.getTime() - Date.now();
+        daysRemaining = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+      }
+      const summary = {
+        status: alignedSubscription.status,
+        plan:
+          (alignedSubscription as any).plan?.slug ??
+          (alignedSubscription as any).plan?.name ??
+          'starter',
+        trialEndsAt: alignedSubscription.trialEndsAt,
+        isOnTrial: alignedSubscription.isOnTrial,
+        daysRemaining,
+        currentPeriodEnd: alignedSubscription.currentPeriodEnd,
+        nextBillingDate: alignedSubscription.nextBillingDate,
+      };
+      billingStatus = {
+        paymentsEnabled: isBillingGatewayEnabled(),
+        payrollGatewayEnabled: isPayrollGatewayEnabled(),
+        featureGatingEnabled: isFeatureGatingEnabled(),
+        entitled: this.subscriptionsService.isSubscriptionEntitled(alignedSubscription),
+        needsPayment: this.subscriptionsService.computeNeedsPayment(summary),
+        subscription: summary,
+      };
+    }
+
+    const needsPayment = billingStatus.needsPayment;
 
     const billingHistory = (alignedSubscription?.billingHistory ?? [])
       .filter((entry) => !(entry.status === 'paid' && Number(entry.amount) === 0))
+      .slice(-20)
       .map((entry) => ({
         date: entry.date instanceof Date ? entry.date.toISOString() : String(entry.date),
         amount: entry.amount,
@@ -622,21 +702,21 @@ export class SubscriptionBillingService {
       throw new BadRequestException('Invalid or inactive plan');
     }
 
-    const [tenant, user, existing] = await Promise.all([
-      this.tenantRepository.findOne({ where: { id: tenantId } }),
-      this.userRepository.findOne({ where: { id: userId } }),
+    const [user, existing] = await Promise.all([
+      this.userRepository.findOne({
+        where: { id: userId },
+        select: { id: true, email: true } as any,
+      } as any),
       this.subscriptionsService.getTenantSubscription(tenantId),
     ]);
 
-    if (!tenant) throw new NotFoundException('Tenant not found');
     if (!user) throw new NotFoundException('User not found');
 
-    await this.subscriptionsService.resolveAndLockTenantRegion(tenantId, {
+    const lockedTenant = await this.subscriptionsService.resolveAndLockTenantRegion(tenantId, {
       clientIp,
       headers,
       userId,
     });
-    const lockedTenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     if (!lockedTenant) throw new NotFoundException('Tenant not found');
 
     const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
@@ -727,7 +807,7 @@ export class SubscriptionBillingService {
         user.email,
         metadata,
         planPrice,
-        this.resolveSuccessUrl(tenant.slug, successUrl),
+        this.resolveSuccessUrl(lockedTenant.slug, successUrl),
         quantity,
       );
 

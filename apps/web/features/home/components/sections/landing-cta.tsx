@@ -1,18 +1,14 @@
 'use client';
 
-import { motion, useInView } from 'framer-motion';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import { fetchLandingPricing } from '@/lib/api/subscriptions';
 import { LANDING_PRICING_BY_CURRENCY, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
-import { fadeUp, stagger } from '../../constants/landing-motion';
 import { createLandingPricingCurrencyController } from '../../lib/landing-pricing-currency';
 
 export const LandingCta = () => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-60px' });
   const [currency, setCurrency] = useState('USD');
 
   useEffect(() => {
@@ -36,27 +32,22 @@ export const LandingCta = () => {
   }, [currency]);
 
   return (
-    <section id="pricing" ref={ref} className="py-24 md:py-32">
-      <motion.div
-        className="mx-auto max-w-6xl px-6"
-        initial="hidden"
-        animate={inView ? 'show' : 'hidden'}
-        variants={stagger}
-      >
+    <section id="pricing" className="py-24 md:py-32">
+      <div className="mx-auto max-w-6xl px-6">
         <div className="rounded-3xl border border-border bg-muted/40 px-8 py-16 md:px-16 md:py-20">
-          <motion.div variants={fadeUp} className="text-center">
+          <div className="text-center">
             <p className="text-sm font-medium text-primary">Pricing</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.02em] md:text-4xl">
               Simple per-seat pricing
             </h2>
-            <p className="mt-3 max-w-xl mx-auto text-sm text-muted-foreground">
+            <p className="mx-auto mt-3 max-w-xl text-sm text-muted-foreground">
               Payroll included on every plan. Pay per active employee — no payroll add-on required.
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div variants={stagger} className="mt-10 grid gap-4 md:grid-cols-3">
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
             {plans.map((plan) => (
-              <motion.div key={plan.slug} variants={fadeUp}>
+              <div key={plan.slug}>
                 <PlanPricingCard
                   slug={plan.slug}
                   name={plan.name}
@@ -69,11 +60,11 @@ export const LandingCta = () => {
                   isPopular={plan.slug === 'growth'}
                   variant="marketing"
                 />
-              </motion.div>
+              </div>
             ))}
-          </motion.div>
+          </div>
 
-          <motion.div variants={fadeUp} className="mt-10 text-center">
+          <div className="mt-10 text-center">
             <Button
               asChild
               size="lg"
@@ -84,9 +75,9 @@ export const LandingCta = () => {
             <p className="mt-4 text-sm text-muted-foreground">
               14 days free · No card required · Manual payroll & bank export free on all plans
             </p>
-          </motion.div>
+          </div>
         </div>
-      </motion.div>
+      </div>
     </section>
   );
 };

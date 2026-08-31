@@ -1,6 +1,5 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { Building2, ChevronDown, CreditCard, Loader2, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,7 +23,6 @@ import {
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { goToTenantPath, subscribePageUrl, tenantPath, tenantRoot } from '@/lib/navigation/tenant-routes';
-import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
 type SubscribePageProps = {
@@ -33,10 +31,9 @@ type SubscribePageProps = {
 
 export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const { tenant, tenants, setTenantId } = useTenant();
-  const { data: overview, isLoading, isError, error, refetch } = useBillingOverview();
+  const { data: overview, isLoading, isError, error } = useBillingOverview();
   const checkout = useCreateSubscriptionCheckout();
   const startTrial = useStartTrial();
   const [checkoutPlan, setCheckoutPlan] = useState<string | null>(null);
@@ -137,11 +134,6 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const handleStartTrial = async () => {
     try {
       await startTrial.mutateAsync(selectedPlan);
-      if (tenant?.id) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.billing.status(tenant.id) });
-        await queryClient.invalidateQueries({ queryKey: queryKeys.billing.overview(tenant.id) });
-      }
-      await refetch();
       toast.success('Your 14-day free trial has started');
       if (tenant?.slug) {
         goToTenantPath(tenant.slug, router.replace);

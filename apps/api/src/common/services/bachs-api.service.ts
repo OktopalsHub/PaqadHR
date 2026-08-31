@@ -250,7 +250,7 @@ export class BachsApiService {
 
   private async request<T>(
     path: string,
-    options?: { method?: string; body?: unknown },
+    options?: { method?: string; body?: unknown; timeoutMs?: number },
   ): Promise<T> {
     const secretKey = getBachsSecretKey();
     if (!secretKey) {
@@ -264,6 +264,7 @@ export class BachsApiService {
         'Content-Type': 'application/json',
       },
       body: options?.body ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(options?.timeoutMs ?? 8_000),
     });
 
     const payload = (await response.json().catch(() => ({}))) as T & {

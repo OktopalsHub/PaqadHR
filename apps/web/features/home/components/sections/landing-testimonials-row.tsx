@@ -1,20 +1,12 @@
-'use client';
-
-import { motion, useInView } from 'framer-motion';
 import { Star } from 'lucide-react';
-import { useRef } from 'react';
-import { fadeUp, stagger } from '../../constants/landing-motion';
 import { testimonials } from '../../constants/testimonals';
 import '../landing.css';
 
 export const LandingTestimonials = () => {
-  const ref = useRef(null);
-  const inView = useInView(ref, { once: true, margin: '-60px' });
-
   return (
-    <section id="testimonials" ref={ref} className="landing-testimonials-section">
+    <section id="testimonials" className="landing-testimonials-section">
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 24px' }}>
-        <motion.div initial="hidden" animate={inView ? 'show' : 'hidden'} variants={stagger}>
+        <div>
           <div className="landing-section-header">
             <p className="landing-section-eyebrow">Testimonials</p>
             <h2 className="landing-section-title">Trusted by people teams.</h2>
@@ -25,7 +17,7 @@ export const LandingTestimonials = () => {
             style={{ borderRadius: 16, overflow: 'hidden' }}
           >
             {testimonials.map((t) => (
-              <motion.div key={t.name} variants={fadeUp} className="landing-testimonial-card">
+              <div key={t.name} className="landing-testimonial-card">
                 <div className="landing-testimonial-stars">
                   {[1, 2, 3, 4, 5].slice(0, t.rating).map((star) => (
                     <Star key={`star-${t.name}-${star}`} size={14} />
@@ -39,10 +31,10 @@ export const LandingTestimonials = () => {
                     <p className="landing-testimonial-role">{t.role}</p>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             ))}
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

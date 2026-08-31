@@ -33,7 +33,12 @@ function createRenderRequestHeaders(
   return requestHeaders;
 }
 
-function applySecurityHeaders(response: NextResponse, requestHost: string, nonce: string): void {
+function applySecurityHeaders(
+  response: NextResponse,
+  requestHost: string,
+  nonce: string,
+  hostHeader?: string,
+): void {
   response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(requestHost, nonce));
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-Content-Type-Options', 'nosniff');
@@ -51,6 +56,10 @@ function applySecurityHeaders(response: NextResponse, requestHost: string, nonce
     'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), fullscreen=(self)',
   );
   response.headers.set('X-XSS-Protection', '0'); // Modern CSP nonce replaces XSS filter
+  // Tenant subdomains serve private dashboards — never index by search engines
+  if (hostHeader && isSubdomainTenantsEnabled() && getTenantSlugFromHost(hostHeader)) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
   // Remove powered-by
   response.headers.delete('x-powered-by');
 }
@@ -66,7 +75,7 @@ export function middleware(request: NextRequest) {
     const destination = rewriteLegacyAppPath(pathname, slug);
     if (destination !== pathname) {
       const redirect = NextResponse.redirect(new URL(destination, request.url));
-      applySecurityHeaders(redirect, requestHost, nonce);
+      applySecurityHeaders(redirect, requestHost, nonce, hostHeader);
       return redirect;
     }
   }
@@ -79,7 +88,7 @@ export function middleware(request: NextRequest) {
         const apexOrigin = marketingOriginFromHost(hostHeader);
         const destination = new URL(`${pathname}${request.nextUrl.search}`, apexOrigin);
         const redirect = NextResponse.redirect(destination);
-        applySecurityHeaders(redirect, requestHost, nonce);
+        applySecurityHeaders(redirect, requestHost, nonce, hostHeader);
         return redirect;
       }
 
@@ -91,16 +100,22 @@ export function middleware(request: NextRequest) {
         const rewrite = NextResponse.rewrite(new URL(internalPath, request.url), {
           request: { headers: rewriteHeaders },
         });
-        applySecurityHeaders(rewrite, requestHost, nonce);
+        applySecurityHeaders(rewrite, requestHost, nonce, hostHeader);
         return rewrite;
       }
+      // Already prefixed path on tenant subdomain — ensure noindex for remaining tenant renders
+      const nextOnTenant = NextResponse.next({
+        request: { headers: createRenderRequestHeaders(request, requestHost, nonce) },
+      });
+      applySecurityHeaders(nextOnTenant, requestHost, nonce, hostHeader);
+      return nextOnTenant;
     } else if (isApexHost(hostHeader)) {
       const legacySlug = getTenantSlugFromPath(pathname);
       if (legacySlug) {
         const rest = pathname.slice(`/${legacySlug}`.length) || '/';
         const destination = tenantUrl(legacySlug, rest);
         const redirect = NextResponse.redirect(destination, 301);
-        applySecurityHeaders(redirect, requestHost, nonce);
+        applySecurityHeaders(redirect, requestHost, nonce, hostHeader);
         return redirect;
       }
     }
@@ -109,7 +124,7 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: { headers: createRenderRequestHeaders(request, requestHost, nonce) },
   });
-  applySecurityHeaders(response, requestHost, nonce);
+  applySecurityHeaders(response, requestHost, nonce, hostHeader);
   return response;
 }
 

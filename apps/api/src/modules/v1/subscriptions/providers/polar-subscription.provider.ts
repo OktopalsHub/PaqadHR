@@ -80,6 +80,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
           planSlug,
         },
       }),
+      signal: AbortSignal.timeout(10_000),
     });
 
     const payload = (await response.json()) as { url?: string; id?: string; detail?: string };
@@ -113,7 +114,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
 
     const response = await fetch(
       `https://api.polar.sh/v1/subscriptions/${encodeURIComponent(subscriptionReference)}`,
-      { headers: { Authorization: `Bearer ${token}` } },
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8_000) },
     );
     return response.json();
   }
@@ -256,6 +257,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
         'Content-Type': 'application/json',
       },
       body: atPeriodEnd ? JSON.stringify({ cancel_at_period_end: true }) : undefined,
+      signal: AbortSignal.timeout(8_000),
     });
 
     if (!response.ok) {
@@ -279,6 +281,7 @@ export class PolarSubscriptionProvider implements ISubscriptionBillingProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ cancel_at_period_end: false }),
+        signal: AbortSignal.timeout(8_000),
       },
     );
 

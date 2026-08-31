@@ -54,6 +54,7 @@ export default async function RootLayout({
           <NetworkActivityIndicator />
           <AppVersionWatcher />
           <ThemeProvider
+            nonce={nonce}
             attribute="class"
             defaultTheme="system"
             enableSystem
