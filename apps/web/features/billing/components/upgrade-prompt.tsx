@@ -59,6 +59,7 @@ function useUpgradeOptions(feature: string | null) {
       });
   }, [overview?.plans, plansForFeature]);
 
+  const router = useRouter();
   const handleUpgrade = useCallback(
     (planSlug: string) => {
       captureClientEvent('upgrade_prompt_clicked', {
@@ -66,9 +67,9 @@ function useUpgradeOptions(feature: string | null) {
         plan: planSlug,
       });
       if (!tenant?.slug) return;
-      window.location.assign(`/${tenant.slug}/subscribe?plan=${planSlug}`);
+      router.push(`/${tenant.slug}/subscribe?plan=${planSlug}`);
     },
-    [feature, tenant?.slug],
+    [feature, tenant?.slug, router],
   );
 
   return { currentPlan, plansForFeature, sortedPlans, handleUpgrade };

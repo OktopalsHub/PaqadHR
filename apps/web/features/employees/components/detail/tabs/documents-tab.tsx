@@ -110,6 +110,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
         selectedFile.name,
         selectedFile.type || undefined,
         tenantId,
+        selectedFile.size,
       );
       await uploadFileToPresignedUrl(uploadUrl, selectedFile);
       return createMemberDocument(

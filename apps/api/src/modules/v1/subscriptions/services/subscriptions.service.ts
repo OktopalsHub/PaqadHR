@@ -242,16 +242,6 @@ export class SubscriptionsService {
     subscription.nextBillingDate = periodEnd;
     subscription.trialEndsAt = null;
 
-    const history = subscription.billingHistory ?? [];
-    history.push({
-      date: now,
-      amount: 0,
-      currency: tenant.preferredCurrency ?? 'USD',
-      status: 'paid',
-      invoiceId: `manual-${now.getTime()}`,
-    });
-    subscription.billingHistory = history;
-
     const saved = await this.subscriptionRepository.save(subscription);
     const loaded = await this.subscriptionRepository.findOne({
       where: { id: saved.id },

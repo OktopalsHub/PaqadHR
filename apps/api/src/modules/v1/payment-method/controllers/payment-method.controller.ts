@@ -25,6 +25,7 @@ import type { MemberContext } from 'src/common/interfaces';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
 import {
+  BankLookupDto,
   CreatePaymentMethodDto,
   PasscodeChangeDto,
   SubmitForVerificationDto,
@@ -92,12 +93,13 @@ export class PaymentMethodController {
   }
   @Post('bank-lookup')
   @UseGuards(TenantMemberGuard)
+  @RateLimit(RateLimitPresets.SENSITIVE)
   @ApiOperation({ summary: 'Verify Nigerian bank account and resolve account name' })
-  async bankLookup(@Body() body: { accountNumber: string; bankCode: string; bankName?: string }) {
+  async bankLookup(@Body() dto: BankLookupDto) {
     return this.paymentMethodService.lookupNigerianBankAccount(
-      body.accountNumber,
-      body.bankCode,
-      body.bankName,
+      dto.accountNumber,
+      dto.bankCode,
+      dto.bankName,
     );
   }
   @Put(':paymentMethodId')

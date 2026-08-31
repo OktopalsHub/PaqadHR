@@ -121,4 +121,29 @@ describe('validateEnvAtBoot', () => {
     });
     expect(() => validateEnvAtBoot()).toThrow(/NOAH_SIGNING_PRIVATE_KEY/);
   });
+
+  it('accepts ACCESS_EXPIRES_IN within 15m', () => {
+    withEnv({ ACCESS_EXPIRES_IN: '15m' });
+    expect(() => validateEnvAtBoot()).not.toThrow();
+  });
+
+  it('rejects ACCESS_EXPIRES_IN above 15m', () => {
+    withEnv({ ACCESS_EXPIRES_IN: '16m' });
+    expect(() => validateEnvAtBoot()).toThrow(/ACCESS_EXPIRES_IN must be <=15m/);
+  });
+
+  it('rejects ACCESS_EXPIRES_IN with uppercase suffix', () => {
+    withEnv({ ACCESS_EXPIRES_IN: '10S' });
+    expect(() => validateEnvAtBoot()).toThrow(/ACCESS_EXPIRES_IN has invalid format/);
+  });
+
+  it('warns about in-memory rate limits in production', () => {
+    withEnv({});
+    expect(() => validateEnvAtBoot()).not.toThrow();
+  });
+
+  it('fails when PM2 runs multiple workers in production', () => {
+    withEnv({ instances: '4' });
+    expect(() => validateEnvAtBoot()).toThrow(/PM2 is running 4 workers/);
+  });
 });

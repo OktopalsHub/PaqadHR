@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAppCache();
     toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
     window.location.assign(authPageUrl('/signin'));
-  }, [queryClient]);
+  }, [queryClient]); // window.location.assign intentional: full state teardown on logout
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -206,8 +206,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionBootstrapEnabled,
       sessionQuery.data,
       sessionQuery.isFetched,
-      loginMutation,
-      registerMutation,
+      loginMutation.isPending,
+      loginMutation.mutateAsync,
+      registerMutation.isPending,
+      registerMutation.mutateAsync,
       verifyEmail,
       logout,
     ],
