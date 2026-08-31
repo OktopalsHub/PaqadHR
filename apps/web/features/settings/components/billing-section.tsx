@@ -212,7 +212,10 @@ export function BillingSection() {
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
   const billingHistory = useMemo(
-    () => (overview?.billingHistory ?? []).filter((e) => !(e.status === 'paid' && Number(e.amount) === 0)),
+    () =>
+      (overview?.billingHistory ?? []).filter(
+        (e) => !(e.status === 'paid' && Number(e.amount) === 0),
+      ),
     [overview?.billingHistory],
   );
 

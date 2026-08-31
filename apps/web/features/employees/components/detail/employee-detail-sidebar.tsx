@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AvatarUpload } from '@/components/avatar-upload';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -57,6 +59,7 @@ export function EmployeeDetailSidebar({
   onInputChange,
   onAvatarUpdated,
 }: EmployeeDetailSidebarProps) {
+  const [saveConfirmationOpen, setSaveConfirmationOpen] = useState(false);
   const displayName = employeeDisplayName(employee);
   const display = (value: string) => value || '—';
   const avatarUpload = useMemberAvatarUpload({ memberId, isSelf });
@@ -67,43 +70,66 @@ export function EmployeeDetailSidebar({
     .join('')
     .slice(0, 2)
     .toUpperCase();
+  const employeeDetails = [
+    { label: 'Employee ID', value: display(employee.employment.employeeId) },
+    { label: 'Department', value: display(employee.department) },
+    { label: 'Email', value: employee.email },
+    { label: 'Phone', value: display(employee.phone) },
+    { label: 'Manager', value: display(employee.manager) },
+  ];
 
   return (
-    <div className="md:w-1/3">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>{displayName}</CardTitle>
-            <CardDescription>{display(employee.position)}</CardDescription>
+    <div className="xl:w-1/3">
+      <Card className="gap-0 overflow-hidden py-0">
+        <CardHeader className="flex flex-col gap-3 border-b bg-muted/30 px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <CardTitle className="truncate text-lg">{displayName}</CardTitle>
+            <CardDescription className="mt-1">{display(employee.position)}</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <Badge variant={employee.status === 'Active' ? 'default' : 'outline'}>
+          <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+            <Badge
+              variant={employee.status === 'Active' ? 'default' : 'outline'}
+              className="h-3 px-0.5 text-[9px] leading-none"
+            >
               {employee.status}
             </Badge>
             {canEditForm ? (
-              <Button size="sm" disabled={!isDirty || isSaving} onClick={onSave}>
+              <Button
+                size="sm"
+                disabled={!isDirty || isSaving}
+                onClick={() => setSaveConfirmationOpen(true)}
+              >
                 {isSaving ? 'Saving…' : 'Save'}
               </Button>
             ) : null}
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col items-center space-y-4">
-          <AvatarUpload
-            src={employee.profileImage}
-            alt={displayName}
-            fallback={initials}
-            disabled={!canEdit || avatarUpload.isPending}
-            onUpload={async (file) => {
-              const url = await avatarUpload.mutateAsync(file);
-              if (url) {
-                onAvatarUpdated?.(url);
-              }
-              return url;
-            }}
-            onError={(message) => toast.error(message)}
-          />
+        <CardContent className="space-y-5 px-5 py-5">
+          <div className="flex flex-col items-center gap-3 rounded-md border border-border/70 bg-background p-4 text-center sm:flex-row sm:gap-4 sm:text-left">
+            <AvatarUpload
+              src={employee.profileImage}
+              alt={displayName}
+              fallback={initials}
+              size="sm"
+              disabled={!canEdit || avatarUpload.isPending}
+              onUpload={async (file) => {
+                const url = await avatarUpload.mutateAsync(file);
+                if (url) {
+                  onAvatarUpdated?.(url);
+                }
+                return url;
+              }}
+              onError={(message) => toast.error(message)}
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Profile photo</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {canEdit ? 'Select the camera icon to update it.' : 'Visible to workspace members.'}
+              </p>
+            </div>
+          </div>
 
-          <div className="space-y-4 w-full">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="preferred-name">Preferred Name (Optional)</Label>
               <Input
@@ -120,7 +146,7 @@ export function EmployeeDetailSidebar({
               <div className="space-y-2">
                 <Label htmlFor="workspace-role">Workspace role</Label>
                 <Select
-                  value={employee.workspaceRole}
+                  value={employee.workspaceRole || 'member'}
                   onValueChange={(value) => onInputChange('workspaceRole', value)}
                 >
                   <SelectTrigger id="workspace-role">
@@ -137,22 +163,26 @@ export function EmployeeDetailSidebar({
               </div>
             ) : null}
 
-            <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-              <span className="text-sm font-medium text-muted-foreground">ID:</span>
-              <span>{display(employee.employment.employeeId)}</span>
-              <span className="text-sm font-medium text-muted-foreground">Dept:</span>
-              <span>{display(employee.department)}</span>
-              <span className="text-sm font-medium text-muted-foreground">Email:</span>
-              <span className="break-all">{employee.email}</span>
-              <span className="text-sm font-medium text-muted-foreground">Phone:</span>
-              <span>{display(employee.phone)}</span>
-              <span className="text-sm font-medium text-muted-foreground">Manager:</span>
-              <span>{display(employee.manager)}</span>
+            <div>
+              <p className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Employee details
+              </p>
+              <dl className="divide-y rounded-md border border-border/70 bg-background">
+                {employeeDetails.map((detail) => (
+                  <div
+                    key={detail.label}
+                    className="grid gap-1 px-3 py-2.5 sm:grid-cols-[6rem_minmax(0,1fr)] sm:gap-3"
+                  >
+                    <dt className="text-xs font-medium text-muted-foreground">{detail.label}</dt>
+                    <dd className="min-w-0 break-words text-sm font-medium">{detail.value}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
           </div>
 
           {canManageStatus && onMemberStatusChange ? (
-            <div className="w-full border-t pt-4">
+            <div className="border-t pt-5">
               <p className="mb-2 text-xs font-medium text-muted-foreground">Workspace access</p>
               <EmployeeWorkspaceStatus
                 displayName={displayName}
@@ -164,6 +194,15 @@ export function EmployeeDetailSidebar({
           ) : null}
         </CardContent>
       </Card>
+      <ConfirmActionDialog
+        open={saveConfirmationOpen}
+        onOpenChange={setSaveConfirmationOpen}
+        title="Save employee changes?"
+        description="This will update the employee information you have changed."
+        actionLabel="Save changes"
+        isPending={isSaving}
+        onConfirm={() => onSave?.()}
+      />
     </div>
   );
 }

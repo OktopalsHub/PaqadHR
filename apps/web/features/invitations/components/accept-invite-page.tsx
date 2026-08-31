@@ -172,7 +172,7 @@ export function AcceptInvitePage() {
     setLastName('');
     setPreferredName('');
     setPassword('');
-  }, [token, email]);
+  }, []);
 
   if (isLoading || authLoading) {
     return (

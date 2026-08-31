@@ -8,6 +8,8 @@ import {
   ScrollText,
   Settings,
   UserPlus,
+  UserRoundCheck,
+  UserRoundX,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -140,6 +142,13 @@ export function getActivityCategory(activity: TenantActivity): ActivityCategory 
 export function getActivityPresentation(activity: TenantActivity): ActivityPresentation {
   const category = resolveCategory(activity);
   const title = formatActivityTitle(activity);
+
+  if (activity.action === 'member.deactivated' || activity.action === 'member.removed') {
+    return { icon: UserRoundX, iconClassName: 'bg-destructive/10 text-destructive', title };
+  }
+  if (activity.action === 'member.reactivated') {
+    return { icon: UserRoundCheck, iconClassName: 'bg-emerald-500/10 text-emerald-700', title };
+  }
 
   switch (category) {
     case 'leave':

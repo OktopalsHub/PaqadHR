@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -41,20 +42,25 @@ export function CreateDepartmentDialog({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
   const reset = () => {
     setName('');
     setDescription('');
     setSelectedColor(COLORS[0]);
+    setConfirmationOpen(false);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const requestCreate = (event: React.FormEvent) => {
     event.preventDefault();
     if (name.trim().length < 2) {
       toast.error('Department name must be at least 2 characters');
       return;
     }
+    setConfirmationOpen(true);
+  };
 
+  const createDepartmentRecord = async () => {
     try {
       const created = await createDepartment.mutateAsync({
         name: name.trim(),
@@ -79,7 +85,7 @@ export function CreateDepartmentDialog({
       }}
     >
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={(event) => void handleSubmit(event)}>
+        <form onSubmit={requestCreate}>
           <DialogHeader>
             <DialogTitle>Add department</DialogTitle>
           </DialogHeader>
@@ -152,6 +158,15 @@ export function CreateDepartmentDialog({
           </DialogFooter>
         </form>
       </DialogContent>
+      <ConfirmActionDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+        title="Create department?"
+        description={`“${name.trim()}” will be added to your workspace.`}
+        actionLabel="Create department"
+        isPending={createDepartment.isPending}
+        onConfirm={() => void createDepartmentRecord()}
+      />
     </Dialog>
   );
 }

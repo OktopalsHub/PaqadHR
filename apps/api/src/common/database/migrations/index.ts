@@ -81,3 +81,5 @@ export * from './1787100000000-notification-cleanup-fix';
 export * from './1787521285997-backfill-existing-verified-users';
 export * from './1787866777469-WidenPaymentMethodEncryptedColumns';
 export * from './1787870704946-PaymentMethodSubmittedAtAndSecurityBackfill';
+export * from './1788205216357-add-position-deleted-at';
+export * from './1788205216358-add-leave-balance-deleted-at';

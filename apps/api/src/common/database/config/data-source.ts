@@ -102,6 +102,8 @@ const AppDataSource = {
     Migrations.BackfillExistingVerifiedUsers1787521285997,
     Migrations.WidenPaymentMethodEncryptedColumns1787866777469,
     Migrations.PaymentMethodSubmittedAtAndSecurityBackfill1787870704946,
+    Migrations.AddPositionDeletedAt1788205216357,
+    Migrations.AddLeaveBalanceDeletedAt1788205216358,
   ],
   logging: process.env.NODE_ENV === 'production' ? false : ['error', 'warn'],
   migrationsRun: true,

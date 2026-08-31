@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { resetCorrelationId } from '@/lib/observability/correlation-id';
-import { capturePageview, identifyUser, initPostHog } from '@/lib/observability/posthog-client';
+import { capturePageview, initPostHog, resetPostHog } from '@/lib/observability/posthog-client';
 
 type ObservabilityProviderProps = {
   children: React.ReactNode;
@@ -18,8 +18,7 @@ export function ObservabilityProvider({ children, userId }: ObservabilityProvide
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
-    identifyUser(userId);
+    if (!userId) resetPostHog();
   }, [userId]);
 
   useEffect(() => {

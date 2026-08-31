@@ -20,6 +20,8 @@ import { CreateTeamDto } from '../teams/dto/create-team.dto';
 import { TeamsService } from '../teams/teams.service';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { DepartmentsService } from './departments.service';
+import { AddDepartmentMemberDto } from './dto/add-department-member.dto';
+import { AssignDepartmentManagerDto } from './dto/assign-department-manager.dto';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { DepartmentResponseDto } from './dto/department-response.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -117,7 +119,7 @@ export class DepartmentsController {
   async assignDepartmentManager(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { managerId: string },
+    @Body() dto: AssignDepartmentManagerDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.departmentsService.updateDepartment(
@@ -133,7 +135,7 @@ export class DepartmentsController {
   async addMemberToDepartment(
     @Param('tenantId') tenantId: string,
     @Param('id') id: string,
-    @Body() dto: { memberId: string },
+    @Body() dto: AddDepartmentMemberDto,
     @CurrentTenantMember() member: MemberContext,
   ) {
     return this.departmentsService.addMemberToDepartment(tenantId, id, dto.memberId, member.id);

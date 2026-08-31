@@ -10,6 +10,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EmploymentStatus, TenantMemberRole } from 'src/common/enums';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
+import type { MemberContext } from 'src/common/interfaces';
 import { EncryptionService } from 'src/common/services/encryption.service';
 import { FileUrlService } from 'src/common/services/file-url.service';
 import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
@@ -330,8 +331,14 @@ export class TenantMembersService {
     memberId: string,
     tenantId: string,
     updateDto: UpdateTenantMemberDto,
-    actorMemberId: string,
+    actor: MemberContext,
   ): Promise<TenantMember> {
+    const isAdmin = actor.role === TenantMemberRole.ADMIN || actor.role === TenantMemberRole.OWNER;
+    if (!isAdmin) {
+      throw new ForbiddenException(
+        'Only workspace owners and admins can manage employee organization',
+      );
+    }
     const member = await this.getTenantMember(memberId, tenantId);
     const before = await this.snapshotOrgFields(member, tenantId);
     await this.applyOrgUpdates(member, tenantId, updateDto);
@@ -343,7 +350,7 @@ export class TenantMembersService {
       const name = this.memberDisplayName(updated);
       this.queueMemberActivity({
         tenantId,
-        actorMemberId,
+        actorMemberId: actor.id,
         action: 'member.updated',
         resourceId: memberId,
         description: `Updated ${name}'s ${describeChangedFields(changedKeys)}`,
@@ -425,7 +432,6 @@ export class TenantMembersService {
       }
       updateData.role = updateDto.role;
     }
-
     if (Object.keys(updateData).length > 0) {
       await this.tenantMemberRepository.update(
         member.id,

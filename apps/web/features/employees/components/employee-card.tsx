@@ -82,7 +82,7 @@ export const EmployeeCards = memo(
                         Dept
                       </dt>
                       <dd className="min-w-0">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
                           {employee.department ? (
                             <span
                               className="size-1.5 shrink-0 rounded-full border border-black/10"

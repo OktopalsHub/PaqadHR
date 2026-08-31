@@ -62,6 +62,16 @@
   --radius-xl: var(--radius-xl);
 }
 
+/* Keep scroll areas usable without showing browser-specific scrollbars. */
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
 /* ─── Paqadhr Design System v1.0 — light ─── */
 :root {
   --font-inter: "Inter", sans-serif;

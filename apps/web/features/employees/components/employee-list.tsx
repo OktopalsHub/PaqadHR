@@ -50,6 +50,7 @@ export const EmployeeList = () => {
   const viewerMemberId = tenant?.member?.id;
   const adminRole = role?.toLowerCase();
   const isAdmin = adminRole === 'owner' || adminRole === 'admin';
+  const canManageOrganization = isAdmin;
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: departments = [] } = useDepartments();
 
@@ -93,7 +94,7 @@ export const EmployeeList = () => {
           label: 'Invite',
           onClick: () => setInviteOpen(true),
         }
-      : activeTab === 'departments' && isAdmin
+      : activeTab === 'departments' && canManageOrganization
         ? {
             label: 'Add department',
             onClick: () => setCreateDeptOpen(true),
