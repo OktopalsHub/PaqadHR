@@ -12,9 +12,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/hooks/use-auth';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { tenantRoot } from '@/lib/navigation/tenant-routes';
-import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function OnboardingHeader() {

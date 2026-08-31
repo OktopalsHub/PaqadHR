@@ -6,8 +6,8 @@ import { useState } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { readTenantSlug } from '@/lib/session';
 import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { readTenantSlug } from '@/lib/session';
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -107,7 +107,10 @@ export const LandingNav = () => {
               </a>
             ))}
             {isAuthed && !isLoading && dashboardHref ? (
-              <Button asChild className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button
+                asChild
+                className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
+              >
                 <a href={dashboardHref}>Dashboard</a>
               </Button>
             ) : (

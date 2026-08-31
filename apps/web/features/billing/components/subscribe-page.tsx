@@ -23,7 +23,12 @@ import {
 } from '@/hooks/queries/use-billing';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatWorkspaceName } from '@/lib/format-name';
-import { goToTenantPath, subscribePageUrl, tenantPath, tenantRoot } from '@/lib/navigation/tenant-routes';
+import {
+  goToTenantPath,
+  subscribePageUrl,
+  tenantPath,
+  tenantRoot,
+} from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -66,7 +71,8 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
   const dashboardHref = useMemo(() => {
     if (!tenants.length) return null;
-    const target = tenants.find((t) => t.id !== tenant?.id) ?? tenants.find((t) => t.isActive) ?? tenants[0];
+    const target =
+      tenants.find((t) => t.id !== tenant?.id) ?? tenants.find((t) => t.isActive) ?? tenants[0];
     if (!target?.slug) return null;
     try {
       return tenantRoot(target.slug);
@@ -81,20 +87,35 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
       <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2 text-xs sm:text-sm">
         <Building2 className="size-4 text-muted-foreground" />
         <span className="text-muted-foreground">
-          Not ready for <span className="font-medium text-foreground">{formatWorkspaceName(tenant?.name)}</span>?
+          Not ready for{' '}
+          <span className="font-medium text-foreground">{formatWorkspaceName(tenant?.name)}</span>?
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 rounded-full px-3 text-xs font-semibold">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 rounded-full px-3 text-xs font-semibold"
+            >
               Switch workspace <ChevronDown className="ml-1 size-3" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="center" className="w-64 rounded-xl">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Your workspaces</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Your workspaces
+            </DropdownMenuLabel>
             {tenants.map((item) => (
-              <DropdownMenuItem key={item.id} onClick={() => setTenantId(item.id)} className="gap-2">
-                <span className="min-w-0 flex-1 truncate font-medium">{formatWorkspaceName(item.name)}</span>
-                {item.id === tenant?.id ? <span className="text-xs text-primary">Current</span> : null}
+              <DropdownMenuItem
+                key={item.id}
+                onClick={() => setTenantId(item.id)}
+                className="gap-2"
+              >
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {formatWorkspaceName(item.name)}
+                </span>
+                {item.id === tenant?.id ? (
+                  <span className="text-xs text-primary">Current</span>
+                ) : null}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
