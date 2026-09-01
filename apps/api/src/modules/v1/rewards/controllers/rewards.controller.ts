@@ -211,20 +211,11 @@ export class RewardsController {
     const orderReference = body.orderReference.trim();
     const fromRef = resolveWalletTopupProviderFromOrderRef(orderReference, tenantId);
     const checkoutProvider =
-      fromRef === 'monnify'
-        ? PaymentProvider.MONNIFY
-        : fromRef === 'nomba'
-          ? PaymentProvider.NOMBA
-          : fromRef === 'bachs'
-            ? PaymentProvider.BACHS
-            : fromRef === 'fincra'
-              ? PaymentProvider.FINCRA
-              : fromRef === 'noah'
-                ? PaymentProvider.NOAH
-                : resolveRewardsWalletPaymentProvider(
-                    await this.walletService.getTenantCountryCode(tenantId),
-                    (await this.walletService.getWallet(tenantId)).currencyCode,
-                  );
+      fromRef ??
+      resolveRewardsWalletPaymentProvider(
+        await this.walletService.getTenantCountryCode(tenantId),
+        (await this.walletService.getWallet(tenantId)).currencyCode,
+      );
     return this.walletTopupService.completeCheckoutTopup(
       {
         tenantId,

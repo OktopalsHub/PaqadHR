@@ -37,11 +37,7 @@ import {
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
 import {
-  buildBachsWalletTopupOrderRef,
-  buildFincraWalletTopupOrderRef,
-  buildMonnifyWalletTopupOrderRef,
-  buildNoahWalletTopupOrderRef,
-  buildNombaWalletTopupOrderRef,
+  buildWalletTopupOrderRef,
   isBachsWalletTopupOrderRef,
   isFincraWalletTopupOrderRef,
   isMonnifyWalletTopupOrderRef,
@@ -81,7 +77,7 @@ export class TenantWalletTopupService {
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, wallet.currencyCode);
     const reference =
       provider === PaymentProvider.MONNIFY
-        ? buildMonnifyWalletTopupOrderRef(tenantId)
+        ? buildWalletTopupOrderRef(PaymentProvider.MONNIFY, tenantId)
         : `manual-topup-${randomUUID()}`;
     return this.chargeAndCredit(
       tenantId,
@@ -145,16 +141,7 @@ export class TenantWalletTopupService {
       ? tenantFrontendUrl(tenant.slug, '/settings?tab=rewards&wallet_topup=done')
       : tenantFrontendUrl('', '/settings?tab=rewards&wallet_topup=done');
 
-    const orderReference =
-      provider === PaymentProvider.NOMBA
-        ? buildNombaWalletTopupOrderRef(tenantId)
-        : provider === PaymentProvider.MONNIFY
-          ? buildMonnifyWalletTopupOrderRef(tenantId)
-          : provider === PaymentProvider.BACHS
-            ? buildBachsWalletTopupOrderRef(tenantId)
-            : provider === PaymentProvider.FINCRA
-              ? buildFincraWalletTopupOrderRef(tenantId)
-              : buildNoahWalletTopupOrderRef(tenantId);
+    const orderReference = buildWalletTopupOrderRef(provider, tenantId);
 
     const meta = {
       tenantId,
@@ -529,7 +516,7 @@ export class TenantWalletTopupService {
 
     const chargeReference =
       walletProvider === PaymentProvider.MONNIFY
-        ? buildMonnifyWalletTopupOrderRef(tenantId)
+        ? buildWalletTopupOrderRef(PaymentProvider.MONNIFY, tenantId)
         : `auto-topup-${randomUUID()}`;
 
     await this.chargeAndCredit(
@@ -615,7 +602,7 @@ export class TenantWalletTopupService {
         const cardToken = monnifyCardToken || tokenKey;
         const paymentReference = isMonnifyWalletTopupOrderRef(reference, tenantId)
           ? reference
-          : buildMonnifyWalletTopupOrderRef(tenantId);
+          : buildWalletTopupOrderRef(PaymentProvider.MONNIFY, tenantId);
         const charge = await this.monnifyApi.chargeCardToken({
           cardToken,
           amount,
