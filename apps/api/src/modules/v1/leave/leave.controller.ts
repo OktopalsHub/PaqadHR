@@ -59,7 +59,7 @@ export class LeaveController {
   private assertLeaveMutation(member: MemberContext, leave: LeaveResponseDto): void {
     const isRequester = leave.requester?.id === member.id;
     const isPending = leave.status === LeaveStatus.PENDING;
-    if (!isTenantAdmin(member) && !(isRequester && isPending)) {
+    if (!isRequester || !isPending) {
       throw new ForbiddenException('You can only modify your own pending leave requests');
     }
   }

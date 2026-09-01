@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { hasPlanFeaturesAccess } from '../../../../common/constants/feature-access-resolver';
 import {
   AuditAction,
@@ -28,6 +28,12 @@ export type NeedsPaymentInput = {
   trialEndsAt?: Date | string | null;
   nextBillingDate?: Date | string | null;
 } | null;
+
+export type TenantEntitlementSnapshot = {
+  entitled: boolean;
+  needsPayment: boolean;
+  plan: string | null;
+};
 
 @Injectable()
 export class SubscriptionsService {
@@ -74,6 +80,67 @@ export class SubscriptionsService {
       .catch(() => {});
 
     return saved;
+  }
+
+  async getEntitlementsForTenants(
+    tenantIds: string[],
+  ): Promise<Map<string, TenantEntitlementSnapshot>> {
+    const entitlements = new Map<string, TenantEntitlementSnapshot>();
+    if (!tenantIds.length) {
+      return entitlements;
+    }
+
+    const subscriptions = await this.subscriptionRepository.find({
+      where: { tenantId: In(tenantIds) },
+      relations: ['plan'],
+      select: {
+        id: true,
+        tenantId: true,
+        planId: true,
+        status: true,
+        trialEndsAt: true,
+        nextBillingDate: true,
+        currentPeriodEnd: true,
+        plan: {
+          id: true,
+          slug: true,
+          name: true,
+        },
+      },
+    });
+
+    const subscriptionByTenant = new Map(
+      subscriptions.map((subscription) => [subscription.tenantId, subscription]),
+    );
+
+    for (const tenantId of tenantIds) {
+      const subscription = subscriptionByTenant.get(tenantId);
+      if (!subscription) {
+        entitlements.set(tenantId, { entitled: false, needsPayment: true, plan: null });
+        continue;
+      }
+
+      let daysRemaining: number | null = null;
+      if (subscription.trialEndsAt) {
+        const ms = subscription.trialEndsAt.getTime() - Date.now();
+        daysRemaining = Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+      }
+
+      const summary = {
+        status: subscription.status,
+        trialEndsAt: subscription.trialEndsAt,
+        nextBillingDate: subscription.nextBillingDate,
+        daysRemaining,
+      };
+
+      entitlements.set(tenantId, {
+        entitled: this.isSubscriptionEntitled(subscription),
+        needsPayment: this.computeNeedsPayment(summary),
+        plan: subscription.plan?.slug ?? subscription.plan?.name ?? null,
+      });
+    }
+
+    return entitlements;
   }
 
   async hasFeatureAccess(tenantId: string, features: FeatureAccess[]): Promise<boolean> {

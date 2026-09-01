@@ -664,6 +664,12 @@ export class TenantMembersService {
   async getUserMemberships(userId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.findByUserId(userId);
   }
+
+  async getActiveMembershipSummaries(
+    userId: string,
+  ): Promise<Pick<TenantMember, 'id' | 'tenantId' | 'role' | 'isActive'>[]> {
+    return this.tenantMemberRepository.findActiveMembershipSummariesByUserId(userId);
+  }
   async listTenantMembers(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.findAllMembersByTenantId(tenantId);
   }

@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
 import { CreateWorkspaceDialog } from '@/features/navigations/components/create-workspace-dialog';
 import { formatWorkspaceName } from '@/lib/format-name';
 import { cn } from '@/lib/utils';
@@ -49,9 +48,11 @@ export const WorkspaceSwitcher = () => {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2.5 px-1">
-        <Skeleton className="size-8 rounded-lg" />
-        <Skeleton className="h-8 flex-1 rounded-lg" />
+      <div className="flex items-center gap-2.5 px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <WorkspaceMark />
+        <p className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-muted-foreground group-data-[collapsible=icon]:hidden">
+          Workspace
+        </p>
       </div>
     );
   }

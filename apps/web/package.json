@@ -6,8 +6,8 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "next dev --webpack",
-    "dev:clean": "rm -rf .next .turbo && next dev --webpack",
+    "dev": "next dev --turbopack",
+    "dev:clean": "rm -rf .next .turbo && next dev --turbopack",
     "clean": "rm -rf .next .turbo",
     "typecheck:tests": "tsc --noEmit --pretty false -p tsconfig.test.json",
     "prebuild": "node scripts/generate-build-version.mjs",
