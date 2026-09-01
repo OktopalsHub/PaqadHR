@@ -42,6 +42,14 @@ describe('FincraApiService', () => {
         'Fincra payout status lookup failed',
       );
     });
+
+    it('throws when a server error body mentions RESOURCE_NOT_FOUND', async () => {
+      mockFetchResponse(503, { message: 'RESOURCE_NOT_FOUND' });
+
+      await expect(service.getPayoutStatus('payroll_run_item')).rejects.toThrow(
+        'Fincra payout status lookup failed',
+      );
+    });
   });
 
   describe('initiatePayout', () => {

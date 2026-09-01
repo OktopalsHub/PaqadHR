@@ -77,7 +77,14 @@ export function isFincraPayoutNotFound(
   if (httpStatus === 404) {
     return true;
   }
-  const combined =
-    `${response.message ?? ''} ${response.error ?? ''} ${response.code ?? ''}`.toUpperCase();
-  return combined.includes('RESOURCE_NOT_FOUND') || combined.includes('NOT FOUND');
+  // Server/transient failures must surface as lookup errors, not "absent payout".
+  if (httpStatus >= 500) {
+    return false;
+  }
+  const code = (response.code ?? '').toUpperCase();
+  if (code === 'RESOURCE_NOT_FOUND') {
+    return true;
+  }
+  const message = `${response.message ?? ''} ${response.error ?? ''}`.trim().toUpperCase();
+  return message === 'RESOURCE_NOT_FOUND' || message.includes('PAYOUT NOT FOUND');
 }

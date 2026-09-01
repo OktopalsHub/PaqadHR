@@ -1,9 +1,5 @@
 import { Logger } from '@nestjs/common';
-import {
-  isAllowedFincraBaseUrl,
-  isFincraConfigured,
-  isFincraLive,
-} from './fincra.config';
+import { isAllowedFincraBaseUrl, isFincraConfigured, isFincraLive } from './fincra.config';
 import {
   isMonnifyLive,
   MONNIFY_PRODUCTION_BASE_URL,
@@ -275,14 +271,10 @@ export function validateEnvAtBoot(): void {
     warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER must be noah or fincra');
   }
   if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push(
-      'INTL_PAYROLL_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set',
-    );
+    warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set');
   }
   if (intlRewardsDepositProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push(
-      'INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set',
-    );
+    warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set');
   }
   if (isFincraLive() && !process.env.FINCRA_WEBHOOK_SECRET?.trim()) {
     if (isProduction) {

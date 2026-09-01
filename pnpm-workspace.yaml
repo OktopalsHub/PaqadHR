@@ -39,4 +39,3 @@ overrides:
   fast-uri: ">=3.1.4"
   ip-address: ">=10.3.1 <11"
   sharp: ">=0.35.0"
-  browserslist: ">=4.28.7"
