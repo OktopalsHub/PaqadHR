@@ -168,9 +168,6 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
             <DialogTitle>Delete payment method</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
-            <p className="text-sm text-muted-foreground">
-              This removes the bank account from payroll. Enter your payment passcode to confirm.
-            </p>
             <div className="space-y-2">
               <Label>Payment passcode</Label>
               <PasswordInput
@@ -185,7 +182,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
               disabled={deleteMethod.isPending}
               onClick={handleDelete}
             >
-              Delete account
+              Delete
             </Button>
           </div>
         </DialogContent>
@@ -518,15 +515,29 @@ export function PaymentSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <Alert>
-        <Banknote className="size-4" />
-        <AlertTitle>Payroll bank account</AlertTitle>
-        <AlertDescription>
-          Add your payment account, then submit it for admin verification. You must have at least
-          one primary account to receive payroll. Your first account is automatically set as
-          primary.
-        </AlertDescription>
-      </Alert>
+      <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+        <div className="flex gap-3">
+          <Banknote className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">How to receive payroll</p>
+            <ul className="space-y-1.5 text-sm text-muted-foreground">
+              <li>
+                <span className="font-medium text-foreground">1. Add an account</span> — bank or
+                crypto wallet for your payout currency.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">2. Submit for review</span> — after
+                saving, submit the draft so an admin can verify it.
+              </li>
+              <li>
+                <span className="font-medium text-foreground">3. Keep a primary account</span> —
+                payroll is sent to your primary verified account. Your first account is set as
+                primary automatically.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
 
       {methods.length === 0 ? (
         <p className="text-sm text-muted-foreground">No payment method on file yet.</p>
