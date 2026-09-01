@@ -155,7 +155,9 @@ export function extractFincraWalletTopupCheckout(payload: unknown): {
     orderReference: parsed.merchantReference,
     amount: Number.isFinite(expectedAmount) ? expectedAmount : parsed.amount,
     initiatedByMemberId:
-      initiatedByRaw !== undefined && initiatedByRaw !== null && String(initiatedByRaw).trim() !== ''
+      initiatedByRaw !== undefined &&
+      initiatedByRaw !== null &&
+      String(initiatedByRaw).trim() !== ''
         ? String(initiatedByRaw)
         : undefined,
   };

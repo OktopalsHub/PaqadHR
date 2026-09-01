@@ -394,8 +394,9 @@ describe('PayrollPayoutService', () => {
 
   describe('amount mismatch', () => {
     it('does not mark paid when webhook amount mismatches item paymentAmount', async () => {
-      const { service, payrollItemRepository } = createService();
+      const { service, payrollItemRepository, payrollRunRepository } = createService();
       const item = baseItem();
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
       (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
       (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
 
@@ -403,8 +404,9 @@ describe('PayrollPayoutService', () => {
         MERCHANT_REF,
         'SUCCESS',
         'txn-1',
-        'nomba' as never,
-        '5000',
+        PaymentProvider.NOMBA,
+        'tenant-1',
+        5000,
       );
 
       expect(changed).toBe(false);
@@ -434,6 +436,145 @@ describe('PayrollPayoutService', () => {
       const { service } = createService();
       expect(service.classifyPaymentResultStatus(undefined)).toBe('processing');
       expect(service.classifyPaymentResultStatus('UNKNOWN_RAIL_STATE')).toBe('processing');
+    });
+  });
+
+  describe('reconcileFailedItemBeforeRetry', () => {
+    it('blocks retry when Fincra still has an in-flight payout for the stable reference', async () => {
+      const { service, fincraApi, payrollItemRepository, payrollRunRepository } = createService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.FAILED,
+        paymentProvider: 'Fincra',
+      } as PayrollItem;
+      (fincraApi.getPayoutStatus as jest.Mock).mockResolvedValue({
+        status: 'PROCESSING',
+        reference: 'fincra-ref-1',
+      });
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+      (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
+
+      const canRetry = await service.reconcileFailedItemBeforeRetry(item, 'tenant-1');
+
+      expect(canRetry).toBe(false);
+      expect(fincraApi.getPayoutStatus).toHaveBeenCalledWith(MERCHANT_REF);
+      expect(item.status).toBe(PayrollItemStatus.PROCESSING);
+    });
+
+    it('allows retry when Fincra confirms payout not found', async () => {
+      const { service, fincraApi } = createService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.FAILED,
+        paymentProvider: 'Fincra',
+      } as PayrollItem;
+      (fincraApi.getPayoutStatus as jest.Mock).mockResolvedValue(null);
+
+      const canRetry = await service.reconcileFailedItemBeforeRetry(item, 'tenant-1');
+
+      expect(canRetry).toBe(true);
+    });
+
+    it('throws when Fincra lookup is ambiguous', async () => {
+      const { service, fincraApi } = createService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.FAILED,
+        paymentProvider: 'Fincra',
+      } as PayrollItem;
+      (fincraApi.getPayoutStatus as jest.Mock).mockRejectedValue(
+        new Error('Fincra payout status lookup failed: upstream unavailable'),
+      );
+
+      await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).rejects.toThrow(
+        'Fincra status lookup failed',
+      );
+    });
+  });
+
+  describe('processFincraPayload', () => {
+    it('applies payout status from Fincra webhook payload', async () => {
+      const { service, fincraApi, payrollRunRepository } = createService();
+      const payload = {
+        event: 'payout.successful',
+        data: {
+          customerReference: MERCHANT_REF,
+          reference: 'fincra-ref-1',
+          status: 'successful',
+          amountReceived: 1000,
+        },
+      };
+      (fincraApi.parsePayoutWebhook as jest.Mock).mockReturnValue({
+        merchantRef: MERCHANT_REF,
+        reference: 'fincra-ref-1',
+        status: 'SUCCESS',
+        amount: 1000,
+      });
+      (fincraApi.getPayoutStatus as jest.Mock).mockResolvedValue({
+        status: 'SUCCESS',
+        reference: 'fincra-ref-1',
+        amount: 1000,
+      });
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+
+      const result = await service.processFincraPayload(payload);
+
+      expect(result).toEqual({ received: true, matched: true });
+      expect(applySpy).toHaveBeenCalledWith(
+        MERCHANT_REF,
+        'SUCCESS',
+        'fincra-ref-1',
+        PaymentProvider.FINCRA,
+        'tenant-1',
+        1000,
+      );
+    });
+
+    it('matches retry-suffixed merchant references for webhook reconciliation', async () => {
+      const { service, fincraApi, payrollRunRepository } = createService();
+      const retryRef = `${MERCHANT_REF}_r1`;
+      (fincraApi.parsePayoutWebhook as jest.Mock).mockReturnValue({
+        merchantRef: retryRef,
+        reference: 'fincra-ref-retry',
+        status: 'SUCCESS',
+      });
+      (fincraApi.getPayoutStatus as jest.Mock).mockResolvedValue({
+        status: 'SUCCESS',
+        reference: 'fincra-ref-retry',
+      });
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      const applySpy = jest.spyOn(service, 'applyTransferStatus').mockResolvedValue(true);
+
+      const result = await service.processFincraPayload({ event: 'payout.successful' });
+
+      expect(result.matched).toBe(true);
+      expect(applySpy).toHaveBeenCalledWith(
+        retryRef,
+        'SUCCESS',
+        'fincra-ref-retry',
+        PaymentProvider.FINCRA,
+        'tenant-1',
+        undefined,
+      );
+    });
+
+    it('ignores webhook when API verification finds no payout', async () => {
+      const { service, fincraApi, payrollRunRepository } = createService();
+      (fincraApi.parsePayoutWebhook as jest.Mock).mockReturnValue({
+        merchantRef: MERCHANT_REF,
+        reference: 'fincra-ref-1',
+        status: 'SUCCESS',
+      });
+      (fincraApi.getPayoutStatus as jest.Mock).mockResolvedValue(null);
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      const applySpy = jest.spyOn(service, 'applyTransferStatus');
+
+      const result = await service.processFincraPayload({ event: 'payout.successful' });
+
+      expect(result).toEqual({ received: true, matched: false });
+      expect(applySpy).not.toHaveBeenCalled();
     });
   });
 });

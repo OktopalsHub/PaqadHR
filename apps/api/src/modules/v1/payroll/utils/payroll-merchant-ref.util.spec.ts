@@ -10,9 +10,7 @@ const ITEM_ID = '22222222-2222-4222-8222-222222222222';
 describe('payroll-merchant-ref.util', () => {
   it('builds base and retry refs', () => {
     expect(buildPayrollMerchantRef(RUN_ID, ITEM_ID)).toBe(`payroll_${RUN_ID}_${ITEM_ID}`);
-    expect(buildPayrollMerchantRef(RUN_ID, ITEM_ID, 2)).toBe(
-      `payroll_${RUN_ID}_${ITEM_ID}_r2`,
-    );
+    expect(buildPayrollMerchantRef(RUN_ID, ITEM_ID, 2)).toBe(`payroll_${RUN_ID}_${ITEM_ID}_r2`);
   });
 
   it('parses base and retry refs', () => {

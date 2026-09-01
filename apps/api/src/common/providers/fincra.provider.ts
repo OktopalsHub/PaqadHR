@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
-import {
-  defaultFincraBeneficiaryCountry,
-} from '../config/fincra-api.util';
 import { isFincraConfigured } from '../config/fincra.config';
+import { defaultFincraBeneficiaryCountry } from '../config/fincra-api.util';
+import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
 import type { PaymentResult } from '../interfaces/payment-result.interface';
@@ -59,25 +57,34 @@ export class FincraProvider extends BasePaymentProvider {
           };
         }
 
+        const cryptoNetwork = data.network ?? (data.metadata?.cryptoNetwork as string | undefined);
+        if (!cryptoNetwork?.trim()) {
+          return {
+            success: false,
+            error: 'Crypto network is required for Fincra payouts',
+            retryable: false,
+          };
+        }
+
         const response = await this.fincraApi.initiatePayout({
           amount: data.amount,
           destinationCurrency: currency,
           customerReference: merchantTxRef,
           description: data.description,
           walletAddress,
-          cryptoNetwork:
-            data.network ?? (data.metadata?.cryptoNetwork as string | undefined),
+          cryptoNetwork,
           accountName: data.accountName,
         });
 
         const accepted = response.success === true;
+        const pending = accepted && this.fincraApi.isOperationPending(response.status);
         return {
           success: accepted,
           transactionId: response.reference,
           reference: merchantTxRef,
           providerStatus: response.status,
-          error: accepted ? undefined : response.message ?? `Fincra payout ${response.status}`,
-          retryable: accepted && this.fincraApi.isOperationPending(response.status),
+          error: accepted ? undefined : (response.message ?? `Fincra payout ${response.status}`),
+          retryable: pending,
         };
       }
 
@@ -114,13 +121,18 @@ export class FincraProvider extends BasePaymentProvider {
       const response = await this.fincraApi.initiatePayout(payoutInput);
 
       const accepted = response.success === true;
+      const pending = accepted && this.fincraApi.isOperationPending(response.status);
       return {
         success: accepted,
         transactionId: response.reference,
         reference: merchantTxRef,
         providerStatus: response.status,
-        error: accepted ? undefined : response.message ?? `Fincra payout ${response.status}`,
-        retryable: accepted && this.fincraApi.isOperationPending(response.status),
+        error: accepted ? undefined : (response.message ?? `Fincra payout ${response.status}`),
+        retryable:
+          pending ||
+          (!accepted &&
+            (this.fincraApi.isOperationPending(response.status) ||
+              (response.message ?? '').toLowerCase().includes('status lookup failed'))),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

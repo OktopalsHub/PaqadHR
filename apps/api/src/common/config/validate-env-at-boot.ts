@@ -1,7 +1,9 @@
 import { Logger } from '@nestjs/common';
 import {
-  isFincraLive,
+  isAllowedFincraBaseUrl,
   isFincraConfigured,
+  isFincraLive,
+  isLocalDevelopment,
 } from './fincra.config';
 import {
   isMonnifyLive,
@@ -274,7 +276,9 @@ export function validateEnvAtBoot(): void {
     warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER must be noah or fincra');
   }
   if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete');
+    warnings.push(
+      'INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete',
+    );
   }
   if (intlRewardsDepositProvider === 'fincra' && !isFincraConfigured()) {
     warnings.push(
@@ -282,7 +286,22 @@ export function validateEnvAtBoot(): void {
     );
   }
   if (isFincraLive() && !process.env.FINCRA_WEBHOOK_SECRET?.trim()) {
-    warnings.push('FINCRA_LIVE=true but FINCRA_WEBHOOK_SECRET is empty');
+    if (isProduction) {
+      errors.push('FINCRA_LIVE=true but FINCRA_WEBHOOK_SECRET is empty');
+    } else {
+      warnings.push('FINCRA_LIVE=true but FINCRA_WEBHOOK_SECRET is empty');
+    }
+  }
+  const fincraBaseUrl = process.env.FINCRA_BASE_URL?.trim().replace(/\/$/, '');
+  if (fincraBaseUrl && !isAllowedFincraBaseUrl(fincraBaseUrl)) {
+    errors.push(
+      'FINCRA_BASE_URL must use HTTPS and point to api.fincra.com or sandboxapi.fincra.com',
+    );
+  }
+  if (process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS === 'true' && !isLocalDevelopment()) {
+    errors.push(
+      'FINCRA_ALLOW_UNSIGNED_WEBHOOKS=true is only allowed when NODE_ENV=development (local dev)',
+    );
   }
 
   const monnifyBase = process.env.MONNIFY_BASE_URL?.trim().replace(/\/$/, '');

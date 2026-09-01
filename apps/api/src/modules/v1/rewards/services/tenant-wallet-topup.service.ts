@@ -232,21 +232,21 @@ export class TenantWalletTopupService {
                     transactionReference: undefined as string | undefined,
                   }))
               : await this.noahApi
-                .createPayinCheckout({
-                  orderReference,
-                  customerEmail,
-                  amount,
-                  currency,
-                  callbackUrl,
-                  customerId: tenantId,
-                  tokenizeCard: false,
-                  meta,
-                })
-                .then((session) => ({
-                  checkoutLink: session.checkoutLink,
-                  orderReference: session.orderReference,
-                  transactionReference: undefined as string | undefined,
-                }));
+                  .createPayinCheckout({
+                    orderReference,
+                    customerEmail,
+                    amount,
+                    currency,
+                    callbackUrl,
+                    customerId: tenantId,
+                    tokenizeCard: false,
+                    meta,
+                  })
+                  .then((session) => ({
+                    checkoutLink: session.checkoutLink,
+                    orderReference: session.orderReference,
+                    transactionReference: undefined as string | undefined,
+                  }));
 
     return {
       checkoutUrl: result.checkoutLink,

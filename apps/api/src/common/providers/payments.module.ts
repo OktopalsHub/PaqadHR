@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { FincraApiService } from '../services/fincra-api.service';
 import { BachsApiService } from '../services/bachs-api.service';
+import { FincraApiService } from '../services/fincra-api.service';
 import { MonnifyApiService } from '../services/monnify-api.service';
 import { NoahApiService } from '../services/noah-api.service';
 import { NombaTransferApiService } from '../services/nomba-transfer-api.service';

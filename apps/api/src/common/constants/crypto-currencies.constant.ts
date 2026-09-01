@@ -5,8 +5,6 @@ export type SupportedCryptoCurrency = (typeof SUPPORTED_CRYPTO_CURRENCIES)[numbe
 
 /** Noah production network names allowed per currency (case-insensitive match). */
 export const CRYPTO_NETWORKS_BY_CURRENCY: Record<SupportedCryptoCurrency, readonly string[]> = {
-  BTC: ['Bitcoin'],
-  ETH: ['Ethereum'],
   USDC: ['Ethereum', 'Base', 'PolygonPos', 'Solana', 'Celo', 'Gnosis', 'FlowEvm'],
   USDT: ['Ethereum'],
 };

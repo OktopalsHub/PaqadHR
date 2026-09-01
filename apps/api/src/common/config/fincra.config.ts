@@ -1,14 +1,35 @@
 export const FINCRA_PRODUCTION_BASE_URL = 'https://api.fincra.com';
 export const FINCRA_SANDBOX_BASE_URL = 'https://sandboxapi.fincra.com';
 
+const ALLOWED_FINCRA_HOSTS = new Set(['api.fincra.com', 'sandboxapi.fincra.com']);
+
+export function isAllowedFincraBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && ALLOWED_FINCRA_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export function isFincraLive(): boolean {
   return process.env.FINCRA_LIVE === 'true';
+}
+
+export function isLocalDevelopment(): boolean {
+  return (process.env.NODE_ENV || 'development') === 'development';
 }
 
 export function getFincraBaseUrl(): string {
   const explicit = process.env.FINCRA_BASE_URL?.trim();
   if (explicit) {
-    return explicit.replace(/\/$/, '');
+    const normalized = explicit.replace(/\/$/, '');
+    if (!isAllowedFincraBaseUrl(normalized)) {
+      throw new Error(
+        'FINCRA_BASE_URL must use HTTPS and point to api.fincra.com or sandboxapi.fincra.com',
+      );
+    }
+    return normalized;
   }
   return (isFincraLive() ? FINCRA_PRODUCTION_BASE_URL : FINCRA_SANDBOX_BASE_URL).replace(/\/$/, '');
 }
@@ -43,5 +64,5 @@ export function isFincraCheckoutConfigured(): boolean {
 
 /** Local dev only — never set in staging/production. */
 export function isFincraAllowUnsignedWebhooks(): boolean {
-  return process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS === 'true';
+  return process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS === 'true' && isLocalDevelopment();
 }

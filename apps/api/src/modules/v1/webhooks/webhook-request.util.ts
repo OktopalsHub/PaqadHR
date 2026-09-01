@@ -1,15 +1,7 @@
-import { Logger } from '@nestjs/common';
 import type { Request } from 'express';
 import { isPayrollMerchantRef } from '../payroll/utils/payroll-merchant-ref.util';
-import { parseTenantIdFromMonnifyWalletTopupOrderRef } from '../rewards/utils/wallet-order-ref.util';
 
 type RawBodyRequest = Request & { rawBody?: Buffer };
-const monnifyWalletWebhookLogger = new Logger('MonnifyWalletWebhook');
-
-type RawBodyRequest = Request & { rawBody?: Buffer };
-
-const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
-const _monnifyWalletWebhookLogger = new Logger('MonnifyWalletWebhook');
 
 export function getNombaRawBody(req: RawBodyRequest): string {
   return req.rawBody?.toString('utf8') ?? '';
@@ -34,7 +26,7 @@ export function resolveMonnifySignature(headers: Record<string, string | undefin
 }
 
 export function resolveFincraSignature(headers: Record<string, string | undefined>): string {
-  return headers['signature'] ?? headers['x-fincra-signature'] ?? '';
+  return headers.signature ?? headers['x-fincra-signature'] ?? '';
 }
 
 export function extractNombaEventType(payload: unknown): string {

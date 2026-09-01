@@ -67,8 +67,7 @@ async function withWalletResponse(
     flatFee: fees.flatFee,
     checkoutLive,
     savedCardTopupSupported:
-      checkoutProvider !== PaymentProvider.BACHS &&
-      checkoutProvider !== PaymentProvider.FINCRA,
+      checkoutProvider !== PaymentProvider.BACHS && checkoutProvider !== PaymentProvider.FINCRA,
     /** @deprecated use checkoutLive */
     nombaLive: isNombaLive(),
   };
@@ -223,9 +222,9 @@ export class RewardsController {
               : fromRef === 'noah'
                 ? PaymentProvider.NOAH
                 : resolveRewardsWalletPaymentProvider(
-                  await this.walletService.getTenantCountryCode(tenantId),
-                  (await this.walletService.getWallet(tenantId)).currencyCode,
-                );
+                    await this.walletService.getTenantCountryCode(tenantId),
+                    (await this.walletService.getWallet(tenantId)).currencyCode,
+                  );
     return this.walletTopupService.completeCheckoutTopup(
       {
         tenantId,

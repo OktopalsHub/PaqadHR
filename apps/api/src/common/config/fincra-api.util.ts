@@ -1,10 +1,4 @@
-const FINCRA_SUCCESS_STATUSES = new Set([
-  'SUCCESS',
-  'SUCCESSFUL',
-  'COMPLETED',
-  'PAID',
-  'SETTLED',
-]);
+const FINCRA_SUCCESS_STATUSES = new Set(['SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'PAID', 'SETTLED']);
 
 const FINCRA_PENDING_STATUSES = new Set(['PENDING', 'PROCESSING', 'IN_PROGRESS']);
 
@@ -73,4 +67,17 @@ const FIAT_COUNTRY: Record<string, string> = {
 
 export function defaultFincraBeneficiaryCountry(currency: string): string {
   return FIAT_COUNTRY[currency.toUpperCase()] ?? 'US';
+}
+
+/** True when Fincra confirms no payout exists for the customer reference. */
+export function isFincraPayoutNotFound(
+  httpStatus: number,
+  response: { message?: string; error?: string; code?: string },
+): boolean {
+  if (httpStatus === 404) {
+    return true;
+  }
+  const combined =
+    `${response.message ?? ''} ${response.error ?? ''} ${response.code ?? ''}`.toUpperCase();
+  return combined.includes('RESOURCE_NOT_FOUND') || combined.includes('NOT FOUND');
 }

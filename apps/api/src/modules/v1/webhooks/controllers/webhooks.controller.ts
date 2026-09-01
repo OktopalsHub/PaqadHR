@@ -31,8 +31,8 @@ import { PolarWebhookService } from '../services/polar-webhook.service';
 import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import {
   getNombaRawBody,
-  resolveMonnifySignature,
   resolveFincraSignature,
+  resolveMonnifySignature,
   resolveNoahSignature,
   resolveNombaSignature,
   resolveNombaTimestamp,

@@ -15,13 +15,13 @@ export function buildPayrollPaymentData(
   payrollRunTitle?: string,
 ): CreatePaymentData {
   const meta = paymentMethod.metadata ?? {};
-  const retryAttempt =
-    typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
   const baseDescription = payrollRunTitle
     ? `${payrollRunTitle} for ${employeeName}`
     : `Payroll payment for ${employeeName}`;
   const currency = item.paymentCurrency;
   const isCrypto = paymentMethod.type === PaymentMethodType.CRYPTO || isCryptoCurrency(currency);
+  const retryAttempt =
+    typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
 
   return {
     amount: Number(item.paymentAmount),

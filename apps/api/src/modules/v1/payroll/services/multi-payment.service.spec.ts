@@ -48,6 +48,7 @@ describe('MultiPaymentService', () => {
     const payrollPayoutService = {
       classifyPaymentResultStatus: jest.fn(),
       reconcilePayrollRunStatus: jest.fn(),
+      reconcileFailedItemBeforeRetry: jest.fn().mockResolvedValue(true),
     } as unknown as PayrollPayoutService;
 
     const claimIds: string[] = [];
@@ -443,7 +444,7 @@ describe('MultiPaymentService', () => {
     expect(result.failedPayments).toBe(1);
   });
 
-  it('reuses the same payroll merchant ref on failed-item retry', async () => {
+  it('uses retry suffix merchant ref on failed-item retry', async () => {
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
@@ -496,7 +497,7 @@ describe('MultiPaymentService', () => {
 
     expect(paymentProvider.createPayment).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchantTxRef: `payroll_${failedItem.payrollRunId}_${failedItem.id}`,
+        merchantTxRef: `payroll_${failedItem.payrollRunId}_${failedItem.id}_r1`,
       }),
     );
   });

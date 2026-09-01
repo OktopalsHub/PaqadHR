@@ -11,6 +11,8 @@ describe('resolveRewardsWalletPaymentProvider', () => {
   const originalBachsWalletNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
 
   const originalIntlProvider = process.env.INTL_REWARDS_DEPOSIT_PROVIDER;
+  const originalFincraApiKey = process.env.FINCRA_API_KEY;
+  const originalFincraBusinessId = process.env.FINCRA_BUSINESS_ID;
 
   afterEach(() => {
     if (originalNgProvider === undefined) {
@@ -53,8 +55,16 @@ describe('resolveRewardsWalletPaymentProvider', () => {
     } else {
       process.env.INTL_REWARDS_DEPOSIT_PROVIDER = originalIntlProvider;
     }
-    delete process.env.FINCRA_API_KEY;
-    delete process.env.FINCRA_BUSINESS_ID;
+    if (originalFincraApiKey === undefined) {
+      delete process.env.FINCRA_API_KEY;
+    } else {
+      process.env.FINCRA_API_KEY = originalFincraApiKey;
+    }
+    if (originalFincraBusinessId === undefined) {
+      delete process.env.FINCRA_BUSINESS_ID;
+    } else {
+      process.env.FINCRA_BUSINESS_ID = originalFincraBusinessId;
+    }
   });
 
   it('uses Nomba when tenant country is NG and NG_PAYROLL_PROVIDER=nomba', () => {

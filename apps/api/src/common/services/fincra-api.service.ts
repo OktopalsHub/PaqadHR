@@ -1,13 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  defaultFincraBeneficiaryCountry,
-  isFincraOperationPending,
-  isFincraOperationSuccessful,
-  normalizeFincraPayoutStatus,
-  resolveFincraFiatPaymentScheme,
-  resolveFincraPaymentScheme,
-} from '../config/fincra-api.util';
-import {
   getFincraApiKey,
   getFincraBaseUrl,
   getFincraBusinessId,
@@ -16,6 +8,15 @@ import {
   isFincraCheckoutConfigured,
   isFincraConfigured,
 } from '../config/fincra.config';
+import {
+  defaultFincraBeneficiaryCountry,
+  isFincraOperationPending,
+  isFincraOperationSuccessful,
+  isFincraPayoutNotFound,
+  normalizeFincraPayoutStatus,
+  resolveFincraFiatPaymentScheme,
+  resolveFincraPaymentScheme,
+} from '../config/fincra-api.util';
 import {
   parseFincraPayinWebhook,
   parseFincraPayoutWebhook,
@@ -27,7 +28,14 @@ interface FincraApiResponse<T = unknown> {
   success?: boolean;
   status?: boolean;
   message?: string;
+  error?: string;
+  code?: string;
   data?: T;
+}
+
+interface FincraHttpResult<T> {
+  parsed: FincraApiResponse<T>;
+  httpStatus: number;
 }
 
 export interface FincraInitiatePayoutInput {
@@ -112,7 +120,7 @@ export class FincraApiService {
       body.paymentScheme = input.paymentScheme;
     }
 
-    const response = await this.request<{
+    const { parsed: response } = await this.request<{
       reference?: string;
       sourceAmount?: number;
       destinationAmount?: number;
@@ -147,6 +155,15 @@ export class FincraApiService {
           reference: existing.reference ?? input.customerReference,
           status: normalized,
           destinationAmount: input.amount,
+        };
+      }
+      if (normalized.includes('FAILED')) {
+        return {
+          success: false,
+          reference: existing.reference ?? input.customerReference,
+          status: normalized,
+          message:
+            'Customer reference already used for a failed payout; submit a retry reference suffix',
         };
       }
     }
@@ -236,7 +253,7 @@ export class FincraApiService {
       payload.paymentScheme = paymentScheme;
     }
 
-    const response = await this.request<{
+    const { parsed: response } = await this.request<{
       reference?: string;
       status?: string;
       customerReference?: string;
@@ -261,7 +278,7 @@ export class FincraApiService {
     amount?: number;
   } | null> {
     const encoded = encodeURIComponent(customerReference);
-    const response = await this.request<{
+    const { parsed: response, httpStatus } = await this.request<{
       status?: string;
       reference?: string;
       amountReceived?: number;
@@ -269,28 +286,34 @@ export class FincraApiService {
     }>('GET', `/disbursements/payouts/customer-reference/${encoded}`);
 
     const data = response.data;
-    if (!data) return null;
+    if (data) {
+      return {
+        status: normalizeFincraPayoutStatus(data.status),
+        reference: data.reference,
+        amount: data.amountReceived,
+      };
+    }
 
-    return {
-      status: normalizeFincraPayoutStatus(data.status),
-      reference: data.reference,
-      amount: data.amountReceived,
-    };
+    if (isFincraPayoutNotFound(httpStatus, response)) {
+      return null;
+    }
+
+    const detail = response.message ?? `HTTP ${httpStatus}`;
+    throw new Error(`Fincra payout status lookup failed: ${detail}`);
   }
 
   async lookupBankAccount(input: {
     accountNumber: string;
     bankCode: string;
   }): Promise<{ accountName?: string } | null> {
-    const response = await this.request<{ accountName?: string; accountNumber?: string }>(
-      'POST',
-      '/core/accounts/resolve',
-      {
-        accountNumber: input.accountNumber,
-        bankCode: input.bankCode,
-        type: 'nuban',
-      },
-    );
+    const { parsed: response } = await this.request<{
+      accountName?: string;
+      accountNumber?: string;
+    }>('POST', '/core/accounts/resolve', {
+      accountNumber: input.accountNumber,
+      bankCode: input.bankCode,
+      type: 'nuban',
+    });
     if (!response.success && response.status !== true) {
       return null;
     }
@@ -302,7 +325,7 @@ export class FincraApiService {
     orderReference: string;
   }> {
     const currency = input.currency.toUpperCase();
-    const response = await this.request<{ link?: string; reference?: string }>(
+    const { parsed: response } = await this.request<{ link?: string; reference?: string }>(
       'POST',
       '/checkout/payments',
       {
@@ -338,7 +361,7 @@ export class FincraApiService {
     metadata?: Record<string, unknown>;
   } | null> {
     const encoded = encodeURIComponent(merchantReference);
-    const response = await this.request<{
+    const { parsed: response } = await this.request<{
       status?: string;
       amount?: number;
       metadata?: Record<string, unknown>;
@@ -370,7 +393,7 @@ export class FincraApiService {
     path: string,
     body?: unknown,
     options?: { usePublicKey?: boolean; includeBusinessId?: boolean },
-  ): Promise<FincraApiResponse<T>> {
+  ): Promise<FincraHttpResult<T>> {
     const apiKey = getFincraApiKey();
     if (!apiKey) {
       throw new Error('Fincra API key is not configured');
@@ -403,7 +426,6 @@ export class FincraApiService {
         body: body !== undefined ? JSON.stringify(body) : undefined,
         signal: controller.signal,
       });
-      clearTimeout(timeoutId);
 
       const text = await response.text();
       let parsed: FincraApiResponse<T> = {};
@@ -419,12 +441,13 @@ export class FincraApiService {
         );
       }
 
-      return parsed;
+      return { parsed, httpStatus: response.status };
     } catch (error) {
-      clearTimeout(timeoutId);
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Fincra API ${method} ${path} error: ${message}`);
       throw error;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 }

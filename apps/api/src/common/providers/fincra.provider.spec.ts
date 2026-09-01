@@ -1,4 +1,3 @@
-import { PaymentProvider } from '../enums/payment-provider.enum';
 import { FincraProvider } from './fincra.provider';
 
 describe('FincraProvider', () => {
@@ -48,12 +47,13 @@ describe('FincraProvider', () => {
     );
   });
 
-  it('creates USDC crypto payout', async () => {
+  it('creates USDC crypto payout when network is provided', async () => {
     fincraApi.initiatePayout.mockResolvedValue({
       success: true,
       reference: 'fincra-ref-2',
       status: 'processing',
     });
+    fincraApi.isOperationPending.mockReturnValue(true);
 
     const result = await provider.createPayment({
       amount: 100,
@@ -72,5 +72,19 @@ describe('FincraProvider', () => {
         cryptoNetwork: 'ERC20',
       }),
     );
+  });
+
+  it('requires crypto network for USDC payout', async () => {
+    const result = await provider.createPayment({
+      amount: 100,
+      currency: 'USDC',
+      accountNumber: '0xabc',
+      merchantTxRef: 'payroll_crypto_item',
+      description: 'Payroll',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Crypto network is required');
+    expect(fincraApi.initiatePayout).not.toHaveBeenCalled();
   });
 });
