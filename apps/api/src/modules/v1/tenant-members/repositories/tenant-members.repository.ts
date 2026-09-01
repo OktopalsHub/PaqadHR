@@ -37,6 +37,15 @@ export class TenantMemberRepository extends Repository<TenantMember> {
       relations: ['user', 'positionHistory', 'positionHistory.position'],
     });
   }
+
+  async findActiveMembershipSummariesByUserId(
+    userId: string,
+  ): Promise<Pick<TenantMember, 'id' | 'tenantId' | 'role' | 'isActive'>[]> {
+    return this.tenantMemberRepository.find({
+      where: { userId, isActive: true },
+      select: ['id', 'tenantId', 'role', 'isActive'],
+    });
+  }
   async findAllMembersByTenantId(tenantId: string): Promise<TenantMember[]> {
     return this.tenantMemberRepository.find({
       where: { tenantId },

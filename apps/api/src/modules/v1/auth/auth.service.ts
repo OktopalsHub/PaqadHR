@@ -26,6 +26,7 @@ import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../users/repositories/users.repository';
@@ -33,6 +34,8 @@ import type { OtpPurpose } from './dto/otp.dto';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
+import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
+import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../subscriptions/config/billing.config';
 
 interface AuthAuditContext {
   userId?: string;
@@ -57,6 +60,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly invitationsService: InvitationsService,
     private readonly tenantMembersService: TenantMembersService,
+    private readonly tenantsService: TenantsService,
     private readonly auditLogsService: AuditLogsService,
     private readonly rateLimitService: RateLimitService,
     private readonly zeptomailEmailService: ZeptomailEmailService,
@@ -149,6 +153,26 @@ export class AuthService {
       expiresIn: refreshTokenExpiry,
     });
     return { accessToken, refreshToken };
+  }
+
+  async getSessionBootstrap(userId: string): Promise<SessionBootstrapResponseDto> {
+    const user = await this.userRepository.findUser(userId);
+    if (!user?.isActive || !user.emailVerified) {
+      throw new UnauthorizedException('Not authenticated');
+    }
+
+    const workspaces = await this.tenantsService.getSessionWorkspaces(userId);
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      paymentsEnabled: isBillingGatewayEnabled(),
+      featureGatingEnabled: isFeatureGatingEnabled(),
+      workspaces,
+    };
   }
 
   private async createSession(

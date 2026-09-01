@@ -41,6 +41,7 @@ function useInvalidateBilling() {
   const queryClient = useQueryClient();
 
   return () => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
     if (tenantId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.status(tenantId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.overview(tenantId) });

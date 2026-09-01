@@ -39,11 +39,18 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
-  // A cached profile is only a request-start hint. AppGate still waits for the
-  // server-validated session before it renders protected workspace content.
-  const tenantsQuery = useUserTenants({ enabled: isAuthenticated || Boolean(user) });
-  const tenants = tenantsQuery.data ?? [];
+  const {
+    workspaces,
+    isAuthenticated,
+    isLoading: authLoading,
+    hasResolvedSession,
+  } = useAuth();
+
+  const tenantsQuery = useUserTenants({
+    enabled: false,
+    initialWorkspaces: hasResolvedSession ? workspaces : undefined,
+  });
+  const tenants = hasResolvedSession ? workspaces : (tenantsQuery.data ?? []);
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     typeof window !== 'undefined' ? readTenantId() : null,
   );
@@ -57,9 +64,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     );
   }, [tenants, selectedId]);
 
-  const isLoading = authLoading || (isAuthenticated && tenantsQuery.isPending);
-  const hasResolvedTenants = !isAuthenticated || tenantsQuery.isFetched;
-  const isError = isAuthenticated && tenantsQuery.isError;
+  const isLoading = authLoading || (isAuthenticated && !hasResolvedSession);
+  const hasResolvedTenants = !isAuthenticated || hasResolvedSession;
+  const isError = false;
 
   useEffect(() => {
     if (!tenants.length) return;

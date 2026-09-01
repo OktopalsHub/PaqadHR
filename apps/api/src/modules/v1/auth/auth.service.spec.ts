@@ -14,6 +14,7 @@ import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import { AuthService } from './auth.service';
@@ -115,6 +116,10 @@ describe('AuthService', () => {
         },
         { provide: InvitationsService, useValue: mockInvitationsService },
         { provide: TenantMembersService, useValue: mockTenantMembersService },
+        {
+          provide: TenantsService,
+          useValue: { getSessionWorkspaces: jest.fn().mockResolvedValue([]) },
+        },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: RateLimitService, useValue: mockRateLimitService },
         { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
@@ -678,6 +683,72 @@ describe('AuthService', () => {
           true,
         ),
       ).rejects.toThrow(UnprocessableEntityException);
+    });
+  });
+
+  describe('getSessionBootstrap', () => {
+    it('returns user and workspace entitlement snapshot', async () => {
+      const tenantsService = {
+        getSessionWorkspaces: jest.fn().mockResolvedValue([
+          {
+            id: 'tenant-1',
+            name: 'Acme',
+            slug: 'acme',
+            isActive: true,
+            member: { id: 'member-1', role: 'OWNER', isActive: true },
+            entitled: true,
+            needsPayment: false,
+            plan: 'growth',
+          },
+        ]),
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          { provide: UserRepository, useValue: userRepository },
+          { provide: JwtService, useValue: jwtService },
+          { provide: getRepositoryToken(Account), useValue: accountRepository },
+          { provide: getRepositoryToken(Session), useValue: sessionRepository },
+          {
+            provide: getRepositoryToken(Verification),
+            useValue: verificationRepository,
+          },
+          { provide: InvitationsService, useValue: { acceptInvitation: jest.fn() } },
+          { provide: TenantMembersService, useValue: { createTenantMember: jest.fn() } },
+          { provide: TenantsService, useValue: tenantsService },
+          { provide: AuditLogsService, useValue: auditLogsService },
+          { provide: RateLimitService, useValue: rateLimitService },
+          {
+            provide: ZeptomailEmailService,
+            useValue: { sendTemplateEmail: jest.fn().mockResolvedValue({ success: true }) },
+          },
+          {
+            provide: ProductAnalyticsService,
+            useValue: { capture: jest.fn(), identify: jest.fn() },
+          },
+        ],
+      }).compile();
+
+      const service = module.get(AuthService);
+      userRepository.findUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'owner@example.com',
+        role: 'USER',
+        isActive: true,
+        emailVerified: true,
+      } as User);
+
+      const bootstrap = await service.getSessionBootstrap('user-1');
+
+      expect(bootstrap.user).toEqual({
+        id: 'user-1',
+        email: 'owner@example.com',
+        role: 'USER',
+      });
+      expect(bootstrap.workspaces).toHaveLength(1);
+      expect(bootstrap.workspaces[0]?.entitled).toBe(true);
+      expect(tenantsService.getSessionWorkspaces).toHaveBeenCalledWith('user-1');
     });
   });
 });

@@ -1,4 +1,3 @@
-import { fetchBillingStatus } from '@/lib/api/subscriptions';
 import {
   type AuthDestination,
   authDestinationToPath,
@@ -24,6 +23,13 @@ function tenantSlugFromDashboardPath(path: string): string | null {
   }
 }
 
+function workspaceNeedsPayment(
+  tenant: Tenant,
+  paymentsEnabled: boolean,
+): boolean {
+  return Boolean(paymentsEnabled && tenant.needsPayment);
+}
+
 /**
  * After auth, send unpaid / no-plan workspaces straight to /subscribe
  * instead of flashing the private app and relying only on SubscriptionGate.
@@ -33,6 +39,7 @@ function tenantSlugFromDashboardPath(path: string): string | null {
  */
 export async function resolvePostAuthHref(opts: {
   tenants: Tenant[];
+  paymentsEnabled: boolean;
   redirect?: string | null;
 }): Promise<string> {
   const destination = resolveAuthDestination({
@@ -47,35 +54,18 @@ export async function resolvePostAuthHref(opts: {
 
   const slugHint = tenantSlugFromDashboardPath(destination.path);
 
-  const billingChecks = await Promise.allSettled(
-    opts.tenants.map((tenant) =>
-      fetchBillingStatus(tenant.id)
-        .then((billing) => ({ tenant, billing }))
-        .catch(() => null),
-    ),
+  const paidTenants = opts.tenants.filter(
+    (tenant) => !workspaceNeedsPayment(tenant, opts.paymentsEnabled),
   );
 
-  const paidBilling: Array<{
-    tenant: Tenant;
-    billing: { paymentsEnabled: boolean; needsPayment: boolean };
-  }> = [];
-  for (const result of billingChecks) {
-    if (result.status === 'fulfilled' && result.value) {
-      const { tenant, billing } = result.value;
-      if (!(billing.paymentsEnabled && billing.needsPayment)) {
-        paidBilling.push({ tenant, billing });
-      }
-    }
-  }
-
-  const sortedPaid = paidBilling.sort((a, b) => {
-    if (a.tenant.slug === slugHint) return -1;
-    if (b.tenant.slug === slugHint) return 1;
+  const sortedPaid = paidTenants.sort((a, b) => {
+    if (a.slug === slugHint) return -1;
+    if (b.slug === slugHint) return 1;
     return 0;
   });
 
   if (sortedPaid.length > 0) {
-    return tenantUrl(sortedPaid[0].tenant.slug, '/');
+    return tenantUrl(sortedPaid[0].slug, '/');
   }
 
   const targetTenant = opts.tenants.find((entry) => entry.slug === slugHint) ?? opts.tenants[0];

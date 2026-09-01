@@ -1,10 +1,14 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
-import { cacheKeys, setCached } from '@/lib/cache';
+import { cacheKeys, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
+import {
+  type SessionBootstrap,
+  sessionBootstrapSchema,
+} from '@/lib/schemas/session-bootstrap';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { persistSession, persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
 
@@ -27,55 +31,55 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function mapAuthUser(
-  user: AuthResponse['user'] | ProfileResponse,
-  needsOnboarding?: boolean,
-): User {
+export function mapSessionUser(bootstrap: SessionBootstrap): User {
   return userSchema.parse({
-    id: user.id,
-    email: user.email,
+    id: bootstrap.user.id,
+    email: bootstrap.user.email,
     name: '',
-    role: user.role,
-    needsOnboarding,
+    role: bootstrap.user.role,
+    needsOnboarding: bootstrap.workspaces.length === 0,
   });
 }
 
-async function syncTenantFromApi(): Promise<boolean> {
-  const tenants = await fetchUserTenants();
-  if (tenants.length === 0) return true;
+export function applySessionBootstrap(bootstrap: SessionBootstrap): void {
+  if (bootstrap.workspaces.length > 0) {
+    setCached(cacheKeys.tenants.all, bootstrap.workspaces, { ttl: MAX_CACHE_TTL });
+  }
 
-  // Hydrate TenantProvider from the bootstrap response so it does not issue a
-  // second workspace request after the profile request completes.
-  setCached(cacheKeys.tenants.all, tenants, { ttl: 5 * 60 * 1000 });
-
-  // Respect the stored tenant ID if it still belongs to the user
   const storedTenantId = readTenantId();
-  const storedTenant = storedTenantId ? tenants.find((item) => item.id === storedTenantId) : null;
+  const storedTenant = storedTenantId
+    ? bootstrap.workspaces.find((item) => item.id === storedTenantId)
+    : null;
+  const active =
+    storedTenant ??
+    bootstrap.workspaces.find((item) => item.isActive) ??
+    bootstrap.workspaces[0];
 
-  const active = storedTenant ?? tenants.find((item) => item.isActive) ?? tenants[0];
-  persistTenantId(active.id);
-  if (active.slug) persistTenantSlug(active.slug);
-  return false;
+  if (active) {
+    persistTenantId(active.id);
+    if (active.slug) persistTenantSlug(active.slug);
+  }
 }
 
-async function fetchProfile(): Promise<ProfileResponse> {
-  return apiClient<ProfileResponse>('/users/profile');
+async function fetchSessionBootstrap(): Promise<SessionBootstrap> {
+  const data = await apiClient<unknown>('/auth/session');
+  return sessionBootstrapSchema.parse(data);
 }
 
 /**
  * After OAuth redirect, auth cookies can take a moment to attach on cross-origin fetches.
- * Retry profile before treating the login as failed.
+ * Retry session bootstrap before treating the login as failed.
  */
-export async function waitForAuthenticatedProfile(options?: {
+export async function waitForSessionBootstrap(options?: {
   attempts?: number;
   baseDelayMs?: number;
-}): Promise<ProfileResponse | null> {
+}): Promise<SessionBootstrap | null> {
   const attempts = options?.attempts ?? 3;
   const baseDelayMs = options?.baseDelayMs ?? 100;
 
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
-      return await fetchProfile();
+      return await fetchSessionBootstrap();
     } catch (error) {
       const isLast = attempt === attempts - 1;
       if (error instanceof ApiError && error.status === 401 && !isLast) {
@@ -86,6 +90,15 @@ export async function waitForAuthenticatedProfile(options?: {
     }
   }
   return null;
+}
+
+/** @deprecated Use waitForSessionBootstrap */
+export async function waitForAuthenticatedProfile(options?: {
+  attempts?: number;
+  baseDelayMs?: number;
+}): Promise<ProfileResponse | null> {
+  const bootstrap = await waitForSessionBootstrap(options);
+  return bootstrap?.user ?? null;
 }
 
 export async function loadUserTenantsWithRetry(options?: {
@@ -107,8 +120,17 @@ export async function loadUserTenantsWithRetry(options?: {
   return [];
 }
 
-export function persistUserSession(profile: ProfileResponse, needsOnboarding?: boolean): User {
-  const user = mapAuthUser(profile, needsOnboarding);
+export function persistUserSession(
+  profile: ProfileResponse | SessionBootstrap['user'],
+  needsOnboarding?: boolean,
+): User {
+  const user = userSchema.parse({
+    id: profile.id,
+    email: profile.email,
+    name: '',
+    role: profile.role,
+    needsOnboarding,
+  });
   persistSession();
   return user;
 }
@@ -119,27 +141,19 @@ export async function refreshSession(): Promise<boolean> {
 
 export { invalidateSession };
 
-export async function getSession(): Promise<User | null> {
+export async function getSession(): Promise<SessionBootstrap | null> {
   if (typeof window === 'undefined') return null;
 
   try {
-    const profile = await waitForAuthenticatedProfile({
+    const bootstrap = await waitForSessionBootstrap({
       attempts: isOnTenantSubdomain() ? 4 : 2,
       baseDelayMs: isOnTenantSubdomain() ? 100 : 80,
     });
-    if (!profile) return null;
+    if (!bootstrap) return null;
 
-    let needsOnboarding = true;
-    try {
-      needsOnboarding = await syncTenantFromApi();
-    } catch {
-      // The authenticated profile is still valid. TenantProvider can retry the
-      // workspace lookup while the route renders its own loading state.
-    }
-
-    const user = mapAuthUser(profile, needsOnboarding);
+    applySessionBootstrap(bootstrap);
     persistSession();
-    return user;
+    return bootstrap;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       invalidateSession();
@@ -149,8 +163,8 @@ export async function getSession(): Promise<User | null> {
   }
 }
 
-export async function login(input: LoginInput): Promise<User> {
-  const response = await apiClient<AuthResponse>('/auth/login', {
+export async function login(input: LoginInput): Promise<SessionBootstrap> {
+  await apiClient<AuthResponse>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({
       email: input.email,
@@ -161,10 +175,13 @@ export async function login(input: LoginInput): Promise<User> {
   });
 
   await bootstrapCsrf();
-  const needsOnboarding = await syncTenantFromApi();
-  const user = mapAuthUser(response.user, needsOnboarding);
+  const bootstrap = await waitForSessionBootstrap({ attempts: 3, baseDelayMs: 100 });
+  if (!bootstrap) {
+    throw new Error('Login succeeded, but we could not load your session. Please refresh.');
+  }
+  applySessionBootstrap(bootstrap);
   persistSession();
-  return user;
+  return bootstrap;
 }
 
 export async function register(input: SignupInput): Promise<RegistrationResponse> {
@@ -187,13 +204,21 @@ export async function resendEmailVerification(email: string): Promise<void> {
   });
 }
 
-export async function verifyEmail(email: string, code: string): Promise<User> {
-  const response = await apiClient<AuthResponse>('/auth/register/verify-email', {
+export async function verifyEmail(email: string, code: string): Promise<SessionBootstrap> {
+  await apiClient<AuthResponse>('/auth/register/verify-email', {
     method: 'POST',
     body: JSON.stringify({ email, code }),
     skipCsrf: true,
   });
-  return mapAuthUser(response.user, true);
+
+  await bootstrapCsrf();
+  const bootstrap = await waitForSessionBootstrap({ attempts: 5, baseDelayMs: 150 });
+  if (!bootstrap) {
+    throw new Error('Email verified, but we could not start your session. Please sign in.');
+  }
+  applySessionBootstrap(bootstrap);
+  persistSession();
+  return bootstrap;
 }
 
 export async function logoutRequest(): Promise<void> {

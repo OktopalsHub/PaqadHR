@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Ip,
   Post,
   Query,
@@ -13,8 +14,8 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
-import { Public } from 'src/common/decorators';
-import type { JwtPayload } from 'src/common/interfaces';
+import { Public, AuthOnly, CurrentUser } from 'src/common/decorators';
+import type { IAuthenticatedUserRequest, JwtPayload } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import {
   resolveCookieDomain,
@@ -35,6 +36,7 @@ import {
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import {
   createGoogleOAuthConsentClaims,
@@ -276,6 +278,16 @@ export class AuthController {
     await this.authService.logout(user.principalId);
     this.clearAuthCookies(res);
     res.json({ message: 'Logged out from all devices successfully' });
+  }
+
+  @Get('session')
+  @AuthOnly()
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
+  async getSession(
+    @CurrentUser() req: IAuthenticatedUserRequest,
+  ): Promise<SessionBootstrapResponseDto> {
+    return this.authService.getSessionBootstrap(req.auth.principalId);
   }
 
   @Get('sessions')

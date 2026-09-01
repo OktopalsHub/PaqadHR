@@ -21,9 +21,11 @@ import { TenantWalletTransaction } from '../rewards/entities/tenant-wallet-trans
 import { TenantCounter } from '../tenant-members/entities/tenant-counter.entity';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { SubscriptionsService } from '../subscriptions/services/subscriptions.service';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { UsersService } from '../users/users.service';
 import type { CreateTenantDto } from './dto/create-tenant.dto';
+import type { SessionWorkspaceDto } from '../auth/dto/session-bootstrap-response.dto';
 import type { UpdateTenantDto } from './dto/update-tenant.dto';
 import { Tenant } from './entities/tenant.entity';
 import { TenantRepository } from './repositories/tenant.repository';
@@ -33,6 +35,7 @@ export class TenantsService {
   constructor(
     private readonly tenantRepository: TenantRepository,
     private readonly tenantMemberService: TenantMembersService,
+    private readonly subscriptionsService: SubscriptionsService,
     private readonly userService: UsersService,
     private readonly eventEmitter: EventEmitter2,
     readonly _fileUrlService: FileUrlService,
@@ -239,6 +242,56 @@ export class TenantsService {
       tenants: tenantsWithMembership,
       totalCount: tenants.length,
     };
+  }
+
+  async getSessionWorkspaces(userId: string): Promise<SessionWorkspaceDto[]> {
+    const memberships = await this.tenantMemberService.getActiveMembershipSummaries(userId);
+    if (!memberships.length) {
+      return [];
+    }
+
+    const tenantIds = memberships.map((member) => member.tenantId);
+    const [tenants, entitlements] = await Promise.all([
+      this.tenantRepository.getTenantByIds(tenantIds),
+      this.subscriptionsService.getEntitlementsForTenants(tenantIds),
+    ]);
+    const membershipMap = new Map(memberships.map((member) => [member.tenantId, member]));
+    const workspaces: SessionWorkspaceDto[] = [];
+
+    for (const tenant of tenants) {
+      const member = membershipMap.get(tenant.id);
+      if (!member) continue;
+
+      const entitlement = entitlements.get(tenant.id) ?? {
+        entitled: false,
+        needsPayment: true,
+        plan: null,
+      };
+
+      workspaces.push({
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        isActive: tenant.isActive,
+        logoUrl:
+          tenant.logoKey && tenant.id
+            ? this._fileUrlService.getTenantLogoUrl(tenant.id, tenant.logoKey) || undefined
+            : undefined,
+        timezone: tenant.timezone,
+        preferredCurrency: tenant.preferredCurrency || undefined,
+        countryCode: tenant.countryCode || undefined,
+        member: {
+          id: member.id,
+          role: member.role,
+          isActive: member.isActive,
+        },
+        entitled: entitlement.entitled,
+        needsPayment: entitlement.needsPayment,
+        plan: entitlement.plan,
+      });
+    }
+
+    return workspaces;
   }
   async getTenantMembers(tenantId: string): Promise<unknown[]> {
     return this.tenantMemberService.getTenantMembers(tenantId);

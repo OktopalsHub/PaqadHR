@@ -13,6 +13,7 @@ describe('SubscriptionsService', () => {
   let service: SubscriptionsService;
   let subscriptionRepo: {
     findOne: jest.Mock;
+    find: jest.Mock;
     save: jest.Mock;
     remove: jest.Mock;
     create: jest.Mock;
@@ -28,6 +29,7 @@ describe('SubscriptionsService', () => {
   beforeEach(async () => {
     subscriptionRepo = {
       findOne: jest.fn(),
+      find: jest.fn(),
       save: jest.fn(async (s) => s),
       remove: jest.fn(),
       create: jest.fn((value) => value),
@@ -106,6 +108,68 @@ describe('SubscriptionsService', () => {
         trialEndsAt: new Date(Date.now() - 86_400_000),
       } as TenantSubscription;
       expect(service.isSubscriptionEntitled(sub)).toBe(false);
+    });
+  });
+
+  describe('getEntitlementsForTenants', () => {
+    it('returns unpaid defaults when subscription rows are missing', async () => {
+      subscriptionRepo.find.mockResolvedValue([]);
+
+      const entitlements = await service.getEntitlementsForTenants(['tenant-1', 'tenant-2']);
+
+      expect(subscriptionRepo.find).toHaveBeenCalledTimes(1);
+      expect(entitlements.get('tenant-1')).toEqual({
+        entitled: false,
+        needsPayment: true,
+        plan: null,
+      });
+      expect(entitlements.get('tenant-2')).toEqual({
+        entitled: false,
+        needsPayment: true,
+        plan: null,
+      });
+    });
+
+    it('maps active subscriptions to entitled workspaces', async () => {
+      subscriptionRepo.find.mockResolvedValue([
+        {
+          tenantId: 'tenant-1',
+          status: SubscriptionStatus.ACTIVE,
+          trialEndsAt: null,
+          nextBillingDate: new Date(Date.now() + 86_400_000),
+          currentPeriodEnd: new Date(Date.now() + 86_400_000),
+          plan: { slug: 'growth' },
+        },
+      ]);
+
+      const entitlements = await service.getEntitlementsForTenants(['tenant-1']);
+
+      expect(entitlements.get('tenant-1')).toEqual({
+        entitled: true,
+        needsPayment: false,
+        plan: 'growth',
+      });
+    });
+
+    it('marks expired trials as needing payment', async () => {
+      subscriptionRepo.find.mockResolvedValue([
+        {
+          tenantId: 'tenant-1',
+          status: SubscriptionStatus.TRIAL,
+          trialEndsAt: new Date(Date.now() - 86_400_000),
+          nextBillingDate: new Date(Date.now() + 86_400_000),
+          currentPeriodEnd: new Date(Date.now() + 86_400_000),
+          plan: { slug: 'starter' },
+        },
+      ]);
+
+      const entitlements = await service.getEntitlementsForTenants(['tenant-1']);
+
+      expect(entitlements.get('tenant-1')).toEqual({
+        entitled: false,
+        needsPayment: true,
+        plan: 'starter',
+      });
     });
   });
 

@@ -39,7 +39,7 @@ describe('TenantsService', () => {
     service = new TenantsService(
       tenantRepository as never,
       {} as never,
-      {} as never,
+      { getEntitlementsForTenants: jest.fn() } as never,
       {} as never,
       {} as never,
       employmentRepository as never,

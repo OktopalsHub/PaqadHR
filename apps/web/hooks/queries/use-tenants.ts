@@ -15,8 +15,10 @@ import { queryKeys } from '@/lib/query/keys';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { readTenantId } from '@/lib/session';
 
-export function useUserTenants(options?: { enabled?: boolean }) {
-  // Try to get cached tenants for instant render
+export function useUserTenants(options?: {
+  enabled?: boolean;
+  initialWorkspaces?: Tenant[];
+}) {
   const cachedTenants = useMemo(() => {
     return getCached<Tenant[]>(cacheKeys.tenants.all);
   }, []);
@@ -25,18 +27,16 @@ export function useUserTenants(options?: { enabled?: boolean }) {
     queryKey: queryKeys.tenants.all,
     queryFn: async () => {
       const tenants = await fetchUserTenants();
-      // Cache tenants for instant subsequent loads
       if (tenants.length > 0) {
-        setCached(cacheKeys.tenants.all, tenants, { ttl: 5 * 60 * 1000 }); // 5 minutes
+        setCached(cacheKeys.tenants.all, tenants, { ttl: 5 * 60 * 1000 });
       }
       return tenants;
     },
     enabled: options?.enabled ?? true,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnMount: false,
-    // Use cached data as initial data for instant render
-    initialData: cachedTenants ?? undefined,
+    placeholderData: options?.initialWorkspaces ?? cachedTenants ?? undefined,
   });
 }
 
@@ -47,6 +47,7 @@ export function useCreateTenant() {
     mutationFn: (input: CreateTenantInput) => createTenant(input),
     onSuccess: () => {
       invalidateTenantCache();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
     },
   });
@@ -60,6 +61,7 @@ export function useUpdateTenant() {
       updateTenant(tenantId, input),
     onSuccess: () => {
       invalidateTenantCache();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
     },
   });
@@ -72,6 +74,7 @@ export function useDeleteTenant() {
     mutationFn: (tenantId: string) => deleteTenant(tenantId),
     onSuccess: () => {
       invalidateTenantCache();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
       void queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
     },
   });

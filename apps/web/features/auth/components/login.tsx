@@ -36,7 +36,7 @@ interface LoginProps {
 export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
   const router = useRouter();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { login, isLoading, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, isLoading: authLoading, paymentsEnabled } = useAuth();
   const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
   const showRedirectSpinner = isAuthenticated && hasResolvedTenants && !tenantLoading;
@@ -45,10 +45,10 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
     if (!isAuthenticated || !hasResolvedTenants || tenantLoading || authLoading) return;
 
     void (async () => {
-      const href = await resolvePostAuthHref({ tenants, redirect });
+      const href = await resolvePostAuthHref({ tenants, paymentsEnabled, redirect });
       goToHref(href, router.replace);
     })();
-  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router, redirect]);
+  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, paymentsEnabled, router, redirect]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
