@@ -108,9 +108,8 @@ export class PaymentMethodService {
         await this.unsetPrimaryMethods(tenantId, memberId, dto.currency);
       }
 
-      let status = PaymentMethodStatus.DRAFT;
+      const status = PaymentMethodStatus.DRAFT;
       let accountName = dto.accountName;
-      let verifiedAt: Date | null = null;
 
       if (dto.currency.toUpperCase() === 'NGN') {
         if (!dto.bankCode) {
@@ -123,8 +122,6 @@ export class PaymentMethodService {
           dto.accountName,
         );
         accountName = resolved.accountName;
-        status = resolved.status;
-        verifiedAt = resolved.verifiedAt;
         if (resolved.bankName) {
           dto.bankName = resolved.bankName;
         }
@@ -132,8 +129,6 @@ export class PaymentMethodService {
         if (!dto.accountNumber?.trim()) {
           throw new BadRequestException('Wallet address is required for crypto payment methods');
         }
-        status = PaymentMethodStatus.VERIFIED;
-        verifiedAt = new Date();
         accountName = dto.accountName ?? dto.displayName ?? 'Crypto wallet';
       }
 
@@ -166,7 +161,7 @@ export class PaymentMethodService {
         country: dto.country,
         isPrimary: dto.isPrimary || false,
         status,
-        verifiedAt,
+        verifiedAt: null,
         passcodeHash: null,
         passcodeSetAt: null,
         lastPasscodeChange: null,
@@ -176,7 +171,27 @@ export class PaymentMethodService {
           ...(dto.walletAddress ? { walletAddress: dto.walletAddress } : {}),
         },
       });
-      return await this.paymentMethodRepository.save(paymentMethod);
+      const saved = await this.paymentMethodRepository.save(paymentMethod);
+
+      void this.auditLogsService
+        .queueAuditLog({
+          action: AuditAction.CREATE,
+          description: `Payment method created (${normalizedCurrency}${dto.isPrimary ? ', marked as primary' : ''})`,
+          severity: AuditSeverity.LOW,
+          status: AuditStatus.SUCCESS,
+          resourceType: 'payment_method',
+          resourceId: saved.id,
+          tenantId,
+          userId,
+          metadata: {
+            currency: normalizedCurrency,
+            type: dto.type || 'bank',
+            isPrimary: dto.isPrimary || false,
+          },
+        })
+        .catch(() => {});
+
+      return saved;
     } catch (error) {
       this.logger.error('Error creating payment method:', error);
       throw error;
@@ -372,6 +387,20 @@ export class PaymentMethodService {
     paymentMethod.passcodeHash = null;
     paymentMethod.isPrimary = false;
     await this.paymentMethodRepository.save(paymentMethod);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.DELETE,
+        description: `Payment method deleted (${paymentMethod.currency})`,
+        severity: AuditSeverity.MEDIUM,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'payment_method',
+        resourceId: paymentMethodId,
+        tenantId,
+        userId: memberId,
+        metadata: { currency: paymentMethod.currency, reason: 'Employee deleted payment method' },
+      })
+      .catch(() => {});
   }
 
   async submitForVerification(
@@ -402,6 +431,20 @@ export class PaymentMethodService {
     paymentMethod.submittedAt = new Date();
     paymentMethod.verificationNotes = null;
     const saved = await this.paymentMethodRepository.save(paymentMethod);
+
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.PAYMENT_METHOD_SUBMITTED,
+        description: `Payment method submitted for verification (${paymentMethod.currency}${paymentMethod.isPrimary ? ', primary request' : ''})`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'payment_method',
+        resourceId: saved.id,
+        tenantId,
+        userId,
+        metadata: { currency: paymentMethod.currency, isPrimary: paymentMethod.isPrimary },
+      })
+      .catch(() => {});
 
     this.productAnalytics.capture(userId, 'payment_method_submitted', {
       userId,
@@ -471,13 +514,24 @@ export class PaymentMethodService {
     }
     const updatedMethod = await this.paymentMethodRepository.save(paymentMethod);
     await this.auditLogsService.queueAuditLog({
-      action: AuditAction.UPDATE,
-      description: `Payment method verification set to ${dto.status}`,
+      action:
+        dto.status === PaymentMethodStatus.VERIFIED
+          ? AuditAction.PAYMENT_METHOD_VERIFIED
+          : dto.status === PaymentMethodStatus.REJECTED
+            ? AuditAction.PAYMENT_METHOD_REJECTED
+            : AuditAction.PAYMENT_METHOD_UPDATED,
+      description: `Payment method ${dto.status}${dto.notes ? `: ${dto.notes}` : ''}`,
       severity: AuditSeverity.MEDIUM,
       status: AuditStatus.SUCCESS,
       resourceType: 'payment_method',
       resourceId: paymentMethodId,
       tenantId: paymentMethod.tenantId,
+      metadata: {
+        currency: paymentMethod.currency,
+        previousStatus: paymentMethod.status,
+        newStatus: dto.status,
+        isPrimary: paymentMethod.isPrimary,
+      },
     });
 
     if (dto.status === PaymentMethodStatus.VERIFIED) {

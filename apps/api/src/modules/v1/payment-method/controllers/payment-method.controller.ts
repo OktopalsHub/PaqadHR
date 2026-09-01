@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  MethodNotAllowedException,
   Param,
   Post,
   Put,
@@ -29,7 +30,6 @@ import {
   CreatePaymentMethodDto,
   PasscodeChangeDto,
   SubmitForVerificationDto,
-  UpdatePaymentMethodDto,
   VerifyPaymentMethodDto,
 } from '../dto/payment-method.dto';
 import { PaymentMethodService } from '../services/payment-method.service';
@@ -105,24 +105,14 @@ export class PaymentMethodController {
   @Put(':paymentMethodId')
   @UseGuards(TenantMemberGuard)
   @RateLimit(RateLimitPresets.SENSITIVE)
-  @ApiOperation({ summary: 'Update bank payment method' })
+  @ApiOperation({ summary: 'Update bank payment method (disabled — delete and re-add instead)' })
   @ApiResponse({
-    status: 200,
-    description: 'Payment method updated successfully',
+    status: 405,
+    description: 'Editing payment methods is not allowed. Delete and create a new one.',
   })
-  async updatePaymentMethod(
-    @Param('tenantId') tenantId: string,
-    @Param('paymentMethodId') paymentMethodId: string,
-    @Body() dto: UpdatePaymentMethodDto,
-    @CurrentTenantMember() member: MemberContext,
-    @CurrentUser() request: { auth?: { principalId?: string } },
-  ) {
-    return this.paymentMethodService.updatePaymentMethod(
-      paymentMethodId,
-      tenantId,
-      member.id,
-      request.auth?.principalId ?? '',
-      dto,
+  async updatePaymentMethod() {
+    throw new MethodNotAllowedException(
+      'Editing payment methods is not allowed. Delete this account and add a new one.',
     );
   }
   @Put(':paymentMethodId/passcode')
