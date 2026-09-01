@@ -13,6 +13,7 @@ import {
   isFincraOperationPending,
   isFincraOperationSuccessful,
   isFincraPayoutNotFound,
+  isFincraPayoutTerminalFailure,
   normalizeFincraPayoutStatus,
   resolveFincraFiatPaymentScheme,
   resolveFincraPaymentScheme,
@@ -153,19 +154,19 @@ export class FincraApiService {
       const normalized = normalizeFincraPayoutStatus(existing.status);
       if (isFincraOperationSuccessful(normalized) || isFincraOperationPending(normalized)) {
         return {
-          success: !normalized.includes('FAILED'),
+          success: true,
           reference: existing.reference ?? input.customerReference,
           status: normalized,
           destinationAmount: input.amount,
         };
       }
-      if (normalized.includes('FAILED')) {
+      if (isFincraPayoutTerminalFailure(normalized)) {
         return {
           success: false,
           reference: existing.reference ?? input.customerReference,
           status: normalized,
           message:
-            'Customer reference already used for a failed payout; submit a retry reference suffix',
+            'Customer reference already used for a terminal payout; submit a retry reference suffix',
         };
       }
     }

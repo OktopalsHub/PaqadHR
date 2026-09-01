@@ -2,6 +2,16 @@ const FINCRA_SUCCESS_STATUSES = new Set(['SUCCESS', 'SUCCESSFUL', 'COMPLETED', '
 
 const FINCRA_PENDING_STATUSES = new Set(['PENDING', 'PROCESSING', 'IN_PROGRESS']);
 
+const FINCRA_TERMINAL_FAILURE_STATUSES = new Set([
+  'FAILED',
+  'REFUND',
+  'REFUNDED',
+  'REVERSED',
+  'CANCELLED',
+  'CANCELED',
+  'REJECTED',
+]);
+
 export function isFincraOperationSuccessful(status?: string | null): boolean {
   if (!status) return false;
   return FINCRA_SUCCESS_STATUSES.has(status.toUpperCase()) || status.toLowerCase() === 'successful';
@@ -11,6 +21,12 @@ export function isFincraOperationPending(status?: string | null): boolean {
   if (!status) return false;
   const normalized = status.toUpperCase();
   return FINCRA_PENDING_STATUSES.has(normalized) || status.toLowerCase() === 'processing';
+}
+
+/** Terminal payout states that must not be re-submitted on the same customer reference. */
+export function isFincraPayoutTerminalFailure(status?: string | null): boolean {
+  if (!status) return false;
+  return FINCRA_TERMINAL_FAILURE_STATUSES.has(normalizeFincraPayoutStatus(status));
 }
 
 export function normalizeFincraPayoutStatus(status?: string | null): string {

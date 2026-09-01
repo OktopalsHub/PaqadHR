@@ -1,5 +1,6 @@
 import {
   isFincraPayoutNotFound,
+  isFincraPayoutTerminalFailure,
   resolveFincraFiatPaymentScheme,
   resolveFincraPaymentScheme,
 } from './fincra-api.util';
@@ -20,6 +21,21 @@ describe('fincra-api.util', () => {
       expect(isFincraPayoutNotFound(503, { message: 'upstream unavailable' })).toBe(false);
       expect(isFincraPayoutNotFound(503, { message: 'RESOURCE_NOT_FOUND' })).toBe(false);
       expect(isFincraPayoutNotFound(503, { code: 'RESOURCE_NOT_FOUND' })).toBe(false);
+    });
+  });
+
+  describe('isFincraPayoutTerminalFailure', () => {
+    it('detects terminal payout statuses that must block resubmission', () => {
+      expect(isFincraPayoutTerminalFailure('failed')).toBe(true);
+      expect(isFincraPayoutTerminalFailure('CANCELLED')).toBe(true);
+      expect(isFincraPayoutTerminalFailure('REJECTED')).toBe(true);
+      expect(isFincraPayoutTerminalFailure('REVERSED')).toBe(true);
+      expect(isFincraPayoutTerminalFailure('REFUND')).toBe(true);
+    });
+
+    it('does not treat in-flight or successful payouts as terminal failures', () => {
+      expect(isFincraPayoutTerminalFailure('PROCESSING')).toBe(false);
+      expect(isFincraPayoutTerminalFailure('SUCCESS')).toBe(false);
     });
   });
 

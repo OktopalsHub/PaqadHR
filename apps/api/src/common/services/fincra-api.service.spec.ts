@@ -135,7 +135,39 @@ describe('FincraApiService', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.message).toContain('failed payout');
+      expect(result.message).toContain('terminal payout');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      'cancelled',
+      'rejected',
+      'reversed',
+      'refund',
+    ] as const)('does not POST when preflight finds a %s payout on the same customer reference', async (status) => {
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () =>
+          JSON.stringify({
+            data: {
+              status,
+              reference: `fincra-ref-${status}`,
+            },
+          }),
+      });
+
+      const result = await service.initiatePayout({
+        amount: 1000,
+        destinationCurrency: 'NGN',
+        customerReference: 'payroll_run_item',
+        accountNumber: '0123456789',
+        accountName: 'Jane Doe',
+        bankCode: '044',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('terminal payout');
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
