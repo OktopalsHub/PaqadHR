@@ -2,6 +2,23 @@ import { LeaveBalanceRepository } from './leave-balance.repository';
 import { LeaveBalanceService } from './leave-balance.service';
 
 describe('LeaveBalanceService listLeaveBalances', () => {
+  it('soft-deletes a balance within the current tenant scope', async () => {
+    const repository = {
+      findOne: jest.fn().mockResolvedValue({ id: 'balance-1', memberId: 'member-1' }),
+      softDelete: jest.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const service = new LeaveBalanceService(
+      repository as unknown as LeaveBalanceRepository,
+      {} as never,
+      { queueActivity: jest.fn().mockResolvedValue(undefined) } as never,
+      { sendLeaveBalanceUpdatedNotification: jest.fn().mockResolvedValue(undefined) } as never,
+    );
+
+    await service.deleteLeaveBalance('tenant-1', 'balance-1');
+
+    expect(repository.softDelete).toHaveBeenCalledWith({ id: 'balance-1', tenantId: 'tenant-1' });
+  });
+
   it('maps member and leave-type labels without exposing raw UUID fallbacks', async () => {
     const repository = {
       findAdminListWithLabels: jest.fn().mockResolvedValue([

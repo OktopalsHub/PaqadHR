@@ -21,6 +21,7 @@ export function useBillingStatus() {
     queryKey: queryKeys.billing.status(tenantId ?? ''),
     queryFn: () => fetchBillingStatus(tenantId!),
     enabled: !tenantLoading && Boolean(tenantId),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -31,6 +32,7 @@ export function useBillingOverview() {
     queryKey: queryKeys.billing.overview(tenantId ?? ''),
     queryFn: () => fetchBillingOverview(tenantId!),
     enabled: !tenantLoading && Boolean(tenantId),
+    refetchOnWindowFocus: true,
   });
 }
 

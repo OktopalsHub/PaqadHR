@@ -131,7 +131,10 @@ export class LeaveBalanceService {
     if (!existingBalance) {
       throw new NotFoundException('Leave balance not found or access denied');
     }
-    await this.leaveBalanceRepository.softDelete(balanceId);
+    const result = await this.leaveBalanceRepository.softDelete({ id: balanceId, tenantId });
+    if (result.affected === 0) {
+      throw new NotFoundException('Leave balance not found or access denied');
+    }
     if (actorMemberId) {
       void this.activitiesService
         .queueActivity({

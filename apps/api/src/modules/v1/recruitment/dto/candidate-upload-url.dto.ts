@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 import { FileUploadLocation } from 'src/common/enums/file-upload-location.enum';
 
 const CANDIDATE_UPLOAD_LOCATIONS = [FileUploadLocation.RESUMES, FileUploadLocation.COVER_LETTERS];
@@ -18,4 +19,10 @@ export class CandidateUploadUrlDto {
   @IsOptional()
   @IsString()
   contentType?: string;
+
+  @ApiProperty({ description: 'File size in bytes', example: 102400 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  contentLength: number;
 }

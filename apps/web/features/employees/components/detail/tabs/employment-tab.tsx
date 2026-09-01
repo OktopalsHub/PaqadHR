@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { SearchSelect } from '@/components/search-select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -62,6 +63,7 @@ interface EmploymentTabProps {
   form: EmployeeDetailForm;
   memberId: string;
   isAdmin?: boolean;
+  canManageOrganization?: boolean;
   canViewCompensation?: boolean;
 }
 
@@ -69,6 +71,7 @@ export function EmploymentTab({
   form,
   memberId,
   isAdmin = false,
+  canManageOrganization = false,
   canViewCompensation = false,
 }: EmploymentTabProps) {
   const { employee, handleInputChange } = form;
@@ -79,7 +82,7 @@ export function EmploymentTab({
   const { data: tenantMembers = [] } = useQuery({
     queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
     queryFn: fetchTenantMembers,
-    enabled: Boolean(tenantId) && isAdmin,
+    enabled: Boolean(tenantId) && canManageOrganization,
   });
 
   const managerOptions = useMemo(
@@ -139,6 +142,7 @@ export function EmploymentTab({
   const [positionDialogOpen, setPositionDialogOpen] = useState(false);
   const [positionEffectiveDate, setPositionEffectiveDate] = useState('');
   const [positionId, setPositionId] = useState('');
+  const [pendingAction, setPendingAction] = useState<'position' | 'salary' | null>(null);
 
   const resetSalaryDialog = () => {
     setEffectiveDate('');
@@ -153,7 +157,7 @@ export function EmploymentTab({
     setPositionId('');
   };
 
-  const handleAddSalary = async () => {
+  const handleAddSalary = () => {
     const rate = Number(payRate);
     if (!effectiveDate) {
       toast.error('Enter an effective date');
@@ -164,6 +168,11 @@ export function EmploymentTab({
       return;
     }
 
+    setPendingAction('salary');
+  };
+
+  const confirmAddSalary = async () => {
+    const rate = Number(payRate);
     try {
       await addCompensation.mutateAsync({
         effectiveDate,
@@ -173,6 +182,7 @@ export function EmploymentTab({
         comments: comments.trim() || undefined,
       });
       toast.success('Salary added');
+      setPendingAction(null);
       setSalaryDialogOpen(false);
       resetSalaryDialog();
     } catch (err) {
@@ -180,7 +190,7 @@ export function EmploymentTab({
     }
   };
 
-  const handleAssignPosition = async () => {
+  const handleAssignPosition = () => {
     if (!positionId) {
       toast.error('Select a position');
       return;
@@ -190,12 +200,17 @@ export function EmploymentTab({
       return;
     }
 
+    setPendingAction('position');
+  };
+
+  const confirmAssignPosition = async () => {
     try {
       await assignPosition.mutateAsync({
         positionId,
         assignedAt: positionEffectiveDate,
       });
       toast.success('Position updated');
+      setPendingAction(null);
       setPositionDialogOpen(false);
       resetPositionDialog();
     } catch (err) {
@@ -204,7 +219,7 @@ export function EmploymentTab({
   };
 
   return (
-    <TabsContent value="employment">
+    <TabsContent value="employment" className="mt-4">
       <Card>
         <CardHeader>
           <CardTitle>Employment Details</CardTitle>
@@ -231,7 +246,7 @@ export function EmploymentTab({
             </div>
             <div className="space-y-2">
               <Label htmlFor="department">Current department</Label>
-              {isAdmin ? (
+              {canManageOrganization ? (
                 <SearchSelect
                   options={[noneDepartmentOption, ...departmentOptions]}
                   value={employee.departmentId}
@@ -256,7 +271,7 @@ export function EmploymentTab({
             </div>
             <div className="space-y-2">
               <Label htmlFor="manager">Reports to</Label>
-              {isAdmin ? (
+              {canManageOrganization ? (
                 <SearchSelect
                   options={[noneManagerOption, ...managerOptions]}
                   value={employee.reportsToId}
@@ -300,7 +315,7 @@ export function EmploymentTab({
                   Role changes over time, separate from salary.
                 </p>
               </div>
-              {isAdmin ? (
+              {canManageOrganization ? (
                 <Dialog
                   open={positionDialogOpen}
                   onOpenChange={(open) => {
@@ -359,7 +374,7 @@ export function EmploymentTab({
                         disabled={
                           assignPosition.isPending || positionsLoading || positions.length === 0
                         }
-                        onClick={() => void handleAssignPosition()}
+                        onClick={handleAssignPosition}
                       >
                         {assignPosition.isPending ? (
                           <Loader2 className="mr-2 size-4 animate-spin" />
@@ -382,7 +397,7 @@ export function EmploymentTab({
               <p className="text-sm text-muted-foreground">Loading position history…</p>
             ) : positionHistory.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {isAdmin
+                {canManageOrganization
                   ? 'No position on file yet. Assign the first role for this employee.'
                   : 'No position history on file yet.'}
               </p>
@@ -512,10 +527,7 @@ export function EmploymentTab({
                           </div>
                         </div>
                         <DialogFooter>
-                          <Button
-                            disabled={addCompensation.isPending}
-                            onClick={() => void handleAddSalary()}
-                          >
+                          <Button disabled={addCompensation.isPending} onClick={handleAddSalary}>
                             {addCompensation.isPending ? (
                               <Loader2 className="mr-2 size-4 animate-spin" />
                             ) : null}
@@ -586,6 +598,22 @@ export function EmploymentTab({
           ) : null}
         </CardContent>
       </Card>
+      <ConfirmActionDialog
+        open={pendingAction !== null}
+        onOpenChange={(open) => !open && setPendingAction(null)}
+        title={pendingAction === 'position' ? 'Save position change?' : 'Save salary change?'}
+        description={
+          pendingAction === 'position'
+            ? 'This will update the employee position history with the selected effective date.'
+            : 'This will add the salary details to the employee compensation history.'
+        }
+        actionLabel={pendingAction === 'position' ? 'Save position' : 'Save salary'}
+        isPending={assignPosition.isPending || addCompensation.isPending}
+        onConfirm={() => {
+          if (pendingAction === 'position') void confirmAssignPosition();
+          if (pendingAction === 'salary') void confirmAddSalary();
+        }}
+      />
     </TabsContent>
   );
 }

@@ -6,6 +6,11 @@ import { parseTenantIdFromMonnifyWalletTopupOrderRef } from '../rewards/utils/wa
 type RawBodyRequest = Request & { rawBody?: Buffer };
 const monnifyWalletWebhookLogger = new Logger('MonnifyWalletWebhook');
 
+type RawBodyRequest = Request & { rawBody?: Buffer };
+
+const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
+const _monnifyWalletWebhookLogger = new Logger('MonnifyWalletWebhook');
+
 export function getNombaRawBody(req: RawBodyRequest): string {
   return req.rawBody?.toString('utf8') ?? '';
 }
@@ -211,24 +216,14 @@ export function extractMonnifyWalletTopupCheckout(payload: unknown): {
 
   const meta = parseMonnifyMeta(data.metaData);
   const fromMeta = meta.billingType === 'wallet_topup';
-  const looksLikeWalletRef = /^wm_[0-9a-f]{32}_/i.test(orderReference);
-  if (!fromMeta && !looksLikeWalletRef) {
+  // H-3: Strictly require billingType=wallet_topup in meta; remove wm_ heuristic fallback to prevent idempotency bypass
+  if (!fromMeta) {
     return null;
   }
 
-  const tenantId =
-    (meta.tenantId || '').trim() ||
-    (looksLikeWalletRef ? parseTenantIdFromMonnifyWalletTopupOrderRef(orderReference) : null) ||
-    '';
-
+  const tenantId = (meta.tenantId || '').trim();
   if (!tenantId) {
     return null;
-  }
-
-  if (!fromMeta && looksLikeWalletRef) {
-    monnifyWalletWebhookLogger.warn(
-      `Monnify wallet top-up inferred from wm_ ref (meta billingType missing): ${orderReference}`,
-    );
   }
 
   const amount = Number(data.amountPaid ?? meta.expectedAmount ?? 0);

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import type { PayrollRun } from '../entities/payroll-run.entity';
@@ -15,6 +16,7 @@ export class ManualDisbursementService {
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
     private readonly auditService: AuditService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async disbursePayrollRun(
@@ -84,6 +86,10 @@ export class ManualDisbursementService {
       paidCount,
       failedCount,
       processingDuration,
+    });
+
+    this.productAnalytics.capture(auditContext.performedById, 'payroll_disbursed', {
+      tenantId: auditContext.tenantId,
     });
 
     return { paidCount, failedCount };

@@ -128,9 +128,14 @@ export function getTenantApiPath(tenantId: string, path: string) {
   return tenantPath(tenantId, path);
 }
 
-export async function getTenantBySlug(slug: string): Promise<Tenant> {
-  return apiClient<Tenant>(`/tenants/slug/${slug}`, {
+export async function getTenantBySlug(slug: string, signal?: AbortSignal): Promise<Tenant> {
+  const normalized = slug.trim();
+  if (!/^[a-zA-Z0-9_-]+$/.test(normalized)) {
+    throw new Error('Invalid workspace slug');
+  }
+  return apiClient<Tenant>(`/tenants/slug/${encodeURIComponent(normalized)}`, {
     method: 'GET',
     skipCsrf: true,
+    signal,
   });
 }

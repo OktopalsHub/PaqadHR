@@ -9,6 +9,7 @@ import {
   MONNIFY_SANDBOX_BASE_URL,
 } from './monnify.config';
 import { getNoahSigningPrivateKeyValidationWarning } from './noah.config';
+import { parseDurationToMs } from './parse-duration.util';
 import { resolveTrustedOrigins } from './trusted-origins';
 
 const CRITICAL = [
@@ -309,6 +310,30 @@ export function validateEnvAtBoot(): void {
   const noahSigningWarning = getNoahSigningPrivateKeyValidationWarning();
   if (noahSigningWarning) {
     warnings.push(noahSigningWarning);
+  }
+
+  // M-1: Enforce 15m max per SECURITY.md §1
+  const accessExpiresIn = process.env.ACCESS_EXPIRES_IN?.trim() || '15m';
+  const parsedMs = parseDurationToMs(accessExpiresIn);
+  if (parsedMs === null) {
+    errors.push(`ACCESS_EXPIRES_IN has invalid format (got ${accessExpiresIn})`);
+  } else if (parsedMs > 15 * 60 * 1000) {
+    errors.push(
+      `ACCESS_EXPIRES_IN must be <=15m per SECURITY.md high-security mandate (got ${accessExpiresIn})`,
+    );
+  }
+
+  // M-4: In-memory rate limits — single process only (no Redis required)
+  const pm2Instances = Number(process.env.instances ?? process.env.PM2_INSTANCES ?? 1);
+  if (isProduction && pm2Instances > 1) {
+    errors.push(
+      `PM2 is running ${pm2Instances} workers — in-memory rate limits are per-process and security thresholds multiply. Use pm2 -i 1 (see apps/api/Dockerfile).`,
+    );
+  }
+  if (isProduction) {
+    warnings.push(
+      'Using in-memory rate limits — requires single PM2 worker (-i 1) and single container; not safe for horizontal scale',
+    );
   }
 
   for (const warning of warnings) {

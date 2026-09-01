@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { LeaveStatus } from 'src/common/enums';
 import { DateTimeHelper } from 'src/common/helpers';
 import type { IPaginationOption } from 'src/common/interfaces/pagination.interface';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
@@ -24,6 +25,7 @@ export class LeaveService {
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly activitiesService: ActivitiesService,
     private readonly notificationHelperService: NotificationHelperService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   async createLeave(tenantId: string, memberId: string, dto: CreateLeaveDto) {
     const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
@@ -74,6 +76,8 @@ export class LeaveService {
       .catch((error) => {
         this.logger.error('Failed to send leave request notification', error);
       });
+
+    this.productAnalytics.capture(memberId, 'leave_requested', { tenantId });
 
     return saved;
   }
@@ -334,6 +338,8 @@ export class LeaveService {
         this.logger.error('Failed to send leave approval notification', error);
       });
 
+    this.productAnalytics.capture(approverId, 'leave_approved', { tenantId });
+
     return this.toLeaveResponseDto(updated);
   }
   async rejectLeave(tenantId: string, leaveId: string, approverId: string, comments: string) {
@@ -370,6 +376,8 @@ export class LeaveService {
       .catch((error) => {
         this.logger.error('Failed to send leave rejection notification', error);
       });
+
+    this.productAnalytics.capture(approverId, 'leave_rejected', { tenantId });
 
     return this.toLeaveResponseDto(updated);
   }

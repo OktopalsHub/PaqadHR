@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, CheckCircle2, CreditCard, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -23,7 +23,7 @@ import type { BillingSettings } from '@/lib/api/tenant-settings';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
 import { formatDate } from '@/lib/format-date';
 import { formatPlanMoney } from '@/lib/format-plan-money';
-import { subscribePageUrl } from '@/lib/navigation/tenant-routes';
+import { subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 function formatMoney(amount: number, currency: string) {
@@ -190,6 +190,7 @@ function BillingContactForm({
 }
 
 export function BillingSection() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { tenant } = useTenant();
   const { data: overview, isLoading, isError, error } = useBillingOverview();
@@ -210,7 +211,13 @@ export function BillingSection() {
   }, [searchParams]);
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
-  const billingHistory = overview?.billingHistory ?? [];
+  const billingHistory = useMemo(
+    () =>
+      (overview?.billingHistory ?? []).filter(
+        (e) => !(e.status === 'paid' && Number(e.amount) === 0),
+      ),
+    [overview?.billingHistory],
+  );
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading billing details…</p>;
@@ -271,7 +278,7 @@ export function BillingSection() {
 
   const goToSubscribe = () => {
     if (!tenant?.slug) return;
-    window.location.assign(subscribePageUrl({ workspace: tenant.slug }));
+    router.push(subscribePagePath({ workspace: tenant.slug }));
   };
 
   return (

@@ -10,6 +10,7 @@ import { PasswordService, StringUtility } from 'src/common/utils';
 import { QueryFailedError } from 'typeorm';
 import { InvitationStatus } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
+import { ProductAnalyticsService } from '../../../common/observability/product-analytics.service';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
 import {
   formatInviteeDisplayName,
@@ -43,6 +44,7 @@ export class InvitationsService {
     private readonly departmentsService: DepartmentsService,
     private readonly positionMemberService: PositionMemberService,
     private readonly notificationHelperService: NotificationHelperService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   private generateInvitationToken(): string {
     const crypto = require('node:crypto');
@@ -315,6 +317,19 @@ export class InvitationsService {
         this.logger.error('Failed to send new team member notification', error);
       });
 
+    if (user) {
+      this.productAnalytics.capture(user.id, 'invite_accepted', {
+        userId: user.id,
+        tenantId: invitation.tenantId,
+        role: invitation.role,
+      });
+      this.productAnalytics.capture(user.id, 'workspace_activated', {
+        userId: user.id,
+        tenantId: invitation.tenantId,
+        role: invitation.role,
+      });
+    }
+
     return {
       invitation: await this?.mapToResponseDto(updatedInvitation),
       userExists,
@@ -530,6 +545,12 @@ export class InvitationsService {
         metadata: { role: invitation.role, inviteeName },
       })
       .catch(() => {});
+
+    this.productAnalytics.capture(invitation.invitedBy, 'invite_sent', {
+      userId: invitation.invitedBy,
+      tenantId: invitation.tenantId,
+      role: invitation.role,
+    });
 
     return { emailSent: true };
   }

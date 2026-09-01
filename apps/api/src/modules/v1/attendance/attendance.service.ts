@@ -6,6 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AttendanceExceptionStatus, type AttendanceStatus } from 'src/common/enums';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { Between, type FindOptionsWhere, In, LessThan } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
@@ -43,6 +44,7 @@ export class AttendanceService {
     private readonly departmentUtils: DepartmentUtils,
     private readonly activitiesService: ActivitiesService,
     private readonly notificationHelperService: NotificationHelperService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
   private async isClockInEnabled(tenantId: string): Promise<boolean> {
     try {
@@ -231,6 +233,8 @@ export class AttendanceService {
         metadata: { location: dto.location, sessionNumber: nextSessionNumber },
       })
       .catch(() => {});
+
+    this.productAnalytics.capture(tenantMemberId, 'attendance_clocked_in', { tenantId });
 
     return attendance;
   }

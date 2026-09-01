@@ -37,7 +37,7 @@ export function EmployeeWorkspaceStatus({
       <AlertDialogTrigger asChild>
         <Button
           type="button"
-          variant={isActive ? 'outline' : 'default'}
+          variant={isActive ? 'destructive' : 'default'}
           className="w-full"
           disabled={isPending}
         >
@@ -51,7 +51,16 @@ export function EmployeeWorkspaceStatus({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={() => onConfirm(!isActive)}>{actionLabel}</AlertDialogAction>
+          <AlertDialogAction
+            className={
+              isActive
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : undefined
+            }
+            onClick={() => onConfirm(!isActive)}
+          >
+            {actionLabel}
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

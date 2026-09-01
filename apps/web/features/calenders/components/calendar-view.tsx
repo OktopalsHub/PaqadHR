@@ -603,17 +603,7 @@ export const CalendarView = () => {
                 onSelectSlot={(slot) => {
                   if (isAdmin) openAddDialog(slot.start);
                 }}
-                onEventClick={(occurrence) => {
-                  const source = occurrence.event.data?.source;
-                  const manualEvent = (occurrence.event.data as PaqadEventMeta | undefined)?.source
-                    ?.manualEvent;
-                  if (isAdmin && manualEvent) {
-                    setSelectedManualEvent(manualEvent);
-                    return;
-                  }
-                  if (!source?.description) return;
-                  toast.info(source.title, { description: source.description });
-                }}
+                onEventClick={() => undefined}
                 renderEventTooltip={({ occurrence }) => {
                   const source = (occurrence.event.data as PaqadEventMeta | undefined)?.source;
                   if (!source) return null;
@@ -625,9 +615,6 @@ export const CalendarView = () => {
                         <p className="font-semibold">{source.title}</p>
                         {source.time ? (
                           <p className="text-primary-foreground/80">{source.time}</p>
-                        ) : null}
-                        {source.description ? (
-                          <p className="text-primary-foreground/80">{source.description}</p>
                         ) : null}
                       </div>
                       {isAdmin && manualEvent ? (
@@ -660,9 +647,9 @@ export const CalendarView = () => {
                           </Button>
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="destructive"
                             size="sm"
-                            className="h-7 px-2 text-xs text-red-200 hover:bg-red-500/20 hover:text-red-100"
+                            className="h-7 px-2 text-xs"
                             onClick={(event) => {
                               event.stopPropagation();
                               setEventPendingDeletion(manualEvent);

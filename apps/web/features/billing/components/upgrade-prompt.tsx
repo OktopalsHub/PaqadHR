@@ -14,6 +14,7 @@ import { getPlansForFeature } from '@/lib/constants/feature-tier-map';
 import { isPlanSlug, PLAN_CATALOG } from '@/lib/constants/plan-catalog';
 import { getFeatureForRoute } from '@/lib/constants/route-feature-map';
 import { tenantPath } from '@/lib/navigation/tenant-routes';
+import { captureClientEvent } from '@/lib/observability/posthog-client';
 import { cn } from '@/lib/utils';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -58,12 +59,17 @@ function useUpgradeOptions(feature: string | null) {
       });
   }, [overview?.plans, plansForFeature]);
 
+  const router = useRouter();
   const handleUpgrade = useCallback(
     (planSlug: string) => {
+      captureClientEvent('upgrade_prompt_clicked', {
+        ...(feature ? { feature } : {}),
+        plan: planSlug,
+      });
       if (!tenant?.slug) return;
-      window.location.assign(`/${tenant.slug}/subscribe?plan=${planSlug}`);
+      router.push(`/${tenant.slug}/subscribe?plan=${planSlug}`);
     },
-    [tenant?.slug],
+    [feature, tenant?.slug, router],
   );
 
   return { currentPlan, plansForFeature, sortedPlans, handleUpgrade };
@@ -105,6 +111,10 @@ export function UpgradeRequiredPanel({
 }: UpgradeRequiredPanelProps) {
   const { currentPlan, plansForFeature, sortedPlans, handleUpgrade } = useUpgradeOptions(feature);
   const fallbackPlan = plansForFeature[0];
+
+  useEffect(() => {
+    captureClientEvent('upgrade_prompt_shown', { feature });
+  }, [feature]);
 
   return (
     <section className={cn('dashboard-panel rounded-[8px] p-6 sm:p-8', className)}>

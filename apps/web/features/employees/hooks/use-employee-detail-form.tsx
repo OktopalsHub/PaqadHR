@@ -42,6 +42,8 @@ type EmployeeDetailFormOptions = {
   canEditPersonal?: boolean;
   isSelf?: boolean;
   isAdmin?: boolean;
+  canManageOrganization?: boolean;
+  canManageRole?: boolean;
 };
 
 export function useEmployeeDetailForm(
@@ -143,11 +145,11 @@ export function useEmployeeDetailForm(
         }
       }
 
-      if (options?.isAdmin) {
+      if (options?.canManageOrganization) {
         await updateEmployee(employee.id, {
-          role: employee.workspaceRole,
           departmentId: employee.departmentId || null,
           reportsToId: employee.reportsToId || null,
+          ...(options?.canManageRole ? { role: employee.workspaceRole } : {}),
         });
       }
 
@@ -227,8 +229,10 @@ export function useEmployeeDetailForm(
         emergencyContacts: prev.emergencyContacts.filter((contact) => contact.id !== contactId),
       }));
       toast.success('Emergency contact removed');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove emergency contact');
+      return false;
     }
   };
 
@@ -263,8 +267,10 @@ export function useEmployeeDetailForm(
         education: prev.education.filter((record) => record.id !== educationId),
       }));
       toast.success('Education record removed');
+      return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to remove education record');
+      return false;
     }
   };
 

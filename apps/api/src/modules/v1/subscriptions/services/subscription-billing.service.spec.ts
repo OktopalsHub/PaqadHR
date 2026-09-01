@@ -52,6 +52,13 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     getBillingStatus: jest.fn(),
     getTenantSubscription: jest.fn(),
     computeNeedsPayment: jest.fn().mockReturnValue(false),
+    isTrialEligible: jest.fn().mockResolvedValue(true),
+    resolveAndLockTenantRegion: jest.fn(async (tenantId: string) => ({
+      id: tenantId,
+      countryCode: 'NG',
+      preferredCurrency: 'NGN',
+      pricingLocked: true,
+    })),
     healNgSubscriptionPlanPrice: jest.fn(async (_country: string, subscription: unknown) => ({
       subscription,
       pricingMismatch: null,
@@ -106,6 +113,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     tenantMemberRepo as never,
     billingEventRepo as never,
     dataSource as never,
+    { capture: jest.fn() } as never,
   );
 
   return {
@@ -1473,5 +1481,104 @@ describe('SubscriptionBillingService resume guards', () => {
     });
 
     await expect(service.resumeSubscription('tenant-1')).rejects.toThrow(/cancelled/i);
+  });
+});
+
+describe('SubscriptionBillingService Bachs cross-currency initial payment', () => {
+  const tenantId = '11111111-1111-4111-8111-111111111111';
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('accepts Bachs payment in a different currency than catalog plan_price', async () => {
+    const { service, billingEventRepo, subscriptionRepo, tenantRepo, plansService } =
+      buildSubscriptionBillingService();
+
+    billingEventRepo.exists.mockResolvedValue(false);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      status: SubscriptionStatus.TRIAL,
+    });
+    tenantRepo.findOne.mockResolvedValue({ id: tenantId });
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-usd',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'USD',
+      monthlyPrice: 99,
+      calculateMonthlyPrice: (seats: number) => ({ totalPrice: 99 * seats }),
+    });
+    jest.spyOn(service as any, 'getTenantSeatCount').mockResolvedValue(1);
+    jest.spyOn(service as any, 'verifyPaymentReference').mockResolvedValue({ status: 'success' });
+    jest.spyOn(service as any, 'endProviderTrialBestEffort').mockResolvedValue(undefined);
+
+    await (service as any).processInitialPaymentSuccess(
+      {
+        eventId: 'evt-cc-1',
+        reference: 'inv_cc_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-usd',
+        amount: 75000,
+        currency: 'NGN',
+        billingType: BillingChargeType.SUBSCRIPTION,
+        externalSubscriptionId: 'sub_bachs_1',
+        nextBillingDate: '2026-09-01T00:00:00.000Z',
+      },
+      BillingProvider.BACHS,
+    );
+
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: SubscriptionStatus.ACTIVE,
+        billingHistory: expect.arrayContaining([
+          expect.objectContaining({
+            amount: 75000,
+            currency: 'NGN',
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it('rejects cross-currency initial payment for Nomba', async () => {
+    const { service, billingEventRepo, subscriptionRepo, tenantRepo, plansService } =
+      buildSubscriptionBillingService();
+
+    billingEventRepo.exists.mockResolvedValue(false);
+    subscriptionRepo.findOne.mockResolvedValue(null);
+    tenantRepo.findOne.mockResolvedValue({ id: tenantId });
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-usd',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'USD',
+      monthlyPrice: 99,
+      calculateMonthlyPrice: (seats: number) => ({ totalPrice: 99 * seats }),
+    });
+    jest.spyOn(service as any, 'getTenantSeatCount').mockResolvedValue(1);
+    jest.spyOn(service as any, 'verifyPaymentReference').mockResolvedValue({
+      status: 'success',
+      amount: 75000,
+    });
+
+    await expect(
+      (service as any).processInitialPaymentSuccess(
+        {
+          eventId: 'evt-cc-nomba',
+          reference: 'ref_nomba_1',
+          tenantId,
+          planId: 'plan-1',
+          planPriceId: 'price-usd',
+          amount: 75000,
+          currency: 'NGN',
+          billingType: BillingChargeType.SUBSCRIPTION,
+          tokenKey: 'tok_1',
+        },
+        BillingProvider.NOMBA,
+      ),
+    ).rejects.toThrow(/Payment amount does not match server quote/);
   });
 });

@@ -5,6 +5,7 @@ export interface PresignedUrlOptions {
   location: FileUploadLocation;
   fileName: string;
   contentType?: string;
+  contentLength?: number;
   expiresIn?: number;
   public?: boolean;
 }

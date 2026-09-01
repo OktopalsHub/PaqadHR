@@ -1,13 +1,20 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { CreditCard, Loader2, Sparkles } from 'lucide-react';
+import { Building2, ChevronDown, CreditCard, Loader2, Sparkles } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PlanPricingCard } from '@/features/billing/components/plan-pricing-card';
 import {
   useBillingOverview,
@@ -15,7 +22,13 @@ import {
   useStartTrial,
 } from '@/hooks/queries/use-billing';
 import { sortPlansByTier } from '@/lib/constants/plan-catalog';
-import { goToTenantPath, subscribePageUrl, tenantPath } from '@/lib/navigation/tenant-routes';
+import { formatWorkspaceName } from '@/lib/format-name';
+import {
+  goToTenantPath,
+  subscribePageUrl,
+  tenantPath,
+  tenantRoot,
+} from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -27,7 +40,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
-  const { tenant } = useTenant();
+  const { tenant, tenants, setTenantId } = useTenant();
   const { data: overview, isLoading, isError, error, refetch } = useBillingOverview();
   const checkout = useCreateSubscriptionCheckout();
   const startTrial = useStartTrial();
@@ -36,11 +49,12 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   const isWelcome = searchParams.get('welcome') === '1';
   const isMarketing = variant === 'marketing';
 
+  const billingParam = searchParams.get('billing');
   useEffect(() => {
-    if (searchParams.get('billing') === 'success') {
+    if (billingParam === 'success') {
       toast.success('Payment received. Welcome back!');
     }
-  }, [searchParams]);
+  }, [billingParam]);
 
   useEffect(() => {
     if (overview?.subscription?.plan) {
@@ -49,6 +63,80 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   }, [overview?.subscription?.plan]);
 
   const sortedPlans = useMemo(() => sortPlansByTier(overview?.plans ?? []), [overview?.plans]);
+
+  const switchableTenants = useMemo(
+    () => tenants.filter((t) => t.id !== tenant?.id),
+    [tenants, tenant?.id],
+  );
+
+  const dashboardHref = useMemo(() => {
+    if (!tenants.length) return null;
+    const target =
+      tenants.find((t) => t.id !== tenant?.id) ?? tenants.find((t) => t.isActive) ?? tenants[0];
+    if (!target?.slug) return null;
+    try {
+      return tenantRoot(target.slug);
+    } catch {
+      return `/${target.slug}`;
+    }
+  }, [tenants, tenant?.id]);
+
+  const SwitchBanner = useMemo(() => {
+    if (switchableTenants.length === 0) return null;
+    return (
+      <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2 rounded-full border border-border bg-muted/40 px-3 py-2 text-xs sm:text-sm">
+        <Building2 className="size-4 text-muted-foreground" />
+        <span className="text-muted-foreground">
+          Not ready for{' '}
+          <span className="font-medium text-foreground">{formatWorkspaceName(tenant?.name)}</span>?
+        </span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 rounded-full px-3 text-xs font-semibold"
+            >
+              Switch workspace <ChevronDown className="ml-1 size-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="w-64 rounded-xl">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Your workspaces
+            </DropdownMenuLabel>
+            {tenants.map((item) => (
+              <DropdownMenuItem
+                key={item.id}
+                onClick={() => setTenantId(item.id)}
+                className="gap-2"
+              >
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {formatWorkspaceName(item.name)}
+                </span>
+                {item.id === tenant?.id ? (
+                  <span className="text-xs text-primary">Current</span>
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        {dashboardHref ? (
+          <span className="hidden items-center gap-2 sm:flex">
+            <span className="text-muted-foreground">·</span>
+            <a href={dashboardHref} className="font-medium text-primary hover:underline">
+              Go to dashboard
+            </a>
+          </span>
+        ) : null}
+      </div>
+    );
+  }, [switchableTenants.length, tenants, tenant?.id, tenant?.name, dashboardHref, setTenantId]);
+
+  const pageShell = useCallback(
+    (content: ReactNode) =>
+      isMarketing ? <div className="space-y-8">{content}</div> : <AppPage>{content}</AppPage>,
+    [isMarketing],
+  );
 
   const handleCheckout = async (planSlug: string) => {
     setCheckoutPlan(planSlug);
@@ -105,13 +193,12 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
   const showTrialWelcome = isWelcome || !overview.subscription;
   const isOnTrial = overview.subscription?.isOnTrial && overview.entitled && !overview.needsPayment;
-
-  const pageShell = (content: ReactNode) =>
-    isMarketing ? <div className="space-y-8">{content}</div> : <AppPage>{content}</AppPage>;
+  const canStartTrial = overview.trialEligible !== false;
 
   if (showTrialWelcome) {
     return pageShell(
       <div className="w-full space-y-8 py-4">
+        {SwitchBanner}
         <div className="space-y-2 text-center">
           {isMarketing ? (
             <p className="text-sm font-medium text-primary">Pricing</p>
@@ -121,12 +208,18 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
             </div>
           )}
           <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-            {isOnTrial ? 'Your workspace trial is active' : 'Choose a plan to start your trial'}
+            {isOnTrial
+              ? 'Your workspace trial is active'
+              : canStartTrial
+                ? 'Choose a plan to start your trial'
+                : 'Choose a plan to continue'}
           </h1>
           <p className="text-sm text-muted-foreground">
             {isOnTrial
               ? `You have ${overview.subscription?.daysRemaining ?? 14} days left on your free trial. Pick a plan or continue to your workspace.`
-              : 'Start with 14 days free on any plan. No card required.'}
+              : canStartTrial
+                ? 'Start with 14 days free on any plan. No card required.'
+                : 'Your free trial was used on another workspace. Subscribe to activate this workspace.'}
           </p>
         </div>
 
@@ -165,7 +258,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         )}
 
         <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
-          {overview.canManageBilling ? (
+          {overview.canManageBilling && canStartTrial ? (
             <Button
               size="lg"
               className="min-w-[220px]"
@@ -184,6 +277,23 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
               )}
             </Button>
           ) : null}
+          {overview.canManageBilling && !canStartTrial && !isOnTrial ? (
+            <Button
+              size="lg"
+              className="min-w-[220px]"
+              disabled={checkout.isPending || !selectedPlan}
+              onClick={() => void handleCheckout(selectedPlan)}
+            >
+              {checkout.isPending ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Redirecting…
+                </>
+              ) : (
+                'Subscribe'
+              )}
+            </Button>
+          ) : null}
           {isOnTrial && tenant?.slug ? (
             <Button
               size="lg"
@@ -197,8 +307,17 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Payroll and automated batch payouts are included on every plan during your trial.
+          {canStartTrial || isOnTrial
+            ? 'Payroll and automated batch payouts are included on every plan during your trial.'
+            : 'Payroll included on every plan · Manual pay & bank export are free'}
         </p>
+        {dashboardHref ? (
+          <div className="flex justify-center pt-2">
+            <a href={dashboardHref} className="text-sm font-medium text-primary hover:underline">
+              ← Back to dashboard
+            </a>
+          </div>
+        ) : null}
       </div>,
     );
   }
@@ -221,6 +340,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
   return pageShell(
     <div className="w-full space-y-8 py-4">
+      {SwitchBanner}
       <div className="space-y-2 text-center">
         {isMarketing ? <p className="text-sm font-medium text-primary">Pricing</p> : null}
         <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
@@ -292,6 +412,13 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         <CreditCard className="size-4" />
         Secure checkout
       </div>
+      {dashboardHref ? (
+        <div className="flex justify-center pt-2">
+          <a href={dashboardHref} className="text-sm font-medium text-primary hover:underline">
+            ← Back to dashboard
+          </a>
+        </div>
+      ) : null}
     </div>,
   );
 }

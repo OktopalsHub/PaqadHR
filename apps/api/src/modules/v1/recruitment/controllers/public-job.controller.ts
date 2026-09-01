@@ -1,8 +1,8 @@
-import { BadRequestException, Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from 'src/common/decorators';
 import { EmploymentType } from 'src/common/enums';
-import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
+import { PublicJobFilterDto } from '../dto/public-job-filter.dto';
 import { JobOpening } from '../entities/job-opening.entity';
 import { JobOpeningService } from '../services/job-opening.service';
 
@@ -36,20 +36,9 @@ export class PublicJobController {
     type: [JobOpening],
   })
   async getActiveJobs(
-    @Query('tenantId', ParseUUIDPipe) tenantId: string,
-    @Query() filters: Omit<JobFilterOptions, 'tenantId'>,
+    @Query() query: PublicJobFilterDto,
   ): Promise<{ jobs: JobOpening[]; total: number }> {
-    if (filters.search && filters.search.length > 100) {
-      throw new BadRequestException('Search query too long');
-    }
-    if (
-      filters.departmentId &&
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        filters.departmentId,
-      )
-    ) {
-      throw new BadRequestException('Invalid department ID format');
-    }
+    const { tenantId, ...filters } = query;
     return this.jobOpeningService.getActiveJobs({ ...filters, tenantId });
   }
   @Get('departments/list')

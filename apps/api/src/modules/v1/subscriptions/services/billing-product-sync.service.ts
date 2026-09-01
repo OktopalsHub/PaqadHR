@@ -18,6 +18,17 @@ function formatAmount(value: number): string {
   return Number(value).toFixed(2);
 }
 
+function planPriceAmount(planPrice: PlanPrice): number {
+  return planPrice.regionalConfig?.pricePerUser ?? Number(planPrice.monthlyPrice);
+}
+
+function siblingCurrency(primary: string): 'NGN' | 'USD' | null {
+  const upper = primary.toUpperCase();
+  if (upper === 'USD') return 'NGN';
+  if (upper === 'NGN') return 'USD';
+  return null;
+}
+
 @Injectable()
 export class BillingProductSyncService implements OnApplicationBootstrap {
   private readonly logger = new Logger(BillingProductSyncService.name);
@@ -91,6 +102,13 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
       order: { plan: { sortOrder: 'ASC' } },
     });
 
+    const bySlugCurrency = new Map<string, PlanPrice>();
+    for (const row of planPrices) {
+      const slug = row.plan?.slug;
+      if (!slug) continue;
+      bySlugCurrency.set(`${slug}:${row.currency.toUpperCase()}`, row);
+    }
+
     const existing = await this.bachsRequest<{ items?: Array<Record<string, unknown>> }>(
       '/v1/products?limit=100',
     );
@@ -108,8 +126,9 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
       const currency = planPrice.currency.toUpperCase();
       if (currency !== 'NGN' && currency !== 'USD') continue;
 
-      const amount = planPrice.regionalConfig?.pricePerUser ?? Number(planPrice.monthlyPrice);
+      const amount = planPriceAmount(planPrice);
       const name = `PaqadHR ${planPrice.plan?.name ?? slug} (${currency})`;
+      const currencyOptions = this.buildBachsCurrencyOptions(slug, currency, bySlugCurrency);
 
       const match = paqadProducts.find((item) => {
         const metadata = item.metadata as Record<string, string> | undefined;
@@ -128,6 +147,7 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
               price_type: 'fixed',
               currency,
               amount: formatAmount(amount),
+              ...(currencyOptions ? { currency_options: currencyOptions } : {}),
             },
             billing_cycle: { interval: 'month', frequency: 1 },
             trial_period: null,
@@ -180,6 +200,7 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
                 price_type: 'fixed',
                 currency,
                 amount: formatAmount(amount),
+                ...(currencyOptions ? { currency_options: currencyOptions } : {}),
               },
               billing_cycle: { interval: 'month', frequency: 1 },
               trial_period: null,
@@ -204,6 +225,10 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
         }
       }
 
+      if (productId) {
+        await this.syncBachsProductCurrencyOptions(productId, currency, amount, currencyOptions);
+      }
+
       if (planPrice.bachsProductId !== productId) {
         planPrice.bachsProductId = productId;
         await this.priceRepo.save(planPrice);
@@ -212,6 +237,42 @@ export class BillingProductSyncService implements OnApplicationBootstrap {
     }
 
     return { updated };
+  }
+
+  private buildBachsCurrencyOptions(
+    slug: string,
+    primaryCurrency: string,
+    bySlugCurrency: Map<string, PlanPrice>,
+  ): Record<string, string> | null {
+    const sibling = siblingCurrency(primaryCurrency);
+    if (!sibling) return null;
+    const siblingRow = bySlugCurrency.get(`${slug}:${sibling}`);
+    if (!siblingRow) return null;
+    return { [sibling]: formatAmount(planPriceAmount(siblingRow)) };
+  }
+
+  private async syncBachsProductCurrencyOptions(
+    productId: string,
+    currency: string,
+    amount: number,
+    currencyOptions: Record<string, string> | null,
+  ): Promise<void> {
+    try {
+      await this.bachsRequest(`/v1/products/${productId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          price: {
+            price_type: 'fixed',
+            currency,
+            amount: formatAmount(amount),
+            ...(currencyOptions ? { currency_options: currencyOptions } : {}),
+          },
+        }),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Could not sync currency_options on Bachs product ${productId}: ${message}`);
+    }
   }
 
   /** Create-or-reuse Polar products and write IDs onto plan_prices. */

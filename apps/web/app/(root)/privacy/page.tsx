@@ -95,12 +95,12 @@ export default function PrivacyPage() {
 
         <h2>Cookies &amp; local storage</h2>
         <p>
-          Paqad uses <strong>essential cookies only</strong> today: httpOnly authentication cookies,
-          CSRF protection, and workspace navigation preferences needed to run the service. We do not
-          use advertising or third-party analytics cookies. The web app may store short-lived
-          session cache data (for example, your profile for faster page loads) in session storage
-          until you close the tab or sign out. Theme preference may be stored in local storage on
-          your device.
+          Paqad uses <strong>essential cookies only</strong> for authentication, CSRF protection,
+          and workspace navigation. We do not use advertising cookies. Product analytics (when
+          enabled) runs in cookieless mode with short-lived in-memory identifiers only — no
+          third-party analytics cookies. The web app may store short-lived session cache data (for
+          example, your profile for faster page loads) in session storage until you close the tab or
+          sign out. Theme preference may be stored in local storage on your device.
         </p>
 
         <h2>How we use data</h2>
@@ -131,6 +131,13 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Cloudflare Turnstile</strong> — bot protection on public forms
+          </li>
+          <li>
+            <strong>Sentry</strong> — error and performance monitoring (when enabled)
+          </li>
+          <li>
+            <strong>PostHog</strong> — privacy-oriented product analytics (EU, cookieless when
+            enabled)
           </li>
         </ul>
         <p>
@@ -187,7 +194,11 @@ export default function PrivacyPage() {
           <a href="mailto:security@paqad.com">security@paqad.com</a>.
         </p>
 
-        <h2>Your rights</h2>
+        <h2 id="your-rights">Your rights</h2>
+        <p>
+          Under GDPR and NDPR you may access, correct, restrict, object to, or request deletion of
+          your personal data.
+        </p>
         <p>Depending on your location, you may have the right to:</p>
         <ul>
           <li>Access and receive a copy of your personal data</li>
@@ -201,10 +212,39 @@ export default function PrivacyPage() {
             authority)
           </li>
         </ul>
+        <p>How to exercise these rights:</p>
+        <ul>
+          <li>
+            <strong>Access</strong> — use &quot;Export my data&quot; in Settings → Profile, or email{' '}
+            <a href="mailto:privacy@paqad.com?subject=Data%20access%20request">privacy@paqad.com</a>
+          </li>
+          <li>
+            <strong>Correction</strong> — update your profile in Settings, or{' '}
+            <a href="mailto:privacy@paqad.com?subject=Data%20correction%20request">
+              request a correction
+            </a>
+          </li>
+          <li>
+            <strong>Restriction</strong> —{' '}
+            <a href="mailto:privacy@paqad.com?subject=Processing%20restriction%20request">
+              ask us to limit processing
+            </a>
+          </li>
+          <li>
+            <strong>Objection</strong> —{' '}
+            <a href="mailto:privacy@paqad.com?subject=Processing%20objection">
+              object to certain processing
+            </a>
+          </li>
+          <li>
+            <strong>Deletion</strong> — delete your account in Settings → Profile, or read the
+            Retention section below for employer-held records
+          </li>
+        </ul>
         <p>
-          Account holders can <strong>export</strong> or <strong>delete</strong> their data from
-          Settings → Privacy. Employees should contact their workspace administrator for employment
-          records held on their behalf. Applicants may contact the hiring organisation or{' '}
+          Account holders can <strong>export</strong> or <strong>delete</strong> their login data
+          from Settings → Profile. Employees should contact their workspace administrator for
+          employment records held on their behalf. Applicants may contact the hiring organisation or{' '}
           <a href="mailto:privacy@paqad.com">privacy@paqad.com</a>.
         </p>
 

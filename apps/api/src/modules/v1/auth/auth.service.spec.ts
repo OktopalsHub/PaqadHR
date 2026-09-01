@@ -6,6 +6,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { PasswordService, sha256Hex } from 'src/common/utils';
 import { UserRole } from '../../../common/enums';
@@ -117,6 +118,10 @@ describe('AuthService', () => {
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: RateLimitService, useValue: mockRateLimitService },
         { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
+        {
+          provide: ProductAnalyticsService,
+          useValue: { capture: jest.fn(), identify: jest.fn() },
+        },
       ],
     }).compile();
     authService = module.get<AuthService>(AuthService);

@@ -160,7 +160,7 @@ export class TenantMembersController {
       memberId,
       tenantId,
       updateDto,
-      actor.id,
+      actor,
     );
     return TenantMemberMapper.toResponse(updatedMember, this.fileUrlService);
   }

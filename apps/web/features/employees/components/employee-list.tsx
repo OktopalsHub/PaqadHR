@@ -1,13 +1,13 @@
 'use client';
 
 import { Plus } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AppTablePanel } from '@/components/ui/app-table';
 import { Button } from '@/components/ui/button';
-import { Teams } from '@/features/teams/components/teams';
 import { useDepartments } from '@/hooks/queries/use-departments';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { cn } from '@/lib/utils';
@@ -16,10 +16,20 @@ import { useEmployeeFilters } from '../hooks/';
 import { AddEmployeeDialog } from './add-employee-dialog';
 import { EmployeeCards } from './employee-card';
 import { EmployeeFiltersComponent } from './employee-filters';
-import { EmployeeInvitationsTab } from './employee-invitations-tab';
 import { EmployeePagination } from './employee-pagination';
 import { EmployeeTable } from './employee-table';
-import { PositionsManager } from './positions-manager';
+
+const EmployeeInvitationsTab = dynamic(
+  () => import('./employee-invitations-tab').then((m) => m.EmployeeInvitationsTab),
+  { loading: () => <LoadingBlock /> },
+);
+const Teams = dynamic(() => import('@/features/teams/components/teams').then((m) => m.Teams), {
+  loading: () => <LoadingBlock />,
+});
+const PositionsManager = dynamic(
+  () => import('./positions-manager').then((m) => m.PositionsManager),
+  { loading: () => <LoadingBlock /> },
+);
 
 const EMPLOYEE_TABS = [
   { id: 'employees', label: 'Employees' },
@@ -40,6 +50,7 @@ export const EmployeeList = () => {
   const viewerMemberId = tenant?.member?.id;
   const adminRole = role?.toLowerCase();
   const isAdmin = adminRole === 'owner' || adminRole === 'admin';
+  const canManageOrganization = isAdmin;
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: departments = [] } = useDepartments();
 
@@ -83,7 +94,7 @@ export const EmployeeList = () => {
           label: 'Invite',
           onClick: () => setInviteOpen(true),
         }
-      : activeTab === 'departments' && isAdmin
+      : activeTab === 'departments' && canManageOrganization
         ? {
             label: 'Add department',
             onClick: () => setCreateDeptOpen(true),

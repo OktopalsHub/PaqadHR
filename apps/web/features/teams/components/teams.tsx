@@ -25,7 +25,7 @@ export const Teams = ({
   setCreateOpenExternal?: (open: boolean) => void;
 }) => {
   const { tenant } = useTenant();
-  const isAdmin = isTenantAdmin(tenant?.member?.role);
+  const canManageOrganization = isTenantAdmin(tenant?.member?.role);
   const [searchTerm, setSearchTerm] = useState('');
   const [createOpenInternal, setCreateOpenInternal] = useState(false);
   const createOpen = createOpenExternal !== undefined ? createOpenExternal : createOpenInternal;
@@ -64,7 +64,7 @@ export const Teams = ({
 
   return (
     <AppPage>
-      {!hidePageActions && isAdmin ? (
+      {!hidePageActions && canManageOrganization ? (
         <PageActions>
           <Button
             variant="brandSolid"
@@ -78,7 +78,9 @@ export const Teams = ({
         </PageActions>
       ) : null}
 
-      {isAdmin ? <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} /> : null}
+      {canManageOrganization ? (
+        <CreateDepartmentDialog open={createOpen} onOpenChange={setCreateOpen} />
+      ) : null}
 
       {isError ? (
         <Alert variant="destructive">
@@ -123,7 +125,7 @@ export const Teams = ({
                   department={dept}
                   isExpanded={expandedDepts.includes(dept.id)}
                   onToggle={() => toggleDepartment(dept.id)}
-                  canManage={isAdmin}
+                  canManage={canManageOrganization}
                 />
               ))}
             </div>

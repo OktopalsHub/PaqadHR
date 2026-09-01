@@ -84,6 +84,7 @@ export class ApplicationController {
       location: body.location,
       originalName: body.originalName,
       contentType: body.contentType,
+      contentLength: body.contentLength,
     });
   }
 

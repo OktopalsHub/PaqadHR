@@ -15,6 +15,7 @@ import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payr
 import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import type { SimplePayrollInput } from '../../../../common/interfaces/simple-payroll-input.interface';
+import { ProductAnalyticsService } from '../../../../common/observability/product-analytics.service';
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { tenantFrontendUrl } from '../../../../common/utils/tenant-frontend-url.util';
@@ -79,6 +80,7 @@ export class PayrollService {
     private readonly payrollExportService: PayrollExportService,
     private readonly managerAccessService: ManagerAccessService,
     private readonly multiPaymentService: MultiPaymentService,
+    private readonly productAnalytics: ProductAnalyticsService,
     @Optional() readonly _paymentProviderFactory?: PaymentProviderFactoryService,
     @Optional() private readonly notificationHelper?: NotificationHelperService,
   ) {}
@@ -155,6 +157,7 @@ export class PayrollService {
           baseCurrency: dto.baseCurrency,
         },
       );
+      this.productAnalytics.capture(createdById, 'payroll_created', { tenantId });
       return savedPayrollRun;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -347,6 +350,10 @@ export class PayrollService {
 
       // Auto-notify employees missing payment details (best-effort, once per calculate).
       void this.notifyNotReadyEmployeesAfterCalculate(payrollRunId, tenantId, readinessResults);
+
+      this.productAnalytics.capture(auditContext.performedById, 'payroll_calculated', {
+        tenantId,
+      });
 
       return { warnings, readiness: readinessResults };
     } catch (error) {
@@ -551,6 +558,7 @@ export class PayrollService {
       totalNetAmount: payrollRun.totalNetAmount,
       employeeCount: payrollRun.employeeCount,
     });
+    this.productAnalytics.capture(auditContext.performedById, 'payroll_approved', { tenantId });
     return payrollRun;
   }
 

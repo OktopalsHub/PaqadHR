@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CelebrationType } from 'src/common/enums/celebration-type.enum';
 import { PlatformIntegrationService } from 'src/common/integrations/services/platform-integration.service';
+import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import { DataSource } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
@@ -31,6 +32,7 @@ export class ShoutoutsService {
     private readonly eventEmitter: EventEmitter2,
     private readonly dataSource: DataSource,
     readonly _platformIntegrationService: PlatformIntegrationService,
+    private readonly productAnalytics: ProductAnalyticsService,
   ) {}
 
   async createShoutout(tenantId: string, senderMemberId: string, input: CreateShoutoutInput) {
@@ -150,6 +152,8 @@ export class ShoutoutsService {
     this.dispatchNotifications(tenantId, full).catch((err) =>
       this.logger.error('Shoutout notification dispatch failed', err),
     );
+
+    this.productAnalytics.capture(senderMemberId, 'shoutout_created', { tenantId });
 
     return this.toShoutoutResponse(full);
   }

@@ -1,4 +1,8 @@
+'use client';
+
 import { PlusCircle, Trash } from 'lucide-react';
+import { useState } from 'react';
+import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +16,8 @@ interface EmergencyContactsTabProps {
 }
 
 export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContactsTabProps) {
+  const [contactPendingDeletion, setContactPendingDeletion] = useState<string | null>(null);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
   const {
     employee,
     emergencyContactDialogOpen,
@@ -21,7 +27,7 @@ export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContact
   } = form;
 
   return (
-    <TabsContent value="emergency">
+    <TabsContent value="emergency" className="mt-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -71,7 +77,7 @@ export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContact
                     variant="ghost"
                     size="sm"
                     className="text-red-500"
-                    onClick={() => handleDeleteEmergencyContact(contact.id)}
+                    onClick={() => setContactPendingDeletion(contact.id)}
                   >
                     <Trash className="mr-2 h-3 w-3" />
                     Remove
@@ -103,6 +109,26 @@ export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContact
         open={emergencyContactDialogOpen}
         onOpenChange={setEmergencyContactDialogOpen}
         onSubmit={handleAddEmergencyContact}
+      />
+      <DestructiveConfirmDialog
+        open={Boolean(contactPendingDeletion)}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingContact) setContactPendingDeletion(null);
+        }}
+        title="Remove emergency contact?"
+        description="This emergency contact will be permanently deleted from the employee profile."
+        actionLabel="Remove contact"
+        isPending={isDeletingContact}
+        preventAutoClose
+        onConfirm={() => {
+          if (!contactPendingDeletion || isDeletingContact) return;
+          setIsDeletingContact(true);
+          void handleDeleteEmergencyContact(contactPendingDeletion)
+            .then((deleted) => {
+              if (deleted) setContactPendingDeletion(null);
+            })
+            .finally(() => setIsDeletingContact(false));
+        }}
       />
     </TabsContent>
   );

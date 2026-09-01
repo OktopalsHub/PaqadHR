@@ -6,6 +6,7 @@ import { getPaginationSummary } from 'src/common/utils/pagination.util';
 import type { FindOptionsWhere } from 'typeorm';
 import { ActivitiesService } from '../activities/services/activities.service';
 import type { TenantMember } from '../tenant-members/entities/tenant-member.entity';
+import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import type { CreateDepartmentDto } from './dto/create-department.dto';
 import type { DepartmentMemberDto, DepartmentResponseDto } from './dto/department-response.dto';
 import type { UpdateDepartmentDto } from './dto/update-department.dto';
@@ -20,6 +21,7 @@ export class DepartmentsService {
     private readonly departmentMembersRepository: DepartmentMembersRepository,
     private readonly activitiesService: ActivitiesService,
     private readonly fileUrlService: FileUrlService,
+    private readonly tenantMembersService: TenantMembersService,
   ) {}
   async getDepartments(
     tenantId: string,
@@ -238,6 +240,12 @@ export class DepartmentsService {
   ) {
     const existing = await this.departmentsRepository.findOne({ where: { id, tenantId } });
     if (!existing) throw new NotFoundException('Department not found');
+    if (
+      dto.managerId !== undefined &&
+      !(await this.tenantMembersService.memberExistsInTenant(tenantId, dto.managerId))
+    ) {
+      throw new NotFoundException('Manager not found in this workspace');
+    }
     await this.departmentsRepository.update(id, {
       ...dto,
       tenantId,
@@ -285,6 +293,9 @@ export class DepartmentsService {
       where: { id: departmentId, tenantId },
     });
     if (!department) throw new NotFoundException('Department not found');
+    if (!(await this.tenantMembersService.memberExistsInTenant(tenantId, memberId))) {
+      throw new NotFoundException('Member not found in this workspace');
+    }
     const existingMembership = await this.departmentMembersRepository.findOne({
       where: { departmentId, memberId },
     });

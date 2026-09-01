@@ -18,7 +18,11 @@ import {
   verifyEmail as verifyEmailRequest,
   waitForAuthenticatedProfile,
 } from '@/lib/api/auth';
-import { startProactiveRefresh, stopProactiveRefresh } from '@/lib/api/auth-refresh';
+import {
+  setRefreshCallbacks,
+  startProactiveRefresh,
+  stopProactiveRefresh,
+} from '@/lib/api/auth-refresh';
 import { bootstrapCsrf } from '@/lib/api/client';
 import { cacheKeys, clearAppCache, getCached, setCached } from '@/lib/cache';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
@@ -71,6 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return user;
     },
     staleTime: 5 * 60 * 1000, // 5 minutes — revalidate periodically so expired sessions are caught
+    refetchOnWindowFocus: true,
     retry: 1,
     enabled: sessionBootstrapEnabled,
     // placeholderData shows cached session during loading but does NOT mark query as fresh
@@ -79,6 +84,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // Start proactive token refresh when user is authenticated
+  useEffect(() => {
+    setRefreshCallbacks({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      },
+    });
+    return () => {
+      setRefreshCallbacks({});
+    };
+  }, [queryClient]);
+
   useEffect(() => {
     if (sessionQuery.data) {
       startProactiveRefresh();
@@ -166,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAppCache();
     toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
     window.location.assign(authPageUrl('/signin'));
-  }, [queryClient]);
+  }, [queryClient]); // window.location.assign intentional: full state teardown on logout
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -190,8 +206,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionBootstrapEnabled,
       sessionQuery.data,
       sessionQuery.isFetched,
-      loginMutation,
-      registerMutation,
+      loginMutation.isPending,
+      loginMutation.mutateAsync,
+      registerMutation.isPending,
+      registerMutation.mutateAsync,
       verifyEmail,
       logout,
     ],
