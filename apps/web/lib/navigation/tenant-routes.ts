@@ -23,6 +23,16 @@ export function getAppDomain(): string {
   return process.env.NEXT_PUBLIC_APP_DOMAIN || 'paqadhr.com';
 }
 
+// Tenant slugs are used as DNS labels when subdomain routing is enabled. Keep
+// this aligned with the onboarding slug format and never build a host from an
+// arbitrary route parameter.
+const TENANT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const TENANT_SLUG_MAX_LENGTH = 63;
+
+export function isValidTenantSlug(slug: string): boolean {
+  return slug.length <= TENANT_SLUG_MAX_LENGTH && TENANT_SLUG_PATTERN.test(slug);
+}
+
 function stripPort(host: string): string {
   return host.split(':')[0].toLowerCase();
 }
@@ -32,7 +42,7 @@ export function getTenantSlugFromHost(host: string): string | null {
 
   if (hostname.endsWith('.localhost')) {
     const sub = hostname.slice(0, -'.localhost'.length);
-    if (sub && !sub.includes('.') && !RESERVED_HOST_SUBDOMAINS.has(sub)) return sub;
+    if (isValidTenantSlug(sub) && !RESERVED_HOST_SUBDOMAINS.has(sub)) return sub;
     return null;
   }
 
@@ -49,14 +59,14 @@ export function getTenantSlugFromHost(host: string): string | null {
   const devSuffix = `.dev.${appDomain}`;
   if (hostname.endsWith(devSuffix)) {
     const sub = hostname.slice(0, -devSuffix.length);
-    if (sub && !sub.includes('.') && !RESERVED_HOST_SUBDOMAINS.has(sub)) return sub;
+    if (isValidTenantSlug(sub) && !RESERVED_HOST_SUBDOMAINS.has(sub)) return sub;
     return null;
   }
 
   const prodSuffix = `.${appDomain}`;
   if (hostname.endsWith(prodSuffix)) {
     const sub = hostname.slice(0, -prodSuffix.length);
-    if (sub && !sub.includes('.') && !RESERVED_HOST_SUBDOMAINS.has(sub)) return sub;
+    if (isValidTenantSlug(sub) && !RESERVED_HOST_SUBDOMAINS.has(sub)) return sub;
     return null;
   }
 
@@ -101,6 +111,10 @@ function inferTenantHostSuffix(): string {
 }
 
 export function buildTenantHost(slug: string, hostSuffix?: string): string {
+  if (!isValidTenantSlug(slug)) {
+    throw new Error('Invalid tenant slug');
+  }
+
   const suffix = hostSuffix ?? inferTenantHostSuffix();
   return `${slug}${suffix}`;
 }
@@ -186,7 +200,7 @@ export function rewriteLegacyAppPath(path: string, slug: string): string {
 
 export function getTenantSlugFromPath(pathname: string): string | null {
   const segment = pathname.split('/').filter(Boolean)[0];
-  if (!segment || RESERVED_ROUTE_SEGMENTS.has(segment)) return null;
+  if (!segment || RESERVED_ROUTE_SEGMENTS.has(segment) || !isValidTenantSlug(segment)) return null;
   return segment;
 }
 
