@@ -84,7 +84,7 @@ export function useSidebarNavigationPrefetch() {
           break;
         case 'analytics':
           void queryClient.prefetchQuery({
-            queryKey: [...queryKeys.analytics.overview, tenantId],
+            queryKey: queryKeys.analytics.overview(tenantId),
             queryFn: fetchAnalyticsOverview,
             staleTime: PREFETCH_STALE_TIME_MS,
           });
