@@ -6,7 +6,8 @@ describe('FincraApiService', () => {
 
   beforeEach(() => {
     process.env = { ...env };
-    process.env.FINCRA_PUBLIC_KEY = 'test-key';
+    process.env.FINCRA_API_KEY = 'test-secret';
+    process.env.FINCRA_PUBLIC_KEY = 'test-public';
     process.env.FINCRA_BUSINESS_ID = 'biz-1';
     fetchMock = jest.fn();
     global.fetch = fetchMock as typeof fetch;
@@ -45,6 +46,14 @@ describe('FincraApiService', () => {
 
     it('throws when a server error body mentions RESOURCE_NOT_FOUND', async () => {
       mockFetchResponse(503, { message: 'RESOURCE_NOT_FOUND' });
+
+      await expect(service.getPayoutStatus('payroll_run_item')).rejects.toThrow(
+        'Fincra payout status lookup failed',
+      );
+    });
+
+    it('throws when a client error only substring-matches not found', async () => {
+      mockFetchResponse(400, { message: 'gateway: PAYOUT NOT FOUND in cache' });
 
       await expect(service.getPayoutStatus('payroll_run_item')).rejects.toThrow(
         'Fincra payout status lookup failed',

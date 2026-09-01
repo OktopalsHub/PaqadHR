@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import {
   getFincraBaseUrl,
   isAllowedFincraBaseUrl,
+  isFincraCheckoutConfigured,
   isFincraConfigured,
   isFincraLive,
 } from './fincra.config';
@@ -13,6 +14,7 @@ describe('fincra.config', () => {
     process.env = { ...env };
     delete process.env.FINCRA_LIVE;
     delete process.env.FINCRA_BASE_URL;
+    delete process.env.FINCRA_API_KEY;
     delete process.env.FINCRA_PUBLIC_KEY;
     delete process.env.NODE_ENV;
   });
@@ -28,10 +30,19 @@ describe('fincra.config', () => {
     expect(isFincraLive()).toBe(true);
   });
 
-  it('is configured when public key is set', () => {
+  it('requires secret API key for server configuration', () => {
     expect(isFincraConfigured()).toBe(false);
     process.env.FINCRA_PUBLIC_KEY = 'pub-key';
+    expect(isFincraConfigured()).toBe(false);
+    process.env.FINCRA_API_KEY = 'secret-key';
     expect(isFincraConfigured()).toBe(true);
+  });
+
+  it('requires both keys for checkout configuration', () => {
+    process.env.FINCRA_API_KEY = 'secret-key';
+    expect(isFincraCheckoutConfigured()).toBe(false);
+    process.env.FINCRA_PUBLIC_KEY = 'pub-key';
+    expect(isFincraCheckoutConfigured()).toBe(true);
   });
 
   it('restricts FINCRA_BASE_URL overrides to HTTPS Fincra hosts', () => {

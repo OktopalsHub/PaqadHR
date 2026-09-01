@@ -30,6 +30,10 @@ export function getFincraBaseUrl(): string {
   return (isFincraLive() ? FINCRA_PRODUCTION_BASE_URL : FINCRA_SANDBOX_BASE_URL).replace(/\/$/, '');
 }
 
+export function getFincraApiKey(): string {
+  return (process.env.FINCRA_API_KEY || '').trim();
+}
+
 export function getFincraPublicKey(): string {
   return (process.env.FINCRA_PUBLIC_KEY || '').trim();
 }
@@ -67,9 +71,9 @@ export function mapFincraCountryToSourceCurrency(country?: string | null): strin
 }
 
 export function isFincraConfigured(): boolean {
-  return !!getFincraPublicKey();
+  return !!getFincraApiKey();
 }
 
 export function isFincraCheckoutConfigured(): boolean {
-  return isFincraConfigured();
+  return !!getFincraApiKey() && !!getFincraPublicKey();
 }

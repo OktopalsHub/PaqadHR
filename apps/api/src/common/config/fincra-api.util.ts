@@ -77,14 +77,14 @@ export function isFincraPayoutNotFound(
   if (httpStatus === 404) {
     return true;
   }
-  // Server/transient failures must surface as lookup errors, not "absent payout".
-  if (httpStatus >= 500) {
+  // Only trust explicit client not-found signals — never substring-match error text.
+  if (httpStatus < 400 || httpStatus >= 500) {
     return false;
   }
-  const code = (response.code ?? '').toUpperCase();
+  const code = (response.code ?? '').trim().toUpperCase();
   if (code === 'RESOURCE_NOT_FOUND') {
     return true;
   }
-  const message = `${response.message ?? ''} ${response.error ?? ''}`.trim().toUpperCase();
-  return message === 'RESOURCE_NOT_FOUND' || message.includes('PAYOUT NOT FOUND');
+  const message = (response.message ?? response.error ?? '').trim().toUpperCase();
+  return message === 'RESOURCE_NOT_FOUND';
 }

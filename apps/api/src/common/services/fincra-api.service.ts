@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
+  getFincraApiKey,
   getFincraBaseUrl,
   getFincraBusinessId,
   getFincraPublicKey,
@@ -415,9 +416,9 @@ export class FincraApiService {
       return this.businessProfileCache;
     }
 
-    const apiKey = getFincraPublicKey();
+    const apiKey = getFincraApiKey();
     if (!apiKey) {
-      throw new Error('Fincra public key is not configured');
+      throw new Error('Fincra API key is not configured');
     }
 
     const controller = new AbortController();
@@ -472,17 +473,23 @@ export class FincraApiService {
     body?: unknown,
     options?: { usePublicKey?: boolean; includeBusinessId?: boolean },
   ): Promise<FincraHttpResult<T>> {
-    const apiKey = getFincraPublicKey();
+    const apiKey = getFincraApiKey();
     if (!apiKey) {
-      throw new Error('Fincra public key is not configured');
+      throw new Error('Fincra API key is not configured');
     }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'api-key': apiKey,
-      'x-pub-key': apiKey,
     };
+    if (options?.usePublicKey) {
+      const publicKey = getFincraPublicKey();
+      if (!publicKey) {
+        throw new Error('Fincra public key is not configured');
+      }
+      headers['x-pub-key'] = publicKey;
+    }
 
     const businessId =
       getFincraBusinessId() ||

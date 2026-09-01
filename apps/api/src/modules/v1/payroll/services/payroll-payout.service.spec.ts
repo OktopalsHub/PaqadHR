@@ -518,6 +518,22 @@ describe('PayrollPayoutService', () => {
         'Fincra status lookup failed',
       );
     });
+
+    it('throws when Fincra lookup returns a substring not-found message', async () => {
+      const { service, fincraApi } = createService();
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.FAILED,
+        paymentProvider: 'Fincra',
+      } as PayrollItem;
+      (fincraApi.getPayoutStatus as jest.Mock).mockRejectedValue(
+        new Error('Fincra payout status lookup failed: gateway: PAYOUT NOT FOUND in cache'),
+      );
+
+      await expect(service.reconcileFailedItemBeforeRetry(item, 'tenant-1')).rejects.toThrow(
+        'Fincra status lookup failed',
+      );
+    });
   });
 
   describe('processFincraPayload', () => {

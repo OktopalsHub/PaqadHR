@@ -6,14 +6,17 @@ import {
 
 describe('fincra-api.util', () => {
   describe('isFincraPayoutNotFound', () => {
-    it('detects HTTP 404 and explicit client not-found responses', () => {
+    it('detects HTTP 404 and explicit RESOURCE_NOT_FOUND client responses', () => {
       expect(isFincraPayoutNotFound(404, {})).toBe(true);
       expect(isFincraPayoutNotFound(400, { code: 'RESOURCE_NOT_FOUND' })).toBe(true);
       expect(isFincraPayoutNotFound(400, { message: 'RESOURCE_NOT_FOUND' })).toBe(true);
-      expect(isFincraPayoutNotFound(400, { message: 'Payout not found' })).toBe(true);
     });
 
-    it('does not treat transient server errors as not found', () => {
+    it('does not treat ambiguous client or server errors as not found', () => {
+      expect(isFincraPayoutNotFound(400, { message: 'Payout not found' })).toBe(false);
+      expect(isFincraPayoutNotFound(400, { message: 'gateway: PAYOUT NOT FOUND in cache' })).toBe(
+        false,
+      );
       expect(isFincraPayoutNotFound(503, { message: 'upstream unavailable' })).toBe(false);
       expect(isFincraPayoutNotFound(503, { message: 'RESOURCE_NOT_FOUND' })).toBe(false);
       expect(isFincraPayoutNotFound(503, { code: 'RESOURCE_NOT_FOUND' })).toBe(false);

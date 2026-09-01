@@ -1,5 +1,10 @@
 import { Logger } from '@nestjs/common';
-import { isAllowedFincraBaseUrl, isFincraConfigured, isFincraLive } from './fincra.config';
+import {
+  isAllowedFincraBaseUrl,
+  isFincraCheckoutConfigured,
+  isFincraConfigured,
+  isFincraLive,
+} from './fincra.config';
 import {
   isMonnifyLive,
   MONNIFY_PRODUCTION_BASE_URL,
@@ -243,7 +248,7 @@ export function validateEnvAtBoot(): void {
     warnings.push('NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
   if (ngPayrollProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set');
+    warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY is not set');
   }
   if (ngPayrollProvider === 'bachs') {
     warnings.push(
@@ -271,10 +276,12 @@ export function validateEnvAtBoot(): void {
     warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER must be noah or fincra');
   }
   if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set');
+    warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY is not set');
   }
-  if (intlRewardsDepositProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set');
+  if (intlRewardsDepositProvider === 'fincra' && !isFincraCheckoutConfigured()) {
+    warnings.push(
+      'INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_API_KEY and FINCRA_PUBLIC_KEY must both be set',
+    );
   }
   if (isFincraLive() && !process.env.FINCRA_WEBHOOK_SECRET?.trim()) {
     if (isProduction) {
