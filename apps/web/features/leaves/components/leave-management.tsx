@@ -1,7 +1,7 @@
 'use client';
 
 import { CalendarClock, CheckCircle2, Clock, XCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
@@ -10,6 +10,7 @@ import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
+import { clampLeavePage } from '../lib/leave-pagination-state';
 import { LeaveBalancesPanel } from './leave-balances-panel';
 import { LeavePagination } from './leave-pagination';
 import { LeaveRequestDialog } from './leave-request-dialog';
@@ -49,11 +50,18 @@ const LeaveManagement = () => {
   const { data: balances = [] } = useLeaveBalances();
 
   const totalPages = Math.max(1, Math.ceil(leaveRequests.length / ITEMS_PER_PAGE));
+  const visiblePage = clampLeavePage(currentPage, totalPages);
+
+  useEffect(() => {
+    if (visiblePage !== currentPage) {
+      setCurrentPage(visiblePage);
+    }
+  }, [currentPage, visiblePage]);
 
   const currentItems = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const start = (visiblePage - 1) * ITEMS_PER_PAGE;
     return leaveRequests.slice(start, start + ITEMS_PER_PAGE);
-  }, [leaveRequests, currentPage]);
+  }, [leaveRequests, visiblePage]);
 
   const pendingCount = countByStatus(leaveRequests, ['pending']);
   const approvedCount = countByStatus(leaveRequests, ['approved']);
@@ -126,10 +134,10 @@ const LeaveManagement = () => {
                 <>
                   <LeaveRequestsTable
                     requests={currentItems}
-                    rowNumberOffset={(currentPage - 1) * ITEMS_PER_PAGE}
+                    rowNumberOffset={(visiblePage - 1) * ITEMS_PER_PAGE}
                   />
                   <LeavePagination
-                    currentPage={currentPage}
+                    currentPage={visiblePage}
                     totalPages={totalPages}
                     onPageChange={setCurrentPage}
                   />
