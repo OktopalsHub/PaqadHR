@@ -5,7 +5,12 @@ import { fetchUserTenants, resolveTenantId } from '@/lib/api/tenants';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
 import { mapApiLeaveToLeaveRequest } from '@/lib/mappers/leave';
 import { mapApiLeaveBalances } from '@/lib/mappers/leave-balance';
-import type { CreateLeaveInput, LeaveBalance, LeaveRequest } from '@/lib/schemas/leave';
+import type {
+  CreateLeaveInput,
+  LeaveBalance,
+  LeaveRequest,
+  UpdateLeaveInput,
+} from '@/lib/schemas/leave';
 import { leaveBalanceSchema, leaveRequestSchema } from '@/lib/schemas/leave';
 
 type PaginatedLeaves = {
@@ -79,6 +84,21 @@ export async function createLeave(input: CreateLeaveInput): Promise<void> {
   await apiClient(tenantPath(tenantId, 'leaves'), {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export async function updateLeave(leaveId: string, input: UpdateLeaveInput): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `leaves/${leaveId}`), {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteLeave(leaveId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `leaves/${leaveId}`), {
+    method: 'DELETE',
   });
 }
 

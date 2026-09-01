@@ -39,8 +39,10 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const tenantsQuery = useUserTenants({ enabled: isAuthenticated });
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  // A cached profile is only a request-start hint. AppGate still waits for the
+  // server-validated session before it renders protected workspace content.
+  const tenantsQuery = useUserTenants({ enabled: isAuthenticated || Boolean(user) });
   const tenants = tenantsQuery.data ?? [];
   const [selectedId, setSelectedId] = useState<string | null>(() =>
     typeof window !== 'undefined' ? readTenantId() : null,

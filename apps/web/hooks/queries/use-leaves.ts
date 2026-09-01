@@ -4,14 +4,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveLeave,
   createLeave,
+  deleteLeave,
   fetchLeaves,
   fetchMyLeaveBalances,
   fetchMyLeaves,
   rejectLeave,
+  updateLeave,
 } from '@/lib/api/leaves';
 import { hasDirectReports, isTenantAdmin } from '@/lib/auth/manager-access';
 import { queryKeys } from '@/lib/query/keys';
-import type { CreateLeaveInput } from '@/lib/schemas/leave';
+import type { CreateLeaveInput, UpdateLeaveInput } from '@/lib/schemas/leave';
 import { useTenant } from '@/providers/tenant-provider';
 import { useEmployees } from './use-employees';
 
@@ -70,6 +72,31 @@ export function useCreateLeave() {
       await queryClient.invalidateQueries({
         queryKey: queryKeys.calendar.events,
       });
+    },
+  });
+}
+
+export function useUpdateLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ leaveId, input }: { leaveId: string; input: UpdateLeaveInput }) =>
+      updateLeave(leaveId, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events });
+    },
+  });
+}
+
+export function useDeleteLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (leaveId: string) => deleteLeave(leaveId),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.leaves.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.calendar.events });
     },
   });
 }

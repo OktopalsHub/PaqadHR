@@ -271,6 +271,9 @@ export class LeaveService {
   }
   async updateLeave(tenantId: string, leaveId: string, dto: UpdateLeaveDto) {
     const existing = await this.getLeave(tenantId, leaveId);
+    const nextLeaveTypeId = dto.leaveTypeId ?? existing.leaveType?.id;
+    let duration = existing.duration;
+
     if (dto.startDate || dto.endDate) {
       const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
       const holidaySettings = tenantSettings?.settings?.holidays;
@@ -279,22 +282,43 @@ export class LeaveService {
         dto.endDate || existing.endDate,
         holidaySettings,
       );
-      const daysToCheck = workingDays ?? durationInDays;
-      if (existing.requester && existing.leaveType) {
-        await this.checkLeaveBalance(
-          tenantId,
-          existing.requester.id,
-          existing.leaveType.id,
-          daysToCheck,
-          dto.startDate || existing.startDate,
-        );
-      }
+      duration = workingDays ?? durationInDays;
     }
-    return this.leaveRepository.update(existing.id, dto);
+
+    if (
+      (dto.startDate || dto.endDate || dto.leaveTypeId) &&
+      existing.requester &&
+      nextLeaveTypeId
+    ) {
+      await this.checkLeaveBalance(
+        tenantId,
+        existing.requester.id,
+        nextLeaveTypeId,
+        duration,
+        dto.startDate || existing.startDate,
+      );
+    }
+
+    const result = await this.leaveRepository.update(
+      { id: existing.id, tenantId, status: LeaveStatus.PENDING },
+      { ...dto, duration },
+    );
+    if (!result.affected) {
+      throw new ForbiddenException('You can only modify pending leave requests');
+    }
+    return this.getLeave(tenantId, leaveId);
   }
   async deleteLeave(tenantId: string, leaveId: string) {
     const existing = await this.getLeave(tenantId, leaveId);
-    return this.leaveRepository.softDelete(existing.id);
+    const result = await this.leaveRepository.softDelete({
+      id: existing.id,
+      tenantId,
+      status: LeaveStatus.PENDING,
+    });
+    if (!result.affected) {
+      throw new ForbiddenException('You can only delete pending leave requests');
+    }
+    return result;
   }
   async approveLeave(tenantId: string, leaveId: string, approverId: string, comments?: string) {
     const leave = await this.findLeaveEntity(tenantId, leaveId);

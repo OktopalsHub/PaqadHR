@@ -2,7 +2,15 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo } from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
 import { PrivacyConsentGate } from '@/features/auth/components/privacy-consent-gate';
@@ -24,6 +32,7 @@ import {
   stopProactiveRefresh,
 } from '@/lib/api/auth-refresh';
 import { bootstrapCsrf } from '@/lib/api/client';
+import { isServerValidatedSession, isSessionBootstrapLoading } from '@/lib/auth/session-state';
 import { cacheKeys, clearAppCache, getCached, setCached } from '@/lib/cache';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
@@ -52,17 +61,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  const [hasHydrated, setHasHydrated] = useState(false);
   // Read the browser path for the first client render. During hydration,
   // Next's pathname state can briefly lag behind the URL; starting the session
   // query in that window sends an unnecessary profile request on auth pages.
   const currentPathname = typeof window === 'undefined' ? pathname : window.location.pathname;
   const sessionBootstrapEnabled = !skipsSessionBootstrap(currentPathname);
 
-  // Try to get cached session first for instant page load
+  // sessionStorage is not available on the server. Read it only after the
+  // initial client render so protected UI has identical server/client HTML.
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  // Apply the cached session immediately after hydration while the server
+  // session check continues in the background.
   const cachedSession = useMemo(() => {
-    if (!sessionBootstrapEnabled) return null;
+    if (!hasHydrated || !sessionBootstrapEnabled) return null;
     return getCached<User>(cacheKeys.auth.session);
-  }, [sessionBootstrapEnabled]);
+  }, [hasHydrated, sessionBootstrapEnabled]);
 
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,
@@ -195,17 +212,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       verifyEmail,
       logout,
-      // Only trust auth state after first server fetch completes (not from placeholder/cached data)
-      isAuthenticated: sessionQuery.isFetched && Boolean(sessionQuery.data),
+      // Placeholder data is only a visual cache. A session is authenticated
+      // only after React Query has replaced it with the server's response.
+      isAuthenticated: isServerValidatedSession(sessionQuery.data, sessionQuery.isPlaceholderData),
       isLoading:
-        (sessionBootstrapEnabled && !sessionQuery.isFetched) ||
+        isSessionBootstrapLoading(
+          sessionBootstrapEnabled,
+          sessionQuery.isPending,
+          sessionQuery.isPlaceholderData,
+        ) ||
         loginMutation.isPending ||
         registerMutation.isPending,
     }),
     [
       sessionBootstrapEnabled,
       sessionQuery.data,
-      sessionQuery.isFetched,
+      sessionQuery.isPending,
+      sessionQuery.isPlaceholderData,
       loginMutation,
       registerMutation,
       verifyEmail,

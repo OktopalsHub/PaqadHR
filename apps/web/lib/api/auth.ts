@@ -1,6 +1,7 @@
 import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
+import { cacheKeys, setCached } from '@/lib/cache';
 import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
@@ -42,6 +43,10 @@ function mapAuthUser(
 async function syncTenantFromApi(): Promise<boolean> {
   const tenants = await fetchUserTenants();
   if (tenants.length === 0) return true;
+
+  // Hydrate TenantProvider from the bootstrap response so it does not issue a
+  // second workspace request after the profile request completes.
+  setCached(cacheKeys.tenants.all, tenants, { ttl: 5 * 60 * 1000 });
 
   // Respect the stored tenant ID if it still belongs to the user
   const storedTenantId = readTenantId();
@@ -128,8 +133,10 @@ export async function getSession(): Promise<User | null> {
     try {
       needsOnboarding = await syncTenantFromApi();
     } catch {
-      // Profile is authoritative for session; tenant list can load later.
+      // The authenticated profile is still valid. TenantProvider can retry the
+      // workspace lookup while the route renders its own loading state.
     }
+
     const user = mapAuthUser(profile, needsOnboarding);
     persistSession();
     return user;

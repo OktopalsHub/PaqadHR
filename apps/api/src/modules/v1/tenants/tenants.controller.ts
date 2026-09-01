@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   NotFoundException,
   Param,
@@ -79,6 +80,8 @@ export class TenantsController {
   }
   @Get('user/me')
   @AuthOnly()
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
   async getUserTenants(
     @CurrentUser() req: IAuthenticatedUserRequest,
     @Query() pagination: PaginationDto,

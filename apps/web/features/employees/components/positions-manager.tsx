@@ -89,11 +89,10 @@ function PositionTable({
 }) {
   return (
     <AppTablePanel>
-      <AppTable className="min-w-[760px]">
+      <AppTable className="min-w-[600px]">
         <AppTableHeaderSection>
           <AppTableHeaderRow>
             <AppTableHeadCell>Title</AppTableHeadCell>
-            <AppTableHeadCell className="hidden md:table-cell">Description</AppTableHeadCell>
             <AppTableHeadCell>Status</AppTableHeadCell>
             {canManage ? <AppTableHeadCell className="text-right">Actions</AppTableHeadCell> : null}
           </AppTableHeaderRow>
@@ -109,9 +108,6 @@ function PositionTable({
                   />
                   <span>{position.title}</span>
                 </div>
-              </AppTableCell>
-              <AppTableCell className="hidden max-w-[200px] truncate md:table-cell">
-                {position.description || '—'}
               </AppTableCell>
               <AppTableCell>
                 <span

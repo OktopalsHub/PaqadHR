@@ -26,7 +26,7 @@ export const navItemDefs: Omit<NavItem, 'href'>[] = [
   { name: 'Employees', segment: 'employees', icon: Users },
   { name: 'Attendance', segment: 'attendance', icon: Clock },
   { name: 'Leaves', segment: 'leaves', icon: CalendarClock },
-  { name: 'Calendar', segment: 'schedule', icon: Calendar },
+  { name: 'Calendar', segment: 'calendar', icon: Calendar },
   { name: 'Payroll', segment: 'payroll', icon: FileText },
   { name: 'Shoutouts', segment: 'shoutouts', icon: Heart },
   { name: 'Recruitment', segment: 'recruitment', icon: Briefcase },

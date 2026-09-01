@@ -14,13 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useEmployees, useUpdateEmployeeOrganization } from '@/hooks/queries/use-employees';
 import type { Department } from '@/lib/schemas/department';
 
@@ -148,11 +142,6 @@ export function ManageDepartmentMembersDialog({ department, open, onOpenChange }
               )}
             </div>
           </div>
-          <DialogFooter className="border-t pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Done
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

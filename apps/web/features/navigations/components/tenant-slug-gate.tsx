@@ -115,7 +115,9 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
   }, [slugTenant, tenant?.id, selectTenantId]);
 
   if (isLoading || !hasResolvedTenants) {
-    return <LoadingSpinner />;
+    // Let the route render while the workspace is being resolved. Server-side
+    // tenant guards remain the authority for all protected data and actions.
+    return <>{children}</>;
   }
 
   if (!isAuthenticated) {
@@ -147,7 +149,9 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!tenant || tenant.id !== slugTenant.id) {
-    return <LoadingSpinner />;
+    // The selection effect above synchronizes the active workspace on the next
+    // render; avoid hiding the entire page during that short transition.
+    return <>{children}</>;
   }
 
   return <>{children}</>;

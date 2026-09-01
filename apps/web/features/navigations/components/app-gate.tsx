@@ -72,7 +72,10 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   ]);
 
   if (isLoading || !hasResolvedTenants) {
-    return <LoadingSpinner />;
+    // Do not blank every private page while session/workspace validation runs.
+    // Every API call remains server-authorized; this only lets the route render
+    // its own loading state instead of a permanent full-page spinner.
+    return <>{children}</>;
   }
 
   if (!isAuthenticated) {

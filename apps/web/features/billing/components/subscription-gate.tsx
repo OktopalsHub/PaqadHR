@@ -24,7 +24,10 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   }, [isLoading, shouldBlockPayment, tenant?.slug]);
 
   if (isLoading) {
-    return <LoadingSpinner />;
+    // Billing validation should not replace an otherwise usable page with a
+    // full-screen spinner. If payment is required, the effect redirects once
+    // the server response arrives.
+    return <>{children}</>;
   }
 
   if (shouldBlockPayment) {
