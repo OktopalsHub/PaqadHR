@@ -166,6 +166,7 @@ export async function fetchPublicJobs(
     employmentType?: string;
     location?: string;
   },
+  signal?: AbortSignal,
 ): Promise<{ jobs: JobOpening[]; total: number }> {
   const query = new URLSearchParams();
   query.set('tenantId', tenantId);
@@ -178,6 +179,7 @@ export async function fetchPublicJobs(
   const data = await apiClient<unknown>(`/jobs?${query.toString()}`, {
     method: 'GET',
     skipCsrf: true,
+    signal,
   });
 
   return jobsListResponseSchema.parse(data);
@@ -225,6 +227,7 @@ export async function requestPublicUploadUrl(
   location: 'resumes' | 'cover-letters',
   originalName: string,
   contentType?: string,
+  contentLength?: number,
 ): Promise<{ uploadUrl: string; fileKey: string; fileName: string }> {
   return apiClient<{ uploadUrl: string; fileKey: string; fileName: string }>(
     `/jobs/${jobId}/apply/upload-url`,
@@ -234,6 +237,7 @@ export async function requestPublicUploadUrl(
         location,
         originalName,
         contentType,
+        contentLength,
       }),
       skipCsrf: true,
     },
@@ -250,6 +254,7 @@ export async function uploadPublicCandidateFile(
     location,
     file.name,
     file.type || undefined,
+    file.size,
   );
   await axios.put(uploadUrl, file, {
     headers: {

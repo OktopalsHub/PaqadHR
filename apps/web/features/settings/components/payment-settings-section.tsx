@@ -1,7 +1,8 @@
 'use client';
 
-import { Banknote, CheckCircle2, Loader2, Pencil, Send, ShieldCheck, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { Banknote, CheckCircle2, Loader2, Send, ShieldCheck, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BankLogo } from '@/components/bank-logo';
 import { OtpVerificationDialog } from '@/components/otp-verification-dialog';
@@ -30,8 +31,8 @@ import {
   usePaymentPasscodeStatus,
   useSubmitPaymentMethodForVerification,
   useSupportedPaymentCurrencies,
-  useUpdatePaymentMethod,
 } from '@/hooks/queries/use-payment-methods';
+import { useDebounce } from '@/hooks/use-debounce';
 import { lookupNigerianBankAccount } from '@/lib/api/payment-methods';
 import {
   getPayoutFieldConfig,
@@ -41,6 +42,7 @@ import {
   validateGlobalBankFields,
 } from '@/lib/payout-bank-fields';
 import type { PaymentMethodSummary } from '@/lib/schemas/payment-method';
+import { useTenant } from '@/providers/tenant-provider';
 
 const COUNTRY_BY_CURRENCY: Record<string, string> = {
   NGN: 'NG',
@@ -63,91 +65,25 @@ function statusLabel(status: string) {
 }
 
 function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
-  const updateMethod = useUpdatePaymentMethod();
   const deleteMethod = useDeletePaymentMethod();
   const submitMethod = useSubmitPaymentMethodForVerification();
-  const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
-  const [otpMode, setOtpMode] = useState<'edit' | 'submit'>('edit');
   const [currentPasscode, setCurrentPasscode] = useState('');
-  const [accountName, setAccountName] = useState('');
-  const [accountNumber, setAccountNumber] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [institutionCode, setInstitutionCode] = useState('');
-  const [makePrimary, setMakePrimary] = useState(method.isPrimary);
 
-  const payoutConfig = getPayoutFieldConfig(method.currency);
-  const isGlobalBank = isGlobalBankCurrency(method.currency);
   const canSubmit = method.status === 'draft' || method.status === 'rejected';
 
   useEffect(() => {
-    if (!editOpen) return;
-    setBankName('');
-    setAccountName('');
-    setAccountNumber('');
-    setInstitutionCode('');
+    if (!deleteOpen) return;
     setCurrentPasscode('');
-    setMakePrimary(method.isPrimary);
-  }, [editOpen, method.isPrimary]);
-
-  const handleEdit = async (otpProof: string) => {
-    if (currentPasscode.length !== 6) {
-      toast.error('Payment passcode is required');
-      return;
-    }
-    if (isGlobalBank && (accountNumber.trim() || institutionCode.trim())) {
-      if (!accountNumber.trim() || !institutionCode.trim()) {
-        toast.error('Enter both account and institution details when updating bank info');
-        return;
-      }
-      const validationError = validateGlobalBankFields(
-        method.currency,
-        accountNumber,
-        institutionCode,
-      );
-      if (validationError) {
-        toast.error(validationError);
-        return;
-      }
-    }
-    try {
-      await updateMethod.mutateAsync({
-        paymentMethodId: method.id,
-        input: {
-          currentPasscode,
-          otpProof,
-          accountName: accountName.trim() || undefined,
-          accountNumber: accountNumber.trim() || undefined,
-          bankName: bankName.trim() || undefined,
-          bankCode: institutionCode.trim() || undefined,
-          isPrimary: makePrimary,
-        },
-      });
-      toast.success('Payment method updated');
-      setEditOpen(false);
-      setCurrentPasscode('');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Update failed');
-    }
-  };
-
-  const requestEdit = () => {
-    if (currentPasscode.length !== 6) {
-      toast.error('Payment passcode is required');
-      return;
-    }
-    setOtpMode('edit');
-    setOtpOpen(true);
-  };
+  }, [deleteOpen]);
 
   const requestSubmit = () => {
     if (currentPasscode.length !== 6) {
       toast.error('Payment passcode is required');
       return;
     }
-    setOtpMode('submit');
     setOtpOpen(true);
   };
 
@@ -189,80 +125,9 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
           Submit for review
         </Button>
       ) : null}
-      <Button size="sm" variant="ghost" onClick={() => setEditOpen(true)}>
-        <Pencil className="size-3.5" />
-      </Button>
       <Button size="sm" variant="ghost" onClick={() => setDeleteOpen(true)}>
         <Trash2 className="size-3.5 text-destructive" />
       </Button>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit bank details</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            <p className="text-sm text-muted-foreground">
-              Current: {method.displayInfo} ({method.currency}). Only fill fields you want to
-              change.
-            </p>
-            <div className="space-y-2">
-              <Label>Bank name</Label>
-              <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-            </div>
-            {isGlobalBank && payoutConfig ? (
-              <div className="space-y-2">
-                <Label>{payoutConfig.institutionLabel}</Label>
-                <Input
-                  value={institutionCode}
-                  placeholder={payoutConfig.institutionPlaceholder}
-                  onChange={(e) =>
-                    setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
-                  }
-                />
-              </div>
-            ) : null}
-            <div className="space-y-2">
-              <Label>Account name</Label>
-              <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>
-                {isGlobalBank && payoutConfig ? payoutConfig.accountLabel : 'Account number'}
-              </Label>
-              <Input
-                value={accountNumber}
-                onChange={(e) => {
-                  if (payoutConfig) {
-                    setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig));
-                    return;
-                  }
-                  setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 17));
-                }}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id={`primary-${method.id}`}
-                checked={makePrimary}
-                onCheckedChange={(checked) => setMakePrimary(checked === true)}
-              />
-              <Label htmlFor={`primary-${method.id}`}>Use for payroll ({method.currency})</Label>
-            </div>
-            <div className="space-y-2">
-              <Label>Payment passcode</Label>
-              <PasswordInput
-                maxLength={6}
-                value={currentPasscode}
-                onChange={(e) => setCurrentPasscode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              />
-            </div>
-            <Button className="w-full" disabled={updateMethod.isPending} onClick={requestEdit}>
-              Save changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
         <DialogContent>
@@ -293,14 +158,8 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
         open={otpOpen}
         onOpenChange={setOtpOpen}
         purpose="payment_method"
-        title={
-          otpMode === 'submit'
-            ? 'Verify to submit payment method'
-            : 'Verify to update payment method'
-        }
-        onVerified={(proof) =>
-          void (otpMode === 'submit' ? handleSubmitForReview(proof) : handleEdit(proof))
-        }
+        title="Verify to submit payment method"
+        onVerified={(proof) => void handleSubmitForReview(proof)}
       />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -336,6 +195,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
 }
 
 export function PaymentSettingsSection() {
+  const { tenantId } = useTenant();
   const { data: methods = [], isLoading, isError, error } = usePaymentMethods();
   const { data: passcodeStatus } = usePaymentPasscodeStatus();
   const { data: currencies, refetch: refetchCurrencies } = useSupportedPaymentCurrencies();
@@ -351,10 +211,6 @@ export function PaymentSettingsSection() {
   const [institutionCode, setInstitutionCode] = useState('');
   const [passcode, setPasscode] = useState('');
   const [isPrimary, setIsPrimary] = useState(true);
-  const [lookupVerified, setLookupVerified] = useState(false);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [lookupPending, setLookupPending] = useState(false);
-  const [lookupUnavailable, setLookupUnavailable] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
   const [currentPasscode, setCurrentPasscode] = useState('');
   const [newPasscode, setNewPasscode] = useState('');
@@ -381,7 +237,7 @@ export function PaymentSettingsSection() {
   });
   const isGlobalBank = isGlobalBankCurrency(currency);
   const payoutConfig = getPayoutFieldConfig(currency);
-  const hasPrimaryForCurrency = methods.some((m) => m.currency === currency && m.isPrimary);
+  const hasAnyPrimary = methods.some((m) => m.isPrimary);
 
   useEffect(() => {
     if (currencyOptions.length === 0) return;
@@ -398,12 +254,8 @@ export function PaymentSettingsSection() {
     setAccountNumber('');
     setWalletAddress('');
     setCryptoNetwork('');
-    setLookupVerified(false);
-    setLookupError(null);
-    setLookupPending(false);
-    setLookupUnavailable(false);
-    setIsPrimary(!hasPrimaryForCurrency);
-  }, [hasPrimaryForCurrency]);
+    setIsPrimary(!hasAnyPrimary);
+  }, [hasAnyPrimary]);
 
   const openAddForm = async () => {
     try {
@@ -426,71 +278,110 @@ export function PaymentSettingsSection() {
     [banks],
   );
 
+  // Bank account lookup via mutation + debounce (PII-safe: no cache, no key leakage, SECURITY.md §5)
+  const normalizedAccount = accountNumber.replace(/\D/g, '');
+  const debouncedAccount = useDebounce(normalizedAccount, 500);
+  const debouncedBankCode = useDebounce(bankCode, 500);
+  const selectedBankNameForLookup = banks.find((bank) => bank.code === debouncedBankCode)?.name;
+  const bankLookupEnabled =
+    isNgn &&
+    openForm &&
+    debouncedAccount.length === 10 &&
+    Boolean(debouncedBankCode) &&
+    Boolean(tenantId);
+
+  const bankLookupMutation = useMutation({
+    mutationFn: (vars: { accountNumber: string; bankCode: string; bankName?: string }) =>
+      lookupNigerianBankAccount(vars),
+  });
+  const bankLookupRequestRef = useRef(0);
+
   useEffect(() => {
-    if (!isNgn) {
-      setLookupVerified(false);
-      setLookupError(null);
-      setLookupPending(false);
-      setLookupUnavailable(false);
+    if (!bankLookupEnabled) {
+      bankLookupMutation.reset();
       return;
     }
+    const requestId = ++bankLookupRequestRef.current;
+    bankLookupMutation.mutate(
+      {
+        accountNumber: debouncedAccount,
+        bankCode: debouncedBankCode,
+        bankName: selectedBankNameForLookup,
+      },
+      {
+        onSuccess: (data) => {
+          if (requestId !== bankLookupRequestRef.current) return;
+          if (data.accountNumber !== debouncedAccount || data.bankCode !== debouncedBankCode) {
+            return;
+          }
+          setAccountName(data.accountName);
+          setBankName(data.bankName);
+        },
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    debouncedAccount,
+    debouncedBankCode,
+    bankLookupEnabled,
+    selectedBankNameForLookup,
+    bankLookupMutation.reset,
+    bankLookupMutation.mutate,
+  ]);
 
+  const isDebouncingLookup =
+    debouncedAccount !== normalizedAccount || debouncedBankCode !== bankCode;
+  const shouldShowLookupPending =
+    isNgn && openForm && normalizedAccount.length === 10 && Boolean(bankCode);
+  const lookupPending =
+    shouldShowLookupPending && (isDebouncingLookup || bankLookupMutation.isPending);
+  const lookupVerified =
+    !isDebouncingLookup &&
+    bankLookupMutation.isSuccess &&
+    Boolean(bankLookupMutation.data?.accountName) &&
+    bankLookupMutation.data.accountNumber === normalizedAccount &&
+    bankLookupMutation.data.bankCode === bankCode;
+  const rawLookupError = bankLookupMutation.error
+    ? bankLookupMutation.error instanceof Error
+      ? bankLookupMutation.error.message
+      : 'Could not verify account'
+    : null;
+  const lookupErrorStatus =
+    bankLookupMutation.error &&
+    typeof bankLookupMutation.error === 'object' &&
+    'status' in bankLookupMutation.error
+      ? Number((bankLookupMutation.error as { status: number }).status)
+      : 0;
+  const lookupUnavailable = Boolean(
+    rawLookupError &&
+      (lookupErrorStatus === 503 ||
+        /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
+          rawLookupError,
+        )),
+  );
+  const lookupError = lookupUnavailable
+    ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
+    : rawLookupError;
+
+  // Clear account name when inputs become invalid, verification fails, or live fields diverge during debounce
+  useEffect(() => {
+    if (!isNgn) return;
     const normalized = accountNumber.replace(/\D/g, '');
-    if (normalized.length !== 10 || !bankCode) {
-      setLookupVerified(false);
-      setLookupError(null);
-      setLookupPending(false);
-      if (!lookupUnavailable) {
-        setAccountName('');
-      }
+    if (normalized.length !== 10 || !bankCode || (isDebouncingLookup && !lookupUnavailable)) {
+      if (!lookupUnavailable) setAccountName('');
       return;
     }
-
-    let cancelled = false;
-    setLookupPending(true);
-    const timer = window.setTimeout(async () => {
-      try {
-        const selectedBank = banks.find((bank) => bank.code === bankCode);
-        const result = await lookupNigerianBankAccount({
-          accountNumber: normalized,
-          bankCode,
-          bankName: selectedBank?.name,
-        });
-        if (cancelled) return;
-        setAccountName(result.accountName);
-        setBankName(result.bankName);
-        setLookupVerified(true);
-        setLookupError(null);
-        setLookupUnavailable(false);
-      } catch (err) {
-        if (cancelled) return;
-        const status = typeof err === 'object' && err && 'status' in err ? Number(err.status) : 0;
-        const message = err instanceof Error ? err.message : 'Could not verify account';
-        const unavailable =
-          status === 503 ||
-          /not available|not configured|unavailable|authenticate with Nomba|Nomba payout/i.test(
-            message,
-          );
-        setLookupVerified(false);
-        setLookupUnavailable(unavailable);
-        setLookupError(
-          unavailable
-            ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
-            : message,
-        );
-        if (!unavailable) {
-          setAccountName('');
-        }
-      } finally {
-        if (!cancelled) setLookupPending(false);
-      }
-    }, 500);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [accountNumber, bankCode, banks, isNgn, lookupUnavailable]);
+    if (bankLookupMutation.isError && !lookupUnavailable) {
+      setAccountName('');
+    }
+  }, [
+    accountNumber,
+    bankCode,
+    isNgn,
+    lookupUnavailable,
+    isDebouncingLookup,
+    bankLookupMutation.isError,
+  ]);
 
   const handleSubmit = () => {
     if (isCrypto) {
@@ -509,6 +400,10 @@ export function PaymentSettingsSection() {
       }
       if (accountNumber.replace(/\D/g, '').length !== 10) {
         toast.error('Enter a valid 10-digit Naira account number');
+        return;
+      }
+      if (lookupPending && !lookupUnavailable) {
+        toast.error('Waiting for account verification…');
         return;
       }
       if (!lookupVerified && !accountName.trim()) {
@@ -584,15 +479,7 @@ export function PaymentSettingsSection() {
       setWalletAddress('');
       setCryptoNetwork('');
       setPasscode('');
-      setLookupVerified(false);
-      setLookupError(null);
-      setLookupPending(false);
-      setLookupUnavailable(false);
-      toast.success(
-        lookupVerified || isCrypto
-          ? 'Payment settings saved.'
-          : 'Payment settings saved as draft. Submit for verification when ready.',
-      );
+      toast.success('Payment account saved as draft. Submit for admin verification when ready.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save payment settings');
     }
@@ -635,11 +522,9 @@ export function PaymentSettingsSection() {
         <Banknote className="size-4" />
         <AlertTitle>Payroll bank account</AlertTitle>
         <AlertDescription>
-          {isNgn
-            ? 'For NGN accounts, enter your account number and bank.'
-            : isGlobalBank && payoutConfig
-              ? payoutConfig.help
-              : 'Enter your bank details, then submit for verification. Mark the account you want payroll sent to as primary.'}
+          Add your payment account, then submit it for admin verification. You must have at least
+          one primary account to receive payroll. Your first account is automatically set as
+          primary.
         </AlertDescription>
       </Alert>
 
@@ -664,6 +549,9 @@ export function PaymentSettingsSection() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     Draft — submit for admin verification when ready.
                   </p>
+                ) : null}
+                {method.status === 'pending_verification' ? (
+                  <p className="mt-1 text-xs text-muted-foreground">Submitted for admin review.</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -841,9 +729,15 @@ export function PaymentSettingsSection() {
             <Checkbox
               id="is-primary"
               checked={isPrimary}
+              disabled={!isPrimary && !hasAnyPrimary}
               onCheckedChange={(checked) => setIsPrimary(checked === true)}
             />
-            <Label htmlFor="is-primary">Use for payroll ({currency})</Label>
+            <Label htmlFor="is-primary">
+              Use for payroll ({currency})
+              {!isPrimary && !hasAnyPrimary
+                ? ' — Required: you need at least one primary account'
+                : ''}
+            </Label>
           </div>
 
           <div className="space-y-2 sm:col-span-2">

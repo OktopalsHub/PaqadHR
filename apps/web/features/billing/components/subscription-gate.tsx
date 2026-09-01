@@ -1,14 +1,20 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { memo, useEffect } from 'react';
 import { LoadingSpinner } from '@/components/loading-block';
-import { useBillingStatus } from '@/hooks/queries/use-billing';
-import { subscribePageUrl } from '@/lib/navigation/tenant-routes';
+import { useBillingOverview } from '@/hooks/queries/use-billing';
+import { subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
-export function SubscriptionGate({ children }: { children: React.ReactNode }) {
+export const SubscriptionGate = memo(function SubscriptionGate({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
   const { tenant } = useTenant();
-  const { data: billing, isLoading } = useBillingStatus();
+  const { data: billing, isLoading } = useBillingOverview();
 
   const shouldBlockPayment =
     Boolean(billing?.featureGatingEnabled) &&
@@ -19,9 +25,9 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading || !tenant?.slug) return;
     if (shouldBlockPayment) {
-      window.location.assign(subscribePageUrl({ workspace: tenant.slug }));
+      router.push(subscribePagePath({ workspace: tenant.slug }));
     }
-  }, [isLoading, shouldBlockPayment, tenant?.slug]);
+  }, [isLoading, shouldBlockPayment, tenant?.slug, router]);
 
   if (isLoading) {
     // Billing validation should not replace an otherwise usable page with a
@@ -35,4 +41,4 @@ export function SubscriptionGate({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
-}
+});

@@ -1,9 +1,9 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LoadingBlock } from '@/components/loading-block';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
   type InvitationDetails,
 } from '@/lib/api/invitations';
 import { fetchUserTenants } from '@/lib/api/tenants';
-import { tenantUrl } from '@/lib/navigation/tenant-routes';
+import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 
@@ -35,15 +35,41 @@ export function AcceptInvitePage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
 
-  const [details, setDetails] = useState<InvitationDetails | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const invitationQuery = useQuery({
+    queryKey: queryKeys.invitations.detail(token, email),
+    queryFn: ({ signal }) => fetchInvitationDetails(token, email, signal),
+    enabled: Boolean(token) && Boolean(email),
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+
+  // Ensure sensitive invitation data does not persist in cache after unmount/navigation (SECURITY.md §5)
+  useEffect(() => {
+    return () => {
+      queryClient.removeQueries({ queryKey: queryKeys.invitations.detail(token, email) });
+    };
+  }, [queryClient, token, email]);
+
+  const details: InvitationDetails | null = invitationQuery.data ?? null;
+  const isLoading = invitationQuery.isLoading;
+  const loadError: string | null =
+    !token || !email
+      ? 'This invitation link is incomplete.'
+      : invitationQuery.error
+        ? invitationQuery.error instanceof Error
+          ? invitationQuery.error.message
+          : 'Unable to load invitation'
+        : null;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [preferredName, setPreferredName] = useState('');
   const [password, setPassword] = useState('');
+  const hasSyncedDetailsRef = useRef(false);
 
   const invitePath = useMemo(
     () => (token && email ? buildAcceptInvitePath(token, email) : '/accept-invite'),
@@ -56,7 +82,7 @@ export function AcceptInvitePage() {
       if (tenantSlug) persistTenantSlug(tenantSlug);
 
       if (tenantSlug) {
-        window.location.assign(tenantUrl(tenantSlug, '/'));
+        router.push(tenantPath(tenantSlug));
         return;
       }
 
@@ -64,7 +90,7 @@ export function AcceptInvitePage() {
       const match = tenants.find((item) => item.id === tenantId) ?? tenants[0];
       if (match?.slug) {
         persistTenantSlug(match.slug);
-        window.location.assign(tenantUrl(match.slug, '/'));
+        router.push(tenantPath(match.slug));
         return;
       }
 
@@ -132,36 +158,21 @@ export function AcceptInvitePage() {
     queryClient,
   ]);
 
+  // Sync server-provided names into editable draft once (intentional sync, guarded to avoid overwriting user edits)
   useEffect(() => {
-    if (!token || !email) {
-      setLoadError('This invitation link is incomplete.');
-      setIsLoading(false);
-      return;
-    }
+    if (!details || hasSyncedDetailsRef.current) return;
+    if (details.firstName?.trim()) setFirstName(details.firstName.trim());
+    if (details.lastName?.trim()) setLastName(details.lastName.trim());
+    hasSyncedDetailsRef.current = true;
+  }, [details]);
 
-    let cancelled = false;
-    setIsLoading(true);
-    setLoadError(null);
-
-    void fetchInvitationDetails(token, email)
-      .then((data) => {
-        if (cancelled) return;
-        setDetails(data);
-        if (data.firstName?.trim()) setFirstName(data.firstName.trim());
-        if (data.lastName?.trim()) setLastName(data.lastName.trim());
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setLoadError(err instanceof Error ? err.message : 'Unable to load invitation');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [token, email]);
+  useEffect(() => {
+    hasSyncedDetailsRef.current = false;
+    setFirstName('');
+    setLastName('');
+    setPreferredName('');
+    setPassword('');
+  }, []);
 
   if (isLoading || authLoading) {
     return (

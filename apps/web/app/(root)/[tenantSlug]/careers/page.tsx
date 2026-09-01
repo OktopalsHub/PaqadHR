@@ -1,6 +1,7 @@
 'use client';
 
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowLeft,
@@ -17,7 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { OrgAvatar } from '@/components/org-avatar';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +42,7 @@ import {
   uploadPublicCandidateFile,
 } from '@/lib/api/recruitment';
 import { getTenantBySlug } from '@/lib/api/tenants';
+import { queryKeys } from '@/lib/query/keys';
 import type { JobOpening } from '@/lib/schemas/recruitment';
 import type { Tenant } from '@/lib/schemas/tenant';
 
@@ -66,10 +68,46 @@ const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 export default function PublicCareersPage() {
   const params = useParams<{ tenantSlug: string }>();
   const router = useRouter();
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [jobs, setJobs] = useState<JobOpening[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const tenantSlug = params.tenantSlug;
+
+  const isSlugValid = Boolean(tenantSlug) && /^[a-zA-Z0-9_-]+$/.test(tenantSlug!);
+  const tenantQuery = useQuery({
+    queryKey: queryKeys.recruitment.publicTenant(tenantSlug ?? ''),
+    queryFn: ({ signal }) => getTenantBySlug(tenantSlug!, signal),
+    enabled: isSlugValid,
+    retry: false,
+    staleTime: 30_000,
+  });
+
+  const tenant = (tenantQuery.data as Tenant | undefined) ?? null;
+  const jobsQuery = useQuery({
+    queryKey: tenant?.id
+      ? queryKeys.recruitment.publicJobs(tenant.id)
+      : queryKeys.recruitment.publicJobs('pending'),
+    queryFn: ({ signal }) => fetchPublicJobs(tenant!.id, undefined, signal),
+    enabled: Boolean(tenant?.id),
+    staleTime: 30_000,
+    gcTime: tenant?.id ? undefined : 0,
+  });
+
+  const jobs: JobOpening[] = jobsQuery.data?.jobs ?? [];
+  const isLoading = isSlugValid
+    ? tenantQuery.isLoading || (Boolean(tenant?.id) && jobsQuery.isLoading)
+    : false;
+  const error: string | null =
+    tenantSlug && !isSlugValid
+      ? 'Invalid workspace slug'
+      : tenantQuery.error
+        ? tenantQuery.error instanceof Error
+          ? tenantQuery.error.message
+          : 'Failed to load workspace data'
+        : jobsQuery.error
+          ? jobsQuery.error instanceof Error
+            ? jobsQuery.error.message
+            : 'Failed to load jobs'
+          : !tenantQuery.isLoading && !tenant && tenantQuery.isSuccess
+            ? 'Workspace not found'
+            : null;
 
   const [search, setSearch] = useState('');
   const [selectedDept, setSelectedDept] = useState('ALL');
@@ -106,32 +144,6 @@ export default function PublicCareersPage() {
   const handleTurnstileSuccess = useCallback((token: string) => {
     setTurnstileToken(token);
   }, []);
-
-  useEffect(() => {
-    if (!params.tenantSlug) return;
-
-    async function loadData() {
-      try {
-        setIsLoading(true);
-        const tenantData = await getTenantBySlug(params.tenantSlug);
-        if (!tenantData) {
-          setError('Workspace not found');
-          return;
-        }
-        setTenant(tenantData);
-
-        const jobsData = await fetchPublicJobs(tenantData.id);
-        setJobs(jobsData.jobs);
-      } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : 'Failed to load workspace data';
-        setError(errMsg);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    loadData();
-  }, [params.tenantSlug]);
 
   const departments = useMemo(() => {
     const depts = new Set<string>();

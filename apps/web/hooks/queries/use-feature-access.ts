@@ -45,7 +45,6 @@ export function useFeatureAccess(
         if (!featureGatingEnabled) {
           return true;
         }
-
         return hasPlanFeatureAccess(features, feature);
       },
     [featureGatingEnabled, features],

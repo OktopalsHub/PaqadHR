@@ -386,11 +386,6 @@ export function SettingsWorkspaceTab() {
       {isOwner ? (
         <ContentCard title="Delete workspace">
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Soft-delete this workspace. Members lose access immediately. Payroll and employment
-              records may remain for legal retention. Contact support to restore within the grace
-              period.
-            </p>
             <Button
               size="sm"
               variant="destructive"

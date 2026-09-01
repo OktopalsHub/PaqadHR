@@ -12,6 +12,7 @@ export const queryKeys = {
   },
   invitations: {
     all: ['invitations'] as const,
+    detail: (token: string, email: string) => ['invitations', 'detail', token, email] as const,
   },
   positions: {
     all: ['positions'] as const,
@@ -73,6 +74,8 @@ export const queryKeys = {
     job: (id: string) => ['recruitment', 'jobs', id] as const,
     candidates: (jobId: string) => ['recruitment', 'candidates', jobId] as const,
     allCandidates: ['recruitment', 'allCandidates'] as const,
+    publicTenant: (slug: string) => ['recruitment', 'public-tenant', slug] as const,
+    publicJobs: (tenantId: string) => ['recruitment', 'public-jobs', tenantId] as const,
   },
   plans: {
     all: ['plans', 'all'] as const,
@@ -91,6 +94,8 @@ export const queryKeys = {
     pending: ['payment-methods', 'pending'] as const,
     passcodeStatus: ['payment-methods', 'passcode-status'] as const,
     banks: (tenantId: string) => ['payment-methods', 'banks', tenantId] as const,
+    // PII-safe + tenant-scoped: accountNumber/bankCode via closure, not key
+    bankLookup: (tenantId: string) => ['payment-methods', 'bank-lookup', tenantId] as const,
   },
   member: {
     profile: (tenantId: string) => ['member', 'profile', tenantId] as const,
@@ -100,7 +105,7 @@ export const queryKeys = {
     slugAvailability: (slug: string) => ['onboarding', 'slug-availability', slug] as const,
   },
   analytics: {
-    overview: ['analytics', 'overview'] as const,
+    overview: (tenantId: string) => ['analytics', 'overview', tenantId] as const,
   },
   notifications: {
     list: ['notifications', 'list'] as const,
@@ -120,5 +125,8 @@ export const queryKeys = {
     walletTransactions: ['rewards', 'wallet-transactions'] as const,
     custom: ['rewards', 'custom'] as const,
     providers: (tenantId: string) => ['rewards', 'providers', tenantId] as const,
+    // Tenant-scoped to prevent cross-tenant cache pollution (SECURITY.md §2)
+    pointsCost: (tenantId: string, type: string, billerId: number | string, amount: number) =>
+      ['rewards', 'points-cost', tenantId, type, String(billerId), amount] as const,
   },
 } as const;

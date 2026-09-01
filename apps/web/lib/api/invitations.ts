@@ -43,9 +43,12 @@ export type AcceptInvitationResponse = {
 export async function fetchInvitationDetails(
   token: string,
   email: string,
+  signal?: AbortSignal,
 ): Promise<InvitationDetails> {
   const params = new URLSearchParams({ token, email });
-  return apiClient<InvitationDetails>(`/invitations/details?${params.toString()}`);
+  return apiClient<InvitationDetails>(`/invitations/details?${params.toString()}`, {
+    signal,
+  });
 }
 
 export async function acceptInvitation(input: {
