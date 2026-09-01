@@ -93,6 +93,20 @@ export class SubscriptionsService {
     const subscriptions = await this.subscriptionRepository.find({
       where: { tenantId: In(tenantIds) },
       relations: ['plan'],
+      select: {
+        id: true,
+        tenantId: true,
+        planId: true,
+        status: true,
+        trialEndsAt: true,
+        nextBillingDate: true,
+        currentPeriodEnd: true,
+        plan: {
+          id: true,
+          slug: true,
+          name: true,
+        },
+      },
     });
 
     const subscriptionByTenant = new Map(

@@ -21,6 +21,8 @@ export const SubscriptionGate = memo(function SubscriptionGate({
     isLoading: authLoading,
   } = useAuth();
 
+  const isLoading = authLoading || !hasResolvedSession;
+
   const shouldBlockPayment =
     hasResolvedSession &&
     Boolean(featureGatingEnabled) &&
@@ -28,11 +30,11 @@ export const SubscriptionGate = memo(function SubscriptionGate({
     Boolean(tenant?.needsPayment);
 
   useEffect(() => {
-    if (authLoading || !hasResolvedSession || !tenant?.slug) return;
+    if (isLoading || !tenant?.slug) return;
     if (shouldBlockPayment) {
       router.push(subscribePagePath({ workspace: tenant.slug }));
     }
-  }, [authLoading, hasResolvedSession, shouldBlockPayment, tenant?.slug, router]);
+  }, [isLoading, shouldBlockPayment, tenant?.slug, router]);
 
   if (isLoading) {
     return <BillingValidationScreen />;

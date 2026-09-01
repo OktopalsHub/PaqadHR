@@ -336,6 +336,11 @@ export class TenantsService {
       const incomingSlug = StringUtility.slugify(updateTenantDto.slug);
       const currentSlug = StringUtility.slugify(existingTenant.slug);
       if (incomingSlug !== currentSlug) {
+        if (isReservedTenantSlug(incomingSlug)) {
+          throw new UnprocessableEntityException(
+            `The subdomain "${incomingSlug}" is reserved and cannot be used.`,
+          );
+        }
         const tenantWithSlug = await this.tenantRepository.findBySlug(incomingSlug);
         if (tenantWithSlug && tenantWithSlug.id !== tenantId) {
           throw new UnprocessableEntityException('Slug already exists');

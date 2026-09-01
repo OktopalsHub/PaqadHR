@@ -31,7 +31,11 @@ import {
   stopProactiveRefresh,
 } from '@/lib/api/auth-refresh';
 import { bootstrapCsrf } from '@/lib/api/client';
-import { isServerValidatedSession, isSessionBootstrapLoading } from '@/lib/auth/session-state';
+import {
+  hasResolvedSessionBootstrap,
+  isServerValidatedSession,
+  isSessionBootstrapLoading,
+} from '@/lib/auth/session-state';
 import { cacheKeys, clearAppCache, getCached, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
@@ -96,11 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     placeholderData: cachedSession ?? undefined,
   });
 
-  const hasResolvedSession =
-    sessionBootstrapEnabled &&
-    sessionQuery.isFetched &&
-    !sessionQuery.isPlaceholderData &&
-    Boolean(sessionQuery.data);
+  const hasResolvedSession = hasResolvedSessionBootstrap(
+    sessionBootstrapEnabled,
+    sessionQuery.isFetched,
+    sessionQuery.isPlaceholderData,
+    sessionQuery.isError,
+  );
 
   useEffect(() => {
     setRefreshCallbacks({

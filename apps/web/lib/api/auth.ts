@@ -77,11 +77,18 @@ export async function waitForSessionBootstrap(options?: {
       return await fetchSessionBootstrap();
     } catch (error) {
       const isLast = attempt === attempts - 1;
-      if (error instanceof ApiError && error.status === 401 && !isLast) {
+      if (error instanceof ApiError && error.status === 401) {
+        if (!isLast) {
+          await sleep(baseDelayMs * (attempt + 1));
+          continue;
+        }
+        return null;
+      }
+      if (!isLast) {
         await sleep(baseDelayMs * (attempt + 1));
         continue;
       }
-      return null;
+      throw error;
     }
   }
   return null;
@@ -153,8 +160,9 @@ export async function getSession(): Promise<SessionBootstrap | null> {
     if (error instanceof ApiError && error.status === 401) {
       invalidateSession();
       clearCsrfToken();
+      return null;
     }
-    return null;
+    throw error;
   }
 }
 
