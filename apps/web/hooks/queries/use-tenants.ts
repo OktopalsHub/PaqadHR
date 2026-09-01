@@ -15,10 +15,7 @@ import { queryKeys } from '@/lib/query/keys';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { readTenantId } from '@/lib/session';
 
-export function useUserTenants(options?: {
-  enabled?: boolean;
-  initialWorkspaces?: Tenant[];
-}) {
+export function useUserTenants(options?: { enabled?: boolean; initialWorkspaces?: Tenant[] }) {
   const cachedTenants = useMemo(() => {
     return getCached<Tenant[]>(cacheKeys.tenants.all);
   }, []);

@@ -25,17 +25,20 @@ import { Repository } from 'typeorm';
 import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
+import {
+  isBillingGatewayEnabled,
+  isFeatureGatingEnabled,
+} from '../subscriptions/config/billing.config';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
 import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { buildUserConsentMetadata } from '../users/interfaces/user-metadata.interface';
 import { UserRepository } from '../users/repositories/users.repository';
 import type { OtpPurpose } from './dto/otp.dto';
+import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
-import type { SessionBootstrapResponseDto } from './dto/session-bootstrap-response.dto';
-import { isBillingGatewayEnabled, isFeatureGatingEnabled } from '../subscriptions/config/billing.config';
 
 interface AuthAuditContext {
   userId?: string;

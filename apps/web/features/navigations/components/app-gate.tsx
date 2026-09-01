@@ -47,7 +47,6 @@ export function AppGate({ children }: { children: React.ReactNode }) {
     authLoading,
     hasResolvedSession,
     isAuthenticated,
-    tenantLoading,
     hasResolvedTenants,
     tenants,
     pathname,

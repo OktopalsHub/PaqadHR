@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { resolvePostAuthHref } from './resolve-post-auth-href.ts';
 import type { Tenant } from '@/lib/schemas/tenant';
+import { resolvePostAuthHref } from './resolve-post-auth-href.ts';
 
 function workspace(overrides: Partial<Tenant> & Pick<Tenant, 'id' | 'slug'>): Tenant {
   return {

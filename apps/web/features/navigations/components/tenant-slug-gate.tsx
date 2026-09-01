@@ -83,7 +83,6 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     authLoading,
     hasResolvedSession,
     isAuthenticated,
-    tenantLoading,
     hasResolvedTenants,
     tenant,
     tenantSlug,

@@ -23,10 +23,7 @@ function tenantSlugFromDashboardPath(path: string): string | null {
   }
 }
 
-function workspaceNeedsPayment(
-  tenant: Tenant,
-  paymentsEnabled: boolean,
-): boolean {
+function workspaceNeedsPayment(tenant: Tenant, paymentsEnabled: boolean): boolean {
   return Boolean(paymentsEnabled && tenant.needsPayment);
 }
 

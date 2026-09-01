@@ -5,10 +5,7 @@ import { cacheKeys, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
-import {
-  type SessionBootstrap,
-  sessionBootstrapSchema,
-} from '@/lib/schemas/session-bootstrap';
+import { type SessionBootstrap, sessionBootstrapSchema } from '@/lib/schemas/session-bootstrap';
 import type { Tenant } from '@/lib/schemas/tenant';
 import { persistSession, persistTenantId, persistTenantSlug, readTenantId } from '@/lib/session';
 
@@ -51,9 +48,7 @@ export function applySessionBootstrap(bootstrap: SessionBootstrap): void {
     ? bootstrap.workspaces.find((item) => item.id === storedTenantId)
     : null;
   const active =
-    storedTenant ??
-    bootstrap.workspaces.find((item) => item.isActive) ??
-    bootstrap.workspaces[0];
+    storedTenant ?? bootstrap.workspaces.find((item) => item.isActive) ?? bootstrap.workspaces[0];
 
   if (active) {
     persistTenantId(active.id);

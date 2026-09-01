@@ -95,7 +95,9 @@ export class SubscriptionsService {
       relations: ['plan'],
     });
 
-    const subscriptionByTenant = new Map(subscriptions.map((subscription) => [subscription.tenantId, subscription]));
+    const subscriptionByTenant = new Map(
+      subscriptions.map((subscription) => [subscription.tenantId, subscription]),
+    );
 
     for (const tenantId of tenantIds) {
       const subscription = subscriptionByTenant.get(tenantId);

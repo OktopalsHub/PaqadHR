@@ -39,12 +39,7 @@ const TenantContext = createContext<TenantContextValue | null>(null);
 export function TenantProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const {
-    workspaces,
-    isAuthenticated,
-    isLoading: authLoading,
-    hasResolvedSession,
-  } = useAuth();
+  const { workspaces, isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
 
   const tenantsQuery = useUserTenants({
     enabled: false,
@@ -130,7 +125,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       hasResolvedTenants,
       isError,
     }),
-    [tenants, tenant, selectTenantId, setTenantId, isLoading, hasResolvedTenants, isError],
+    [tenants, tenant, selectTenantId, setTenantId, isLoading, hasResolvedTenants],
   );
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;

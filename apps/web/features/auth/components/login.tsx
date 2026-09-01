@@ -48,7 +48,16 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
       const href = await resolvePostAuthHref({ tenants, paymentsEnabled, redirect });
       goToHref(href, router.replace);
     })();
-  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, paymentsEnabled, router, redirect]);
+  }, [
+    authLoading,
+    isAuthenticated,
+    hasResolvedTenants,
+    tenantLoading,
+    tenants,
+    paymentsEnabled,
+    router,
+    redirect,
+  ]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
