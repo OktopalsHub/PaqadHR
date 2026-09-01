@@ -58,4 +58,4 @@ Environment variables select payroll and rewards-wallet rails. Peer fallback app
 | `INTL_REWARDS_DEPOSIT_PROVIDER` | `noah` \| `fincra` | Non-NG wallet checkout deposits |
 | `NG_REWARDS_AIRTIME_PROVIDER` | `nomba` \| `monnify` | Airtime/utilities only (not Fincra) |
 
-Fincra credentials: `FINCRA_API_KEY`, `FINCRA_BUSINESS_ID`, `FINCRA_PUBLIC_KEY` (checkout), `FINCRA_WEBHOOK_SECRET`, `FINCRA_PAYOUT_SOURCE_CURRENCY`, `FINCRA_LIVE`. Bachs and Fincra wallet deposits are **checkout-only** — no saved-card manual top-up or auto-topup. Webhook signature is required unless `FINCRA_ALLOW_UNSIGNED_WEBHOOKS=true` in local dev only.
+Fincra credentials from the dashboard: `FINCRA_PUBLIC_KEY`, `FINCRA_WEBHOOK_SECRET`, `FINCRA_LIVE`. Business ID is resolved automatically via Fincra’s profile API when unset (`FINCRA_BUSINESS_ID` optional override). `FINCRA_PAYOUT_SOURCE_CURRENCY` is optional (defaults from business country). Bachs and Fincra wallet deposits are **checkout-only** — no saved-card manual top-up or auto-topup. Webhook signatures are always required.

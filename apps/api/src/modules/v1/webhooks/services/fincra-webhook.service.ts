@@ -1,11 +1,9 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { isFincraAllowUnsignedWebhooks, isFincraLive } from 'src/common/config/fincra.config';
 import {
   extractFincraWalletTopupCheckout,
   verifyFincraWebhookSignature,
@@ -16,8 +14,6 @@ import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-t
 
 @Injectable()
 export class FincraWebhookService {
-  private readonly logger = new Logger(FincraWebhookService.name);
-
   constructor(
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly payrollPayoutService: PayrollPayoutService,
@@ -26,13 +22,9 @@ export class FincraWebhookService {
   async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
     const trimmedSig = signature?.trim() ?? '';
     if (!trimmedSig) {
-      if (isFincraLive() || !isFincraAllowUnsignedWebhooks()) {
-        throw new UnauthorizedException('Missing webhook signature');
-      }
-      this.logger.warn(
-        'Accepting Fincra webhook without signature (FINCRA_ALLOW_UNSIGNED_WEBHOOKS=true)',
-      );
-    } else if (!verifyFincraWebhookSignature(rawBody, trimmedSig)) {
+      throw new UnauthorizedException('Missing webhook signature');
+    }
+    if (!verifyFincraWebhookSignature(rawBody, trimmedSig)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 

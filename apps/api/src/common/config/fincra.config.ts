@@ -16,10 +16,6 @@ export function isFincraLive(): boolean {
   return process.env.FINCRA_LIVE === 'true';
 }
 
-export function isLocalDevelopment(): boolean {
-  return (process.env.NODE_ENV || 'development') === 'development';
-}
-
 export function getFincraBaseUrl(): string {
   const explicit = process.env.FINCRA_BASE_URL?.trim();
   if (explicit) {
@@ -32,10 +28,6 @@ export function getFincraBaseUrl(): string {
     return normalized;
   }
   return (isFincraLive() ? FINCRA_PRODUCTION_BASE_URL : FINCRA_SANDBOX_BASE_URL).replace(/\/$/, '');
-}
-
-export function getFincraApiKey(): string {
-  return (process.env.FINCRA_API_KEY || '').trim();
 }
 
 export function getFincraPublicKey(): string {
@@ -51,18 +43,33 @@ export function getFincraWebhookSecret(): string {
 }
 
 export function getFincraPayoutSourceCurrency(): string {
-  return (process.env.FINCRA_PAYOUT_SOURCE_CURRENCY || 'NGN').trim().toUpperCase();
+  const explicit = process.env.FINCRA_PAYOUT_SOURCE_CURRENCY?.trim();
+  if (explicit) {
+    return explicit.toUpperCase();
+  }
+  return 'NGN';
+}
+
+/** Map Fincra business country to default payout wallet currency when env override is unset. */
+export function mapFincraCountryToSourceCurrency(country?: string | null): string {
+  const code = (country ?? 'NG').trim().toUpperCase();
+  const byCountry: Record<string, string> = {
+    NG: 'NGN',
+    US: 'USD',
+    GB: 'GBP',
+    DE: 'EUR',
+    FR: 'EUR',
+    NL: 'EUR',
+    IT: 'EUR',
+    ES: 'EUR',
+  };
+  return byCountry[code] ?? 'NGN';
 }
 
 export function isFincraConfigured(): boolean {
-  return !!(getFincraApiKey() && getFincraBusinessId());
+  return !!getFincraPublicKey();
 }
 
 export function isFincraCheckoutConfigured(): boolean {
-  return isFincraConfigured() && !!getFincraPublicKey();
-}
-
-/** Local dev only — never set in staging/production. */
-export function isFincraAllowUnsignedWebhooks(): boolean {
-  return process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS === 'true' && isLocalDevelopment();
+  return isFincraConfigured();
 }

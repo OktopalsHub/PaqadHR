@@ -440,6 +440,33 @@ describe('PayrollPayoutService', () => {
   });
 
   describe('reconcileFailedItemBeforeRetry', () => {
+    it('blocks retry when Fincra still has an in-flight payout on a retry suffix reference', async () => {
+      const { service, fincraApi, payrollItemRepository, payrollRunRepository } = createService();
+      const retryRef = `${MERCHANT_REF}_r1`;
+      const item = {
+        ...baseItem(),
+        status: PayrollItemStatus.FAILED,
+        paymentProvider: 'Fincra',
+        metadata: { payoutRetryCount: 1 },
+      } as unknown as PayrollItem;
+      (fincraApi.getPayoutStatus as jest.Mock).mockImplementation(async (ref: string) => {
+        if (ref === MERCHANT_REF) return null;
+        if (ref === retryRef) {
+          return { status: 'PROCESSING', reference: 'fincra-ref-r1' };
+        }
+        return null;
+      });
+      (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({ tenantId: 'tenant-1' });
+      (payrollItemRepository.findOne as jest.Mock).mockResolvedValue(item);
+      (payrollItemRepository.save as jest.Mock).mockImplementation(async (saved) => saved);
+
+      const canRetry = await service.reconcileFailedItemBeforeRetry(item, 'tenant-1');
+
+      expect(canRetry).toBe(false);
+      expect(fincraApi.getPayoutStatus).toHaveBeenCalledWith(retryRef);
+      expect(item.status).toBe(PayrollItemStatus.PROCESSING);
+    });
+
     it('blocks retry when Fincra still has an in-flight payout for the stable reference', async () => {
       const { service, fincraApi, payrollItemRepository, payrollRunRepository } = createService();
       const item = {

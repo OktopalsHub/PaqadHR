@@ -2,7 +2,6 @@ import { createHmac } from 'node:crypto';
 import {
   getFincraBaseUrl,
   isAllowedFincraBaseUrl,
-  isFincraAllowUnsignedWebhooks,
   isFincraConfigured,
   isFincraLive,
 } from './fincra.config';
@@ -14,10 +13,7 @@ describe('fincra.config', () => {
     process.env = { ...env };
     delete process.env.FINCRA_LIVE;
     delete process.env.FINCRA_BASE_URL;
-    delete process.env.FINCRA_API_KEY;
-    delete process.env.FINCRA_BUSINESS_ID;
     delete process.env.FINCRA_PUBLIC_KEY;
-    delete process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS;
     delete process.env.NODE_ENV;
   });
 
@@ -32,20 +28,10 @@ describe('fincra.config', () => {
     expect(isFincraLive()).toBe(true);
   });
 
-  it('is configured when api key and business id are set', () => {
+  it('is configured when public key is set', () => {
     expect(isFincraConfigured()).toBe(false);
-    process.env.FINCRA_API_KEY = 'key';
-    process.env.FINCRA_BUSINESS_ID = 'biz';
+    process.env.FINCRA_PUBLIC_KEY = 'pub-key';
     expect(isFincraConfigured()).toBe(true);
-  });
-
-  it('allows unsigned webhooks only in local development', () => {
-    process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS = 'true';
-    process.env.NODE_ENV = 'development';
-    expect(isFincraAllowUnsignedWebhooks()).toBe(true);
-
-    process.env.NODE_ENV = 'production';
-    expect(isFincraAllowUnsignedWebhooks()).toBe(false);
   });
 
   it('restricts FINCRA_BASE_URL overrides to HTTPS Fincra hosts', () => {

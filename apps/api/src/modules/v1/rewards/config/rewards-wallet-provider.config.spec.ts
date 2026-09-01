@@ -11,7 +11,7 @@ describe('resolveRewardsWalletPaymentProvider', () => {
   const originalBachsWalletNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
 
   const originalIntlProvider = process.env.INTL_REWARDS_DEPOSIT_PROVIDER;
-  const originalFincraApiKey = process.env.FINCRA_API_KEY;
+  const originalFincraPublicKey = process.env.FINCRA_PUBLIC_KEY;
   const originalFincraBusinessId = process.env.FINCRA_BUSINESS_ID;
 
   afterEach(() => {
@@ -55,10 +55,10 @@ describe('resolveRewardsWalletPaymentProvider', () => {
     } else {
       process.env.INTL_REWARDS_DEPOSIT_PROVIDER = originalIntlProvider;
     }
-    if (originalFincraApiKey === undefined) {
-      delete process.env.FINCRA_API_KEY;
+    if (originalFincraPublicKey === undefined) {
+      delete process.env.FINCRA_PUBLIC_KEY;
     } else {
-      process.env.FINCRA_API_KEY = originalFincraApiKey;
+      process.env.FINCRA_PUBLIC_KEY = originalFincraPublicKey;
     }
     if (originalFincraBusinessId === undefined) {
       delete process.env.FINCRA_BUSINESS_ID;
@@ -107,15 +107,13 @@ describe('resolveRewardsWalletPaymentProvider', () => {
 
   it('uses Fincra for NG when NG_PAYROLL_PROVIDER=fincra', () => {
     process.env.NG_PAYROLL_PROVIDER = 'fincra';
-    process.env.FINCRA_API_KEY = 'key';
-    process.env.FINCRA_BUSINESS_ID = 'biz';
+    process.env.FINCRA_PUBLIC_KEY = 'key';
     expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.FINCRA);
   });
 
   it('uses Fincra for international wallet when INTL_REWARDS_DEPOSIT_PROVIDER=fincra', () => {
     process.env.INTL_REWARDS_DEPOSIT_PROVIDER = 'fincra';
-    process.env.FINCRA_API_KEY = 'key';
-    process.env.FINCRA_BUSINESS_ID = 'biz';
+    process.env.FINCRA_PUBLIC_KEY = 'key';
     expect(resolveRewardsWalletPaymentProvider('US', 'EUR')).toBe(PaymentProvider.FINCRA);
   });
 

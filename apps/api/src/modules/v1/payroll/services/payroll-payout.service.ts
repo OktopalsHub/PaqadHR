@@ -162,9 +162,9 @@ export class PayrollPayoutService {
       return { received: true, matched: false };
     }
 
-    let status = event.status;
     let reference = event.reference;
     let amount = event.amount;
+    let status: string;
 
     try {
       const verified = await this.fincraApi.getPayoutStatus(event.merchantRef);
@@ -290,30 +290,41 @@ export class PayrollPayoutService {
    * Returns true when a new payout attempt is safe; false when the item was reconciled away from FAILED.
    */
   async reconcileFailedItemBeforeRetry(item: PayrollItem, tenantId: string): Promise<boolean> {
-    const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id);
     const provider = this.resolveStoredProvider(item.paymentProvider);
+    const retryAttempt =
+      typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
 
     if (provider === PaymentProvider.FINCRA) {
       try {
-        const verified = await this.fincraApi.getPayoutStatus(merchantRef);
-        if (!verified) {
+        for (let attempt = 0; attempt <= retryAttempt; attempt++) {
+          const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, attempt);
+          const verified = await this.fincraApi.getPayoutStatus(merchantRef);
+          if (!verified) {
+            continue;
+          }
+
+          const status = verified.status.toUpperCase();
+          if (SUCCESS_STATUSES.has(status) || PENDING_STATUSES.has(status)) {
+            await this.applyTransferStatus(
+              merchantRef,
+              status,
+              verified.reference ?? item.transactionId ?? merchantRef,
+              PaymentProvider.FINCRA,
+              tenantId,
+              verified.amount,
+            );
+            return false;
+          }
+        }
+
+        const latestRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
+        const latest = await this.fincraApi.getPayoutStatus(latestRef);
+        if (!latest) {
           return true;
         }
 
-        const status = verified.status.toUpperCase();
-        if (SUCCESS_STATUSES.has(status) || PENDING_STATUSES.has(status)) {
-          await this.applyTransferStatus(
-            merchantRef,
-            status,
-            verified.reference ?? item.transactionId ?? merchantRef,
-            PaymentProvider.FINCRA,
-            tenantId,
-            verified.amount,
-          );
-          return false;
-        }
-
-        if (FAILED_STATUSES.has(status)) {
+        const latestStatus = latest.status.toUpperCase();
+        if (FAILED_STATUSES.has(latestStatus)) {
           return true;
         }
 
@@ -326,6 +337,7 @@ export class PayrollPayoutService {
       }
     }
 
+    const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
     const reference = item.transactionId?.trim();
     if (!reference) {
       return true;

@@ -11,13 +11,13 @@ describe('FincraProvider', () => {
   const provider = new FincraProvider(fincraApi as never);
 
   beforeEach(() => {
-    process.env.FINCRA_API_KEY = 'key';
+    process.env.FINCRA_PUBLIC_KEY = 'key';
     process.env.FINCRA_BUSINESS_ID = 'biz';
     jest.clearAllMocks();
   });
 
   afterEach(() => {
-    delete process.env.FINCRA_API_KEY;
+    delete process.env.FINCRA_PUBLIC_KEY;
     delete process.env.FINCRA_BUSINESS_ID;
   });
 

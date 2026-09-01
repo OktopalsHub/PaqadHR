@@ -6,7 +6,7 @@ describe('FincraApiService', () => {
 
   beforeEach(() => {
     process.env = { ...env };
-    process.env.FINCRA_API_KEY = 'test-key';
+    process.env.FINCRA_PUBLIC_KEY = 'test-key';
     process.env.FINCRA_BUSINESS_ID = 'biz-1';
     fetchMock = jest.fn();
     global.fetch = fetchMock as typeof fetch;
@@ -120,6 +120,21 @@ describe('FincraApiService', () => {
       expect(result.success).toBe(false);
       expect(result.message).toContain('failed payout');
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('resolveBusinessId', () => {
+    it('fetches business _id from profile when FINCRA_BUSINESS_ID is unset', async () => {
+      delete process.env.FINCRA_BUSINESS_ID;
+      mockFetchResponse(200, {
+        success: true,
+        data: { _id: 'profile-biz-id', country: 'NG' },
+      });
+
+      const id = await service.resolveBusinessId();
+
+      expect(id).toBe('profile-biz-id');
+      expect(fetchMock.mock.calls[0][0]).toContain('/profile/business/me');
     });
   });
 });

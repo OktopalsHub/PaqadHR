@@ -3,7 +3,6 @@ import {
   isAllowedFincraBaseUrl,
   isFincraConfigured,
   isFincraLive,
-  isLocalDevelopment,
 } from './fincra.config';
 import {
   isMonnifyLive,
@@ -248,7 +247,7 @@ export function validateEnvAtBoot(): void {
     warnings.push('NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
   if (ngPayrollProvider === 'fincra' && !isFincraConfigured()) {
-    warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete');
+    warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set');
   }
   if (ngPayrollProvider === 'bachs') {
     warnings.push(
@@ -277,12 +276,12 @@ export function validateEnvAtBoot(): void {
   }
   if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
     warnings.push(
-      'INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete',
+      'INTL_PAYROLL_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set',
     );
   }
   if (intlRewardsDepositProvider === 'fincra' && !isFincraConfigured()) {
     warnings.push(
-      'INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_API_KEY/FINCRA_BUSINESS_ID is incomplete',
+      'INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_PUBLIC_KEY is not set',
     );
   }
   if (isFincraLive() && !process.env.FINCRA_WEBHOOK_SECRET?.trim()) {
@@ -296,11 +295,6 @@ export function validateEnvAtBoot(): void {
   if (fincraBaseUrl && !isAllowedFincraBaseUrl(fincraBaseUrl)) {
     errors.push(
       'FINCRA_BASE_URL must use HTTPS and point to api.fincra.com or sandboxapi.fincra.com',
-    );
-  }
-  if (process.env.FINCRA_ALLOW_UNSIGNED_WEBHOOKS === 'true' && !isLocalDevelopment()) {
-    errors.push(
-      'FINCRA_ALLOW_UNSIGNED_WEBHOOKS=true is only allowed when NODE_ENV=development (local dev)',
     );
   }
 

@@ -29,7 +29,7 @@ describe('ng-money-provider.util', () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
-    delete process.env.FINCRA_API_KEY;
+    delete process.env.FINCRA_PUBLIC_KEY;
     delete process.env.FINCRA_BUSINESS_ID;
   });
 
@@ -107,8 +107,7 @@ describe('ng-money-provider.util', () => {
 
   it('routes NGN payroll to fincra when preferred and configured', () => {
     process.env.NG_PAYROLL_PROVIDER = 'fincra';
-    process.env.FINCRA_API_KEY = 'key';
-    process.env.FINCRA_BUSINESS_ID = 'biz';
+    process.env.FINCRA_PUBLIC_KEY = 'key';
 
     expect(getNgPayrollProviderPreference()).toBe('fincra');
     expect(resolveNgPaymentProvider()).toBe(PaymentProvider.FINCRA);

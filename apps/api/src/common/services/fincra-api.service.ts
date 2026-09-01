@@ -1,12 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import {
-  getFincraApiKey,
   getFincraBaseUrl,
   getFincraBusinessId,
-  getFincraPayoutSourceCurrency,
   getFincraPublicKey,
   isFincraCheckoutConfigured,
   isFincraConfigured,
+  mapFincraCountryToSourceCurrency,
 } from '../config/fincra.config';
 import {
   defaultFincraBeneficiaryCountry,
@@ -77,6 +76,7 @@ export interface FincraCreatePayinCheckoutInput {
 export class FincraApiService {
   private readonly logger = new Logger(FincraApiService.name);
   private static readonly REQUEST_TIMEOUT_MS = 90_000;
+  private businessProfileCache: { id: string; country?: string } | null = null;
 
   isConfigured(): boolean {
     return isFincraConfigured();
@@ -105,13 +105,14 @@ export class FincraApiService {
     paymentDestination: 'bank_account' | 'crypto_wallet';
     paymentScheme?: string;
   }): Promise<FincraQuoteResult | null> {
+    const businessId = await this.resolveBusinessId();
     const body: Record<string, unknown> = {
       sourceCurrency: input.sourceCurrency.toUpperCase(),
       destinationCurrency: input.destinationCurrency.toUpperCase(),
       amount: String(input.amount),
       action: 'send',
       transactionType: 'disbursement',
-      business: getFincraBusinessId(),
+      business: businessId,
       paymentDestination: input.paymentDestination,
       beneficiaryType: 'individual',
       feeBearer: 'business',
@@ -169,7 +170,9 @@ export class FincraApiService {
     }
 
     const destinationCurrency = input.destinationCurrency.toUpperCase();
-    const sourceCurrency = (input.sourceCurrency ?? getFincraPayoutSourceCurrency()).toUpperCase();
+    const sourceCurrency = (
+      input.sourceCurrency ?? (await this.resolvePayoutSourceCurrency())
+    ).toUpperCase();
     const isCrypto = isCryptoCurrency(destinationCurrency);
     const paymentDestination = isCrypto ? 'crypto_wallet' : 'bank_account';
     const country = input.countryCode ?? defaultFincraBeneficiaryCountry(destinationCurrency);
@@ -237,7 +240,7 @@ export class FincraApiService {
     }
 
     const payload: Record<string, unknown> = {
-      business: getFincraBusinessId(),
+      business: await this.resolveBusinessId(),
       sourceCurrency,
       destinationCurrency,
       amount: payoutAmount,
@@ -388,32 +391,106 @@ export class FincraApiService {
     return isFincraOperationPending(status);
   }
 
+  /** Explicit FINCRA_BUSINESS_ID env, or `_id` from GET /profile/business/me (cached). */
+  async resolveBusinessId(): Promise<string> {
+    const explicit = getFincraBusinessId();
+    if (explicit) {
+      return explicit;
+    }
+    return (await this.loadBusinessProfile()).id;
+  }
+
+  /** FINCRA_PAYOUT_SOURCE_CURRENCY env, or currency inferred from business country (default NGN). */
+  async resolvePayoutSourceCurrency(): Promise<string> {
+    const explicit = process.env.FINCRA_PAYOUT_SOURCE_CURRENCY?.trim();
+    if (explicit) {
+      return explicit.toUpperCase();
+    }
+    const profile = await this.loadBusinessProfile();
+    return mapFincraCountryToSourceCurrency(profile.country);
+  }
+
+  private async loadBusinessProfile(): Promise<{ id: string; country?: string }> {
+    if (this.businessProfileCache) {
+      return this.businessProfileCache;
+    }
+
+    const apiKey = getFincraPublicKey();
+    if (!apiKey) {
+      throw new Error('Fincra public key is not configured');
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FincraApiService.REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${getFincraBaseUrl()}/profile/business/me`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'api-key': apiKey,
+        },
+        signal: controller.signal,
+      });
+
+      const text = await response.text();
+      let parsed: FincraApiResponse<{ _id?: string; country?: string }> = {};
+      try {
+        parsed = text
+          ? (JSON.parse(text) as FincraApiResponse<{ _id?: string; country?: string }>)
+          : {};
+      } catch {
+        this.logger.warn('Fincra business profile non-JSON response');
+      }
+
+      if (!response.ok) {
+        const detail = parsed.message ?? `HTTP ${response.status}`;
+        throw new Error(`Fincra business profile lookup failed: ${detail}`);
+      }
+
+      const id = parsed.data?._id?.trim();
+      if (!id) {
+        throw new Error(
+          'Fincra business profile missing _id — set FINCRA_BUSINESS_ID if auto-resolve fails',
+        );
+      }
+
+      this.businessProfileCache = { id, country: parsed.data?.country };
+      return this.businessProfileCache;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Fincra business profile lookup error: ${message}`);
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
   private async request<T>(
     method: string,
     path: string,
     body?: unknown,
     options?: { usePublicKey?: boolean; includeBusinessId?: boolean },
   ): Promise<FincraHttpResult<T>> {
-    const apiKey = getFincraApiKey();
+    const apiKey = getFincraPublicKey();
     if (!apiKey) {
-      throw new Error('Fincra API key is not configured');
+      throw new Error('Fincra public key is not configured');
     }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
       'api-key': apiKey,
+      'x-pub-key': apiKey,
     };
 
-    const businessId = getFincraBusinessId();
+    const businessId =
+      getFincraBusinessId() ||
+      (options?.usePublicKey || options?.includeBusinessId
+        ? await this.resolveBusinessId()
+        : undefined);
     if (businessId && (options?.usePublicKey || options?.includeBusinessId)) {
       headers['x-business-id'] = businessId;
-    }
-    if (options?.usePublicKey) {
-      const pubKey = getFincraPublicKey();
-      if (pubKey) {
-        headers['x-pub-key'] = pubKey;
-      }
     }
 
     const controller = new AbortController();

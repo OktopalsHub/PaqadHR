@@ -14,7 +14,7 @@ describe('intl-money-provider.util', () => {
     delete process.env.INTL_PAYROLL_PROVIDER;
     delete process.env.INTL_REWARDS_DEPOSIT_PROVIDER;
     delete process.env.NOAH_API_KEY;
-    delete process.env.FINCRA_API_KEY;
+    delete process.env.FINCRA_PUBLIC_KEY;
     delete process.env.FINCRA_BUSINESS_ID;
   });
 
@@ -32,8 +32,7 @@ describe('intl-money-provider.util', () => {
   it('routes to fincra when preferred and configured', () => {
     process.env.INTL_PAYROLL_PROVIDER = 'fincra';
     process.env.INTL_REWARDS_DEPOSIT_PROVIDER = 'fincra';
-    process.env.FINCRA_API_KEY = 'key';
-    process.env.FINCRA_BUSINESS_ID = 'biz';
+    process.env.FINCRA_PUBLIC_KEY = 'key';
 
     expect(getIntlPayrollProviderPreference()).toBe('fincra');
     expect(getIntlRewardsDepositProviderPreference()).toBe('fincra');

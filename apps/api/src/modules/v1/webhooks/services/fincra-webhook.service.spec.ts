@@ -13,17 +13,6 @@ jest.mock('src/common/config/fincra-webhook.util', () => ({
   extractFincraWalletTopupCheckout: jest.fn(),
 }));
 
-jest.mock('src/common/config/fincra.config', () => ({
-  isFincraLive: jest.fn(),
-  isFincraAllowUnsignedWebhooks: jest.fn(),
-  isLocalDevelopment: jest.fn(),
-}));
-
-import {
-  isFincraAllowUnsignedWebhooks,
-  isFincraLive,
-  isLocalDevelopment,
-} from 'src/common/config/fincra.config';
 import {
   extractFincraWalletTopupCheckout,
   verifyFincraWebhookSignature,
@@ -47,26 +36,10 @@ describe('FincraWebhookService', () => {
       payrollPayoutService as unknown as PayrollPayoutService,
     );
     (verifyFincraWebhookSignature as jest.Mock).mockReturnValue(true);
-    (isFincraLive as jest.Mock).mockReturnValue(false);
-    (isLocalDevelopment as jest.Mock).mockReturnValue(true);
-    (isFincraAllowUnsignedWebhooks as jest.Mock).mockReturnValue(true);
     (extractFincraWalletTopupCheckout as jest.Mock).mockReturnValue(null);
   });
 
-  it('rejects missing signature when unsigned webhooks are not allowed', async () => {
-    (isFincraAllowUnsignedWebhooks as jest.Mock).mockReturnValue(false);
-    await expect(service.dispatch('{}', '')).rejects.toThrow(UnauthorizedException);
-  });
-
-  it('rejects missing signature outside local development even when bypass flag is set', async () => {
-    (isLocalDevelopment as jest.Mock).mockReturnValue(false);
-    (isFincraAllowUnsignedWebhooks as jest.Mock).mockReturnValue(false);
-    await expect(service.dispatch('{}', '')).rejects.toThrow(UnauthorizedException);
-  });
-
-  it('rejects missing signature in live mode even when unsigned flag is set', async () => {
-    (isFincraLive as jest.Mock).mockReturnValue(true);
-    (isFincraAllowUnsignedWebhooks as jest.Mock).mockReturnValue(true);
+  it('rejects missing signature', async () => {
     await expect(service.dispatch('{}', '')).rejects.toThrow(UnauthorizedException);
   });
 
