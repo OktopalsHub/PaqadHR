@@ -46,7 +46,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -100,7 +100,7 @@ export class MultiPaymentService {
   ): Promise<BatchPaymentResult> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Configure Nomba/Monnify (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -117,9 +117,22 @@ export class MultiPaymentService {
     if (failedItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
     }
-    await this.resetItemsForRetry(failedItems);
+    const retriableItems: PayrollItem[] = [];
+    for (const item of failedItems) {
+      const canRetry = await this.payrollPayoutService.reconcileFailedItemBeforeRetry(
+        item,
+        tenantId,
+      );
+      if (canRetry) {
+        retriableItems.push(item);
+      }
+    }
+    if (retriableItems.length === 0) {
+      throw new BadRequestException('No failed payments found to retry');
+    }
+    await this.resetItemsForRetry(retriableItems);
     const paymentBatch = await this.categorizePayments(
-      failedItems,
+      retriableItems,
       tenantId,
       payrollRun.baseCurrency,
     );
@@ -133,7 +146,7 @@ export class MultiPaymentService {
     const summary = this.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
     return {
-      totalItems: failedItems.length,
+      totalItems: retriableItems.length,
       successfulPayments: summary.bankSuccess + summary.cryptoSuccess,
       failedPayments: summary.bankFailed + summary.cryptoFailed,
       fiatResults: payoutResults,
@@ -337,15 +350,42 @@ export class MultiPaymentService {
             error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
             rail,
           });
+        } else if (result.retryable) {
+          await this.payrollItemRepository.update(item.id, {
+            status: PayrollItemStatus.PROCESSING,
+            transactionId: result.transactionId ?? null,
+            paymentProvider: providerName,
+            paymentMethodId: paymentMethod.id,
+            failureReason: result.error || `${providerName} payout pending verification`,
+          });
+          results.push({
+            success: false,
+            transactionId: result.transactionId,
+            provider: providerName,
+            error: result.error,
+            rail,
+          });
         } else {
           throw new BadRequestException(result.error || 'Payment failed');
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        await this.payrollItemRepository.update(item.id, {
-          status: PayrollItemStatus.FAILED,
-          failureReason: message,
-        });
+        const lower = message.toLowerCase();
+        const retryable =
+          lower.includes('fincra payout status lookup failed') ||
+          lower.includes('abort') ||
+          lower.includes('timeout');
+        if (retryable) {
+          await this.payrollItemRepository.update(item.id, {
+            status: PayrollItemStatus.PROCESSING,
+            failureReason: message,
+          });
+        } else {
+          await this.payrollItemRepository.update(item.id, {
+            status: PayrollItemStatus.FAILED,
+            failureReason: message,
+          });
+        }
         results.push({
           success: false,
           error: message,
@@ -373,17 +413,22 @@ export class MultiPaymentService {
   }
   private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
     for (const item of items) {
+      const priorRetry =
+        typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
+      const metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
       item.status = PayrollItemStatus.PENDING;
       item.failureReason = null;
       item.transactionId = null;
       item.paymentProvider = null;
       item.paidAt = null;
+      item.metadata = metadata;
       await this.payrollItemRepository.update(item.id, {
         status: PayrollItemStatus.PENDING,
         failureReason: null,
         transactionId: null,
         paymentProvider: null,
         paidAt: null,
+        metadata,
       });
     }
   }

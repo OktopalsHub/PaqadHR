@@ -3,7 +3,7 @@
 import type React from 'react';
 import { cn } from '@/lib/utils';
 
-export type CurrencyCode = 'NGN' | 'USD' | 'EUR' | 'GBP' | 'BTC' | 'ETH' | 'USDT' | 'USDC' | string;
+export type CurrencyCode = 'NGN' | 'USD' | 'EUR' | 'GBP' | 'USDT' | 'USDC' | string;
 
 interface CurrencyIconProps extends React.SVGProps<SVGSVGElement> {
   code: CurrencyCode;
@@ -99,46 +99,6 @@ export function CurrencyIcon({ code, className, size = 20, ...props }: CurrencyI
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-        </svg>
-      );
-
-    case 'BTC':
-      return (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className={cn('shrink-0 rounded-full', className)}
-          {...props}
-        >
-          <circle cx="16" cy="16" r="16" fill="#F7931A" />
-          <path
-            d="M21.2 13.3C21.5 11.8 20.3 10.9 18.7 10.4L19.2 8.3L17.9 8L17.4 10.1C17 10 16.7 9.9 16.3 9.8L16.8 7.7L15.5 7.4L15 9.5C14.7 9.4 14.4 9.4 14.2 9.3L12.4 8.8L12 10.3C12 10.3 13.1 10.6 13 10.6C13.6 10.8 13.7 11.2 13.6 11.6L12.9 14.5C12.9 14.5 13 14.5 13 14.6C13 14.5 12.9 14.5 12.9 14.5L11.9 18.5C11.8 18.9 11.5 19.3 10.9 19.1C10.9 19.1 9.8 18.8 9.8 18.8L9.2 20.3L10.9 20.7C11.2 20.8 11.6 20.9 11.9 21L11.4 23.1L12.7 23.4L13.2 21.3C13.6 21.4 13.9 21.5 14.3 21.6L13.8 23.7L15.1 24L15.6 21.9C18 22.3 19.8 22.1 20.6 19.9C21.2 18.2 20.6 17.2 19.4 16.5C20.3 16 20.9 15 21.2 13.3ZM18.1 18.7C17.6 20.6 14.5 19.6 13.6 19.4L14.3 16.6C15.2 16.8 18.6 16.7 18.1 18.7ZM18.6 13.5C18.2 15.2 15.6 14.4 14.8 14.2L15.4 11.8C16.2 12 19 11.8 18.6 13.5Z"
-            fill="white"
-          />
-        </svg>
-      );
-
-    case 'ETH':
-      return (
-        <svg
-          width={size}
-          height={size}
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className={cn('shrink-0 rounded-full', className)}
-          {...props}
-        >
-          <circle cx="16" cy="16" r="16" fill="#627EEA" />
-          <path d="M16 4L15.7 5V19.3L16 19.6L22.5 15.7L16 4Z" fill="white" fillOpacity="0.6" />
-          <path d="M16 4L9.5 15.7L16 19.6V12.4V4Z" fill="white" />
-          <path d="M16 21L15.8 21.2V27.5L16 28L22.5 18.8L16 21Z" fill="white" fillOpacity="0.6" />
-          <path d="M16 28V21L9.5 18.8L16 28Z" fill="white" />
-          <path d="M16 19.6L22.5 15.7L16 12.4V19.6Z" fill="white" fillOpacity="0.2" />
-          <path d="M9.5 15.7L16 19.6V12.4L9.5 15.7Z" fill="white" fillOpacity="0.6" />
         </svg>
       );
 

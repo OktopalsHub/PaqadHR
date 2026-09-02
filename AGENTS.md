@@ -45,3 +45,17 @@ If a file mixes layers (e.g. a feature hook calling the API), apply both backend
 ## Reporting security issues
 
 See [SECURITY.md — Vulnerability Reporting](./SECURITY.md#vulnerability-reporting).
+
+## Payment provider routing (API)
+
+Environment variables select payroll and rewards-wallet rails. Peer fallback applies when the preferred provider is not configured.
+
+| Env | Values | Scope |
+|-----|--------|--------|
+| `NG_PAYROLL_PROVIDER` | `nomba` \| `monnify` \| `fincra` | NGN payroll bank payouts |
+| `INTL_PAYROLL_PROVIDER` | `noah` \| `fincra` | USD/EUR/GBP bank + USDT/USDC crypto payroll |
+| `NG_REWARDS_DEPOSIT_PROVIDER` | `nomba` \| `monnify` \| `fincra` \| `bachs` | NG wallet checkout deposits |
+| `INTL_REWARDS_DEPOSIT_PROVIDER` | `noah` \| `fincra` | Non-NG wallet checkout deposits |
+| `NG_REWARDS_AIRTIME_PROVIDER` | `nomba` \| `monnify` | Airtime/utilities only (not Fincra) |
+
+Fincra credentials from the dashboard: `FINCRA_API_KEY` (secret, server `api-key` header), `FINCRA_PUBLIC_KEY` (checkout `x-pub-key` header), `FINCRA_WEBHOOK_SECRET`, `FINCRA_LIVE`. Business ID is resolved automatically via Fincra’s profile API when unset (`FINCRA_BUSINESS_ID` optional override). `FINCRA_PAYOUT_SOURCE_CURRENCY` is optional (defaults from business country). Bachs and Fincra wallet deposits are **checkout-only** — no saved-card manual top-up or automatic top-up. Webhook signatures are always required.

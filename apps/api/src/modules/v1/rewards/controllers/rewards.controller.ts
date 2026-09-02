@@ -66,7 +66,8 @@ async function withWalletResponse(
     feePercentage: fees.feePercentage,
     flatFee: fees.flatFee,
     checkoutLive,
-    savedCardTopupSupported: checkoutProvider !== PaymentProvider.BACHS,
+    savedCardTopupSupported:
+      checkoutProvider !== PaymentProvider.BACHS && checkoutProvider !== PaymentProvider.FINCRA,
     /** @deprecated use checkoutLive */
     nombaLive: isNombaLive(),
   };
@@ -210,18 +211,11 @@ export class RewardsController {
     const orderReference = body.orderReference.trim();
     const fromRef = resolveWalletTopupProviderFromOrderRef(orderReference, tenantId);
     const checkoutProvider =
-      fromRef === 'monnify'
-        ? PaymentProvider.MONNIFY
-        : fromRef === 'nomba'
-          ? PaymentProvider.NOMBA
-          : fromRef === 'bachs'
-            ? PaymentProvider.BACHS
-            : fromRef === 'noah'
-              ? PaymentProvider.NOAH
-              : resolveRewardsWalletPaymentProvider(
-                  await this.walletService.getTenantCountryCode(tenantId),
-                  (await this.walletService.getWallet(tenantId)).currencyCode,
-                );
+      fromRef ??
+      resolveRewardsWalletPaymentProvider(
+        await this.walletService.getTenantCountryCode(tenantId),
+        (await this.walletService.getWallet(tenantId)).currencyCode,
+      );
     return this.walletTopupService.completeCheckoutTopup(
       {
         tenantId,

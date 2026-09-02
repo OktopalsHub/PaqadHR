@@ -29,6 +29,9 @@ describe('ng-money-provider.util', () => {
     delete process.env.NOMBA_CLIENT_ID;
     delete process.env.NOMBA_CLIENT_SECRET;
     delete process.env.NOMBA_PARENT_ACCOUNT_ID;
+    delete process.env.FINCRA_API_KEY;
+    delete process.env.FINCRA_PUBLIC_KEY;
+    delete process.env.FINCRA_BUSINESS_ID;
   });
 
   afterAll(() => {
@@ -101,6 +104,24 @@ describe('ng-money-provider.util', () => {
     expect(getNgRewardsDepositProviderPreference()).toBe('bachs');
     expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.BACHS);
     expect(resolveNgPaymentProvider()).toBe(PaymentProvider.MONNIFY);
+  });
+
+  it('routes NGN payroll to fincra when preferred and configured', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'fincra';
+    process.env.FINCRA_API_KEY = 'key';
+
+    expect(getNgPayrollProviderPreference()).toBe('fincra');
+    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.FINCRA);
+    expect(resolveNgWalletPaymentProvider()).toBe(PaymentProvider.FINCRA);
+  });
+
+  it('falls back from fincra to nomba when fincra is not configured', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'fincra';
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'parent';
+
+    expect(resolveNgPaymentProvider()).toBe(PaymentProvider.NOMBA);
   });
 
   it('routes airtime via NG_REWARDS_AIRTIME_PROVIDER independently of payroll', () => {
