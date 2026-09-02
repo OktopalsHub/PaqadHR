@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { PaymentMethodType } from '../enums/payment-type.enum';
+import { FincraProvider } from '../providers/fincra.provider';
 import { MonnifyProvider } from '../providers/monnify.provider';
 import { NoahProvider } from '../providers/noah.provider';
 import { NombaProvider } from '../providers/nomba.provider';
@@ -15,10 +16,14 @@ export class PaymentProviderFactoryService {
     private readonly nombaProvider: NombaProvider,
     private readonly monnifyProvider: MonnifyProvider,
     private readonly noahProvider: NoahProvider,
+    private readonly fincraProvider: FincraProvider,
   ) {}
 
   resolveProvider(currency: string, paymentMethodType?: PaymentMethodType) {
     const provider = resolvePaymentProvider(currency, paymentMethodType);
+    if (provider === PaymentProvider.FINCRA) {
+      return this.fincraProvider;
+    }
     if (provider === PaymentProvider.MONNIFY) {
       return this.monnifyProvider;
     }
@@ -50,5 +55,9 @@ export class PaymentProviderFactoryService {
 
   getNoahProvider() {
     return this.noahProvider;
+  }
+
+  getFincraProvider() {
+    return this.fincraProvider;
   }
 }

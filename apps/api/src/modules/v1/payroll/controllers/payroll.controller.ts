@@ -199,6 +199,12 @@ export class PayrollController {
     return this.payrollService.previewPayrollCalculation(tenantId, previewDto, member.id);
   }
 
+  @Get('setup-summary')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async getSetupSummary(@Param('tenantId') tenantId: string) {
+    return this.payrollService.getWorkspaceSetupSummary(tenantId);
+  }
+
   @Get('runs/:id/readiness')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)

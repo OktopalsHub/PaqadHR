@@ -4,15 +4,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { LoadingBlock } from '@/components/loading-block';
-import {
-  loadUserTenantsWithRetry,
-  persistUserSession,
-  waitForAuthenticatedProfile,
-} from '@/lib/api/auth';
+import { applySessionBootstrap, waitForSessionBootstrap } from '@/lib/api/auth';
 import { bootstrapCsrf } from '@/lib/api/client';
+import { cacheKeys, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { queryKeys } from '@/lib/query/keys';
-import { persistTenantId, persistTenantSlug } from '@/lib/session';
 import { ForceLightTheme } from '@/providers/force-light-theme';
 
 export default function GoogleCompletePage() {
@@ -27,26 +23,21 @@ export default function GoogleCompletePage() {
     void (async () => {
       await bootstrapCsrf();
 
-      const profile = await waitForAuthenticatedProfile();
-      if (!profile) {
+      const bootstrap = await waitForSessionBootstrap();
+      if (!bootstrap) {
         router.replace('/signin?error=google');
         return;
       }
 
-      const tenants = await loadUserTenantsWithRetry();
-      const needsOnboarding = tenants.length === 0;
-      const user = persistUserSession(profile, needsOnboarding);
+      applySessionBootstrap(bootstrap);
+      setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
 
-      queryClient.setQueryData(queryKeys.auth.session, user);
-      queryClient.setQueryData(queryKeys.tenants.all, tenants);
-
-      if (tenants.length > 0) {
-        const active = tenants.find((item) => item.isActive) ?? tenants[0];
-        persistTenantId(active.id);
-        if (active.slug) persistTenantSlug(active.slug);
-      }
-
-      const href = await resolvePostAuthHref({ tenants });
+      const href = await resolvePostAuthHref({
+        tenants: bootstrap.workspaces,
+        paymentsEnabled: bootstrap.paymentsEnabled,
+      });
       goToHref(href, router.replace);
     })();
   }, [queryClient, router]);

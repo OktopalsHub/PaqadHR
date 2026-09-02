@@ -83,3 +83,4 @@ export * from './1787866777469-WidenPaymentMethodEncryptedColumns';
 export * from './1787870704946-PaymentMethodSubmittedAtAndSecurityBackfill';
 export * from './1788205216357-add-position-deleted-at';
 export * from './1788205216358-add-leave-balance-deleted-at';
+export * from './1788305216359-PayrollRunUniquePerCurrency';

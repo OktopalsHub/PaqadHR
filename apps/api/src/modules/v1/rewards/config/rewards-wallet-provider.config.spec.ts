@@ -10,6 +10,11 @@ describe('resolveRewardsWalletPaymentProvider', () => {
   const originalBachsWalletUsd = process.env.BACHS_WALLET_TOPUP_PRODUCT_USD;
   const originalBachsWalletNgn = process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
 
+  const originalIntlProvider = process.env.INTL_REWARDS_DEPOSIT_PROVIDER;
+  const originalFincraApiKey = process.env.FINCRA_API_KEY;
+  const originalFincraPublicKey = process.env.FINCRA_PUBLIC_KEY;
+  const originalFincraBusinessId = process.env.FINCRA_BUSINESS_ID;
+
   afterEach(() => {
     if (originalNgProvider === undefined) {
       delete process.env.NG_PAYROLL_PROVIDER;
@@ -45,6 +50,26 @@ describe('resolveRewardsWalletPaymentProvider', () => {
       delete process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN;
     } else {
       process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN = originalBachsWalletNgn;
+    }
+    if (originalIntlProvider === undefined) {
+      delete process.env.INTL_REWARDS_DEPOSIT_PROVIDER;
+    } else {
+      process.env.INTL_REWARDS_DEPOSIT_PROVIDER = originalIntlProvider;
+    }
+    if (originalFincraApiKey === undefined) {
+      delete process.env.FINCRA_API_KEY;
+    } else {
+      process.env.FINCRA_API_KEY = originalFincraApiKey;
+    }
+    if (originalFincraPublicKey === undefined) {
+      delete process.env.FINCRA_PUBLIC_KEY;
+    } else {
+      process.env.FINCRA_PUBLIC_KEY = originalFincraPublicKey;
+    }
+    if (originalFincraBusinessId === undefined) {
+      delete process.env.FINCRA_BUSINESS_ID;
+    } else {
+      process.env.FINCRA_BUSINESS_ID = originalFincraBusinessId;
     }
   });
 
@@ -84,6 +109,19 @@ describe('resolveRewardsWalletPaymentProvider', () => {
     expect(resolveRewardsWalletPaymentProvider('US')).toBe(PaymentProvider.NOAH);
     expect(resolveRewardsWalletPaymentProvider('US', 'USD')).toBe(PaymentProvider.NOAH);
     expect(resolveRewardsWalletPaymentProvider('GB', 'GBP')).toBe(PaymentProvider.NOAH);
+  });
+
+  it('uses Fincra for NG when NG_PAYROLL_PROVIDER=fincra', () => {
+    process.env.NG_PAYROLL_PROVIDER = 'fincra';
+    process.env.FINCRA_API_KEY = 'secret';
+    expect(resolveRewardsWalletPaymentProvider('NG')).toBe(PaymentProvider.FINCRA);
+  });
+
+  it('uses Fincra for international wallet when INTL_REWARDS_DEPOSIT_PROVIDER=fincra', () => {
+    process.env.INTL_REWARDS_DEPOSIT_PROVIDER = 'fincra';
+    process.env.FINCRA_API_KEY = 'secret';
+    process.env.FINCRA_PUBLIC_KEY = 'public';
+    expect(resolveRewardsWalletPaymentProvider('US', 'EUR')).toBe(PaymentProvider.FINCRA);
   });
 
   it('uses Bachs for USD wallet when Bachs wallet product is configured', () => {

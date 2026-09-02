@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsDate,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -114,6 +115,7 @@ export class CreatePayrollRunDto {
     description: 'Scheduled payment date (any calendar day; usually on or after period end)',
   })
   @Type(() => Date)
+  @IsDate({ message: 'Expected pay date must be a valid date' })
   paymentDate: Date;
   @ApiProperty({
     description:
@@ -124,8 +126,7 @@ export class CreatePayrollRunDto {
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(getSupportedPaymentCurrencies(), {
-    message:
-      'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, BTC, ETH, USDT, USDC)',
+    message: 'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, USDT, USDC)',
   })
   baseCurrency: string;
   @ApiProperty({

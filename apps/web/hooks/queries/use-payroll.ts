@@ -10,6 +10,7 @@ import {
   fetchPayrollReadiness,
   fetchPayrollRun,
   fetchPayrollRuns,
+  fetchPayrollSetupSummary,
   fetchRunPayslips,
   notifyEmployeePaymentSetup,
   payNowPayroll,
@@ -40,6 +41,16 @@ export function usePayrollReadiness(runId?: string) {
     queryKey: [...queryKeys.payroll.all, tenantId, 'readiness', runId],
     queryFn: () => fetchPayrollReadiness(runId!),
     enabled: !tenantLoading && Boolean(tenantId && runId),
+  });
+}
+
+export function usePayrollSetupSummary(enabled = true) {
+  const { tenantId, isLoading: tenantLoading } = useTenant();
+
+  return useQuery({
+    queryKey: [...queryKeys.payroll.all, tenantId, 'setup-summary'],
+    queryFn: fetchPayrollSetupSummary,
+    enabled: enabled && !tenantLoading && Boolean(tenantId),
   });
 }
 

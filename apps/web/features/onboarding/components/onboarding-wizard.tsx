@@ -21,9 +21,8 @@ import {
   ONBOARDING_STEPS,
 } from '@/features/onboarding/lib/onboarding-steps';
 import { usePricingPreview } from '@/hooks/queries/use-pricing-preview';
-import { loadUserTenantsWithRetry, waitForAuthenticatedProfile } from '@/lib/api/auth';
+import { loadUserTenantsWithRetry, waitForSessionBootstrap } from '@/lib/api/auth';
 import { checkSlugAvailability, completeOnboarding } from '@/lib/api/onboarding';
-import { fetchBillingStatus } from '@/lib/api/subscriptions';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
 import { getBrowserTimezone } from '@/lib/geo/browser-region';
 import { subscribePageUrl, tenantUrl } from '@/lib/navigation/tenant-routes';
@@ -185,11 +184,17 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
   const completeMutation = useMutation({
     mutationFn: completeOnboarding,
     onSuccess: async (result) => {
-      await waitForAuthenticatedProfile({ attempts: 6, baseDelayMs: 150 });
+      await waitForSessionBootstrap({ attempts: 6, baseDelayMs: 150 });
 
-      const tenants = await loadUserTenantsWithRetry({ attempts: 8, baseDelayMs: 250 });
-      queryClient.setQueryData(queryKeys.tenants.all, tenants);
-      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      const bootstrap = await waitForSessionBootstrap({ attempts: 8, baseDelayMs: 250 });
+      if (bootstrap) {
+        queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+        queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
+      } else {
+        const tenants = await loadUserTenantsWithRetry({ attempts: 8, baseDelayMs: 250 });
+        queryClient.setQueryData(queryKeys.tenants.all, tenants);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      }
 
       if (result.tenant?.id) {
         await queryClient.invalidateQueries({
@@ -207,16 +212,10 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
 
       if (result.tenant.slug) {
         persistTenantSlug(result.tenant.slug);
-        try {
-          if (result.tenant.id) {
-            const billing = await fetchBillingStatus(result.tenant.id);
-            if (billing.paymentsEnabled && billing.needsPayment) {
-              window.location.assign(subscribePageUrl({ workspace: result.tenant.slug }));
-              return;
-            }
-          }
-        } catch {
-          // Fall through to dashboard; SubscriptionGate catches unpaid workspaces.
+        const workspace = bootstrap?.workspaces.find((item) => item.id === result.tenant.id);
+        if (bootstrap?.paymentsEnabled && workspace?.needsPayment) {
+          window.location.assign(subscribePageUrl({ workspace: result.tenant.slug }));
+          return;
         }
         window.location.assign(tenantUrl(result.tenant.slug, '/'));
       }

@@ -22,6 +22,7 @@ import { tenantFrontendUrl } from '../../../../common/utils/tenant-frontend-url.
 import { EmploymentService } from '../../employment/employment.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
@@ -74,6 +75,7 @@ export class PayrollService {
     private readonly payrollCalculationService: PayrollCalculationService,
     private readonly auditService: AuditService,
     private readonly employmentService: EmploymentService,
+    private readonly tenantMembersService: TenantMembersService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly tenantsService: TenantsService,
     private readonly manualDisbursementService: ManualDisbursementService,
@@ -94,9 +96,10 @@ export class PayrollService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      const normalizedCurrency = dto.baseCurrency.trim().toUpperCase();
       const finalIdempotencyKey =
         idempotencyKey ||
-        `${tenantId}-${dto.periodStart.toISOString()}-${dto.periodEnd.toISOString()}`;
+        `${tenantId}-${dto.periodStart.toISOString()}-${dto.periodEnd.toISOString()}-${normalizedCurrency}`;
       await queryRunner.query(`SELECT id FROM tenants WHERE id = $1 FOR UPDATE`, [tenantId]);
       if (finalIdempotencyKey) {
         const existingByKey = await this.payrollRunRepository.findOne({
@@ -112,6 +115,7 @@ export class PayrollService {
           tenantId,
           periodStart: dto.periodStart,
           periodEnd: dto.periodEnd,
+          baseCurrency: normalizedCurrency,
         },
       });
       if (existingRun) {
@@ -124,7 +128,7 @@ export class PayrollService {
         periodStart: dto.periodStart,
         periodEnd: dto.periodEnd,
         paymentDate: dto.paymentDate,
-        baseCurrency: dto.baseCurrency,
+        baseCurrency: normalizedCurrency,
         status: PayrollStatus.DRAFT,
         employeeCount: dto.employeeIds.length,
         createdById,
@@ -139,10 +143,10 @@ export class PayrollService {
           memberId,
           status: PayrollItemStatus.PENDING,
           baseSalary: 0,
-          baseSalaryCurrency: dto.baseCurrency,
+          baseSalaryCurrency: normalizedCurrency,
           grossAmount: 0,
           netAmount: 0,
-          paymentCurrency: dto.baseCurrency,
+          paymentCurrency: normalizedCurrency,
           paymentAmount: 0,
           exchangeRate: 1,
         });
@@ -154,7 +158,7 @@ export class PayrollService {
           title: dto.title,
           frequency: dto.frequency,
           employeeCount: dto.employeeIds.length,
-          baseCurrency: dto.baseCurrency,
+          baseCurrency: normalizedCurrency,
         },
       );
       this.productAnalytics.capture(createdById, 'payroll_created', { tenantId });
@@ -726,7 +730,7 @@ export class PayrollService {
   async processPayroll(dto: ProcessPayrollWithAudit): Promise<void> {
     if (!isPayrollGatewayEnabled()) {
       throw new BadRequestException(
-        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify (NGN) and/or Noah credentials.',
+        'Payroll gateway is not configured. Use manual disburse or configure Nomba/Monnify/Fincra (NGN) and/or Noah/Fincra credentials.',
       );
     }
     const payrollRun = await this.payrollRunRepository.findOne({
@@ -1038,6 +1042,58 @@ export class PayrollService {
       notReadyCount,
       canApprove: notReadyCount === 0,
       items,
+    };
+  }
+
+  async getWorkspaceSetupSummary(tenantId: string): Promise<{
+    totalEmployees: number;
+    paymentReadyCount: number;
+    byCurrency: Array<{ currency: string; employeeCount: number; paymentReadyCount: number }>;
+  }> {
+    const [salaries, members] = await Promise.all([
+      this.employmentService.getCurrentSalariesForTenant(tenantId),
+      this.tenantMembersService.getTenantMembers(tenantId),
+    ]);
+
+    const activeMemberIds = new Set(members.filter((member) => member.isActive).map((m) => m.id));
+    const eligibleSalaries = salaries.filter((salary) => activeMemberIds.has(salary.memberId));
+
+    const memberIdsByCurrency = new Map<string, string[]>();
+    for (const salary of eligibleSalaries) {
+      const currency = salary.currency.toUpperCase();
+      const memberIds = memberIdsByCurrency.get(currency) ?? [];
+      memberIds.push(salary.memberId);
+      memberIdsByCurrency.set(currency, memberIds);
+    }
+
+    let paymentReadyCount = 0;
+    const byCurrency: Array<{
+      currency: string;
+      employeeCount: number;
+      paymentReadyCount: number;
+    }> = [];
+
+    for (const [currency, memberIds] of memberIdsByCurrency.entries()) {
+      const readinessResults = await this.paymentMethodService.assessBulkPayrollReadiness(
+        tenantId,
+        memberIds,
+        currency,
+      );
+      const readyInCurrency = readinessResults.filter((result) => result.ready).length;
+      paymentReadyCount += readyInCurrency;
+      byCurrency.push({
+        currency,
+        employeeCount: memberIds.length,
+        paymentReadyCount: readyInCurrency,
+      });
+    }
+
+    byCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
+
+    return {
+      totalEmployees: eligibleSalaries.length,
+      paymentReadyCount,
+      byCurrency,
     };
   }
 

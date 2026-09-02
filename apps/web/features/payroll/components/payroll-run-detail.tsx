@@ -585,16 +585,22 @@ export function PayrollRunDetail({
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {isAdmin ? (
-                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox component is wrapped inside label
-                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                  <Checkbox checked={sendEmail} onCheckedChange={(v) => setSendEmail(v === true)} />
-                  Send email on publish
-                  {tenantSettings?.settings?.general?.emailPayslipOnPublish ? (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      (workspace default: on)
-                    </span>
-                  ) : null}
-                </label>
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  <Checkbox
+                    id="send-email-on-publish"
+                    checked={sendEmail}
+                    onCheckedChange={(v) => setSendEmail(v === true)}
+                  />
+                  <Label htmlFor="send-email-on-publish" className="font-normal">
+                    Send email on publish
+                    {tenantSettings?.settings?.general?.emailPayslipOnPublish ? (
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        {' '}
+                        (workspace default: on)
+                      </span>
+                    ) : null}
+                  </Label>
+                </div>
               ) : null}
               <Button
                 size="sm"

@@ -29,7 +29,7 @@ import {
   useTenantSettings,
 } from '@/hooks/queries/use-tenant-settings';
 import { useDeleteTenant, useUpdateTenant } from '@/hooks/queries/use-tenants';
-import { fetchUserTenants } from '@/lib/api/tenants';
+import { getSession } from '@/lib/api/auth';
 import { SUPPORTED_CRYPTO_CURRENCIES, SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { cn } from '@/lib/utils';
@@ -303,7 +303,7 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             label="Crypto payroll"
             className="lg:col-span-2"
-            hint="Allow crypto payout rails (USDC, USDT, BTC, ETH). Independent from rewards wallet funding."
+            hint="Allow crypto payout rails (USDC, USDT). Independent from rewards wallet funding."
           >
             <div className="flex items-center gap-3">
               <Switch
@@ -434,8 +434,15 @@ export function SettingsWorkspaceTab() {
                     setDeleteWorkspaceOpen(false);
                     setDeleteConfirmName('');
                     try {
-                      const tenants = await fetchUserTenants();
-                      const href = await resolvePostAuthHref({ tenants });
+                      const bootstrap = await getSession();
+                      if (!bootstrap) {
+                        goToHref('/signin', router.push);
+                        return;
+                      }
+                      const href = await resolvePostAuthHref({
+                        tenants: bootstrap.workspaces,
+                        paymentsEnabled: bootstrap.paymentsEnabled,
+                      });
                       goToHref(href, router.push);
                     } catch {
                       toast.error('Workspace deleted, but we could not refresh your workspaces.');

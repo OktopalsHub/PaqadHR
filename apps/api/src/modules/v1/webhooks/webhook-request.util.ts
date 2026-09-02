@@ -1,10 +1,7 @@
-import { Logger } from '@nestjs/common';
 import type { Request } from 'express';
+import { isPayrollMerchantRef } from '../payroll/utils/payroll-merchant-ref.util';
 
 type RawBodyRequest = Request & { rawBody?: Buffer };
-
-const PAYROLL_REF_PATTERN = /^payroll_([0-9a-f-]{36})_([0-9a-f-]{36})$/i;
-const _monnifyWalletWebhookLogger = new Logger('MonnifyWalletWebhook');
 
 export function getNombaRawBody(req: RawBodyRequest): string {
   return req.rawBody?.toString('utf8') ?? '';
@@ -28,6 +25,10 @@ export function resolveMonnifySignature(headers: Record<string, string | undefin
   return headers['x-monnify-signature'] ?? headers['monnify-signature'] ?? '';
 }
 
+export function resolveFincraSignature(headers: Record<string, string | undefined>): string {
+  return headers.signature ?? headers['x-fincra-signature'] ?? '';
+}
+
 export function extractNombaEventType(payload: unknown): string {
   const body = payload as { event_type?: string; eventType?: string; event?: string };
   return String(body.event_type || body.eventType || body.event || '').toLowerCase();
@@ -46,13 +47,13 @@ export function extractPayrollMerchantRef(payload: unknown): string | null {
     body.data?.transaction?.merchantTxRef ??
     body.data?.order?.orderMetaData?.merchantTxRef ??
     '';
-  return PAYROLL_REF_PATTERN.test(ref) ? ref : null;
+  return isPayrollMerchantRef(ref) ? ref : null;
 }
 
 export function extractNoahPayrollExternalId(payload: unknown): string | null {
   const body = payload as { data?: { externalID?: string; externalId?: string } };
   const ref = body.data?.externalID ?? body.data?.externalId ?? '';
-  return PAYROLL_REF_PATTERN.test(ref) ? ref : null;
+  return isPayrollMerchantRef(ref) ? ref : null;
 }
 
 export function isSubscriptionPaymentEvent(eventType: string): boolean {
@@ -271,7 +272,7 @@ export function extractMonnifyPayrollTransfer(payload: unknown): {
   ]
     .filter(Boolean)
     .map(String);
-  const merchantRef = candidates.find((ref) => PAYROLL_REF_PATTERN.test(ref));
+  const merchantRef = candidates.find((ref) => isPayrollMerchantRef(ref));
   if (!merchantRef) {
     return null;
   }

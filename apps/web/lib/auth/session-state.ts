@@ -15,3 +15,13 @@ export function isSessionBootstrapLoading(
 ): boolean {
   return sessionBootstrapEnabled && (isPending || isPlaceholderData);
 }
+
+/** Distinguishes settled unauthenticated sessions from transient bootstrap failures. */
+export function hasResolvedSessionBootstrap(
+  sessionBootstrapEnabled: boolean,
+  isFetched: boolean,
+  isPlaceholderData: boolean,
+  isError: boolean,
+): boolean {
+  return sessionBootstrapEnabled && isFetched && !isPlaceholderData && !isError;
+}

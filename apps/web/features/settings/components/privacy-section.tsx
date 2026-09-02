@@ -1,7 +1,6 @@
 'use client';
 
-import { CircleAlert, Download, Trash2 } from 'lucide-react';
-import Link from 'next/link';
+import { Download, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { logoutRequest } from '@/lib/api/auth';
 import { apiClient, clearCsrfToken } from '@/lib/api/client';
 import { clearAppCache } from '@/lib/cache';
@@ -79,25 +77,7 @@ export function PrivacySection() {
         {exporting ? 'Preparing export…' : 'Export my data'}
       </Button>
 
-      <div className="space-y-3 border-t border-border pt-6">
-        <div className="flex items-center gap-1.5">
-          <h3 className="text-sm font-medium">Delete account</h3>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href="/privacy#your-rights"
-                className="inline-flex text-muted-foreground hover:text-foreground"
-                aria-label="Your GDPR and NDPR rights and what deletion covers"
-              >
-                <CircleAlert className="size-3.5" />
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs text-xs">
-              Your GDPR/NDPR rights and what deletion covers.{' '}
-              <span className="text-primary underline">Learn more</span>
-            </TooltipContent>
-          </Tooltip>
-        </div>
+      <div className="border-t border-border pt-6">
         <Button size="sm" variant="destructive" disabled={busy} onClick={() => setDeleteOpen(true)}>
           <Trash2 className="mr-1 size-4" />
           Delete account

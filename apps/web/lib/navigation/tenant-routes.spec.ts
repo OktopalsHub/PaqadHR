@@ -76,6 +76,7 @@ test('rejects unsafe tenant slugs before they can be used in paths or hosts', ()
       () => buildTenantHost('acme?next=https://malicious.example'),
       /Invalid tenant slug/,
     );
+    assert.throws(() => buildTenantHost('api'), /Reserved tenant slug/);
   });
 });
 

@@ -3,8 +3,8 @@
 import { LoaderCircle, ShieldCheck } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { memo, useEffect } from 'react';
-import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { subscribePagePath } from '@/lib/navigation/tenant-routes';
+import { useAuth } from '@/providers/auth-provider';
 import { useTenant } from '@/providers/tenant-provider';
 
 export const SubscriptionGate = memo(function SubscriptionGate({
@@ -14,14 +14,21 @@ export const SubscriptionGate = memo(function SubscriptionGate({
 }) {
   const router = useRouter();
   const { tenant } = useTenant();
-  const { data: billing, isLoading } = useBillingOverview();
+  const {
+    featureGatingEnabled,
+    paymentsEnabled,
+    hasResolvedSession,
+    isLoading: authLoading,
+  } = useAuth();
+
+  const isLoading = authLoading || !hasResolvedSession;
 
   const shouldBlockPayment =
-    Boolean(billing?.featureGatingEnabled) &&
-    Boolean(billing?.paymentsEnabled) &&
-    billing?.needsPayment === true;
+    hasResolvedSession &&
+    Boolean(featureGatingEnabled) &&
+    Boolean(paymentsEnabled) &&
+    Boolean(tenant?.needsPayment);
 
-  // Unpaid workspaces are sent to /subscribe before any private route (including settings) renders.
   useEffect(() => {
     if (isLoading || !tenant?.slug) return;
     if (shouldBlockPayment) {

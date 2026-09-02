@@ -16,6 +16,7 @@ onlyBuiltDependencies:
   - argon2
 
 overrides:
+  browserslist: ">=4.28.7"
   flatted: ">=3.4.2"
   tar: ">=7.5.16"
   postcss: ">=8.5.18"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { Banknote, CheckCircle2, Loader2, Send, ShieldCheck, Trash2 } from 'lucide-react';
+import { CheckCircle2, Loader2, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BankLogo } from '@/components/bank-logo';
@@ -168,9 +168,6 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
             <DialogTitle>Delete payment method</DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
-            <p className="text-sm text-muted-foreground">
-              This removes the bank account from payroll. Enter your payment passcode to confirm.
-            </p>
             <div className="space-y-2">
               <Label>Payment passcode</Label>
               <PasswordInput
@@ -185,7 +182,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
               disabled={deleteMethod.isPending}
               onClick={handleDelete}
             >
-              Delete account
+              Delete
             </Button>
           </div>
         </DialogContent>
@@ -479,7 +476,7 @@ export function PaymentSettingsSection() {
       setWalletAddress('');
       setCryptoNetwork('');
       setPasscode('');
-      toast.success('Payment account saved as draft. Submit for admin verification when ready.');
+      toast.success('Payment account saved as draft.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save payment settings');
     }
@@ -518,16 +515,6 @@ export function PaymentSettingsSection() {
 
   return (
     <div className="space-y-4">
-      <Alert>
-        <Banknote className="size-4" />
-        <AlertTitle>Payroll bank account</AlertTitle>
-        <AlertDescription>
-          Add your payment account, then submit it for admin verification. You must have at least
-          one primary account to receive payroll. Your first account is automatically set as
-          primary.
-        </AlertDescription>
-      </Alert>
-
       {methods.length === 0 ? (
         <p className="text-sm text-muted-foreground">No payment method on file yet.</p>
       ) : (
@@ -545,11 +532,7 @@ export function PaymentSettingsSection() {
                     Rejected: {method.verificationNotes}
                   </p>
                 ) : null}
-                {method.status === 'draft' ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Draft — submit for admin verification when ready.
-                  </p>
-                ) : null}
+
                 {method.status === 'pending_verification' ? (
                   <p className="mt-1 text-xs text-muted-foreground">Submitted for admin review.</p>
                 ) : null}
@@ -619,7 +602,7 @@ export function PaymentSettingsSection() {
                 <Input
                   value={cryptoNetwork}
                   onChange={(e) => setCryptoNetwork(e.target.value)}
-                  placeholder="e.g. Bitcoin, Ethereum, Base"
+                  placeholder="e.g. ERC20, TRC20, Solana"
                 />
               </div>
             </>

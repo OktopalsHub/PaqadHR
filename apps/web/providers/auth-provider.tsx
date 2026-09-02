@@ -17,14 +17,13 @@ import { PrivacyConsentGate } from '@/features/auth/components/privacy-consent-g
 import {
   clearSession,
   getSession,
-  loadUserTenantsWithRetry,
   login as loginRequest,
   logoutRequest,
-  persistUserSession,
+  mapSessionUser,
   type RegistrationResponse,
   register as registerRequest,
   verifyEmail as verifyEmailRequest,
-  waitForAuthenticatedProfile,
+  waitForSessionBootstrap,
 } from '@/lib/api/auth';
 import {
   setRefreshCallbacks,
@@ -32,16 +31,26 @@ import {
   stopProactiveRefresh,
 } from '@/lib/api/auth-refresh';
 import { bootstrapCsrf } from '@/lib/api/client';
-import { isServerValidatedSession, isSessionBootstrapLoading } from '@/lib/auth/session-state';
-import { cacheKeys, clearAppCache, getCached, setCached } from '@/lib/cache';
+import {
+  hasResolvedSessionBootstrap,
+  isServerValidatedSession,
+  isSessionBootstrapLoading,
+} from '@/lib/auth/session-state';
+import { cacheKeys, clearAppCache, getCached, MAX_CACHE_TTL, setCached } from '@/lib/cache';
 import { skipsSessionBootstrap } from '@/lib/navigation/public-routes';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
+import type { SessionBootstrap } from '@/lib/schemas/session-bootstrap';
+import type { Tenant } from '@/lib/schemas/tenant';
 
 interface AuthContextType {
   user: User | null;
+  workspaces: Tenant[];
+  paymentsEnabled: boolean;
+  featureGatingEnabled: boolean;
+  hasResolvedSession: boolean;
   login: (input: LoginInput) => Promise<void>;
   register: (input: SignupInput) => Promise<RegistrationResponse>;
   verifyEmail: (email: string, code: string) => Promise<void>;
@@ -62,45 +71,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const queryClient = useQueryClient();
   const [hasHydrated, setHasHydrated] = useState(false);
-  // Read the browser path for the first client render. During hydration,
-  // Next's pathname state can briefly lag behind the URL; starting the session
-  // query in that window sends an unnecessary profile request on auth pages.
   const currentPathname = typeof window === 'undefined' ? pathname : window.location.pathname;
   const sessionBootstrapEnabled = !skipsSessionBootstrap(currentPathname);
 
-  // sessionStorage is not available on the server. Read it only after the
-  // initial client render so protected UI has identical server/client HTML.
   useEffect(() => {
     setHasHydrated(true);
   }, []);
 
-  // Apply the cached session immediately after hydration while the server
-  // session check continues in the background.
   const cachedSession = useMemo(() => {
     if (!hasHydrated || !sessionBootstrapEnabled) return null;
-    return getCached<User>(cacheKeys.auth.session);
+    return getCached<SessionBootstrap>(cacheKeys.auth.session);
   }, [hasHydrated, sessionBootstrapEnabled]);
 
   const sessionQuery = useQuery({
     queryKey: queryKeys.auth.session,
     queryFn: async () => {
-      const user = await getSession();
-      // Cache the session for instant subsequent loads
-      if (user) {
-        setCached(cacheKeys.auth.session, user, { ttl: 30 * 60 * 1000 }); // 30 minutes
+      const bootstrap = await getSession();
+      if (bootstrap) {
+        setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+        queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
       }
-      return user;
+      return bootstrap;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes — revalidate periodically so expired sessions are caught
+    staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     retry: 1,
     enabled: sessionBootstrapEnabled,
-    // placeholderData shows cached session during loading but does NOT mark query as fresh
-    // This prevents stale authenticated UI while the server session is validated
     placeholderData: cachedSession ?? undefined,
   });
 
-  // Start proactive token refresh when user is authenticated
+  const hasResolvedSession = hasResolvedSessionBootstrap(
+    sessionBootstrapEnabled,
+    sessionQuery.isFetched,
+    sessionQuery.isPlaceholderData,
+    sessionQuery.isError,
+  );
+
   useEffect(() => {
     setRefreshCallbacks({
       onSuccess: () => {
@@ -121,26 +127,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionQuery.data]);
 
-  const navigateAfterAuth = useCallback(async () => {
-    await waitForAuthenticatedProfile({ attempts: 3, baseDelayMs: 100 });
+  const navigateAfterAuth = useCallback(
+    async (bootstrap: SessionBootstrap) => {
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
 
-    await queryClient.invalidateQueries({ queryKey: queryKeys.tenants.all });
-
-    const tenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
-    queryClient.setQueryData(queryKeys.tenants.all, tenants);
-
-    const redirect = readRedirectParam();
-    const href = await resolvePostAuthHref({ tenants, redirect });
-    goToHref(href, router.push);
-  }, [queryClient, router]);
+      const redirect = readRedirectParam();
+      const href = await resolvePostAuthHref({
+        tenants: bootstrap.workspaces,
+        paymentsEnabled: bootstrap.paymentsEnabled,
+        redirect,
+      });
+      goToHref(href, router.push);
+    },
+    [queryClient, router],
+  );
 
   const loginMutation = useMutation({
     mutationFn: loginRequest,
-    onSuccess: async (user) => {
-      queryClient.setQueryData(queryKeys.auth.session, user);
+    onSuccess: async (bootstrap) => {
+      setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
       await bootstrapCsrf();
       toast.success(<ToastMessage title="Login Successful" description="Welcome back!" />);
-      await navigateAfterAuth();
+      await navigateAfterAuth(bootstrap);
     },
     onError: (error: Error) => {
       toast.error(<ToastMessage title="Login Failed" description={error.message} />);
@@ -164,22 +175,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyEmail = useCallback(
     async (email: string, code: string) => {
-      await verifyEmailRequest(email, code);
-      await bootstrapCsrf();
-
-      const profile = await waitForAuthenticatedProfile({ attempts: 5, baseDelayMs: 150 });
-      if (!profile) {
-        throw new Error('Email verified, but we could not start your session. Please sign in.');
-      }
-
-      const tenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
-      const user = persistUserSession(profile, tenants.length === 0);
-      setCached(cacheKeys.auth.session, user, { ttl: 30 * 60 * 1000 });
-      queryClient.setQueryData(queryKeys.auth.session, user);
-      queryClient.setQueryData(queryKeys.tenants.all, tenants);
+      const bootstrap = await verifyEmailRequest(email, code);
+      setCached(cacheKeys.auth.session, bootstrap, { ttl: MAX_CACHE_TTL });
+      queryClient.setQueryData(queryKeys.auth.session, bootstrap);
+      queryClient.setQueryData(queryKeys.tenants.all, bootstrap.workspaces);
 
       const redirect = readRedirectParam();
-      const href = await resolvePostAuthHref({ tenants, redirect });
+      const href = await resolvePostAuthHref({
+        tenants: bootstrap.workspaces,
+        paymentsEnabled: bootstrap.paymentsEnabled,
+        redirect,
+      });
       goToHref(href, router.replace);
     },
     [queryClient, router],
@@ -199,11 +205,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAppCache();
     toast(<ToastMessage title="Logout Successful" description="You have been logged out" />);
     window.location.assign(authPageUrl('/signin'));
-  }, [queryClient]); // window.location.assign intentional: full state teardown on logout
+  }, [queryClient]);
+
+  const sessionUser = sessionQuery.data ? mapSessionUser(sessionQuery.data) : null;
 
   const value = useMemo<AuthContextType>(
     () => ({
-      user: sessionQuery.data ?? null,
+      user: sessionUser,
+      workspaces: sessionQuery.data?.workspaces ?? [],
+      paymentsEnabled: sessionQuery.data?.paymentsEnabled ?? false,
+      featureGatingEnabled: sessionQuery.data?.featureGatingEnabled ?? false,
+      hasResolvedSession,
       login: async (input) => {
         await loginMutation.mutateAsync(input);
       },
@@ -212,9 +224,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       verifyEmail,
       logout,
-      // Placeholder data is only a visual cache. A session is authenticated
-      // only after React Query has replaced it with the server's response.
-      isAuthenticated: isServerValidatedSession(sessionQuery.data, sessionQuery.isPlaceholderData),
+      isAuthenticated: isServerValidatedSession(sessionUser, sessionQuery.isPlaceholderData),
       isLoading:
         isSessionBootstrapLoading(
           sessionBootstrapEnabled,
@@ -229,6 +239,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionQuery.data,
       sessionQuery.isPending,
       sessionQuery.isPlaceholderData,
+      sessionUser,
+      hasResolvedSession,
       loginMutation,
       registerMutation,
       verifyEmail,
@@ -251,3 +263,6 @@ export function useAuth() {
   }
   return context;
 }
+
+// Used by OAuth completion when cookies attach after redirect.
+export { waitForSessionBootstrap };

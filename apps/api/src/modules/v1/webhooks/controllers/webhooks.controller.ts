@@ -23,6 +23,7 @@ import type {
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
+import { FincraWebhookService } from '../services/fincra-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
@@ -30,6 +31,7 @@ import { PolarWebhookService } from '../services/polar-webhook.service';
 import { TremendousWebhookService } from '../services/tremendous-webhook.service';
 import {
   getNombaRawBody,
+  resolveFincraSignature,
   resolveMonnifySignature,
   resolveNoahSignature,
   resolveNombaSignature,
@@ -45,6 +47,7 @@ export class WebhooksController {
     private readonly nombaWebhookService: NombaWebhookService,
     private readonly monnifyWebhookService: MonnifyWebhookService,
     private readonly noahWebhookService: NoahWebhookService,
+    private readonly fincraWebhookService: FincraWebhookService,
     private readonly bachsWebhookService: BachsWebhookService,
     private readonly polarWebhookService: PolarWebhookService,
     private readonly slackWebhookService: SlackWebhookService,
@@ -121,6 +124,19 @@ export class WebhooksController {
       'noah',
       this.noahWebhookService.dispatch(rawBody, resolveNoahSignature(headers)),
     );
+  }
+
+  @Post('fincra')
+  @Public()
+  @RateLimit(RateLimitPresets.PUBLIC)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Fincra payment webhook (payroll payouts, wallet funding)' })
+  handleFincraWebhook(@Req() req: RawBodyRequestType, @Headers() headers: Record<string, string>) {
+    const rawBody = getNombaRawBody(req);
+    if (!rawBody) {
+      throw new UnauthorizedException('Missing raw webhook body');
+    }
+    return this.fincraWebhookService.dispatch(rawBody, resolveFincraSignature(headers));
   }
 
   @Post('bachs')

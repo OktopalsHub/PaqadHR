@@ -114,6 +114,9 @@ export function buildTenantHost(slug: string, hostSuffix?: string): string {
   if (!isValidTenantSlug(slug)) {
     throw new Error('Invalid tenant slug');
   }
+  if (isReservedTenantSlug(slug)) {
+    throw new Error('Reserved tenant slug');
+  }
 
   const suffix = hostSuffix ?? inferTenantHostSuffix();
   return `${slug}${suffix}`;

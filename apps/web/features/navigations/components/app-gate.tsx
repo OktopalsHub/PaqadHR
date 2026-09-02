@@ -1,32 +1,27 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { LoadingBlock, LoadingSpinner } from '@/components/loading-block';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
-import { loadUserTenantsWithRetry } from '@/lib/api/auth';
 import {
   captureAuthReturnTo,
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const queryClient = useQueryClient();
   const onboardingRedirectRef = useRef(false);
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { tenants, isLoading: tenantLoading, hasResolvedTenants, isError } = useTenant();
+  const { isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
+  const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
 
   useEffect(() => {
-    if (authLoading) return;
+    if (authLoading || !hasResolvedSession) return;
 
     if (!isAuthenticated) {
       const destination = resolveAuthDestination({
@@ -38,65 +33,38 @@ export function AppGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (tenantLoading || !hasResolvedTenants || isError) return;
+    if (!hasResolvedTenants) return;
 
-    void (async () => {
-      let resolvedTenants = tenants;
-      if (resolvedTenants.length === 0) {
-        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
-        if (resolvedTenants.length > 0) {
-          queryClient.setQueryData(queryKeys.tenants.all, resolvedTenants);
-          return;
-        }
-      }
-
-      const destination = resolveAuthDestination({
-        isAuthenticated: true,
-        tenants: resolvedTenants,
-      });
-      if (destination.type === 'onboarding' && !onboardingRedirectRef.current) {
-        onboardingRedirectRef.current = true;
-        goToAuthDestination(destination, router.replace);
-      }
-    })();
+    const destination = resolveAuthDestination({
+      isAuthenticated: true,
+      tenants,
+    });
+    if (destination.type === 'onboarding' && !onboardingRedirectRef.current) {
+      onboardingRedirectRef.current = true;
+      goToAuthDestination(destination, router.replace);
+    }
   }, [
     authLoading,
+    hasResolvedSession,
     isAuthenticated,
-    tenantLoading,
     hasResolvedTenants,
-    isError,
     tenants,
     pathname,
     router,
-    queryClient,
   ]);
 
-  if (isLoading || !hasResolvedTenants) {
-    // Do not blank every private page while session/workspace validation runs.
-    // Every API call remains server-authorized; this only lets the route render
-    // its own loading state instead of a permanent full-page spinner.
-    return <>{children}</>;
+  if (isLoading || !hasResolvedSession || !hasResolvedTenants) {
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated) {
     return <LoadingSpinner />;
   }
 
-  if (isError) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertTitle>Unable to load workspace</AlertTitle>
-          <AlertDescription>Refresh the page or try signing in again.</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   if (tenants.length === 0) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
+        <LoadingSpinner />
       </div>
     );
   }
