@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsDate,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -114,6 +115,7 @@ export class CreatePayrollRunDto {
     description: 'Scheduled payment date (any calendar day; usually on or after period end)',
   })
   @Type(() => Date)
+  @IsDate({ message: 'Expected pay date must be a valid date' })
   paymentDate: Date;
   @ApiProperty({
     description:

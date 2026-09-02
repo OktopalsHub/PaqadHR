@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { AvatarUpload } from '@/components/avatar-upload';
@@ -23,9 +24,15 @@ import {
 } from '@/hooks/queries/use-member-profile';
 import { useAuth } from '@/hooks/use-auth';
 import { changePassword, fetchAuthSecurity } from '@/lib/api/auth';
+import { subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { isStrongPassword, STRONG_PASSWORD_MESSAGE } from '@/lib/password-policy';
+import { useTenant } from '@/providers/tenant-provider';
 
 export function SettingsProfileTab() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { tenant } = useTenant();
+  const isSetupMode = searchParams.get('setup') === '1';
   const { user } = useAuth();
   const { data: profile, isLoading } = useMemberProfile();
   const updateProfile = useUpdateMemberProfile();
@@ -69,6 +76,11 @@ export function SettingsProfileTab() {
         lastName: lastName.trim(),
         preferredName: preferredName.trim() || undefined,
       });
+      if (isSetupMode && tenant?.slug) {
+        toast.success('Profile saved');
+        router.push(subscribePagePath({ welcome: true, workspace: tenant.slug }));
+        return;
+      }
       toast.success('Profile updated');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update profile');
@@ -147,6 +159,11 @@ export function SettingsProfileTab() {
       </div>
 
       <ContentCard title="Personal details">
+        {isSetupMode ? (
+          <p className="mb-4 text-sm text-muted-foreground">
+            Set up your profile for this workspace.
+          </p>
+        ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <SettingsFieldHint label="First name">
             <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -162,12 +179,16 @@ export function SettingsProfileTab() {
             />
           </SettingsFieldHint>
           <div className="sm:col-span-2">
-            <SettingsFormActions onSave={saveProfile} isPending={updateProfile.isPending} />
+            <SettingsFormActions
+              onSave={saveProfile}
+              isPending={updateProfile.isPending}
+              saveLabel={isSetupMode ? 'Continue' : 'Save'}
+            />
           </div>
         </div>
       </ContentCard>
 
-      {security?.canChangePassword ? (
+      {security?.canChangePassword && !isSetupMode ? (
         <ContentCard title="Security">
           <div className="grid gap-3 sm:max-w-md">
             <SettingsFieldHint label="New password">
@@ -209,13 +230,17 @@ export function SettingsProfileTab() {
         </ContentCard>
       ) : null}
 
-      <ContentCard title="Payment details">
-        <PaymentSettingsSection />
-      </ContentCard>
+      {!isSetupMode ? (
+        <ContentCard title="Payment details">
+          <PaymentSettingsSection />
+        </ContentCard>
+      ) : null}
 
-      <ContentCard title="Privacy & data">
-        <PrivacySection />
-      </ContentCard>
+      {!isSetupMode ? (
+        <ContentCard title="Privacy & data">
+          <PrivacySection />
+        </ContentCard>
+      ) : null}
     </div>
   );
 }

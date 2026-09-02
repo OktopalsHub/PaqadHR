@@ -240,11 +240,17 @@ export class PaymentMethodsController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: string; notes?: string },
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, tenantId, {
-      status: body.status as PaymentMethodStatus,
-      notes: body.notes,
-    });
+    return this.paymentMethodService.verifyPaymentMethod(
+      paymentMethodId,
+      tenantId,
+      {
+        status: body.status as PaymentMethodStatus,
+        notes: body.notes,
+      },
+      member.id,
+    );
   }
   @Get('member/:memberId')
   @UseGuards(TenantMemberGuard)

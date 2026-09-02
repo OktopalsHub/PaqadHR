@@ -187,8 +187,11 @@ export class PaymentMethodController {
   @UseGuards(TenantMemberGuard, TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'List payment methods awaiting admin verification' })
-  async listPendingVerification(@Param('tenantId') tenantId: string) {
-    return this.paymentMethodService.listPendingVerificationForTenant(tenantId);
+  async listPendingVerification(
+    @Param('tenantId') tenantId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.listPendingVerificationForTenant(tenantId, member.id);
   }
 
   @Get(':id')
@@ -239,8 +242,14 @@ export class PaymentMethodController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: VerifyPaymentMethodDto,
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, tenantId, body);
+    return this.paymentMethodService.verifyPaymentMethod(
+      paymentMethodId,
+      tenantId,
+      body,
+      member.id,
+    );
   }
   @Get(':paymentMethodId/passcode-history')
   @UseGuards(TenantMemberGuard)

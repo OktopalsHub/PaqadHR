@@ -4,6 +4,10 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { TenantMemberRole } from 'src/common/enums';
+import { TenantCounter } from '../tenant-members/entities/tenant-counter.entity';
+import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
+import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
+import { Tenant } from './entities/tenant.entity';
 import { TenantsService } from './tenants.service';
 
 describe('TenantsService', () => {
@@ -17,6 +21,7 @@ describe('TenantsService', () => {
   };
   let tenantMemberService: {
     getActiveMembershipSummaries: jest.Mock;
+    getUserMemberships?: jest.Mock;
   };
   let subscriptionsService: {
     getEntitlementsForTenants: jest.Mock;
@@ -323,6 +328,91 @@ describe('TenantsService', () => {
       ).resolves.toEqual(expect.objectContaining({ name: 'Acme HR', preferredCurrency: 'NGN' }));
 
       expect(tenantRepository.update).toHaveBeenCalled();
+    });
+  });
+
+  describe('createTenant', () => {
+    let userService: { getUser: jest.Mock };
+    let eventEmitter: { emit: jest.Mock };
+    let dataSource: { transaction: jest.Mock };
+    let auditLogsService: { queueAuditLog: jest.Mock };
+    let savedMember: Record<string, unknown> | undefined;
+
+    beforeEach(() => {
+      savedMember = undefined;
+      userService = {
+        getUser: jest.fn().mockResolvedValue({ id: 'user-1', name: 'Jane Doe' }),
+      };
+      tenantMemberService.getUserMemberships = jest
+        .fn()
+        .mockResolvedValue([{ firstName: 'Copied', lastName: 'Name', preferredName: 'Copied' }]);
+      tenantRepository.findBySlug = jest.fn().mockResolvedValue(null);
+
+      const tenantRepo = {
+        create: jest.fn((data) => data),
+        save: jest.fn(async (data) => ({ ...data, id: 'tenant-new' })),
+      };
+      const memberRepo = {
+        findOne: jest.fn().mockResolvedValue(null),
+        create: jest.fn((data) => data),
+        save: jest.fn(async (data) => {
+          savedMember = data;
+          return { ...data, id: 'member-new', joinDate: new Date() };
+        }),
+      };
+      const counterRepo = {
+        findOne: jest.fn().mockResolvedValue(null),
+        create: jest.fn((data) => data),
+        save: jest.fn(async (data) => data),
+      };
+      const settingsRepo = {
+        findOne: jest.fn().mockResolvedValue(null),
+      };
+
+      dataSource = {
+        transaction: jest.fn(async (cb) =>
+          cb({
+            getRepository: jest.fn((entity) => {
+              if (entity === Tenant) return tenantRepo;
+              if (entity === TenantMember) return memberRepo;
+              if (entity === TenantCounter) return counterRepo;
+              if (entity === TenantSettings) return settingsRepo;
+              throw new Error(`Unexpected repository for ${String(entity)}`);
+            }),
+          }),
+        ),
+      };
+
+      eventEmitter = { emit: jest.fn() };
+      auditLogsService = { queueAuditLog: jest.fn().mockResolvedValue(undefined) };
+
+      service = new TenantsService(
+        tenantRepository as never,
+        tenantMemberService as never,
+        subscriptionsService as never,
+        userService as never,
+        eventEmitter as never,
+        fileUrlService as never,
+        employmentRepository as never,
+        walletRepository as never,
+        walletTransactionRepository as never,
+        auditLogsService as never,
+        dataSource as never,
+      );
+    });
+
+    it('does not copy profile names from other workspace memberships', async () => {
+      await service.createTenant('user-1', { name: 'New Workspace', slug: 'new-workspace' });
+
+      expect(tenantMemberService.getUserMemberships).not.toHaveBeenCalled();
+      expect(savedMember).toEqual(
+        expect.objectContaining({
+          firstName: null,
+          lastName: null,
+          preferredName: null,
+          role: TenantMemberRole.OWNER,
+        }),
+      );
     });
   });
 });

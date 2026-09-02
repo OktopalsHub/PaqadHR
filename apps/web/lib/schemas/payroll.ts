@@ -52,6 +52,20 @@ export const payrollReadinessSchema = z.object({
 
 export type PayrollReadiness = z.infer<typeof payrollReadinessSchema>;
 
+export const payrollSetupSummarySchema = z.object({
+  totalEmployees: z.number(),
+  paymentReadyCount: z.number(),
+  byCurrency: z.array(
+    z.object({
+      currency: z.string(),
+      employeeCount: z.number(),
+      paymentReadyCount: z.number(),
+    }),
+  ),
+});
+
+export type PayrollSetupSummary = z.infer<typeof payrollSetupSummarySchema>;
+
 export const createPayrollRunInputSchema = z.object({
   title: z.string().min(3),
   frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']),

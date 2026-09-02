@@ -22,6 +22,7 @@ import { tenantFrontendUrl } from '../../../../common/utils/tenant-frontend-url.
 import { EmploymentService } from '../../employment/employment.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { TenantsService } from '../../tenants/tenants.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
@@ -74,6 +75,7 @@ export class PayrollService {
     private readonly payrollCalculationService: PayrollCalculationService,
     private readonly auditService: AuditService,
     private readonly employmentService: EmploymentService,
+    private readonly tenantMembersService: TenantMembersService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly tenantsService: TenantsService,
     private readonly manualDisbursementService: ManualDisbursementService,
@@ -1038,6 +1040,58 @@ export class PayrollService {
       notReadyCount,
       canApprove: notReadyCount === 0,
       items,
+    };
+  }
+
+  async getWorkspaceSetupSummary(tenantId: string): Promise<{
+    totalEmployees: number;
+    paymentReadyCount: number;
+    byCurrency: Array<{ currency: string; employeeCount: number; paymentReadyCount: number }>;
+  }> {
+    const [salaries, members] = await Promise.all([
+      this.employmentService.getCurrentSalariesForTenant(tenantId),
+      this.tenantMembersService.getTenantMembers(tenantId),
+    ]);
+
+    const activeMemberIds = new Set(members.filter((member) => member.isActive).map((m) => m.id));
+    const eligibleSalaries = salaries.filter((salary) => activeMemberIds.has(salary.memberId));
+
+    const memberIdsByCurrency = new Map<string, string[]>();
+    for (const salary of eligibleSalaries) {
+      const currency = salary.currency.toUpperCase();
+      const memberIds = memberIdsByCurrency.get(currency) ?? [];
+      memberIds.push(salary.memberId);
+      memberIdsByCurrency.set(currency, memberIds);
+    }
+
+    let paymentReadyCount = 0;
+    const byCurrency: Array<{
+      currency: string;
+      employeeCount: number;
+      paymentReadyCount: number;
+    }> = [];
+
+    for (const [currency, memberIds] of memberIdsByCurrency.entries()) {
+      const readinessResults = await this.paymentMethodService.assessBulkPayrollReadiness(
+        tenantId,
+        memberIds,
+        currency,
+      );
+      const readyInCurrency = readinessResults.filter((result) => result.ready).length;
+      paymentReadyCount += readyInCurrency;
+      byCurrency.push({
+        currency,
+        employeeCount: memberIds.length,
+        paymentReadyCount: readyInCurrency,
+      });
+    }
+
+    byCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
+
+    return {
+      totalEmployees: eligibleSalaries.length,
+      paymentReadyCount,
+      byCurrency,
     };
   }
 

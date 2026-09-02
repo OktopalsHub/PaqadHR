@@ -479,6 +479,7 @@ export class PaymentMethodService {
     paymentMethodId: string,
     tenantId: string,
     dto: VerifyPaymentMethodDto,
+    verifierMemberId: string,
   ): Promise<PaymentMethod> {
     const allowed = [
       PaymentMethodStatus.VERIFIED,
@@ -497,6 +498,9 @@ export class PaymentMethodService {
     });
     if (!paymentMethod) {
       throw new NotFoundException('Payment method not found');
+    }
+    if (paymentMethod.memberId === verifierMemberId) {
+      throw new ForbiddenException('You cannot verify your own payment account');
     }
     if (
       (dto.status === PaymentMethodStatus.VERIFIED ||
@@ -778,9 +782,7 @@ export class PaymentMethodService {
     }
     if (issues.includes(PayrollPaymentIssue.UNVERIFIED_PAYMENT_METHOD)) {
       if (methodStatus === PaymentMethodStatus.DRAFT) {
-        return runIsCrypto
-          ? 'Crypto wallet is saved as draft. Submit it for admin verification to be included in payroll.'
-          : 'Bank details are saved as draft. Submit them for admin verification to be included in payroll.';
+        return runIsCrypto ? 'Crypto wallet is in draft.' : 'Payment account is in draft.';
       }
       if (methodStatus === PaymentMethodStatus.REJECTED) {
         return runIsCrypto
@@ -812,7 +814,10 @@ export class PaymentMethodService {
     return 'Employee is not ready to receive payroll.';
   }
 
-  async listPendingVerificationForTenant(tenantId: string): Promise<
+  async listPendingVerificationForTenant(
+    tenantId: string,
+    excludeMemberId?: string,
+  ): Promise<
     Array<{
       id: string;
       memberId: string;
@@ -838,23 +843,25 @@ export class PaymentMethodService {
       order: { submittedAt: 'ASC', createdAt: 'ASC' },
     });
 
-    return methods.map((method) => ({
-      id: method.id,
-      memberId: method.memberId,
-      employeeName: method.member
-        ? `${method.member.firstName ?? ''} ${method.member.lastName ?? ''}`.trim()
-        : method.memberId,
-      currency: method.currency ?? 'NGN',
-      displayInfo: this.formatDisplayInfo(method),
-      bankName: method.bankName ?? undefined,
-      accountName: this.decryptField(method.accountName) ?? undefined,
-      institutionCode: method.bankCode ?? undefined,
-      accountLast4: this.maskAccountLast4(method.accountNumber),
-      isPrimary: method.isPrimary,
-      status: method.status,
-      createdAt: method.createdAt,
-      submittedAt: method.submittedAt,
-    }));
+    return methods
+      .filter((method) => method.memberId !== excludeMemberId)
+      .map((method) => ({
+        id: method.id,
+        memberId: method.memberId,
+        employeeName: method.member
+          ? `${method.member.firstName ?? ''} ${method.member.lastName ?? ''}`.trim()
+          : method.memberId,
+        currency: method.currency ?? 'NGN',
+        displayInfo: this.formatDisplayInfo(method),
+        bankName: method.bankName ?? undefined,
+        accountName: this.decryptField(method.accountName) ?? undefined,
+        institutionCode: method.bankCode ?? undefined,
+        accountLast4: this.maskAccountLast4(method.accountNumber),
+        isPrimary: method.isPrimary,
+        status: method.status,
+        createdAt: method.createdAt,
+        submittedAt: method.submittedAt,
+      }));
   }
 
   async findById(id: string, tenantId: string): Promise<PaymentMethod | null> {

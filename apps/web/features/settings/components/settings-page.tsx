@@ -45,12 +45,6 @@ export function SettingsPage() {
 
   return (
     <AppPage className="space-y-6">
-      <div>
-        <h1 className="text-[30px] font-semibold tracking-[-0.035em] text-slate-950 dark:text-slate-50">
-          Settings
-        </h1>
-      </div>
-
       <Tabs value={visibleTab} className="space-y-5">
         <TabsContent value="profile" className="mt-0 data-[state=inactive]:hidden">
           {visibleTab === 'profile' && (

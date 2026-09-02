@@ -1,3 +1,5 @@
+import { ForbiddenException } from '@nestjs/common';
+import { PaymentMethodStatus } from '../../../../common/enums/payment-method-status.enum';
 import { EncryptionService } from '../../../../common/services/encryption.service';
 import type { PaymentMethod } from '../entities/payment-method.entity';
 import { PaymentMethodService } from './payment-method.service';
@@ -18,6 +20,7 @@ describe('PaymentMethodService encryption and masking', () => {
       {} as never,
       { getPayrollCurrencies: jest.fn(), requireIdentityForPayroll: jest.fn() } as never,
       { getTenant: jest.fn() } as never,
+      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -52,5 +55,47 @@ describe('PaymentMethodService encryption and masking', () => {
     } as PaymentMethod;
 
     expect(formatDisplayInfo(method)).toBe('GTBank - 6789');
+  });
+});
+
+describe('PaymentMethodService verification', () => {
+  it('rejects self-verification of a payment method', async () => {
+    const memberId = 'member-self';
+    const paymentMethodRepository = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'pm-1',
+        tenantId: 'tenant-1',
+        memberId,
+        status: PaymentMethodStatus.PENDING_VERIFICATION,
+        currency: 'NGN',
+        isPrimary: true,
+      }),
+    };
+    const service = new PaymentMethodService(
+      paymentMethodRepository as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      new EncryptionService(),
+      { log: jest.fn() } as never,
+      {} as never,
+      { getPayrollCurrencies: jest.fn(), requireIdentityForPayroll: jest.fn() } as never,
+      { getTenant: jest.fn() } as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    await expect(
+      service.verifyPaymentMethod(
+        'pm-1',
+        'tenant-1',
+        { status: PaymentMethodStatus.VERIFIED },
+        memberId,
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

@@ -63,7 +63,6 @@ export class TenantsService {
       }
       const inviteCode = StringUtility.generateInviteCode();
       const employeeCode = this.generateEmployeeCode(data.name);
-      const ownerProfile = await this.resolveOwnerMemberProfile(creatorId, user.name);
 
       const { savedTenant, tenantMember } = await this.dataSource.transaction(async (manager) => {
         const tenantRepo = manager.getRepository(Tenant);
@@ -127,9 +126,9 @@ export class TenantsService {
           isActive: true,
           joinDate: new Date(),
           employeeNumber,
-          firstName: ownerProfile.firstName,
-          lastName: ownerProfile.lastName,
-          preferredName: ownerProfile.preferredName ?? ownerProfile.firstName,
+          firstName: null,
+          lastName: null,
+          preferredName: null,
         });
         const tenantMember = await memberRepo.save(memberEntity);
 
@@ -180,30 +179,6 @@ export class TenantsService {
       }
       throw new UnprocessableEntityException('Failed to create tenant. Please try again.');
     }
-  }
-  private async resolveOwnerMemberProfile(
-    userId: string,
-    userName?: string | null,
-  ): Promise<{ firstName?: string; lastName?: string; preferredName?: string }> {
-    const memberships = await this.tenantMemberService.getUserMemberships(userId);
-    const named = memberships.find(
-      (member) =>
-        member.firstName?.trim() || member.lastName?.trim() || member.preferredName?.trim(),
-    );
-    if (named) {
-      return {
-        firstName: named.firstName ?? undefined,
-        lastName: named.lastName ?? undefined,
-        preferredName: named.preferredName ?? named.firstName ?? undefined,
-      };
-    }
-    const parts = userName?.trim().split(/\s+/).filter(Boolean) ?? [];
-    if (parts.length === 0) return {};
-    return {
-      firstName: parts[0],
-      lastName: parts.length > 1 ? parts.slice(1).join(' ') : undefined,
-      preferredName: parts[0],
-    };
   }
   async listTenants(includeDeleted: boolean = false): Promise<Tenant[]> {
     return this.tenantRepository.find({ withDeleted: includeDeleted });

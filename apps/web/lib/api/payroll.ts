@@ -5,6 +5,7 @@ import type {
   PayrollReadiness,
   PayrollRun,
   PayrollRunsResponse,
+  PayrollSetupSummary,
 } from '@/lib/schemas/payroll';
 
 export async function fetchPayrollRuns(): Promise<PayrollRunsResponse> {
@@ -102,6 +103,11 @@ export async function downloadPayslipPdf(runId: string, itemId: string, filename
 export async function fetchPayrollReadiness(id: string): Promise<PayrollReadiness> {
   const tenantId = await resolveTenantId();
   return apiClient<PayrollReadiness>(tenantPath(tenantId, `payroll/runs/${id}/readiness`));
+}
+
+export async function fetchPayrollSetupSummary(): Promise<PayrollSetupSummary> {
+  const tenantId = await resolveTenantId();
+  return apiClient<PayrollSetupSummary>(tenantPath(tenantId, 'payroll/setup-summary'));
 }
 
 export async function removePayrollItem(runId: string, itemId: string): Promise<void> {

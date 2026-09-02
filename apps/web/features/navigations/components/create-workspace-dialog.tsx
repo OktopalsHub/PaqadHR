@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { WorkspaceSlugField } from '@/features/navigations/components/workspace-slug-field';
 import { useCreateTenant } from '@/hooks/queries/use-tenants';
-import { subscribePagePath } from '@/lib/navigation/tenant-routes';
+import { tenantPath } from '@/lib/navigation/tenant-routes';
 import { queryKeys } from '@/lib/query/keys';
 import { persistTenantId, persistTenantSlug } from '@/lib/session';
 import { isSlugFormatValid } from '@/lib/utils/slug';
@@ -58,7 +58,7 @@ export function CreateWorkspaceDialog({ open, onOpenChange }: CreateWorkspaceDia
       persistTenantId(tenant.id);
       if (tenant.slug) {
         persistTenantSlug(tenant.slug);
-        router.push(subscribePagePath({ welcome: true, workspace: tenant.slug }));
+        router.push(tenantPath(tenant.slug, 'settings?tab=profile&setup=1'));
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to create workspace');

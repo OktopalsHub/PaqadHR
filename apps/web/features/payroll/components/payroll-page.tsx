@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -11,6 +11,7 @@ import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -39,9 +40,17 @@ import {
   usePayrollActions,
   usePayrollReadiness,
   usePayrollRuns,
+  usePayrollSetupSummary,
 } from '@/hooks/queries/use-payroll';
 import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
+import {
+  describePayrollPeriodError,
+  FREQUENCY_OPTIONS,
+  lastDayOfMonthIso,
+  type PayrollFrequency,
+  periodRulesHint,
+} from '@/lib/payroll-period';
 import type { PayrollRun } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -202,13 +211,19 @@ export function PayrollPage() {
   const [periodEnd, setPeriodEnd] = useState(defaultEnd);
   const [paymentDate, setPaymentDate] = useState(defaultPayDate);
   const [baseCurrency, setBaseCurrency] = useState('NGN');
+  const [frequency, setFrequency] = useState<PayrollFrequency>('monthly');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
   const { data: employees = [] } = useEmployees();
   const { tenant } = useTenant();
+  const role = tenant?.member?.role;
+  const viewerMemberId = tenant?.member?.id;
+  const isAdmin = isTenantAdmin(role);
   const { data: billingOverview } = useBillingOverview();
   const { data: currencyOptions } = useSupportedPaymentCurrencies();
   const { data, isLoading, isError, error } = usePayrollRuns();
   const { data: readiness } = usePayrollReadiness(selectedRunId ?? undefined);
+  const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
   const createRun = useCreatePayrollRun();
   const actions = usePayrollActions();
 
@@ -239,9 +254,30 @@ export function PayrollPage() {
     actions.removeItem.isPending ||
     actions.notifyPaymentSetup.isPending;
 
-  const activeEmployees = employees.filter((e) => e.status === 'Active');
+  const activeEmployees = useMemo(
+    () => employees.filter((e) => e.status === 'Active'),
+    [employees],
+  );
   const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedEmployeeIds(activeEmployees.map((employee) => employee.id));
+  }, [open, activeEmployees]);
+
+  const handlePeriodStartChange = (value: string) => {
+    setPeriodStart(value);
+    if (frequency === 'monthly') {
+      setPeriodEnd(lastDayOfMonthIso(value));
+    }
+  };
+
+  const toggleEmployee = (employeeId: string, checked: boolean) => {
+    setSelectedEmployeeIds((current) =>
+      checked ? [...current, employeeId] : current.filter((id) => id !== employeeId),
+    );
+  };
 
   const handleCreate = async () => {
     if (!title.trim()) {
@@ -256,20 +292,24 @@ export function PayrollPage() {
       toast.error('Period end must be after period start');
       return;
     }
-    const activeIds = activeEmployees.map((e) => e.id);
-    if (!activeIds.length) {
-      toast.error('No active employees to include');
+    const periodError = describePayrollPeriodError(frequency, periodStart, periodEnd);
+    if (periodError) {
+      toast.error(periodError);
+      return;
+    }
+    if (!selectedEmployeeIds.length) {
+      toast.error('Select at least one employee');
       return;
     }
     try {
       const run = await createRun.mutateAsync({
         title: title.trim(),
-        frequency: 'monthly',
+        frequency,
         periodStart: new Date(periodStart).toISOString(),
         periodEnd: new Date(periodEnd).toISOString(),
         paymentDate: new Date(paymentDate).toISOString(),
         baseCurrency,
-        employeeIds: activeIds,
+        employeeIds: selectedEmployeeIds,
       });
       setOpen(false);
       setTitle('');
@@ -383,9 +423,6 @@ export function PayrollPage() {
   ).length;
   const notReadyItems = readiness?.items.filter((item) => !item.ready) ?? [];
   const payrollGatewayEnabled = billingOverview?.payrollGatewayEnabled ?? false;
-  const role = tenant?.member?.role;
-  const viewerMemberId = tenant?.member?.id;
-  const isAdmin = isTenantAdmin(role);
   const canManagePayroll = canViewTeamPayroll(viewerMemberId, employees, role);
 
   return (
@@ -427,13 +464,41 @@ export function PayrollPage() {
                       className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label>Frequency</Label>
+                    <Select
+                      value={frequency}
+                      onValueChange={(value) => setFrequency(value as PayrollFrequency)}
+                    >
+                      <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FREQUENCY_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
+                    <p>{periodRulesHint(frequency)}</p>
+                    <p className="mt-1.5">
+                      You can create payroll for a past month (e.g. August) as long as period start
+                      is not in the future.
+                    </p>
+                    <p className="mt-1.5">
+                      Expected pay date can be any planned payout day, including before period end.
+                    </p>
+                  </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label>Period start</Label>
                       <Input
                         type="date"
                         value={periodStart}
-                        onChange={(e) => setPeriodStart(e.target.value)}
+                        onChange={(e) => handlePeriodStartChange(e.target.value)}
                         className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
                       />
                     </div>
@@ -471,6 +536,57 @@ export function PayrollPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Employees</Label>
+                      <div className="flex gap-2 text-xs">
+                        <button
+                          type="button"
+                          className="text-primary hover:underline"
+                          onClick={() =>
+                            setSelectedEmployeeIds(activeEmployees.map((employee) => employee.id))
+                          }
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:underline"
+                          onClick={() => setSelectedEmployeeIds([])}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    {activeEmployees.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No active employees to include.
+                      </p>
+                    ) : (
+                      <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-border/60 p-3">
+                        {activeEmployees.map((employee) => {
+                          const checkboxId = `payroll-employee-${employee.id}`;
+                          return (
+                            <div key={employee.id} className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                id={checkboxId}
+                                checked={selectedEmployeeIds.includes(employee.id)}
+                                onCheckedChange={(checked) =>
+                                  toggleEmployee(employee.id, checked === true)
+                                }
+                              />
+                              <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
+                                {employee.name}
+                              </Label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {selectedEmployeeIds.length} of {activeEmployees.length} selected
+                    </p>
+                  </div>
                   <Button
                     variant="brandSolid"
                     className="w-full"
@@ -486,6 +602,32 @@ export function PayrollPage() {
         </div>
 
         <TabsContent value="runs" className="space-y-6 mt-0">
+          {isAdmin && setupSummary && setupSummary.totalEmployees > 0 ? (
+            <div className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                  Payment setup
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} employees have
+                  payment details set
+                </p>
+              </div>
+              {setupSummary.byCurrency.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Pay by currency
+                  </span>
+                  {setupSummary.byCurrency.map((row) => (
+                    <Badge key={row.currency} variant="outline">
+                      {row.currency} · {row.employeeCount}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Active employees"
@@ -569,7 +711,7 @@ export function PayrollPage() {
           {isAdmin && selectedRunId && readiness ? (
             <ContentCard
               title="Employee payment readiness"
-              description={`${readiness.readyCount} ready · ${readiness.notReadyCount} need attention`}
+              description={`${readiness.readyCount}/${readiness.totalEmployees} employees have payment details set`}
               className="dashboard-panel rounded-[8px]"
               bodyClassName="space-y-3"
             >

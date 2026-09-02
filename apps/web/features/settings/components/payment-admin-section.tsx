@@ -126,7 +126,7 @@ export function PaymentAdminSection() {
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="destructive"
               disabled={verify.isPending}
               onClick={() => openReject(method.id)}
             >
