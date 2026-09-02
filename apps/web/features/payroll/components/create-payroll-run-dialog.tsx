@@ -51,7 +51,7 @@ type CreatePayrollRunDialogProps = {
 };
 
 function employeeName(employee: Employee) {
-  return `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || employee.id;
+  return employee.name.trim() || employee.id;
 }
 
 export function CreatePayrollRunDialog({
