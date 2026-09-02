@@ -117,6 +117,13 @@ export async function removePayrollItem(runId: string, itemId: string): Promise<
   });
 }
 
+export async function deletePayrollRun(id: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payroll/runs/${id}`), {
+    method: 'DELETE',
+  });
+}
+
 export async function notifyEmployeePaymentSetup(runId: string, itemId: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(

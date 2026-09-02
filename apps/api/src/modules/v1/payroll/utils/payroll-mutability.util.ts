@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { PayrollRun } from '../entities/payroll-run.entity';
 
@@ -20,5 +21,19 @@ export function assertPayrollRunMutable(run: PayrollRun, mode: PayrollMutability
         `Employees cannot be removed from a payroll run in ${run.status} status.`,
       );
     }
+  }
+}
+
+export function assertPayrollRunDeletable(run: PayrollRun): void {
+  if (run.status === PayrollStatus.COMPLETED) {
+    throw new ConflictException('Completed payroll runs cannot be deleted.');
+  }
+
+  const hasPaidOrProcessingItems = (run.items ?? []).some(
+    (item) =>
+      item.status === PayrollItemStatus.PAID || item.status === PayrollItemStatus.PROCESSING,
+  );
+  if (hasPaidOrProcessingItems) {
+    throw new ConflictException('Payroll runs with paid or in-flight payments cannot be deleted.');
   }
 }

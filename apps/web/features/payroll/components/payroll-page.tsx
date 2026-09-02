@@ -1,42 +1,37 @@
 'use client';
 
-import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarDays,
+  Download,
+  FileText,
+  Plus,
+  Trash2,
+  Wallet,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
+import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamCompensation } from '@/features/employees/components/team-compensation';
+import { CreatePayrollRunDialog } from '@/features/payroll/components/create-payroll-run-dialog';
 import { PayrollRunDetail } from '@/features/payroll/components/payroll-run-detail';
 import { PaymentAdminSection } from '@/features/settings/components/payment-admin-section';
-import { HintIcon } from '@/features/settings/components/settings-field-hint';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
-  useCreatePayrollRun,
   usePayrollActions,
   usePayrollReadiness,
   usePayrollRuns,
@@ -44,17 +39,6 @@ import {
 } from '@/hooks/queries/use-payroll';
 import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
-import { groupEmployeeIdsBySalaryCurrency } from '@/lib/payroll-create';
-import {
-  describePayrollPeriodError,
-  EXPECTED_PAY_DATE_HINT,
-  FREQUENCY_OPTIONS,
-  lastDayOfMonthIso,
-  PAY_PERIOD_HINT,
-  PAYROLL_RUNS_BY_CURRENCY_HINT,
-  type PayrollFrequency,
-  periodRulesHint,
-} from '@/lib/payroll-period';
 import type { PayrollRun } from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
@@ -71,6 +55,10 @@ function statusVariant(status: string) {
     default:
       return 'outline';
   }
+}
+
+function canDeletePayrollRun(run: PayrollRun) {
+  return run.status === 'draft';
 }
 
 function PayrollRunRow({
@@ -121,6 +109,17 @@ function PayrollRunRow({
         </p>
       </button>
       <div className="flex flex-wrap gap-2">
+        {isAdmin && canDeletePayrollRun(run) ? (
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={busy}
+            onClick={() => onAction('delete', run.id)}
+          >
+            <Trash2 className="mr-1 size-4" />
+            Delete
+          </Button>
+        ) : null}
         {isAdmin && run.status === 'draft' ? (
           <Button
             size="sm"
@@ -203,18 +202,12 @@ function PayrollRunRow({
 export function PayrollPage() {
   const [activeTab, setActiveTab] = useState('runs');
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
   const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const defaultPayDate = new Date(now.getFullYear(), now.getMonth() + 1, 5)
     .toISOString()
     .slice(0, 10);
-  const [periodStart, setPeriodStart] = useState(defaultStart);
-  const [periodEnd, setPeriodEnd] = useState(defaultEnd);
-  const [paymentDate, setPaymentDate] = useState(defaultPayDate);
-  const [frequency, setFrequency] = useState<PayrollFrequency>('monthly');
 
   const { data: employees = [] } = useEmployees();
   const { tenant } = useTenant();
@@ -226,11 +219,9 @@ export function PayrollPage() {
   const { data, isLoading, isError, error } = usePayrollRuns();
   const { data: readiness } = usePayrollReadiness(selectedRunId ?? undefined);
   const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
-  const createRun = useCreatePayrollRun();
   const actions = usePayrollActions();
 
   const busy =
-    createRun.isPending ||
     actions.calculate.isPending ||
     actions.approve.isPending ||
     actions.disburse.isPending ||
@@ -239,101 +230,22 @@ export function PayrollPage() {
     actions.schedule.isPending ||
     actions.exportCsv.isPending ||
     actions.removeItem.isPending ||
+    actions.deleteRun.isPending ||
     actions.notifyPaymentSetup.isPending;
 
   const activeEmployees = useMemo(
     () => employees.filter((e) => e.status === 'Active'),
     [employees],
   );
-  const payrollRunsToCreate = useMemo(
-    () =>
-      groupEmployeeIdsBySalaryCurrency(
-        activeEmployees.map((employee) => employee.id),
-        currentSalaries,
-        tenant?.preferredCurrency?.toUpperCase() ?? 'USD',
-      ),
-    [activeEmployees, currentSalaries, tenant?.preferredCurrency],
-  );
   const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
 
-  const handlePeriodStartChange = (value: string) => {
-    setPeriodStart(value);
-    if (frequency === 'monthly') {
-      setPeriodEnd(lastDayOfMonthIso(value));
-    }
-  };
-
-  const handleCreate = async () => {
-    if (!title.trim()) {
-      toast.error('Enter a payroll title');
-      return;
-    }
-    if (!periodStart || !periodEnd || !paymentDate) {
-      toast.error('Set period and expected pay dates');
-      return;
-    }
-    if (new Date(periodEnd) <= new Date(periodStart)) {
-      toast.error('Period end must be after period start');
-      return;
-    }
-    const periodError = describePayrollPeriodError(frequency, periodStart, periodEnd);
-    if (periodError) {
-      toast.error(periodError);
-      return;
-    }
-    if (!payrollRunsToCreate.length) {
-      toast.error('No active employees with salary set for this period');
-      return;
-    }
-    try {
-      const createdRunIds: string[] = [];
-      let existingCount = 0;
-
-      for (const { currency, employeeIds } of payrollRunsToCreate) {
-        const runTitle =
-          payrollRunsToCreate.length > 1 ? `${title.trim()} · ${currency}` : title.trim();
-        const run = await createRun.mutateAsync({
-          title: runTitle,
-          frequency,
-          periodStart: new Date(periodStart).toISOString(),
-          periodEnd: new Date(periodEnd).toISOString(),
-          paymentDate: new Date(paymentDate).toISOString(),
-          baseCurrency: currency,
-          employeeIds,
-        });
-        if (run.alreadyExists) {
-          existingCount += 1;
-        } else {
-          createdRunIds.push(run.id);
-        }
-      }
-
-      setOpen(false);
-      setTitle('');
-      if (createdRunIds[0]) {
-        setSelectedRunId(createdRunIds[0]);
-      }
-
-      if (createdRunIds.length > 1) {
-        toast.success(`Created ${createdRunIds.length} payroll runs`);
-      } else if (createdRunIds.length === 1) {
-        toast.success('Payroll run created');
-      }
-      if (existingCount > 0) {
-        toast.message(
-          existingCount === 1
-            ? '1 run already existed for this period'
-            : `${existingCount} runs already existed for this period`,
-        );
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create payroll');
-    }
-  };
-
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
+      if (action === 'delete') {
+        setDeleteRunId(id);
+        return;
+      }
       if (action === 'calculate') {
         const result = await actions.calculate.mutateAsync({ id });
         setSelectedRunId(id);
@@ -382,6 +294,20 @@ export function PayrollPage() {
       toast.success(`Scheduled for ${formatDate(scheduleDate)}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Schedule failed');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteRunId) return;
+    try {
+      await actions.deleteRun.mutateAsync(deleteRunId);
+      if (selectedRunId === deleteRunId) {
+        setSelectedRunId(null);
+      }
+      setDeleteRunId(null);
+      toast.success('Payroll run deleted');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete payroll run');
     }
   };
 
@@ -451,120 +377,27 @@ export function PayrollPage() {
           </div>
 
           {isAdmin && activeTab === 'runs' ? (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="brandSolid" size="app" className="w-full sm:w-max">
-                  <Plus className="size-4" />
-                  New run
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create payroll run</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input
-                      placeholder="March 2026 payroll"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Label>Frequency</Label>
-                      <HintIcon label="Frequency" hint={periodRulesHint(frequency)} />
-                    </div>
-                    <Select
-                      value={frequency}
-                      onValueChange={(value) => setFrequency(value as PayrollFrequency)}
-                    >
-                      <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FREQUENCY_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Label>Pay period</Label>
-                      <HintIcon label="Pay period" hint={PAY_PERIOD_HINT} />
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Period start</Label>
-                        <Input
-                          type="date"
-                          value={periodStart}
-                          onChange={(e) => handlePeriodStartChange(e.target.value)}
-                          className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Period end</Label>
-                        <Input
-                          type="date"
-                          value={periodEnd}
-                          onChange={(e) => setPeriodEnd(e.target.value)}
-                          className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Label>Expected pay date</Label>
-                      <HintIcon label="Expected pay date" hint={EXPECTED_PAY_DATE_HINT} />
-                    </div>
-                    <Input
-                      type="date"
-                      value={paymentDate}
-                      onChange={(e) => setPaymentDate(e.target.value)}
-                      className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                    />
-                  </div>
-                  {payrollRunsToCreate.length > 0 ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5">
-                        <Label>Runs to create</Label>
-                        <HintIcon label="Runs to create" hint={PAYROLL_RUNS_BY_CURRENCY_HINT} />
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {payrollRunsToCreate.map((row) => (
-                          <Badge key={row.currency} variant="outline">
-                            {row.currency} · {row.employeeIds.length}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">
-                      No active employees with salary set for this period.
-                    </p>
-                  )}
-                  <Button
-                    variant="brandSolid"
-                    className="w-full"
-                    disabled={createRun.isPending || payrollRunsToCreate.length === 0}
-                    onClick={handleCreate}
-                  >
-                    {createRun.isPending
-                      ? 'Creating…'
-                      : payrollRunsToCreate.length > 1
-                        ? `Create ${payrollRunsToCreate.length} runs`
-                        : 'Create run'}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <>
+              <Button
+                variant="brandSolid"
+                size="app"
+                className="w-full sm:w-max"
+                onClick={() => setOpen(true)}
+              >
+                <Plus className="size-4" />
+                New run
+              </Button>
+              <CreatePayrollRunDialog
+                open={open}
+                onOpenChange={setOpen}
+                activeEmployees={activeEmployees}
+                currentSalaries={currentSalaries}
+                fallbackCurrency={tenant?.preferredCurrency?.toUpperCase() ?? 'USD'}
+                onCreated={(runId) => {
+                  if (runId) setSelectedRunId(runId);
+                }}
+              />
+            </>
           ) : null}
         </div>
 
@@ -772,6 +605,19 @@ export function PayrollPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DestructiveConfirmDialog
+        open={Boolean(deleteRunId)}
+        onOpenChange={(next) => {
+          if (!next) setDeleteRunId(null);
+        }}
+        title="Delete payroll run?"
+        description="This removes the draft run and all employees on it. Completed or paid runs cannot be deleted."
+        actionLabel="Delete run"
+        isPending={actions.deleteRun.isPending}
+        preventAutoClose
+        onConfirm={() => void confirmDelete()}
+      />
     </AppPage>
   );
 }

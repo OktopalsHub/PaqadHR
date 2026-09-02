@@ -5,6 +5,7 @@ import {
   approvePayrollRun,
   calculatePayrollRun,
   createPayrollRun,
+  deletePayrollRun,
   disbursePayrollRun,
   downloadPayrollBankFile,
   fetchPayrollReadiness,
@@ -154,6 +155,10 @@ export function usePayrollActions() {
     removeItem: useMutation({
       mutationFn: ({ runId, itemId }: { runId: string; itemId: string }) =>
         removePayrollItem(runId, itemId),
+      onSuccess: invalidate,
+    }),
+    deleteRun: useMutation({
+      mutationFn: deletePayrollRun,
       onSuccess: invalidate,
     }),
     notifyPaymentSetup: useMutation({

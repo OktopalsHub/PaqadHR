@@ -30,15 +30,18 @@ import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
-import type { PayrollItem } from '../entities/payroll-item.entity';
-import type { PayrollRun } from '../entities/payroll-run.entity';
+import { PayrollItem } from '../entities/payroll-item.entity';
+import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   aggregatePayrollAdjustments,
   collectAdjustmentsForEmployee,
 } from '../utils/payroll-adjustment.util';
-import { assertPayrollRunMutable } from '../utils/payroll-mutability.util';
+import {
+  assertPayrollRunDeletable,
+  assertPayrollRunMutable,
+} from '../utils/payroll-mutability.util';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
@@ -136,20 +139,26 @@ export class PayrollService {
         idempotencyKey: finalIdempotencyKey,
         payoutMode: null,
       };
-      const savedPayrollRun = await this.payrollRunRepository.create(payrollRunData);
+      const savedPayrollRun = await queryRunner.manager.save(
+        PayrollRun,
+        this.payrollRunRepository.create(payrollRunData),
+      );
       for (const memberId of dto.employeeIds) {
-        await this.payrollItemRepository.create({
-          payrollRunId: savedPayrollRun.id,
-          memberId,
-          status: PayrollItemStatus.PENDING,
-          baseSalary: 0,
-          baseSalaryCurrency: normalizedCurrency,
-          grossAmount: 0,
-          netAmount: 0,
-          paymentCurrency: normalizedCurrency,
-          paymentAmount: 0,
-          exchangeRate: 1,
-        });
+        await queryRunner.manager.save(
+          PayrollItem,
+          this.payrollItemRepository.create({
+            payrollRunId: savedPayrollRun.id,
+            memberId,
+            status: PayrollItemStatus.PENDING,
+            baseSalary: 0,
+            baseSalaryCurrency: normalizedCurrency,
+            grossAmount: 0,
+            netAmount: 0,
+            paymentCurrency: normalizedCurrency,
+            paymentAmount: 0,
+            exchangeRate: 1,
+          }),
+        );
       }
       await queryRunner.commitTransaction();
       await this.auditService.logPayrollCreated(
@@ -1150,6 +1159,27 @@ export class PayrollService {
     });
 
     return payrollRun;
+  }
+
+  async deletePayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+  ): Promise<void> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    assertPayrollRunDeletable(payrollRun);
+    await this.payrollRunRepository.delete(payrollRunId);
+    await this.auditService.logAdjustmentCalculated(auditContext, {
+      action: 'delete_run',
+      payrollRunId,
+      title: payrollRun.title,
+    });
   }
 
   async updatePayrollItem(
