@@ -30,7 +30,9 @@ export const SubscriptionGate = memo(function SubscriptionGate({
   }, [isLoading, shouldBlockPayment, tenant?.slug, router]);
 
   if (isLoading) {
-    return <BillingValidationScreen />;
+    // Keep the app shell and route-level loading states visible while billing
+    // revalidates. The server remains the authority for protected API data.
+    return <>{children}</>;
   }
 
   if (shouldBlockPayment) {
