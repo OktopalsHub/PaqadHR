@@ -1,7 +1,7 @@
 'use client';
 
 import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
@@ -11,7 +11,6 @@ import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -32,9 +31,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamCompensation } from '@/features/employees/components/team-compensation';
 import { PayrollRunDetail } from '@/features/payroll/components/payroll-run-detail';
 import { PaymentAdminSection } from '@/features/settings/components/payment-admin-section';
+import { HintIcon } from '@/features/settings/components/settings-field-hint';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { useEmployees } from '@/hooks/queries/use-employees';
-import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
+import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
   useCreatePayrollRun,
   usePayrollActions,
@@ -44,10 +44,14 @@ import {
 } from '@/hooks/queries/use-payroll';
 import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
+import { groupEmployeeIdsBySalaryCurrency } from '@/lib/payroll-create';
 import {
   describePayrollPeriodError,
+  EXPECTED_PAY_DATE_HINT,
   FREQUENCY_OPTIONS,
   lastDayOfMonthIso,
+  PAY_PERIOD_HINT,
+  PAYROLL_RUNS_BY_CURRENCY_HINT,
   type PayrollFrequency,
   periodRulesHint,
 } from '@/lib/payroll-period';
@@ -210,37 +214,20 @@ export function PayrollPage() {
   const [periodStart, setPeriodStart] = useState(defaultStart);
   const [periodEnd, setPeriodEnd] = useState(defaultEnd);
   const [paymentDate, setPaymentDate] = useState(defaultPayDate);
-  const [baseCurrency, setBaseCurrency] = useState('NGN');
   const [frequency, setFrequency] = useState<PayrollFrequency>('monthly');
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
   const { data: employees = [] } = useEmployees();
   const { tenant } = useTenant();
   const role = tenant?.member?.role;
   const viewerMemberId = tenant?.member?.id;
   const isAdmin = isTenantAdmin(role);
+  const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
   const { data: billingOverview } = useBillingOverview();
-  const { data: currencyOptions } = useSupportedPaymentCurrencies();
   const { data, isLoading, isError, error } = usePayrollRuns();
   const { data: readiness } = usePayrollReadiness(selectedRunId ?? undefined);
   const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
   const createRun = useCreatePayrollRun();
   const actions = usePayrollActions();
-
-  const fiatCurrencies = currencyOptions?.fiat ?? ['NGN'];
-  const cryptoCurrencies = currencyOptions?.crypto ?? [];
-  const runCurrencies = [...fiatCurrencies, ...cryptoCurrencies];
-
-  useEffect(() => {
-    const preferred = tenant?.preferredCurrency?.toUpperCase();
-    if (preferred && runCurrencies.includes(preferred)) {
-      setBaseCurrency(preferred);
-      return;
-    }
-    if (runCurrencies[0]) {
-      setBaseCurrency(runCurrencies[0]);
-    }
-  }, [tenant?.preferredCurrency, runCurrencies[0]]);
 
   const busy =
     createRun.isPending ||
@@ -258,25 +245,23 @@ export function PayrollPage() {
     () => employees.filter((e) => e.status === 'Active'),
     [employees],
   );
+  const payrollRunsToCreate = useMemo(
+    () =>
+      groupEmployeeIdsBySalaryCurrency(
+        activeEmployees.map((employee) => employee.id),
+        currentSalaries,
+        tenant?.preferredCurrency?.toUpperCase() ?? 'USD',
+      ),
+    [activeEmployees, currentSalaries, tenant?.preferredCurrency],
+  );
   const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
-
-  useEffect(() => {
-    if (!open) return;
-    setSelectedEmployeeIds(activeEmployees.map((employee) => employee.id));
-  }, [open, activeEmployees]);
 
   const handlePeriodStartChange = (value: string) => {
     setPeriodStart(value);
     if (frequency === 'monthly') {
       setPeriodEnd(lastDayOfMonthIso(value));
     }
-  };
-
-  const toggleEmployee = (employeeId: string, checked: boolean) => {
-    setSelectedEmployeeIds((current) =>
-      checked ? [...current, employeeId] : current.filter((id) => id !== employeeId),
-    );
   };
 
   const handleCreate = async () => {
@@ -297,30 +282,53 @@ export function PayrollPage() {
       toast.error(periodError);
       return;
     }
-    if (!selectedEmployeeIds.length) {
-      toast.error('Select at least one employee');
+    if (!payrollRunsToCreate.length) {
+      toast.error('No active employees with salary set for this period');
       return;
     }
     try {
-      const run = await createRun.mutateAsync({
-        title: title.trim(),
-        frequency,
-        periodStart: new Date(periodStart).toISOString(),
-        periodEnd: new Date(periodEnd).toISOString(),
-        paymentDate: new Date(paymentDate).toISOString(),
-        baseCurrency,
-        employeeIds: selectedEmployeeIds,
-      });
+      const createdRunIds: string[] = [];
+      let existingCount = 0;
+
+      for (const { currency, employeeIds } of payrollRunsToCreate) {
+        const runTitle =
+          payrollRunsToCreate.length > 1 ? `${title.trim()} · ${currency}` : title.trim();
+        const run = await createRun.mutateAsync({
+          title: runTitle,
+          frequency,
+          periodStart: new Date(periodStart).toISOString(),
+          periodEnd: new Date(periodEnd).toISOString(),
+          paymentDate: new Date(paymentDate).toISOString(),
+          baseCurrency: currency,
+          employeeIds,
+        });
+        if (run.alreadyExists) {
+          existingCount += 1;
+        } else {
+          createdRunIds.push(run.id);
+        }
+      }
+
       setOpen(false);
       setTitle('');
-      setSelectedRunId(run.id);
-      if (run.alreadyExists) {
-        toast.message('Run already exists for this period');
-      } else {
+      if (createdRunIds[0]) {
+        setSelectedRunId(createdRunIds[0]);
+      }
+
+      if (createdRunIds.length > 1) {
+        toast.success(`Created ${createdRunIds.length} payroll runs`);
+      } else if (createdRunIds.length === 1) {
         toast.success('Payroll run created');
       }
+      if (existingCount > 0) {
+        toast.message(
+          existingCount === 1
+            ? '1 run already existed for this period'
+            : `${existingCount} runs already existed for this period`,
+        );
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create run');
+      toast.error(err instanceof Error ? err.message : 'Failed to create payroll');
     }
   };
 
@@ -465,7 +473,10 @@ export function PayrollPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Frequency</Label>
+                    <div className="flex items-center gap-1.5">
+                      <Label>Frequency</Label>
+                      <HintIcon label="Frequency" hint={periodRulesHint(frequency)} />
+                    </div>
                     <Select
                       value={frequency}
                       onValueChange={(value) => setFrequency(value as PayrollFrequency)}
@@ -482,118 +493,74 @@ export function PayrollPage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
-                    <p>{periodRulesHint(frequency)}</p>
-                    <p className="mt-1.5">
-                      You can create payroll for a past month (e.g. August) as long as period start
-                      is not in the future.
-                    </p>
-                    <p className="mt-1.5">
-                      Expected pay date can be any planned payout day, including before period end.
-                    </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Label>Pay period</Label>
+                      <HintIcon label="Pay period" hint={PAY_PERIOD_HINT} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Period start</Label>
+                        <Input
+                          type="date"
+                          value={periodStart}
+                          onChange={(e) => handlePeriodStartChange(e.target.value)}
+                          className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Period end</Label>
+                        <Input
+                          type="date"
+                          value={periodEnd}
+                          onChange={(e) => setPeriodEnd(e.target.value)}
+                          className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Period start</Label>
-                      <Input
-                        type="date"
-                        value={periodStart}
-                        onChange={(e) => handlePeriodStartChange(e.target.value)}
-                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Period end</Label>
-                      <Input
-                        type="date"
-                        value={periodEnd}
-                        onChange={(e) => setPeriodEnd(e.target.value)}
-                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1.5">
                       <Label>Expected pay date</Label>
-                      <Input
-                        type="date"
-                        value={paymentDate}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                      />
+                      <HintIcon label="Expected pay date" hint={EXPECTED_PAY_DATE_HINT} />
                     </div>
+                    <Input
+                      type="date"
+                      value={paymentDate}
+                      onChange={(e) => setPaymentDate(e.target.value)}
+                      className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Currency</Label>
-                    <Select value={baseCurrency} onValueChange={setBaseCurrency}>
-                      <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {runCurrencies.map((code) => (
-                          <SelectItem key={code} value={code}>
-                            {code}
-                          </SelectItem>
+                  {payrollRunsToCreate.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <Label>Runs to create</Label>
+                        <HintIcon label="Runs to create" hint={PAYROLL_RUNS_BY_CURRENCY_HINT} />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {payrollRunsToCreate.map((row) => (
+                          <Badge key={row.currency} variant="outline">
+                            {row.currency} · {row.employeeIds.length}
+                          </Badge>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label>Employees</Label>
-                      <div className="flex gap-2 text-xs">
-                        <button
-                          type="button"
-                          className="text-primary hover:underline"
-                          onClick={() =>
-                            setSelectedEmployeeIds(activeEmployees.map((employee) => employee.id))
-                          }
-                        >
-                          Select all
-                        </button>
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:underline"
-                          onClick={() => setSelectedEmployeeIds([])}
-                        >
-                          Clear
-                        </button>
                       </div>
                     </div>
-                    {activeEmployees.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        No active employees to include.
-                      </p>
-                    ) : (
-                      <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border border-border/60 p-3">
-                        {activeEmployees.map((employee) => {
-                          const checkboxId = `payroll-employee-${employee.id}`;
-                          return (
-                            <div key={employee.id} className="flex items-center gap-2 text-sm">
-                              <Checkbox
-                                id={checkboxId}
-                                checked={selectedEmployeeIds.includes(employee.id)}
-                                onCheckedChange={(checked) =>
-                                  toggleEmployee(employee.id, checked === true)
-                                }
-                              />
-                              <Label htmlFor={checkboxId} className="cursor-pointer font-normal">
-                                {employee.name}
-                              </Label>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      {selectedEmployeeIds.length} of {activeEmployees.length} selected
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No active employees with salary set for this period.
                     </p>
-                  </div>
+                  )}
                   <Button
                     variant="brandSolid"
                     className="w-full"
-                    disabled={createRun.isPending}
+                    disabled={createRun.isPending || payrollRunsToCreate.length === 0}
                     onClick={handleCreate}
                   >
-                    Create run
+                    {createRun.isPending
+                      ? 'Creating…'
+                      : payrollRunsToCreate.length > 1
+                        ? `Create ${payrollRunsToCreate.length} runs`
+                        : 'Create run'}
                   </Button>
                 </div>
               </DialogContent>

@@ -16,6 +16,16 @@ export const FREQUENCY_OPTIONS: Array<{ value: PayrollFrequency; label: string }
   { value: 'annually', label: 'Annually' },
 ];
 
+export const PAY_PERIOD_HINT = 'Past months are allowed if period start is not in the future.';
+
+export const EXPECTED_PAY_DATE_HINT = 'Any planned payout day, including before period end.';
+
+export const THIS_RUN_HINT =
+  'Select who to include. Bonuses and deductions are added on the run after creation.';
+
+export const PAYROLL_RUNS_BY_CURRENCY_HINT =
+  'Creates one draft run per salary currency. Employees are grouped automatically.';
+
 export function payrollPeriodDiffDays(periodStart: string, periodEnd: string): number {
   const start = new Date(periodStart);
   const end = new Date(periodEnd);

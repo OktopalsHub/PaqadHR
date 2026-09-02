@@ -96,9 +96,10 @@ export class PayrollService {
     await queryRunner.connect();
     await queryRunner.startTransaction();
     try {
+      const normalizedCurrency = dto.baseCurrency.trim().toUpperCase();
       const finalIdempotencyKey =
         idempotencyKey ||
-        `${tenantId}-${dto.periodStart.toISOString()}-${dto.periodEnd.toISOString()}`;
+        `${tenantId}-${dto.periodStart.toISOString()}-${dto.periodEnd.toISOString()}-${normalizedCurrency}`;
       await queryRunner.query(`SELECT id FROM tenants WHERE id = $1 FOR UPDATE`, [tenantId]);
       if (finalIdempotencyKey) {
         const existingByKey = await this.payrollRunRepository.findOne({
@@ -114,6 +115,7 @@ export class PayrollService {
           tenantId,
           periodStart: dto.periodStart,
           periodEnd: dto.periodEnd,
+          baseCurrency: normalizedCurrency,
         },
       });
       if (existingRun) {
@@ -126,7 +128,7 @@ export class PayrollService {
         periodStart: dto.periodStart,
         periodEnd: dto.periodEnd,
         paymentDate: dto.paymentDate,
-        baseCurrency: dto.baseCurrency,
+        baseCurrency: normalizedCurrency,
         status: PayrollStatus.DRAFT,
         employeeCount: dto.employeeIds.length,
         createdById,
@@ -141,10 +143,10 @@ export class PayrollService {
           memberId,
           status: PayrollItemStatus.PENDING,
           baseSalary: 0,
-          baseSalaryCurrency: dto.baseCurrency,
+          baseSalaryCurrency: normalizedCurrency,
           grossAmount: 0,
           netAmount: 0,
-          paymentCurrency: dto.baseCurrency,
+          paymentCurrency: normalizedCurrency,
           paymentAmount: 0,
           exchangeRate: 1,
         });
@@ -156,7 +158,7 @@ export class PayrollService {
           title: dto.title,
           frequency: dto.frequency,
           employeeCount: dto.employeeIds.length,
-          baseCurrency: dto.baseCurrency,
+          baseCurrency: normalizedCurrency,
         },
       );
       this.productAnalytics.capture(createdById, 'payroll_created', { tenantId });
