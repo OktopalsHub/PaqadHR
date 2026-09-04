@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Ip,
@@ -27,6 +28,12 @@ export class ContactController {
     private readonly rateLimitService: RateLimitService,
     private readonly turnstileService: TurnstileService,
   ) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Public contact form requirements' })
+  getConfig() {
+    return { turnstileRequired: this.turnstileService.isEnabled() };
+  }
 
   @Post()
   @ApiOperation({ summary: 'Submit the public marketing contact form' })

@@ -89,4 +89,11 @@ describe('ContactController', () => {
     );
     expect(contactService.submit).not.toHaveBeenCalled();
   });
+
+  it('reports whether turnstile is required', () => {
+    turnstileService.isEnabled.mockReturnValue(true);
+    expect(controller.getConfig()).toEqual({ turnstileRequired: true });
+    turnstileService.isEnabled.mockReturnValue(false);
+    expect(controller.getConfig()).toEqual({ turnstileRequired: false });
+  });
 });
