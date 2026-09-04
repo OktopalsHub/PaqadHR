@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Lock, Plus } from 'lucide-react';
+import { Download, Lock, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PersonAvatar } from '@/components/person-avatar';
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatAdjustmentLineLabel } from '@/features/payroll/lib/format-adjustment-line';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { usePayrollActions, usePayrollRun, useRunPayslips } from '@/hooks/queries/use-payroll';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
@@ -234,10 +235,14 @@ export function PayrollRunDetail({
   runId,
   payrollGatewayEnabled,
   isAdmin,
+  onDelete,
+  onReopen,
 }: {
   runId: string;
   payrollGatewayEnabled: boolean;
   isAdmin: boolean;
+  onDelete?: () => void;
+  onReopen?: () => void;
 }) {
   const { data: run, isLoading, refetch } = usePayrollRun(runId);
   const { data: employees = [] } = useEmployees();
@@ -267,6 +272,18 @@ export function PayrollRunDetail({
   const detail = run as PayrollRunDetailType | undefined;
   const isDraft = detail?.status === 'draft';
   const isLocked = detail?.status === 'approved' || detail?.status === 'completed';
+  const canDelete = Boolean(detail && detail.status !== 'completed' && onDelete);
+  const canEditTitle = Boolean(
+    isAdmin && detail && (detail.status === 'draft' || detail.status === 'processing'),
+  );
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+
+  useEffect(() => {
+    if (detail?.title) {
+      setTitleDraft(detail.title);
+    }
+  }, [detail?.title]);
 
   const activeItems = useMemo(
     () => (detail?.items ?? []).filter((item) => item.status !== 'cancelled'),
@@ -280,7 +297,9 @@ export function PayrollRunDetail({
     actions.process.isPending ||
     actions.payNow.isPending ||
     actions.schedule.isPending ||
-    actions.publishPayslips.isPending;
+    actions.publishPayslips.isPending ||
+    actions.reopen.isPending ||
+    actions.updateTitle.isPending;
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
@@ -331,6 +350,29 @@ export function PayrollRunDetail({
     }
   };
 
+  const saveTitle = async () => {
+    const next = titleDraft.trim();
+    if (!detail || next.length < 3) {
+      toast.error('Title must be at least 3 characters');
+      setTitleDraft(detail?.title ?? '');
+      setEditingTitle(false);
+      return;
+    }
+    if (next === detail.title) {
+      setEditingTitle(false);
+      return;
+    }
+    try {
+      await actions.updateTitle.mutateAsync({ id: runId, title: next });
+      setEditingTitle(false);
+      toast.success('Title updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update title');
+      setTitleDraft(detail.title);
+      setEditingTitle(false);
+    }
+  };
+
   const handleSchedule = async () => {
     if (!scheduleDate) {
       toast.error('Pick a payment date');
@@ -376,9 +418,39 @@ export function PayrollRunDetail({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
-              {detail.title}
-            </h3>
+            {editingTitle && canEditTitle ? (
+              <Input
+                value={titleDraft}
+                autoFocus
+                className="h-9 max-w-md border-slate-200 bg-white text-lg font-semibold text-slate-950 shadow-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={() => void saveTitle()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void saveTitle();
+                  }
+                  if (e.key === 'Escape') {
+                    setTitleDraft(detail.title);
+                    setEditingTitle(false);
+                  }
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className={`flex items-center gap-1.5 text-left text-lg font-semibold text-slate-950 dark:text-slate-100 ${
+                  canEditTitle ? 'cursor-pointer hover:underline' : 'cursor-default'
+                }`}
+                disabled={!canEditTitle || busy}
+                onClick={() => {
+                  if (canEditTitle) setEditingTitle(true);
+                }}
+              >
+                {detail.title}
+                {canEditTitle ? <Pencil className="size-3.5 shrink-0 opacity-60" /> : null}
+              </button>
+            )}
             <span
               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${getPayrollStatusStyles(
                 detail.status,
@@ -402,27 +474,48 @@ export function PayrollRunDetail({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isAdmin && canDelete ? (
+            <Button size="sm" variant="destructive" disabled={busy} onClick={() => onDelete?.()}>
+              <Trash2 className="mr-1 size-4" />
+              Delete
+            </Button>
+          ) : null}
           {isAdmin && isDraft ? (
             <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
               Calculate
             </Button>
           ) : null}
           {isAdmin && detail.status === 'processing' ? (
-            <Button
-              size="sm"
-              variant="brandSolid"
-              disabled={busy}
-              onClick={async () => {
-                try {
-                  await actions.approve.mutateAsync(runId);
-                  toast.success('Payroll approved');
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Approve failed');
-                }
-              }}
-            >
-              Approve
-            </Button>
+            <>
+              {onReopen ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                  disabled={busy}
+                  onClick={() => onReopen()}
+                >
+                  Reopen
+                </Button>
+              ) : null}
+              <Button
+                size="sm"
+                className="border-emerald-600 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 hover:text-white dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                disabled={busy}
+                onClick={async () => {
+                  try {
+                    await actions.approve.mutateAsync(runId);
+                    toast.success(
+                      'Payroll approved — run locked. Use Pay now, Schedule, or Mark paid to send money.',
+                    );
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Approve failed');
+                  }
+                }}
+              >
+                Approve
+              </Button>
+            </>
           ) : null}
           {isAdmin && detail.status === 'approved' ? (
             <>
@@ -537,12 +630,23 @@ export function PayrollRunDetail({
                     {item.baseSalaryCurrency || detail.baseCurrency}
                   </AppTableCell>
                   <AppTableCell>
-                    {Number(item.adjustments ?? 0).toLocaleString()}
-                    {lines.length > 0 ? (
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {lines.length} line(s)
+                    <div className="space-y-1">
+                      <p>
+                        {Number(item.adjustments ?? 0).toLocaleString()} {detail.baseCurrency}
                       </p>
-                    ) : null}
+                      {lines.length > 0 ? (
+                        <ul className="space-y-0.5">
+                          {lines.map((line) => (
+                            <li
+                              key={`${line.type}-${line.method}-${line.value}-${line.reason ?? ''}`}
+                              className="text-xs text-slate-500 dark:text-slate-400"
+                            >
+                              {formatAdjustmentLineLabel(line, detail.baseCurrency)}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
                   </AppTableCell>
                   <AppTableCell>{Number(item.deductions ?? 0).toLocaleString()}</AppTableCell>
                   <AppTableCell className="font-medium">

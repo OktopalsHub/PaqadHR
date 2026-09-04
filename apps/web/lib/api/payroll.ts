@@ -124,6 +124,27 @@ export async function deletePayrollRun(id: string): Promise<void> {
   });
 }
 
+export async function updatePayrollRunTitle(id: string, title: string): Promise<PayrollRun> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ payrollRun: PayrollRun }>(
+    tenantPath(tenantId, `payroll/runs/${id}`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    },
+  );
+  return result.payrollRun;
+}
+
+export async function reopenPayrollRun(id: string): Promise<PayrollRun> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ payrollRun: PayrollRun }>(
+    tenantPath(tenantId, `payroll/runs/${id}/reopen`),
+    { method: 'POST' },
+  );
+  return result.payrollRun;
+}
+
 export async function notifyEmployeePaymentSetup(runId: string, itemId: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(

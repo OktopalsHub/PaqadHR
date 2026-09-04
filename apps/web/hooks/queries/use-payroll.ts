@@ -18,8 +18,10 @@ import {
   processPayrollRun,
   publishPayslips,
   removePayrollItem,
+  reopenPayrollRun,
   schedulePayrollPayout,
   updatePayrollItem,
+  updatePayrollRunTitle,
 } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
 import type { CreatePayrollRunInput, PayrollAdjustmentLine } from '@/lib/schemas/payroll';
@@ -159,6 +161,15 @@ export function usePayrollActions() {
     }),
     deleteRun: useMutation({
       mutationFn: deletePayrollRun,
+      onSuccess: invalidate,
+    }),
+    updateTitle: useMutation({
+      mutationFn: ({ id, title }: { id: string; title: string }) =>
+        updatePayrollRunTitle(id, title),
+      onSuccess: invalidate,
+    }),
+    reopen: useMutation({
+      mutationFn: reopenPayrollRun,
       onSuccess: invalidate,
     }),
     notifyPaymentSetup: useMutation({

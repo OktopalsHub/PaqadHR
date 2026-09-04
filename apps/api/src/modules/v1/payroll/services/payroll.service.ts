@@ -28,6 +28,7 @@ import { TenantsService } from '../../tenants/tenants.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
+import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import type { PayrollAdjustmentDto } from '../dto/payroll-adjustment.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { PayrollItem } from '../entities/payroll-item.entity';
@@ -41,6 +42,8 @@ import {
 import {
   assertPayrollRunDeletable,
   assertPayrollRunMutable,
+  assertPayrollRunReopenable,
+  assertPayrollRunTitleEditable,
 } from '../utils/payroll-mutability.util';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
@@ -1159,6 +1162,70 @@ export class PayrollService {
     });
 
     return payrollRun;
+  }
+
+  async updatePayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    dto: PatchPayrollRunDto,
+    auditContext: AuditContext,
+  ): Promise<PayrollRun> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    assertPayrollRunTitleEditable(payrollRun);
+
+    const previousTitle = payrollRun.title;
+    payrollRun.title = dto.title.trim();
+    await this.payrollRunRepository.save(payrollRun);
+    await this.auditService.logAdjustmentCalculated(auditContext, {
+      action: 'update_run_title',
+      payrollRunId,
+      previousTitle,
+      title: payrollRun.title,
+    });
+    return (await this.getPayrollRun(payrollRunId, tenantId))!;
+  }
+
+  async reopenPayrollRun(
+    payrollRunId: string,
+    tenantId: string,
+    auditContext: AuditContext,
+  ): Promise<PayrollRun> {
+    const payrollRun = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
+    if (!payrollRun) {
+      throw new BadRequestException('Payroll run not found');
+    }
+    assertPayrollRunReopenable(payrollRun);
+
+    payrollRun.status = PayrollStatus.DRAFT;
+    payrollRun.metadata = {
+      ...payrollRun.metadata,
+      reopenedAt: new Date().toISOString(),
+      reopenedBy: auditContext.performedById,
+    };
+    await this.payrollRunRepository.save(payrollRun);
+
+    for (const item of payrollRun.items ?? []) {
+      if (item.metadata?.lockedAt) {
+        const { lockedAt: _lockedAt, ...rest } = item.metadata;
+        item.metadata = rest;
+        await this.payrollItemRepository.save(item);
+      }
+    }
+
+    await this.auditService.logAdjustmentCalculated(auditContext, {
+      action: 'reopen_run',
+      payrollRunId,
+      title: payrollRun.title,
+    });
+    return (await this.getPayrollRun(payrollRunId, tenantId))!;
   }
 
   async deletePayrollRun(

@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { formatAdjustmentLineLabel } from '@/features/payroll/lib/format-adjustment-line';
 import { HintIcon } from '@/features/settings/components/settings-field-hint';
 import { useCreatePayrollRun, usePayrollActions } from '@/hooks/queries/use-payroll';
 import type { CurrentSalary } from '@/lib/api/employment';
@@ -388,7 +389,7 @@ export function CreatePayrollRunDialog({
                     const employee = employeesById.get(employeeId);
                     if (!employee) return null;
                     const checkboxId = `payroll-employee-${employeeId}`;
-                    const adjustmentCount = adjustmentsByEmployee[employeeId]?.length ?? 0;
+                    const employeeAdjustments = adjustmentsByEmployee[employeeId] ?? [];
                     return (
                       <div key={employeeId} className="space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -403,9 +404,6 @@ export function CreatePayrollRunDialog({
                             <Label htmlFor={checkboxId} className="truncate font-normal">
                               {employeeName(employee)}
                             </Label>
-                            {adjustmentCount > 0 ? (
-                              <Badge variant="secondary">{adjustmentCount} adj.</Badge>
-                            ) : null}
                           </div>
                           <Button
                             type="button"
@@ -422,6 +420,18 @@ export function CreatePayrollRunDialog({
                             Adjustment
                           </Button>
                         </div>
+                        {employeeAdjustments.length > 0 ? (
+                          <ul className="ml-6 space-y-1">
+                            {employeeAdjustments.map((line) => (
+                              <li
+                                key={`${line.type}-${line.method}-${line.value}-${line.reason ?? ''}`}
+                                className="text-xs text-slate-600 dark:text-slate-300"
+                              >
+                                {formatAdjustmentLineLabel(line, currency)}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
                         {adjustmentTargetId === employeeId ? (
                           <div className="ml-6 space-y-2 rounded-[8px] border border-dashed border-slate-200 p-3 dark:border-slate-700">
                             <div className="grid grid-cols-2 gap-2">

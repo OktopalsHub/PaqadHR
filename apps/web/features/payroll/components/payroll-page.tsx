@@ -57,9 +57,12 @@ function statusVariant(status: string) {
   }
 }
 
-function canDeletePayrollRun(run: PayrollRun) {
-  return run.status === 'draft';
+function canDeletePayrollRun(run: Pick<PayrollRun, 'status'>) {
+  return run.status !== 'completed';
 }
+
+const APPROVE_BUTTON_CLASS =
+  'border-emerald-600 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 hover:text-white dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500';
 
 function PayrollRunRow({
   run,
@@ -132,15 +135,25 @@ function PayrollRunRow({
           </Button>
         ) : null}
         {isAdmin && run.status === 'processing' ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-            disabled={busy}
-            onClick={() => onAction('approve', run.id)}
-          >
-            Approve
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+              disabled={busy}
+              onClick={() => onAction('reopen', run.id)}
+            >
+              Reopen
+            </Button>
+            <Button
+              size="sm"
+              className={APPROVE_BUTTON_CLASS}
+              disabled={busy}
+              onClick={() => onAction('approve', run.id)}
+            >
+              Approve
+            </Button>
+          </>
         ) : null}
         {isAdmin && run.status === 'approved' ? (
           <>
@@ -231,6 +244,8 @@ export function PayrollPage() {
     actions.exportCsv.isPending ||
     actions.removeItem.isPending ||
     actions.deleteRun.isPending ||
+    actions.reopen.isPending ||
+    actions.updateTitle.isPending ||
     actions.notifyPaymentSetup.isPending;
 
   const activeEmployees = useMemo(
@@ -239,11 +254,16 @@ export function PayrollPage() {
   );
   const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
+  const [reopenRunId, setReopenRunId] = useState<string | null>(null);
 
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
       if (action === 'delete') {
         setDeleteRunId(id);
+        return;
+      }
+      if (action === 'reopen') {
+        setReopenRunId(id);
         return;
       }
       if (action === 'calculate') {
@@ -258,7 +278,13 @@ export function PayrollPage() {
         }
         return;
       }
-      if (action === 'approve') await actions.approve.mutateAsync(id);
+      if (action === 'approve') {
+        await actions.approve.mutateAsync(id);
+        toast.success(
+          'Payroll approved — run locked. Use Pay now, Schedule, or Mark paid to send money.',
+        );
+        return;
+      }
       if (action === 'disburse') await actions.disburse.mutateAsync(id);
       if (action === 'process' || action === 'pay-now') {
         await actions.payNow.mutateAsync(id);
@@ -308,6 +334,18 @@ export function PayrollPage() {
       toast.success('Payroll run deleted');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete payroll run');
+    }
+  };
+
+  const confirmReopen = async () => {
+    if (!reopenRunId) return;
+    try {
+      await actions.reopen.mutateAsync(reopenRunId);
+      setSelectedRunId(reopenRunId);
+      setReopenRunId(null);
+      toast.success('Run reopened as draft — edit bonuses, then Calculate again');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to reopen payroll run');
     }
   };
 
@@ -504,6 +542,8 @@ export function PayrollPage() {
                 runId={selectedRunId}
                 payrollGatewayEnabled={payrollGatewayEnabled}
                 isAdmin={isAdmin}
+                onDelete={() => setDeleteRunId(selectedRunId)}
+                onReopen={() => setReopenRunId(selectedRunId)}
               />
             </ContentCard>
           ) : null}
@@ -612,11 +652,24 @@ export function PayrollPage() {
           if (!next) setDeleteRunId(null);
         }}
         title="Delete payroll run?"
-        description="This removes the draft run and all employees on it. Completed or paid runs cannot be deleted."
+        description="This removes the run and all employees on it. Completed or paid runs cannot be deleted."
         actionLabel="Delete run"
         isPending={actions.deleteRun.isPending}
         preventAutoClose
         onConfirm={() => void confirmDelete()}
+      />
+
+      <DestructiveConfirmDialog
+        open={Boolean(reopenRunId)}
+        onOpenChange={(next) => {
+          if (!next) setReopenRunId(null);
+        }}
+        title="Reopen payroll run?"
+        description="This moves the run back to draft so you can edit people and bonuses. You will need to Calculate again before Approve."
+        actionLabel="Reopen to draft"
+        isPending={actions.reopen.isPending}
+        preventAutoClose
+        onConfirm={() => void confirmReopen()}
       />
     </AppPage>
   );

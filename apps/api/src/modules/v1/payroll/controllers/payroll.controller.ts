@@ -24,6 +24,7 @@ import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/proc
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import { DisbursePayrollDto } from '../dto/disburse-payroll.dto';
+import { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import { PayrollCalculationPreviewDto, UpdatePayrollRunDto } from '../dto/payroll-adjustment.dto';
 import { PublishPayslipsDto } from '../dto/publish-payslips.dto';
 import { SchedulePayrollPayoutDto } from '../dto/schedule-payroll-payout.dto';
@@ -279,6 +280,53 @@ export class PayrollController {
     return {
       message: 'Payroll run deleted',
       payrollRunId: id,
+    };
+  }
+
+  @Patch('runs/:id')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async patchPayrollRun(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Body() dto: PatchPayrollRunDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      tenantId,
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const run = await this.payrollService.updatePayrollRun(id, tenantId, dto, auditContext);
+    return {
+      message: 'Payroll run updated',
+      payrollRun: run,
+    };
+  }
+
+  @Post('runs/:id/reopen')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async reopenPayrollRun(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      tenantId,
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const run = await this.payrollService.reopenPayrollRun(id, tenantId, auditContext);
+    return {
+      message: 'Payroll run reopened to draft',
+      payrollRun: run,
     };
   }
 
