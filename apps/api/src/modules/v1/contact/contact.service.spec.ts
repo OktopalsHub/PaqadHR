@@ -47,6 +47,7 @@ describe('ContactService', () => {
       'https://api.web3forms.com/submit',
       expect.objectContaining({
         method: 'POST',
+        redirect: 'error',
         body: JSON.stringify({
           access_key: 'test-key',
           name: 'Ada',

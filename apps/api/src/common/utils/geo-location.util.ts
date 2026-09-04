@@ -70,24 +70,45 @@ export class GeoLocationHelper {
     return ip;
   }
 
+  /**
+   * Trust X-Forwarded-For / CF / X-Real-IP only behind a reverse proxy.
+   * Direct public peers can spoof those headers — ignore them unless TRUST_PROXY_HEADERS=true
+   * (set when the API sits behind Cloudflare or another edge that overwrites them).
+   */
+  static shouldTrustForwardedHeaders(socketRemoteAddress?: string): boolean {
+    if (process.env.TRUST_PROXY_HEADERS?.trim().toLowerCase() === 'true') {
+      return true;
+    }
+    if (!socketRemoteAddress) {
+      return false;
+    }
+    return GeoLocationHelper.isPrivateIp(socketRemoteAddress);
+  }
+
   static resolveClientIp(
     headers: Record<string, string | string[] | undefined>,
     socketRemoteAddress?: string,
     reqIp?: string,
   ): string {
-    const cf = headers['cf-connecting-ip'];
-    const realIp = headers['x-real-ip'];
-    const forwarded = headers['x-forwarded-for'];
+    const peer = socketRemoteAddress ? GeoLocationHelper.normalizeIp(socketRemoteAddress) : '';
     const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-    const raw =
-      pick(cf) ||
-      pick(realIp) ||
-      pick(forwarded)?.split(',')[0]?.trim() ||
-      reqIp ||
-      socketRemoteAddress ||
-      '127.0.0.1';
+    if (GeoLocationHelper.shouldTrustForwardedHeaders(socketRemoteAddress)) {
+      const cf = headers['cf-connecting-ip'];
+      const realIp = headers['x-real-ip'];
+      const forwarded = headers['x-forwarded-for'];
+      const raw =
+        pick(cf) ||
+        pick(realIp) ||
+        pick(forwarded)?.split(',')[0]?.trim() ||
+        reqIp ||
+        peer ||
+        '127.0.0.1';
+      return GeoLocationHelper.normalizeIp(raw);
+    }
 
+    // Direct public connection: never trust client-supplied forwarding headers.
+    const raw = peer || reqIp || '127.0.0.1';
     return GeoLocationHelper.normalizeIp(raw);
   }
 

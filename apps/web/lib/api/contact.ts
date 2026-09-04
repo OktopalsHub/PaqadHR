@@ -11,6 +11,5 @@ export async function submitContactForm(body: SubmitContactPayload): Promise<{ s
   return apiClient<{ success: true }>('/contact', {
     method: 'POST',
     body: JSON.stringify(body),
-    skipCsrf: true,
   });
 }

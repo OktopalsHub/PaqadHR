@@ -38,6 +38,7 @@ export class ContactService {
           message: dto.message.trim(),
           subject: 'Paqad contact form',
         }),
+        redirect: 'error',
         signal: AbortSignal.timeout(10_000),
       });
     } catch (error) {

@@ -1,6 +1,16 @@
-import { BadRequestException, Body, Controller, Ip, Post, Req } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  HttpException,
+  HttpStatus,
+  Ip,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { Public } from 'src/common/decorators';
 import { RateLimitService } from 'src/common/services/rate-limit.service';
 import { TurnstileService } from 'src/common/services/turnstile.service';
@@ -20,14 +30,28 @@ export class ContactController {
 
   @Post()
   @ApiOperation({ summary: 'Submit the public marketing contact form' })
-  async submit(@Body() dto: SubmitContactDto, @Req() req: Request, @Ip() ip: string) {
+  async submit(
+    @Body() dto: SubmitContactDto,
+    @Req() req: Request,
+    @Ip() ip: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const clientIp = GeoLocationHelper.resolveClientIp(req.headers, req.socket?.remoteAddress, ip);
 
     const rate = await this.rateLimitService.checkRateLimit(`contact:${clientIp}`, {
       rules: [{ windowMs: 15 * 60 * 1000, maxRequests: 5 }],
     });
     if (!rate.allowed) {
-      throw new BadRequestException('Too many requests. Please try again later.');
+      const retryAfter = rate.retryAfter ?? 60;
+      res.setHeader('Retry-After', String(retryAfter));
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: 'Too many requests. Please try again later.',
+          retryAfter,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     if (this.turnstileService.isEnabled()) {
