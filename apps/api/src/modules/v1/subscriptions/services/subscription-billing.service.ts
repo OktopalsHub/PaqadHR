@@ -17,16 +17,7 @@ import {
   isSubdomainTenantsEnabled,
   tenantFrontendUrl,
 } from 'src/common/utils/tenant-frontend-url.util';
-import {
-  Brackets,
-  DataSource,
-  In,
-  IsNull,
-  LessThan,
-  LessThanOrEqual,
-  Not,
-  Repository,
-} from 'typeorm';
+import { Brackets, DataSource, In, LessThan, LessThanOrEqual, Repository } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
 import { PlansService } from '../../plans/services/plans.service';
@@ -524,12 +515,11 @@ export class SubscriptionBillingService {
       throw new NotFoundException('Tenant not found');
     }
 
-    const subscription = rawSubscription
-      ? await this.healBachsTrialingPaidSubscription(rawSubscription)
-      : null;
-
     const { subscription: alignedSubscription, pricingMismatch } =
-      await this.subscriptionsService.healNgSubscriptionPlanPrice(tenant.countryCode, subscription);
+      await this.subscriptionsService.healNgSubscriptionPlanPrice(
+        tenant.countryCode,
+        rawSubscription,
+      );
 
     const { countryCode, currency } = GeoLocationHelper.resolveEffectiveCountryAndCurrency(
       tenant.countryCode,
@@ -1304,43 +1294,6 @@ export class SubscriptionBillingService {
     }
   }
 
-  /** Pull remote Polar/Bachs state for subscriptions not updated in 24h. */
-  async reconcileStaleManagedSubscriptions(): Promise<{ synced: number; failed: number }> {
-    const staleDate = new Date();
-    staleDate.setHours(staleDate.getHours() - 24);
-
-    const stale = await this.subscriptionRepository.find({
-      where: {
-        billingProvider: In([BillingProvider.POLAR, BillingProvider.BACHS]),
-        externalSubscriptionId: Not(IsNull()),
-        status: In([
-          SubscriptionStatus.ACTIVE,
-          SubscriptionStatus.TRIAL,
-          SubscriptionStatus.PAST_DUE,
-        ]),
-        updatedAt: LessThan(staleDate),
-      },
-    });
-
-    let synced = 0;
-    let failed = 0;
-
-    for (const subscription of stale) {
-      try {
-        await this.syncExternalSubscription(subscription);
-        synced += 1;
-      } catch (error) {
-        failed += 1;
-        const message = error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `Failed to sync ${subscription.billingProvider} subscription ${subscription.id}: ${message}`,
-        );
-      }
-    }
-
-    return { synced, failed };
-  }
-
   /**
    * Bachs/Polar renewals are webhook-only; Monnify requires manual checkout.
    * After a 3-day grace past nextBillingDate with no renewal, mark PAST_DUE
@@ -1385,153 +1338,6 @@ export class SubscriptionBillingService {
   /** @deprecated Prefer lapseStaleSubscriptions — kept for callers/tests. */
   async lapseStaleBachsSubscriptions(): Promise<{ lapsed: number }> {
     return this.lapseStaleSubscriptions();
-  }
-
-  async syncExternalSubscription(subscription: TenantSubscription): Promise<TenantSubscription> {
-    if (
-      !isManagedSubscriptionProvider(subscription.billingProvider) ||
-      !subscription.externalSubscriptionId
-    ) {
-      return subscription;
-    }
-
-    const provider = this.billingProviderFactory.getProviderByEnum(subscription.billingProvider);
-    let remote = (await provider.getSubscription(subscription.externalSubscriptionId)) as Record<
-      string,
-      unknown
-    >;
-
-    let remoteStatus = String(remote.status ?? '').toLowerCase();
-
-    // Paid Paqad checkout must not stay `trialing` on Bachs (catalog trial_period).
-    // End the trial so Bachs next_billed_at matches a real billing cycle, not trial end.
-    if (
-      subscription.billingProvider === BillingProvider.BACHS &&
-      (remoteStatus === 'trialing' || remoteStatus === 'trial') &&
-      this.hasPaidSubscriptionEvidence(subscription)
-    ) {
-      await this.endProviderTrialBestEffort(
-        BillingProvider.BACHS,
-        subscription.externalSubscriptionId,
-        subscription.tenantId,
-      );
-      remote = (await provider.getSubscription(subscription.externalSubscriptionId)) as Record<
-        string,
-        unknown
-      >;
-      remoteStatus = String(remote.status ?? '').toLowerCase();
-    }
-
-    const priorPeriodEnd = subscription.currentPeriodEnd
-      ? new Date(subscription.currentPeriodEnd)
-      : null;
-
-    const remoteIsTrialing = remoteStatus === 'trialing' || remoteStatus === 'trial';
-    const preservePaidLocalPeriod =
-      remoteIsTrialing && this.hasPaidSubscriptionEvidence(subscription);
-
-    if (remoteIsTrialing) {
-      // Genuine provider trial (should be rare) — do not clobber a local ACTIVE paid period.
-      if (subscription.status !== SubscriptionStatus.ACTIVE) {
-        subscription.status = SubscriptionStatus.TRIAL;
-      }
-    } else if (remoteStatus) {
-      subscription.status = provider.mapStatus(remoteStatus);
-    }
-
-    const cancelAtPeriodEnd = remote.cancel_at_period_end;
-    if (typeof cancelAtPeriodEnd === 'boolean') {
-      subscription.cancelAtPeriodEnd = cancelAtPeriodEnd;
-    }
-
-    // Never replace a paid cycle with Bachs catalog-trial dates (e.g. Aug 26 vs Sept 12).
-    const periodEnd = preservePaidLocalPeriod
-      ? null
-      : this.parseRemoteDate(
-          remote.current_period_end ?? remote.currentPeriodEnd ?? remote.ends_at,
-        );
-    if (periodEnd) {
-      subscription.currentPeriodEnd = periodEnd;
-    }
-
-    if (!preservePaidLocalPeriod) {
-      const nextBilling = this.parseRemoteDate(
-        remote.next_billed_at ?? remote.nextBillingDate ?? remote.current_period_end,
-      );
-      if (nextBilling) {
-        subscription.nextBillingDate = nextBilling;
-      }
-    }
-
-    if (remoteStatus === 'canceled' || remoteStatus === 'cancelled' || remoteStatus === 'revoked') {
-      subscription.status = SubscriptionStatus.CANCELLED;
-      subscription.cancelAtPeriodEnd = false;
-      subscription.cancelledAt = subscription.cancelledAt ?? new Date();
-    }
-
-    if (
-      periodEnd &&
-      priorPeriodEnd &&
-      periodEnd.getTime() > priorPeriodEnd.getTime() &&
-      subscription.status === SubscriptionStatus.ACTIVE
-    ) {
-      const syncRef = `sync_${subscription.externalSubscriptionId}_${periodEnd.toISOString()}`;
-      if (!(await this.hasProcessedEvent(syncRef, subscription.billingProvider))) {
-        // Period advanced via provider sync; record event for audit but do NOT
-        // fabricate a $0 invoice in billingHistory. Real invoices must come from
-        // payment webhooks (applyRenewalSuccess/processInitialPaymentSuccess) or
-        // renewal cron which carry the actual amount.
-        await this.recordBillingEvent(
-          syncRef,
-          'subscription_period_synced',
-          {
-            tenantId: subscription.tenantId,
-            externalSubscriptionId: subscription.externalSubscriptionId,
-            periodEnd: periodEnd.toISOString(),
-          },
-          subscription.billingProvider,
-        );
-      }
-    }
-
-    return this.subscriptionRepository.save(subscription);
-  }
-
-  private hasPaidSubscriptionEvidence(subscription: TenantSubscription): boolean {
-    if (subscription.status === SubscriptionStatus.ACTIVE) {
-      return true;
-    }
-    return (subscription.billingHistory ?? []).some(
-      (entry) => entry.status === 'paid' && Number(entry.amount) > 0,
-    );
-  }
-
-  /** When Bachs still shows trialing after a paid checkout, end trial and refresh dates. */
-  private async healBachsTrialingPaidSubscription(
-    subscription: TenantSubscription,
-  ): Promise<TenantSubscription> {
-    if (
-      subscription.billingProvider !== BillingProvider.BACHS ||
-      !subscription.externalSubscriptionId ||
-      !this.hasPaidSubscriptionEvidence(subscription)
-    ) {
-      return subscription;
-    }
-
-    try {
-      return await this.syncExternalSubscription(subscription);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Bachs trial heal skipped for tenant ${subscription.tenantId}: ${message}`);
-      return subscription;
-    }
-  }
-
-  private parseRemoteDate(value: unknown): Date | null {
-    if (!value) return null;
-    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-    const parsed = new Date(String(value));
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   private async finalizeScheduledCancellations(now: Date): Promise<void> {

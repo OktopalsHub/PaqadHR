@@ -11,6 +11,7 @@ import { Document } from '../document/entities/document.entity';
 import { Education } from '../education/entities/education.entity';
 import { EmergencyContact } from '../emergency-contact/entities/emergency-contact.entity';
 import { Employment } from '../employment/entities/employment.entity';
+import { InvitationsModule } from '../invitations/invitations.module';
 import { Leave } from '../leave/entities/leave.entity';
 import { Notification } from '../notifications/entities/notification.entity';
 import { NotificationPreference } from '../notifications/entities/notification-preference.entity';
@@ -52,6 +53,7 @@ import { TenantMembersService } from './tenant-members.service';
     FileModule,
     EncryptionModule,
     forwardRef(() => ActivitiesModule),
+    forwardRef(() => InvitationsModule),
   ],
   controllers: [TenantMembersController, PublicTenantMembersController],
   providers: [

@@ -79,6 +79,8 @@ describe('InvitationsService', () => {
       sendInvitationDeclinedNotification: jest.fn().mockResolvedValue(undefined),
     };
 
+    const productAnalytics = { capture: jest.fn() };
+
     const service = new InvitationsService(
       invitationsRepository as any,
       tenantMembersService as any,
@@ -90,6 +92,7 @@ describe('InvitationsService', () => {
       departmentsService as any,
       positionMemberService as any,
       notificationHelperService as any,
+      productAnalytics as any,
     );
 
     return {
@@ -140,6 +143,47 @@ describe('InvitationsService', () => {
 
       expect(result.emailSent).toBe(false);
       expect(result.emailError).toBe('smtp down');
+    });
+
+    it('skips email when sendEmail is false', async () => {
+      const { service, zeptomailEmailService } = buildService();
+
+      const result = await service.createInvitation(
+        { email: 'new@example.com', role: 'member' },
+        'tenant-1',
+        'member-1',
+        { sendEmail: false },
+      );
+
+      expect(result.emailSent).toBe(false);
+      expect(zeptomailEmailService.sendTemplateEmail).not.toHaveBeenCalled();
+    });
+
+    it('builds accept-invite links from FRONTEND_URL', async () => {
+      const previous = process.env.FRONTEND_URL;
+      process.env.FRONTEND_URL = 'https://app.paqadhr.com';
+      const { service, zeptomailEmailService } = buildService();
+
+      try {
+        await service.createInvitation(
+          { email: 'new@example.com', role: 'member' },
+          'tenant-1',
+          'member-1',
+        );
+
+        expect(zeptomailEmailService.sendTemplateEmail).toHaveBeenCalledWith(
+          'new@example.com',
+          'invitation',
+          expect.objectContaining({
+            inviteLink: expect.stringMatching(
+              /^https:\/\/app\.paqadhr\.com\/accept-invite\?token=.+&email=new%40example\.com$/,
+            ),
+          }),
+        );
+      } finally {
+        if (previous === undefined) delete process.env.FRONTEND_URL;
+        else process.env.FRONTEND_URL = previous;
+      }
     });
 
     it('allows inviting a user who belongs to another workspace', async () => {

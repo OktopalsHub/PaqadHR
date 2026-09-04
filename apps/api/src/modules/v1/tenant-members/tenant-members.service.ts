@@ -1,10 +1,12 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  Optional,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -27,6 +29,7 @@ import { Document } from '../document/entities/document.entity';
 import { Education } from '../education/entities/education.entity';
 import { EmergencyContact } from '../emergency-contact/entities/emergency-contact.entity';
 import { Employment } from '../employment/entities/employment.entity';
+import { InvitationsService } from '../invitations/invitations.service';
 import { Leave } from '../leave/entities/leave.entity';
 import {
   ProfileUpdatedEvent,
@@ -45,15 +48,6 @@ import { TenantMember } from './entities/tenant-member.entity';
 import { TenantCounterRepository } from './repositories/tenant-counter.repository';
 import { TenantMemberRepository } from './repositories/tenant-members.repository';
 import { describeChangedFields, pickChangedFields } from './utils/member-activity-diff.util';
-
-interface EmailQueueService {
-  sendInvitationEmail(
-    email: string,
-    invitedBy: string,
-    tenantId: string,
-    inviteLink: string,
-  ): Promise<void>;
-}
 
 @Injectable()
 export class TenantMembersService {
@@ -93,7 +87,8 @@ export class TenantMembersService {
     private readonly fileUrlService: FileUrlService,
     private readonly encryptionService: EncryptionService,
     private readonly activitiesService: ActivitiesService,
-    @Optional() private readonly emailQueueService?: EmailQueueService,
+    @Inject(forwardRef(() => InvitationsService))
+    private readonly invitationsService: InvitationsService,
   ) {}
 
   private memberDisplayName(
@@ -748,47 +743,31 @@ export class TenantMembersService {
     invitedBy: string,
   ) {
     try {
-      const existingMember = await this.findByEmail(inviteData.email);
-      if (existingMember && existingMember.tenantId === tenantId) {
-        throw new BadRequestException('User is already a member of this tenant');
-      }
       const employeeNumber = await this.getNextEmployeeNumber(tenantId);
-      const invitationData = {
+      return await this.invitationsService.createInvitation(
+        {
+          email: inviteData.email,
+          firstName: inviteData.firstName,
+          lastName: inviteData.lastName,
+          role: inviteData.role || TenantMemberRole.MEMBER,
+          employeeNumber,
+        },
         tenantId,
-        email: inviteData.email,
-        firstName: inviteData.firstName,
-        lastName: inviteData.lastName,
-        role: inviteData.role || TenantMemberRole.MEMBER,
-        employeeNumber,
         invitedBy,
-        invitedAt: new Date(),
-        status: 'pending',
-      };
-      const { randomBytes } = await import('node:crypto');
-      const invitation = {
-        id: `inv_${Date.now()}_${randomBytes(8).toString('hex')}`,
-        ...invitationData,
-      };
-      if (inviteData.sendWelcomeEmail && this.emailQueueService) {
-        try {
-          const inviteLink = `${process.env.FRONTEND_URL || 'https://app.teamlyf.com'}/accept-invitation/${invitation.id}`;
-          await this.emailQueueService.sendInvitationEmail(
-            inviteData.email,
-            invitedBy,
-            tenantId,
-            inviteLink,
-          );
-        } catch (emailError) {
-          this.logger.error('Failed to send invitation email', emailError);
-        }
-      }
-      return invitation;
+        { sendEmail: inviteData.sendWelcomeEmail !== false },
+      );
     } catch (error) {
       this.logger.error('Error creating member invitation:', error);
-      if (error instanceof BadRequestException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new BadRequestException(`Failed to create invitation: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to create invitation: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
   async getNewHires(tenantId: string, months: number = 2): Promise<INewHiresResponseDto[]> {

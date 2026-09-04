@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -35,6 +37,7 @@ export class InvitationsService {
   private readonly logger = new Logger(InvitationsService.name);
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
+    @Inject(forwardRef(() => TenantMembersService))
     private readonly tenantMembersService: TenantMembersService,
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
@@ -72,6 +75,7 @@ export class InvitationsService {
     createInvitationDto: CreateInvitationDto,
     tenantId: string,
     invitedBy: string,
+    options?: { sendEmail?: boolean },
   ): Promise<IInvitationResponseDto> {
     const existingUser = await this.usersService.getUserByEmail(createInvitationDto.email);
     if (existingUser) {
@@ -133,7 +137,10 @@ export class InvitationsService {
       }
       throw error;
     }
-    const emailDelivery = await this.sendInvitationEmail(invitation);
+    const emailDelivery =
+      options?.sendEmail === false
+        ? { emailSent: false }
+        : await this.sendInvitationEmail(invitation);
     return this.mapToResponseDto(invitation, emailDelivery);
   }
   async updateInvitation(
@@ -502,7 +509,7 @@ export class InvitationsService {
     invitation: Invitation,
   ): Promise<{ emailSent: boolean; emailError?: string }> {
     const tenant = await this.tenantsService.getTenant(invitation.tenantId);
-    const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    const baseUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     const inviteLink = `${baseUrl}/accept-invite?token=${invitation.token}&email=${encodeURIComponent(invitation.email)}`;
 
     let inviterName = 'A team member';
