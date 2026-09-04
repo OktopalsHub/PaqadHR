@@ -2,10 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
+import { COMPANY } from '@/lib/constants/company';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — Paqad',
-  description: 'Terms governing use of the Paqad HR and payroll platform.',
+  title: 'Terms and Conditions — Paqad',
+  description: 'Terms for use of the Paqad platform.',
 };
 
 export default function TermsPage() {
@@ -22,41 +23,58 @@ export default function TermsPage() {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-12 prose prose-neutral">
-        <h1>Terms of Service</h1>
-        <p className="text-muted-foreground">Last updated: June 2026</p>
+        <h1>Terms and Conditions</h1>
+        <p className="text-muted-foreground">Last updated: September 2026</p>
+
         <p>
-          By creating an account or using Paqad, you agree to these terms on behalf of yourself or
-          the organization you represent.
+          These terms govern use of Paqad. By creating an account or using the service, you agree to
+          them. {COMPANY.poweredBy}.
         </p>
+
+        <h2>Acceptance</h2>
+        <p>If you do not agree to these terms, do not use Paqad.</p>
+
         <h2>Service</h2>
         <p>
-          Paqad provides cloud software for people operations, including recruitment, payroll
-          workflows, leave, and team recognition. Features may vary by plan and region.
+          Paqad is cloud software for HR, recruitment, payroll workflows, leave, and team
+          recognition. Features may vary by plan and region.
         </p>
+
         <h2>Accounts</h2>
         <p>
-          You are responsible for safeguarding credentials and for activity under your account.
+          Keep your credentials secure. You are responsible for activity under your account.
           Workspace owners control member access and billing.
         </p>
+
         <h2>Acceptable use</h2>
         <p>
-          You may not misuse the service, attempt unauthorized access, or use Paqad in violation of
-          applicable law. Payroll and payment features must be used in compliance with local
-          regulations.
+          Use Paqad only for lawful purposes. Do not attempt unauthorised access. Follow local law
+          for payroll and payments.
         </p>
+
         <h2>Billing</h2>
         <p>
-          Paid plans are billed per seat unless otherwise stated. Trials convert to paid
-          subscriptions unless cancelled before the trial ends.
+          Paid plans bill per seat unless we state otherwise. A trial becomes a paid plan unless you
+          cancel before the trial ends.
         </p>
+
         <h2>Limitation of liability</h2>
         <p>
-          Paqad is provided as-is to the extent permitted by law. We are not liable for indirect or
-          consequential damages arising from use of the service.
+          We provide Paqad as-is to the extent the law allows. We are not liable for indirect or
+          consequential loss from use of the service.
         </p>
+
+        <h2>Changes</h2>
+        <p>
+          We may update these terms. We will post changes on this page. Continued use means you
+          accept the updated terms.
+        </p>
+
         <h2>Contact</h2>
         <p>
-          Questions about these terms: <a href="mailto:legal@paqad.com">legal@paqad.com</a>
+          {COMPANY.legalName}
+          <br />
+          <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
         </p>
       </main>
     </div>

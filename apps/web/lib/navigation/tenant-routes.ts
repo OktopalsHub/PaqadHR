@@ -354,6 +354,8 @@ export const MARKETING_AUTH_SEGMENTS = new Set([
   'accept-invite',
   'privacy',
   'terms',
+  'contact',
+  'dpa',
   'google',
 ]);
 

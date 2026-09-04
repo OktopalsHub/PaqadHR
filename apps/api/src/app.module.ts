@@ -27,6 +27,7 @@ import { AuditLogsModule } from './modules/v1/audit-logs/audit-logs.module';
 import { AuditLogsService } from './modules/v1/audit-logs/services/audit-logs.service';
 import { AuthModule } from './modules/v1/auth/auth.module';
 import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
+import { ContactModule } from './modules/v1/contact/contact.module';
 import { DepartmentsModule } from './modules/v1/departments/departments.module';
 import { DocumentModule } from './modules/v1/document/document.module';
 import { EducationModule } from './modules/v1/education/education.module';
@@ -97,6 +98,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     ShoutoutsModule,
     AnalyticsModule,
     CalendarEventsModule,
+    ContactModule,
     RewardsModule,
   ],
   controllers: [AppController],

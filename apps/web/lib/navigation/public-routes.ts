@@ -11,7 +11,7 @@ export function skipsSessionBootstrap(pathname: string): boolean {
     pathname === '/' ||
     pathname === '/terms' ||
     pathname === '/privacy' ||
-    pathname === '/subprocessors' ||
+    pathname === '/contact' ||
     pathname === '/dpa' ||
     pathname === '/google/complete' ||
     pathname === '/signin' ||

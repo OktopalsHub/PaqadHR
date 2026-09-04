@@ -264,6 +264,19 @@ export const ExpressSetup = (app: NestExpressApplication) => {
   // refresh token is unguessable. It stays covered by the general limiter above.
   app.use('/api/v1/auth/forgot-password', authLimiter);
   app.use('/api/v1/auth/reset-password', authLimiter);
+  const contactLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => ipKeyGenerator(req.ip || ''),
+    message: {
+      error: 'Too Many Requests',
+      message: 'Too many contact form submissions from this IP, please try again later.',
+      statusCode: 429,
+    },
+  });
+  app.use('/api/v1/contact', contactLimiter);
   const webhookLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
     max: 50,
