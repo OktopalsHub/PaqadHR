@@ -1,4 +1,8 @@
-import { getPrivacyPolicyVersion } from 'src/common/config/privacy.config';
+import {
+  DEFAULT_PRIVACY_POLICY_VERSION,
+  getPrivacyPolicyVersion,
+  isPrivacyReconsentEnabled,
+} from 'src/common/config/privacy.config';
 
 export interface UserConsentMetadata {
   termsAcceptedAt?: string;
@@ -30,10 +34,16 @@ export function getCurrentPrivacyPolicyVersion(): string {
   return getPrivacyPolicyVersion();
 }
 
+/**
+ * Reconsent when the recorded version does not match PRIVACY_POLICY_VERSION.
+ * Missing version is treated as DEFAULT_PRIVACY_POLICY_VERSION (legacy accounts).
+ * Disable entirely with PRIVACY_RECONSENT_ENABLED=false.
+ */
 export function needsPrivacyPolicyReconsent(metadata?: UserMetadata | null): boolean {
-  const acceptedVersion = getUserConsent(metadata)?.privacyPolicyVersion;
-  if (!acceptedVersion) {
-    return true;
+  if (!isPrivacyReconsentEnabled()) {
+    return false;
   }
+  const acceptedVersion =
+    getUserConsent(metadata)?.privacyPolicyVersion ?? DEFAULT_PRIVACY_POLICY_VERSION;
   return acceptedVersion !== getCurrentPrivacyPolicyVersion();
 }
