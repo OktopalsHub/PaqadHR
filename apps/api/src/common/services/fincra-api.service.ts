@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
   getFincraApiKey,
   getFincraBaseUrl,
@@ -330,7 +330,10 @@ export class FincraApiService {
     orderReference: string;
   }> {
     const currency = input.currency.toUpperCase();
-    const { parsed: response } = await this.request<{ link?: string; reference?: string }>(
+    const { parsed: response, httpStatus } = await this.request<{
+      link?: string;
+      reference?: string;
+    }>(
       'POST',
       '/checkout/payments',
       {
@@ -349,15 +352,21 @@ export class FincraApiService {
       { usePublicKey: true },
     );
 
+    this.throwIfFincraUnauthorized(httpStatus, response.message);
+
     const link = response.data?.link;
-    if (!link) {
-      throw new Error(response.message || 'Fincra checkout link missing');
+    if (link) {
+      return {
+        checkoutLink: link,
+        orderReference: input.reference,
+      };
     }
 
-    return {
-      checkoutLink: link,
-      orderReference: input.reference,
-    };
+    const detail = (response.message || 'Fincra checkout failed').trim();
+    if (httpStatus >= 400 && httpStatus < 500) {
+      throw new BadRequestException(detail);
+    }
+    throw new BadGatewayException(detail);
   }
 
   async verifyPayinStatus(merchantReference: string): Promise<{
@@ -391,6 +400,19 @@ export class FincraApiService {
 
   isOperationPending(status?: string | null): boolean {
     return isFincraOperationPending(status);
+  }
+
+  private fincraAuthRejectedMessage(): string {
+    return 'Fincra rejected the API key — check FINCRA_API_KEY / FINCRA_PUBLIC_KEY and that FINCRA_LIVE matches sandbox vs live';
+  }
+
+  private throwIfFincraUnauthorized(httpStatus: number, detail?: string): void {
+    if (httpStatus === 401 || httpStatus === 403) {
+      throw new BadGatewayException(this.fincraAuthRejectedMessage());
+    }
+    if (detail && /unauthorized|forbidden/i.test(detail)) {
+      throw new BadGatewayException(this.fincraAuthRejectedMessage());
+    }
   }
 
   /** Explicit FINCRA_BUSINESS_ID env, or `_id` from GET /profile/business/me (cached). */
@@ -447,6 +469,7 @@ export class FincraApiService {
 
       if (!response.ok) {
         const detail = parsed.message ?? `HTTP ${response.status}`;
+        this.throwIfFincraUnauthorized(response.status, detail);
         throw new Error(`Fincra business profile lookup failed: ${detail}`);
       }
 

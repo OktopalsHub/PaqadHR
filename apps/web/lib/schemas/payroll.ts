@@ -83,7 +83,7 @@ export const payrollAdjustmentLineSchema = z.object({
   type: z.string(),
   method: z.enum(['fixed_amount', 'percentage']),
   value: z.number(),
-  reason: z.string(),
+  reason: z.string().optional(),
   notes: z.string().optional(),
 });
 

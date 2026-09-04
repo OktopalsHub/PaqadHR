@@ -120,8 +120,8 @@ function BonusDialog({
 
   const handleSave = async () => {
     const amount = Number(value);
-    if (!reason.trim() || !amount || amount <= 0) {
-      toast.error('Enter a valid amount and reason');
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid amount');
       return;
     }
 

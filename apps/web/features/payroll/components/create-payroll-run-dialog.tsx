@@ -179,8 +179,8 @@ export function CreatePayrollRunDialog({
 
   const addAdjustment = (employeeId: string, currency: string) => {
     const amount = Number(adjustmentValue);
-    if (!adjustmentReason.trim() || !amount || amount <= 0) {
-      toast.error('Enter a valid amount and reason');
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid amount');
       return;
     }
     const line: PayrollAdjustmentLine = {

@@ -3,7 +3,6 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -42,11 +41,11 @@ export class PayrollAdjustmentDto {
   @Min(0, { message: 'Value cannot be negative' })
   @Max(1000000, { message: 'Value cannot exceed 1,000,000' })
   value: number;
-  @ApiProperty({ description: 'Reason for adjustment' })
+  @ApiPropertyOptional({ description: 'Reason for adjustment' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Reason is required' })
   @MaxLength(500, { message: 'Reason cannot exceed 500 characters' })
-  reason: string;
+  reason?: string;
   @ApiPropertyOptional({ description: 'Additional notes' })
   @IsOptional()
   @IsString()

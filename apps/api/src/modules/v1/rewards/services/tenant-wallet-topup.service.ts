@@ -36,6 +36,7 @@ import {
 } from '../constants/wallet-error-messages';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.entity';
+import { resolveCheckoutCustomerFullName } from '../utils/checkout-customer-name.util';
 import {
   buildWalletTopupOrderRef,
   isBachsWalletTopupOrderRef,
@@ -151,6 +152,7 @@ export class TenantWalletTopupService {
     };
 
     const checkoutCurrency = provider === PaymentProvider.MONNIFY ? 'NGN' : currency;
+    const customerName = resolveCheckoutCustomerFullName(tenant?.name, customerEmail);
 
     const result =
       provider === PaymentProvider.NOMBA
@@ -174,7 +176,7 @@ export class TenantWalletTopupService {
               .initializeTransaction({
                 amount,
                 customerEmail,
-                customerName: customerEmail.split('@')[0] || 'Customer',
+                customerName,
                 paymentReference: orderReference,
                 paymentDescription: 'Rewards wallet top-up',
                 redirectUrl: callbackUrl,
@@ -192,7 +194,7 @@ export class TenantWalletTopupService {
                   amount,
                   currency: currency as 'NGN' | 'USD',
                   customerEmail,
-                  customerName: customerEmail.split('@')[0] || 'Customer',
+                  customerName,
                   successUrl: callbackUrl,
                   reference: orderReference,
                   metadata: meta,
@@ -208,7 +210,7 @@ export class TenantWalletTopupService {
                     amount,
                     currency,
                     customerEmail,
-                    customerName: customerEmail.split('@')[0] || 'Customer',
+                    customerName,
                     reference: orderReference,
                     redirectUrl: callbackUrl,
                     metadata: { ...meta, orderReference },
