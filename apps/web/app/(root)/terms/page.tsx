@@ -32,9 +32,7 @@ export default function TermsPage() {
         </p>
 
         <h2>Acceptance</h2>
-        <p>
-          If you do not agree to these terms, do not use Paqad.
-        </p>
+        <p>If you do not agree to these terms, do not use Paqad.</p>
 
         <h2>Service</h2>
         <p>

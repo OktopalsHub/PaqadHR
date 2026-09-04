@@ -27,8 +27,8 @@ export default function PrivacyPage() {
         <p className="text-muted-foreground">Last updated: September 2026</p>
 
         <p>
-          This policy explains how {COMPANY.legalName} (&quot;we&quot;) processes personal data when you use
-          Paqad. {COMPANY.poweredBy}.
+          This policy explains how {COMPANY.legalName} (&quot;we&quot;) processes personal data when
+          you use Paqad. {COMPANY.poweredBy}.
         </p>
 
         <h2>Who we are</h2>
@@ -56,9 +56,7 @@ export default function PrivacyPage() {
         </ul>
 
         <h2>Cookies</h2>
-        <p>
-          We use essential cookies for sign-in and security. We do not use advertising cookies.
-        </p>
+        <p>We use essential cookies for sign-in and security. We do not use advertising cookies.</p>
 
         <h2>Sharing</h2>
         <p>
@@ -81,8 +79,7 @@ export default function PrivacyPage() {
         <h2>Security</h2>
         <p>
           We use TLS, encryption for sensitive payment fields, httpOnly cookies, access controls,
-          and rate limits. Report issues to{' '}
-          <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.
+          and rate limits. Report issues to <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.
         </p>
 
         <h2>Your rights</h2>
