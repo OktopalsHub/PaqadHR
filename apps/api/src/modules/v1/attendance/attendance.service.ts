@@ -46,14 +46,7 @@ export class AttendanceService {
     private readonly notificationHelperService: NotificationHelperService,
     private readonly productAnalytics: ProductAnalyticsService,
   ) {}
-  private async isClockInEnabled(tenantId: string): Promise<boolean> {
-    try {
-      const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
-      return settings.settings.attendance?.clockInEnabled === true;
-    } catch {
-      return false;
-    }
-  }
+
   async createAttendancePolicy(
     tenantId: string,
     dto: CreateAttendancePolicyDto,
@@ -1133,5 +1126,14 @@ export class AttendanceService {
         workHours: a.workHours,
       })),
     };
+  }
+
+  private async isClockInEnabled(tenantId: string): Promise<boolean> {
+    try {
+      const settings = await this.tenantSettingsService.getTenantSettings(tenantId);
+      return settings.settings.attendance?.clockInEnabled === true;
+    } catch {
+      return false;
+    }
   }
 }
