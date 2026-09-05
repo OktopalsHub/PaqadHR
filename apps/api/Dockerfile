@@ -24,8 +24,9 @@ WORKDIR /app/apps/api
 ENV NODE_ENV=production
 ENV PORT=9001
 EXPOSE 9001
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD curl -f http://localhost:9001/health || exit 1
+# Liveness only (/). /health is readiness (DB) and must not restart the container.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:9001/ || exit 1
 
 COPY --from=dependencies /app/node_modules /app/node_modules
 COPY --from=dependencies /app/apps/api/node_modules ./node_modules
