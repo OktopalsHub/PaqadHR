@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -12,9 +12,9 @@ import { MemberAddressController } from './member-address.controller';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Address]),
-    TenantsModule,
-    TenantMembersModule,
-    ActivitiesModule,
+    forwardRef(() => TenantsModule),
+    forwardRef(() => TenantMembersModule),
+    forwardRef(() => ActivitiesModule),
   ],
   controllers: [AddressController, MemberAddressController],
   providers: [AddressService, AddressRepository],

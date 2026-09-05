@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -11,9 +11,9 @@ import { LeavePolicyService } from './leave-policy.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([LeavePolicy]),
-    TenantsModule,
-    TenantMembersModule,
-    ActivitiesModule,
+    forwardRef(() => TenantsModule),
+    forwardRef(() => TenantMembersModule),
+    forwardRef(() => ActivitiesModule),
   ],
   controllers: [LeavePolicyController],
   providers: [LeavePolicyService, LeavePolicyRepository],

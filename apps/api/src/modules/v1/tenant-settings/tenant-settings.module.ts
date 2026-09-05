@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ShoutoutPointsModule } from '../shoutouts/shoutout-points.module';
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
@@ -13,8 +13,8 @@ import { TenantConfigModule } from './tenant-config.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([TenantSettings, TenantMember]),
-    TenantsModule,
-    TenantMembersModule,
+    forwardRef(() => TenantsModule),
+    forwardRef(() => TenantMembersModule),
     TenantConfigModule,
     ShoutoutPointsModule,
   ],

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IntegrationModule } from 'src/common/integrations/integrations.module';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -35,11 +35,11 @@ import { ShoutoutPointsModule } from './shoutout-points.module';
       Tenant,
     ]),
     TenantSettingsModule,
-    TenantMembersModule,
-    NotificationsModule,
+    forwardRef(() => TenantMembersModule),
+    forwardRef(() => NotificationsModule),
     ShoutoutPointsModule,
     IntegrationModule,
-    ActivitiesModule,
+    forwardRef(() => ActivitiesModule),
   ],
   controllers: [ShoutoutsController, ShoutoutCategoriesController, MemberPointsController],
   providers: [

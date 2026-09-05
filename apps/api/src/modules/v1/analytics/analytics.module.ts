@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { Department } from '../departments/entities/department.entity';
@@ -25,7 +25,7 @@ import { AnalyticsService } from './analytics.service';
       DepartmentMember,
       Shoutout,
     ]),
-    TenantMembersModule,
+    forwardRef(() => TenantMembersModule),
     AttendanceModule,
   ],
   controllers: [AnalyticsController],

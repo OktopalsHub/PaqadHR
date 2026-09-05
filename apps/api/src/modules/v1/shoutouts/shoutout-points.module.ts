@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -13,9 +13,9 @@ import { MemberPointsService } from './services/member-points.service';
   imports: [
     TypeOrmModule.forFeature([ShoutoutMemberPoints, ShoutoutPointTransaction]),
     TenantConfigModule,
-    TenantMembersModule,
-    ActivitiesModule,
-    NotificationsModule,
+    forwardRef(() => TenantMembersModule),
+    forwardRef(() => ActivitiesModule),
+    forwardRef(() => NotificationsModule),
   ],
   providers: [MemberPointsRepository, MemberPointsService],
   exports: [MemberPointsService],

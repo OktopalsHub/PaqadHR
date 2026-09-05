@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FilesController } from 'src/common/controllers/files.controller';
 import { FileModule } from 'src/common/modules/file.module';
@@ -15,9 +15,9 @@ import { RetentionCronService } from './services/retention-cron.service';
   imports: [
     TypeOrmModule.forFeature([Document]),
     FileModule,
-    TenantsModule,
-    TenantMembersModule,
-    NotificationsModule,
+    forwardRef(() => TenantsModule),
+    forwardRef(() => TenantMembersModule),
+    forwardRef(() => NotificationsModule),
   ],
   controllers: [DocumentController, FilesController],
   providers: [DocumentService, DocumentRepository, CloudflareR2Service, RetentionCronService],

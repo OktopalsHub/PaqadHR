@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from 'src/common/modules/file.module';
 import { TurnstileService } from 'src/common/services/turnstile.service';
@@ -28,10 +28,10 @@ import { JobOpeningService } from './services/job-opening.service';
   imports: [
     TypeOrmModule.forFeature([JobOpening, Candidate, Interview, Assessment, Department]),
     FileModule,
-    TenantsModule,
-    TenantMembersModule,
-    SubscriptionsModule,
-    ActivitiesModule,
+    forwardRef(() => TenantsModule),
+    forwardRef(() => TenantMembersModule),
+    forwardRef(() => SubscriptionsModule),
+    forwardRef(() => ActivitiesModule),
   ],
   controllers: [
     ApplicationController,

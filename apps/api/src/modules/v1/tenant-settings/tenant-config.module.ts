@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { Tenant } from '../tenants/entities/tenant.entity';
@@ -10,7 +10,7 @@ import { TenantSettingRepository } from './services/tenant-setting.repository';
 import { TenantSettingsService } from './services/tenant-settings.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TenantSettings, Tenant]), ActivitiesModule],
+  imports: [TypeOrmModule.forFeature([TenantSettings, Tenant]), forwardRef(() => ActivitiesModule)],
   providers: [
     TenantSettingRepository,
     TenantConfigService,

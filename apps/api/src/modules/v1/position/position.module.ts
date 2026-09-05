@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ManagerAccessModule } from 'src/common/modules/manager-access.module';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -15,9 +15,9 @@ import { PositionMemberService } from './services/position-member.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Position, PositionMember]),
-    TenantMembersModule,
+    forwardRef(() => TenantMembersModule),
     ManagerAccessModule,
-    ActivitiesModule,
+    forwardRef(() => ActivitiesModule),
   ],
   controllers: [PositionController, PositionMemberController],
   providers: [PositionMemberRepository, PositionRepository, PositionService, PositionMemberService],
