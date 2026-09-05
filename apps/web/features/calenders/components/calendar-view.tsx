@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Locale } from 'date-fns';
 import { ar, de, es, fr, ja } from 'date-fns/locale';
 import { Eye, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EventCalendar } from '@/components/reui/event-calendar/event-calendar';
@@ -245,6 +245,10 @@ const DEFAULT_SETTINGS: CalendarSettings = {
   timeZoneId: 'local',
 };
 
+// The first client render must match SSR because the calendar reads browser
+// time-zone/date values. Keep that guard satisfied for later in-app visits.
+let hasCalendarClientHydrated = false;
+
 function SettingsSwitch({
   id,
   label,
@@ -480,6 +484,23 @@ function CalendarSettingsPopover({
   );
 }
 
+function CalendarLoadingPanel() {
+  return (
+    <AppPage>
+      <div className="dashboard-panel overflow-hidden rounded-[8px]">
+        <CalendarToolbar
+          selectedTypes={DEFAULT_FILTERS}
+          onToggleType={() => undefined}
+          onSelectAll={() => undefined}
+        />
+        <div className="p-5">
+          <Skeleton className="h-[38rem] rounded-[8px]" />
+        </div>
+      </div>
+    </AppPage>
+  );
+}
+
 export const CalendarView = () => {
   const { tenant } = useTenant();
   const role = tenant?.member?.role?.toLowerCase();
@@ -497,7 +518,13 @@ export const CalendarView = () => {
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [settings, setSettings] = useState<CalendarSettings>(DEFAULT_SETTINGS);
   const [view, setView] = useState<ReuiCalendarView>('month');
+  const [hasHydrated, setHasHydrated] = useState(() => hasCalendarClientHydrated);
   const { data: events = [], isLoading, isError, error } = useCalendarEvents();
+
+  useEffect(() => {
+    hasCalendarClientHydrated = true;
+    setHasHydrated(true);
+  }, []);
 
   const isTimeGridView = view !== 'month' && view !== 'agenda';
   const activeLocale = LOCALES.find((entry) => entry.id === settings.localeId) ?? LOCALES[0];
@@ -542,6 +569,13 @@ export const CalendarView = () => {
       setIsDeletingEvent(false);
     }
   };
+
+  // The event grid derives its initial date and browser time zone at runtime.
+  // Keep the server and first browser render identical, then mount the grid
+  // after hydration instead of risking a route-wide hydration failure.
+  if (!hasHydrated) {
+    return <CalendarLoadingPanel />;
+  }
 
   return (
     <AppPage>

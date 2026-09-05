@@ -2,7 +2,7 @@
 
 import { Plus } from 'lucide-react';
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -44,15 +44,23 @@ export const EmployeeList = () => {
   >('employees');
   const [createDeptOpen, setCreateDeptOpen] = useState(false);
   const [createPositionOpen, setCreatePositionOpen] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const { tenant } = useTenant();
   const role = tenant?.member?.role;
   const viewerMemberId = tenant?.member?.id;
   const adminRole = role?.toLowerCase();
   const isAdmin = adminRole === 'owner' || adminRole === 'admin';
-  const canManageOrganization = isAdmin;
+  // Tenant data can be restored from the browser cache before hydration. Keep
+  // role-only controls out of the first client render so it matches SSR.
+  const canManageOrganization = hasHydrated && isAdmin;
+  const canManageInvitations = hasHydrated && isAdmin;
   const { data: employees = [], isLoading, isError, error } = useEmployees();
   const { data: departments = [] } = useDepartments();
+
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   const {
     filters,
@@ -89,7 +97,7 @@ export const EmployeeList = () => {
   }
 
   const actionConfig =
-    (activeTab === 'employees' || activeTab === 'invitations') && isAdmin
+    (activeTab === 'employees' || activeTab === 'invitations') && canManageInvitations
       ? {
           label: 'Invite',
           onClick: () => setInviteOpen(true),
@@ -99,7 +107,7 @@ export const EmployeeList = () => {
             label: 'Add department',
             onClick: () => setCreateDeptOpen(true),
           }
-        : activeTab === 'positions' && isAdmin
+        : activeTab === 'positions' && canManageInvitations
           ? {
               label: 'Add position',
               onClick: () => setCreatePositionOpen(true),
@@ -128,7 +136,7 @@ export const EmployeeList = () => {
                 {tab.label}
               </button>
             ))}
-            {isAdmin ? (
+            {canManageInvitations ? (
               <button
                 type="button"
                 onClick={() => setActiveTab('invitations')}
@@ -158,7 +166,7 @@ export const EmployeeList = () => {
         ) : null}
       </div>
 
-      {activeTab === 'invitations' && isAdmin ? <EmployeeInvitationsTab /> : null}
+      {activeTab === 'invitations' && canManageInvitations ? <EmployeeInvitationsTab /> : null}
 
       {activeTab === 'employees' && (
         <div className="space-y-5">

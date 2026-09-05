@@ -2,9 +2,9 @@
 
 import { Briefcase, CalendarClock, Heart, Target, TrendingUp, Users, Wallet } from 'lucide-react';
 import { AppPage } from '@/components/app-page';
-import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   isUpgradeRequiredError,
   UpgradeRequiredPanel,
@@ -27,15 +27,40 @@ function formatCurrency(amount: number | null, currency: string | null) {
   }
 }
 
+export function AnalyticsLoadingPanel() {
+  return (
+    <AppPage className="space-y-5" aria-busy="true" aria-label="Loading analytics">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          'workforce',
+          'recruitment',
+          'leave',
+          'payroll',
+          'attendance',
+          'departments',
+          'shoutouts',
+          'runs',
+        ].map((placeholder) => (
+          <div key={placeholder} className="dashboard-panel space-y-4 rounded-[8px] p-5">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-9 w-16" />
+            <Skeleton className="h-4 w-36" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 xl:grid-cols-12">
+        <div className="dashboard-panel h-[280px] rounded-[8px] xl:col-span-7" />
+        <div className="dashboard-panel h-[280px] rounded-[8px] xl:col-span-5" />
+      </div>
+    </AppPage>
+  );
+}
+
 export const Analytics = () => {
   const { data, isLoading, isError, error } = useAnalyticsOverview();
 
   if (isLoading) {
-    return (
-      <AppPage>
-        <LoadingBlock />
-      </AppPage>
-    );
+    return <AnalyticsLoadingPanel />;
   }
 
   if (isError && isUpgradeRequiredError(error)) {
