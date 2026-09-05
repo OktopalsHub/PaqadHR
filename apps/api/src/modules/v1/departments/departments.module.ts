@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from '../../../common/modules/file.module';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -17,10 +17,10 @@ import { DepartmentsRepository } from './repositories/departments.repository';
   imports: [
     TypeOrmModule.forFeature([Department, DepartmentMember, Team]),
     FileModule,
-    forwardRef(() => TenantsModule),
-    forwardRef(() => TenantMembersModule),
-    forwardRef(() => TeamsModule),
-    forwardRef(() => ActivitiesModule),
+    TenantsModule,
+    TenantMembersModule,
+    TeamsModule,
+    ActivitiesModule,
   ],
   controllers: [DepartmentsController],
   providers: [DepartmentsService, DepartmentsRepository, DepartmentMembersRepository],

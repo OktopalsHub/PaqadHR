@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PayrollModule } from '../payroll/payroll.module';
@@ -16,12 +16,12 @@ import { TremendousWebhookService } from './services/tremendous-webhook.service'
 
 @Module({
   imports: [
-    forwardRef(() => SubscriptionsModule),
+    SubscriptionsModule,
     PayrollModule,
     RewardsModule,
     ShoutoutsModule,
     PaymentsModule,
-    forwardRef(() => NotificationsModule),
+    NotificationsModule,
   ],
   controllers: [WebhooksController],
   providers: [

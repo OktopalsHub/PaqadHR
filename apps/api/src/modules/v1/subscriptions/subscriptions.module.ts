@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FeatureAccessGuard } from '../../../common/guards/feature-access.guard';
@@ -42,8 +42,8 @@ import { SubscriptionsService } from './services/subscriptions.service';
     ]),
     PaymentsModule,
     PlansModule,
-    forwardRef(() => NotificationsModule),
-    forwardRef(() => TenantMembersModule),
+    NotificationsModule,
+    TenantMembersModule,
     TenantConfigModule,
     AuditLogsModule,
   ],

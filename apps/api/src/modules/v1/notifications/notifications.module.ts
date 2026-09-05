@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TenantRoleGuard } from '../../../common/guards/tenant-member-role.guard';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -18,8 +18,8 @@ import { ZeptomailEmailService } from './services/zeptomail-email.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Notification, NotificationPreference]),
-    forwardRef(() => TenantMembersModule),
-    forwardRef(() => ActivitiesModule),
+    TenantMembersModule,
+    ActivitiesModule,
   ],
   controllers: [NotificationController, NotificationPreferenceController],
   providers: [

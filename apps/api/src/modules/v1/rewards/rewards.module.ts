@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
@@ -43,12 +43,12 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     ]),
     PaymentsModule,
     TenantConfigModule,
-    forwardRef(() => SubscriptionsModule),
-    forwardRef(() => NotificationsModule),
+    SubscriptionsModule,
+    NotificationsModule,
     ShoutoutsModule,
-    forwardRef(() => TenantMembersModule),
-    forwardRef(() => ActivitiesModule),
-    forwardRef(() => TenantsModule),
+    TenantMembersModule,
+    ActivitiesModule,
+    TenantsModule,
   ],
   controllers: [RewardsController],
   providers: [

@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -14,11 +14,11 @@ import { CalendarEventReminderCronService } from './services/calendar-event-remi
 @Module({
   imports: [
     TypeOrmModule.forFeature([TenantCalendarEvent]),
-    forwardRef(() => TenantMembersModule),
+    TenantMembersModule,
     TenantConfigModule,
-    forwardRef(() => TenantsModule),
-    forwardRef(() => NotificationsModule),
-    forwardRef(() => ActivitiesModule),
+    TenantsModule,
+    NotificationsModule,
+    ActivitiesModule,
   ],
   controllers: [CalendarEventsController],
   providers: [

@@ -1,11 +1,4 @@
-import {
-  BadRequestException,
-  forwardRef,
-  Inject,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
 import { StringUtility } from 'src/common/utils';
 import { DataSource } from 'typeorm';
@@ -31,7 +24,6 @@ export class UsersService {
 
   constructor(
     private readonly userRepository: UserRepository,
-    @Inject(forwardRef(() => TenantMembersService))
     private readonly tenantMembersService: TenantMembersService,
     private readonly dataSource: DataSource,
     private readonly auditLogsService: AuditLogsService,

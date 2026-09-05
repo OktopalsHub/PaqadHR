@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { PositionModule } from '../position/position.module';
@@ -13,10 +13,10 @@ import { Employment } from './entities/employment.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Employment, Tenant]),
-    forwardRef(() => PositionModule),
-    forwardRef(() => TenantsModule),
-    forwardRef(() => TenantMembersModule),
-    forwardRef(() => ActivitiesModule),
+    PositionModule,
+    TenantsModule,
+    TenantMembersModule,
+    ActivitiesModule,
   ],
   controllers: [EmploymentController],
   providers: [EmploymentService, EmploymentRepository],

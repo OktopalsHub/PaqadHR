@@ -39,7 +39,6 @@ export class InvitationsService {
     private readonly invitationsRepository: InvitationsRepository,
     @Inject(forwardRef(() => TenantMembersService))
     private readonly tenantMembersService: TenantMembersService,
-    @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
     private readonly rateLimitService: RateLimitService,

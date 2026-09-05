@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { DepartmentMember } from '../departments/entities/department-member.entity';
@@ -20,12 +20,12 @@ import { DepartmentUtils } from './utils/department.utils';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Attendance, AttendancePolicy, AttendanceException, DepartmentMember]),
-    forwardRef(() => TenantsModule),
-    forwardRef(() => TenantMembersModule),
+    TenantsModule,
+    TenantMembersModule,
     TenantSettingsModule,
     LeaveModule,
-    forwardRef(() => ActivitiesModule),
-    forwardRef(() => NotificationsModule),
+    ActivitiesModule,
+    NotificationsModule,
   ],
   controllers: [AttendanceController],
   providers: [

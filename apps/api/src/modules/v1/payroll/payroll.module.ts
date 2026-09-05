@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from '../../../common/providers/payments.module';
 import { ActivitiesModule } from '../activities/activities.module';
@@ -29,13 +29,13 @@ import { PayrollPayoutCronService } from './services/payroll-payout-cron.service
 @Module({
   imports: [
     TypeOrmModule.forFeature([PayrollRun, PayrollItem]),
-    forwardRef(() => ActivitiesModule),
+    ActivitiesModule,
     PaymentsModule,
-    forwardRef(() => SubscriptionsModule),
-    forwardRef(() => NotificationsModule),
+    SubscriptionsModule,
+    NotificationsModule,
     PaymentMethodModule,
-    forwardRef(() => TenantsModule),
-    forwardRef(() => TenantMembersModule),
+    TenantsModule,
+    TenantMembersModule,
     EmploymentModule,
     TenantConfigModule,
   ],

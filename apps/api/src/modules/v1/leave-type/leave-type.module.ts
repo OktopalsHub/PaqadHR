@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ActivitiesModule } from '../activities/activities.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
@@ -11,9 +11,9 @@ import { LeaveTypeService } from './leave-type.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([LeaveType]),
-    forwardRef(() => TenantsModule),
-    forwardRef(() => TenantMembersModule),
-    forwardRef(() => ActivitiesModule),
+    TenantsModule,
+    TenantMembersModule,
+    ActivitiesModule,
   ],
   controllers: [LeaveTypeController],
   providers: [LeaveTypeService, LeaveTypeRepository],

@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
@@ -28,11 +28,11 @@ import { PaymentSecurityService } from './services/payment-security.service';
     ]),
     PaymentsModule,
     AuditLogsModule,
-    forwardRef(() => AuthModule),
-    forwardRef(() => TenantsModule),
-    forwardRef(() => TenantMembersModule),
+    AuthModule,
+    TenantsModule,
+    TenantMembersModule,
     TenantConfigModule,
-    forwardRef(() => NotificationsModule),
+    NotificationsModule,
   ],
   controllers: [PaymentMethodController, PaymentSecurityController],
   providers: [

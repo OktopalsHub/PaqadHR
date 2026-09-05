@@ -1,4 +1,4 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -30,10 +30,10 @@ import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
       },
     }),
     TypeOrmModule.forFeature([User, Account, Session, Verification]),
-    forwardRef(() => InvitationsModule),
-    forwardRef(() => NotificationsModule),
-    forwardRef(() => UsersModule),
-    forwardRef(() => TenantMembersModule),
+    InvitationsModule,
+    NotificationsModule,
+    UsersModule,
+    TenantMembersModule,
     TenantsModule,
   ],
   providers: [
