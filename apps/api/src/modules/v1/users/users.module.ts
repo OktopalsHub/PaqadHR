@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FileModule } from 'src/common/modules/file.module';
 import { EmailHashService } from 'src/common/services/email-hash.service';
@@ -15,7 +15,8 @@ import { UsersService } from './users.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, Session, Account, Verification]),
-    TenantMembersModule,
+    // Users ↔ TenantMembers ↔ Invitations cycle; defer until Nest scans.
+    forwardRef(() => TenantMembersModule),
     AuditLogsModule,
     FileModule,
   ],

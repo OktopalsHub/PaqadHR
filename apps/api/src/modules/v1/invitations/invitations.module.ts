@@ -17,7 +17,7 @@ import { InvitationsRepository } from './repositories/invitations.repository';
   imports: [
     TypeOrmModule.forFeature([Invitation]),
     forwardRef(() => TenantMembersModule),
-    UsersModule,
+    forwardRef(() => UsersModule),
     TenantsModule,
     NotificationsModule,
     ActivitiesModule,
