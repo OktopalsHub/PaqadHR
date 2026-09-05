@@ -1,8 +1,6 @@
 import {
   BadRequestException,
   ConflictException,
-  forwardRef,
-  Inject,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -10,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { PasswordService, StringUtility } from 'src/common/utils';
 import { QueryFailedError } from 'typeorm';
-import { InvitationStatus } from '../../../common/enums';
+import { InvitationStatus, TenantMemberRole } from '../../../common/enums';
 import type { IInvitationResponseDto } from '../../../common/interfaces/iinvitation-response-dto.interface';
 import { ProductAnalyticsService } from '../../../common/observability/product-analytics.service';
 import { RateLimitService } from '../../../common/services/rate-limit.service';
@@ -37,7 +35,6 @@ export class InvitationsService {
   private readonly logger = new Logger(InvitationsService.name);
   constructor(
     private readonly invitationsRepository: InvitationsRepository,
-    @Inject(forwardRef(() => TenantMembersService))
     private readonly tenantMembersService: TenantMembersService,
     private readonly usersService: UsersService,
     private readonly tenantsService: TenantsService,
@@ -143,6 +140,47 @@ export class InvitationsService {
         : await this.sendInvitationEmail(invitation);
     return this.mapToResponseDto(invitation, emailDelivery);
   }
+
+  async inviteMember(
+    tenantId: string,
+    inviteData: {
+      email: string;
+      firstName: string;
+      lastName: string;
+      role?: TenantMemberRole;
+      sendWelcomeEmail?: boolean;
+    },
+    invitedBy: string,
+  ): Promise<IInvitationResponseDto> {
+    try {
+      const employeeNumber = await this.tenantMembersService.getNextEmployeeNumber(tenantId);
+      return await this.createInvitation(
+        {
+          email: inviteData.email,
+          firstName: inviteData.firstName,
+          lastName: inviteData.lastName,
+          role: inviteData.role || TenantMemberRole.MEMBER,
+          employeeNumber,
+        },
+        tenantId,
+        invitedBy,
+        { sendEmail: inviteData.sendWelcomeEmail !== false },
+      );
+    } catch (error) {
+      this.logger.error('Error creating member invitation:', error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof ConflictException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to create invitation: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
   async updateInvitation(
     id: string,
     updateInvitationDto: UpdateInvitationDto,

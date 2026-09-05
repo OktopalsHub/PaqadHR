@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { InvitationsModule } from '../../modules/v1/invitations/invitations.module';
 import { TenantMembersModule } from '../../modules/v1/tenant-members/tenant-members.module';
 import { TenantsModule } from '../../modules/v1/tenants/tenants.module';
 import { IntegrationController } from './controllers/integration.controller';
@@ -24,6 +25,7 @@ import { UserSyncService } from './services/user-sync.service';
   imports: [
     TenantsModule,
     TenantMembersModule,
+    InvitationsModule,
     TypeOrmModule.forFeature([
       PlatformIntegration,
       PlatformUser,

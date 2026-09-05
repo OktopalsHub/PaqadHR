@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CloudflareR2Service } from 'src/common/services/cloudflare-r2.service';
+import { EncryptionService } from 'src/common/services/encryption.service';
 import { StringUtility } from 'src/common/utils';
 import { DataSource } from 'typeorm';
 import { AuditAction, AuditSeverity, AuditStatus } from '../../../common/enums/audit-action.enum';
@@ -7,7 +8,10 @@ import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
 import { Verification } from '../auth/entities/verification.entity';
-import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import {
+  loadMemberPersonalDataForExport,
+  scrubMemberPersonalData,
+} from '../tenant-members/utils/member-personal-data.util';
 import { User } from './entities/user.entity';
 import {
   buildUserConsentMetadata,
@@ -24,10 +28,10 @@ export class UsersService {
 
   constructor(
     private readonly userRepository: UserRepository,
-    private readonly tenantMembersService: TenantMembersService,
     private readonly dataSource: DataSource,
     private readonly auditLogsService: AuditLogsService,
     private readonly r2Service: CloudflareR2Service,
+    private readonly encryptionService: EncryptionService,
   ) {}
 
   async getProfile(userId: string): Promise<User> {
@@ -52,7 +56,7 @@ export class UsersService {
     let membershipCount = 0;
 
     await this.dataSource.transaction(async (manager) => {
-      const scrubResult = await this.tenantMembersService.scrubPersonalData(userId, manager);
+      const scrubResult = await scrubMemberPersonalData(manager, userId);
       membershipCount = scrubResult.membershipCount;
       for (const key of scrubResult.fileKeys) {
         fileKeys.add(key);
@@ -124,7 +128,9 @@ export class UsersService {
   async exportUserData(userId: string): Promise<Record<string, unknown>> {
     const user = await this.getProfile(userId);
     const consent = getUserConsent(user.metadata);
-    const memberExport = await this.tenantMembersService.loadPersonalDataForExport(userId);
+    const memberExport = await loadMemberPersonalDataForExport(this.dataSource, userId, (value) =>
+      this.decryptOptional(value),
+    );
 
     const exportPayload = {
       exportedAt: new Date().toISOString(),
@@ -254,5 +260,16 @@ export class UsersService {
       throw new BadRequestException('You must accept the terms and privacy policy to register');
     }
     return buildUserConsentMetadata(true);
+  }
+
+  private decryptOptional(value?: string | null): string | null {
+    if (!value?.trim()) {
+      return null;
+    }
+    try {
+      return this.encryptionService.decrypt(value);
+    } catch {
+      return null;
+    }
   }
 }

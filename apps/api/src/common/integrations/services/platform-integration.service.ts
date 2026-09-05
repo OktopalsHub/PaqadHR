@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { ChannelType, IntegrationType, TenantMemberRole } from 'src/common/enums';
 import { IPlatformClient } from 'src/common/interfaces';
 import { In } from 'typeorm';
+import { InvitationsService } from '../../../modules/v1/invitations/invitations.service';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
@@ -25,6 +26,7 @@ export class PlatformIntegrationService {
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly channelRepo: IntegrationChannelRepository,
     private readonly tenantMembersService: TenantMembersService,
+    private readonly invitationsService: InvitationsService,
     private readonly userSyncService: UserSyncService,
   ) {}
   async createIntegration(
@@ -355,7 +357,7 @@ export class PlatformIntegrationService {
     for (const platformUser of usersToInvite) {
       try {
         if (platformUser.platformEmail) {
-          const invitation = await this.tenantMembersService.inviteMember(
+          const invitation = await this.invitationsService.inviteMember(
             tenantId,
             {
               email: platformUser.platformEmail,
