@@ -134,8 +134,28 @@ jobs:
         env:
           DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
         run: |
-          if [ -n "$DOKPLOY_WEBHOOK_URL" ]; then
-            curl -fsS -X POST "$DOKPLOY_WEBHOOK_URL"
-          else
+          if [ -z "$DOKPLOY_WEBHOOK_URL" ]; then
             echo "DOKPLOY_WEBHOOK_URL not set — skipping deploy trigger"
+            exit 0
+          fi
+          # Docker/GHCR apps need registry_package + matching tag (e.g. :dev).
+          # Bare POST can return success while redeploying a cached local image.
+          IMAGE="ghcr.io/${REPO}:${GITHUB_REF_NAME}"
+          BODY=$(jq -nc \
+            --arg url "$IMAGE" \
+            --arg id "${GITHUB_SHA}" \
+            --arg msg "CI deploy ${GITHUB_SHA:0:7} (${GITHUB_REF_NAME})" \
+            '{
+              head_commit: {id: $id, message: $msg},
+              registry_package: {package_version: {package_url: $url}}
+            }')
+          RESP=$(curl -sS -w "\n%{http_code}" -X POST "$DOKPLOY_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: registry_package" \
+            -d "$BODY")
+          CODE=$(echo "$RESP" | tail -n1)
+          BODY_OUT=$(echo "$RESP" | sed '$d')
+          echo "Dokploy response ($CODE) for $IMAGE: $BODY_OUT"
+          if [ "$CODE" -lt 200 ] || [ "$CODE" -ge 300 ]; then
+            exit 22
           fi
