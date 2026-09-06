@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { NombaCheckoutAdapter } from 'src/common/providers/checkout-providers/nomba-checkout.adapter';
 import { PaymentsModule } from 'src/common/providers/payments.module';
 import { FiatExchangeService } from 'src/common/services/fiat-exchange.service';
 import { MonnifyBillApiService } from 'src/common/services/monnify-bill-api.service';
@@ -8,6 +9,7 @@ import { TremendousApiService } from 'src/common/services/tremendous-api.service
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
+import { NombaApiService } from '../subscriptions/services/nomba-api.service';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
@@ -63,6 +65,11 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
     RewardsListener,
     RewardsCatalogSyncCronService,
     RewardsClaimCronService,
+    {
+      provide: NombaCheckoutAdapter,
+      useFactory: (nombaApi: NombaApiService) => new NombaCheckoutAdapter(nombaApi),
+      inject: [NombaApiService],
+    },
   ],
   exports: [RewardsService, TenantWalletService, TenantWalletTopupService],
 })

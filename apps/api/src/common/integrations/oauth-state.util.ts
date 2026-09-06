@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { ENVIRONMENT } from 'src/common/config/env.config';
+import { signaturesMatch } from 'src/common/config/webhook-signature.util';
 import type { IntegrationType } from 'src/common/enums';
 
 export type OAuthStatePayload = {
@@ -48,9 +49,7 @@ export function verifyOAuthState(state: string): OAuthStatePayload {
   }
 
   const expected = signPayload(encodedPayload);
-  const sigBuffer = Buffer.from(signature, 'utf8');
-  const expectedBuffer = Buffer.from(expected, 'utf8');
-  if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
+  if (!signaturesMatch(expected, signature)) {
     throw new Error('Invalid OAuth state signature');
   }
 
