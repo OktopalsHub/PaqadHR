@@ -18,6 +18,7 @@ import {
 } from 'class-validator';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { TransactionType } from 'src/common/enums';
+import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import {
   IsAfterStartDate,
   IsNotFuture,
@@ -89,15 +90,14 @@ export class CreatePayrollRunDto {
   title: string;
   @ApiProperty({
     description: 'Payroll frequency',
-    enum: ['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'],
-    example: 'monthly',
+    enum: PayrollFrequency,
+    example: PayrollFrequency.MONTHLY,
   })
-  @IsString()
   @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
-  @IsEnum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'], {
+  @IsEnum(PayrollFrequency, {
     message: 'Frequency must be one of: weekly, biweekly, monthly, quarterly, annually',
   })
-  frequency: string;
+  frequency: PayrollFrequency;
   @ApiProperty({ description: 'Pay period start date' })
   @Type(() => Date)
   @IsNotFuture({ message: 'Pay period start date cannot be in the future' })

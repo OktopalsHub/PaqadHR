@@ -14,6 +14,10 @@ import { TenantSettingsService } from '../../tenant-settings/services/tenant-set
 import { TenantsService } from '../../tenants/tenants.service';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
+import type {
+  PayrollAdjustmentDto,
+  PayrollCalculationPreviewDto,
+} from '../dto/payroll-adjustment.dto';
 import type { UpdatePayrollItemDto } from '../dto/update-payroll-item.dto';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
@@ -26,13 +30,6 @@ import { PayrollExportService } from './payroll-export.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 import { PayrollRunService } from './payroll-run.service';
 
-interface PayrollPreviewEmployee {
-  employeeId: string;
-  adjustments?: any[];
-}
-interface PayrollPreviewDto {
-  employees: PayrollPreviewEmployee[];
-}
 export interface PayrollPreviewResult {
   employeeId: string;
   baseSalary: number;
@@ -40,7 +37,7 @@ export interface PayrollPreviewResult {
   payType: string;
   paySchedule: string;
   finalAmount: number;
-  adjustments: any[];
+  adjustments: PayrollAdjustmentDto[];
 }
 
 @Injectable()
@@ -204,7 +201,7 @@ export class PayrollService {
     payrollRunId: string,
     tenantId: string,
     auditContext: AuditContext,
-    adjustments?: any[],
+    adjustments?: PayrollAdjustmentDto[],
   ) {
     const run = await this.payrollRunRepository.findOne({
       where: { id: payrollRunId, tenantId },
@@ -251,7 +248,7 @@ export class PayrollService {
 
   async previewPayrollCalculation(
     tenantId: string,
-    previewDto: PayrollPreviewDto,
+    previewDto: PayrollCalculationPreviewDto,
     performedById: string,
   ) {
     const warnings: string[] = [];

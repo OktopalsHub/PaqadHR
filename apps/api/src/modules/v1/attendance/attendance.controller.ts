@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { CurrentTenantMember, RequireFeatures } from 'src/common/decorators';
-import { TenantMemberRole } from 'src/common/enums';
+import { AttendanceExceptionStatus, AttendanceStatus, TenantMemberRole } from 'src/common/enums';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
 import type { IAuthenticatedMemberRequest, MemberContext } from 'src/common/interfaces';
@@ -192,11 +192,11 @@ export class AttendanceController {
       tenantMemberIds?: string[];
       startDate?: Date;
       endDate?: Date;
-      status?: string;
+      status?: AttendanceExceptionStatus;
     } = {};
     if (startDate) filters.startDate = new Date(startDate);
     if (endDate) filters.endDate = new Date(endDate);
-    if (status) filters.status = status;
+    if (status) filters.status = status as AttendanceExceptionStatus;
 
     if (employeeId) {
       await this.assertCanViewEmployee(member!, tenantId, employeeId);
@@ -421,12 +421,12 @@ export class AttendanceController {
       tenantMemberId?: string;
       startDate?: Date;
       endDate?: Date;
-      status?: string;
+      status?: AttendanceStatus;
     } = {};
     if (employeeId) filters.tenantMemberId = employeeId;
     if (startDate) filters.startDate = new Date(startDate);
     if (endDate) filters.endDate = new Date(endDate);
-    if (status) filters.status = status;
+    if (status) filters.status = status as AttendanceStatus;
     return this.attendanceService.getAttendanceRecords(tenantId, filters);
   }
 

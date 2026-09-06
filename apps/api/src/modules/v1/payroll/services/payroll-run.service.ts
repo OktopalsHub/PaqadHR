@@ -78,7 +78,7 @@ export class PayrollRunService {
 
     const run = this.payrollRunRepository.create({
       title: dto.title,
-      frequency: dto.frequency as any,
+      frequency: dto.frequency,
       periodStart: dto.periodStart,
       periodEnd: dto.periodEnd,
       paymentDate: dto.paymentDate,
