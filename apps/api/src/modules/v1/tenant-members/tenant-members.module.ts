@@ -22,8 +22,14 @@ import { TenantMember } from './entities/tenant-member.entity';
 import { HeaderTenantMemberGuard } from './guards/header-tenant-member.guard';
 import { TenantMemberGuard } from './guards/tenant-members.guards';
 import { PublicTenantMembersController } from './public-tenant-members.controller';
+import { CelebrationRepository } from './repositories/celebration.repository';
 import { TenantCounterRepository } from './repositories/tenant-counter.repository';
 import { TenantMemberRepository } from './repositories/tenant-members.repository';
+import { MemberActivityService } from './services/member-activity.service';
+import { MemberLifecycleService } from './services/member-lifecycle.service';
+import { MemberOrgAssignmentService } from './services/member-org-assignment.service';
+import { MemberProfileService } from './services/member-profile.service';
+import { MemberReadService } from './services/member-read.service';
 import { TenantMembersController } from './tenant-members.controller';
 import { TenantMembersService } from './tenant-members.service';
 
@@ -54,11 +60,27 @@ import { TenantMembersService } from './tenant-members.service';
   controllers: [TenantMembersController, PublicTenantMembersController],
   providers: [
     TenantMembersService,
+    MemberReadService,
+    MemberActivityService,
+    MemberLifecycleService,
+    MemberOrgAssignmentService,
+    MemberProfileService,
     TenantMemberRepository,
     TenantCounterRepository,
+    CelebrationRepository,
     TenantMemberGuard,
     HeaderTenantMemberGuard,
   ],
-  exports: [TenantMembersService, TenantMemberGuard, HeaderTenantMemberGuard, TypeOrmModule],
+  exports: [
+    TenantMembersService,
+    MemberReadService,
+    MemberActivityService,
+    MemberLifecycleService,
+    MemberOrgAssignmentService,
+    MemberProfileService,
+    TenantMemberGuard,
+    HeaderTenantMemberGuard,
+    TypeOrmModule,
+  ],
 })
 export class TenantMembersModule {}

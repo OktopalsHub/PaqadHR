@@ -21,6 +21,11 @@ import { AuthService } from './auth.service';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
+import { AuthCredentialService } from './services/auth-credential.service';
+import { AuthEmailVerificationService } from './services/auth-email-verification.service';
+import { AuthOAuthService } from './services/auth-oauth.service';
+import { AuthPasswordService } from './services/auth-password.service';
+import { AuthSessionService } from './services/auth-session.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -106,6 +111,11 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AuthCredentialService,
+        AuthSessionService,
+        AuthEmailVerificationService,
+        AuthPasswordService,
+        AuthOAuthService,
         { provide: UserRepository, useValue: mockUserRepository },
         { provide: JwtService, useValue: mockJwtService },
         { provide: getRepositoryToken(Account), useValue: accountRepository },
@@ -706,6 +716,11 @@ describe('AuthService', () => {
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           AuthService,
+          AuthCredentialService,
+          AuthSessionService,
+          AuthEmailVerificationService,
+          AuthPasswordService,
+          AuthOAuthService,
           { provide: UserRepository, useValue: userRepository },
           { provide: JwtService, useValue: jwtService },
           { provide: getRepositoryToken(Account), useValue: accountRepository },

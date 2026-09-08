@@ -8,6 +8,8 @@ import { TenantCounter } from '../tenant-members/entities/tenant-counter.entity'
 import { TenantMember } from '../tenant-members/entities/tenant-member.entity';
 import { TenantSettings } from '../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from './entities/tenant.entity';
+import { TenantInviteService } from './services/tenant-invite.service';
+import { TenantManagementService } from './services/tenant-management.service';
 import { TenantsService } from './tenants.service';
 
 describe('TenantsService', () => {
@@ -66,19 +68,24 @@ describe('TenantsService', () => {
       count: jest.fn().mockResolvedValue(0),
     };
 
-    service = new TenantsService(
+    const management = new TenantManagementService(
       tenantRepository as never,
       tenantMemberService as never,
       subscriptionsService as never,
-      {} as never,
-      {} as never,
       fileUrlService as never,
+      { queueAuditLog: jest.fn().mockResolvedValue(undefined) } as never,
       employmentRepository as never,
       walletRepository as never,
       walletTransactionRepository as never,
+    );
+    const invite = new TenantInviteService(
+      tenantRepository as never,
+      {} as never,
+      {} as never,
       { queueAuditLog: jest.fn().mockResolvedValue(undefined) } as never,
       {} as never,
     );
+    service = new TenantsService(invite, management);
   });
 
   describe('getSessionWorkspaces', () => {
@@ -386,19 +393,24 @@ describe('TenantsService', () => {
       eventEmitter = { emit: jest.fn() };
       auditLogsService = { queueAuditLog: jest.fn().mockResolvedValue(undefined) };
 
-      service = new TenantsService(
+      const management = new TenantManagementService(
         tenantRepository as never,
         tenantMemberService as never,
         subscriptionsService as never,
-        userService as never,
-        eventEmitter as never,
         fileUrlService as never,
+        auditLogsService as never,
         employmentRepository as never,
         walletRepository as never,
         walletTransactionRepository as never,
+      );
+      const invite = new TenantInviteService(
+        tenantRepository as never,
+        userService as never,
+        eventEmitter as never,
         auditLogsService as never,
         dataSource as never,
       );
+      service = new TenantsService(invite, management);
     });
 
     it('does not copy profile names from other workspace memberships', async () => {

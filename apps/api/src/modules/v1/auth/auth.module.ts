@@ -10,12 +10,18 @@ import { TenantsModule } from '../tenants/tenants.module';
 import { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import { UsersModule } from '../users/users.module';
-import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthPasswordController } from './auth-password.controller';
+import { AuthSessionController } from './auth-session.controller';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
+import { AuthCredentialService } from './services/auth-credential.service';
+import { AuthEmailVerificationService } from './services/auth-email-verification.service';
+import { AuthOAuthService } from './services/auth-oauth.service';
+import { AuthPasswordService } from './services/auth-password.service';
+import { AuthSessionService } from './services/auth-session.service';
 import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
 
 @Module({
@@ -38,13 +44,25 @@ import { GoogleStrategy, JwtStrategy, LocalStrategy } from './strategies';
   ],
   providers: [
     AuthService,
+    AuthCredentialService,
+    AuthSessionService,
+    AuthEmailVerificationService,
+    AuthPasswordService,
+    AuthOAuthService,
     UserRepository,
     JwtStrategy,
     LocalStrategy,
     GoogleStrategy,
     GoogleAuthGuard,
   ],
-  exports: [AuthService],
-  controllers: [AuthController],
+  exports: [
+    AuthService,
+    AuthCredentialService,
+    AuthSessionService,
+    AuthEmailVerificationService,
+    AuthPasswordService,
+    AuthOAuthService,
+  ],
+  controllers: [AuthSessionController, AuthPasswordController],
 })
 export class AuthModule {}
