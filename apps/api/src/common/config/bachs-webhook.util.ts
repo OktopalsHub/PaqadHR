@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { getBachsWebhookSecret } from 'src/common/config/bachs.config';
+import { signaturesMatch } from './webhook-signature.util';
 
 const TIMESTAMP_SKEW_SECONDS = 300;
 
@@ -25,11 +26,5 @@ export function verifyBachsWebhookSignature(
 
   const expected = createHmac('sha256', secret).update(`${timestamp}.${rawBody}`).digest('hex');
 
-  const sigBuf = Buffer.from(signature);
-  const expBuf = Buffer.from(expected);
-  if (sigBuf.length !== expBuf.length) {
-    return false;
-  }
-
-  return timingSafeEqual(sigBuf, expBuf);
+  return signaturesMatch(expected, signature);
 }

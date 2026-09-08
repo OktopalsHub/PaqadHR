@@ -1,15 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { isBachsWalletTopupConfigured } from 'src/common/config/bachs.config';
-import { isNoahConfigured } from 'src/common/config/noah.config';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { isNombaConfigured } from 'src/common/config/nomba.config';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { BachsApiService } from 'src/common/services/bachs-api.service';
-import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
+import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { DEFAULT_WALLET_CURRENCY_FALLBACK } from 'src/common/utils/rewards-defaults.util';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { DataSource, EntityManager, Repository } from 'typeorm';
@@ -39,11 +36,7 @@ import { TenantWalletTransaction } from '../entities/tenant-wallet-transaction.e
 import { resolveCheckoutCustomerFullName } from '../utils/checkout-customer-name.util';
 import {
   buildWalletTopupOrderRef,
-  isBachsWalletTopupOrderRef,
-  isFincraWalletTopupOrderRef,
   isMonnifyWalletTopupOrderRef,
-  isNoahWalletTopupOrderRef,
-  isNombaWalletTopupOrderRef,
 } from '../utils/wallet-order-ref.util';
 import { TenantWalletService } from './tenant-wallet.service';
 
@@ -56,11 +49,10 @@ export class TenantWalletTopupService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly walletService: TenantWalletService,
+    private readonly factory: PaymentProviderFactoryService,
     private readonly nombaApi: NombaApiService,
     private readonly monnifyApi: MonnifyApiService,
     private readonly noahApi: NoahApiService,
-    private readonly fincraApi: FincraApiService,
-    private readonly bachsApi: BachsApiService,
     private readonly subscriptionsService: SubscriptionsService,
     private readonly tenantSettingsService: TenantSettingsService,
     private readonly emailService: ZeptomailEmailService,
@@ -111,31 +103,17 @@ export class TenantWalletTopupService {
     const tenant = await this.tenantRepository.findOne({ where: { id: tenantId } });
     const provider = resolveRewardsWalletPaymentProvider(tenant?.countryCode, currency);
 
-    if (provider === PaymentProvider.NOMBA && !this.nombaApi.isConfigured()) {
+    const adapter = this.factory.resolveCheckoutAdapter(provider);
+    if (!adapter?.isConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
-    if (provider === PaymentProvider.MONNIFY && !this.monnifyApi.isConfigured()) {
-      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
-    }
+
     if (provider === PaymentProvider.MONNIFY && currency !== 'NGN') {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
-    if (provider === PaymentProvider.NOAH && !this.noahApi.isConfigured()) {
+
+    if (provider === PaymentProvider.BACHS && currency !== 'NGN' && currency !== 'USD') {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
-    }
-    if (provider === PaymentProvider.FINCRA && !this.fincraApi.isCheckoutConfigured()) {
-      throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
-    }
-    if (provider === PaymentProvider.BACHS) {
-      if (
-        !this.bachsApi.isConfigured() ||
-        !isBachsWalletTopupConfigured(currency as 'NGN' | 'USD')
-      ) {
-        throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
-      }
-      if (currency !== 'NGN' && currency !== 'USD') {
-        throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
-      }
     }
 
     const callbackUrl = tenant?.slug
@@ -151,91 +129,17 @@ export class TenantWalletTopupService {
       initiatedByMemberId: actorMemberId,
     };
 
-    const checkoutCurrency = provider === PaymentProvider.MONNIFY ? 'NGN' : currency;
     const customerName = resolveCheckoutCustomerFullName(tenant?.name, customerEmail);
 
-    const result =
-      provider === PaymentProvider.NOMBA
-        ? await this.nombaApi
-            .createCheckoutOrder({
-              orderReference,
-              customerEmail,
-              amount,
-              currency,
-              callbackUrl,
-              tokenizeCard: false,
-              meta,
-            })
-            .then((session) => ({
-              checkoutLink: session.checkoutLink,
-              orderReference: session.orderReference,
-              transactionReference: undefined as string | undefined,
-            }))
-        : provider === PaymentProvider.MONNIFY
-          ? await this.monnifyApi
-              .initializeTransaction({
-                amount,
-                customerEmail,
-                customerName,
-                paymentReference: orderReference,
-                paymentDescription: 'Rewards wallet top-up',
-                redirectUrl: callbackUrl,
-                currencyCode: checkoutCurrency,
-                metaData: meta,
-              })
-              .then((init) => ({
-                checkoutLink: init.checkoutUrl,
-                orderReference: init.paymentReference,
-                transactionReference: init.transactionReference,
-              }))
-          : provider === PaymentProvider.BACHS
-            ? await this.bachsApi
-                .createWalletTopupCheckout({
-                  amount,
-                  currency: currency as 'NGN' | 'USD',
-                  customerEmail,
-                  customerName,
-                  successUrl: callbackUrl,
-                  reference: orderReference,
-                  metadata: meta,
-                })
-                .then((session) => ({
-                  checkoutLink: session.checkout_url,
-                  orderReference: session.reference ?? orderReference,
-                  transactionReference: undefined as string | undefined,
-                }))
-            : provider === PaymentProvider.FINCRA
-              ? await this.fincraApi
-                  .createPayinCheckout({
-                    amount,
-                    currency,
-                    customerEmail,
-                    customerName,
-                    reference: orderReference,
-                    redirectUrl: callbackUrl,
-                    metadata: { ...meta, orderReference },
-                  })
-                  .then((session) => ({
-                    checkoutLink: session.checkoutLink,
-                    orderReference: session.orderReference,
-                    transactionReference: undefined as string | undefined,
-                  }))
-              : await this.noahApi
-                  .createPayinCheckout({
-                    orderReference,
-                    customerEmail,
-                    amount,
-                    currency,
-                    callbackUrl,
-                    customerId: tenantId,
-                    tokenizeCard: false,
-                    meta,
-                  })
-                  .then((session) => ({
-                    checkoutLink: session.checkoutLink,
-                    orderReference: session.orderReference,
-                    transactionReference: undefined as string | undefined,
-                  }));
+    const result = await adapter.createCheckout({
+      orderReference,
+      customerEmail,
+      amount,
+      currency,
+      callbackUrl,
+      customerName,
+      meta,
+    });
 
     return {
       checkoutUrl: result.checkoutLink,
@@ -254,88 +158,23 @@ export class TenantWalletTopupService {
     },
     billingProvider: PaymentProvider = PaymentProvider.NOMBA,
   ): Promise<{ received: boolean; credited: boolean; retryable?: boolean }> {
-    const isNombaRef = isNombaWalletTopupOrderRef(input.orderReference, input.tenantId);
-    const isMonnifyRef = isMonnifyWalletTopupOrderRef(input.orderReference, input.tenantId);
-    const isNoahRef = isNoahWalletTopupOrderRef(input.orderReference, input.tenantId);
-    const isBachsRef = isBachsWalletTopupOrderRef(input.orderReference, input.tenantId);
-    const isFincraRef = isFincraWalletTopupOrderRef(input.orderReference, input.tenantId);
-
-    if (billingProvider === PaymentProvider.NOMBA && !isNombaRef) {
-      this.logger.warn(
-        `Wallet checkout top-up reference tenant mismatch for ${input.orderReference}`,
-      );
-      return { received: true, credited: false };
-    }
-    if (billingProvider === PaymentProvider.MONNIFY && !isMonnifyRef) {
-      this.logger.warn(`Monnify wallet checkout reference mismatch for ${input.orderReference}`);
-      return { received: true, credited: false };
-    }
-    if (billingProvider === PaymentProvider.NOAH && !isNoahRef) {
-      this.logger.warn(`Noah wallet checkout reference mismatch for ${input.orderReference}`);
-      return { received: true, credited: false };
-    }
-    if (billingProvider === PaymentProvider.BACHS && !isBachsRef) {
-      this.logger.warn(`Bachs wallet checkout reference mismatch for ${input.orderReference}`);
-      return { received: true, credited: false };
-    }
-    if (billingProvider === PaymentProvider.FINCRA && !isFincraRef) {
-      this.logger.warn(`Fincra wallet checkout reference mismatch for ${input.orderReference}`);
-      return { received: true, credited: false };
-    }
-
     const existing = await this.dataSource.getRepository(TenantWalletTransaction).findOne({
       where: { reference: input.orderReference },
     });
     if (existing) {
-      // Idempotent: already credited (or recorded) for this payment reference.
       return { received: true, credited: existing.type === 'DEPOSIT' };
     }
 
     const wallet = await this.walletService.ensureWallet(input.tenantId);
     const currency = (wallet.currencyCode || DEFAULT_WALLET_CURRENCY_FALLBACK).toUpperCase();
 
-    const verified =
-      billingProvider === PaymentProvider.NOAH
-        ? await this.noahApi.verifyTransaction(input.orderReference)
-        : billingProvider === PaymentProvider.MONNIFY
-          ? await this.monnifyApi
-              .verifyTransaction(input.orderReference, input.transactionReference)
-              .then((result) =>
-                result
-                  ? {
-                      status: result.paid ? 'success' : 'pending',
-                      amount: result.amount,
-                      cardToken: result.cardToken,
-                      customerEmail: result.customerEmail,
-                      cardLastFour: result.cardLastFour,
-                      cardBrand: result.cardBrand,
-                      metaData: result.metaData,
-                    }
-                  : null,
-              )
-          : billingProvider === PaymentProvider.BACHS
-            ? await this.bachsApi.findPaymentByReference(input.orderReference).then((result) =>
-                result
-                  ? {
-                      status:
-                        result.status === 'succeeded' || result.status === 'accepted'
-                          ? 'success'
-                          : result.status,
-                      amount: result.amount,
-                    }
-                  : null,
-              )
-            : billingProvider === PaymentProvider.FINCRA
-              ? await this.fincraApi.verifyPayinStatus(input.orderReference).then((result) =>
-                  result
-                    ? {
-                        status: result.status,
-                        amount: result.amount,
-                        metaData: result.metadata,
-                      }
-                    : null,
-                )
-              : await this.nombaApi.verifyTransaction(input.orderReference);
+    const adapter = this.factory.resolveCheckoutAdapter(billingProvider);
+    const verified = adapter
+      ? await adapter.verifyCheckout({
+          orderReference: input.orderReference,
+          transactionReference: input.transactionReference,
+        })
+      : null;
 
     const status = verified?.status?.toLowerCase() ?? '';
     if (
@@ -347,13 +186,11 @@ export class TenantWalletTopupService {
       this.logger.warn(
         `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
       );
-      // Pending / not-yet-paid — Monnify should retry the webhook.
       return { received: true, credited: false, retryable: true };
     }
 
     const expected = input.amount ?? Number(verified?.amount ?? 0);
     const verifiedAmount = Number(verified?.amount ?? 0);
-    // Prefer verified paid amount; fall back to expected when provider omits amountPaid.
     const rawPaid =
       Number.isFinite(verifiedAmount) && verifiedAmount > 0
         ? verifiedAmount
@@ -366,7 +203,6 @@ export class TenantWalletTopupService {
       return { received: true, credited: false };
     }
 
-    // Monnify: credit when amountPaid is at least expected (fees / overpay OK). Reject underpay only.
     if (input.amount && Number.isFinite(input.amount) && input.amount > 0) {
       if (paid + BILLING_AMOUNT_TOLERANCE < input.amount) {
         this.logger.warn(
@@ -421,17 +257,11 @@ export class TenantWalletTopupService {
       typeof verified.cardToken === 'string' &&
       verified.cardToken
     ) {
-      const monnifyVerified = verified as {
-        cardToken: string;
-        customerEmail?: string;
-        cardLastFour?: string;
-        cardBrand?: string;
-      };
       await this.persistMonnifyWalletCardToken(input.tenantId, {
-        cardToken: monnifyVerified.cardToken,
-        customerEmail: monnifyVerified.customerEmail,
-        cardLastFour: monnifyVerified.cardLastFour,
-        cardBrand: monnifyVerified.cardBrand,
+        cardToken: verified.cardToken,
+        customerEmail: verified.customerEmail,
+        cardLastFour: verified.cardLastFour,
+        cardBrand: verified.cardBrand,
       });
     }
 
@@ -471,9 +301,7 @@ export class TenantWalletTopupService {
     },
   ): Promise<void> {
     const subscription = await this.subscriptionsService.getTenantSubscription(tenantId);
-    if (!subscription) {
-      return;
-    }
+    if (!subscription) return;
     subscription.usageMetrics = {
       ...(subscription.usageMetrics ?? {}),
       monnifyWalletCardToken: input.cardToken,
@@ -586,7 +414,7 @@ export class TenantWalletTopupService {
     if (provider === PaymentProvider.MONNIFY && !this.monnifyApi.isConfigured()) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
-    if (provider === PaymentProvider.NOAH && !isNoahConfigured()) {
+    if (provider === PaymentProvider.NOAH && !(await this.noahApi.isConfigured())) {
       throw new BadRequestException(WALLET_CHECKOUT_UNAVAILABLE);
     }
     if (provider === PaymentProvider.MONNIFY) {

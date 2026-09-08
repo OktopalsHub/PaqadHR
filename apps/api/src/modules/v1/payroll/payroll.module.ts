@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ManagerAccessModule } from '../../../common/modules/manager-access.module';
 import { PaymentsModule } from '../../../common/providers/payments.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { EmploymentModule } from '../employment/employment.module';
@@ -20,11 +21,14 @@ import { AuditService } from './services/audit.service';
 import { ManualDisbursementService } from './services/manual-disbursement.service';
 import { MultiPaymentService } from './services/multi-payment.service';
 import { PayrollService } from './services/payroll.service';
+import { PayrollAccessGuard } from './services/payroll-access-guard';
 import { PayrollCalculationService } from './services/payroll-calculation.service';
 import { PayrollExportService } from './services/payroll-export.service';
 import { PayrollFeeService } from './services/payroll-fee.service';
+import { PayrollPaymentOrchestrator } from './services/payroll-payment-orchestrator';
 import { PayrollPayoutService } from './services/payroll-payout.service';
 import { PayrollPayoutCronService } from './services/payroll-payout-cron.service';
+import { PayrollRunService } from './services/payroll-run.service';
 
 @Module({
   imports: [
@@ -38,11 +42,15 @@ import { PayrollPayoutCronService } from './services/payroll-payout-cron.service
     TenantMembersModule,
     EmploymentModule,
     TenantConfigModule,
+    ManagerAccessModule,
   ],
   controllers: [PayrollController, PayrollFeeController, PayrollWebhooksController],
   providers: [
     PayrollRunRepository,
     PayrollItemRepository,
+    PayrollAccessGuard,
+    PayrollRunService,
+    PayrollPaymentOrchestrator,
     PayrollService,
     PayrollCalculationService,
     PayrollFeeService,
@@ -55,6 +63,9 @@ import { PayrollPayoutCronService } from './services/payroll-payout-cron.service
   ],
   exports: [
     PayrollService,
+    PayrollRunService,
+    PayrollPaymentOrchestrator,
+    PayrollAccessGuard,
     PayrollCalculationService,
     PayrollFeeService,
     MultiPaymentService,

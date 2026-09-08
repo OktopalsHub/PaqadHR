@@ -25,7 +25,7 @@ import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.gua
 import type { IAuthenticatedUserRequest } from 'src/common/interfaces';
 import type { IPaginatedData } from 'src/common/interfaces/pagination.interface';
 import { FileUrlService } from 'src/common/services/file-url.service';
-import { getPaginationSummary } from 'src/common/utils/pagination.util';
+import { getPaginationSummary, normalizePaginationLimit } from 'src/common/utils/pagination.util';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { PublicTenantResponseDto } from './dto/public-tenant-response.dto';
@@ -88,8 +88,9 @@ export class TenantsController {
   ): Promise<IPaginatedData<UserTenantWithMembershipDto>> {
     const result = await this.tenantsService.getUserTenantsWithDetails(req.auth.principalId);
     const { page = 1, limit = 10 } = pagination;
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
+    const safeLimit = normalizePaginationLimit(limit);
+    const startIndex = (page - 1) * safeLimit;
+    const endIndex = startIndex + safeLimit;
     const paginatedTenants = result.tenants.slice(startIndex, endIndex);
     const tenantsWithMembership: UserTenantWithMembershipDto[] = paginatedTenants.map((tenant) => {
       const response: UserTenantWithMembershipDto = {
@@ -140,7 +141,7 @@ export class TenantsController {
     return getPaginationSummary(
       tenantsWithMembership,
       result.totalCount,
-      { page, limit },
+      { page, limit: safeLimit },
       'User Tenants',
     );
   }

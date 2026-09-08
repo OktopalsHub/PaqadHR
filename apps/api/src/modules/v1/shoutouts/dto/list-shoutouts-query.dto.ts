@@ -1,8 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
-import { PaginationQueryDto } from '../../../../common/dto/pagination-query.dto';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
-export class ListShoutoutsQueryDto extends PaginationQueryDto {
+export class ListShoutoutsQueryDto extends PaginationDto {
   @ApiPropertyOptional({
     description: 'Comma-separated category IDs',
     example: 'uuid-1,uuid-2',

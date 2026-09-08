@@ -1,7 +1,8 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { isPayrollMerchantRef } from '../../modules/v1/payroll/utils/payroll-merchant-ref.util';
 import { parseTenantIdFromFincraWalletTopupOrderRef } from '../../modules/v1/rewards/utils/wallet-order-ref.util';
 import { getFincraWebhookSecret } from './fincra.config';
+import { signaturesMatch } from './webhook-signature.util';
 
 export interface FincraParsedPayoutWebhook {
   merchantRef: string;
@@ -16,16 +17,6 @@ export interface FincraParsedPayinWebhook {
   status: string;
   amount?: number;
   metadata?: Record<string, unknown>;
-}
-
-function signaturesMatch(expected: string, received: string): boolean {
-  try {
-    const a = Buffer.from(expected.toLowerCase(), 'utf8');
-    const b = Buffer.from(received.toLowerCase(), 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
 }
 
 /** Fincra signs JSON.stringify(parsedPayload) with HMAC-SHA512. */

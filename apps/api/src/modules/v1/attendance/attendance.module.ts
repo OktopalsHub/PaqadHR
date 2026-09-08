@@ -15,6 +15,10 @@ import { AttendancePolicy } from './entities/attendance-policy.entity';
 import { AttendanceRepository } from './repositories/attendance.repository';
 import { AttendanceExceptionRepository } from './repositories/attendance-exception.repository';
 import { AttendancePolicyRepository } from './repositories/attendance-policy.repository';
+import { AttendanceClockService } from './services/attendance-clock.service';
+import { AttendanceExceptionService } from './services/attendance-exception.service';
+import { AttendancePolicyService } from './services/attendance-policy.service';
+import { AttendanceReportService } from './services/attendance-report.service';
 import { DepartmentUtils } from './utils/department.utils';
 
 @Module({
@@ -34,7 +38,17 @@ import { DepartmentUtils } from './utils/department.utils';
     AttendancePolicyRepository,
     AttendanceExceptionRepository,
     DepartmentUtils,
+    AttendancePolicyService,
+    AttendanceClockService,
+    AttendanceExceptionService,
+    AttendanceReportService,
   ],
-  exports: [AttendanceService],
+  exports: [
+    AttendanceService,
+    AttendancePolicyService,
+    AttendanceClockService,
+    AttendanceExceptionService,
+    AttendanceReportService,
+  ],
 })
 export class AttendanceModule {}

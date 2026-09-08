@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { getNombaWebhookSecret } from './nomba.config';
+import { signaturesMatch } from './webhook-signature.util';
 
 export function verifyNombaWebhookSignature(
   rawBody: string,
@@ -58,14 +59,4 @@ export function verifyNombaWebhookSignature(
   } catch {}
 
   return false;
-}
-
-function signaturesMatch(expected: string, received: string): boolean {
-  try {
-    const a = Buffer.from(expected, 'utf8');
-    const b = Buffer.from(received, 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
 }

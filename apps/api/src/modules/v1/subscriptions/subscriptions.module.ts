@@ -27,8 +27,11 @@ import { BillingCronService } from './services/billing-cron.service';
 import { BillingProductSyncService } from './services/billing-product-sync.service';
 import { BillingProviderFactoryService } from './services/billing-provider-factory.service';
 import { NombaApiService } from './services/nomba-api.service';
+import { RenewalProcessor } from './services/renewal-processor';
+import { SeatPricingCalculator } from './services/seat-pricing-calculator';
 import { SubscriptionBillingService } from './services/subscription-billing.service';
 import { SubscriptionsService } from './services/subscriptions.service';
+import { WebhookDispatcher } from './services/webhook-dispatcher';
 
 @Module({
   imports: [
@@ -55,6 +58,9 @@ import { SubscriptionsService } from './services/subscriptions.service';
   ],
   providers: [
     SubscriptionsService,
+    SeatPricingCalculator,
+    RenewalProcessor,
+    WebhookDispatcher,
     SubscriptionBillingService,
     BillingCronService,
     BillingProductSyncService,
@@ -71,6 +77,9 @@ import { SubscriptionsService } from './services/subscriptions.service';
   exports: [
     SubscriptionsService,
     SubscriptionBillingService,
+    SeatPricingCalculator,
+    RenewalProcessor,
+    WebhookDispatcher,
     BillingProductSyncService,
     NombaSubscriptionProvider,
     MonnifySubscriptionProvider,
