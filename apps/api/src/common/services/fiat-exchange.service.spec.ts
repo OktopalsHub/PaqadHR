@@ -3,23 +3,11 @@ import { FiatExchangeService } from './fiat-exchange.service';
 
 describe('FiatExchangeService', () => {
   let service: FiatExchangeService;
-  let reloadlyTopupsApi: {
-    isConfigured: jest.Mock;
-    listOperators: jest.Mock;
-    getOperatorFxRate: jest.Mock;
-  };
 
   beforeEach(() => {
     jest.restoreAllMocks();
     delete process.env.FX_CACHE_TTL_SECONDS;
-
-    reloadlyTopupsApi = {
-      isConfigured: jest.fn().mockReturnValue(false),
-      listOperators: jest.fn(),
-      getOperatorFxRate: jest.fn(),
-    };
-
-    service = new FiatExchangeService(reloadlyTopupsApi as any);
+    service = new FiatExchangeService();
   });
 
   it('returns amount unchanged for same currency', async () => {
@@ -68,27 +56,5 @@ describe('FiatExchangeService', () => {
     } as Response);
 
     await expect(service.convert(10, 'USD', 'NGN')).rejects.toBeInstanceOf(BadRequestException);
-  });
-
-  it('converts via Reloadly topups when configured', async () => {
-    reloadlyTopupsApi.isConfigured.mockReturnValue(true);
-    reloadlyTopupsApi.listOperators.mockImplementation(async (country: string) => {
-      if (country === 'US') {
-        return [{ operatorId: 1, fx: { rate: 1, currencyCode: 'USD' } }];
-      }
-      if (country === 'NG') {
-        return [{ operatorId: 2, fx: { rate: 1500, currencyCode: 'NGN' } }];
-      }
-      return [];
-    });
-    reloadlyTopupsApi.getOperatorFxRate.mockResolvedValue({
-      fxRate: 1,
-      currencyCode: 'USD',
-    });
-
-    const fetchMock = jest.spyOn(global, 'fetch');
-
-    await expect(service.convert(10, 'USD', 'NGN', { countryCode: 'US' })).resolves.toBe(15000);
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

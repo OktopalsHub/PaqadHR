@@ -1,5 +1,8 @@
 import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { MonnifyApiService } from './monnify-api.service';
+import { MonnifyAuthService } from './monnify-auth.service';
+import { MonnifyCheckoutService } from './monnify-checkout.service';
+import { MonnifyDisbursementService } from './monnify-disbursement.service';
 
 describe('MonnifyApiService', () => {
   const originalFetch = global.fetch;
@@ -10,6 +13,13 @@ describe('MonnifyApiService', () => {
     process.env = { ...originalEnv };
     jest.restoreAllMocks();
   });
+
+  function createService(): MonnifyApiService {
+    const auth = new MonnifyAuthService();
+    const checkout = new MonnifyCheckoutService(auth);
+    const disbursement = new MonnifyDisbursementService(auth);
+    return new MonnifyApiService(auth, checkout, disbursement);
+  }
 
   it('maps fetch timeouts to a service-unavailable checkout error', async () => {
     process.env.MONNIFY_API_KEY = 'key';
@@ -22,7 +32,7 @@ describe('MonnifyApiService', () => {
       }),
     );
 
-    const service = new MonnifyApiService();
+    const service = createService();
 
     await expect(
       service.initializeTransaction({
@@ -61,8 +71,8 @@ describe('MonnifyApiService', () => {
         }),
       });
 
-    const service = new MonnifyApiService();
-    const warnSpy = jest.spyOn((service as any).logger, 'warn');
+    const service = createService();
+    const warnSpy = jest.spyOn((service as any).auth.logger, 'warn');
 
     await expect(
       service.initializeTransaction({
@@ -120,7 +130,7 @@ describe('MonnifyApiService', () => {
         }),
       });
 
-    const service = new MonnifyApiService();
+    const service = createService();
     const result = await service.verifyTransaction('wm_test_ref');
 
     expect(global.fetch).toHaveBeenNthCalledWith(
@@ -180,7 +190,7 @@ describe('MonnifyApiService', () => {
         }),
       });
 
-    const service = new MonnifyApiService();
+    const service = createService();
     const result = await service.verifyTransaction('wm_test_ref', 'MNFY|1|2|3');
 
     expect(global.fetch).toHaveBeenNthCalledWith(
@@ -215,7 +225,7 @@ describe('MonnifyApiService', () => {
         }),
       });
 
-    const service = new MonnifyApiService();
+    const service = createService();
     await expect(service.verifyTransaction('wm_missing')).resolves.toBeNull();
   });
 
@@ -247,7 +257,7 @@ describe('MonnifyApiService', () => {
         }),
       });
 
-    const service = new MonnifyApiService();
+    const service = createService();
     const result = await service.chargeCardToken({
       cardToken: 'MNFY_ABC',
       amount: 5000,

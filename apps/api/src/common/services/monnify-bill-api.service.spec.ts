@@ -1,5 +1,7 @@
+import { MonnifyAirtimeService } from './monnify-airtime.service';
 import { MonnifyApiService } from './monnify-api.service';
 import { MonnifyBillApiService } from './monnify-bill-api.service';
+import { MonnifyValidationService } from './monnify-validation.service';
 
 describe('MonnifyBillApiService', () => {
   const originalFetch = global.fetch;
@@ -19,8 +21,8 @@ describe('MonnifyBillApiService', () => {
       MONNIFY_CONTRACT_CODE: 'contract',
       MONNIFY_BASE_URL: 'https://sandbox.monnify.com',
     };
-    MonnifyBillApiService.VEND_POLL_ATTEMPTS = 3;
-    MonnifyBillApiService.VEND_POLL_DELAY_MS = 0;
+    MonnifyValidationService.VEND_POLL_ATTEMPTS = 3;
+    MonnifyValidationService.VEND_POLL_DELAY_MS = 0;
     monnifyApi = {
       getAccessToken: jest.fn().mockResolvedValue('token'),
     } as unknown as MonnifyApiService;
@@ -32,8 +34,14 @@ describe('MonnifyBillApiService', () => {
     jest.restoreAllMocks();
   });
 
+  function createService(): MonnifyBillApiService {
+    const validation = new MonnifyValidationService(monnifyApi);
+    const airtime = new MonnifyAirtimeService(validation);
+    return new MonnifyBillApiService(airtime, validation);
+  }
+
   it('validates then vends airtime with a normalized phone number', async () => {
-    const service = new MonnifyBillApiService(monnifyApi);
+    const service = createService();
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]))
@@ -69,7 +77,7 @@ describe('MonnifyBillApiService', () => {
   });
 
   it('uses DATA_BUNDLE rather than a generic DATA category for telco plans', async () => {
-    const service = new MonnifyBillApiService(monnifyApi);
+    const service = createService();
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(
@@ -92,7 +100,7 @@ describe('MonnifyBillApiService', () => {
   });
 
   it('rejects an unavailable selected plan code instead of substituting a same-priced plan', async () => {
-    const service = new MonnifyBillApiService(monnifyApi);
+    const service = createService();
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(
@@ -116,7 +124,7 @@ describe('MonnifyBillApiService', () => {
   });
 
   it('times out a Monnify request that never settles', async () => {
-    const service = new MonnifyBillApiService(monnifyApi);
+    const service = createService();
     const controller = new AbortController();
     jest.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
     global.fetch = jest.fn(
@@ -139,7 +147,7 @@ describe('MonnifyBillApiService', () => {
   });
 
   it('requeries a pending vend until it receives a terminal result', async () => {
-    const service = new MonnifyBillApiService(monnifyApi);
+    const service = createService();
     global.fetch = jest
       .fn()
       .mockResolvedValueOnce(okBody([{ categoryCode: 'AIRTIME', categoryName: 'Airtime' }]))
@@ -166,7 +174,7 @@ describe('MonnifyBillApiService', () => {
   });
 
   it('normalizes phone numbers with various formats', async () => {
-    const service = new MonnifyBillApiService(monnifyApi);
+    const service = createService();
 
     global.fetch = jest
       .fn()
