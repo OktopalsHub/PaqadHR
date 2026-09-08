@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { SlackWebhookService } from '../../shoutouts/services/slack-webhook.service';
 import { BachsWebhookService } from '../services/bachs-webhook.service';
+import { FincraWebhookService } from '../services/fincra-webhook.service';
 import { MonnifyWebhookService } from '../services/monnify-webhook.service';
 import { NoahWebhookService } from '../services/noah-webhook.service';
 import { NombaWebhookService } from '../services/nomba-webhook.service';
@@ -17,6 +18,7 @@ describe('WebhooksController', () => {
   let mockNombaWebhookService: jest.Mocked<Pick<NombaWebhookService, 'dispatch'>>;
   let mockMonnifyWebhookService: jest.Mocked<Pick<MonnifyWebhookService, 'dispatch'>>;
   let mockNoahWebhookService: jest.Mocked<Pick<NoahWebhookService, 'dispatch'>>;
+  let mockFincraWebhookService: jest.Mocked<Pick<FincraWebhookService, 'dispatch'>>;
   let mockBachsWebhookService: jest.Mocked<Pick<BachsWebhookService, 'dispatch'>>;
   let mockPolarWebhookService: jest.Mocked<Pick<PolarWebhookService, 'dispatch'>>;
   let mockTremendousWebhookService: jest.Mocked<Pick<TremendousWebhookService, 'dispatch'>>;
@@ -26,6 +28,7 @@ describe('WebhooksController', () => {
     mockNombaWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockMonnifyWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockNoahWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
+    mockFincraWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockBachsWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockPolarWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
     mockTremendousWebhookService = { dispatch: jest.fn().mockResolvedValue({ received: true }) };
@@ -35,10 +38,12 @@ describe('WebhooksController', () => {
       mockNombaWebhookService as unknown as NombaWebhookService,
       mockMonnifyWebhookService as unknown as MonnifyWebhookService,
       mockNoahWebhookService as unknown as NoahWebhookService,
+      mockFincraWebhookService as unknown as FincraWebhookService,
       mockBachsWebhookService as unknown as BachsWebhookService,
       mockPolarWebhookService as unknown as PolarWebhookService,
       mockSlackWebhookService as unknown as SlackWebhookService,
       mockTremendousWebhookService as unknown as TremendousWebhookService,
+      { capture: jest.fn() } as never,
     );
   });
 

@@ -10,8 +10,11 @@ import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
 import { TenantsModule } from '../tenants/tenants.module';
-import { PayrollController } from './controllers/payroll.controller';
+import { PayrollExportController } from './controllers/payroll-export.controller';
 import { PayrollFeeController } from './controllers/payroll-fee.controller';
+import { PayrollItemsController } from './controllers/payroll-items.controller';
+import { PayrollPayoutController } from './controllers/payroll-payout.controller';
+import { PayrollRunsController } from './controllers/payroll-runs.controller';
 import { PayrollWebhooksController } from './controllers/payroll-webhooks.controller';
 import { PayrollItem } from './entities/payroll-item.entity';
 import { PayrollRun } from './entities/payroll-run.entity';
@@ -44,7 +47,14 @@ import { PayrollRunService } from './services/payroll-run.service';
     TenantConfigModule,
     ManagerAccessModule,
   ],
-  controllers: [PayrollController, PayrollFeeController, PayrollWebhooksController],
+  controllers: [
+    PayrollRunsController,
+    PayrollItemsController,
+    PayrollPayoutController,
+    PayrollExportController,
+    PayrollFeeController,
+    PayrollWebhooksController,
+  ],
   providers: [
     PayrollRunRepository,
     PayrollItemRepository,

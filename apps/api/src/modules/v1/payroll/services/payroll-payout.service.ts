@@ -1,182 +1,65 @@
-import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
-import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
-import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
 import { FincraApiService } from 'src/common/services/fincra-api.service';
 import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
-import { paymentProviderLabel } from 'src/common/utils/resolve-payment-provider.util';
-import { LessThan, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-
-import {
-  buildPayrollMerchantRef,
-  PAYROLL_MERCHANT_REF_PATTERN,
-} from '../utils/payroll-merchant-ref.util';
-
-const PAYROLL_AMOUNT_TOLERANCE = 1;
-
-const SUCCESS_STATUSES = new Set([
-  'SUCCESS',
-  'SUCCESSFUL',
-  'COMPLETED',
-  'PAYMENT_SUCCESSFUL',
-  'SUCCEEDED',
-  'PAID',
-  'SETTLED',
-]);
-const PENDING_STATUSES = new Set(['PENDING', 'PENDING_BILLING', 'PROCESSING', 'IN_PROGRESS']);
-const FAILED_STATUSES = new Set([
-  'FAILED',
-  'REFUND',
-  'REVERSED',
-  'CANCELLED',
-  'CANCELED',
-  'REJECTED',
-]);
+import { PayoutReconciliation } from './payout-reconciliation';
+import { PayoutWebhooks } from './payout-webhooks';
 
 @Injectable()
 export class PayrollPayoutService {
-  private readonly logger = new Logger(PayrollPayoutService.name);
+  private readonly webhooks: PayoutWebhooks;
+  private readonly reconciliation: PayoutReconciliation;
 
   constructor(
-    private readonly nombaTransferApi: NombaTransferApiService,
-    private readonly noahApi: NoahApiService,
-    private readonly fincraApi: FincraApiService,
-    private readonly factory: PaymentProviderFactoryService,
-    private readonly payrollItemRepository: PayrollItemRepository,
-    private readonly payrollRunRepository: PayrollRunRepository,
-    @InjectRepository(PayrollItem)
-    private readonly payrollItemRepo: Repository<PayrollItem>,
-  ) {}
+    readonly nombaTransferApi: NombaTransferApiService,
+    readonly noahApi: NoahApiService,
+    readonly fincraApi: FincraApiService,
+    readonly factory: PaymentProviderFactoryService,
+    readonly payrollItemRepository: PayrollItemRepository,
+    readonly payrollRunRepository: PayrollRunRepository,
+    @InjectRepository(PayrollItem) readonly payrollItemRepo: Repository<PayrollItem>,
+  ) {
+    this.reconciliation = new PayoutReconciliation(
+      fincraApi,
+      factory,
+      payrollItemRepository,
+      payrollRunRepository,
+      payrollItemRepo,
+    );
+    this.webhooks = new PayoutWebhooks(
+      nombaTransferApi,
+      noahApi,
+      fincraApi,
+      payrollItemRepository,
+      payrollRunRepository,
+      this.reconciliation,
+    );
+  }
 
   async handleNombaWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
-    if (!signature?.trim() || !this.nombaTransferApi.verifyWebhookSignature(rawBody, signature)) {
-      this.logger.warn('Rejected Nomba payroll webhook: invalid signature');
-      throw new UnauthorizedException('Invalid webhook signature');
-    }
-    let payload: unknown;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      throw new BadRequestException('Invalid webhook JSON');
-    }
-    return this.processNombaPayload(payload);
+    return this.webhooks.handleNombaWebhook(rawBody, signature);
   }
 
   async handleNoahWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
-    if (!signature?.trim() || !this.noahApi.verifyWebhookSignature(rawBody, signature)) {
-      this.logger.warn('Rejected Noah payroll webhook: invalid signature');
-      throw new UnauthorizedException('Invalid webhook signature');
-    }
-    let payload: unknown;
-    try {
-      payload = JSON.parse(rawBody);
-    } catch {
-      throw new BadRequestException('Invalid webhook JSON');
-    }
-    return this.processNoahPayload(payload);
+    return this.webhooks.handleNoahWebhook(rawBody, signature);
   }
 
   async processNombaPayload(payload: unknown): Promise<{ received: boolean }> {
-    const event = this.nombaTransferApi.parseTransferWebhook(payload);
-    if (!event) return { received: true };
-
-    const merchantRef = event.merchantTxRef ?? event.reference;
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(merchantRef);
-    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true };
-
-    const changed = await this.applyTransferStatus(
-      merchantRef,
-      event.status,
-      event.reference,
-      PaymentProvider.NOMBA,
-      tenantId,
-    );
-    if (changed && parsed) {
-      await this.reconcilePayrollRunStatus(parsed[1], tenantId);
-    }
-    return { received: true };
+    return this.webhooks.processNombaPayload(payload);
   }
 
   async processNoahPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
-    const event = this.noahApi.parseTransferWebhook(payload);
-    if (!event) return { received: true, matched: false };
-
-    let merchantRef = event.merchantTxRef ?? event.reference;
-    if (!merchantRef || !PAYROLL_MERCHANT_REF_PATTERN.test(merchantRef)) {
-      if (!event.reference) return { received: true, matched: false };
-      const item = await this.payrollItemRepository.findOne({
-        where: { transactionId: event.reference },
-        relations: ['payrollRun'],
-      });
-      if (!item) return { received: true, matched: false };
-      merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
-    }
-
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(merchantRef);
-    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true, matched: true };
-
-    const changed = await this.applyTransferStatus(
-      merchantRef,
-      event.status,
-      event.reference,
-      PaymentProvider.NOAH,
-      tenantId,
-    );
-    if (changed) {
-      await this.reconcilePayrollRunStatus(parsed![1], tenantId);
-    }
-    return { received: true, matched: true };
+    return this.webhooks.processNoahPayload(payload);
   }
 
   async processFincraPayload(payload: unknown): Promise<{ received: boolean; matched: boolean }> {
-    const event = this.fincraApi.parsePayoutWebhook(payload);
-    if (!event) return { received: true, matched: false };
-
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(event.merchantRef);
-    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true, matched: false };
-
-    let reference = event.reference;
-    let amount = event.amount;
-    let status: string;
-
-    try {
-      const verified = await this.fincraApi.getPayoutStatus(event.merchantRef);
-      if (!verified) {
-        this.logger.warn(`Fincra payout webhook ignored: no payout found for ${event.merchantRef}`);
-        return { received: true, matched: false };
-      }
-      status = verified.status;
-      reference = verified.reference ?? reference;
-      amount = verified.amount ?? amount;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Fincra payout webhook verification failed for ${event.merchantRef}: ${message}`,
-      );
-      return { received: true, matched: false };
-    }
-
-    const changed = await this.applyTransferStatus(
-      event.merchantRef,
-      status,
-      reference,
-      PaymentProvider.FINCRA,
-      tenantId,
-      amount,
-    );
-    if (changed && parsed) {
-      await this.reconcilePayrollRunStatus(parsed[1], tenantId);
-    }
-    return { received: true, matched: changed };
+    return this.webhooks.processFincraPayload(payload);
   }
 
   async processMonnifyPayload(payload: {
@@ -185,306 +68,40 @@ export class PayrollPayoutService {
     status: string;
     amount?: number;
   }): Promise<{ received: boolean; matched: boolean }> {
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(payload.merchantRef);
-    const tenantId = parsed ? await this.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true, matched: false };
-
-    const changed = await this.applyTransferStatus(
-      payload.merchantRef,
-      payload.status,
-      payload.transactionId,
-      PaymentProvider.MONNIFY,
-      tenantId,
-      payload.amount,
-    );
-    if (changed && parsed) {
-      await this.reconcilePayrollRunStatus(parsed[1], tenantId);
-    }
-    return { received: true, matched: changed };
+    return this.webhooks.processMonnifyPayload(payload);
   }
 
   async requeryStuckPayouts(): Promise<{ checked: number; updated: number }> {
-    const cutoff = new Date(Date.now() - 15 * 60 * 1000);
-    const stuckItems = await this.payrollItemRepo.find({
-      where: {
-        status: PayrollItemStatus.PROCESSING,
-        updatedAt: LessThan(cutoff),
-      },
-      take: 50,
-    });
-
-    let updated = 0;
-    for (const item of stuckItems) {
-      const reference = item.transactionId;
-      if (!reference) continue;
-
-      const tenantId = item.payrollRun?.tenantId ?? (await this.resolveTenantId(item.payrollRunId));
-      if (!tenantId) continue;
-
-      const retryAttempt =
-        typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
-      const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
-      const provider = this.resolveStoredProvider(item.paymentProvider);
-      const querier = this.factory.resolvePayoutQuerier(provider);
-
-      let status: string | null = null;
-      let amount: number | undefined;
-
-      if (querier) {
-        const result = await querier.queryStatus(reference, merchantRef);
-        if (result) {
-          status = result.status;
-          amount = result.amount;
-        }
-      }
-
-      if (!status) continue;
-
-      const changed = await this.applyTransferStatus(
-        merchantRef,
-        status,
-        reference,
-        provider,
-        tenantId,
-        amount,
-      );
-      if (changed) {
-        updated += 1;
-        await this.reconcilePayrollRunStatus(item.payrollRunId, tenantId);
-      }
-    }
-
-    return { checked: stuckItems.length, updated };
+    return this.reconciliation.requeryStuckPayouts();
   }
 
   async reconcileFailedItemBeforeRetry(item: PayrollItem, tenantId: string): Promise<boolean> {
-    const provider = this.resolveStoredProvider(item.paymentProvider);
-    const retryAttempt =
-      typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
-
-    if (provider === PaymentProvider.FINCRA) {
-      try {
-        for (let attempt = 0; attempt <= retryAttempt; attempt++) {
-          const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, attempt);
-          const verified = await this.fincraApi.getPayoutStatus(merchantRef);
-          if (!verified) continue;
-
-          const status = verified.status.toUpperCase();
-          if (SUCCESS_STATUSES.has(status) || PENDING_STATUSES.has(status)) {
-            await this.applyTransferStatus(
-              merchantRef,
-              status,
-              verified.reference ?? item.transactionId ?? merchantRef,
-              PaymentProvider.FINCRA,
-              tenantId,
-              verified.amount,
-            );
-            return false;
-          }
-        }
-
-        const latestRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
-        const latest = await this.fincraApi.getPayoutStatus(latestRef);
-        if (!latest) return true;
-        return !FAILED_STATUSES.has(latest.status.toUpperCase());
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new BadRequestException(
-          `Cannot retry payroll item ${item.id}: Fincra status lookup failed (${message})`,
-        );
-      }
-    }
-
-    const merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id, retryAttempt);
-    const reference = item.transactionId?.trim();
-    if (!reference) return true;
-
-    const querier = this.factory.resolvePayoutQuerier(provider);
-    let status: string | null = null;
-    let amount: number | undefined;
-
-    if (querier) {
-      const result = await querier.queryStatus(reference, merchantRef);
-      if (result) {
-        status = result.status;
-        amount = result.amount;
-      }
-    }
-
-    if (!status) return true;
-
-    const changed = await this.applyTransferStatus(
-      merchantRef,
-      status,
-      reference,
-      provider,
-      tenantId,
-      amount,
-    );
-    if (changed) return FAILED_STATUSES.has(status.toUpperCase());
-    return FAILED_STATUSES.has(status.toUpperCase());
-  }
-
-  private async resolveTenantId(payrollRunId: string): Promise<string | undefined> {
-    const run = await this.payrollRunRepository.findOne({
-      where: { id: payrollRunId },
-      select: ['tenantId'],
-    });
-    return run?.tenantId;
-  }
-
-  private resolveStoredProvider(stored: string | null | undefined): PaymentProvider {
-    const value = (stored ?? '').toLowerCase();
-    if (value.includes('fincra')) return PaymentProvider.FINCRA;
-    if (value.includes('noah') || value.includes('international') || value.includes('crypto'))
-      return PaymentProvider.NOAH;
-    if (value.includes('monnify')) return PaymentProvider.MONNIFY;
-    return PaymentProvider.NOMBA;
+    return this.reconciliation.reconcileFailedItemBeforeRetry(item, tenantId);
   }
 
   async applyTransferStatus(
     merchantRef: string,
     rawStatus: string,
     transactionId: string,
-    provider: PaymentProvider = PaymentProvider.NOMBA,
+    provider?: import('src/common/enums/payment-provider.enum').PaymentProvider,
     tenantId?: string,
     amount?: number,
-  ): Promise<boolean> {
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(merchantRef);
-    if (!parsed) return false;
-
-    const [, payrollRunId, itemId] = parsed;
-    const where: Record<string, unknown> = { id: itemId, payrollRunId };
-    if (tenantId) {
-      where.payrollRun = { tenantId };
-    }
-    const item = await this.payrollItemRepository.findOne({
-      where,
-      relations: ['payrollRun'],
-    });
-    if (!item) return false;
-    if (tenantId) {
-      const runTenantId = item.payrollRun?.tenantId ?? (await this.resolveTenantId(payrollRunId));
-      if (runTenantId && runTenantId !== tenantId) return false;
-    }
-
-    const status = rawStatus.toUpperCase();
-    const providerName = paymentProviderLabel(provider);
-
-    if (SUCCESS_STATUSES.has(status)) {
-      if (item.status === PayrollItemStatus.PAID) return false;
-      if (
-        amount != null &&
-        Number.isFinite(amount) &&
-        Math.abs(Number(amount) - Number(item.paymentAmount)) > PAYROLL_AMOUNT_TOLERANCE
-      ) {
-        this.logger.error(
-          `Payroll amount mismatch for item ${itemId}: expected ${item.paymentAmount}, got ${amount}; leaving PROCESSING`,
-        );
-        if (item.status === PayrollItemStatus.PENDING) {
-          item.status = PayrollItemStatus.PROCESSING;
-          item.transactionId = transactionId;
-          item.paymentProvider = providerName;
-          await this.payrollItemRepository.save(item);
-          return true;
-        }
-        return false;
-      }
-      item.status = PayrollItemStatus.PAID;
-      item.transactionId = transactionId;
-      item.paymentProvider = providerName;
-      item.paidAt = new Date();
-      item.failureReason = null;
-      await this.payrollItemRepository.save(item);
-      return true;
-    }
-
-    if (FAILED_STATUSES.has(status)) {
-      if (item.status === PayrollItemStatus.FAILED) return false;
-      if (item.status === PayrollItemStatus.PAID) return false;
-      item.status = PayrollItemStatus.FAILED;
-      item.transactionId = transactionId;
-      item.failureReason = `${providerName} ${status.toLowerCase()}`;
-      await this.payrollItemRepository.save(item);
-      this.logger.warn(`Payroll item ${itemId} failed: ${status}`);
-      return true;
-    }
-
-    if (PENDING_STATUSES.has(status) && item.status === PayrollItemStatus.PENDING) {
-      item.status = PayrollItemStatus.PROCESSING;
-      item.transactionId = transactionId;
-      item.paymentProvider = providerName;
-      await this.payrollItemRepository.save(item);
-      return true;
-    }
-
-    if (PENDING_STATUSES.has(status) && item.status === PayrollItemStatus.FAILED) {
-      item.status = PayrollItemStatus.PROCESSING;
-      item.transactionId = transactionId;
-      item.paymentProvider = providerName;
-      item.failureReason = null;
-      await this.payrollItemRepository.save(item);
-      return true;
-    }
-
-    return false;
+  ) {
+    return this.reconciliation.applyTransferStatus(
+      merchantRef,
+      rawStatus,
+      transactionId,
+      provider,
+      tenantId,
+      amount,
+    );
   }
 
   classifyPaymentResultStatus(rawStatus?: string): 'paid' | 'processing' | 'failed' {
-    const status = (rawStatus ?? '').toUpperCase();
-    if (SUCCESS_STATUSES.has(status)) return 'paid';
-    if (FAILED_STATUSES.has(status)) return 'failed';
-    return 'processing';
+    return this.reconciliation.classifyPaymentResultStatus(rawStatus);
   }
 
   async reconcilePayrollRunStatus(payrollRunId: string, tenantId: string): Promise<void> {
-    const run = await this.payrollRunRepository.findByIdWithItems(payrollRunId, tenantId);
-    if (!run) return;
-    const items = run.items;
-    if (items.length === 0) return;
-
-    let pending = 0;
-    let processing = 0;
-    let paid = 0;
-    let failed = 0;
-
-    for (const item of items) {
-      switch (item.status) {
-        case PayrollItemStatus.PENDING:
-          pending += 1;
-          break;
-        case PayrollItemStatus.PROCESSING:
-          processing += 1;
-          break;
-        case PayrollItemStatus.PAID:
-          paid += 1;
-          break;
-        case PayrollItemStatus.FAILED:
-          failed += 1;
-          break;
-        default:
-          break;
-      }
-    }
-
-    const inFlight = pending + processing;
-
-    if (inFlight > 0) {
-      run.status = PayrollStatus.PROCESSING;
-    } else if (paid === items.length) {
-      run.status = PayrollStatus.COMPLETED;
-      run.processedAt = run.processedAt ?? new Date();
-    } else if (failed === items.length) {
-      run.status = PayrollStatus.FAILED;
-    } else if (paid > 0 && failed > 0) {
-      run.status = PayrollStatus.PROCESSING;
-    } else if (paid > 0) {
-      run.status = PayrollStatus.COMPLETED;
-      run.processedAt = run.processedAt ?? new Date();
-    } else {
-      run.status = PayrollStatus.FAILED;
-    }
-
-    await this.payrollRunRepository.save(run);
+    return this.reconciliation.reconcilePayrollRunStatus(payrollRunId, tenantId);
   }
 }
