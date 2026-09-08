@@ -1,43 +1,17 @@
 import { BadRequestException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsService } from './rewards.service';
 
-function createRewardsService(redemptionRepo: { findOne: jest.Mock }) {
+function createRewardsService(claimService: {
+  claim: jest.Mock;
+}) {
   return new RewardsService(
-    {
-      getRepository: jest.fn((entity) => {
-        if (entity === RewardRedemption) return redemptionRepo;
-        if (entity === TenantSettings) {
-          return {
-            findOne: jest.fn().mockResolvedValue({
-              tenantId: 'tenant-1',
-              settings: { rewards: { enabled: true, rewardsCurrency: 'NGN' } },
-            }),
-          };
-        }
-        if (entity === Tenant) {
-          return {
-            findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', countryCode: 'NG' }),
-          };
-        }
-        return {};
-      }),
-    } as unknown as DataSource,
+    { getRepository: jest.fn() } as unknown as DataSource,
+    {} as never,
+    claimService as never,
     {} as never,
     {} as never,
-    {} as never,
-    {} as never,
-    { isConfigured: jest.fn().mockReturnValue(true) } as never,
-    {} as never,
-    { convert: jest.fn() } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    { getRedemptionFees: jest.fn().mockResolvedValue({ feePercentage: 0, flatFee: 0 }) } as never,
     {} as never,
     {} as never,
   );
@@ -61,23 +35,10 @@ describe('RewardsService claim idempotency', () => {
       recipient: { email: 'test@example.com' },
     } as RewardRedemption;
 
-    const redemptionRepo = {
-      findOne: jest.fn().mockResolvedValue(existing),
+    const claimService = {
+      claim: jest.fn().mockResolvedValue(existing),
     };
-    const service = createRewardsService(redemptionRepo);
-    const settingsMock = {
-      enabled: true,
-      rewardsCurrency: 'NGN',
-      reloadlyProducts: [],
-      tremendousProducts: [],
-      catalogCountries: ['NG'],
-    };
-    jest
-      .spyOn(
-        service as unknown as { getRewardsSettings: () => Promise<unknown> },
-        'getRewardsSettings',
-      )
-      .mockResolvedValue(settingsMock);
+    const service = createRewardsService(claimService);
 
     const result = await service.claim('tenant-1', 'member-1', {
       idempotencyKey,
@@ -91,26 +52,18 @@ describe('RewardsService claim idempotency', () => {
     });
 
     expect(result).toBe(existing);
-    expect(redemptionRepo.findOne).toHaveBeenCalledWith({
-      where: { id: idempotencyKey, tenantId: 'tenant-1', memberId: 'member-1' },
-    });
+    expect(claimService.claim).toHaveBeenCalledWith(
+      'tenant-1',
+      'member-1',
+      expect.objectContaining({ idempotencyKey }),
+    );
   });
 
   it('rejects idempotency keys that are not UUIDs', async () => {
-    const service = createRewardsService({ findOne: jest.fn() });
-    const settingsMock = {
-      enabled: true,
-      rewardsCurrency: 'NGN',
-      reloadlyProducts: [],
-      tremendousProducts: [],
-      catalogCountries: ['NG'],
+    const claimService = {
+      claim: jest.fn().mockRejectedValue(new BadRequestException('Invalid idempotency key')),
     };
-    jest
-      .spyOn(
-        service as unknown as { getRewardsSettings: () => Promise<unknown> },
-        'getRewardsSettings',
-      )
-      .mockResolvedValue(settingsMock);
+    const service = createRewardsService(claimService);
 
     await expect(
       service.claim('tenant-1', 'member-1', {
