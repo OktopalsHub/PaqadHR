@@ -15,6 +15,7 @@ import { AttendanceClockService } from './services/attendance-clock.service';
 import { AttendanceExceptionService } from './services/attendance-exception.service';
 import { AttendancePolicyService } from './services/attendance-policy.service';
 import { AttendanceReportService } from './services/attendance-report.service';
+import { AttendanceSessionService } from './services/attendance-session.service';
 import { DepartmentUtils } from './utils/department.utils';
 
 @Injectable()
@@ -23,6 +24,7 @@ export class AttendanceService {
     private readonly attendanceRepo: AttendanceRepository,
     private readonly policyService: AttendancePolicyService,
     private readonly clockService: AttendanceClockService,
+    private readonly sessionService: AttendanceSessionService,
     private readonly exceptionService: AttendanceExceptionService,
     private readonly reportService: AttendanceReportService,
     private readonly departmentUtils: DepartmentUtils,
@@ -70,16 +72,16 @@ export class AttendanceService {
     return this.clockService.clockOut(tenantId, tenantMemberId, attendanceId, dto);
   }
   async getTodayAttendance(tenantId: string, tenantMemberId: string) {
-    return this.clockService.getTodayAttendance(tenantId, tenantMemberId);
+    return this.sessionService.getTodayAttendance(tenantId, tenantMemberId);
   }
   async getClockInInfo(tenantId: string, tenantMemberId: string, targetDate?: Date) {
-    return this.clockService.getClockInInfo(tenantId, tenantMemberId, targetDate);
+    return this.sessionService.getClockInInfo(tenantId, tenantMemberId, targetDate);
   }
   async getSessionLimit(tenantId: string) {
-    return this.clockService.getSessionLimit(tenantId);
+    return this.sessionService.getSessionLimit(tenantId);
   }
   async getCurrentSessionCount(tenantId: string, tenantMemberId: string, date?: Date) {
-    return this.clockService.getCurrentSessionCount(tenantId, tenantMemberId, date);
+    return this.sessionService.getCurrentSessionCount(tenantId, tenantMemberId, date);
   }
   async createManualAttendance(
     tenantId: string,
@@ -93,7 +95,7 @@ export class AttendanceService {
       notes?: string;
     },
   ) {
-    return this.clockService.createManualAttendance(tenantId, tenantMemberId, dto);
+    return this.sessionService.createManualAttendance(tenantId, tenantMemberId, dto);
   }
 
   async createAttendanceException(

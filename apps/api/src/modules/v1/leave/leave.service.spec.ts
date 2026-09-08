@@ -18,7 +18,6 @@ describe('LeaveService', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
     );
     const existingLeave = {
       id: leaveId,
