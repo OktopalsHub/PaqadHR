@@ -6,70 +6,19 @@ import type { FileUrlResponse } from '../interfaces/file-url-response.interface'
 import type { GenerateUploadUrlRequest } from '../interfaces/generate-upload-url-request.interface';
 import type { GenerateUploadUrlResponse } from '../interfaces/generate-upload-url-response.interface';
 import { CloudflareR2Service } from './cloudflare-r2.service';
-
-const PUBLIC_UPLOAD_LOCATIONS = new Set<FileUploadLocation>([
-  FileUploadLocation.LOGO,
-  FileUploadLocation.EMPLOYEES_AVATAR,
-  FileUploadLocation.AVATARS,
-]);
-
-const IMAGE_UPLOAD_MIME_TYPES = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-  'image/svg+xml',
-]);
-
-const CANDIDATE_DOCUMENT_LOCATIONS = new Set<FileUploadLocation>([
-  FileUploadLocation.RESUMES,
-  FileUploadLocation.COVER_LETTERS,
-]);
-
-const CANDIDATE_DOCUMENT_MIME_TYPES = new Set([
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
-
-// H-2: File size caps per location (API4) — enforced via presigned ContentLength + HEAD verification
-export const FILE_SIZE_LIMITS: Record<FileUploadLocation, number> = {
-  [FileUploadLocation.LOGO]: 2 * 1024 * 1024, // 2 MB
-  [FileUploadLocation.EMPLOYEES_AVATAR]: 2 * 1024 * 1024,
-  [FileUploadLocation.AVATARS]: 2 * 1024 * 1024,
-  [FileUploadLocation.RESUMES]: 5 * 1024 * 1024, // 5 MB
-  [FileUploadLocation.COVER_LETTERS]: 5 * 1024 * 1024,
-  [FileUploadLocation.DOCUMENTS]: 10 * 1024 * 1024,
-  [FileUploadLocation.ATTACHMENTS]: 10 * 1024 * 1024,
-} as const;
-
-export function isPublicUploadLocation(location: FileUploadLocation): boolean {
-  return PUBLIC_UPLOAD_LOCATIONS.has(location);
-}
-
-export function assertImageUploadContentType(
-  location: FileUploadLocation,
-  contentType: string,
-): void {
-  if (!PUBLIC_UPLOAD_LOCATIONS.has(location)) return;
-  if (!IMAGE_UPLOAD_MIME_TYPES.has(contentType.toLowerCase())) {
-    throw new BadRequestException(
-      'This upload only accepts images (JPEG, PNG, WebP, GIF, or SVG). PDF, Word, Excel, and other documents are not allowed here.',
-    );
-  }
-}
-
-export function assertCandidateDocumentContentType(
-  location: FileUploadLocation,
-  contentType: string,
-): void {
-  if (!CANDIDATE_DOCUMENT_LOCATIONS.has(location)) return;
-  if (!CANDIDATE_DOCUMENT_MIME_TYPES.has(contentType.toLowerCase())) {
-    throw new BadRequestException(
-      'Invalid file type. Upload PDF or Word documents only for resumes and cover letters.',
-    );
-  }
-}
+import {
+  buildFileKey,
+  getFileContentType,
+  parseFileKey,
+  sanitizeFilename,
+  validateFilename,
+} from './file-download';
+import {
+  assertCandidateDocumentContentType,
+  assertImageUploadContentType,
+  FILE_SIZE_LIMITS,
+  isPublicUploadLocation,
+} from './file-upload';
 
 @Injectable()
 export class FileService {
@@ -96,18 +45,17 @@ export class FileService {
     if (!tenantId) {
       throw new UnauthorizedException('Tenant ID is required');
     }
-    if (!this.validateFilename(originalName)) {
+    if (!validateFilename(originalName)) {
       throw new BadRequestException('Invalid filename');
     }
-    const sanitizedOriginalName = this.sanitizeFilename(originalName);
+    const sanitizedOriginalName = sanitizeFilename(originalName);
     const timestamp = Date.now();
     const fileExtension = path.extname(sanitizedOriginalName);
     const baseName = path.basename(sanitizedOriginalName, fileExtension);
     const fileName = `${baseName}_${timestamp}${fileExtension}`;
-    const finalContentType = contentType || this.getContentType(sanitizedOriginalName);
+    const finalContentType = contentType || getFileContentType(sanitizedOriginalName);
     assertImageUploadContentType(location, finalContentType);
     assertCandidateDocumentContentType(location, finalContentType);
-    // H-2: Require contentLength so presigned PUT is size-bound
     const maxSize = FILE_SIZE_LIMITS[location] ?? 10 * 1024 * 1024;
     if (contentLength === undefined || contentLength <= 0 || contentLength > maxSize) {
       throw new BadRequestException(
@@ -159,7 +107,7 @@ export class FileService {
     const publicUrl = this.generatePublicUrl(tenantId, location, fileName);
     let downloadUrl: string | undefined;
     try {
-      const fileKey = this.generateFileKey(tenantId, location, fileName);
+      const fileKey = buildFileKey(tenantId, location, fileName);
       downloadUrl = await this.r2Service.generateDownloadUrl(
         fileKey,
         this.defaultExpiresIn,
@@ -182,7 +130,7 @@ export class FileService {
     expiresIn?: number,
     useOriginalName?: string,
   ): Promise<string> {
-    const fileKey = this.generateFileKey(tenantId, location, fileName);
+    const fileKey = buildFileKey(tenantId, location, fileName);
     try {
       return await this.r2Service.generateDownloadUrl(
         fileKey,
@@ -199,7 +147,7 @@ export class FileService {
     location: FileUploadLocation,
     fileName: string,
   ): Promise<void> {
-    const fileKey = this.generateFileKey(tenantId, location, fileName);
+    const fileKey = buildFileKey(tenantId, location, fileName);
     try {
       await this.r2Service.deleteFile(fileKey);
     } catch (error) {
@@ -212,7 +160,7 @@ export class FileService {
     location: FileUploadLocation,
     fileName: string,
   ): Promise<boolean> {
-    const fileKey = this.generateFileKey(tenantId, location, fileName);
+    const fileKey = buildFileKey(tenantId, location, fileName);
     try {
       return await this.r2Service.fileExists(fileKey);
     } catch (error) {
@@ -242,7 +190,7 @@ export class FileService {
         lastModified?: Date;
       }> = [];
       for (const file of files) {
-        const parsedKey = this.parseFileKey(file.key);
+        const parsedKey = parseFileKey(file.key);
         if (parsedKey) {
           const publicUrl = this.generatePublicUrl(tenantId, location, parsedKey.filename);
           result.push({
@@ -262,75 +210,5 @@ export class FileService {
       );
       throw new BadRequestException('Failed to list files');
     }
-  }
-  private generateFileKey(
-    tenantId: string,
-    location: FileUploadLocation,
-    fileName: string,
-  ): string {
-    return `tenants/${tenantId}/${location}/${fileName}`;
-  }
-  private parseFileKey(fileKey: string): {
-    workspaceId: string;
-    location: string;
-    filename: string;
-  } | null {
-    const parts = fileKey.split('/');
-    if (parts.length !== 4 || parts[0] !== 'tenants') {
-      this.logger.warn(`Invalid file key format: ${fileKey}`);
-      return null;
-    }
-    return {
-      workspaceId: parts[1],
-      location: parts[2],
-      filename: parts[3],
-    };
-  }
-  private validateFilename(filename: string): boolean {
-    const dangerousPatterns = [
-      /\.\./,
-      /[<>:"|?*]/, // Windows invalid characters
-      /^\.+$/, // Only dots
-      /\/$|\\$/, // Ends with slash
-    ];
-    return !dangerousPatterns.some((pattern) => pattern.test(filename));
-  }
-
-  private sanitizeFilename(filename: string): string {
-    return filename
-      .replace(/[<>:"|?*]/g, '_')
-      .replace(/\.\./g, '_')
-      .replace(/^\.+/, '_')
-      .replace(/[/\\]+$/, '')
-      .trim();
-  }
-  private getContentType(filename: string): string {
-    const extension = filename.toLowerCase().split('.').pop();
-    const contentTypeMap: Record<string, string> = {
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      gif: 'image/gif',
-      svg: 'image/svg+xml',
-      webp: 'image/webp',
-      pdf: 'application/pdf',
-      doc: 'application/msword',
-      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      xls: 'application/vnd.ms-excel',
-      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      ppt: 'application/vnd.ms-powerpoint',
-      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      txt: 'text/plain',
-      csv: 'text/csv',
-      json: 'application/json',
-      xml: 'application/xml',
-      zip: 'application/zip',
-      rar: 'application/x-rar-compressed',
-      '7z': 'application/x-7z-compressed',
-      mp4: 'video/mp4',
-      mp3: 'audio/mpeg',
-      wav: 'audio/wav',
-    };
-    return contentTypeMap[extension || ''] || 'application/octet-stream';
   }
 }
