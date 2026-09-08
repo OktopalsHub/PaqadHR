@@ -24,6 +24,7 @@ interface CalendarToolbarProps {
   onSelectAll: () => void;
   onAddEvent?: () => void;
   canAddEvent?: boolean;
+  disabled?: boolean;
 }
 
 export function CalendarToolbar({
@@ -32,6 +33,7 @@ export function CalendarToolbar({
   onSelectAll,
   onAddEvent,
   canAddEvent,
+  disabled = false,
 }: CalendarToolbarProps) {
   return (
     <div className="flex flex-col gap-4 border-b border-[#d7e3f6] px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800">
@@ -42,16 +44,23 @@ export function CalendarToolbar({
       </div>
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
         {canAddEvent && onAddEvent ? (
-          <Button variant="brandSolid" size="app" className="w-full sm:w-auto" onClick={onAddEvent}>
+          <Button
+            variant="brandSolid"
+            size="app"
+            className="w-full sm:w-auto"
+            onClick={onAddEvent}
+            disabled={disabled}
+          >
             <Plus className="size-4" />
             Add event
           </Button>
         ) : null}
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger asChild disabled={disabled}>
             <Button
               variant="outline"
               size="app"
+              disabled={disabled}
               className="w-full border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100 sm:w-auto"
             >
               <Filter className="size-4" />
@@ -67,6 +76,7 @@ export function CalendarToolbar({
                 <DropdownMenuCheckboxItem
                   key={key}
                   checked={selectedTypes[key]}
+                  disabled={disabled}
                   onCheckedChange={() => onToggleType(key)}
                 >
                   <span className={`mr-2 inline-block size-2 rounded-full ${EVENT_COLORS[key]}`} />
@@ -79,6 +89,7 @@ export function CalendarToolbar({
               <Button
                 variant="outline"
                 size="sm"
+                disabled={disabled}
                 className="w-full border-slate-200 bg-white text-xs text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
                 onClick={onSelectAll}
               >

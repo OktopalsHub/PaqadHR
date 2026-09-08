@@ -5,10 +5,10 @@ import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
-import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardActivityFeed } from '@/features/dashboard/components/dashboard-activity-feed';
 import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
 import { getDashboardRecruitmentAccessState } from '@/features/dashboard/lib/dashboard-feature-access';
@@ -78,10 +78,6 @@ export const Dashboard = () => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
-  const isLoading =
-    employeesLoading ||
-    leavesLoading ||
-    (isAdmin && canAccessRecruitment && (jobsLoading || overviewLoading));
   const hasError =
     employeesError ||
     leavesError ||
@@ -122,7 +118,7 @@ export const Dashboard = () => {
   const statCards = [
     {
       label: 'Headcount',
-      value: employees.length,
+      value: employeesLoading ? '—' : employees.length,
       hint: 'Active employees',
       icon: Users,
       iconClassName: 'bg-warning/15 text-warning',
@@ -131,8 +127,11 @@ export const Dashboard = () => {
       ? [
           {
             label: 'Open roles',
-            value: openRoles,
-            hint: `${jobs.length} total postings`,
+            value: jobsLoading || overviewLoading ? '—' : openRoles,
+            hint:
+              jobsLoading || overviewLoading
+                ? 'Loading postings…'
+                : `${jobs.length} total postings`,
             icon: Briefcase,
             iconClassName: 'bg-info/15 text-info',
           },
@@ -140,14 +139,14 @@ export const Dashboard = () => {
       : []),
     {
       label: 'Pending leave',
-      value: pendingLeaves,
-      hint: `${leaves.length} requests total`,
+      value: leavesLoading ? '—' : pendingLeaves,
+      hint: leavesLoading ? 'Loading requests…' : `${leaves.length} requests total`,
       icon: CalendarClock,
       iconClassName: 'bg-success/15 text-success',
     },
     {
       label: 'Departments',
-      value: departmentCount,
+      value: employeesLoading ? '—' : departmentCount,
       hint: 'With assigned members',
       icon: Building2,
       iconClassName: 'bg-indigo-100 text-indigo-700',
@@ -165,14 +164,6 @@ export const Dashboard = () => {
   const handleJobDetailOpenChange = useCallback((open: boolean) => {
     if (!open) setSelectedJobId(null);
   }, []);
-
-  if (isLoading) {
-    return (
-      <AppPage>
-        <LoadingBlock />
-      </AppPage>
-    );
-  }
 
   const retryDashboard = () => {
     void refetchEmployees();
@@ -260,7 +251,22 @@ export const Dashboard = () => {
           }
           bodyClassName="p-4"
         >
-          {leavesError ? (
+          {leavesLoading ? (
+            <div className="space-y-3 py-1">
+              {['first', 'second', 'third'].map((placeholder) => (
+                <div
+                  key={placeholder}
+                  className="dashboard-soft-tile flex items-center justify-between gap-3 rounded-[8px] px-4 py-3"
+                >
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-44" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : leavesError ? (
             <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <CalendarClock className="size-10 text-muted-foreground" />
               <p className="text-sm">Leave requests could not be loaded right now.</p>

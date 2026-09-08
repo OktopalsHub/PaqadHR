@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Locale } from 'date-fns';
 import { ar, de, es, fr, ja } from 'date-fns/locale';
 import { Eye, Pencil, Plus, Settings2, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { EventCalendar } from '@/components/reui/event-calendar/event-calendar';
@@ -60,6 +60,7 @@ import { formatDateKey } from '@/features/calenders/lib/calendar-utils';
 import { useCalendarEvents } from '@/hooks/queries/use-calendar';
 import { type CalendarEventRecord, deleteCalendarEvent } from '@/lib/api/calendar-events';
 import { formatDate } from '@/lib/format-date';
+import { CALENDAR_SHELL_HEIGHT_CLASS, shouldShowHydrationPlaceholder } from '@/lib/hydration-gate';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import { CalendarToolbar } from './calendar-toolbar';
@@ -244,6 +245,10 @@ const DEFAULT_SETTINGS: CalendarSettings = {
   localeId: 'en',
   timeZoneId: 'local',
 };
+
+// The first client render must match SSR because the calendar reads browser
+// time-zone/date values. Keep that guard satisfied for later in-app visits.
+let hasCalendarClientHydrated = false;
 
 function SettingsSwitch({
   id,
@@ -480,6 +485,24 @@ function CalendarSettingsPopover({
   );
 }
 
+function CalendarLoadingPanel() {
+  return (
+    <AppPage aria-busy="true" aria-label="Loading calendar">
+      <div className="dashboard-panel overflow-hidden rounded-[8px]">
+        <CalendarToolbar
+          selectedTypes={DEFAULT_FILTERS}
+          onToggleType={() => undefined}
+          onSelectAll={() => undefined}
+          disabled
+        />
+        <div className="p-5">
+          <Skeleton className={`${CALENDAR_SHELL_HEIGHT_CLASS} rounded-[8px]`} />
+        </div>
+      </div>
+    </AppPage>
+  );
+}
+
 export const CalendarView = () => {
   const { tenant } = useTenant();
   const role = tenant?.member?.role?.toLowerCase();
@@ -497,7 +520,13 @@ export const CalendarView = () => {
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
   const [settings, setSettings] = useState<CalendarSettings>(DEFAULT_SETTINGS);
   const [view, setView] = useState<ReuiCalendarView>('month');
+  const [hasHydrated, setHasHydrated] = useState(() => hasCalendarClientHydrated);
   const { data: events = [], isLoading, isError, error } = useCalendarEvents();
+
+  useEffect(() => {
+    hasCalendarClientHydrated = true;
+    setHasHydrated(true);
+  }, []);
 
   const isTimeGridView = view !== 'month' && view !== 'agenda';
   const activeLocale = LOCALES.find((entry) => entry.id === settings.localeId) ?? LOCALES[0];
@@ -542,6 +571,13 @@ export const CalendarView = () => {
       setIsDeletingEvent(false);
     }
   };
+
+  // The event grid derives its initial date and browser time zone at runtime.
+  // Keep the server and first browser render identical, then mount the grid
+  // after hydration instead of risking a route-wide hydration failure.
+  if (shouldShowHydrationPlaceholder(hasHydrated)) {
+    return <CalendarLoadingPanel />;
+  }
 
   return (
     <AppPage>
@@ -596,7 +632,7 @@ export const CalendarView = () => {
                 eventTooltip={settings.eventTooltip}
                 showDayAddButton={settings.showDayAddButton && isAdmin}
                 scrollMode="contained"
-                className="h-[min(72vh,760px)] min-h-[520px] w-full"
+                className={`${CALENDAR_SHELL_HEIGHT_CLASS} w-full`}
                 onSlotClick={(slot) => {
                   if (isAdmin) openAddDialog(slot.date);
                 }}

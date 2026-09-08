@@ -3,7 +3,6 @@ import { Inter, Montserrat } from 'next/font/google';
 import { headers } from 'next/headers';
 import './globals.css';
 import { AppVersionWatcher } from '@/components/app-version-watcher';
-import { NetworkActivityIndicator } from '@/components/network-activity-indicator';
 import { Toaster } from '@/components/ui/sonner';
 import { brandFaviconUrls } from '@/lib/brand';
 import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
@@ -51,7 +50,6 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning nonce={nonce}>
       <body className={`${montserrat.variable} ${inter.variable} antialiased font-sans`}>
         <QueryProvider>
-          <NetworkActivityIndicator />
           <AppVersionWatcher />
           <ThemeProvider
             attribute="class"
