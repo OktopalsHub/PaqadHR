@@ -17,6 +17,7 @@ describe('CandidateService.applyForJob consent', () => {
       candidateRepository as never,
       jobOpeningService as never,
       activitiesService as never,
+      {} as never,
     );
     return { service, candidateRepository };
   };

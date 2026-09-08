@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JobStatus } from 'src/common/enums';
-import { type FindOptionsWhere, Repository, type SelectQueryBuilder } from 'typeorm';
+import { type FindOptionsWhere, Repository } from 'typeorm';
 import type { JobFilterOptions } from '../../../../common/interfaces/job-filter-options.interface';
 import { JobOpening } from '../entities/job-opening.entity';
+import { applyJobOpeningFilters } from './job-opening-filters';
 
 @Injectable()
 export class JobOpeningRepository extends Repository<JobOpening> {
@@ -28,7 +29,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .where('job.tenantId = :tenantId', { tenantId })
       .andWhere('job.tenantMemberId = :memberId', { memberId })
       .andWhere('job.deletedAt IS NULL');
-    this.applyFilters(queryBuilder, filters);
+    applyJobOpeningFilters(queryBuilder, filters);
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -53,7 +54,7 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       .leftJoinAndSelect('job.department', 'department')
       .where('job.status = :status', { status: JobStatus.ACTIVE })
       .andWhere('job.deletedAt IS NULL');
-    this.applyFilters(queryBuilder, filters);
+    applyJobOpeningFilters(queryBuilder, filters);
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -274,49 +275,5 @@ export class JobOpeningRepository extends Repository<JobOpening> {
       titles: titleResults.map((item) => item.title).filter(Boolean),
       positions: positionResults.map((item) => item.position).filter(Boolean),
     };
-  }
-  private applyFilters(
-    queryBuilder: SelectQueryBuilder<JobOpening>,
-    filters?: JobFilterOptions,
-  ): void {
-    if (!filters) return;
-    if (filters.tenantId) {
-      queryBuilder.andWhere('job.tenantId = :tenantId', { tenantId: filters.tenantId });
-    }
-    if (filters.status) {
-      queryBuilder.andWhere('job.status = :status', { status: filters.status });
-    }
-    if (filters.departmentId) {
-      queryBuilder.andWhere('job.departmentId = :departmentId', {
-        departmentId: filters.departmentId,
-      });
-    }
-    if (filters.employmentType) {
-      queryBuilder.andWhere('job.employmentType = :employmentType', {
-        employmentType: filters.employmentType,
-      });
-    }
-    if (filters.experienceLevel) {
-      queryBuilder.andWhere('job.experienceLevel = :experienceLevel', {
-        experienceLevel: filters.experienceLevel,
-      });
-    }
-    if (filters.location) {
-      queryBuilder.andWhere(
-        "(job.location ->> 'city' ILIKE :location OR job.location ->> 'country' ILIKE :location OR job.location ->> 'address' ILIKE :location)",
-        { location: `%${filters.location}%` },
-      );
-    }
-    if (filters.search) {
-      queryBuilder.andWhere(
-        '(job.title ILIKE :search OR job.description ILIKE :search OR job.position ILIKE :search)',
-        { search: `%${filters.search}%` },
-      );
-    }
-    if (filters.isUrgent !== undefined) {
-      queryBuilder.andWhere('job.isUrgent = :isUrgent', {
-        isUrgent: filters.isUrgent,
-      });
-    }
   }
 }

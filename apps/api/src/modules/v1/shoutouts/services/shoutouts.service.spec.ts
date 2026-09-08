@@ -47,6 +47,7 @@ describe('ShoutoutsService Slack gating', () => {
       {} as EventEmitter2,
       dataSource,
       platformIntegrationService,
+      {} as never,
     );
 
     return { service, platformIntegrationService };
