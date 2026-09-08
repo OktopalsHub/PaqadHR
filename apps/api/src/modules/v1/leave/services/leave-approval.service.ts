@@ -2,10 +2,10 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { LeaveStatus } from 'src/common/enums';
 import { ProductAnalyticsService } from 'src/common/observability/product-analytics.service';
 import { ActivitiesService } from '../../activities/services/activities.service';
-import type { Leave } from '../entities/leave.entity';
-import { LeaveRepository } from '../leave.repository';
 import { LeaveBalanceService } from '../../leave-balance/leave-balance.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
+import type { Leave } from '../entities/leave.entity';
+import { LeaveRepository } from '../leave.repository';
 
 @Injectable()
 export class LeaveApprovalService {

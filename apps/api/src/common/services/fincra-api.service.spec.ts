@@ -1,6 +1,5 @@
 import { FincraApiService } from './fincra-api.service';
 import { FincraAuthService } from './fincra-auth.service';
-import { FincraPayoutService } from './fincra-payout.service';
 import { FincraRequestsService } from './fincra-requests.service';
 
 describe('FincraApiService', () => {

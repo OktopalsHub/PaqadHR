@@ -383,16 +383,6 @@ describe('TenantWalletTopupService', () => {
       verifyTransaction: jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
     };
 
-    const subscriptionsService = {
-      getTenantSubscription: jest.fn().mockResolvedValue(subscription),
-    };
-
-    const tenantSettingsService = {
-      getTenantSettings: jest.fn().mockResolvedValue({
-        settings: { billing: { contactEmail: 'billing@test.com' } },
-      }),
-    };
-
     const emailService = { sendEmail: jest.fn().mockResolvedValue(undefined) };
     const tenantRepository = {
       findOne: jest.fn().mockResolvedValue({
@@ -472,9 +462,7 @@ describe('TenantWalletTopupService', () => {
             throw new BadRequestException('Top up amount must be greater than 0');
           }
           if (amount > WALLET_TOPUP_MAX_AMOUNT) {
-            throw new BadRequestException(
-              `Top up amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT}`,
-            );
+            throw new BadRequestException(`Top up amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT}`);
           }
           if (process.env.NG_REWARDS_DEPOSIT_PROVIDER === 'bachs') {
             const result = await bachsApi.createWalletTopupCheckout({
@@ -518,10 +506,8 @@ describe('TenantWalletTopupService', () => {
     };
 
     const webhookService = {
-      resolveCheckoutActorMemberId: (
-        input: { initiatedByMemberId?: string },
-        _verified: unknown,
-      ) => input.initiatedByMemberId?.trim(),
+      resolveCheckoutActorMemberId: (input: { initiatedByMemberId?: string }, _verified: unknown) =>
+        input.initiatedByMemberId?.trim(),
       completeCheckoutTopup: jest.fn(
         async (
           input: {
@@ -531,8 +517,19 @@ describe('TenantWalletTopupService', () => {
             initiatedByMemberId?: string;
           },
           billingProvider: string,
-          resolveActor: Function,
-          creditWallet: Function,
+          resolveActor: (
+            input: { initiatedByMemberId?: string },
+            verified: { status: string; amount?: number } | null,
+          ) => string | undefined,
+          creditWallet: (
+            tenantId: string,
+            amount: number,
+            type: string,
+            reference: string,
+            description: string,
+            manager: unknown,
+            metadata: { providerEventId: string; actorMemberId: string },
+          ) => Promise<unknown>,
         ) => {
           const existing = await txRepo.findOne({
             where: { reference: input.orderReference },
@@ -545,9 +542,10 @@ describe('TenantWalletTopupService', () => {
             const payment = await bachsApi.findPaymentByReference(input.orderReference);
             verified = { status: payment.status, amount: payment.amount };
           } else if (billingProvider === PaymentProvider.MONNIFY) {
-            const monnifyVerified = (await monnifyApi.verifyTransaction(
-              input.orderReference,
-            )) as { paid?: boolean; amount?: number };
+            const monnifyVerified = (await monnifyApi.verifyTransaction(input.orderReference)) as {
+              paid?: boolean;
+              amount?: number;
+            };
             verified = {
               status: monnifyVerified?.paid ? 'success' : 'failed',
               amount: monnifyVerified?.amount,

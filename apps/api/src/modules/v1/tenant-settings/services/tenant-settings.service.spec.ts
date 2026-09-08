@@ -43,9 +43,9 @@ describe('TenantSettingsService rewards validation', () => {
     };
 
     const reader = {
-      getTenantSettings: jest.fn().mockImplementation(async () =>
-        repository.findOne({ where: { tenantId: 'tenant-1' } }),
-      ),
+      getTenantSettings: jest
+        .fn()
+        .mockImplementation(async () => repository.findOne({ where: { tenantId: 'tenant-1' } })),
       getTenantSettingsForDisplay: jest.fn(),
       resolveRewardsDefaults: jest.fn().mockResolvedValue({
         tenantCountryCode: 'US',

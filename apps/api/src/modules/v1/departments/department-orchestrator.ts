@@ -23,8 +23,7 @@ export class DepartmentsService {
     this.updateDepartment = this.crud.updateDepartment.bind(this.crud);
     this.deleteDepartment = this.crud.deleteDepartment.bind(this.crud);
     this.addMemberToDepartment = this.members.addMemberToDepartment.bind(this.members);
-    this.removeMemberFromDepartment =
-      this.members.removeMemberFromDepartment.bind(this.members);
+    this.removeMemberFromDepartment = this.members.removeMemberFromDepartment.bind(this.members);
     this.getDepartmentMembers = this.members.getDepartmentMembers.bind(this.members);
   }
 }

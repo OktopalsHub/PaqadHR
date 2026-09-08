@@ -2,8 +2,8 @@ import { DataSource } from 'typeorm';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
-import { RewardsCatalogQueryService } from './rewards-catalog-query.service';
 import { RewardsCatalogService } from './rewards-catalog.service';
+import { RewardsCatalogQueryService } from './rewards-catalog-query.service';
 import { RewardsCatalogSyncService } from './rewards-catalog-sync.service';
 
 describe('RewardsCatalogService catalog sync', () => {
@@ -81,9 +81,11 @@ describe('RewardsCatalogService catalog sync', () => {
     } as unknown as DataSource;
 
     const fiatExchange = {
-      convert: jest.fn().mockImplementation(async (amount: number, from?: string) =>
-        from?.toUpperCase() === 'USD' ? amount * 1500 : amount,
-      ),
+      convert: jest
+        .fn()
+        .mockImplementation(async (amount: number, from?: string) =>
+          from?.toUpperCase() === 'USD' ? amount * 1500 : amount,
+        ),
     };
 
     const queryService = new RewardsCatalogQueryService(dataSource, tremendousApi as never);

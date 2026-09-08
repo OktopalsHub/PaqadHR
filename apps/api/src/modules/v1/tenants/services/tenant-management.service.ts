@@ -10,7 +10,11 @@ import { FileUrlService } from 'src/common/services/file-url.service';
 import { StringUtility } from 'src/common/utils';
 import { isWalletCurrencyLocked } from 'src/common/utils/rewards-defaults.util';
 import { IsNull, Repository } from 'typeorm';
-import { AuditAction, AuditSeverity, AuditStatus } from '../../../../common/enums/audit-action.enum';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from '../../../../common/enums/audit-action.enum';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import type { SessionWorkspaceDto } from '../../auth/dto/session-bootstrap-response.dto';
 import { Employment } from '../../employment/entities/employment.entity';

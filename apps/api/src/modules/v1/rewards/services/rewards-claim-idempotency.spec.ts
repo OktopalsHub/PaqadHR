@@ -3,9 +3,7 @@ import { DataSource } from 'typeorm';
 import { RewardRedemption } from '../entities/reward-redemption.entity';
 import { RewardsService } from './rewards.service';
 
-function createRewardsService(claimService: {
-  claim: jest.Mock;
-}) {
+function createRewardsService(claimService: { claim: jest.Mock }) {
   return new RewardsService(
     { getRepository: jest.fn() } as unknown as DataSource,
     {} as never,

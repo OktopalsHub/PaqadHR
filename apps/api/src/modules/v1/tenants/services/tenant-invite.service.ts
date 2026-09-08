@@ -5,7 +5,11 @@ import { isReservedTenantSlug } from 'src/common/constants/reserved-tenant-slugs
 import { TenantMemberRole } from 'src/common/enums';
 import { StringUtility } from 'src/common/utils';
 import { DataSource } from 'typeorm';
-import { AuditAction, AuditSeverity, AuditStatus } from '../../../../common/enums/audit-action.enum';
+import {
+  AuditAction,
+  AuditSeverity,
+  AuditStatus,
+} from '../../../../common/enums/audit-action.enum';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { TenantCreatedEvent, TenantMemberCreatedEvent } from '../../leave/events/leave.events';
 import { TenantCounter } from '../../tenant-members/entities/tenant-counter.entity';
