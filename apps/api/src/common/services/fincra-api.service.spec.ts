@@ -1,4 +1,7 @@
 import { FincraApiService } from './fincra-api.service';
+import { FincraAuthService } from './fincra-auth.service';
+import { FincraPayoutService } from './fincra-payout.service';
+import { FincraRequestsService } from './fincra-requests.service';
 
 describe('FincraApiService', () => {
   const env = process.env;
@@ -17,7 +20,16 @@ describe('FincraApiService', () => {
     process.env = env;
   });
 
-  const service = new FincraApiService();
+  function createService(): FincraApiService {
+    const auth = new FincraAuthService();
+    const payout = {
+      initiatePayout: jest.fn(),
+      getPayoutStatus: jest.fn(),
+      generateQuote: jest.fn(),
+    } as never;
+    const requests = new FincraRequestsService(auth, payout);
+    return new FincraApiService(auth, requests);
+  }
 
   const mockFetchResponse = (status: number, body: unknown) => {
     fetchMock.mockResolvedValue({
@@ -31,7 +43,7 @@ describe('FincraApiService', () => {
     it('returns null when Fincra reports resource not found', async () => {
       mockFetchResponse(404, { message: 'RESOURCE_NOT_FOUND' });
 
-      const result = await service.getPayoutStatus('payroll_run_item');
+      const result = await createService().getPayoutStatus('payroll_run_item');
 
       expect(result).toBeNull();
     });
@@ -39,7 +51,7 @@ describe('FincraApiService', () => {
     it('throws on ambiguous lookup failures instead of treating as not found', async () => {
       mockFetchResponse(503, { message: 'upstream unavailable' });
 
-      await expect(service.getPayoutStatus('payroll_run_item')).rejects.toThrow(
+      await expect(createService().getPayoutStatus('payroll_run_item')).rejects.toThrow(
         'Fincra payout status lookup failed',
       );
     });
@@ -47,7 +59,7 @@ describe('FincraApiService', () => {
     it('throws when a server error body mentions RESOURCE_NOT_FOUND', async () => {
       mockFetchResponse(503, { message: 'RESOURCE_NOT_FOUND' });
 
-      await expect(service.getPayoutStatus('payroll_run_item')).rejects.toThrow(
+      await expect(createService().getPayoutStatus('payroll_run_item')).rejects.toThrow(
         'Fincra payout status lookup failed',
       );
     });
@@ -55,7 +67,7 @@ describe('FincraApiService', () => {
     it('throws when a client error only substring-matches not found', async () => {
       mockFetchResponse(400, { message: 'gateway: PAYOUT NOT FOUND in cache' });
 
-      await expect(service.getPayoutStatus('payroll_run_item')).rejects.toThrow(
+      await expect(createService().getPayoutStatus('payroll_run_item')).rejects.toThrow(
         'Fincra payout status lookup failed',
       );
     });
@@ -66,7 +78,7 @@ describe('FincraApiService', () => {
       mockFetchResponse(503, { message: 'upstream unavailable' });
 
       await expect(
-        service.initiatePayout({
+        createService().initiatePayout({
           amount: 1000,
           destinationCurrency: 'NGN',
           customerReference: 'payroll_run_item',
@@ -93,7 +105,7 @@ describe('FincraApiService', () => {
           }),
       });
 
-      const result = await service.initiatePayout({
+      const result = await createService().initiatePayout({
         amount: 1000,
         destinationCurrency: 'NGN',
         customerReference: 'payroll_run_item',
@@ -125,7 +137,7 @@ describe('FincraApiService', () => {
           }),
       });
 
-      const result = await service.initiatePayout({
+      const result = await createService().initiatePayout({
         amount: 1000,
         destinationCurrency: 'NGN',
         customerReference: 'payroll_run_item',
@@ -157,7 +169,7 @@ describe('FincraApiService', () => {
           }),
       });
 
-      const result = await service.initiatePayout({
+      const result = await createService().initiatePayout({
         amount: 1000,
         destinationCurrency: 'NGN',
         customerReference: 'payroll_run_item',
@@ -180,7 +192,7 @@ describe('FincraApiService', () => {
         data: { _id: 'profile-biz-id', country: 'NG' },
       });
 
-      const id = await service.resolveBusinessId();
+      const id = await createService().resolveBusinessId();
 
       expect(id).toBe('profile-biz-id');
       expect(fetchMock.mock.calls[0][0]).toContain('/profile/business/me');
