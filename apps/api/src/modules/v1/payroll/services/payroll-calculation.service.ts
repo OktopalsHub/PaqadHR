@@ -49,9 +49,7 @@ export class PayrollCalculationService {
     const items = (run.items ?? []).filter((i) => i.status !== PayrollItemStatus.CANCELLED);
     if (items.length === 0) throw new BadRequestException('No active items');
 
-    run.status = PayrollStatus.PROCESSING;
-    await this.payrollRunRepository.save(run);
-
+    const warnings: string[] = [];
     for (const item of items) {
       try {
         const salaryInfo = await this.employmentService.getEmploymentSalaryInfo(
@@ -70,15 +68,23 @@ export class PayrollCalculationService {
         await this.payrollItemRepository.save(item);
       } catch (error) {
         this.logger.error(`Calculation failed for ${item.memberId}: ${error}`);
+        warnings.push(`Calculation failed for member ${item.memberId}`);
       }
     }
 
+    if (warnings.length > 0) {
+      throw new BadRequestException(
+        `Calculation failed for ${warnings.length} employee(s). Resolve the salary records and retry.`,
+      );
+    }
+
+    run.status = PayrollStatus.PROCESSING;
     run.totalGrossAmount = items.reduce((s, i) => s + Number(i.grossAmount ?? 0), 0);
     run.totalNetAmount = items.reduce((s, i) => s + Number(i.netAmount ?? 0), 0);
     run.totalDeductions = items.reduce((s, i) => s + Number(i.deductions ?? 0), 0);
     await this.payrollRunRepository.save(run);
     return {
-      warnings: [],
+      warnings,
       readiness: await this.payrollPaymentOrchestrator.getPayrollReadiness(payrollRunId, tenantId),
     };
   }

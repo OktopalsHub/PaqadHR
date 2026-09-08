@@ -59,7 +59,16 @@ export class SeatPricingCalculator {
       const seatsDecreased = liveSeats < billedSeats;
       const pendingTargetDrifted = liveSeats !== pendingSeatCount;
 
-      if (!pendingStale && !seatsDecreased && !pendingTargetDrifted) return;
+      // Only discard an in-flight charge when stale or seats dropped.
+      // Upward drift must wait for settlement or overlapping seats are charged twice.
+      if (!pendingStale && !seatsDecreased) {
+        if (pendingTargetDrifted) {
+          this.logger.warn(
+            `Deferring seat sync for tenant ${tenantId}; pending charge for ${pendingSeatCount} seats is still in flight (live=${liveSeats})`,
+          );
+        }
+        return;
+      }
 
       this.logger.warn(
         `Clearing stuck pending seat charge for tenant ${tenantId} (stale=${pendingStale}, decreased=${seatsDecreased}, drifted=${pendingTargetDrifted})`,
