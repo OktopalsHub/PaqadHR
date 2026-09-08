@@ -63,6 +63,10 @@ import { formatDate } from '@/lib/format-date';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import { CalendarToolbar } from './calendar-toolbar';
+import {
+  CALENDAR_SHELL_HEIGHT_CLASS,
+  shouldShowHydrationPlaceholder,
+} from '@/lib/hydration-gate';
 
 const DEFAULT_FILTERS = {
   leave: true,
@@ -486,15 +490,16 @@ function CalendarSettingsPopover({
 
 function CalendarLoadingPanel() {
   return (
-    <AppPage>
+    <AppPage aria-busy="true" aria-label="Loading calendar">
       <div className="dashboard-panel overflow-hidden rounded-[8px]">
         <CalendarToolbar
           selectedTypes={DEFAULT_FILTERS}
           onToggleType={() => undefined}
           onSelectAll={() => undefined}
+          disabled
         />
         <div className="p-5">
-          <Skeleton className="h-[38rem] rounded-[8px]" />
+          <Skeleton className={`${CALENDAR_SHELL_HEIGHT_CLASS} rounded-[8px]`} />
         </div>
       </div>
     </AppPage>
@@ -573,7 +578,7 @@ export const CalendarView = () => {
   // The event grid derives its initial date and browser time zone at runtime.
   // Keep the server and first browser render identical, then mount the grid
   // after hydration instead of risking a route-wide hydration failure.
-  if (!hasHydrated) {
+  if (shouldShowHydrationPlaceholder(hasHydrated)) {
     return <CalendarLoadingPanel />;
   }
 
@@ -630,7 +635,7 @@ export const CalendarView = () => {
                 eventTooltip={settings.eventTooltip}
                 showDayAddButton={settings.showDayAddButton && isAdmin}
                 scrollMode="contained"
-                className="h-[min(72vh,760px)] min-h-[520px] w-full"
+                className={`${CALENDAR_SHELL_HEIGHT_CLASS} w-full`}
                 onSlotClick={(slot) => {
                   if (isAdmin) openAddDialog(slot.date);
                 }}

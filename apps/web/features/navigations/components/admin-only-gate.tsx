@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/loading-block';
 import { PageLoadingSkeleton } from '@/components/page-loading-skeleton';
 import { useTenantHref } from '@/hooks/use-tenant-nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
+import { shouldShowHydrationPlaceholder } from '@/lib/hydration-gate';
 import { useTenant } from '@/providers/tenant-provider';
 
 // Kept for the lifetime of the browser session so client-side page changes do
@@ -31,7 +32,7 @@ export function AdminOnlyGate({ children }: { children: React.ReactNode }) {
     }
   }, [isAdmin, isLoading, router, tenant, tenantHref]);
 
-  if (!hasHydrated || isLoading) {
+  if (shouldShowHydrationPlaceholder(hasHydrated, isLoading)) {
     // Use deterministic, page-local markup until the client has restored the
     // workspace role. This preserves the application shell without allowing
     // server and client to render different protected content during hydration.
