@@ -7,6 +7,9 @@ import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { User } from '../../users/entities/user.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
+import { SubscriptionEntitlementService } from './subscription-entitlement.service';
+import { SubscriptionLifecycleService } from './subscription-lifecycle.service';
+import { SubscriptionRegionService } from './subscription-region.service';
 import { SubscriptionsService } from './subscriptions.service';
 
 describe('SubscriptionsService', () => {
@@ -49,6 +52,9 @@ describe('SubscriptionsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SubscriptionsService,
+        SubscriptionEntitlementService,
+        SubscriptionLifecycleService,
+        SubscriptionRegionService,
         {
           provide: getRepositoryToken(TenantSubscription),
           useValue: subscriptionRepo,

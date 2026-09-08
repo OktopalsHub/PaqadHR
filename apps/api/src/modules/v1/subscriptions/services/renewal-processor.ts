@@ -1,25 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { isNoahPaymentVerified } from 'src/common/config/noah-api.util';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
-import { Brackets, DataSource, In, LessThan, LessThanOrEqual, Repository } from 'typeorm';
-import { MonnifyApiService } from '../../../../common/services/monnify-api.service';
+import { Brackets, Repository } from 'typeorm';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
 import { PlansService } from '../../plans/services/plans.service';
-import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
-import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isBillingGatewayEnabled } from '../config/billing.config';
-import { BillingChargeType, RENEWAL_GRACE_PERIOD_DAYS } from '../constants/billing.constants';
+import { BillingChargeType } from '../constants/billing.constants';
 import { BillingProvider, isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
-import { BillingEvent } from '../entities/billing-event.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import type { SubscriptionWebhookPayment } from '../interfaces/subscription-billing.interface';
-import { computeDunningNextRetryAt, maxDunningAttempts } from '../utils/dunning.util';
-import { mapNombaBillingFailure } from '../utils/nomba-billing-failure.util';
+import { maxDunningAttempts } from '../utils/dunning.util';
 import { calculatePerSeatTotal, normalizeWebhookAmount } from '../utils/per-seat-pricing.util';
 import { BillingProviderFactoryService } from './billing-provider-factory.service';
-import { NombaApiService } from './nomba-api.service';
+import { PaymentVerifier } from './payment-verifier';
+import { RenewalLifecycleService } from './renewal-lifecycle.service';
+import { RenewalSuccessApplicator } from './renewal-success-applicator';
 import { SeatPricingCalculator } from './seat-pricing-calculator';
 
 export interface RenewalJobResult {
@@ -36,17 +33,14 @@ export class RenewalProcessor {
   constructor(
     @InjectRepository(TenantSubscription)
     private readonly subscriptionRepo: Repository<TenantSubscription>,
-    @InjectRepository(BillingEvent) private readonly billingEventRepo: Repository<BillingEvent>,
-    @InjectRepository(Tenant) private readonly tenantRepo: Repository<Tenant>,
-    @InjectRepository(TenantMember) private readonly tenantMemberRepo: Repository<TenantMember>,
     private readonly billingProviderFactory: BillingProviderFactoryService,
     private readonly plansService: PlansService,
     private readonly seatPricing: SeatPricingCalculator,
-    private readonly monnifyApi: MonnifyApiService,
-    private readonly nombaApi: NombaApiService,
     private readonly tenantSettingsService: TenantSettingsService,
-    @InjectDataSource() private readonly dataSource: DataSource,
-    private readonly notificationHelper?: NotificationHelperService,
+    private readonly paymentVerifier: PaymentVerifier,
+    private readonly renewalLifecycle: RenewalLifecycleService,
+    private readonly renewalSuccess: RenewalSuccessApplicator,
+    readonly _notificationHelper?: NotificationHelperService,
   ) {}
 
   async processDueRenewals(): Promise<RenewalJobResult> {
@@ -54,8 +48,8 @@ export class RenewalProcessor {
     if (!isBillingGatewayEnabled()) return result;
     const now = new Date();
     await this.seatPricing.reclaimStuckPendingSeatCharges();
-    result.suspended = await this.suspendPastGraceSubscriptions(now);
-    await this.finalizeScheduledCancellations(now);
+    result.suspended = await this.renewalLifecycle.suspendPastGraceSubscriptions(now);
+    await this.renewalLifecycle.finalizeScheduledCancellations(now);
 
     const dueSubscriptions = await this.subscriptionRepo
       .createQueryBuilder('sub')
@@ -138,10 +132,10 @@ export class RenewalProcessor {
       orderReference,
     };
 
-    const existingClaim = await this.billingEventRepo.findOne({
-      where: { eventId: periodEventId, provider: billingProviderEnum },
-    });
-    const claimStatus = (existingClaim?.payload as { status?: string } | undefined)?.status;
+    const claimStatus = await this.renewalSuccess.getRenewalPeriodClaimStatus(
+      periodEventId,
+      billingProviderEnum,
+    );
     if (claimStatus === 'pending' || claimStatus === 'charged' || claimStatus === 'success') {
       this.logger.warn(
         `Skipping renewal for ${subscription.tenantId}; period claim already ${claimStatus}`,
@@ -149,7 +143,7 @@ export class RenewalProcessor {
       return 'skipped';
     }
 
-    await this.updateRenewalPeriodClaim(
+    await this.renewalSuccess.updateRenewalPeriodClaim(
       periodEventId,
       { status: 'pending', orderReference, claimedAt: new Date().toISOString() },
       billingProviderEnum,
@@ -165,27 +159,31 @@ export class RenewalProcessor {
         billingEmail,
         metadata,
       );
-      await this.updateRenewalPeriodClaim(
+      await this.renewalSuccess.updateRenewalPeriodClaim(
         periodEventId,
         { status: 'charged', orderReference: charge.orderReference || orderReference },
         billingProviderEnum,
       );
 
-      const verified = await this.verifyPaymentReference(
+      const verified = await this.paymentVerifier.verifyPaymentReference(
         charge.orderReference,
         billingProviderEnum,
       );
       if (
         !verified ||
-        (this.requiresProviderVerification(billingProviderEnum) &&
+        (this.paymentVerifier.requiresProviderVerification(billingProviderEnum) &&
           !isNoahPaymentVerified(verified.status ?? (verified.paid ? 'success' : 'pending')))
       ) {
-        await this.updateRenewalPeriodClaim(
+        await this.renewalSuccess.updateRenewalPeriodClaim(
           periodEventId,
           { status: 'failed', orderReference: charge.orderReference, failed: true, attemptCount },
           billingProviderEnum,
         );
-        await this.markRenewalFailed(subscription, charge.orderReference, 'verification_failed');
+        await this.renewalLifecycle.markRenewalFailed(
+          subscription,
+          charge.orderReference,
+          'verification_failed',
+        );
         return 'failed';
       }
 
@@ -195,7 +193,7 @@ export class RenewalProcessor {
         expectedAmount,
         planPrice.currency,
       );
-      await this.applyRenewalSuccess(
+      await this.renewalSuccess.applyRenewalSuccess(
         subscription.tenantId,
         {
           eventId: charge.orderReference,
@@ -214,7 +212,7 @@ export class RenewalProcessor {
         subscription.nextBillingDate,
         attemptCount,
       );
-      await this.updateRenewalPeriodClaim(
+      await this.renewalSuccess.updateRenewalPeriodClaim(
         periodEventId,
         { status: 'success', orderReference: charge.orderReference },
         billingProviderEnum,
@@ -223,49 +221,14 @@ export class RenewalProcessor {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Renewal charge failed for ${subscription.tenantId}: ${message}`);
-      await this.updateRenewalPeriodClaim(
+      await this.renewalSuccess.updateRenewalPeriodClaim(
         periodEventId,
         { status: 'failed', failed: true, attemptCount, detail: message },
         billingProviderEnum,
       );
-      await this.markRenewalFailed(subscription, periodEventId, message);
+      await this.renewalLifecycle.markRenewalFailed(subscription, periodEventId, message);
       return 'failed';
     }
-  }
-
-  async lapseStaleSubscriptions(): Promise<{ lapsed: number }> {
-    const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-    const stale = await this.subscriptionRepo.find({
-      where: {
-        billingProvider: In([
-          BillingProvider.BACHS,
-          BillingProvider.POLAR,
-          BillingProvider.MONNIFY,
-        ]),
-        status: SubscriptionStatus.ACTIVE,
-        nextBillingDate: LessThanOrEqual(cutoff),
-      },
-    });
-    let lapsed = 0;
-    for (const sub of stale) {
-      if (isManagedSubscriptionProvider(sub.billingProvider) && !sub.externalSubscriptionId)
-        continue;
-      sub.status = SubscriptionStatus.PAST_DUE;
-      await this.subscriptionRepo.save(sub);
-      lapsed += 1;
-    }
-    return { lapsed };
-  }
-
-  async lapseStaleBachsSubscriptions() {
-    return this.lapseStaleSubscriptions();
-  }
-
-  resetDunningFields(subscription: TenantSubscription): void {
-    subscription.dunningAttemptCount = 0;
-    subscription.dunningNextRetryAt = null;
-    subscription.lastPaymentFailureReason = null;
-    subscription.lastPaymentFailureDetail = null;
   }
 
   renewalPeriodEventId(subscriptionId: string, billingDate: Date): string {
@@ -276,36 +239,6 @@ export class RenewalProcessor {
     return `sub_ren_${subscriptionId.replace(/-/g, '').slice(0, 24)}_${billingDate.toISOString().slice(0, 10).replace(/-/g, '')}`;
   }
 
-  advanceBillingPeriod(anchor: Date) {
-    const s = new Date(anchor);
-    const e = new Date(s);
-    e.setMonth(e.getMonth() + 1);
-    return { periodStart: s, periodEnd: e };
-  }
-
-  resolveBillingPeriod(
-    payment: SubscriptionWebhookPayment,
-    subscription: TenantSubscription,
-    billingPeriodAnchor?: Date,
-  ) {
-    const next = payment.nextBillingDate ? new Date(payment.nextBillingDate) : null;
-    const end = payment.currentPeriodEnd ? new Date(payment.currentPeriodEnd) : null;
-    const start = payment.currentPeriodStart ? new Date(payment.currentPeriodStart) : null;
-    if (next && !Number.isNaN(next.getTime())) {
-      return {
-        periodStart:
-          start && !Number.isNaN(start.getTime())
-            ? start
-            : new Date(billingPeriodAnchor ?? subscription.nextBillingDate),
-        periodEnd: end && !Number.isNaN(end.getTime()) ? end : next,
-        nextBillingDate: next,
-      };
-    }
-    const ps = new Date(billingPeriodAnchor ?? subscription.nextBillingDate);
-    const pe = this.advanceBillingPeriod(ps).periodEnd;
-    return { periodStart: ps, periodEnd: pe, nextBillingDate: pe };
-  }
-
   async applyRenewalSuccess(
     tenantId: string,
     payment: SubscriptionWebhookPayment,
@@ -313,127 +246,12 @@ export class RenewalProcessor {
     billingPeriodAnchor?: Date,
     attemptCount = 0,
   ): Promise<void> {
-    const subscription = await this.subscriptionRepo.findOne({ where: { tenantId } });
-    if (
-      !subscription ||
-      ![SubscriptionStatus.ACTIVE, SubscriptionStatus.PAST_DUE].includes(subscription.status)
-    )
-      return;
-    if (subscription.billingProvider !== provider) return;
-    const planPrice = await this.plansService.getPlanPriceById(
-      payment.planPriceId ?? subscription.planPriceId,
-    );
-    if (!planPrice?.isActive) return;
-    const liveSeatCount = await this.seatPricing.getTenantSeatCount(tenantId);
-    const chargedSeatCount =
-      payment.quantity != null ? payment.quantity : (subscription.currentUsers ?? 1);
-    const expectedAmount = calculatePerSeatTotal(planPrice, chargedSeatCount);
-    const normalizedPaid = normalizeWebhookAmount(
-      payment.amount ?? 0,
-      expectedAmount,
-      payment.currency ?? planPrice.currency,
-    );
-    const paidAmount = Number.isFinite(normalizedPaid)
-      ? normalizedPaid
-      : Number(payment.amount ?? 0);
-
-    await this.dataSource.transaction(async (manager) => {
-      const billingEventRepo = manager.getRepository(BillingEvent);
-      if (await billingEventRepo.findOne({ where: { eventId: payment.eventId, provider } })) return;
-      const subscriptionRepo = manager.getRepository(TenantSubscription);
-      const locked = await subscriptionRepo.findOne({
-        where: { tenantId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!locked || locked.cancelAtPeriodEnd || locked.nextBillingDate > new Date()) return;
-
-      const billingPeriod = isManagedSubscriptionProvider(provider)
-        ? this.resolveBillingPeriod(payment, locked, billingPeriodAnchor)
-        : {
-            ...this.advanceBillingPeriod(billingPeriodAnchor ?? locked.nextBillingDate),
-            nextBillingDate: this.advanceBillingPeriod(
-              billingPeriodAnchor ?? locked.nextBillingDate,
-            ).periodEnd,
-          };
-
-      locked.status = SubscriptionStatus.ACTIVE;
-      locked.currentUsers = liveSeatCount;
-      locked.currentPeriodStart = billingPeriod.periodStart;
-      locked.currentPeriodEnd = billingPeriod.periodEnd;
-      locked.nextBillingDate = billingPeriod.nextBillingDate;
-      locked.billingProvider = provider;
-      if (payment.tokenKey?.trim()) locked.paymentMethodId = payment.tokenKey;
-      if (payment.cardBrand) locked.paymentMethodBrand = payment.cardBrand;
-      if (payment.cardLastFour) locked.paymentMethodLastFour = payment.cardLastFour;
-      this.resetDunningFields(locked);
-      locked.billingHistory = [
-        ...(locked.billingHistory ?? []),
-        {
-          date: new Date(),
-          amount: paidAmount,
-          currency: payment.currency ?? 'USD',
-          status: 'paid' as const,
-          invoiceId: payment.reference,
-        },
-      ];
-      await subscriptionRepo.save(locked);
-      await billingEventRepo.save(
-        billingEventRepo.create({
-          eventId: payment.eventId,
-          provider,
-          eventType: 'subscription_renewal',
-          payload: payment as unknown as Record<string, unknown>,
-        }),
-      );
-    });
-  }
-
-  private async suspendPastGraceSubscriptions(now: Date): Promise<number> {
-    const graceCutoff = new Date(now);
-    graceCutoff.setDate(graceCutoff.getDate() - RENEWAL_GRACE_PERIOD_DAYS);
-    const toSuspend = await this.subscriptionRepo.find({
-      where: { status: SubscriptionStatus.PAST_DUE, nextBillingDate: LessThan(graceCutoff) },
-      relations: ['tenant', 'tenant.createdBy'],
-    });
-    const update = await this.subscriptionRepo
-      .createQueryBuilder()
-      .update(TenantSubscription)
-      .set({ status: SubscriptionStatus.SUSPENDED })
-      .where('status = :status', { status: SubscriptionStatus.PAST_DUE })
-      .andWhere('next_billing_date < :graceCutoff', { graceCutoff })
-      .execute();
-    for (const sub of toSuspend)
-      await this.notifyRenewalIssue(sub, 'SUSPENDED', 'Grace period expired.');
-    return update.affected ?? 0;
-  }
-
-  private async finalizeScheduledCancellations(now: Date): Promise<void> {
-    await this.subscriptionRepo
-      .createQueryBuilder()
-      .update(TenantSubscription)
-      .set({ status: SubscriptionStatus.CANCELLED, cancelledAt: now, cancelAtPeriodEnd: false })
-      .where('cancel_at_period_end = true')
-      .andWhere('current_period_end <= :now', { now })
-      .andWhere('status = :status', { status: SubscriptionStatus.ACTIVE })
-      .execute();
-  }
-
-  private async notifyRenewalIssue(
-    subscription: TenantSubscription,
-    status: string,
-    reason: string,
-  ): Promise<void> {
-    const ownerId = subscription.tenant?.createdBy?.id;
-    if (!ownerId || !this.notificationHelper) return;
-    const member = await this.tenantMemberRepo.findOne({
-      where: { userId: ownerId, tenantId: subscription.tenantId },
-      select: ['id'],
-    });
-    if (!member) return;
-    await this.notificationHelper.sendBillingRenewalFailedNotification(
-      member.id,
-      subscription.tenantId,
-      { tenantName: subscription.tenant?.name ?? 'your workspace', reason, status },
+    return this.renewalSuccess.applyRenewalSuccess(
+      tenantId,
+      payment,
+      provider,
+      billingPeriodAnchor,
+      attemptCount,
     );
   }
 
@@ -442,79 +260,19 @@ export class RenewalProcessor {
     reference: string,
     reason: string,
   ): Promise<void> {
-    const mapped = mapNombaBillingFailure(reason);
-    const nextCount = (subscription.dunningAttemptCount ?? 0) + 1;
-    subscription.status = SubscriptionStatus.PAST_DUE;
-    subscription.dunningAttemptCount = nextCount;
-    subscription.dunningNextRetryAt = computeDunningNextRetryAt(
-      subscription.nextBillingDate,
-      nextCount,
-    );
-    subscription.lastPaymentFailureReason = mapped.code;
-    subscription.lastPaymentFailureDetail = reason;
-    subscription.billingHistory = [
-      ...(subscription.billingHistory ?? []),
-      {
-        date: new Date(),
-        amount: 0,
-        currency: subscription.planPrice?.currency ?? 'USD',
-        status: 'failed' as const,
-        invoiceId: reference,
-        failureReason: mapped.code,
-      },
-    ];
-    await this.subscriptionRepo.save(subscription);
-    await this.recordBillingEvent(`renewal_failed_${reference}`, 'renewal_failed', {
-      tenantId: subscription.tenantId,
-      reason: mapped.code,
-    });
-    const tenant = await this.tenantRepo.findOne({
-      where: { id: subscription.tenantId },
-      relations: ['createdBy'],
-    });
-    if (tenant) subscription.tenant = tenant;
-    await this.notifyRenewalIssue(subscription, 'PAST_DUE', mapped.message);
+    return this.renewalLifecycle.markRenewalFailed(subscription, reference, reason);
   }
 
-  private async verifyPaymentReference(
-    reference: string,
-    provider: BillingProvider,
-  ): Promise<{ status?: string; paid?: boolean; amount?: number } | null> {
-    if (provider === BillingProvider.MONNIFY) return this.monnifyApi.verifyTransaction(reference);
-    if (provider !== BillingProvider.NOMBA) return { status: 'success', amount: 0 };
-    return (await this.nombaApi.verifyTransaction(reference)) ?? null;
+  resetDunningFields(subscription: TenantSubscription): void {
+    this.renewalLifecycle.resetDunningFields(subscription);
   }
 
-  private requiresProviderVerification(provider: BillingProvider): boolean {
-    return provider === BillingProvider.NOMBA || provider === BillingProvider.MONNIFY;
+  async lapseStaleSubscriptions(): Promise<{ lapsed: number }> {
+    return this.renewalLifecycle.lapseStaleSubscriptions();
   }
 
-  private async updateRenewalPeriodClaim(
-    periodEventId: string,
-    patch: Record<string, unknown>,
-    provider: BillingProvider = BillingProvider.NOMBA,
-  ): Promise<void> {
-    const existing = await this.billingEventRepo.findOne({
-      where: { eventId: periodEventId, provider },
-    });
-    if (existing) {
-      existing.payload = { ...(existing.payload ?? {}), ...patch };
-      await this.billingEventRepo.save(existing);
-      return;
-    }
-    await this.recordBillingEvent(periodEventId, 'renewal_period', patch, provider);
-  }
-
-  private async recordBillingEvent(
-    eventId: string,
-    eventType: string,
-    payload: Record<string, unknown>,
-    provider: BillingProvider = BillingProvider.NOMBA,
-  ): Promise<void> {
-    if (await this.billingEventRepo.findOne({ where: { eventId, provider } })) return;
-    await this.billingEventRepo.save(
-      this.billingEventRepo.create({ eventId, provider, eventType, payload }),
-    );
+  async lapseStaleBachsSubscriptions() {
+    return this.renewalLifecycle.lapseStaleBachsSubscriptions();
   }
 
   private async resolveBillingEmail(

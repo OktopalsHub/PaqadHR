@@ -1,9 +1,9 @@
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import { BillingProductSyncService } from './billing-product-sync.service';
+import { BachsProductSyncService } from './bachs-product-sync.service';
 
-describe('BillingProductSyncService Bachs currency_options', () => {
+describe('BachsProductSyncService currency_options', () => {
   const priceRepo = { find: jest.fn(), save: jest.fn(), count: jest.fn() };
-  const service = new BillingProductSyncService(priceRepo as never);
+  const service = new BachsProductSyncService(priceRepo as never);
 
   it('buildBachsCurrencyOptions maps sibling plan_prices row', () => {
     const usdRow = { monthlyPrice: 99, regionalConfig: null } as unknown as PlanPrice;
