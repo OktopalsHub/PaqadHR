@@ -65,6 +65,16 @@ export class SubscriptionBillingService {
     }
     const atPeriodEnd = dto.atPeriodEnd !== false;
     const reason = dto.reason?.trim() || null;
+    if (
+      isManagedSubscriptionProvider(subscription.billingProvider) &&
+      subscription.externalSubscriptionId
+    ) {
+      await this.billingProviderFactory.cancelExternalSubscription(
+        subscription.billingProvider,
+        subscription.externalSubscriptionId,
+        atPeriodEnd,
+      );
+    }
     if (atPeriodEnd) {
       subscription.cancelAtPeriodEnd = true;
       subscription.cancellationReason = reason;
@@ -99,6 +109,15 @@ export class SubscriptionBillingService {
       throw new Error('Add payment method first');
     if (new Date() >= subscription.currentPeriodEnd)
       throw new Error('Subscription period has ended');
+    if (
+      isManagedSubscriptionProvider(subscription.billingProvider) &&
+      subscription.externalSubscriptionId
+    ) {
+      await this.billingProviderFactory.resumeExternalSubscription(
+        subscription.billingProvider,
+        subscription.externalSubscriptionId,
+      );
+    }
     if (subscription.status === SubscriptionStatus.PAUSED) {
       subscription.status = SubscriptionStatus.ACTIVE;
       subscription.pausedAt = null;

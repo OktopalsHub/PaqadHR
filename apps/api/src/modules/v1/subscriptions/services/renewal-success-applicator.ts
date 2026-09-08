@@ -129,6 +129,17 @@ export class RenewalSuccessApplicator {
     });
   }
 
+  async getRenewalPeriodClaimStatus(
+    periodEventId: string,
+    provider: BillingProvider = BillingProvider.NOMBA,
+  ): Promise<string | undefined> {
+    const billingEventRepo = this.dataSource.getRepository(BillingEvent);
+    const existing = await billingEventRepo.findOne({
+      where: { eventId: periodEventId, provider },
+    });
+    return (existing?.payload as { status?: string } | undefined)?.status;
+  }
+
   async updateRenewalPeriodClaim(
     periodEventId: string,
     patch: Record<string, unknown>,
