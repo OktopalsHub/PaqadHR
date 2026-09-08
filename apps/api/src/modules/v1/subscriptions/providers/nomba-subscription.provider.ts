@@ -1,11 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import type { PlanPrice } from '../../plans/entities/plan-price.entity';
-import {
-  BillingChargeType,
-  CARD_UPDATE_VERIFY_AMOUNT,
-  parseBillingChargeType,
-} from '../constants/billing.constants';
+import { BillingChargeType, CARD_UPDATE_VERIFY_AMOUNT } from '../constants/billing.constants';
 import type {
   SubscriptionBillingMetadata,
   SubscriptionCheckoutResponse,
@@ -13,38 +9,8 @@ import type {
 } from '../interfaces/subscription-billing.interface';
 import { NombaApiService } from '../services/nomba-api.service';
 import { calculatePerSeatTotal, resolveSeatCount } from '../utils/per-seat-pricing.util';
+import { parseNombaWebhook } from './nomba-webhook-parsers';
 import type { ISubscriptionBillingProvider } from './subscription-billing-provider.interface';
-
-interface NombaWebhookPayload {
-  event_type?: string;
-  eventType?: string;
-  data?: {
-    orderReference?: string;
-    amount?: number;
-    currency?: string;
-    customerEmail?: string;
-    status?: string;
-    tokenizedCardData?: {
-      tokenKey?: string;
-      cardType?: string;
-      cardPan?: string;
-    };
-    meta?: SubscriptionBillingMetadata;
-    order?: {
-      orderReference?: string;
-      customerEmail?: string;
-      amount?: number;
-      currency?: string;
-      orderMetaData?: Record<string, string>;
-    };
-    transaction?: {
-      transactionId?: string;
-      merchantTxRef?: string;
-      transactionAmount?: number;
-      time?: string;
-    };
-  };
-}
 
 @Injectable()
 export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
@@ -197,95 +163,7 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
   }
 
   parseWebhook(payload: unknown): SubscriptionWebhookEvent | null {
-    const body = payload as NombaWebhookPayload;
-    const eventType = (body.event_type || body.eventType || '').toLowerCase();
-
-    if (eventType === 'payment_success') {
-      const data = body.data;
-      const order = data?.order;
-      const orderMeta = order?.orderMetaData ?? {};
-      const meta: SubscriptionBillingMetadata = {
-        tenantId: orderMeta.tenantId ?? data?.meta?.tenantId,
-        planId: orderMeta.planId ?? data?.meta?.planId,
-        planPriceId: orderMeta.planPriceId ?? data?.meta?.planPriceId,
-        userId: orderMeta.userId ?? data?.meta?.userId,
-        tenantMemberId: orderMeta.tenantMemberId ?? data?.meta?.tenantMemberId,
-        quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
-        extraSeats: orderMeta.extraSeats ? Number(orderMeta.extraSeats) : data?.meta?.extraSeats,
-        targetSeatCount: orderMeta.targetSeatCount
-          ? Number(orderMeta.targetSeatCount)
-          : data?.meta?.targetSeatCount,
-        billingType: parseBillingChargeType(orderMeta.billingType ?? data?.meta?.billingType),
-      };
-      const reference = order?.orderReference ?? data?.orderReference;
-      if (!reference || !meta.tenantId) {
-        return null;
-      }
-
-      const card = this.parseTokenizedCard(data?.tokenizedCardData);
-      const targetSeatCount = meta.targetSeatCount ?? meta.quantity;
-
-      return {
-        kind: 'payment.success',
-        payment: {
-          eventId: data?.transaction?.transactionId || reference,
-          reference,
-          tenantId: String(meta.tenantId),
-          planId: meta.planId ? String(meta.planId) : undefined,
-          planPriceId: meta.planPriceId ? String(meta.planPriceId) : undefined,
-          quantity: targetSeatCount ? Number(targetSeatCount) : undefined,
-          extraSeats: meta.extraSeats ? Number(meta.extraSeats) : undefined,
-          targetSeatCount: targetSeatCount ? Number(targetSeatCount) : undefined,
-          amount: Number(
-            order?.amount ?? data?.amount ?? data?.transaction?.transactionAmount ?? 0,
-          ),
-          currency: (order?.currency ?? data?.currency ?? 'NGN').toUpperCase(),
-          tokenKey: data?.tokenizedCardData?.tokenKey,
-          customerEmail: order?.customerEmail ?? data?.customerEmail,
-          status: data?.status || 'success',
-          billingType: parseBillingChargeType(meta.billingType),
-          ...card,
-        },
-      };
-    }
-
-    if (eventType === 'payment_failed' || eventType === 'payment.failure') {
-      const data = body.data;
-      const order = data?.order;
-      const orderMeta = order?.orderMetaData ?? {};
-      const meta: SubscriptionBillingMetadata = {
-        tenantId: orderMeta.tenantId ?? data?.meta?.tenantId,
-        planId: orderMeta.planId ?? data?.meta?.planId,
-        planPriceId: orderMeta.planPriceId ?? data?.meta?.planPriceId,
-        quantity: orderMeta.quantity ? Number(orderMeta.quantity) : data?.meta?.quantity,
-        billingType: parseBillingChargeType(orderMeta.billingType ?? data?.meta?.billingType),
-      };
-      const reference = order?.orderReference ?? data?.orderReference;
-      if (!reference || !meta.tenantId) {
-        return null;
-      }
-
-      return {
-        kind: 'payment.failed',
-        payment: {
-          eventId: data?.transaction?.transactionId || reference,
-          reference,
-          tenantId: String(meta.tenantId),
-          planId: meta.planId ? String(meta.planId) : undefined,
-          planPriceId: meta.planPriceId ? String(meta.planPriceId) : undefined,
-          quantity: meta.quantity ? Number(meta.quantity) : undefined,
-          amount: Number(
-            order?.amount ?? data?.amount ?? data?.transaction?.transactionAmount ?? 0,
-          ),
-          currency: (order?.currency ?? data?.currency ?? 'NGN').toUpperCase(),
-          customerEmail: order?.customerEmail ?? data?.customerEmail,
-          status: data?.status || 'failed',
-          billingType: parseBillingChargeType(meta.billingType),
-        },
-      };
-    }
-
-    return { kind: 'ignored', event: eventType || 'unknown' };
+    return parseNombaWebhook(payload);
   }
 
   mapStatus(status: string): SubscriptionStatus {
@@ -311,17 +189,5 @@ export class NombaSubscriptionProvider implements ISubscriptionBillingProvider {
     if (!this.nombaApi.isConfigured()) {
       throw new BadRequestException('Nomba subscription billing is not configured');
     }
-  }
-
-  private parseTokenizedCard(data?: { cardType?: string; cardPan?: string }): {
-    cardBrand?: string;
-    cardLastFour?: string;
-  } {
-    if (!data) return {};
-    const digits = (data.cardPan ?? '').replace(/\D/g, '');
-    return {
-      cardBrand: data.cardType?.trim() || undefined,
-      cardLastFour: digits.length >= 4 ? digits.slice(-4) : undefined,
-    };
   }
 }

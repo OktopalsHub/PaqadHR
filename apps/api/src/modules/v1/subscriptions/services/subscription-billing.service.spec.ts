@@ -101,19 +101,13 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   };
 
   const service = new SubscriptionBillingService(
-    billingProviderFactory as never,
-    nombaApi as never,
-    monnifyApi as never,
     subscriptionsService as never,
-    tenantSettingsService as never,
-    plansService as never,
     subscriptionRepo as never,
-    tenantRepo as never,
-    userRepo as never,
-    tenantMemberRepo as never,
-    billingEventRepo as never,
-    dataSource as never,
-    { capture: jest.fn() } as never,
+    { handleWebhook: jest.fn() } as never,
+    { processRenewals: jest.fn() } as never,
+    { getTenantSeatCount: jest.fn() } as never,
+    { createSubscriptionCheckout: jest.fn() } as never,
+    { getBillingOverview: jest.fn() } as never,
   );
 
   return {
