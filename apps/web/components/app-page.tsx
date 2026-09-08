@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 type AppPageProps = {
   children: ReactNode;
   className?: string;
-} & Omit<ComponentPropsWithoutRef<'div'>, 'children' | 'className'>;
+} & Omit<ComponentPropsWithoutRef<'div'>, 'children' | 'className' | 'dangerouslySetInnerHTML'>;
 
 export function AppPage({ children, className, ...props }: AppPageProps) {
   return (
