@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { InvitationStatus } from '../../../common/enums';
 import { InvitationsService } from './invitations.service';
+import { InvitationAcceptanceService } from './services/invitation-acceptance.service';
+import { InvitationManagementService } from './services/invitation-management.service';
+import { InvitationSendingService } from './services/invitation-sending.service';
 
 describe('InvitationsService', () => {
   const baseInvitation = {
@@ -81,19 +84,36 @@ describe('InvitationsService', () => {
 
     const productAnalytics = { capture: jest.fn() };
 
-    const service = new InvitationsService(
+    const managementService = new InvitationManagementService(
       invitationsRepository as any,
-      tenantMembersService as any,
-      usersService as any,
       tenantsService as any,
+      usersService as any,
       rateLimitService as any,
+      tenantMembersService as any,
       zeptomailEmailService as any,
       activitiesService as any,
+      productAnalytics as any,
+    );
+    const sendingService = new InvitationSendingService(
+      invitationsRepository as any,
+      usersService as any,
+      tenantMembersService as any,
+      managementService,
+    );
+    const acceptanceService = new InvitationAcceptanceService(
+      invitationsRepository as any,
+      usersService as any,
+      tenantMembersService as any,
+      tenantsService as any,
       departmentsService as any,
       positionMemberService as any,
       notificationHelperService as any,
+      activitiesService as any,
       productAnalytics as any,
+      rateLimitService as any,
+      managementService,
     );
+    const service = new InvitationsService(managementService, sendingService, acceptanceService);
 
     return {
       service,

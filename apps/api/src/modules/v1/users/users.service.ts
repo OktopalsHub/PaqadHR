@@ -8,10 +8,8 @@ import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { Account } from '../auth/entities/account.entity';
 import { Session } from '../auth/entities/session.entity';
 import { Verification } from '../auth/entities/verification.entity';
-import {
-  loadMemberPersonalDataForExport,
-  scrubMemberPersonalData,
-} from '../tenant-members/utils/member-personal-data.util';
+import { loadMemberPersonalDataForExport } from '../tenant-members/utils/member-data-export.util';
+import { scrubMemberPersonalData } from '../tenant-members/utils/member-data-scrub.util';
 import { User } from './entities/user.entity';
 import {
   buildUserConsentMetadata,

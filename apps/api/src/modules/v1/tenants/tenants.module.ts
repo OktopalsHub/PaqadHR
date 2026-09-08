@@ -13,6 +13,8 @@ import { UsersModule } from '../users/users.module';
 import { TenantOnboardingController } from './controllers/tenant-onboarding.controller';
 import { Tenant } from './entities/tenant.entity';
 import { TenantRepository } from './repositories/tenant.repository';
+import { TenantInviteService } from './services/tenant-invite.service';
+import { TenantManagementService } from './services/tenant-management.service';
 import { TenantOnboardingService } from './services/tenant-onboarding.service';
 import { TenantsController } from './tenants.controller';
 import { TenantsService } from './tenants.service';
@@ -29,7 +31,13 @@ import { TenantsService } from './tenants.service';
     AuditLogsModule,
   ],
   controllers: [TenantsController, TenantOnboardingController],
-  providers: [TenantsService, TenantOnboardingService, TenantRepository],
+  providers: [
+    TenantsService,
+    TenantInviteService,
+    TenantManagementService,
+    TenantOnboardingService,
+    TenantRepository,
+  ],
   exports: [TenantsService, TenantRepository, TypeOrmModule],
 })
 export class TenantsModule {}

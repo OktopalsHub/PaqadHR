@@ -6,8 +6,10 @@ import { Team } from '../teams/entities/team.entity';
 import { TeamsModule } from '../teams/teams.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantsModule } from '../tenants/tenants.module';
+import { DepartmentCrudService } from './department-crud.service';
+import { DepartmentMembersService } from './department-members.service';
+import { DepartmentsService } from './department-orchestrator';
 import { DepartmentsController } from './departments.controller';
-import { DepartmentsService } from './departments.service';
 import { Department } from './entities/department.entity';
 import { DepartmentMember } from './entities/department-member.entity';
 import { DepartmentMembersRepository } from './repositories/department-members.repository';
@@ -23,7 +25,13 @@ import { DepartmentsRepository } from './repositories/departments.repository';
     ActivitiesModule,
   ],
   controllers: [DepartmentsController],
-  providers: [DepartmentsService, DepartmentsRepository, DepartmentMembersRepository],
+  providers: [
+    DepartmentsService,
+    DepartmentCrudService,
+    DepartmentMembersService,
+    DepartmentsRepository,
+    DepartmentMembersRepository,
+  ],
   exports: [DepartmentsService],
 })
 export class DepartmentsModule {}
