@@ -25,15 +25,27 @@ import { TaskSubmission } from './entities/task-submission.entity';
 import { TenantWallet } from './entities/tenant-wallet.entity';
 import { TenantWalletTransaction } from './entities/tenant-wallet-transaction.entity';
 import { RewardsListener } from './listeners/rewards.listener';
+import { ClaimBillingService } from './services/claim-billing.service';
+import { ClaimFulfillmentService } from './services/claim-fulfillment.service';
+import { ClaimVerificationService } from './services/claim-verification.service';
 import { CustomRewardsService } from './services/custom-rewards.service';
 import { RewardsService } from './services/rewards.service';
 import { RewardsCatalogService } from './services/rewards-catalog.service';
+import { RewardsCatalogQueryService } from './services/rewards-catalog-query.service';
+import { RewardsCatalogSyncService } from './services/rewards-catalog-sync.service';
 import { RewardsCatalogSyncCronService } from './services/rewards-catalog-sync-cron.service';
 import { RewardsClaimService } from './services/rewards-claim.service';
 import { RewardsClaimCronService } from './services/rewards-claim-cron.service';
 import { RewardsTaskService } from './services/rewards-task.service';
+import { RewardsTaskCompletionService } from './services/rewards-task-completion.service';
+import { RewardsTaskTemplatesService } from './services/rewards-task-templates.service';
 import { TenantWalletService } from './services/tenant-wallet.service';
 import { TenantWalletTopupService } from './services/tenant-wallet-topup.service';
+import { ProviderRoutingService } from './services/provider-routing.service';
+import { SavedCardChargeService } from './services/saved-card-charge.service';
+import { TopupChargeService } from './services/topup-charge.service';
+import { TopupCheckoutService } from './services/topup-checkout.service';
+import { TopupWebhookService } from './services/topup-webhook.service';
 
 @Module({
   imports: [
@@ -61,10 +73,22 @@ import { TenantWalletTopupService } from './services/tenant-wallet-topup.service
   providers: [
     RewardsService,
     RewardsCatalogService,
+    RewardsCatalogQueryService,
+    RewardsCatalogSyncService,
     RewardsClaimService,
+    ClaimVerificationService,
+    ClaimBillingService,
+    ClaimFulfillmentService,
     RewardsTaskService,
+    RewardsTaskCompletionService,
+    RewardsTaskTemplatesService,
     TenantWalletService,
     TenantWalletTopupService,
+    ProviderRoutingService,
+    SavedCardChargeService,
+    TopupChargeService,
+    TopupCheckoutService,
+    TopupWebhookService,
     CustomRewardsService,
     FiatExchangeService,
     NombaBillApiService,
