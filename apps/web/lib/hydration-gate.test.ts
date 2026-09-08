@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  CALENDAR_SHELL_HEIGHT_CLASS,
-  shouldShowHydrationPlaceholder,
-} from './hydration-gate.ts';
+import { CALENDAR_SHELL_HEIGHT_CLASS, shouldShowHydrationPlaceholder } from './hydration-gate.ts';
 
 test('shouldShowHydrationPlaceholder covers pre-hydrate and loading states', () => {
   assert.equal(shouldShowHydrationPlaceholder(false), true);

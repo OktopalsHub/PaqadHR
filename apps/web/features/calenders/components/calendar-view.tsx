@@ -60,13 +60,10 @@ import { formatDateKey } from '@/features/calenders/lib/calendar-utils';
 import { useCalendarEvents } from '@/hooks/queries/use-calendar';
 import { type CalendarEventRecord, deleteCalendarEvent } from '@/lib/api/calendar-events';
 import { formatDate } from '@/lib/format-date';
+import { CALENDAR_SHELL_HEIGHT_CLASS, shouldShowHydrationPlaceholder } from '@/lib/hydration-gate';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 import { CalendarToolbar } from './calendar-toolbar';
-import {
-  CALENDAR_SHELL_HEIGHT_CLASS,
-  shouldShowHydrationPlaceholder,
-} from '@/lib/hydration-gate';
 
 const DEFAULT_FILTERS = {
   leave: true,
