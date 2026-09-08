@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  Optional,
+} from '@nestjs/common';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
@@ -212,9 +218,7 @@ export class PayrollService {
     const items = (run.items ?? []).filter((i) => i.status !== PayrollItemStatus.CANCELLED);
     if (items.length === 0) throw new BadRequestException('No active items');
 
-    run.status = PayrollStatus.PROCESSING;
-    await this.payrollRunRepository.save(run);
-
+    const warnings: string[] = [];
     for (const item of items) {
       try {
         const salaryInfo = await this.employmentService.getEmploymentSalaryInfo(
@@ -233,15 +237,23 @@ export class PayrollService {
         await this.payrollItemRepository.save(item);
       } catch (error) {
         this.logger.error(`Calculation failed for ${item.memberId}: ${error}`);
+        warnings.push(`Calculation failed for member ${item.memberId}`);
       }
     }
 
+    if (warnings.length > 0) {
+      throw new BadRequestException(
+        `Calculation failed for ${warnings.length} employee(s). Resolve the salary records and retry.`,
+      );
+    }
+
+    run.status = PayrollStatus.PROCESSING;
     run.totalGrossAmount = items.reduce((s, i) => s + Number(i.grossAmount ?? 0), 0);
     run.totalNetAmount = items.reduce((s, i) => s + Number(i.netAmount ?? 0), 0);
     run.totalDeductions = items.reduce((s, i) => s + Number(i.deductions ?? 0), 0);
     await this.payrollRunRepository.save(run);
     return {
-      warnings: [],
+      warnings,
       readiness: await this.payrollPaymentOrchestrator.getPayrollReadiness(payrollRunId, tenantId),
     };
   }
@@ -363,14 +375,15 @@ export class PayrollService {
     payrollRunId: string,
     itemId: string,
     tenantId: string,
-    requesterMemberId?: string,
-    requesterRole?: string,
+    requesterMemberId: string,
+    requesterRole: string,
   ) {
     const run = await this.payrollExportService.getPayrollRunForExport(payrollRunId, tenantId);
     const item = run.items?.find((e) => e.id === itemId);
     if (!item) throw new BadRequestException('Item not found');
     if (item.status !== PayrollItemStatus.PAID)
       throw new BadRequestException('Only available for paid items');
+    await this.assertPayslipAccess(tenantId, item, requesterMemberId, requesterRole);
     return this.payrollExportService.renderPayslipHtml(run, item);
   }
 
@@ -386,7 +399,26 @@ export class PayrollService {
     if (!item) throw new BadRequestException('Item not found');
     if (item.status !== PayrollItemStatus.PAID)
       throw new BadRequestException('Only available for paid items');
+    await this.assertPayslipAccess(tenantId, item, requesterMemberId, requesterRole);
     return this.payrollExportService.renderPayslipPdf(run, item);
+  }
+
+  private async assertPayslipAccess(
+    tenantId: string,
+    item: { memberId: string; metadata?: { payslipPublished?: unknown } | null },
+    requesterMemberId: string,
+    requesterRole: string,
+  ): Promise<void> {
+    await this.accessGuard.assertPayrollMemberAccess(
+      tenantId,
+      item.memberId,
+      requesterMemberId,
+      requesterRole,
+    );
+    if (this.accessGuard.isPayrollAdmin(requesterRole)) return;
+    if (item.memberId === requesterMemberId && !item.metadata?.payslipPublished) {
+      throw new ForbiddenException('This payslip is not available yet');
+    }
   }
 
   async getMemberPublishedPayslips(
