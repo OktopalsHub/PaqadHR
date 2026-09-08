@@ -64,7 +64,7 @@ export class NombaCheckoutAdapter implements CheckoutProvider {
   ): Promise<CheckoutVerificationResult | null> {
     if (!this.nombaApi) return null;
     const result = await this.nombaApi.verifyTransaction(input.orderReference);
-    if (!result || result === undefined) return null;
+    if (!result) return null;
     return {
       status: result.status ?? 'unknown',
       amount: result.amount,

@@ -17,20 +17,21 @@ export class BachsCheckoutAdapter implements CheckoutProvider {
   constructor(private readonly bachsApi: BachsApiService) {}
 
   isConfigured(): boolean {
+    // Available when Bachs is up and at least one wallet currency product is set.
     return (
       this.bachsApi.isConfigured() &&
-      isBachsWalletTopupConfigured(this.resolveCurrency() as BachsWalletTopupCurrency)
+      (isBachsWalletTopupConfigured('NGN') || isBachsWalletTopupConfigured('USD'))
     );
   }
 
-  private resolveCurrency(): string | null {
-    return null;
-  }
-
   async createCheckout(input: CheckoutInput): Promise<CheckoutResult> {
+    const currency = input.currency as BachsWalletTopupCurrency;
+    if (!isBachsWalletTopupConfigured(currency)) {
+      throw new Error(`Bachs wallet top-up is not configured for ${currency}`);
+    }
     const session = await this.bachsApi.createWalletTopupCheckout({
       amount: input.amount,
-      currency: input.currency as 'NGN' | 'USD',
+      currency,
       customerEmail: input.customerEmail,
       customerName: input.customerName,
       successUrl: input.callbackUrl,
