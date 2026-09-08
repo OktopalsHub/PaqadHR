@@ -1,44 +1,37 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
-import {
-  paymentProviderLabel,
-  resolvePaymentProvider,
-} from 'src/common/utils/resolve-payment-provider.util';
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { BatchPaymentResult } from '../../../../common/interfaces/batch-payment-result.interface';
-import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
-import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
-import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
+import { PaymentBatching } from './payment-batching';
+import { PaymentValidation } from './payment-validation';
 import { PayrollPayoutService } from './payroll-payout.service';
-
-interface PaymentSummary {
-  bankSuccess: number;
-  bankFailed: number;
-  cryptoSuccess: number;
-  cryptoFailed: number;
-  fiatSuccess: number;
-  fiatFailed: number;
-}
 
 @Injectable()
 export class MultiPaymentService {
-  private readonly logger = new Logger(MultiPaymentService.name);
+  private readonly batching: PaymentBatching;
+  private readonly validation: PaymentValidation;
   constructor(
     private readonly payrollRunRepository: PayrollRunRepository,
     private readonly payrollItemRepository: PayrollItemRepository,
-    private readonly paymentMethodService: PaymentMethodService,
-    private readonly paymentProviderFactory: PaymentProviderFactoryService,
+    readonly paymentMethodService: PaymentMethodService,
+    readonly paymentProviderFactory: PaymentProviderFactoryService,
     private readonly payrollPayoutService: PayrollPayoutService,
-  ) {}
+  ) {
+    this.validation = new PaymentValidation(payrollItemRepository);
+    this.batching = new PaymentBatching(
+      payrollItemRepository,
+      paymentMethodService,
+      paymentProviderFactory,
+      payrollPayoutService,
+    );
+  }
   async processMultiPaymentPayroll(
     payrollRunId: string,
     tenantId: string,
@@ -64,24 +57,23 @@ export class MultiPaymentService {
         `Payroll run must be approved before payout. Current: ${payrollRun.status}`,
       );
     }
-    // Pull run off the scheduled cron queue before disbursing.
     if (payrollRun.payoutMode === 'scheduled') {
       payrollRun.payoutMode = 'immediate';
       await this.payrollRunRepository.save(payrollRun);
     }
-    const paymentBatch = await this.categorizePayments(
+    const paymentBatch = await this.batching.categorizePayments(
       payrollRun.items,
       tenantId,
       payrollRun.baseCurrency,
     );
-    const payoutResults = await this.processPayouts(
+    const payoutResults = await this.batching.processPayouts(
       [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments],
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
       payrollRun.title,
     );
-    const summary = this.calculatePaymentSummary(payoutResults);
+    const summary = this.validation.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
     return {
       totalItems: payrollRun.items.length,
@@ -130,20 +122,20 @@ export class MultiPaymentService {
     if (retriableItems.length === 0) {
       throw new BadRequestException('No failed payments found to retry');
     }
-    await this.resetItemsForRetry(retriableItems);
-    const paymentBatch = await this.categorizePayments(
+    await this.validation.resetItemsForRetry(retriableItems);
+    const paymentBatch = await this.batching.categorizePayments(
       retriableItems,
       tenantId,
       payrollRun.baseCurrency,
     );
-    const payoutResults = await this.processPayouts(
+    const payoutResults = await this.batching.processPayouts(
       [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments],
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
       payrollRun.title,
     );
-    const summary = this.calculatePaymentSummary(payoutResults);
+    const summary = this.validation.calculatePaymentSummary(payoutResults);
     await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
     return {
       totalItems: retriableItems.length,
@@ -170,7 +162,7 @@ export class MultiPaymentService {
       },
       {} as Record<PayrollItemStatus, number>,
     );
-    const paymentTypeCounts = await this.getPaymentTypeBreakdown(items);
+    const paymentTypeCounts = await this.validation.getPaymentTypeBreakdown(items);
     return {
       total: items.length,
       statusBreakdown: statusCounts,
@@ -180,284 +172,5 @@ export class MultiPaymentService {
         statusCounts[PayrollItemStatus.FAILED] === 0 &&
         statusCounts[PayrollItemStatus.PENDING] === 0,
     };
-  }
-  private async categorizePayments(
-    items: PayrollItem[],
-    tenantId: string,
-    currency: string,
-  ): Promise<PaymentBatch> {
-    const bankPayments: PayrollItem[] = [];
-    const cryptoPayments: PayrollItem[] = [];
-    const skipped: PayrollItem[] = [];
-    const runIsCrypto = isCryptoCurrency(currency);
-
-    for (const item of items) {
-      if (
-        item.status === PayrollItemStatus.CANCELLED ||
-        item.status === PayrollItemStatus.PAID ||
-        item.status === PayrollItemStatus.PROCESSING ||
-        item.status === PayrollItemStatus.FAILED
-      ) {
-        continue;
-      }
-
-      const readiness = await this.paymentMethodService.assessPayrollReadiness(
-        tenantId,
-        item.memberId,
-        currency,
-        Boolean(item.metadata?.excludedFromRun),
-      );
-      if (!readiness.ready) {
-        skipped.push(item);
-        await this.payrollItemRepository.update(item.id, {
-          status: PayrollItemStatus.FAILED,
-          failureReason: readiness.message,
-        });
-        continue;
-      }
-
-      if (runIsCrypto) {
-        cryptoPayments.push(item);
-      } else {
-        bankPayments.push(item);
-      }
-    }
-
-    if (skipped.length > 0) {
-      this.logger.warn(
-        `Skipped ${skipped.length} payroll item(s) without complete payment settings`,
-      );
-    }
-
-    return { bankPayments, cryptoPayments };
-  }
-
-  /** Atomically claim PENDING items so concurrent pay-now/cron cannot double-disburse. */
-  private async claimItemsForPayout(itemIds: string[]): Promise<Set<string>> {
-    if (itemIds.length === 0) {
-      return new Set();
-    }
-    const result = await this.payrollItemRepository
-      .createQueryBuilder()
-      .update()
-      .set({ status: PayrollItemStatus.PROCESSING })
-      .where('id IN (:...ids)', { ids: itemIds })
-      .andWhere('status = :pending', { pending: PayrollItemStatus.PENDING })
-      .returning('id')
-      .execute();
-    const rows = result.raw as Array<{ id: string }>;
-    return new Set(rows.map((row) => row.id));
-  }
-
-  private async processPayouts(
-    items: PayrollItem[],
-    _auditContext: AuditContext,
-    tenantId: string,
-    tenantName?: string,
-    payrollRunTitle?: string,
-  ): Promise<PaymentResult[]> {
-    const results: PaymentResult[] = [];
-    const claimedIds = await this.claimItemsForPayout(items.map((item) => item.id));
-
-    for (const item of items) {
-      const rail: 'bank' | 'crypto' = isCryptoCurrency(item.paymentCurrency) ? 'crypto' : 'bank';
-      if (!claimedIds.has(item.id)) {
-        results.push({
-          success: false,
-          error: 'Item already claimed or not pending',
-          rail,
-        });
-        continue;
-      }
-      try {
-        if (
-          !item.paymentAmount ||
-          item.paymentAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT
-        ) {
-          throw new BadRequestException(
-            `Invalid payment amount: ${item.paymentAmount} for employee ${item.memberId}`,
-          );
-        }
-        if (item.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
-          throw new BadRequestException(
-            `Payment amount exceeds maximum limit of ${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT} for employee ${item.memberId}`,
-          );
-        }
-
-        const readiness = await this.paymentMethodService.assessPayrollReadiness(
-          tenantId,
-          item.memberId,
-          item.paymentCurrency,
-          Boolean(item.metadata?.excludedFromRun),
-        );
-        if (!readiness.ready || !readiness.paymentMethodId) {
-          throw new BadRequestException(readiness.message);
-        }
-
-        const paymentMethod = await this.paymentMethodService.findById(
-          readiness.paymentMethodId,
-          tenantId,
-        );
-        if (!paymentMethod) {
-          throw new BadRequestException('Payment method not found');
-        }
-
-        const provider = this.paymentProviderFactory.getFiatProvider(
-          item.paymentCurrency,
-          paymentMethod.type,
-        );
-        const providerName = paymentProviderLabel(
-          resolvePaymentProvider(item.paymentCurrency, paymentMethod.type),
-        );
-        const employeeName = item.employee
-          ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
-          : item.memberId;
-        const paymentData = buildPayrollPaymentData(
-          item,
-          paymentMethod,
-          employeeName,
-          tenantName,
-          payrollRunTitle,
-        );
-        const result = await provider.createPayment(paymentData);
-        if (result.success) {
-          await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
-          const outcome = this.payrollPayoutService.classifyPaymentResultStatus(
-            result.providerStatus,
-          );
-          const itemStatus =
-            outcome === 'paid'
-              ? PayrollItemStatus.PAID
-              : outcome === 'failed'
-                ? PayrollItemStatus.FAILED
-                : PayrollItemStatus.PROCESSING;
-
-          await this.payrollItemRepository.update(item.id, {
-            status: itemStatus,
-            transactionId: result.transactionId,
-            paymentProvider: providerName,
-            paymentMethodId: paymentMethod.id,
-            paidAt: itemStatus === PayrollItemStatus.PAID ? new Date() : null,
-            failureReason:
-              itemStatus === PayrollItemStatus.FAILED
-                ? result.error || `${providerName} transfer failed`
-                : null,
-          });
-          results.push({
-            success: itemStatus === PayrollItemStatus.PAID,
-            transactionId: result.transactionId,
-            provider: providerName,
-            error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
-            rail,
-          });
-        } else if (result.retryable) {
-          await this.payrollItemRepository.update(item.id, {
-            status: PayrollItemStatus.PROCESSING,
-            transactionId: result.transactionId ?? null,
-            paymentProvider: providerName,
-            paymentMethodId: paymentMethod.id,
-            failureReason: result.error || `${providerName} payout pending verification`,
-          });
-          results.push({
-            success: false,
-            transactionId: result.transactionId,
-            provider: providerName,
-            error: result.error,
-            rail,
-          });
-        } else {
-          throw new BadRequestException(result.error || 'Payment failed');
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const lower = message.toLowerCase();
-        const retryable =
-          lower.includes('fincra payout status lookup failed') ||
-          lower.includes('abort') ||
-          lower.includes('timeout');
-        if (retryable) {
-          await this.payrollItemRepository.update(item.id, {
-            status: PayrollItemStatus.PROCESSING,
-            failureReason: message,
-          });
-        } else {
-          await this.payrollItemRepository.update(item.id, {
-            status: PayrollItemStatus.FAILED,
-            failureReason: message,
-          });
-        }
-        results.push({
-          success: false,
-          error: message,
-          rail,
-        });
-      }
-    }
-    return results;
-  }
-  private calculatePaymentSummary(results: PaymentResult[]): PaymentSummary {
-    const bank = results.filter((r) => r.rail !== 'crypto');
-    const crypto = results.filter((r) => r.rail === 'crypto');
-    const bankSuccess = bank.filter((r) => r.success).length;
-    const bankFailed = bank.filter((r) => !r.success).length;
-    const cryptoSuccess = crypto.filter((r) => r.success).length;
-    const cryptoFailed = crypto.filter((r) => !r.success).length;
-    return {
-      bankSuccess,
-      bankFailed,
-      cryptoSuccess,
-      cryptoFailed,
-      fiatSuccess: bankSuccess + cryptoSuccess,
-      fiatFailed: bankFailed + cryptoFailed,
-    };
-  }
-  private async resetItemsForRetry(items: PayrollItem[]): Promise<void> {
-    for (const item of items) {
-      const priorRetry =
-        typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
-      const metadata = { ...(item.metadata ?? {}), payoutRetryCount: priorRetry + 1 };
-      item.status = PayrollItemStatus.PENDING;
-      item.failureReason = null;
-      item.transactionId = null;
-      item.paymentProvider = null;
-      item.paidAt = null;
-      item.metadata = metadata;
-      await this.payrollItemRepository.update(item.id, {
-        status: PayrollItemStatus.PENDING,
-        failureReason: null,
-        transactionId: null,
-        paymentProvider: null,
-        paidAt: null,
-        metadata,
-      });
-    }
-  }
-  private async getPaymentTypeBreakdown(items: PayrollItem[]) {
-    const breakdown = {
-      bank: { total: 0, paid: 0, failed: 0, pending: 0 },
-      crypto: { total: 0, paid: 0, failed: 0, pending: 0 },
-      fiat: { total: 0, paid: 0, failed: 0, pending: 0 },
-    };
-    for (const item of items) {
-      const rail = isCryptoCurrency(item.paymentCurrency) ? 'crypto' : 'bank';
-      breakdown[rail].total++;
-      breakdown.fiat.total++;
-      switch (item.status) {
-        case PayrollItemStatus.PAID:
-          breakdown[rail].paid++;
-          breakdown.fiat.paid++;
-          break;
-        case PayrollItemStatus.FAILED:
-          breakdown[rail].failed++;
-          breakdown.fiat.failed++;
-          break;
-        case PayrollItemStatus.PENDING:
-        case PayrollItemStatus.PROCESSING:
-          breakdown[rail].pending++;
-          breakdown.fiat.pending++;
-          break;
-      }
-    }
-    return breakdown;
   }
 }
