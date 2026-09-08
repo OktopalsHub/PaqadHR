@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type FindOptionsWhere, In, IsNull, type Repository } from 'typeorm';
 
@@ -14,22 +14,18 @@ import type {
 } from '../dto/create-notification.dto';
 import { Notification } from '../entities/notification.entity';
 import { NotificationPreference } from '../entities/notification-preference.entity';
-import { SSENotificationService } from './sse-notification.service';
-import { ZeptomailEmailService } from './zeptomail-email.service';
+import { NotificationDeliveryService } from './notification-delivery.service';
 
 @Injectable()
 export class NotificationService {
-  private readonly logger = new Logger(NotificationService.name);
-
   constructor(
     @InjectRepository(Notification)
     private notificationRepository: Repository<Notification>,
     @InjectRepository(NotificationPreference)
     _preferenceRepository: Repository<NotificationPreference>,
-    private emailService: ZeptomailEmailService,
-    private sseNotificationService: SSENotificationService,
     private tenantMembersService: TenantMembersService,
     private readonly activitiesService: ActivitiesService,
+    private readonly deliveryService: NotificationDeliveryService,
   ) {}
 
   async createNotification(dto: CreateNotificationDto): Promise<Notification> {
@@ -248,77 +244,7 @@ export class NotificationService {
   // --- private helpers ---
 
   private async deliver(notification: Notification): Promise<void> {
-    try {
-      const shouldSendEmail =
-        notification.channel === NotificationChannel.EMAIL ||
-        notification.channel === NotificationChannel.BOTH;
-
-      const shouldSendInApp =
-        notification.channel === NotificationChannel.IN_APP ||
-        notification.channel === NotificationChannel.BOTH;
-
-      if (shouldSendEmail) await this.sendEmail(notification);
-      if (shouldSendInApp) this.sendInApp(notification);
-
-      await this.notificationRepository.update(notification.id, {
-        status: NotificationStatus.SENT,
-        sentAt: new Date(),
-      });
-    } catch (error) {
-      this.logger.error(`Failed to deliver notification ${notification.id}:`, error);
-      await this.notificationRepository.update(notification.id, {
-        status: NotificationStatus.FAILED,
-      });
-    }
-  }
-
-  private async sendEmail(notification: Notification): Promise<void> {
-    if (!notification.recipientId || !notification.tenantId) {
-      this.logger.warn('Cannot send email without recipient and tenant');
-      return;
-    }
-
-    const email = await this.getRecipientEmail(notification.recipientId, notification.tenantId);
-    if (!email) {
-      this.logger.warn(`No email found for recipient ${notification.recipientId}`);
-      return;
-    }
-
-    await this.emailService.sendTemplateEmail(email, 'notification', {
-      title: notification.title,
-      message: notification.message,
-      actionUrl: notification.actionData?.url,
-      actionLabel: notification.actionData?.buttonText,
-    });
-  }
-
-  private sendInApp(notification: Notification): void {
-    const payload = {
-      id: notification.id,
-      type: notification.type,
-      title: notification.title,
-      message: notification.message,
-      metadata: notification.metadata,
-      actionData: notification.actionData,
-    };
-
-    if (notification.type === NotificationType.SYSTEM) {
-      this.sseNotificationService.sendSystemNotification(payload);
-    } else if (notification.type === NotificationType.TENANT && notification.tenantId) {
-      this.sseNotificationService.sendToTenant(notification.tenantId, payload);
-    } else if (notification.recipientId) {
-      this.sseNotificationService.sendToUser(notification.recipientId, payload);
-    }
-  }
-
-  private async getRecipientEmail(recipientId: string, tenantId: string): Promise<string | null> {
-    try {
-      const member = await this.tenantMembersService.getTenantMember(recipientId, tenantId);
-      return member.user?.email ?? null;
-    } catch (error) {
-      this.logger.error(`Failed to get recipient email for ${recipientId}:`, error);
-      return null;
-    }
+    await this.deliveryService.deliver(this.notificationRepository, notification);
   }
 
   private async assertRecipientIsTenantMember(
