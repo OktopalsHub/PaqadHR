@@ -138,6 +138,17 @@ export class RenewalProcessor {
       orderReference,
     };
 
+    const existingClaim = await this.billingEventRepo.findOne({
+      where: { eventId: periodEventId, provider: billingProviderEnum },
+    });
+    const claimStatus = (existingClaim?.payload as { status?: string } | undefined)?.status;
+    if (claimStatus === 'pending' || claimStatus === 'charged' || claimStatus === 'success') {
+      this.logger.warn(
+        `Skipping renewal for ${subscription.tenantId}; period claim already ${claimStatus}`,
+      );
+      return 'skipped';
+    }
+
     await this.updateRenewalPeriodClaim(
       periodEventId,
       { status: 'pending', orderReference, claimedAt: new Date().toISOString() },

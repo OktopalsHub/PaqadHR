@@ -51,8 +51,11 @@ export class PlatformIntegrationService {
     return this.registryService.isShoutoutSlackConfigured(tenantId);
   }
 
-  async syncUsers(integrationId: string, channelId?: string) {
-    const integration = await this.registryService.requireTenantIntegration('', integrationId);
+  async syncUsers(tenantId: string, integrationId: string, channelId?: string) {
+    const integration = await this.registryService.requireTenantIntegration(
+      tenantId,
+      integrationId,
+    );
     const client = this.createClient(integration);
     let users: import('../integration.types').PlatformUserData[] = [];
     if (channelId) {
@@ -174,7 +177,7 @@ export class PlatformIntegrationService {
       memberId,
     );
     if (result.success) {
-      await this.syncUsers(integrationId);
+      await this.syncUsers(tenantId, integrationId);
     }
     return result;
   }
