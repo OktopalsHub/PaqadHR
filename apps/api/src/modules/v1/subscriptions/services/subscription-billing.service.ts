@@ -2,9 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { SubscriptionStatus } from 'src/common/enums/subscription.enum';
 import { Repository } from 'typeorm';
+import { isManagedSubscriptionProvider } from '../constants/billing-provider.enum';
 import type { CancelSubscriptionDto } from '../dto/cancel-subscription.dto';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
 import { BillingOverviewService } from './billing-overview.service';
+import { BillingProviderFactoryService } from './billing-provider-factory.service';
 import { type RenewalJobResult, RenewalProcessor } from './renewal-processor';
 import { SeatPricingCalculator } from './seat-pricing-calculator';
 import { SubscriptionCheckoutService } from './subscription-checkout.service';
@@ -22,6 +24,7 @@ export class SubscriptionBillingService {
     private readonly seatPricing: SeatPricingCalculator,
     private readonly checkoutService: SubscriptionCheckoutService,
     private readonly overviewService: BillingOverviewService,
+    private readonly billingProviderFactory: BillingProviderFactoryService,
   ) {}
 
   async getBillingOverview(tenantId: string, canManageBilling: boolean, userId?: string | null) {

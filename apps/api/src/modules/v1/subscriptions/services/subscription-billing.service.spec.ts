@@ -108,6 +108,7 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     { getTenantSeatCount: jest.fn() } as never,
     { createSubscriptionCheckout: jest.fn() } as never,
     { getBillingOverview: jest.fn() } as never,
+    billingProviderFactory as never,
   );
 
   return {
