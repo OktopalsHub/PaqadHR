@@ -524,7 +524,8 @@ export function PayrollRunDetail({
                 disabled={busy}
                 onClick={() => onReopen()}
               >
-                Reopen to edit
+                <Pencil className="mr-1 size-4" />
+                Edit
               </Button>
             ) : null}
             {isAdmin && canDelete ? (

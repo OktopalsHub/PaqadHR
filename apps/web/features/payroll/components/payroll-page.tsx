@@ -3,9 +3,9 @@
 import {
   AlertTriangle,
   CalendarDays,
-  Download,
   FileText,
   MoreHorizontal,
+  Pencil,
   Plus,
   Trash2,
   Wallet,
@@ -93,7 +93,6 @@ function PayrollRunRow({
       ? `Scheduled · ${formatDate(run.paymentDate)}`
       : null;
 
-  const canExport = ['processing', 'approved', 'completed'].includes(run.status);
   const canDelete = isAdmin && canDeletePayrollRun(run);
 
   let primary: {
@@ -110,8 +109,6 @@ function PayrollRunRow({
     primary = payrollGatewayEnabled
       ? { label: 'Pay now', action: 'pay-now', variant: 'brandSolid' }
       : { label: 'Mark paid', action: 'disburse' };
-  } else if (canExport) {
-    primary = { label: 'CSV', action: 'export' };
   }
 
   const secondaryItems: Array<{
@@ -122,7 +119,7 @@ function PayrollRunRow({
   }> = [];
 
   if (isAdmin && run.status === 'processing') {
-    secondaryItems.push({ label: 'Reopen', action: 'reopen' });
+    secondaryItems.push({ label: 'Edit', action: 'reopen' });
   }
   if (isAdmin && run.status === 'approved' && payrollGatewayEnabled) {
     secondaryItems.push({
@@ -131,9 +128,6 @@ function PayrollRunRow({
       paymentDate: run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
     });
     secondaryItems.push({ label: 'Mark paid', action: 'disburse' });
-  }
-  if (canExport && primary?.action !== 'export') {
-    secondaryItems.push({ label: 'Export CSV', action: 'export' });
   }
   if (canDelete) {
     secondaryItems.push({ label: 'Delete', action: 'delete', destructive: true });
@@ -178,7 +172,6 @@ function PayrollRunRow({
             disabled={busy}
             onClick={() => onAction(primary.action, run.id)}
           >
-            {primary.action === 'export' ? <Download className="mr-1 size-4" /> : null}
             {primary.label}
           </Button>
         ) : null}
@@ -203,7 +196,7 @@ function PayrollRunRow({
                   onClick={() => onAction(item.action, run.id, item.paymentDate)}
                 >
                   {item.destructive ? <Trash2 className="size-4" /> : null}
-                  {item.action === 'export' ? <Download className="size-4" /> : null}
+                  {item.action === 'reopen' ? <Pencil className="size-4" /> : null}
                   {item.label}
                 </DropdownMenuItem>
               ))}
@@ -244,7 +237,6 @@ export function PayrollPage() {
     actions.process.isPending ||
     actions.payNow.isPending ||
     actions.schedule.isPending ||
-    actions.exportCsv.isPending ||
     actions.removeItem.isPending ||
     actions.deleteRun.isPending ||
     actions.reopen.isPending ||
@@ -302,7 +294,6 @@ export function PayrollPage() {
         );
         return;
       }
-      if (action === 'export') await actions.exportCsv.mutateAsync(id);
       toast.success(`Payroll ${action} completed`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Action failed');
@@ -346,9 +337,9 @@ export function PayrollPage() {
       await actions.reopen.mutateAsync(reopenRunId);
       setSelectedRunId(reopenRunId);
       setReopenRunId(null);
-      toast.success('Run reopened as draft — edit bonuses, then Calculate again');
+      toast.success('Run opened for editing — update bonuses, then Calculate again');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to reopen payroll run');
+      toast.error(err instanceof Error ? err.message : 'Failed to open payroll run for editing');
     }
   };
 
@@ -665,9 +656,9 @@ export function PayrollPage() {
         onOpenChange={(next) => {
           if (!next) setReopenRunId(null);
         }}
-        title="Reopen payroll run?"
-        description="Returns run to draft. Recalculate before approve."
-        actionLabel="Reopen to draft"
+        title="Edit payroll run?"
+        description="Returns run to draft so you can edit. Recalculate before approve."
+        actionLabel="Edit"
         isPending={actions.reopen.isPending}
         preventAutoClose
         onConfirm={() => void confirmReopen()}
