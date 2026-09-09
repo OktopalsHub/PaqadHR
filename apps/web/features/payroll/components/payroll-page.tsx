@@ -396,7 +396,8 @@ export function PayrollPage() {
   const pendingRuns = runs.filter((r) =>
     ['draft', 'processing', 'approved'].includes(r.status),
   ).length;
-  const notReadyItems = readiness?.items.filter((item) => !item.ready) ?? [];
+  const notReadyItems =
+    readiness?.items.filter((item) => !item.ready && item.status !== 'cancelled') ?? [];
   const payrollGatewayEnabled = billingOverview?.payrollGatewayEnabled ?? false;
   const canManagePayroll = canViewTeamPayroll(viewerMemberId, employees, role);
 
@@ -455,21 +456,21 @@ export function PayrollPage() {
             <div className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
-                  Payment setup
+                  Company payment setup
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} employees have
-                  payment details set
+                  {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} salary-eligible
+                  employees have payment details (workspace-wide, not this run)
                 </p>
               </div>
               {setupSummary.byCurrency.length > 0 ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                    Pay by currency
+                    Ready by currency
                   </span>
                   {setupSummary.byCurrency.map((row) => (
                     <Badge key={row.currency} variant="outline">
-                      {row.currency} · {row.employeeCount}
+                      {row.currency} · {row.paymentReadyCount}/{row.employeeCount} ready
                     </Badge>
                   ))}
                 </div>
@@ -509,10 +510,49 @@ export function PayrollPage() {
           {selectedRunId && notReadyItems.length > 0 ? (
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
-              <AlertTitle>Payment settings incomplete</AlertTitle>
-              <AlertDescription>
-                {notReadyItems.length} employee
-                {notReadyItems.length === 1 ? '' : 's'} missing payment details.
+              <AlertTitle>People on this run need payment details</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>
+                  {notReadyItems.length} employee
+                  {notReadyItems.length === 1 ? '' : 's'} on this run{' '}
+                  {notReadyItems.length === 1 ? 'is' : 'are'} missing payment details. Notify them
+                  or remove them before approving.
+                </p>
+                <ul className="space-y-2">
+                  {notReadyItems.map((item) => (
+                    <li
+                      key={item.itemId}
+                      className="flex flex-col gap-2 rounded-[6px] border border-red-200/80 bg-white/50 p-3 dark:border-red-900/50 dark:bg-slate-950/40 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                          {item.employeeName}
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">{item.message}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-slate-200 bg-white text-slate-700 shadow-none dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+                          disabled={busy}
+                          onClick={() => handleNotify(selectedRunId, item.itemId)}
+                        >
+                          Notify
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8"
+                          disabled={busy}
+                          onClick={() => handleRemove(selectedRunId, item.itemId)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </AlertDescription>
             </Alert>
           ) : null}
@@ -558,58 +598,6 @@ export function PayrollPage() {
                 onDelete={() => setDeleteRunId(selectedRunId)}
                 onReopen={() => setReopenRunId(selectedRunId)}
               />
-            </ContentCard>
-          ) : null}
-
-          {isAdmin && selectedRunId && readiness ? (
-            <ContentCard
-              title="Employee payment readiness"
-              description={`${readiness.readyCount}/${readiness.totalEmployees} employees have payment details set`}
-              className="dashboard-panel rounded-[8px]"
-              bodyClassName="space-y-3"
-            >
-              {readiness.items.map((item) => (
-                <div
-                  key={item.itemId}
-                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-950 dark:text-slate-100">
-                        {item.employeeName}
-                      </p>
-                      <Badge variant={item.ready ? 'default' : 'destructive'}>
-                        {item.ready ? 'Ready' : 'Will miss payment'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">{item.message}</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Net {item.netAmount.toLocaleString()} {readiness.currency}
-                    </p>
-                  </div>
-                  {!item.ready && item.status !== 'cancelled' ? (
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                        disabled={busy}
-                        onClick={() => handleNotify(selectedRunId, item.itemId)}
-                      >
-                        Notify employee
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        onClick={() => handleRemove(selectedRunId, item.itemId)}
-                      >
-                        Remove from run
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
             </ContentCard>
           ) : null}
 

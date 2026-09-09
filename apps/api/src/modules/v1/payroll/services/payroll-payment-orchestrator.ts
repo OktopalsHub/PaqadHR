@@ -4,13 +4,13 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import { PayrollStatus } from '../../../../common/enums/payroll-status.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { PayrollPaymentReadiness } from '../../../../common/interfaces/payroll-payment-readiness.interface';
-import { PayrollPaymentIssue } from '../../../../common/interfaces/payroll-payment-readiness.interface';
 import type { ProcessPayrollWithAudit } from '../../../../common/interfaces/process-payroll-dto.interface';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
 import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import { isActivePayrollReadinessItem } from '../utils/payroll-readiness-items.util';
 import { AuditService } from './audit.service';
 import { ManualDisbursementService } from './manual-disbursement.service';
 import { MultiPaymentService } from './multi-payment.service';
@@ -47,7 +47,9 @@ export class PayrollPaymentOrchestrator {
       }
     > = [];
 
-    for (const item of run.items ?? []) {
+    const activeItems = (run.items ?? []).filter((item) => isActivePayrollReadinessItem(item));
+
+    for (const item of activeItems) {
       const name = item.employee
         ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
         : item.memberId;
@@ -55,7 +57,7 @@ export class PayrollPaymentOrchestrator {
         tenantId,
         item.memberId,
         run.baseCurrency,
-        Boolean(item.metadata?.excludedFromRun),
+        false,
       );
       items.push({
         ...readiness,
@@ -73,7 +75,7 @@ export class PayrollPaymentOrchestrator {
       totalEmployees: items.length,
       readyCount,
       notReadyCount: items.length - readyCount,
-      canApprove: readyCount === items.length,
+      canApprove: items.length > 0 && readyCount === items.length,
       items,
     };
   }
@@ -93,9 +95,7 @@ export class PayrollPaymentOrchestrator {
     }
 
     const readiness = await this.getPayrollReadiness(payrollRunId, tenantId);
-    const notReady = readiness.items.filter(
-      (i) => !i.ready && !i.issues.includes(PayrollPaymentIssue.EXCLUDED_FROM_RUN),
-    );
+    const notReady = readiness.items.filter((i) => !i.ready);
     if (notReady.length > 0) {
       throw new BadRequestException(
         `${notReady.length} employee(s) not ready. Remove them or notify to complete payment settings.`,
