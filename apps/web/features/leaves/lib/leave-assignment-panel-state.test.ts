@@ -18,8 +18,8 @@ test('reports the fully configured state when there are no missing assignments',
 
   assert.deepEqual(state, {
     kind: 'complete',
-    title: 'All active members have every leave type assigned for 2026.',
-    description: '12 of 12 members are fully configured.',
+    title: 'All members assigned',
+    description: '12 / 12 for 2026.',
   });
 });
 

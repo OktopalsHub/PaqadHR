@@ -1415,11 +1415,8 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           {customPerks.length === 0 ? (
             <div className="space-y-4">
               <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50/40 p-4 text-xs text-amber-800 dark:bg-amber-950/20 dark:border-amber-900/60 dark:text-amber-300">
-                <span className="font-bold">No custom perks set up yet.</span> Below are default
-                templates.{' '}
-                {isAdmin
-                  ? 'As an admin, you can add them to your active catalog.'
-                  : 'Once added by your admin, they will be redeemable.'}
+                <span className="font-bold">No custom perks.</span>{' '}
+                {isAdmin ? 'Add a template below.' : 'Ask an admin to add perks.'}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {availablePerkTemplates.map((item) => (
@@ -1485,11 +1482,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
           {claimsLoading ? (
             <LoadingBlock />
           ) : claims.length === 0 ? (
-            <EmptyState
-              icon={Gift}
-              title="No claims yet"
-              description="Redeem your points for rewards and they'll show up here."
-            />
+            <EmptyState icon={Gift} title="No claims yet" description="No redemptions yet." />
           ) : (
             <div className="space-y-2">
               {claims.map((claim) => (
@@ -1504,11 +1497,7 @@ export function RewardsPage({ isTab = false }: { isTab?: boolean } = {}) {
             {allClaimsLoading ? (
               <LoadingBlock />
             ) : allClaims.length === 0 ? (
-              <EmptyState
-                icon={Gift}
-                title="No claims registered"
-                description="Employee claims will show up here once they start redeeming rewards."
-              />
+              <EmptyState icon={Gift} title="No claims registered" description="No claims yet." />
             ) : (
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b pb-4">

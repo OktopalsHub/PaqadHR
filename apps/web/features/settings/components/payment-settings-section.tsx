@@ -136,7 +136,7 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
           </DialogHeader>
           <div className="space-y-3 pt-2">
             <p className="text-sm text-muted-foreground">
-              Send {method.displayInfo} ({method.currency}) to your admin for review.
+              Submit {method.displayInfo} for admin review.
             </p>
             <div className="space-y-2">
               <Label>Payment passcode</Label>
@@ -357,7 +357,7 @@ export function PaymentSettingsSection() {
         )),
   );
   const lookupError = lookupUnavailable
-    ? 'Automatic verification is unavailable. Enter the account name exactly as it appears on your bank statement.'
+    ? 'Auto-verify unavailable. Enter the account name as on your statement.'
     : rawLookupError;
 
   // Clear account name when inputs become invalid, verification fails, or live fields diverge during debounce
@@ -528,13 +528,7 @@ export function PaymentSettingsSection() {
                 <p className="text-sm font-medium">{method.displayInfo}</p>
                 <p className="text-xs text-muted-foreground">{method.currency}</p>
                 {method.status === 'rejected' && method.verificationNotes ? (
-                  <p className="mt-1 text-xs text-destructive">
-                    Rejected: {method.verificationNotes}
-                  </p>
-                ) : null}
-
-                {method.status === 'pending_verification' ? (
-                  <p className="mt-1 text-xs text-muted-foreground">Submitted for admin review.</p>
+                  <p className="mt-1 text-xs text-destructive">{method.verificationNotes}</p>
                 ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -547,9 +541,9 @@ export function PaymentSettingsSection() {
                     <ShieldCheck className="mr-1 size-3" />
                     Ready
                   </Badge>
-                ) : (
+                ) : method.status === 'verified' ? (
                   <Badge variant="destructive">Incomplete</Badge>
-                )}
+                ) : null}
                 <PaymentMethodActions method={method} />
               </div>
             </div>
@@ -716,10 +710,7 @@ export function PaymentSettingsSection() {
               onCheckedChange={(checked) => setIsPrimary(checked === true)}
             />
             <Label htmlFor="is-primary">
-              Use for payroll ({currency})
-              {!isPrimary && !hasAnyPrimary
-                ? ' — Required: you need at least one primary account'
-                : ''}
+              Use for payroll ({currency}){!isPrimary && !hasAnyPrimary ? ' — Required' : ''}
             </Label>
           </div>
 
@@ -733,8 +724,8 @@ export function PaymentSettingsSection() {
             />
             <p className="text-xs text-muted-foreground">
               {hasPasscode
-                ? 'Use the same 6-digit passcode for all payment actions.'
-                : 'Create a 6-digit passcode. You will use it for all payment accounts.'}
+                ? 'Same 6-digit passcode for all payment actions.'
+                : 'Create a 6-digit passcode for payment actions.'}
             </p>
           </div>
           <div className="flex gap-2 sm:col-span-2">

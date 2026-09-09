@@ -222,10 +222,7 @@ function EmployeeDetailContent() {
     return (
       <Alert>
         <AlertTitle>Profile not available</AlertTitle>
-        <AlertDescription>
-          You can browse the people directory, but full employee profiles are limited to your own
-          profile, your direct reports, and admin users.
-        </AlertDescription>
+        <AlertDescription>You can only open your profile and direct reports.</AlertDescription>
       </Alert>
     );
   }

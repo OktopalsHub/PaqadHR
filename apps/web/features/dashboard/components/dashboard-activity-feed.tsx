@@ -37,7 +37,7 @@ export function DashboardActivityFeed() {
       {isLoading ? (
         <FeedMessage text="Loading recent activity…" />
       ) : items.length === 0 ? (
-        <FeedMessage text="Activity will appear here as your team works across the workspace." />
+        <FeedMessage text="No activity yet." />
       ) : (
         items.map((activity) => {
           const { icon: Icon, iconClassName, title } = getActivityPresentation(activity);

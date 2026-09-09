@@ -242,7 +242,7 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
         open={Boolean(requestPendingDeletion)}
         onOpenChange={(open) => !open && setRequestPendingDeletion(null)}
         title="Delete leave request?"
-        description="This will permanently remove your pending leave request."
+        description="Delete this pending request?"
         actionLabel="Delete request"
         onConfirm={() => void handleDelete()}
         isPending={deleteLeave.isPending}

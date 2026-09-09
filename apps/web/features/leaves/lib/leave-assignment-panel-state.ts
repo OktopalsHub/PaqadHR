@@ -48,8 +48,8 @@ export function getLeaveAssignmentPanelState({
   if (missingAssignments.length === 0) {
     return {
       kind: 'complete',
-      title: `All active members have every leave type assigned for ${year}.`,
-      description: `${report.completeAssignments} of ${report.totalMembers} members are fully configured.`,
+      title: 'All members assigned',
+      description: `${report.completeAssignments} / ${report.totalMembers} for ${year}.`,
     };
   }
 

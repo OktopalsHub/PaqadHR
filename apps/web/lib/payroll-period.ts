@@ -16,15 +16,13 @@ export const FREQUENCY_OPTIONS: Array<{ value: PayrollFrequency; label: string }
   { value: 'annually', label: 'Annually' },
 ];
 
-export const PAY_PERIOD_HINT = 'Past months are allowed if period start is not in the future.';
+export const PAY_PERIOD_HINT = 'Start date can be in the past.';
 
-export const EXPECTED_PAY_DATE_HINT = 'Any planned payout day, including before period end.';
+export const EXPECTED_PAY_DATE_HINT = 'Can be before period end.';
 
-export const THIS_RUN_HINT =
-  'Uncheck anyone to skip this run. Add bonuses, commissions, or deductions before creating.';
+export const THIS_RUN_HINT = 'Uncheck to skip. Add adjustments on the run after create.';
 
-export const PAYROLL_RUNS_BY_CURRENCY_HINT =
-  'Creates one draft run per salary currency. Employees are grouped automatically.';
+export const PAYROLL_RUNS_BY_CURRENCY_HINT = 'One draft run per salary currency.';
 
 export function payrollPeriodDiffDays(periodStart: string, periodEnd: string): number {
   const start = new Date(periodStart);
@@ -43,11 +41,8 @@ export function describePayrollPeriodError(
     return 'Select a valid payroll frequency.';
   }
 
-  if (diffDays < range.min) {
-    return `${range.label} payroll needs ${range.min}–${range.max} days between period start and end; you have ${diffDays} days.`;
-  }
-  if (diffDays > range.max) {
-    return `${range.label} payroll allows at most ${range.max} days between start and end; you have ${diffDays} days.`;
+  if (diffDays < range.min || diffDays > range.max) {
+    return `${range.label}: need ${range.min}–${range.max} days (have ${diffDays}).`;
   }
   return null;
 }

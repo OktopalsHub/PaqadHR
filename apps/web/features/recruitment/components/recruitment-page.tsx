@@ -79,7 +79,7 @@ export function RecruitmentPage() {
         <EmptyState
           icon={Briefcase}
           title="No roles yet"
-          description="Create your first role to start tracking hiring activity."
+          description="Create a role."
           action={
             <Button variant="brandSolid" size="app" onClick={() => setCreateOpen(true)}>
               <Plus className="size-4" />
@@ -92,7 +92,7 @@ export function RecruitmentPage() {
         <EmptyState
           icon={Search}
           title="No matching roles"
-          description="Try a different search term to find roles."
+          description="Try another search."
           className="min-h-[280px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
         />
       ) : (

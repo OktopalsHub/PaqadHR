@@ -15,7 +15,7 @@ export default function PrivateError({
       <AlertCircle className="size-12 text-destructive" />
       <h2 className="text-xl font-semibold">Something went wrong</h2>
       <p className="max-w-md text-sm text-muted-foreground">
-        An unexpected error occurred. Please try again.
+        An unexpected error occurred. Try again.
       </p>
       <Button onClick={reset} variant="outline">
         Try again

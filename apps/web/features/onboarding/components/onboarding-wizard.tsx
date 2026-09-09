@@ -377,7 +377,7 @@ export function OnboardingWizard({ step, onStepChange }: OnboardingWizardProps) 
                     )}
                   >
                     {slug.trim().length < 2 ? (
-                      'Pick a short slug for your workspace. It cannot be changed later.'
+                      "Can't be changed later."
                     ) : !slugFormatValid ? (
                       <>
                         <XCircle className="size-3.5 shrink-0" />

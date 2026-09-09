@@ -1,6 +1,5 @@
 'use client';
 
-import { Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -16,31 +15,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { formatAdjustmentLineLabel } from '@/features/payroll/lib/format-adjustment-line';
 import { HintIcon } from '@/features/settings/components/settings-field-hint';
-import { useCreatePayrollRun, usePayrollActions } from '@/hooks/queries/use-payroll';
+import { useCreatePayrollRun } from '@/hooks/queries/use-payroll';
 import type { CurrentSalary } from '@/lib/api/employment';
 import { groupEmployeeIdsBySalaryCurrency } from '@/lib/payroll-create';
 import {
   describePayrollPeriodError,
-  EXPECTED_PAY_DATE_HINT,
   FREQUENCY_OPTIONS,
   lastDayOfMonthIso,
-  PAY_PERIOD_HINT,
-  PAYROLL_RUNS_BY_CURRENCY_HINT,
   type PayrollFrequency,
   periodRulesHint,
-  THIS_RUN_HINT,
 } from '@/lib/payroll-period';
 import type { Employee } from '@/lib/schemas/employee';
-import type { PayrollAdjustmentLine } from '@/lib/schemas/payroll';
-
-const ADJUSTMENT_TYPES = [
-  { value: 'bonus', label: 'Bonus' },
-  { value: 'allowance', label: 'Allowance' },
-  { value: 'commission', label: 'Commission' },
-  { value: 'deduction', label: 'Deduction' },
-];
 
 type CreatePayrollRunDialogProps = {
   open: boolean;
@@ -54,6 +40,9 @@ type CreatePayrollRunDialogProps = {
 function employeeName(employee: Employee) {
   return employee.name.trim() || employee.id;
 }
+
+const fieldClassName =
+  'border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100';
 
 export function CreatePayrollRunDialog({
   open,
@@ -77,19 +66,8 @@ export function CreatePayrollRunDialog({
   const [paymentDate, setPaymentDate] = useState(defaultPayDate);
   const [frequency, setFrequency] = useState<PayrollFrequency>('monthly');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
-  const [adjustmentsByEmployee, setAdjustmentsByEmployee] = useState<
-    Record<string, PayrollAdjustmentLine[]>
-  >({});
-  const [adjustmentTargetId, setAdjustmentTargetId] = useState<string | null>(null);
-  const [adjustmentType, setAdjustmentType] = useState('bonus');
-  const [adjustmentMethod, setAdjustmentMethod] = useState<'fixed_amount' | 'percentage'>(
-    'fixed_amount',
-  );
-  const [adjustmentValue, setAdjustmentValue] = useState('');
-  const [adjustmentReason, setAdjustmentReason] = useState('');
 
   const createRun = useCreatePayrollRun();
-  const actions = usePayrollActions();
 
   const payrollRunsToCreate = useMemo(
     () => groupEmployeeIdsBySalaryCurrency(selectedEmployeeIds, currentSalaries, fallbackCurrency),
@@ -116,10 +94,6 @@ export function CreatePayrollRunDialog({
       setStep(1);
       setTitle('');
       setSelectedEmployeeIds([]);
-      setAdjustmentsByEmployee({});
-      setAdjustmentTargetId(null);
-      setAdjustmentValue('');
-      setAdjustmentReason('');
     }
   }, [open]);
 
@@ -170,35 +144,6 @@ export function CreatePayrollRunDialog({
     setStep(2);
   };
 
-  const resetAdjustmentForm = () => {
-    setAdjustmentTargetId(null);
-    setAdjustmentType('bonus');
-    setAdjustmentMethod('fixed_amount');
-    setAdjustmentValue('');
-    setAdjustmentReason('');
-  };
-
-  const addAdjustment = (employeeId: string, currency: string) => {
-    const amount = Number(adjustmentValue);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error('Enter a valid amount');
-      return;
-    }
-    const line: PayrollAdjustmentLine = {
-      employeeId,
-      type: adjustmentType,
-      method: adjustmentMethod,
-      value: amount,
-      reason: adjustmentReason.trim(),
-    };
-    setAdjustmentsByEmployee((current) => ({
-      ...current,
-      [employeeId]: [...(current[employeeId] ?? []), line],
-    }));
-    resetAdjustmentForm();
-    toast.success(`Adjustment added (${currency})`);
-  };
-
   const handleCreate = async () => {
     if (!payrollRunsToCreate.length) {
       toast.error('Select at least one employee for this run');
@@ -226,12 +171,6 @@ export function CreatePayrollRunDialog({
         }
 
         createdRunIds.push(run.id);
-        const adjustments = employeeIds.flatMap(
-          (employeeId) => adjustmentsByEmployee[employeeId] ?? [],
-        );
-        if (adjustments.length > 0) {
-          await actions.calculate.mutateAsync({ id: run.id, adjustments });
-        }
       }
 
       onOpenChange(false);
@@ -254,15 +193,13 @@ export function CreatePayrollRunDialog({
     }
   };
 
-  const busy = createRun.isPending || actions.calculate.isPending;
+  const busy = createRun.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>
-            {step === 1 ? 'Create payroll run' : 'Review employees & adjustments'}
-          </DialogTitle>
+          <DialogTitle>{step === 1 ? 'Create payroll run' : 'Select employees'}</DialogTitle>
         </DialogHeader>
 
         {step === 1 ? (
@@ -273,7 +210,7 @@ export function CreatePayrollRunDialog({
                 placeholder="March 2026 payroll"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                className={fieldClassName}
               />
             </div>
             <div className="space-y-2">
@@ -285,7 +222,7 @@ export function CreatePayrollRunDialog({
                 value={frequency}
                 onValueChange={(value) => setFrequency(value as PayrollFrequency)}
               >
-                <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
+                <SelectTrigger className={`w-full ${fieldClassName}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -298,10 +235,7 @@ export function CreatePayrollRunDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <Label>Pay period</Label>
-                <HintIcon label="Pay period" hint={PAY_PERIOD_HINT} />
-              </div>
+              <Label>Pay period</Label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Period start</Label>
@@ -309,7 +243,7 @@ export function CreatePayrollRunDialog({
                     type="date"
                     value={periodStart}
                     onChange={(e) => handlePeriodStartChange(e.target.value)}
-                    className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                    className={fieldClassName}
                   />
                 </div>
                 <div className="space-y-2">
@@ -318,40 +252,31 @@ export function CreatePayrollRunDialog({
                     type="date"
                     value={periodEnd}
                     onChange={(e) => setPeriodEnd(e.target.value)}
-                    className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                    className={fieldClassName}
                   />
                 </div>
               </div>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <Label>Expected pay date</Label>
-                <HintIcon label="Expected pay date" hint={EXPECTED_PAY_DATE_HINT} />
-              </div>
+              <Label>Expected pay date</Label>
               <Input
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
-                className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                className={fieldClassName}
               />
             </div>
             {allEligibleEmployeeIds.length > 0 ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <Label>Runs to create</Label>
-                  <HintIcon label="Runs to create" hint={PAYROLL_RUNS_BY_CURRENCY_HINT} />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {groupEmployeeIdsBySalaryCurrency(
-                    allEligibleEmployeeIds,
-                    currentSalaries,
-                    fallbackCurrency,
-                  ).map((row) => (
-                    <Badge key={row.currency} variant="outline">
-                      {row.currency} · {row.employeeIds.length}
-                    </Badge>
-                  ))}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                {groupEmployeeIdsBySalaryCurrency(
+                  allEligibleEmployeeIds,
+                  currentSalaries,
+                  fallbackCurrency,
+                ).map((row) => (
+                  <Badge key={row.currency} variant="outline">
+                    {row.currency} · {row.employeeIds.length}
+                  </Badge>
+                ))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -369,10 +294,7 @@ export function CreatePayrollRunDialog({
           </div>
         ) : (
           <div className="space-y-4 pt-2">
-            <div className="flex items-center gap-1.5">
-              <Label>This run</Label>
-              <HintIcon label="This run" hint={THIS_RUN_HINT} />
-            </div>
+            <p className="text-sm text-muted-foreground">Uncheck anyone to skip this run.</p>
 
             {groupEmployeeIdsBySalaryCurrency(
               allEligibleEmployeeIds,
@@ -384,128 +306,23 @@ export function CreatePayrollRunDialog({
                 className="space-y-2 rounded-[8px] border border-[#d7e3f6] p-3 dark:border-slate-800"
               >
                 <p className="text-sm font-medium text-slate-950 dark:text-slate-100">{currency}</p>
-                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
                   {employeeIds.map((employeeId) => {
                     const employee = employeesById.get(employeeId);
                     if (!employee) return null;
                     const checkboxId = `payroll-employee-${employeeId}`;
-                    const employeeAdjustments = adjustmentsByEmployee[employeeId] ?? [];
                     return (
-                      <div key={employeeId} className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex min-w-0 items-center gap-2 text-sm">
-                            <Checkbox
-                              id={checkboxId}
-                              checked={selectedEmployeeIds.includes(employeeId)}
-                              onCheckedChange={(checked) =>
-                                toggleEmployee(employeeId, checked === true)
-                              }
-                            />
-                            <Label htmlFor={checkboxId} className="truncate font-normal">
-                              {employeeName(employee)}
-                            </Label>
-                          </div>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
-                            onClick={() =>
-                              setAdjustmentTargetId((current) =>
-                                current === employeeId ? null : employeeId,
-                              )
-                            }
-                          >
-                            <Plus className="mr-1 size-3.5" />
-                            Adjustment
-                          </Button>
-                        </div>
-                        {employeeAdjustments.length > 0 ? (
-                          <ul className="ml-6 space-y-1">
-                            {employeeAdjustments.map((line) => (
-                              <li
-                                key={`${line.type}-${line.method}-${line.value}-${line.reason ?? ''}`}
-                                className="text-xs text-slate-600 dark:text-slate-300"
-                              >
-                                {formatAdjustmentLineLabel(line, currency)}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                        {adjustmentTargetId === employeeId ? (
-                          <div className="ml-6 space-y-2 rounded-[8px] border border-dashed border-slate-200 p-3 dark:border-slate-700">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <Label>Type</Label>
-                                <Select value={adjustmentType} onValueChange={setAdjustmentType}>
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {ADJUSTMENT_TYPES.map((option) => (
-                                      <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              <div className="space-y-1">
-                                <Label>Method</Label>
-                                <Select
-                                  value={adjustmentMethod}
-                                  onValueChange={(value) =>
-                                    setAdjustmentMethod(value as 'fixed_amount' | 'percentage')
-                                  }
-                                >
-                                  <SelectTrigger className="w-full">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="fixed_amount">Fixed ({currency})</SelectItem>
-                                    <SelectItem value="percentage">Percentage</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="space-y-1">
-                                <Label>Amount</Label>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={adjustmentValue}
-                                  onChange={(e) => setAdjustmentValue(e.target.value)}
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Label>Reason</Label>
-                                <Input
-                                  value={adjustmentReason}
-                                  onChange={(e) => setAdjustmentReason(e.target.value)}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="brandSolid"
-                                onClick={() => addAdjustment(employeeId, currency)}
-                              >
-                                Add
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={resetAdjustmentForm}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
+                      <div key={employeeId} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          id={checkboxId}
+                          checked={selectedEmployeeIds.includes(employeeId)}
+                          onCheckedChange={(checked) =>
+                            toggleEmployee(employeeId, checked === true)
+                          }
+                        />
+                        <Label htmlFor={checkboxId} className="truncate font-normal">
+                          {employeeName(employee)}
+                        </Label>
                       </div>
                     );
                   })}

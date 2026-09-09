@@ -139,7 +139,7 @@ export function LeaveRequestDialog({ open, onOpenChange }: LeaveRequestDialogPro
             </label>
             <Textarea
               id="reason"
-              placeholder="Briefly describe the reason for your leave"
+              placeholder="Reason"
               className="min-h-[100px] rounded-[8px] border-slate-200 bg-white text-slate-700 shadow-none placeholder:text-slate-400 focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100 dark:placeholder:text-slate-500"
               value={reason}
               onChange={(e) => setReason(e.target.value)}

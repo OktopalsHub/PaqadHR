@@ -5,6 +5,7 @@ import {
   CalendarDays,
   Download,
   FileText,
+  MoreHorizontal,
   Plus,
   Trash2,
   Wallet,
@@ -21,6 +22,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -86,6 +93,52 @@ function PayrollRunRow({
       ? `Scheduled · ${formatDate(run.paymentDate)}`
       : null;
 
+  const canExport = ['processing', 'approved', 'completed'].includes(run.status);
+  const canDelete = isAdmin && canDeletePayrollRun(run);
+
+  let primary: {
+    label: string;
+    action: string;
+    className?: string;
+    variant?: 'brandSolid';
+  } | null = null;
+  if (isAdmin && run.status === 'draft') {
+    primary = { label: 'Calculate', action: 'calculate' };
+  } else if (isAdmin && run.status === 'processing') {
+    primary = { label: 'Approve', action: 'approve', className: APPROVE_BUTTON_CLASS };
+  } else if (isAdmin && run.status === 'approved') {
+    primary = payrollGatewayEnabled
+      ? { label: 'Pay now', action: 'pay-now', variant: 'brandSolid' }
+      : { label: 'Mark paid', action: 'disburse' };
+  } else if (canExport) {
+    primary = { label: 'CSV', action: 'export' };
+  }
+
+  const secondaryItems: Array<{
+    label: string;
+    action: string;
+    paymentDate?: string;
+    destructive?: boolean;
+  }> = [];
+
+  if (isAdmin && run.status === 'processing') {
+    secondaryItems.push({ label: 'Reopen', action: 'reopen' });
+  }
+  if (isAdmin && run.status === 'approved' && payrollGatewayEnabled) {
+    secondaryItems.push({
+      label: 'Schedule',
+      action: 'schedule',
+      paymentDate: run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
+    });
+    secondaryItems.push({ label: 'Mark paid', action: 'disburse' });
+  }
+  if (canExport && primary?.action !== 'export') {
+    secondaryItems.push({ label: 'Export CSV', action: 'export' });
+  }
+  if (canDelete) {
+    secondaryItems.push({ label: 'Delete', action: 'delete', destructive: true });
+  }
+
   return (
     <div
       className={`dashboard-soft-tile flex flex-col gap-4 rounded-[8px] border p-4 transition-colors sm:flex-row sm:items-center sm:justify-between ${
@@ -111,101 +164,51 @@ function PayrollRunRow({
             : ''}
         </p>
       </button>
-      <div className="flex flex-wrap gap-2">
-        {isAdmin && canDeletePayrollRun(run) ? (
+      <div className="flex flex-wrap items-center gap-2">
+        {primary ? (
           <Button
             size="sm"
-            variant="destructive"
+            variant={primary.variant ?? (primary.className ? undefined : 'outline')}
+            className={
+              primary.className ??
+              (primary.variant
+                ? undefined
+                : 'border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100')
+            }
             disabled={busy}
-            onClick={() => onAction('delete', run.id)}
+            onClick={() => onAction(primary.action, run.id)}
           >
-            <Trash2 className="mr-1 size-4" />
-            Delete
+            {primary.action === 'export' ? <Download className="mr-1 size-4" /> : null}
+            {primary.label}
           </Button>
         ) : null}
-        {isAdmin && run.status === 'draft' ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-            disabled={busy}
-            onClick={() => onAction('calculate', run.id)}
-          >
-            Calculate
-          </Button>
-        ) : null}
-        {isAdmin && run.status === 'processing' ? (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-              disabled={busy}
-              onClick={() => onAction('reopen', run.id)}
-            >
-              Reopen
-            </Button>
-            <Button
-              size="sm"
-              className={APPROVE_BUTTON_CLASS}
-              disabled={busy}
-              onClick={() => onAction('approve', run.id)}
-            >
-              Approve
-            </Button>
-          </>
-        ) : null}
-        {isAdmin && run.status === 'approved' ? (
-          <>
-            {payrollGatewayEnabled ? (
+        {secondaryItems.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
-                variant="brandSolid"
+                variant="outline"
+                className="border-slate-200 bg-white px-2 text-slate-700 shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
                 disabled={busy}
-                onClick={() => onAction('pay-now', run.id)}
+                aria-label="More actions"
               >
-                Pay now
+                <MoreHorizontal className="size-4" />
               </Button>
-            ) : null}
-            {payrollGatewayEnabled ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                disabled={busy}
-                onClick={() =>
-                  onAction(
-                    'schedule',
-                    run.id,
-                    run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
-                  )
-                }
-              >
-                Schedule
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-              disabled={busy}
-              onClick={() => onAction('disburse', run.id)}
-            >
-              Mark paid
-            </Button>
-          </>
-        ) : null}
-        {isAdmin && ['processing', 'approved', 'completed'].includes(run.status) ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-            disabled={busy}
-            onClick={() => onAction('export', run.id)}
-          >
-            <Download className="mr-1 size-4" />
-            CSV
-          </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {secondaryItems.map((item) => (
+                <DropdownMenuItem
+                  key={item.action}
+                  variant={item.destructive ? 'destructive' : 'default'}
+                  onClick={() => onAction(item.action, run.id, item.paymentDate)}
+                >
+                  {item.destructive ? <Trash2 className="size-4" /> : null}
+                  {item.action === 'export' ? <Download className="size-4" /> : null}
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
     </div>
@@ -466,40 +469,42 @@ export function PayrollPage() {
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Active employees"
-              value={activeEmployees.length}
-              icon={Wallet}
-              iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
-            />
-            <StatCard
-              label="Total runs"
-              value={runs.length}
-              icon={FileText}
-              iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
-            />
-            <StatCard
-              label="Completed"
-              value={completedRuns}
-              icon={CalendarDays}
-              iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
-            />
-            <StatCard
-              label="In progress"
-              value={pendingRuns}
-              icon={Wallet}
-              iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
-            />
-          </div>
+          {!selectedRunId ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                label="Active employees"
+                value={activeEmployees.length}
+                icon={Wallet}
+                iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
+              />
+              <StatCard
+                label="Total runs"
+                value={runs.length}
+                icon={FileText}
+                iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
+              />
+              <StatCard
+                label="Completed"
+                value={completedRuns}
+                icon={CalendarDays}
+                iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
+              />
+              <StatCard
+                label="In progress"
+                value={pendingRuns}
+                icon={Wallet}
+                iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
+              />
+            </div>
+          ) : null}
 
           {selectedRunId && notReadyItems.length > 0 ? (
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
               <AlertTitle>Payment settings incomplete</AlertTitle>
               <AlertDescription>
-                {notReadyItems.length} employee(s) will miss this payroll unless you remove them or
-                ask them to complete payment settings.
+                {notReadyItems.length} employee
+                {notReadyItems.length === 1 ? '' : 's'} missing payment details.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -652,7 +657,7 @@ export function PayrollPage() {
           if (!next) setDeleteRunId(null);
         }}
         title="Delete payroll run?"
-        description="This removes the run and all employees on it. Completed or paid runs cannot be deleted."
+        description="Removes the run and its employees. Paid runs can't be deleted."
         actionLabel="Delete run"
         isPending={actions.deleteRun.isPending}
         preventAutoClose
@@ -665,7 +670,7 @@ export function PayrollPage() {
           if (!next) setReopenRunId(null);
         }}
         title="Reopen payroll run?"
-        description="This moves the run back to draft so you can edit people and bonuses. You will need to Calculate again before Approve."
+        description="Returns run to draft. Recalculate before approve."
         actionLabel="Reopen to draft"
         isPending={actions.reopen.isPending}
         preventAutoClose

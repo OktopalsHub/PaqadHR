@@ -296,18 +296,14 @@ export function BillingSection() {
           <AlertTitle>Billing currency mismatch</AlertTitle>
           <AlertDescription>{overview.pricingMismatch.message}</AlertDescription>
         </Alert>
-      ) : null}
-
-      {isPastDue && overview.lastPaymentFailureReason ? (
+      ) : isPastDue && overview.lastPaymentFailureReason ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>Payment failed</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>{overview.lastPaymentFailureReason}</p>
             {overview.dunningNextRetryAt ? (
-              <p className="text-xs">
-                We&apos;ll retry on {formatDate(overview.dunningNextRetryAt)}.
-              </p>
+              <p className="text-xs">Retry on {formatDate(overview.dunningNextRetryAt)}.</p>
             ) : null}
             {overview.canManageBilling ? (
               <div className="flex flex-wrap gap-2">
@@ -339,14 +335,12 @@ export function BillingSection() {
             ) : null}
           </AlertDescription>
         </Alert>
-      ) : null}
-
-      {overview.needsPayment && overview.paymentsEnabled && !isPastDue ? (
+      ) : overview.needsPayment && overview.paymentsEnabled ? (
         <Alert variant="destructive">
           <AlertTriangle className="size-4" />
           <AlertTitle>Payment required</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p>Your workspace needs an active subscription to continue without interruption.</p>
+            <p>Subscribe to keep access.</p>
             {overview.canManageBilling ? (
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -370,21 +364,16 @@ export function BillingSection() {
                 ) : null}
               </div>
             ) : (
-              <p className="text-xs">Ask a workspace admin to complete payment.</p>
+              <p className="text-xs">Ask an admin to pay.</p>
             )}
           </AlertDescription>
         </Alert>
-      ) : null}
-
-      {overview.cancelAtPeriodEnd && overview.subscription?.currentPeriodEnd ? (
+      ) : overview.cancelAtPeriodEnd && overview.subscription?.currentPeriodEnd ? (
         <Alert>
           <AlertTriangle className="size-4" />
           <AlertTitle>Cancellation scheduled</AlertTitle>
           <AlertDescription className="space-y-3">
-            <p>
-              Access continues until {formatDate(overview.subscription.currentPeriodEnd)}. After
-              that the workspace will require a new plan.
-            </p>
+            <p>Access until {formatDate(overview.subscription.currentPeriodEnd)}.</p>
             {canManageSub ? (
               <Button
                 size="sm"
@@ -416,38 +405,32 @@ export function BillingSection() {
       <div className="rounded-lg border border-border/60 p-4">
         <p className="text-sm font-medium">Current subscription</p>
         {overview.subscription ? (
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-medium capitalize">{overview.subscription.plan}</span>
-            <Badge variant="secondary" className="capitalize">
-              {overview.hasPaymentMethodOnFile && subStatus === 'TRIAL'
-                ? 'Active'
-                : overview.subscription.status}
-            </Badge>
-            {overview.cancelAtPeriodEnd && overview.subscription.currentPeriodEnd ? (
-              <Badge variant="outline">
-                Cancels {formatDate(overview.subscription.currentPeriodEnd)}
+          <div className="mt-2 space-y-1 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium capitalize">{overview.subscription.plan}</span>
+              <Badge variant="secondary" className="capitalize">
+                {overview.cancelAtPeriodEnd
+                  ? 'Cancelling'
+                  : overview.hasPaymentMethodOnFile && subStatus === 'TRIAL'
+                    ? 'Active'
+                    : overview.subscription.status}
               </Badge>
-            ) : null}
-            {overview.subscription.daysRemaining != null &&
-            subStatus === 'TRIAL' &&
-            !overview.hasPaymentMethodOnFile ? (
-              <span className="text-muted-foreground">
-                · {overview.subscription.daysRemaining} trial days left
-              </span>
-            ) : null}
-            {overview.hasPaymentMethodOnFile &&
-            subStatus === 'TRIAL' &&
-            overview.subscription.currentPeriodEnd ? (
-              <span className="text-muted-foreground">
-                · First charge {formatDate(overview.subscription.currentPeriodEnd)}
-              </span>
-            ) : null}
-            {overview.subscription.currentPeriodEnd &&
-            !(overview.hasPaymentMethodOnFile && subStatus === 'TRIAL') ? (
-              <span className="text-muted-foreground">
-                · Period ends {formatDate(overview.subscription.currentPeriodEnd)}
-              </span>
-            ) : null}
+            </div>
+            <p className="text-muted-foreground">
+              {overview.cancelAtPeriodEnd && overview.subscription.currentPeriodEnd
+                ? `Ends ${formatDate(overview.subscription.currentPeriodEnd)}`
+                : overview.hasPaymentMethodOnFile &&
+                    subStatus === 'TRIAL' &&
+                    overview.subscription.currentPeriodEnd
+                  ? `First charge ${formatDate(overview.subscription.currentPeriodEnd)}`
+                  : subStatus === 'TRIAL' &&
+                      overview.subscription.daysRemaining != null &&
+                      !overview.hasPaymentMethodOnFile
+                    ? `${overview.subscription.daysRemaining} trial days left`
+                    : overview.subscription.currentPeriodEnd
+                      ? `Period ends ${formatDate(overview.subscription.currentPeriodEnd)}`
+                      : null}
+            </p>
           </div>
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">No active subscription.</p>
@@ -456,7 +439,7 @@ export function BillingSection() {
           <div className="mt-4 flex flex-wrap gap-2">
             {(isActive || isPastDue) && !overview.cancelAtPeriodEnd ? (
               <>
-                {supportsCardUpdate ? (
+                {supportsCardUpdate && !isPastDue ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -498,9 +481,7 @@ export function BillingSection() {
 
       <div className="rounded-lg border border-border/60 p-4">
         <p className="text-sm font-medium">Billing contact</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Who receives invoices and billing correspondence for this workspace.
-        </p>
+        <p className="mt-1 text-xs text-muted-foreground">Invoices and billing notices.</p>
         <BillingContactForm
           initial={overview.billingContact ?? {}}
           ownerEmail={overview.ownerEmail}

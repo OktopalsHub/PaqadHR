@@ -198,7 +198,7 @@ export function EmployeeDetailSidebar({
         open={saveConfirmationOpen}
         onOpenChange={setSaveConfirmationOpen}
         title="Save employee changes?"
-        description="This will update the employee information you have changed."
+        description="Save your changes?"
         actionLabel="Save changes"
         isPending={isSaving}
         onConfirm={() => onSave?.()}

@@ -109,35 +109,18 @@ function ForgottenSessionModalContent() {
         <DialogHeader>
           <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-500">
             <Clock className="size-5" />
-            <DialogTitle className="text-xl font-bold">Unclosed Attendance Session</DialogTitle>
+            <DialogTitle className="text-xl font-bold">Close yesterday’s session</DialogTitle>
           </div>
-          <DialogDescription className="pt-2 text-sm text-muted-foreground leading-relaxed">
-            It looks like you forgot to clock out of your active session on{' '}
-            <span className="font-semibold text-foreground">
-              {formatRecordDate(forgottenSession.date)}
-            </span>
-            .
-            <br />
-            Please specify the time you finished working to close the session before clocking in
-            today.
+          <DialogDescription className="pt-2 text-sm text-muted-foreground">
+            Close your session from {formatRecordDate(forgottenSession.date)} (clocked in{' '}
+            {formatTimeOnly(forgottenSession.clockIn)}) before clocking in.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-3">
-          <div className="rounded-lg bg-muted/50 p-3 border border-border/40 text-xs space-y-1.5 font-medium">
-            <div className="flex justify-between text-muted-foreground">
-              <span>Date:</span>
-              <span className="text-foreground">{formatRecordDate(forgottenSession.date)}</span>
-            </div>
-            <div className="flex justify-between text-muted-foreground">
-              <span>Clock In Time:</span>
-              <span className="text-foreground">{formatTimeOnly(forgottenSession.clockIn)}</span>
-            </div>
-          </div>
-
           <div className="space-y-2">
             <label htmlFor="clock-out-time" className="text-sm font-medium">
-              Clock Out Time
+              Clock out time
             </label>
             <Input
               id="clock-out-time"
@@ -153,12 +136,12 @@ function ForgottenSessionModalContent() {
 
           <div className="space-y-2">
             <label htmlFor="notes" className="text-sm font-medium">
-              Notes / Reason (Optional)
+              Notes (optional)
             </label>
             <Textarea
               id="notes"
-              placeholder="e.g., Forgot to clock out before leaving"
-              className="min-h-[80px]"
+              placeholder="Optional notes"
+              className="min-h-[60px]"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -181,10 +164,10 @@ function ForgottenSessionModalContent() {
               {clockOutMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 size-4 animate-spin" />
-                  Resolving session...
+                  Closing…
                 </>
               ) : (
-                'Submit & Close Session'
+                'Close session'
               )}
             </Button>
           </DialogFooter>

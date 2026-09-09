@@ -701,9 +701,6 @@ export function ShoutoutTasksTab() {
         <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Edit Task</DialogTitle>
-            <DialogDescription className="text-xs">
-              Update the task details below.
-            </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 space-y-1.5">
@@ -1108,9 +1105,7 @@ export function ShoutoutTasksTab() {
 
             {completedTasks.length === 0 ? (
               <div className="text-center p-6 rounded-2xl border border-dashed border-border bg-muted/5 flex flex-col items-center justify-center">
-                <p className="text-xs text-muted-foreground">
-                  No completed tasks yet. Get started on the available checklist!
-                </p>
+                <p className="text-xs text-muted-foreground">No completed tasks yet.</p>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[450px] overflow-y-auto pr-1">
@@ -1150,10 +1145,7 @@ export function ShoutoutTasksTab() {
                 ? 'Provide Response'
                 : 'Upload Screenshot Proof'}
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              This task requires verification before points can be awarded. Please provide the
-              requested details below.
-            </DialogDescription>
+            <DialogDescription className="text-xs">Required for points.</DialogDescription>
           </DialogHeader>
 
           {submittingTask && (

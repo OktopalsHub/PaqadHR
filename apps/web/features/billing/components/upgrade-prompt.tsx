@@ -121,22 +121,18 @@ export function UpgradeRequiredPanel({
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-3">
-            <span className="inline-flex w-fit items-center rounded-full border border-[#d7e3f6] bg-[#eef4ff] px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-              Upgrade required
-            </span>
             <div className="space-y-2">
               <h2
                 id={titleId}
                 className="text-[28px] font-semibold tracking-[-0.03em] text-slate-950 dark:text-slate-100"
               >
-                Upgrade to access this feature
+                Upgrade to unlock
               </h2>
               <p
                 id={descriptionId}
                 className="max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400"
               >
-                This feature is not available on your current plan. Upgrade your workspace to unlock
-                access.
+                Not on your plan.
               </p>
             </div>
           </div>

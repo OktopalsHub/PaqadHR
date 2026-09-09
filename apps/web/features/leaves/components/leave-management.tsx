@@ -1,12 +1,11 @@
 'use client';
 
-import { CalendarClock, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { CalendarClock } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
 import { EmptyState } from '@/components/empty-state';
 import { PageActions } from '@/components/page-actions';
-import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useLeaveBalances, useLeaves } from '@/hooks/queries/use-leaves';
@@ -73,36 +72,11 @@ const LeaveManagement = () => {
         <LeaveRequestDialog open={isRequestLeaveOpen} onOpenChange={setIsRequestLeaveOpen} />
       </PageActions>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Pending"
-          value={isLoading ? '—' : pendingCount}
-          hint="Awaiting review"
-          icon={Clock}
-          iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
-        />
-        <StatCard
-          label="Approved"
-          value={isLoading ? '—' : approvedCount}
-          hint="Confirmed requests"
-          icon={CheckCircle2}
-          iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
-        />
-        <StatCard
-          label="Rejected / cancelled"
-          value={isLoading ? '—' : closedCount}
-          hint="Closed requests"
-          icon={XCircle}
-          iconClassName="bg-rose-500/12 text-rose-700 dark:bg-rose-500/18 dark:text-rose-200"
-        />
-        <StatCard
-          label="Total requests"
-          value={isLoading ? '—' : leaveRequests.length}
-          hint="All time"
-          icon={CalendarClock}
-          iconClassName="bg-sky-500/12 text-sky-700 dark:bg-sky-500/18 dark:text-sky-200"
-        />
-      </div>
+      <p className="text-sm text-muted-foreground">
+        {isLoading
+          ? 'Loading requests…'
+          : `${pendingCount} pending · ${approvedCount} approved · ${closedCount} closed · ${leaveRequests.length} total`}
+      </p>
 
       {isError ? (
         <Alert variant="destructive">
@@ -117,7 +91,7 @@ const LeaveManagement = () => {
             <ContentCard
               title="Leave requests"
               className="dashboard-panel rounded-[8px]"
-              bodyClassName="min-h-[352px] p-0"
+              bodyClassName="min-h-[220px] p-0"
             >
               {isLoading ? (
                 <LeaveRequestsLoading />
@@ -126,8 +100,8 @@ const LeaveManagement = () => {
                   <EmptyState
                     icon={CalendarClock}
                     title="No leave requests"
-                    description="Submit a request to get started."
-                    className="min-h-[320px] bg-white dark:bg-slate-950/60"
+                    description="Submit a request."
+                    className="min-h-[200px] bg-white dark:bg-slate-950/60"
                   />
                 </div>
               ) : (

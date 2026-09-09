@@ -116,7 +116,7 @@ export function EmergencyContactsTab({ form, canEdit = false }: EmergencyContact
           if (!open && !isDeletingContact) setContactPendingDeletion(null);
         }}
         title="Remove emergency contact?"
-        description="This emergency contact will be permanently deleted from the employee profile."
+        description="Delete this contact?"
         actionLabel="Remove contact"
         isPending={isDeletingContact}
         preventAutoClose

@@ -262,7 +262,7 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             label="Payroll currencies"
             className="lg:col-span-2"
-            hint="Employees can be paid in any enabled currency. This is separate from your rewards wallet currency."
+            hint="Separate from rewards wallet."
           >
             <div className="dashboard-soft-tile rounded-[8px] px-4 py-4">
               <div className="flex flex-wrap gap-2">
@@ -289,22 +289,10 @@ export function SettingsWorkspaceTab() {
                   );
                 })}
               </div>
-              {payrollCurrencies.length > 0 ? (
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                  Enabled:{' '}
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {payrollCurrencies.join(', ')}
-                  </span>
-                </p>
-              ) : null}
             </div>
           </SettingsFieldHint>
 
-          <SettingsFieldHint
-            label="Crypto payroll"
-            className="lg:col-span-2"
-            hint="Allow crypto payout rails (USDC, USDT). Independent from rewards wallet funding."
-          >
+          <SettingsFieldHint label="Crypto payroll" className="lg:col-span-2" hint="USDC / USDT.">
             <div className="flex items-center gap-3">
               <Switch
                 id="crypto-enabled"

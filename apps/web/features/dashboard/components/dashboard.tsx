@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowUpRight, Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
+import { Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
@@ -181,31 +181,14 @@ export const Dashboard = () => {
           className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
-            <AlertTitle>Some dashboard data is unavailable</AlertTitle>
-            <AlertDescription>
-              Your workspace is still available. You can retry the affected data now.
-            </AlertDescription>
+            <AlertTitle>Couldn’t load some data</AlertTitle>
+            <AlertDescription>Retry the failed sections.</AlertDescription>
           </div>
           <Button variant="outline" size="sm" className="shrink-0" onClick={retryDashboard}>
             <RefreshCw className="size-4" aria-hidden="true" />
             Retry
           </Button>
         </Alert>
-      ) : null}
-      {recruitmentAccess.showRecruitmentCallToAction ? (
-        <div className="flex justify-stretch sm:justify-end">
-          <Button
-            asChild
-            variant="brand"
-            size="appCta"
-            className="w-full normal-case tracking-normal text-sm sm:w-auto"
-          >
-            <Link href={tenantHref('recruitment')}>
-              View Recruitment
-              <ArrowUpRight className="ml-1.5 size-3.5" />
-            </Link>
-          </Button>
-        </div>
       ) : null}
 
       <div className={statGridClassName}>

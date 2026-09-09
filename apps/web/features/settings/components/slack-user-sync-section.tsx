@@ -1,12 +1,11 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
+import { CheckCircle2, Loader2, RefreshCw, UserCheck, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { PersonAvatar } from '@/components/person-avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -122,9 +121,8 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
 
   if (isStatusLoading || isUnmatchedLoading || isEmployeesLoading) {
     return (
-      <div className="flex h-32 items-center justify-center space-x-2">
+      <div className="flex h-32 items-center justify-center">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Loading sync status...</span>
       </div>
     );
   }
@@ -162,43 +160,12 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
         </div>
       </div>
 
-      {syncStatus && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Slack users</CardDescription>
-              <CardTitle className="text-2xl">{syncStatus.total}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Matched</CardDescription>
-              <CardTitle className="text-2xl text-emerald-600 flex items-center gap-1.5">
-                <CheckCircle2 className="size-5 text-emerald-600" />
-                {syncStatus.matched}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Unmatched</CardDescription>
-              <CardTitle className="text-2xl text-amber-600 flex items-center gap-1.5">
-                <AlertCircle className="size-5 text-amber-600" />
-                {syncStatus.unmatched}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>Match rate</CardDescription>
-              <div className="flex items-baseline justify-between">
-                <CardTitle className="text-2xl">{syncStatus.matchRate}%</CardTitle>
-              </div>
-              <Progress value={syncStatus.matchRate} className="mt-2 h-1.5" />
-            </CardHeader>
-          </Card>
-        </div>
-      )}
+      {syncStatus ? (
+        <p className="text-sm text-muted-foreground">
+          {syncStatus.total} Slack users · {syncStatus.matched} matched · {syncStatus.unmatched}{' '}
+          unmatched · {syncStatus.matchRate}% match rate
+        </p>
+      ) : null}
 
       {lastSyncResult ? (
         <p className="text-sm text-muted-foreground">
@@ -217,9 +184,6 @@ export function SlackUserSyncSection({ integrationId }: SlackUserSyncSectionProp
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <RefreshCw className="size-10 text-muted-foreground mb-2" />
               <p className="font-medium text-foreground">No Slack users synced yet</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Click Sync to pull users from Slack
-              </p>
             </div>
           ) : unmatchedUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">

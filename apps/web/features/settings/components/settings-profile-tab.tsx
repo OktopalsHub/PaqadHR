@@ -160,9 +160,7 @@ export function SettingsProfileTab() {
 
       <ContentCard title="Personal details">
         {isSetupMode ? (
-          <p className="mb-4 text-sm text-muted-foreground">
-            Set up your profile for this workspace.
-          </p>
+          <p className="mb-4 text-sm text-muted-foreground">Complete your profile.</p>
         ) : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <SettingsFieldHint label="First name">

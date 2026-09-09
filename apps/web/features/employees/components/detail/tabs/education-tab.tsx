@@ -99,7 +99,7 @@ export function EducationTab({ form, canEdit = false }: EducationTabProps) {
           if (!open && !isDeletingEducation) setEducationPendingDeletion(null);
         }}
         title="Remove education record?"
-        description="This education record will be permanently deleted from the employee profile."
+        description="Delete this record?"
         actionLabel="Remove record"
         isPending={isDeletingEducation}
         preventAutoClose

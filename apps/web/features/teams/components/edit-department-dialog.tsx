@@ -197,7 +197,7 @@ export function EditDepartmentDialog({
         open={saveConfirmationOpen}
         onOpenChange={setSaveConfirmationOpen}
         title="Save department changes?"
-        description={`The updates to “${department.name}” will be applied to your workspace.`}
+        description={`Save changes to “${department.name}”?`}
         actionLabel="Save changes"
         isPending={updateDepartment.isPending}
         onConfirm={() => void handleSave()}

@@ -216,10 +216,10 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
           </h1>
           <p className="text-sm text-muted-foreground">
             {isOnTrial
-              ? `You have ${overview.subscription?.daysRemaining ?? 14} days left on your free trial. Pick a plan or continue to your workspace.`
+              ? `${overview.subscription?.daysRemaining ?? 14} days left. Pick a plan or continue.`
               : canStartTrial
-                ? 'Start with 14 days free on any plan. No card required.'
-                : 'Your free trial was used on another workspace. Subscribe to activate this workspace.'}
+                ? '14 days free on any plan. No card required.'
+                : 'Trial used elsewhere. Subscribe to continue.'}
           </p>
         </div>
 
@@ -308,7 +308,7 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
 
         <p className="text-center text-xs text-muted-foreground">
           {canStartTrial || isOnTrial
-            ? 'Payroll and automated batch payouts are included on every plan during your trial.'
+            ? 'Payroll included on every plan.'
             : 'Payroll included on every plan · Manual pay & bank export are free'}
         </p>
         {dashboardHref ? (
@@ -325,10 +325,8 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
   if (overview.entitled && !overview.needsPayment) {
     return pageShell(
       <div className="mx-auto max-w-lg space-y-4 py-12 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">You&apos;re all set</h1>
-        <p className="text-sm text-muted-foreground">
-          Your workspace subscription is active. Head back to the dashboard.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">Subscription active</h1>
+        <p className="text-sm text-muted-foreground">Your workspace is ready.</p>
         {tenant?.slug ? (
           <Button asChild>
             <a href={tenantPath(tenant.slug)}>Go to workspace</a>
@@ -348,8 +346,8 @@ export function SubscribePage({ variant = 'app' }: SubscribePageProps) {
         </h1>
         <p className="text-sm text-muted-foreground">
           {overview.canManageBilling
-            ? 'Your trial has ended or payment is required. Subscribe to keep using your workspace.'
-            : 'Ask a workspace owner or admin to complete subscription payment.'}
+            ? 'Subscribe to continue.'
+            : 'Ask an owner or admin to subscribe.'}
         </p>
         <p className="text-xs text-muted-foreground">
           Payroll included on every plan · Manual pay & bank export are free
