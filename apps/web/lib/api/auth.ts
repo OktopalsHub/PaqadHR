@@ -35,6 +35,7 @@ export function mapSessionUser(bootstrap: SessionBootstrap): User {
     name: '',
     role: bootstrap.user.role,
     needsOnboarding: bootstrap.workspaces.length === 0,
+    hasPassword: bootstrap.user.hasPassword,
   });
 }
 
@@ -172,7 +173,7 @@ export async function login(input: LoginInput): Promise<SessionBootstrap> {
     body: JSON.stringify({
       email: input.email,
       password: input.password,
-      rememberMe: input.rememberMe,
+      rememberMe: input.rememberMe ?? true,
     }),
     skipCsrf: true,
   });
@@ -193,7 +194,7 @@ export async function register(input: SignupInput): Promise<RegistrationResponse
     body: JSON.stringify({
       email: input.email,
       password: input.password,
-      termsAccepted: input.agreeToTerms,
+      termsAccepted: true,
     }),
     skipCsrf: true,
   });
@@ -233,6 +234,11 @@ export async function logoutRequest(): Promise<void> {
   } finally {
     clearCsrfToken();
   }
+}
+
+/** Clears access_token only — keeps refresh for soft idle unlock. */
+export async function clearAccessCookie(): Promise<void> {
+  await apiClient('/auth/clear-access', { method: 'POST', skipCsrf: true });
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {

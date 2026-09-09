@@ -9,6 +9,9 @@ export class SessionUserDto {
 
   @ApiProperty()
   role: string;
+
+  @ApiProperty()
+  hasPassword: boolean;
 }
 
 export class SessionWorkspaceMemberDto {

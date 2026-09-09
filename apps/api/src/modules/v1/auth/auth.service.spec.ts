@@ -760,6 +760,7 @@ describe('AuthService', () => {
         id: 'user-1',
         email: 'owner@example.com',
         role: 'USER',
+        hasPassword: false,
       });
       expect(bootstrap.workspaces).toHaveLength(1);
       expect(bootstrap.workspaces[0]?.entitled).toBe(true);

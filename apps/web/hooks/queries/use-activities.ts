@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { fetchTenantActivities } from '@/lib/api/activities';
 import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
@@ -20,5 +20,6 @@ export function useTenantActivities(params?: {
     queryFn: () => fetchTenantActivities(queryParams),
     enabled: Boolean(tenant?.id) && enabled,
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 }

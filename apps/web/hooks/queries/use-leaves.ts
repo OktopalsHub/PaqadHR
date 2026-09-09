@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveLeave,
   createLeave,
@@ -47,6 +47,7 @@ export function useLeaves(options?: { limit?: number }) {
     queryFn: canViewTeamLeaves ? fetchLeaves : fetchMyLeaves,
     select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
     enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 

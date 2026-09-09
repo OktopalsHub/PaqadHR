@@ -41,7 +41,7 @@ export class AuthService {
     user: User,
     geo: GeoRequestContext = {},
     auditContext?: AuthAuditContext,
-    rememberMe = false,
+    rememberMe = true,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     return this.credentialService.login(user, geo, auditContext, rememberMe);
   }
@@ -134,7 +134,12 @@ export class AuthService {
       throw new UnauthorizedException('Not authenticated');
     const workspaces = await this.tenantsService.getSessionWorkspaces(userId);
     return {
-      user: { id: user.id, email: user.email, role: user.role },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        hasPassword: Boolean(user.password),
+      },
       paymentsEnabled: isBillingGatewayEnabled(),
       featureGatingEnabled: isFeatureGatingEnabled(),
       workspaces,

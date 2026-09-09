@@ -8,7 +8,6 @@ import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { PasswordRequirements } from '@/components/password-requirements';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -36,7 +35,6 @@ const Register = () => {
     defaultValues: {
       email: '',
       password: '',
-      agreeToTerms: false,
     },
   });
 
@@ -64,7 +62,7 @@ const Register = () => {
         </p>
       </div>
 
-      <SocialAuthButtons />
+      <SocialAuthButtons showAccountTermsNotice />
 
       <div className="relative py-1">
         <div className="absolute inset-0 flex items-center">
@@ -128,31 +126,6 @@ const Register = () => {
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="agreeToTerms"
-            render={({ field }) => (
-              <FormItem className="space-y-2 pt-1">
-                <div className="flex items-start gap-2">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="text-sm font-medium leading-5 text-slate-500">
-                    I agree to the{' '}
-                    <Link href="/terms" className="text-primary hover:text-primary/90">
-                      Terms of Service
-                    </Link>{' '}
-                    and{' '}
-                    <Link href="/privacy" className="text-primary hover:text-primary/90">
-                      Privacy Policy
-                    </Link>
-                  </FormLabel>
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
           <Button
             type="submit"
             variant="brandSolid"
@@ -161,6 +134,17 @@ const Register = () => {
           >
             {isLoading ? 'Creating account...' : 'Create account'}
           </Button>
+          <p className="text-center text-xs leading-5 text-slate-500">
+            By creating an account, you agree to our{' '}
+            <Link href="/terms" className="font-medium text-primary hover:text-primary/90">
+              Terms
+            </Link>{' '}
+            and{' '}
+            <Link href="/privacy" className="font-medium text-primary hover:text-primary/90">
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
       </Form>
 

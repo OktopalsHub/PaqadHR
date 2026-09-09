@@ -116,7 +116,7 @@ export class AuthCredentialService {
     user: User,
     geo: GeoRequestContext = {},
     auditContext?: AuthAuditContext,
-    rememberMe = false,
+    rememberMe = true,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     if (!user.isActive) throw new UnauthorizedException('User account is inactive');
     if (!user.emailVerified)

@@ -12,6 +12,7 @@ export const sessionBootstrapSchema = z.object({
     id: z.string(),
     email: z.string().email(),
     role: z.string(),
+    hasPassword: z.boolean().optional().default(true),
   }),
   paymentsEnabled: z.boolean(),
   featureGatingEnabled: z.boolean(),

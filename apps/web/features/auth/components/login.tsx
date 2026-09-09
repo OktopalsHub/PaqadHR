@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -64,12 +63,11 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
     defaultValues: {
       email: '',
       password: '',
-      rememberMe: false,
     },
   });
 
   const handleLoginSubmit = form.handleSubmit(async (values) => {
-    await submitHandledAuthAction(() => login(values));
+    await submitHandledAuthAction(() => login({ ...values, rememberMe: true }));
   });
 
   if (showRedirectSpinner) {
@@ -168,24 +166,11 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
             )}
           />
 
-          <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
-            <FormField
-              control={form.control}
-              name="rememberMe"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-2 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="text-sm font-medium text-slate-500">Remember me</FormLabel>
-                </FormItem>
-              )}
-            />
-
+          <div className="flex justify-end pt-1">
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="cursor-pointer self-start text-sm font-semibold text-primary hover:text-primary/90 sm:self-auto"
+              className="cursor-pointer text-sm font-semibold text-primary hover:text-primary/90"
             >
               Forgot password?
             </button>

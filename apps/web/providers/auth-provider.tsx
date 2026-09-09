@@ -13,6 +13,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 import { ToastMessage } from '@/components/toast-message';
+import { IdleLockGate } from '@/features/auth/components/idle-lock-gate';
 import { PrivacyConsentGate } from '@/features/auth/components/privacy-consent-gate';
 import {
   clearSession,
@@ -26,11 +27,13 @@ import {
   waitForSessionBootstrap,
 } from '@/lib/api/auth';
 import {
+  resumeAuthRefresh,
   setRefreshCallbacks,
   startProactiveRefresh,
   stopProactiveRefresh,
 } from '@/lib/api/auth-refresh';
 import { bootstrapCsrf } from '@/lib/api/client';
+import { clearIdleLock, touchLastActivity } from '@/lib/auth/idle-lock';
 import {
   hasResolvedSessionBootstrap,
   isServerValidatedSession,
@@ -119,13 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient]);
 
   useEffect(() => {
-    if (sessionQuery.data) {
+    if (sessionQuery.data && !sessionQuery.isPlaceholderData) {
+      clearIdleLock();
+      touchLastActivity();
+      resumeAuthRefresh();
       startProactiveRefresh();
     }
     return () => {
       stopProactiveRefresh();
     };
-  }, [sessionQuery.data]);
+  }, [sessionQuery.data, sessionQuery.isPlaceholderData]);
 
   const navigateAfterAuth = useCallback(
     async (bootstrap: SessionBootstrap) => {
@@ -193,6 +199,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     stopProactiveRefresh();
+    clearIdleLock();
+    resumeAuthRefresh();
     try {
       await logoutRequest();
     } catch {
@@ -252,6 +260,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={value}>
       {children}
       <PrivacyConsentGate />
+      <IdleLockGate
+        monitor={isServerValidatedSession(sessionUser, sessionQuery.isPlaceholderData)}
+        email={sessionUser?.email ?? null}
+        hasPassword={sessionUser?.hasPassword ?? true}
+        onUnlocked={() => {
+          void queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+        }}
+      />
     </AuthContext.Provider>
   );
 }

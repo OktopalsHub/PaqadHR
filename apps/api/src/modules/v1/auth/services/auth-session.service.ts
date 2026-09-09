@@ -17,7 +17,7 @@ export class AuthSessionService {
     private readonly jwtService: JwtService,
   ) {}
 
-  generateTokens(user: User, sessionToken?: string, rememberMe = false) {
+  generateTokens(user: User, sessionToken?: string, _rememberMe = true) {
     const payload = {
       sub: user.id,
       email: user.email,
@@ -28,10 +28,9 @@ export class AuthSessionService {
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: ENVIRONMENT.JWT.ACCESS_EXPIRES_IN as `${number}${'s' | 'm' | 'h' | 'd'}`,
     });
-    const refreshTokenExpiry = rememberMe ? '30d' : '24h';
     const refreshToken = this.jwtService.sign(payload, {
       secret: ENVIRONMENT.JWT.REFRESH_SECRET,
-      expiresIn: refreshTokenExpiry,
+      expiresIn: '30d',
     });
     return { accessToken, refreshToken };
   }
@@ -40,10 +39,10 @@ export class AuthSessionService {
     userId: string,
     ipAddress?: string | null,
     userAgent?: string | null,
-    rememberMe = false,
+    _rememberMe = true,
   ): Promise<Session> {
     const sessionToken = randomUUID();
-    const durationMs = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const durationMs = 30 * 24 * 60 * 60 * 1000;
     const expiresAt = new Date(Date.now() + durationMs);
     const session = this.sessionRepository.create({
       userId,
@@ -70,7 +69,7 @@ export class AuthSessionService {
       await this.sessionRepository.delete({ userId: user.id });
       throw new UnauthorizedException('Verify your email address before signing in');
     }
-    if (!payload.sid) return { ...this.generateTokens(user, payload.sid), rememberMe: false };
+    if (!payload.sid) return { ...this.generateTokens(user, payload.sid), rememberMe: true };
     const session = await this.sessionRepository.findOne({
       where: { token: payload.sid, userId: user.id },
     });
@@ -84,14 +83,11 @@ export class AuthSessionService {
     }
     const newSessionToken = randomUUID();
     session.token = newSessionToken;
-    const sessionDurationMs = session.expiresAt.getTime() - session.createdAt.getTime();
-    const isLongSession = sessionDurationMs > 2 * 24 * 60 * 60 * 1000;
-    const newDurationMs = isLongSession ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    session.expiresAt = new Date(Date.now() + newDurationMs);
+    session.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await this.sessionRepository.save(session);
     return {
-      ...this.generateTokens(user, newSessionToken, isLongSession),
-      rememberMe: isLongSession,
+      ...this.generateTokens(user, newSessionToken, true),
+      rememberMe: true,
     };
   }
 

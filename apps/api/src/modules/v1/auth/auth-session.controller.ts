@@ -103,7 +103,7 @@ export class AuthSessionController {
       ip,
       headers: req.headers,
     });
-    this.setAuthCookies(res, accessToken, refreshToken, false);
+    this.setAuthCookies(res, accessToken, refreshToken, true);
     return { user: { id: user.id, email: user.email, role: user.role } };
   }
 
@@ -121,9 +121,9 @@ export class AuthSessionController {
       req.user,
       { ip, headers: req.headers },
       undefined,
-      body.rememberMe,
+      body.rememberMe ?? true,
     );
-    this.setAuthCookies(res, accessToken, refreshToken, body.rememberMe);
+    this.setAuthCookies(res, accessToken, refreshToken, true);
     return {
       user: {
         id: req.user.id,
@@ -166,12 +166,19 @@ export class AuthSessionController {
       req.user,
       { ip, headers: req.headers },
       undefined,
-      false,
+      true,
     );
-    this.setAuthCookies(res, accessToken, refreshToken, false);
+    this.setAuthCookies(res, accessToken, refreshToken, true);
     res.clearCookie(GOOGLE_OAUTH_CONSENT_COOKIE, this.cookieOptions());
     const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
     res.redirect(`${frontend}/google/complete`);
+  }
+
+  @Post('clear-access')
+  @Public()
+  clearAccess(@Res({ passthrough: true }) res: Response): { message: string } {
+    res.clearCookie('access_token', this.cookieOptions());
+    return { message: 'Access cleared' };
   }
 
   @Post('refresh')
@@ -267,18 +274,17 @@ export class AuthSessionController {
     res: Response,
     accessToken: string,
     refreshToken: string,
-    rememberMe = false,
+    _rememberMe = true,
   ) {
-    const accessMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-    const refreshMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    const maxAge = 30 * 24 * 60 * 60 * 1000;
     const options = this.cookieOptions();
     res.cookie('access_token', accessToken, {
       ...options,
-      maxAge: accessMaxAge,
+      maxAge,
     });
     res.cookie('refresh_token', refreshToken, {
       ...options,
-      maxAge: refreshMaxAge,
+      maxAge,
     });
   }
 

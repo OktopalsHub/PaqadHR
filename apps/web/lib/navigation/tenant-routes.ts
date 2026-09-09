@@ -243,8 +243,16 @@ function isAllowedAuthRedirect(redirect: string): boolean {
 export function getPostAuthPath(tenants: Tenant[], redirect?: string | null): string {
   if (tenants.length === 0) return '/onboarding';
 
-  const tenant = tenants.find((item) => item.isActive) ?? tenants[0];
-  if (!tenant.slug) return '/onboarding';
+  const storedId =
+    typeof window !== 'undefined' ? window.localStorage.getItem('paqad_tenant_id') : null;
+  const storedSlug =
+    typeof window !== 'undefined' ? window.localStorage.getItem('paqad_tenant_slug') : null;
+  const tenant =
+    (storedId ? tenants.find((item) => item.id === storedId) : null) ??
+    (storedSlug ? tenants.find((item) => item.slug === storedSlug) : null) ??
+    tenants.find((item) => item.isActive) ??
+    tenants[0];
+  if (!tenant?.slug) return '/onboarding';
 
   if (redirect) {
     if (redirect.startsWith('/onboarding')) {

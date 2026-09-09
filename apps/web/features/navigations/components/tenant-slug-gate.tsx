@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { LoadingSpinner } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/use-auth';
+import { readIdleLock } from '@/lib/auth/idle-lock';
 import {
   captureAuthReturnTo,
   goToAuthDestination,
@@ -25,7 +26,7 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
   const tenantSlug = params.tenantSlug;
   const redirectedRef = useRef(false);
   const onboardingRedirectRef = useRef(false);
-  const { isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
   const {
     tenant,
     tenants,
@@ -33,11 +34,14 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     isLoading: tenantLoading,
     hasResolvedTenants,
   } = useTenant();
+  const idleLocked = typeof window !== 'undefined' && Boolean(readIdleLock());
 
   const slugTenant = tenants.find((item) => item.slug === tenantSlug);
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
+  const keepShell = Boolean(user) || idleLocked || isAuthenticated;
 
   useEffect(() => {
+    if (idleLocked) return;
     if (authLoading || !hasResolvedSession) return;
 
     if (!isAuthenticated) {
@@ -90,6 +94,7 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     slugTenant,
     pathname,
     router,
+    idleLocked,
   ]);
 
   useEffect(() => {
@@ -97,15 +102,22 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     selectTenantId(slugTenant.id);
   }, [slugTenant, tenant?.id, selectTenantId]);
 
-  if (isLoading || !hasResolvedSession || !hasResolvedTenants) {
+  if (idleLocked) {
+    return <>{children}</>;
+  }
+
+  if (!keepShell && (isLoading || !hasResolvedSession || !hasResolvedTenants)) {
     return <LoadingSpinner />;
   }
 
-  if (!isAuthenticated) {
+  if (hasResolvedSession && !isAuthenticated) {
     return <LoadingSpinner />;
   }
 
   if (!slugTenant) {
+    if (keepShell && (!hasResolvedSession || !hasResolvedTenants)) {
+      return <>{children}</>;
+    }
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
         <Alert variant="destructive" className="max-w-md">
@@ -118,8 +130,9 @@ export function TenantSlugGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Keep shell while tenant selection catches up to the URL slug.
   if (!tenant || tenant.id !== slugTenant.id) {
-    return <LoadingSpinner />;
+    return <>{children}</>;
   }
 
   return <>{children}</>;
