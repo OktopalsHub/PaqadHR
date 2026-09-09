@@ -7,6 +7,7 @@ import type {
   PayrollRunsResponse,
   PayrollSetupSummary,
 } from '@/lib/schemas/payroll';
+import { payrollSetupSummarySchema } from '@/lib/schemas/payroll';
 
 export async function fetchPayrollRuns(): Promise<PayrollRunsResponse> {
   const tenantId = await resolveTenantId();
@@ -107,7 +108,35 @@ export async function fetchPayrollReadiness(id: string): Promise<PayrollReadines
 
 export async function fetchPayrollSetupSummary(): Promise<PayrollSetupSummary> {
   const tenantId = await resolveTenantId();
-  return apiClient<PayrollSetupSummary>(tenantPath(tenantId, 'payroll/setup-summary'));
+  const data = await apiClient<unknown>(tenantPath(tenantId, 'payroll/setup-summary'));
+  return payrollSetupSummarySchema.parse(data);
+}
+
+export async function updatePayrollRun(
+  id: string,
+  input: import('@/lib/schemas/payroll').PatchPayrollRunInput,
+): Promise<PayrollRun> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ payrollRun: PayrollRun }>(
+    tenantPath(tenantId, `payroll/runs/${id}`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+  return result.payrollRun;
+}
+
+export async function updatePayrollRunTitle(id: string, title: string): Promise<PayrollRun> {
+  return updatePayrollRun(id, { title });
+}
+
+export async function notifyMemberPaymentSetup(memberId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, 'payroll/notify-payment-setup'), {
+    method: 'POST',
+    body: JSON.stringify({ memberId }),
+  });
 }
 
 export async function removePayrollItem(runId: string, itemId: string): Promise<void> {
@@ -122,18 +151,6 @@ export async function deletePayrollRun(id: string): Promise<void> {
   await apiClient(tenantPath(tenantId, `payroll/runs/${id}`), {
     method: 'DELETE',
   });
-}
-
-export async function updatePayrollRunTitle(id: string, title: string): Promise<PayrollRun> {
-  const tenantId = await resolveTenantId();
-  const result = await apiClient<{ payrollRun: PayrollRun }>(
-    tenantPath(tenantId, `payroll/runs/${id}`),
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ title }),
-    },
-  );
-  return result.payrollRun;
 }
 
 export async function reopenPayrollRun(id: string): Promise<PayrollRun> {

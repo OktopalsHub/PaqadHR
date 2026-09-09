@@ -6,6 +6,8 @@ import { ProductAnalyticsService } from '../../../../common/observability/produc
 import { ManagerAccessService } from '../../../../common/services/manager-access.service';
 import { PaymentProviderFactoryService } from '../../../../common/services/payment-provider-factory.service';
 import { NotificationHelperService } from '../../notifications/services/notification-helper.service';
+import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import { TenantMembersService } from '../../tenant-members/tenant-members.service';
 import type { CreatePayrollRunDto } from '../dto/create-payroll-run.dto';
 import type { PatchPayrollRunDto } from '../dto/patch-payroll-run.dto';
 import type {
@@ -36,12 +38,28 @@ export class PayrollService {
     readonly _managerAccessService: ManagerAccessService,
     readonly _productAnalytics: ProductAnalyticsService,
     private readonly payrollItemRepository: PayrollItemRepository,
+    private readonly paymentMethodService: PaymentMethodService,
+    private readonly tenantMembersService: TenantMembersService,
     @Optional() readonly _paymentProviderFactory?: PaymentProviderFactoryService,
     @Optional() readonly _notificationHelper?: NotificationHelperService,
   ) {}
 
-  isPayrollAdmin(requesterRole: string): boolean {
-    return this.accessGuard.isPayrollAdmin(requesterRole);
+  private async assertEmployeesPaymentReady(
+    tenantId: string,
+    employeeIds: string[],
+    currency: string,
+  ): Promise<void> {
+    const results = await this.paymentMethodService.assessBulkPayrollReadiness(
+      tenantId,
+      employeeIds,
+      currency,
+    );
+    const notReady = results.filter((r) => !r.ready);
+    if (notReady.length > 0) {
+      throw new BadRequestException(
+        `${notReady.length} employee(s) are missing payment details for ${currency.toUpperCase()} and cannot be included.`,
+      );
+    }
   }
 
   // --- CRUD delegation ---
@@ -51,7 +69,12 @@ export class PayrollService {
     createdById: string,
     idempotencyKey?: string,
   ) {
+    await this.assertEmployeesPaymentReady(tenantId, dto.employeeIds, dto.baseCurrency);
     return this.payrollRunService.createPayrollRun(dto, tenantId, createdById, idempotencyKey);
+  }
+
+  isPayrollAdmin(requesterRole: string): boolean {
+    return this.accessGuard.isPayrollAdmin(requesterRole);
   }
 
   async getPayrollRun(id: string, tenantId: string): Promise<PayrollRun | null> {
@@ -98,7 +121,32 @@ export class PayrollService {
     dto: PatchPayrollRunDto,
     auditContext: AuditContext,
   ) {
-    return this.payrollRunService.updatePayrollRun(payrollRunId, tenantId, dto, auditContext);
+    const structuralChange =
+      dto.frequency !== undefined ||
+      dto.periodStart !== undefined ||
+      dto.periodEnd !== undefined ||
+      dto.paymentDate !== undefined ||
+      dto.employeeIds !== undefined;
+
+    if (dto.employeeIds?.length) {
+      const existing = await this.payrollRunService.getPayrollRun(payrollRunId, tenantId);
+      if (!existing) throw new BadRequestException('Payroll run not found');
+      await this.assertEmployeesPaymentReady(tenantId, dto.employeeIds, existing.baseCurrency);
+    }
+
+    const run = await this.payrollRunService.updatePayrollRun(
+      payrollRunId,
+      tenantId,
+      dto,
+      auditContext,
+    );
+
+    if (structuralChange) {
+      await this.payrollCalculationService.calculatePayroll(payrollRunId, tenantId);
+      return this.payrollRunService.getPayrollRun(payrollRunId, tenantId);
+    }
+
+    return run;
   }
 
   async deletePayrollRun(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
@@ -225,13 +273,45 @@ export class PayrollService {
     requesterMemberId?: string,
     requesterRole?: string,
   ) {
-    return this.payrollRunService.notifyEmployeePaymentSetup(
+    const result = await this.payrollRunService.notifyEmployeePaymentSetup(
       payrollRunId,
       itemId,
       tenantId,
       requesterMemberId,
       requesterRole,
     );
+    const run = await this.payrollRunService.getPayrollRun(payrollRunId, tenantId);
+    const item = run?.items?.find((entry) => entry.id === itemId);
+    const employee = item?.employee;
+    if (employee?.userId && this._notificationHelper) {
+      const employeeName =
+        `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || 'there';
+      await this._notificationHelper.sendPayrollPaymentSetupReminder(employee.userId, tenantId, {
+        employeeName,
+        payrollPeriod: `${run?.periodStart ?? ''} – ${run?.periodEnd ?? ''}`,
+        message: 'please add your payment details so you can be included in payroll.',
+      });
+    }
+    return result;
+  }
+
+  async notifyMemberPaymentSetup(tenantId: string, memberId: string, requesterRole: string) {
+    if (!this.isPayrollAdmin(requesterRole)) {
+      throw new ForbiddenException('Admin access required');
+    }
+    const member = await this.tenantMembersService.getTenantMember(memberId, tenantId);
+    if (!member.userId) {
+      throw new BadRequestException('Employee not found for notification');
+    }
+    const employeeName = `${member.firstName ?? ''} ${member.lastName ?? ''}`.trim() || 'there';
+    if (this._notificationHelper) {
+      await this._notificationHelper.sendPayrollPaymentSetupReminder(member.userId, tenantId, {
+        employeeName,
+        payrollPeriod: 'upcoming payroll',
+        message: 'please add your payment details so you can be included in payroll.',
+      });
+    }
+    return { notified: true, memberId };
   }
 
   async getPayslipHtml(

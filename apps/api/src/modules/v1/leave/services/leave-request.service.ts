@@ -73,6 +73,8 @@ export class LeaveRequestService {
 
     this.productAnalytics.capture(memberId, 'leave_requested', { tenantId });
 
+    await this.leaveBalanceService.applyLeaveImpact(saved, null);
+
     return saved;
   }
 
@@ -82,6 +84,7 @@ export class LeaveRequestService {
     leaveTypeId: string,
     requestedDays: number,
     startDate: Date,
+    releaseDays = 0,
   ) {
     const year = new Date(startDate).getFullYear();
     const balance = await this.leaveBalanceService.findByCriteria({
@@ -95,12 +98,13 @@ export class LeaveRequestService {
         'Leave balance record not found for this member and leave type. Please contact HR to set up your leave balance.',
       );
     }
-    if (balance.remainingDays < requestedDays) {
+    const availableDays = balance.remainingDays + releaseDays;
+    if (availableDays < requestedDays) {
       throw new ForbiddenException(
-        `Insufficient leave balance. You have ${balance.remainingDays} days remaining, but requested ${requestedDays} days.`,
+        `Insufficient leave balance. You have ${availableDays} days remaining, but requested ${requestedDays} days.`,
       );
     }
-    if (balance.remainingDays === 0) {
+    if (availableDays === 0) {
       throw new ForbiddenException(
         'You have no remaining leave days for this leave type. Please contact HR if you need additional leave.',
       );
@@ -109,6 +113,16 @@ export class LeaveRequestService {
   }
 
   async deleteLeave(tenantId: string, leaveId: string) {
+    const leave = await this.leaveRepository.findOne({
+      where: { id: leaveId, tenantId, status: LeaveStatus.PENDING },
+    });
+    if (!leave) {
+      throw new ForbiddenException('You can only delete pending leave requests');
+    }
+    await this.leaveBalanceService.applyLeaveImpact(
+      { ...leave, status: LeaveStatus.CANCELLED } as typeof leave,
+      LeaveStatus.PENDING,
+    );
     const result = await this.leaveRepository.softDelete({
       id: leaveId,
       tenantId,

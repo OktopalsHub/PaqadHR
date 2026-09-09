@@ -156,6 +156,24 @@ export class PayrollRunsController {
     return this.payrollService.getWorkspaceSetupSummary(tenantId);
   }
 
+  @Post('notify-payment-setup')
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async notifyMemberPaymentSetup(
+    @Param('tenantId') tenantId: string,
+    @Body('memberId', ParseUUIDPipe) memberId: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const result = await this.payrollService.notifyMemberPaymentSetup(
+      tenantId,
+      memberId,
+      req.member.role,
+    );
+    return {
+      message: 'Employee notified to complete payment settings',
+      ...result,
+    };
+  }
+
   @Get('runs/:id/readiness')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)

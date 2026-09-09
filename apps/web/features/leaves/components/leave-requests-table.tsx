@@ -1,6 +1,6 @@
 'use client';
 
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
@@ -24,11 +24,12 @@ import {
 } from '@/components/ui/dialog';
 import {
   useApproveLeave,
+  useCancelLeave,
   useDeleteLeave,
   useLeaveApprovalContext,
   useRejectLeave,
 } from '@/hooks/queries/use-leaves';
-import { canApproveLeaveRequest } from '@/lib/auth/manager-access';
+import { canApproveLeaveRequest, isTenantAdmin } from '@/lib/auth/manager-access';
 import type { LeaveRequest } from '@/lib/schemas/leave';
 import { EditLeaveRequestDialog } from './edit-leave-request-dialog';
 import { LeaveStatusBadge } from './leave-status-badge';
@@ -38,14 +39,24 @@ interface LeaveRequestsTableProps {
   rowNumberOffset?: number;
 }
 
+function leaveHasStarted(startDate: string): boolean {
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return start <= today;
+}
+
 export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveRequestsTableProps) {
   const approveLeave = useApproveLeave();
   const rejectLeave = useRejectLeave();
   const deleteLeave = useDeleteLeave();
+  const cancelLeave = useCancelLeave();
   const { viewerMemberId, viewerRole, employees } = useLeaveApprovalContext();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [editingRequest, setEditingRequest] = useState<LeaveRequest | null>(null);
   const [requestPendingDeletion, setRequestPendingDeletion] = useState<LeaveRequest | null>(null);
+  const [requestPendingCancel, setRequestPendingCancel] = useState<LeaveRequest | null>(null);
   const [viewingReason, setViewingReason] = useState<LeaveRequest | null>(null);
 
   const canApproveAny = requests.some((request) =>
@@ -55,7 +66,14 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
     (request) =>
       request.status.toLowerCase() === 'pending' && request.requesterId === viewerMemberId,
   );
-  const showActions = canApproveAny || canEditAny;
+  const canCancelAny = requests.some((request) => {
+    if (request.status.toLowerCase() !== 'approved' || leaveHasStarted(request.startDate)) {
+      return false;
+    }
+    if (request.requesterId === viewerMemberId) return true;
+    return canApproveLeaveRequest(viewerMemberId ?? '', request.requesterId, employees, viewerRole);
+  });
+  const showActions = canApproveAny || canEditAny || canCancelAny || isTenantAdmin(viewerRole);
 
   const handleApprove = async (leaveId: string) => {
     setPendingId(leaveId);
@@ -95,6 +113,20 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
     }
   };
 
+  const handleCancel = async () => {
+    if (!requestPendingCancel) return;
+    setPendingId(requestPendingCancel.id);
+    try {
+      await cancelLeave.mutateAsync(requestPendingCancel.id);
+      toast.success('Leave request cancelled');
+      setRequestPendingCancel(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to cancel leave request');
+    } finally {
+      setPendingId(null);
+    }
+  };
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -114,7 +146,9 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
           </AppTableHeaderSection>
           <AppTableBodySection>
             {requests.map((request, index) => {
-              const isPending = request.status.toLowerCase() === 'pending';
+              const status = request.status.toLowerCase();
+              const isPending = status === 'pending';
+              const isApproved = status === 'approved';
               const isBusy = pendingId === request.id;
               const canApprove = canApproveLeaveRequest(
                 viewerMemberId ?? '',
@@ -123,6 +157,10 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
                 viewerRole,
               );
               const canEdit = isPending && request.requesterId === viewerMemberId;
+              const canCancel =
+                isApproved &&
+                !leaveHasStarted(request.startDate) &&
+                (request.requesterId === viewerMemberId || canApprove);
               const requester = employees.find((emp) => emp.id === request.requesterId);
 
               return (
@@ -194,6 +232,17 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
                             <Trash2 className="size-4" />
                           </Button>
                         </div>
+                      ) : canCancel ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 gap-1 border-red-200 px-3 text-xs text-red-600 shadow-none hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:hover:bg-red-950/20"
+                          disabled={isBusy}
+                          onClick={() => setRequestPendingCancel(request)}
+                        >
+                          <XCircle className="size-3.5" />
+                          Cancel
+                        </Button>
                       ) : (
                         <span className="text-xs text-slate-500 dark:text-slate-400">—</span>
                       )}
@@ -242,10 +291,19 @@ export function LeaveRequestsTable({ requests, rowNumberOffset = 0 }: LeaveReque
         open={Boolean(requestPendingDeletion)}
         onOpenChange={(open) => !open && setRequestPendingDeletion(null)}
         title="Delete leave request?"
-        description="Delete this pending request?"
+        description="Delete this pending request? Reserved leave days will be returned to your balance."
         actionLabel="Delete request"
         onConfirm={() => void handleDelete()}
         isPending={deleteLeave.isPending}
+      />
+      <ConfirmActionDialog
+        open={Boolean(requestPendingCancel)}
+        onOpenChange={(open) => !open && setRequestPendingCancel(null)}
+        title="Cancel leave request?"
+        description="Cancel this approved leave? Leave days will be returned to the balance."
+        actionLabel="Cancel leave"
+        onConfirm={() => void handleCancel()}
+        isPending={cancelLeave.isPending}
       />
     </>
   );

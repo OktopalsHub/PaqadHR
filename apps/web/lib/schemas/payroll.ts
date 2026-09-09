@@ -55,11 +55,13 @@ export type PayrollReadiness = z.infer<typeof payrollReadinessSchema>;
 export const payrollSetupSummarySchema = z.object({
   totalEmployees: z.number(),
   paymentReadyCount: z.number(),
+  readyMemberIds: z.array(z.string()).optional().default([]),
   byCurrency: z.array(
     z.object({
       currency: z.string(),
       employeeCount: z.number(),
       paymentReadyCount: z.number(),
+      readyMemberIds: z.array(z.string()).optional().default([]),
     }),
   ),
 });
@@ -77,6 +79,17 @@ export const createPayrollRunInputSchema = z.object({
 });
 
 export type CreatePayrollRunInput = z.infer<typeof createPayrollRunInputSchema>;
+
+export const patchPayrollRunInputSchema = z.object({
+  title: z.string().min(3).optional(),
+  frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']).optional(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  paymentDate: z.string().optional(),
+  employeeIds: z.array(z.string()).min(1).optional(),
+});
+
+export type PatchPayrollRunInput = z.infer<typeof patchPayrollRunInputSchema>;
 
 export const payrollAdjustmentLineSchema = z.object({
   employeeId: z.string(),

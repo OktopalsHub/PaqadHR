@@ -102,6 +102,13 @@ export async function deleteLeave(leaveId: string): Promise<void> {
   });
 }
 
+export async function cancelLeave(leaveId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `leaves/${leaveId}/cancel`), {
+    method: 'PATCH',
+  });
+}
+
 export async function approveLeave(leaveId: string, comments?: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `leaves/${leaveId}/approve`), {

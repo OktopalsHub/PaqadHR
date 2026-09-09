@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { HintIcon } from '@/features/settings/components/settings-field-hint';
-import { useCreatePayrollRun } from '@/hooks/queries/use-payroll';
+import { useCreatePayrollRun, usePayrollActions } from '@/hooks/queries/use-payroll';
 import type { CurrentSalary } from '@/lib/api/employment';
 import { groupEmployeeIdsBySalaryCurrency } from '@/lib/payroll-create';
 import {
@@ -34,6 +34,7 @@ type CreatePayrollRunDialogProps = {
   activeEmployees: Employee[];
   currentSalaries: CurrentSalary[];
   fallbackCurrency: string;
+  paymentReadyByCurrency: Map<string, Set<string>>;
   onCreated: (firstRunId: string | null) => void;
 };
 
@@ -50,6 +51,7 @@ export function CreatePayrollRunDialog({
   activeEmployees,
   currentSalaries,
   fallbackCurrency,
+  paymentReadyByCurrency,
   onCreated,
 }: CreatePayrollRunDialogProps) {
   const now = new Date();
@@ -68,6 +70,7 @@ export function CreatePayrollRunDialog({
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
 
   const createRun = useCreatePayrollRun();
+  const actions = usePayrollActions();
 
   const payrollRunsToCreate = useMemo(
     () => groupEmployeeIdsBySalaryCurrency(selectedEmployeeIds, currentSalaries, fallbackCurrency),
@@ -104,7 +107,21 @@ export function CreatePayrollRunDialog({
     }
   };
 
+  const salaryCurrencyByEmployee = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const salary of currentSalaries) {
+      map.set(salary.memberId, (salary.currency ?? fallbackCurrency).toUpperCase());
+    }
+    return map;
+  }, [currentSalaries, fallbackCurrency]);
+
+  const isPaymentReady = (employeeId: string) => {
+    const currency = salaryCurrencyByEmployee.get(employeeId) ?? fallbackCurrency.toUpperCase();
+    return paymentReadyByCurrency.get(currency)?.has(employeeId) ?? false;
+  };
+
   const toggleEmployee = (employeeId: string, checked: boolean) => {
+    if (!isPaymentReady(employeeId)) return;
     setSelectedEmployeeIds((current) => {
       if (checked) {
         return current.includes(employeeId) ? current : [...current, employeeId];
@@ -140,8 +157,19 @@ export function CreatePayrollRunDialog({
 
   const goToStepTwo = () => {
     if (!validateStepOne()) return;
-    setSelectedEmployeeIds(allEligibleEmployeeIds);
+    setSelectedEmployeeIds(
+      allEligibleEmployeeIds.filter((employeeId) => isPaymentReady(employeeId)),
+    );
     setStep(2);
+  };
+
+  const handleNotify = async (memberId: string) => {
+    try {
+      await actions.notifyMemberPaymentSetup.mutateAsync(memberId);
+      toast.success('Employee notified');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to notify employee');
+    }
   };
 
   const handleCreate = async () => {
@@ -193,7 +221,7 @@ export function CreatePayrollRunDialog({
     }
   };
 
-  const busy = createRun.isPending;
+  const busy = createRun.isPending || actions.notifyMemberPaymentSetup.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -294,7 +322,9 @@ export function CreatePayrollRunDialog({
           </div>
         ) : (
           <div className="space-y-4 pt-2">
-            <p className="text-sm text-muted-foreground">Uncheck anyone to skip this run.</p>
+            <p className="text-sm text-muted-foreground">
+              Only employees with payment details can be included. Others are shown disabled.
+            </p>
 
             {groupEmployeeIdsBySalaryCurrency(
               allEligibleEmployeeIds,
@@ -310,19 +340,37 @@ export function CreatePayrollRunDialog({
                   {employeeIds.map((employeeId) => {
                     const employee = employeesById.get(employeeId);
                     if (!employee) return null;
+                    const ready = isPaymentReady(employeeId);
                     const checkboxId = `payroll-employee-${employeeId}`;
                     return (
                       <div key={employeeId} className="flex items-center gap-2 text-sm">
                         <Checkbox
                           id={checkboxId}
-                          checked={selectedEmployeeIds.includes(employeeId)}
+                          checked={ready && selectedEmployeeIds.includes(employeeId)}
+                          disabled={!ready}
                           onCheckedChange={(checked) =>
                             toggleEmployee(employeeId, checked === true)
                           }
                         />
-                        <Label htmlFor={checkboxId} className="truncate font-normal">
+                        <Label
+                          htmlFor={checkboxId}
+                          className={`min-w-0 flex-1 truncate font-normal ${ready ? '' : 'text-muted-foreground'}`}
+                        >
                           {employeeName(employee)}
+                          {!ready ? ' · No payment method' : ''}
                         </Label>
+                        {!ready ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 shrink-0 px-2 text-xs"
+                            disabled={busy}
+                            onClick={() => void handleNotify(employeeId)}
+                          >
+                            Notify
+                          </Button>
+                        ) : null}
                       </div>
                     );
                   })}

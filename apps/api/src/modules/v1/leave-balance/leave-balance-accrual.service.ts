@@ -6,6 +6,7 @@ import { NotificationHelperService } from '../notifications/services/notificatio
 import type { LeaveBalance } from './entities/leave-balance.entity';
 import { LeaveBalanceRepository } from './leave-balance.repository';
 import { LeaveBalanceCalcService } from './leave-balance-calc.service';
+import { leaveBalanceUsedDaysChange } from './leave-balance-impact.util';
 
 @Injectable()
 export class LeaveBalanceAccrualService {
@@ -178,7 +179,12 @@ export class LeaveBalanceAccrualService {
     return newBalances;
   }
 
-  async applyLeaveImpact(leave: Leave, previousStatus: LeaveStatus) {
+  /**
+   * Reservation model: pending create reserves days; approve keeps reservation;
+   * reject/delete pending and cancel approved release days.
+   * Pass previousStatus=null for a newly created pending leave.
+   */
+  async applyLeaveImpact(leave: Leave, previousStatus: LeaveStatus | null) {
     const balance = await this.leaveBalanceRepository.findByCriteria({
       tenantId: leave.tenantId,
       memberId: leave.requestedBy,
@@ -188,16 +194,7 @@ export class LeaveBalanceAccrualService {
     if (!balance) {
       throw new NotFoundException('Leave balance not found');
     }
-    let usedDaysChange = 0;
-    if (previousStatus === LeaveStatus.PENDING && leave.status === LeaveStatus.APPROVED) {
-      usedDaysChange = leave.duration;
-    } else if (previousStatus === LeaveStatus.APPROVED && leave.status === LeaveStatus.REJECTED) {
-      usedDaysChange = -leave.duration;
-    } else if (previousStatus === LeaveStatus.APPROVED && leave.status === LeaveStatus.CANCELLED) {
-      usedDaysChange = -leave.duration;
-    } else if (previousStatus === LeaveStatus.PENDING && leave.status === LeaveStatus.REJECTED) {
-      usedDaysChange = 0;
-    }
+    const usedDaysChange = leaveBalanceUsedDaysChange(previousStatus, leave.status, leave.duration);
     if (usedDaysChange !== 0) {
       const newUsedDays = balance.usedDays + usedDaysChange;
       const newRemainingDays = balance.totalDays - newUsedDays;
@@ -210,7 +207,7 @@ export class LeaveBalanceAccrualService {
         .sendLeaveBalanceUpdatedNotification(leave.requestedBy, leave.tenantId, {
           leaveTypeName: leave.leaveTypes?.name ?? 'Leave',
           remainingDays: newRemainingDays,
-          reason: usedDaysChange > 0 ? 'Leave approved' : 'Leave cancelled',
+          reason: usedDaysChange > 0 ? 'Leave requested' : 'Leave cancelled',
         })
         .catch((error) => {
           this.logger.error('Failed to send leave balance notification', error);
@@ -227,7 +224,11 @@ export class LeaveBalanceAccrualService {
     newDuration: number,
     leaveStatus: LeaveStatus,
   ) {
-    if (leaveStatus !== LeaveStatus.APPROVED) {
+    if (leaveStatus !== LeaveStatus.APPROVED && leaveStatus !== LeaveStatus.PENDING) {
+      return;
+    }
+    const durationDifference = newDuration - oldDuration;
+    if (durationDifference === 0) {
       return;
     }
     const balance = await this.leaveBalanceRepository.findByCriteria({
@@ -239,7 +240,6 @@ export class LeaveBalanceAccrualService {
     if (!balance) {
       throw new NotFoundException('Leave balance not found');
     }
-    const durationDifference = newDuration - oldDuration;
     const newUsedDays = balance.usedDays + durationDifference;
     const newRemainingDays = balance.totalDays - newUsedDays;
     await this.leaveBalanceRepository.update(balance.id, {

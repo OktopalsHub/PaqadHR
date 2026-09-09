@@ -14,6 +14,7 @@ import {
   fetchPayrollSetupSummary,
   fetchRunPayslips,
   notifyEmployeePaymentSetup,
+  notifyMemberPaymentSetup,
   payNowPayroll,
   processPayrollRun,
   publishPayslips,
@@ -21,10 +22,15 @@ import {
   reopenPayrollRun,
   schedulePayrollPayout,
   updatePayrollItem,
+  updatePayrollRun,
   updatePayrollRunTitle,
 } from '@/lib/api/payroll';
 import { queryKeys } from '@/lib/query/keys';
-import type { CreatePayrollRunInput, PayrollAdjustmentLine } from '@/lib/schemas/payroll';
+import type {
+  CreatePayrollRunInput,
+  PatchPayrollRunInput,
+  PayrollAdjustmentLine,
+} from '@/lib/schemas/payroll';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function usePayrollRuns() {
@@ -83,6 +89,21 @@ export function useCreatePayrollRun() {
 
   return useMutation({
     mutationFn: (input: CreatePayrollRunInput) => createPayrollRun(input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.payroll.all, tenantId],
+      });
+    },
+  });
+}
+
+export function useUpdatePayrollRun() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PatchPayrollRunInput }) =>
+      updatePayrollRun(id, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.payroll.all, tenantId],
@@ -175,6 +196,9 @@ export function usePayrollActions() {
     notifyPaymentSetup: useMutation({
       mutationFn: ({ runId, itemId }: { runId: string; itemId: string }) =>
         notifyEmployeePaymentSetup(runId, itemId),
+    }),
+    notifyMemberPaymentSetup: useMutation({
+      mutationFn: (memberId: string) => notifyMemberPaymentSetup(memberId),
     }),
   };
 }

@@ -35,6 +35,7 @@ export class LeaveService {
     leaveTypeId: string,
     requestedDays: number,
     startDate: Date,
+    releaseDays = 0,
   ) {
     return this.leaveRequestService.checkLeaveBalance(
       tenantId,
@@ -42,6 +43,7 @@ export class LeaveService {
       leaveTypeId,
       requestedDays,
       startDate,
+      releaseDays,
     );
   }
 
@@ -211,18 +213,25 @@ export class LeaveService {
       throw new NotFoundException('Leave not found');
     }
     const nextLeaveTypeId = dto.leaveTypeId ?? existing.leaveTypeId;
+    const oldDuration = existing.duration;
+    const oldYear = new Date(existing.startDate).getFullYear();
     let duration = existing.duration;
+    let nextStartDate = existing.startDate;
 
     if (dto.startDate || dto.endDate) {
       const tenantSettings = await this.tenantSettingsService.getTenantSettings(tenantId);
       const holidaySettings = tenantSettings?.settings?.holidays;
+      nextStartDate = dto.startDate || existing.startDate;
       const { durationInDays, workingDays } = DateTimeHelper.calculateDuration(
-        dto.startDate || existing.startDate,
+        nextStartDate,
         dto.endDate || existing.endDate,
         holidaySettings,
       );
       duration = workingDays ?? durationInDays;
     }
+
+    const nextYear = new Date(nextStartDate).getFullYear();
+    const sameBalanceBucket = nextLeaveTypeId === existing.leaveTypeId && nextYear === oldYear;
 
     if (
       (dto.startDate || dto.endDate || dto.leaveTypeId) &&
@@ -234,7 +243,8 @@ export class LeaveService {
         existing.requestedBy,
         nextLeaveTypeId,
         duration,
-        dto.startDate || existing.startDate,
+        nextStartDate,
+        sameBalanceBucket ? oldDuration : 0,
       );
     }
 
@@ -245,11 +255,39 @@ export class LeaveService {
     if (!result.affected) {
       throw new ForbiddenException('You can only modify pending leave requests');
     }
+
+    if (existing.requestedBy && (dto.startDate || dto.endDate || dto.leaveTypeId)) {
+      if (sameBalanceBucket) {
+        await this.leaveBalanceUpdateService.adjustPendingOrApprovedDuration(
+          tenantId,
+          existing.requestedBy,
+          existing.leaveTypeId,
+          oldYear,
+          oldDuration,
+          duration,
+          LeaveStatus.PENDING,
+        );
+      } else {
+        await this.leaveBalanceUpdateService.releaseAndReserve(
+          tenantId,
+          existing,
+          nextLeaveTypeId,
+          nextStartDate,
+          duration,
+        );
+      }
+    }
+
     return this.getLeave(tenantId, leaveId);
   }
 
   async deleteLeave(tenantId: string, leaveId: string) {
     return this.leaveRequestService.deleteLeave(tenantId, leaveId);
+  }
+
+  async cancelLeave(tenantId: string, leaveId: string, actorMemberId: string) {
+    const updated = await this.leaveApprovalService.cancelLeave(tenantId, leaveId, actorMemberId);
+    return this.toLeaveResponseDto(updated);
   }
 
   async approveLeave(tenantId: string, leaveId: string, approverId: string, comments?: string) {

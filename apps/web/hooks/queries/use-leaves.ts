@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   approveLeave,
+  cancelLeave,
   createLeave,
   deleteLeave,
   fetchLeaves,
@@ -85,6 +86,15 @@ export function useDeleteLeave() {
 
   return useMutation({
     mutationFn: (leaveId: string) => deleteLeave(leaveId),
+    onSuccess: () => invalidateLeaveMutationQueries(queryClient),
+  });
+}
+
+export function useCancelLeave() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (leaveId: string) => cancelLeave(leaveId),
     onSuccess: () => invalidateLeaveMutationQueries(queryClient),
   });
 }

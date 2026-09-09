@@ -23,7 +23,9 @@ export class LeaveNotificationsService {
         ? 'approved'
         : variables.status === 'rejected'
           ? 'rejected'
-          : 'updated';
+          : variables.status === 'cancelled'
+            ? 'cancelled'
+            : 'updated';
 
     await this.notificationService.createNotification({
       type: NotificationType.USER,

@@ -164,16 +164,91 @@ export class RunLifecycle {
     dto: PatchPayrollRunDto,
     auditContext: AuditContext,
   ): Promise<PayrollRun> {
-    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
     if (!run) throw new BadRequestException('Payroll run not found');
-    assertPayrollRunTitleEditable(run);
-    run.title = dto.title.trim();
+
+    const structuralChange =
+      dto.frequency !== undefined ||
+      dto.periodStart !== undefined ||
+      dto.periodEnd !== undefined ||
+      dto.paymentDate !== undefined ||
+      dto.employeeIds !== undefined;
+
+    if (structuralChange) {
+      assertPayrollRunMutable(run, 'edit');
+    } else if (dto.title !== undefined) {
+      assertPayrollRunTitleEditable(run);
+    } else {
+      throw new BadRequestException('No payroll run fields to update');
+    }
+
+    if (dto.title !== undefined) {
+      run.title = dto.title.trim();
+    }
+    if (dto.frequency !== undefined) {
+      run.frequency = dto.frequency;
+    }
+    if (dto.periodStart !== undefined) {
+      run.periodStart = dto.periodStart;
+    }
+    if (dto.periodEnd !== undefined) {
+      run.periodEnd = dto.periodEnd;
+    }
+    if (dto.paymentDate !== undefined) {
+      run.paymentDate = dto.paymentDate;
+    }
+
+    if (dto.employeeIds !== undefined) {
+      const desired = new Set(dto.employeeIds);
+      const currency = run.baseCurrency;
+      const activeItems = (run.items ?? []).filter(
+        (item) => item.status !== PayrollItemStatus.CANCELLED,
+      );
+
+      for (const item of activeItems) {
+        if (!desired.has(item.memberId)) {
+          item.status = PayrollItemStatus.CANCELLED;
+          item.failureReason = 'Excluded from payroll run by administrator';
+          item.metadata = { ...item.metadata, excludedFromRun: true };
+          await this.payrollItemRepository.save(item);
+        }
+      }
+
+      const activeMemberIds = new Set(
+        (run.items ?? [])
+          .filter((item) => item.status !== PayrollItemStatus.CANCELLED)
+          .map((item) => item.memberId),
+      );
+
+      for (const memberId of desired) {
+        if (activeMemberIds.has(memberId)) continue;
+        const item = this.payrollItemRepository.create({
+          payrollRunId: run.id,
+          memberId,
+          status: PayrollItemStatus.PENDING,
+          baseSalary: 0,
+          baseSalaryCurrency: currency,
+          grossAmount: 0,
+          netAmount: 0,
+          paymentCurrency: currency,
+          paymentAmount: 0,
+          exchangeRate: 1,
+        });
+        await this.payrollItemRepository.save(item);
+      }
+
+      run.employeeCount = desired.size;
+    }
+
     await this.payrollRunRepository.save(run);
     await this.auditService.logAdjustmentCalculated(auditContext, {
-      action: 'update_run_title',
+      action: structuralChange ? 'update_run' : 'update_run_title',
       payrollRunId,
-      previousTitle: run.title,
       title: run.title,
+      employeeCount: run.employeeCount,
     });
     return (await this.getPayrollRun(payrollRunId, tenantId))!;
   }

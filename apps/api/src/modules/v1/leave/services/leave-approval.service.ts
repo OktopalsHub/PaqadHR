@@ -114,6 +114,64 @@ export class LeaveApprovalService {
     return updated;
   }
 
+  async cancelLeave(tenantId: string, leaveId: string, actorMemberId: string) {
+    const leave = await this.findLeaveEntity(tenantId, leaveId);
+    if (!leave) {
+      throw new NotFoundException('Leave not found');
+    }
+    if (leave.status !== LeaveStatus.APPROVED) {
+      throw new ForbiddenException('Only approved leave can be cancelled');
+    }
+    const start = new Date(leave.startDate);
+    start.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (start <= today) {
+      throw new ForbiddenException('Cannot cancel leave that has already started');
+    }
+    await this.leaveRepository.update(leave.id, {
+      status: LeaveStatus.CANCELLED,
+      reviewedAt: new Date(),
+      comments: leave.comments,
+    });
+    const updatedLeave = await this.findLeaveEntity(tenantId, leaveId);
+    if (!updatedLeave) {
+      throw new NotFoundException('Updated leave not found');
+    }
+    await this.leaveBalanceService.applyLeaveImpact(updatedLeave, LeaveStatus.APPROVED);
+    const updated = await this.findLeaveEntity(tenantId, leaveId);
+    if (!updated) {
+      throw new NotFoundException('Updated leave not found');
+    }
+    await this.activitiesService.queueActivity({
+      tenantId,
+      actorMemberId,
+      action: 'leave.cancelled',
+      resourceType: 'leave',
+      resourceId: leave.id,
+      description: `Leave request cancelled: ${leave.leaveTypes?.name ?? 'Leave'} (${leave.duration} days)`,
+      metadata: {
+        leaveType: leave.leaveTypes?.name ?? 'Leave',
+        duration: leave.duration,
+        requesterId: leave.requestedBy,
+      },
+    });
+
+    void this.notificationHelperService
+      .sendLeaveRequestNotification(updated.requestedBy, tenantId, {
+        status: 'cancelled',
+        startDate: String(updated.startDate),
+        endDate: String(updated.endDate),
+      })
+      .catch((error) => {
+        this.logger.error('Failed to send leave cancellation notification', error);
+      });
+
+    this.productAnalytics.capture(actorMemberId, 'leave_cancelled', { tenantId });
+
+    return updated;
+  }
+
   private async findLeaveEntity(tenantId: string, leaveId: string): Promise<Leave | null> {
     return this.leaveRepository.findOne({
       where: { id: leaveId, tenantId },

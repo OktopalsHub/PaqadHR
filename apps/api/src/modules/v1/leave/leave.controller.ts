@@ -161,6 +161,23 @@ export class LeaveController {
     return this.leaveService.deleteLeave(tenantId, leaveId);
   }
 
+  @Patch(':leaveId/cancel')
+  async cancelLeave(
+    @Param('tenantId') tenantId: string,
+    @Param('leaveId') leaveId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    const leave = await this.leaveService.getLeave(tenantId, leaveId);
+    const isRequester = leave.requester?.id === member.id;
+    if (!isRequester) {
+      if (!leave.requester?.id) {
+        throw new ForbiddenException('Admin or manager access required');
+      }
+      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
+    }
+    return this.leaveService.cancelLeave(tenantId, leaveId, member.id);
+  }
+
   @Patch(':leaveId/approve')
   async approveLeave(
     @Param('tenantId') tenantId: string,

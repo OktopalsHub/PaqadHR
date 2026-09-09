@@ -138,10 +138,12 @@ export class PayrollCalculationService {
       byCurrencyMap.set(c, ids);
     }
     let paymentReadyCount = 0;
+    const readyMemberIds: string[] = [];
     const byCurrency: Array<{
       currency: string;
       employeeCount: number;
       paymentReadyCount: number;
+      readyMemberIds: string[];
     }> = [];
     for (const [currency, memberIds] of byCurrencyMap.entries()) {
       const results = await this.paymentMethodService.assessBulkPayrollReadiness(
@@ -149,11 +151,17 @@ export class PayrollCalculationService {
         memberIds,
         currency,
       );
-      const ready = results.filter((r) => r.ready).length;
-      paymentReadyCount += ready;
-      byCurrency.push({ currency, employeeCount: memberIds.length, paymentReadyCount: ready });
+      const readyIds = results.filter((r) => r.ready).map((r) => r.memberId);
+      paymentReadyCount += readyIds.length;
+      readyMemberIds.push(...readyIds);
+      byCurrency.push({
+        currency,
+        employeeCount: memberIds.length,
+        paymentReadyCount: readyIds.length,
+        readyMemberIds: readyIds,
+      });
     }
     byCurrency.sort((a, b) => a.currency.localeCompare(b.currency));
-    return { totalEmployees: eligible.length, paymentReadyCount, byCurrency };
+    return { totalEmployees: eligible.length, paymentReadyCount, readyMemberIds, byCurrency };
   }
 }

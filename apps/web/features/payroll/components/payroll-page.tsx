@@ -434,6 +434,14 @@ export function PayrollPage() {
                 activeEmployees={activeEmployees}
                 currentSalaries={currentSalaries}
                 fallbackCurrency={tenant?.preferredCurrency?.toUpperCase() ?? 'USD'}
+                paymentReadyByCurrency={
+                  new Map(
+                    (setupSummary?.byCurrency ?? []).map((row) => [
+                      row.currency.toUpperCase(),
+                      new Set(row.readyMemberIds ?? []),
+                    ]),
+                  )
+                }
                 onCreated={(runId) => {
                   if (runId) setSelectedRunId(runId);
                 }}

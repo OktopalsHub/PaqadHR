@@ -183,7 +183,7 @@ export class LeaveBalanceService {
     });
   }
 
-  async applyLeaveImpact(leave: Leave, previousStatus: LeaveStatus) {
+  async applyLeaveImpact(leave: Leave, previousStatus: LeaveStatus | null) {
     return this.leaveBalanceAccrualService.applyLeaveImpact(leave, previousStatus);
   }
 
