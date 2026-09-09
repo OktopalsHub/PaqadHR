@@ -230,13 +230,23 @@ http.interceptors.response.use(
 
       requestConfig._isRetry = true;
 
-      for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
-        const refreshed = await refreshAccessToken();
+      // Session probe: one soft refresh — anonymous users must not burn toward hard logout.
+      const isSessionProbe = path.includes('/auth/session');
+      if (isSessionProbe) {
+        const refreshed = await refreshAccessToken({ softFail: true });
         if (refreshed) {
           startProactiveRefresh();
           return http(requestConfig);
         }
-        await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+      } else {
+        for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+          const refreshed = await refreshAccessToken();
+          if (refreshed) {
+            startProactiveRefresh();
+            return http(requestConfig);
+          }
+          await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+        }
       }
     }
 

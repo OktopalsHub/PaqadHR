@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
+import { isPublicAuthOrMarketingPath } from '@/lib/navigation/public-routes';
 import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { clearSessionStorage } from '@/lib/session';
 import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
@@ -50,17 +51,34 @@ export function invalidateSession() {
   }
 }
 
+/** Exported for tests — whether refresh expiry should hard-navigate to sign-in. */
+export function shouldHardRedirectOnRefreshExpiry(pathname: string): boolean {
+  return !isPublicAuthOrMarketingPath(pathname);
+}
+
 function handleRefreshExpired(): void {
   stopProactiveRefresh();
   invalidateSession();
-  if (typeof window !== 'undefined') {
-    window.location.assign(authPageUrl('/signin'));
+  consecutiveFailures = 0;
+
+  if (typeof window === 'undefined') return;
+
+  const pathname = window.location.pathname;
+  if (!shouldHardRedirectOnRefreshExpiry(pathname)) {
+    return;
   }
+
+  window.location.assign(authPageUrl('/signin'));
 }
 
-export async function refreshAccessToken(): Promise<boolean> {
+export async function refreshAccessToken(options?: {
+  /** When true, a failure does not increment toward hard logout (session probe soft path). */
+  softFail?: boolean;
+}): Promise<boolean> {
   if (refreshPaused) return false;
   if (refreshPromise) return refreshPromise;
+
+  const softFail = options?.softFail === true;
 
   refreshPromise = (async () => {
     try {
@@ -78,15 +96,19 @@ export async function refreshAccessToken(): Promise<boolean> {
         onRefreshSuccess?.();
         return true;
       }
-      consecutiveFailures++;
-      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        handleRefreshExpired();
+      if (!softFail) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          handleRefreshExpired();
+        }
       }
       return false;
     } catch {
-      consecutiveFailures++;
-      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-        handleRefreshExpired();
+      if (!softFail) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          handleRefreshExpired();
+        }
       }
       return false;
     } finally {

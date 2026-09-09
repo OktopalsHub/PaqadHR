@@ -2,6 +2,7 @@ import { invalidateSession, refreshAccessToken } from '@/lib/api/auth-refresh';
 import { ApiError, apiClient, bootstrapCsrf, clearCsrfToken } from '@/lib/api/client';
 import { fetchUserTenants } from '@/lib/api/tenants';
 import { cacheKeys, MAX_CACHE_TTL, setCached } from '@/lib/cache';
+import { isPublicAuthOrMarketingPath } from '@/lib/navigation/public-routes';
 import { isOnTenantSubdomain } from '@/lib/navigation/tenant-routes';
 import type { LoginInput, SignupInput, User } from '@/lib/schemas/auth';
 import { userSchema } from '@/lib/schemas/auth';
@@ -148,8 +149,12 @@ export async function getSession(): Promise<SessionBootstrap | null> {
   if (typeof window === 'undefined') return null;
 
   try {
+    const pathname = window.location.pathname;
+    const onPublicPage = isPublicAuthOrMarketingPath(pathname);
     const bootstrap = await waitForSessionBootstrap({
-      attempts: isOnTenantSubdomain() ? 4 : 2,
+      // Public pages: one probe — anonymous 401 is expected; avoid refresh storm.
+      // Tenant subdomain: more attempts for OAuth cookie race.
+      attempts: onPublicPage ? 1 : isOnTenantSubdomain() ? 4 : 2,
       baseDelayMs: isOnTenantSubdomain() ? 100 : 80,
     });
     if (!bootstrap) return null;
