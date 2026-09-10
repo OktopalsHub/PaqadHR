@@ -54,6 +54,43 @@ export class PayrollPayoutController {
     };
   }
 
+  @Get('runs/:id/fund-and-pay/preflight')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async fundAndPayPreflight(@Param('tenantId') tenantId: string, @Param('id') id: string) {
+    return this.payrollService.preflightPayrollFund(id, tenantId);
+  }
+
+  @Post('runs/:id/fund-and-pay')
+  @UseGuards(TenantRoleGuard)
+  @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
+  async fundAndPay(
+    @Param('tenantId') tenantId: string,
+    @Param('id') id: string,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
+    const member = req.member;
+    const auditContext = {
+      tenantId,
+      payrollRunId: id,
+      performedById: member.id,
+      ipAddress: req.ip,
+      userAgent: req.get('User-Agent'),
+    };
+    const outcome = await this.payrollService.fundAndPayPayroll(id, tenantId, auditContext);
+    if (outcome.action === 'checkout') {
+      return {
+        message: 'Fund provider float to continue payroll',
+        ...outcome,
+      };
+    }
+    return {
+      message: 'Payroll payout started',
+      ...outcome,
+      processedAt: new Date().toISOString(),
+    };
+  }
+
   @Post('runs/:id/pay-now')
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
@@ -70,6 +107,7 @@ export class PayrollPayoutController {
       ipAddress: req.ip,
       userAgent: req.get('User-Agent'),
     };
+    await this.payrollService.assertPayrollFunded(id, tenantId);
     const result = await this.payrollService.payNowPayroll(id, tenantId, auditContext);
     return {
       message: 'Payroll payout started',

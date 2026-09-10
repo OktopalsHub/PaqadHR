@@ -66,8 +66,39 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.baseCurrency,
     );
+    const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+    if (payable.length === 0) {
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+      const hadPendingCandidates = payrollRun.items.some(
+        (item) =>
+          item.status !== PayrollItemStatus.CANCELLED &&
+          item.status !== PayrollItemStatus.PAID &&
+          item.status !== PayrollItemStatus.PROCESSING &&
+          item.status !== PayrollItemStatus.FAILED,
+      );
+      if (hadPendingCandidates) {
+        throw new BadRequestException(
+          'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
+        );
+      }
+      return {
+        totalItems: payrollRun.items.length,
+        successfulPayments: 0,
+        failedPayments: 0,
+        fiatResults: [],
+        payoutResults: [],
+        summary: {
+          bankSuccess: 0,
+          bankFailed: 0,
+          cryptoSuccess: 0,
+          cryptoFailed: 0,
+          fiatSuccess: 0,
+          fiatFailed: 0,
+        },
+      };
+    }
     const payoutResults = await this.batching.processPayouts(
-      [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments],
+      payable,
       auditContext,
       tenantId,
       payrollRun.tenant?.name,
@@ -128,8 +159,15 @@ export class MultiPaymentService {
       tenantId,
       payrollRun.baseCurrency,
     );
+    const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
+    if (payable.length === 0) {
+      await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
+      throw new BadRequestException(
+        'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then retry again.',
+      );
+    }
     const payoutResults = await this.batching.processPayouts(
-      [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments],
+      payable,
       auditContext,
       tenantId,
       payrollRun.tenant?.name,

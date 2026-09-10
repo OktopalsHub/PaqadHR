@@ -7,6 +7,7 @@ import type { PaymentProviderInterface } from '../interfaces/payment-provider-in
 import type { PaymentResult } from '../interfaces/payment-result.interface';
 import type { WebhookResult } from '../interfaces/webhook-result.interface';
 import { PaymentProviderError } from './payment-provider.interface';
+import { runConcurrentCreatePayments } from './run-concurrent-create-payments';
 
 export abstract class BasePaymentProvider implements PaymentProviderInterface {
   protected readonly logger: Logger;
@@ -25,6 +26,10 @@ export abstract class BasePaymentProvider implements PaymentProviderInterface {
     this.initializeCurrencyConfigs();
   }
   abstract createPayment(data: CreatePaymentData): Promise<PaymentResult>;
+  /** Default: concurrent singles. Providers with a real batch API should override. */
+  createBulkTransfer(transfers: CreatePaymentData[]): Promise<PaymentResult[]> {
+    return runConcurrentCreatePayments((data) => this.createPayment(data), transfers, 10);
+  }
   abstract processWebhook(payload: unknown, signature: string): Promise<WebhookResult>;
   abstract getSupportedCurrencies(): Promise<string[]>;
   abstract validateSignature(payload: unknown, signature: string): boolean;

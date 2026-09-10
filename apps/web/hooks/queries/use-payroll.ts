@@ -16,10 +16,12 @@ import {
   notifyEmployeePaymentSetup,
   notifyMemberPaymentSetup,
   payNowPayroll,
+  fundAndPayPayroll,
   processPayrollRun,
   publishPayslips,
   removePayrollItem,
   reopenPayrollRun,
+  retryFailedPayrollPayments,
   schedulePayrollPayout,
   updatePayrollItem,
   updatePayrollRun,
@@ -165,6 +167,14 @@ export function usePayrollActions() {
     }),
     payNow: useMutation({
       mutationFn: payNowPayroll,
+      onSuccess: invalidate,
+    }),
+    fundAndPay: useMutation({
+      mutationFn: fundAndPayPayroll,
+      onSuccess: invalidate,
+    }),
+    retryFailed: useMutation({
+      mutationFn: retryFailedPayrollPayments,
       onSuccess: invalidate,
     }),
     schedule: useMutation({

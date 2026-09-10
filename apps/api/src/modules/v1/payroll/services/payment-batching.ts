@@ -1,6 +1,8 @@
 import { BadRequestException, Logger } from '@nestjs/common';
 import { isCryptoCurrency } from 'src/common/constants/crypto-currencies.constant';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
+import type { CreatePaymentData } from 'src/common/interfaces/create-payment-data.interface';
+import type { PaymentProviderInterface } from 'src/common/interfaces/payment-provider-interface.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import {
   paymentProviderLabel,
@@ -10,11 +12,21 @@ import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.
 import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
 import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
+import type { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
 import { PayrollPayoutService } from './payroll-payout.service';
+
+type PreparedPayout = {
+  item: PayrollItem;
+  paymentData: CreatePaymentData;
+  paymentMethod: PaymentMethod;
+  provider: PaymentProviderInterface;
+  providerName: string;
+  rail: 'bank' | 'crypto';
+};
 
 export class PaymentBatching {
   private readonly logger = new Logger(PaymentBatching.name);
@@ -101,6 +113,7 @@ export class PaymentBatching {
   ): Promise<PaymentResult[]> {
     const results: PaymentResult[] = [];
     const claimedIds = await this.claimItemsForPayout(items.map((item) => item.id));
+    const prepared: PreparedPayout[] = [];
 
     for (const item of items) {
       const rail: 'bank' | 'crypto' = isCryptoCurrency(item.paymentCurrency) ? 'crypto' : 'bank';
@@ -112,130 +125,213 @@ export class PaymentBatching {
         });
         continue;
       }
+
       try {
-        if (
-          !item.paymentAmount ||
-          item.paymentAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT
-        ) {
-          throw new BadRequestException(
-            `Invalid payment amount: ${item.paymentAmount} for employee ${item.memberId}`,
-          );
-        }
-        if (item.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
-          throw new BadRequestException(
-            `Payment amount exceeds maximum limit of ${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT} for employee ${item.memberId}`,
-          );
-        }
-
-        const readiness = await this.paymentMethodService.assessPayrollReadiness(
-          tenantId,
-          item.memberId,
-          item.paymentCurrency,
-          Boolean(item.metadata?.excludedFromRun),
-        );
-        if (!readiness.ready || !readiness.paymentMethodId) {
-          throw new BadRequestException(readiness.message);
-        }
-
-        const paymentMethod = await this.paymentMethodService.findById(
-          readiness.paymentMethodId,
-          tenantId,
-        );
-        if (!paymentMethod) {
-          throw new BadRequestException('Payment method not found');
-        }
-
-        const provider = this.paymentProviderFactory.getFiatProvider(
-          item.paymentCurrency,
-          paymentMethod.type,
-        );
-        const providerName = paymentProviderLabel(
-          resolvePaymentProvider(item.paymentCurrency, paymentMethod.type),
-        );
-        const employeeName = item.employee
-          ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
-          : item.memberId;
-        const paymentData = buildPayrollPaymentData(
+        const preparedItem = await this.preparePayoutItem(
           item,
-          paymentMethod,
-          employeeName,
+          tenantId,
           tenantName,
           payrollRunTitle,
+          rail,
         );
-        const result = await provider.createPayment(paymentData);
-        if (result.success) {
-          await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
-          const outcome = this.payrollPayoutService.classifyPaymentResultStatus(
-            result.providerStatus,
-          );
-          const itemStatus =
-            outcome === 'paid'
-              ? PayrollItemStatus.PAID
-              : outcome === 'failed'
-                ? PayrollItemStatus.FAILED
-                : PayrollItemStatus.PROCESSING;
-
-          await this.payrollItemRepository.update(item.id, {
-            status: itemStatus,
-            transactionId: result.transactionId,
-            paymentProvider: providerName,
-            paymentMethodId: paymentMethod.id,
-            paidAt: itemStatus === PayrollItemStatus.PAID ? new Date() : null,
-            failureReason:
-              itemStatus === PayrollItemStatus.FAILED
-                ? result.error || `${providerName} transfer failed`
-                : null,
-          });
-          results.push({
-            success: itemStatus === PayrollItemStatus.PAID,
-            transactionId: result.transactionId,
-            provider: providerName,
-            error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
-            rail,
-          });
-        } else if (result.retryable) {
-          await this.payrollItemRepository.update(item.id, {
-            status: PayrollItemStatus.PROCESSING,
-            transactionId: result.transactionId ?? null,
-            paymentProvider: providerName,
-            paymentMethodId: paymentMethod.id,
-            failureReason: result.error || `${providerName} payout pending verification`,
-          });
-          results.push({
-            success: false,
-            transactionId: result.transactionId,
-            provider: providerName,
-            error: result.error,
-            rail,
-          });
-        } else {
-          throw new BadRequestException(result.error || 'Payment failed');
-        }
+        prepared.push(preparedItem);
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        const lower = message.toLowerCase();
-        const retryable =
-          lower.includes('fincra payout status lookup failed') ||
-          lower.includes('abort') ||
-          lower.includes('timeout');
-        if (retryable) {
-          await this.payrollItemRepository.update(item.id, {
-            status: PayrollItemStatus.PROCESSING,
-            failureReason: message,
-          });
-        } else {
-          await this.payrollItemRepository.update(item.id, {
-            status: PayrollItemStatus.FAILED,
-            failureReason: message,
-          });
-        }
-        results.push({
-          success: false,
-          error: message,
-          rail,
-        });
+        const applied = await this.applyPreparationFailure(item, message, rail);
+        results.push(applied);
       }
     }
+
+    const groups = new Map<PaymentProviderInterface, PreparedPayout[]>();
+    for (const entry of prepared) {
+      const list = groups.get(entry.provider) ?? [];
+      list.push(entry);
+      groups.set(entry.provider, list);
+    }
+
+    for (const [provider, group] of groups) {
+      const payloads = group.map((entry) => entry.paymentData);
+      let bulkResults: PaymentResult[];
+      try {
+        bulkResults = await provider.createBulkTransfer(payloads);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        for (const entry of group) {
+          results.push(await this.applyPreparationFailure(entry.item, message, entry.rail));
+        }
+        continue;
+      }
+
+      const byRef = new Map<string, PaymentResult>();
+      for (const result of bulkResults) {
+        const key = result.reference ?? result.transactionId;
+        if (key) byRef.set(key, result);
+      }
+
+      for (let i = 0; i < group.length; i++) {
+        const entry = group[i];
+        const ref = entry.paymentData.merchantTxRef;
+        const result =
+          (ref ? byRef.get(ref) : undefined) ??
+          bulkResults[i] ?? {
+            success: false,
+            error: 'Missing bulk transfer result for payroll item',
+            rail: entry.rail,
+            reference: ref,
+          };
+        results.push(await this.applyPayoutResult(entry, result));
+      }
+    }
+
     return results;
+  }
+
+  private async preparePayoutItem(
+    item: PayrollItem,
+    tenantId: string,
+    tenantName: string | undefined,
+    payrollRunTitle: string | undefined,
+    rail: 'bank' | 'crypto',
+  ): Promise<PreparedPayout> {
+    if (!item.paymentAmount || item.paymentAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
+      throw new BadRequestException(
+        `Invalid payment amount: ${item.paymentAmount} for employee ${item.memberId}`,
+      );
+    }
+    if (item.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
+      throw new BadRequestException(
+        `Payment amount exceeds maximum limit of ${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT} for employee ${item.memberId}`,
+      );
+    }
+
+    const readiness = await this.paymentMethodService.assessPayrollReadiness(
+      tenantId,
+      item.memberId,
+      item.paymentCurrency,
+      Boolean(item.metadata?.excludedFromRun),
+    );
+    if (!readiness.ready || !readiness.paymentMethodId) {
+      throw new BadRequestException(readiness.message);
+    }
+
+    const paymentMethod = await this.paymentMethodService.findById(
+      readiness.paymentMethodId,
+      tenantId,
+    );
+    if (!paymentMethod) {
+      throw new BadRequestException('Payment method not found');
+    }
+
+    const provider = this.paymentProviderFactory.getFiatProvider(
+      item.paymentCurrency,
+      paymentMethod.type,
+    );
+    const providerName = paymentProviderLabel(
+      resolvePaymentProvider(item.paymentCurrency, paymentMethod.type),
+    );
+    const employeeName = item.employee
+      ? `${item.employee.firstName ?? ''} ${item.employee.lastName ?? ''}`.trim()
+      : item.memberId;
+    const paymentData = buildPayrollPaymentData(
+      item,
+      paymentMethod,
+      employeeName,
+      tenantName,
+      payrollRunTitle,
+    );
+
+    return { item, paymentData, paymentMethod, provider, providerName, rail };
+  }
+
+  private async applyPayoutResult(
+    entry: PreparedPayout,
+    result: PaymentResult,
+  ): Promise<PaymentResult> {
+    const { item, paymentMethod, providerName, rail } = entry;
+    try {
+      if (result.success) {
+        await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
+        const outcome = this.payrollPayoutService.classifyPaymentResultStatus(
+          result.providerStatus,
+        );
+        const itemStatus =
+          outcome === 'paid'
+            ? PayrollItemStatus.PAID
+            : outcome === 'failed'
+              ? PayrollItemStatus.FAILED
+              : PayrollItemStatus.PROCESSING;
+
+        await this.payrollItemRepository.update(item.id, {
+          status: itemStatus,
+          transactionId: result.transactionId,
+          paymentProvider: providerName,
+          paymentMethodId: paymentMethod.id,
+          paidAt: itemStatus === PayrollItemStatus.PAID ? new Date() : null,
+          failureReason:
+            itemStatus === PayrollItemStatus.FAILED
+              ? result.error || `${providerName} transfer failed`
+              : null,
+        });
+        return {
+          success: itemStatus === PayrollItemStatus.PAID,
+          transactionId: result.transactionId,
+          reference: result.reference ?? entry.paymentData.merchantTxRef,
+          provider: providerName,
+          error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
+          rail,
+        };
+      }
+
+      if (result.retryable) {
+        await this.payrollItemRepository.update(item.id, {
+          status: PayrollItemStatus.PROCESSING,
+          transactionId: result.transactionId ?? null,
+          paymentProvider: providerName,
+          paymentMethodId: paymentMethod.id,
+          failureReason: result.error || `${providerName} payout pending verification`,
+        });
+        return {
+          success: false,
+          transactionId: result.transactionId,
+          reference: result.reference ?? entry.paymentData.merchantTxRef,
+          provider: providerName,
+          error: result.error,
+          rail,
+        };
+      }
+
+      throw new BadRequestException(result.error || 'Payment failed');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return this.applyPreparationFailure(item, message, rail);
+    }
+  }
+
+  private async applyPreparationFailure(
+    item: PayrollItem,
+    message: string,
+    rail: 'bank' | 'crypto',
+  ): Promise<PaymentResult> {
+    const lower = message.toLowerCase();
+    const retryable =
+      lower.includes('fincra payout status lookup failed') ||
+      lower.includes('abort') ||
+      lower.includes('timeout');
+    if (retryable) {
+      await this.payrollItemRepository.update(item.id, {
+        status: PayrollItemStatus.PROCESSING,
+        failureReason: message,
+      });
+    } else {
+      await this.payrollItemRepository.update(item.id, {
+        status: PayrollItemStatus.FAILED,
+        failureReason: message,
+      });
+    }
+    return {
+      success: false,
+      error: message,
+      rail,
+    };
   }
 }

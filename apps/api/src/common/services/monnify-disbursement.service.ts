@@ -25,6 +25,26 @@ export interface MonnifySingleTransferInput {
   currencyCode?: string;
 }
 
+export interface MonnifyBatchTransferLine extends MonnifySingleTransferInput {}
+
+interface MonnifyBatchDisbursementResponse {
+  requestSuccessful?: boolean;
+  responseMessage?: string;
+  responseCode?: string;
+  responseBody?: {
+    batchReference?: string;
+    status?: string;
+    totalAmount?: number;
+    totalFee?: number;
+    transactionList?: Array<{
+      reference?: string;
+      amount?: number;
+      status?: string;
+      transactionDescription?: string;
+    }>;
+  };
+}
+
 @Injectable()
 export class MonnifyDisbursementService {
   constructor(private readonly auth: MonnifyAuthService) {}
@@ -79,6 +99,87 @@ export class MonnifyDisbursementService {
       status,
       message: payload.responseMessage,
     };
+  }
+
+  async batchTransfer(input: {
+    title: string;
+    batchReference: string;
+    narration: string;
+    transactions: MonnifyBatchTransferLine[];
+  }): Promise<
+    Array<{
+      success: boolean;
+      reference: string;
+      status?: string;
+      message?: string;
+    }>
+  > {
+    this.auth.ensureConfigured();
+    const sourceAccountNumber = getMonnifyWalletAccountNumber();
+    if (!sourceAccountNumber) {
+      throw new BadRequestException('MONNIFY_WALLET_ACCOUNT_NUMBER is not configured');
+    }
+    if (input.transactions.length === 0) {
+      return [];
+    }
+
+    const token = await this.auth.getAccessToken();
+    const response = await this.auth.monnifyFetch(
+      `${getMonnifyBaseUrl()}/api/v2/disbursements/batch`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: input.title.slice(0, 100),
+          batchReference: input.batchReference,
+          narration: input.narration.slice(0, 100),
+          sourceAccountNumber,
+          onValidationFailure: 'CONTINUE',
+          notificationInterval: 50,
+          transactionList: input.transactions.map((tx) => ({
+            amount: tx.amount,
+            reference: tx.reference,
+            narration: tx.narration,
+            destinationBankCode: tx.destinationBankCode,
+            destinationAccountNumber: tx.destinationAccountNumber,
+            destinationAccountName: tx.destinationAccountName,
+            currency: (tx.currencyCode || 'NGN').toUpperCase(),
+          })),
+        }),
+      },
+    );
+
+    const payload = (await response.json().catch(() => ({}))) as MonnifyBatchDisbursementResponse;
+    const lines = payload.responseBody?.transactionList ?? [];
+    const byRef = new Map(
+      lines
+        .filter((line) => line.reference)
+        .map((line) => [String(line.reference), line] as const),
+    );
+
+    const accepted =
+      response.ok &&
+      payload.requestSuccessful === true &&
+      ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING', 'IN_PROGRESS', 'AWAITING_PROCESSING'].includes(
+        String(payload.responseBody?.status ?? 'PENDING').toUpperCase(),
+      );
+
+    return input.transactions.map((tx) => {
+      const line = byRef.get(tx.reference);
+      const status = String(line?.status ?? payload.responseBody?.status ?? 'PENDING').toUpperCase();
+      const success =
+        accepted &&
+        !['FAILED', 'FAILED_TRANSACTION', 'REVERSED', 'CANCELLED'].includes(status);
+      return {
+        success,
+        reference: tx.reference,
+        status,
+        message: success ? undefined : payload.responseMessage || line?.transactionDescription,
+      };
+    });
   }
 
   async getDisbursementStatus(

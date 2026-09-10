@@ -22,6 +22,7 @@ import { MultiPaymentService } from './multi-payment.service';
 import { PayrollAccessGuard } from './payroll-access-guard';
 import { PayrollCalculationService } from './payroll-calculation.service';
 import { PayrollExportService } from './payroll-export.service';
+import { PayrollFloatTopupService } from './payroll-float-topup.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 import { PayrollRunService } from './payroll-run.service';
 
@@ -30,6 +31,7 @@ export class PayrollService {
   constructor(
     private readonly payrollRunService: PayrollRunService,
     private readonly payrollPaymentOrchestrator: PayrollPaymentOrchestrator,
+    private readonly payrollFloatTopupService: PayrollFloatTopupService,
     private readonly accessGuard: PayrollAccessGuard,
     private readonly payrollCalculationService: PayrollCalculationService,
     readonly _auditService: AuditService,
@@ -197,6 +199,18 @@ export class PayrollService {
 
   async payNowPayroll(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
     return this.payrollPaymentOrchestrator.payNowPayroll(payrollRunId, tenantId, auditContext);
+  }
+
+  async fundAndPayPayroll(payrollRunId: string, tenantId: string, auditContext: AuditContext) {
+    return this.payrollFloatTopupService.fundAndPay(payrollRunId, tenantId, auditContext);
+  }
+
+  async preflightPayrollFund(payrollRunId: string, tenantId: string) {
+    return this.payrollFloatTopupService.preflight(payrollRunId, tenantId);
+  }
+
+  async assertPayrollFunded(payrollRunId: string, tenantId: string) {
+    return this.payrollFloatTopupService.assertFundedOrThrow(payrollRunId, tenantId);
   }
 
   async schedulePayrollPayout(payrollRunId: string, tenantId: string, paymentDate?: Date) {

@@ -71,6 +71,45 @@ export function extractWalletTopupCheckout(payload: unknown): {
   amount?: number;
   initiatedByMemberId?: string;
 } | null {
+  return extractCheckoutByBillingType(payload, 'wallet_topup');
+}
+
+/** Payroll float top-up credits the provider disbursement balance, then auto-pays the run. */
+export function extractPayrollFloatTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+  payrollRunId?: string;
+} | null {
+  const base = extractCheckoutByBillingType(payload, 'payroll_float_topup');
+  if (!base) return null;
+  const body = payload as {
+    data?: {
+      meta?: Record<string, unknown>;
+      metadata?: Record<string, unknown>;
+      order?: { orderMetaData?: Record<string, string> };
+    };
+  };
+  const orderMeta = body.data?.order?.orderMetaData ?? {};
+  const flatMeta = (body.data?.meta ?? body.data?.metadata ?? {}) as Record<string, unknown>;
+  const payrollRunIdRaw = orderMeta.payrollRunId ?? flatMeta.payrollRunId;
+  const payrollRunId =
+    payrollRunIdRaw !== undefined && payrollRunIdRaw !== null && String(payrollRunIdRaw).trim() !== ''
+      ? String(payrollRunIdRaw)
+      : undefined;
+  return { ...base, payrollRunId };
+}
+
+function extractCheckoutByBillingType(
+  payload: unknown,
+  expectedBillingType: string,
+): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+} | null {
   const body = payload as {
     event_type?: string;
     eventType?: string;
@@ -95,7 +134,7 @@ export function extractWalletTopupCheckout(payload: unknown): {
   const orderMeta = order?.orderMetaData ?? {};
   const flatMeta = (data?.meta ?? data?.metadata ?? {}) as Record<string, unknown>;
   const billingType = orderMeta.billingType ?? flatMeta.billingType;
-  if (billingType !== 'wallet_topup') return null;
+  if (billingType !== expectedBillingType) return null;
 
   const tenantId = orderMeta.tenantId ?? flatMeta.tenantId;
   const orderReference = order?.orderReference ?? data?.orderReference ?? data?.externalID;
