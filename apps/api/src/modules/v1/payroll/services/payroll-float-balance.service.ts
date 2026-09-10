@@ -82,19 +82,21 @@ export class PayrollFloatBalanceService {
       return { supported: false, reason: 'Nomba is not configured' };
     }
     const token = await this.nombaAuth.getAccessToken();
-    const accountId = getNombaSubAccountId() || getNombaAccountId();
-    const response = await fetch(
-      `${getNombaBaseUrl()}/v1/accounts/${encodeURIComponent(accountId)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          accountId: getNombaAccountId(),
-          Accept: 'application/json',
-        },
-        signal: AbortSignal.timeout(10_000),
+    const subAccountId = getNombaSubAccountId();
+    // Parent: GET /v1/accounts/balance. Sub: GET /v1/accounts/{subAccountId}/balance.
+    // GET /v1/accounts/{parentId} returns 403 on sandbox.
+    const path = subAccountId
+      ? `/v1/accounts/${encodeURIComponent(subAccountId)}/balance`
+      : '/v1/accounts/balance';
+    const response = await fetch(`${getNombaBaseUrl()}${path}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        accountId: getNombaAccountId(),
+        Accept: 'application/json',
       },
-    );
+      signal: AbortSignal.timeout(10_000),
+    });
     const text = await response.text();
     if (!response.ok) {
       throw new Error(`Nomba account lookup failed (${response.status})`);
@@ -102,13 +104,14 @@ export class PayrollFloatBalanceService {
     const parsed = text
       ? (JSON.parse(text) as {
           data?: {
+            amount?: number | string;
             availableBalance?: number | string;
             balance?: number | string;
             currency?: string;
           };
         })
       : {};
-    const raw = parsed.data?.availableBalance ?? parsed.data?.balance;
+    const raw = parsed.data?.amount ?? parsed.data?.availableBalance ?? parsed.data?.balance;
     const available = Number(raw);
     if (!Number.isFinite(available)) {
       return { supported: false, reason: 'Nomba balance response was incomplete' };
