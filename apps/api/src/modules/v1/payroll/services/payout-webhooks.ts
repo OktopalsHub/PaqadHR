@@ -5,7 +5,11 @@ import { NoahApiService } from 'src/common/services/noah-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
-import { PAYROLL_MERCHANT_REF_PATTERN } from '../utils/payroll-merchant-ref.util';
+import {
+  buildPayrollMerchantRef,
+  isPayrollMerchantRef,
+  parsePayrollMerchantRef,
+} from '../utils/payroll-merchant-ref.util';
 import { PayoutReconciliation } from './payout-reconciliation';
 
 @Injectable()
@@ -19,6 +23,26 @@ export class PayoutWebhooks {
     readonly _payrollRunRepository: PayrollRunRepository,
     private readonly reconciliation: PayoutReconciliation,
   ) {}
+
+  private async resolvePayrollContext(merchantRef: string): Promise<{
+    tenantId: string;
+    payrollRunId: string;
+  } | null> {
+    const parsed = parsePayrollMerchantRef(merchantRef);
+    if (!parsed) return null;
+    if (parsed.payrollRunId) {
+      const tenantId = await this.reconciliation.resolveTenantId(parsed.payrollRunId);
+      return tenantId ? { tenantId, payrollRunId: parsed.payrollRunId } : null;
+    }
+    const item = await this.payrollItemRepository.findOne({
+      where: { id: parsed.payrollItemId },
+      relations: ['payrollRun'],
+    });
+    if (!item) return null;
+    const tenantId =
+      item.payrollRun?.tenantId ?? (await this.reconciliation.resolveTenantId(item.payrollRunId));
+    return tenantId ? { tenantId, payrollRunId: item.payrollRunId } : null;
+  }
 
   async handleNombaWebhook(rawBody: string, signature: string): Promise<{ received: boolean }> {
     if (!signature?.trim() || !this.nombaTransferApi.verifyWebhookSignature(rawBody, signature)) {
@@ -53,19 +77,18 @@ export class PayoutWebhooks {
     if (!event) return { received: true };
 
     const merchantRef = event.merchantTxRef ?? event.reference;
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(merchantRef);
-    const tenantId = parsed ? await this.reconciliation.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true };
+    const context = await this.resolvePayrollContext(merchantRef);
+    if (!context) return { received: true };
 
     const changed = await this.reconciliation.applyTransferStatus(
       merchantRef,
       event.status,
       event.reference,
       PaymentProvider.NOMBA,
-      tenantId,
+      context.tenantId,
     );
-    if (changed && parsed) {
-      await this.reconciliation.reconcilePayrollRunStatus(parsed[1], tenantId);
+    if (changed) {
+      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
     return { received: true };
   }
@@ -75,29 +98,28 @@ export class PayoutWebhooks {
     if (!event) return { received: true, matched: false };
 
     let merchantRef = event.merchantTxRef ?? event.reference;
-    if (!merchantRef || !PAYROLL_MERCHANT_REF_PATTERN.test(merchantRef)) {
+    if (!merchantRef || !isPayrollMerchantRef(merchantRef)) {
       if (!event.reference) return { received: true, matched: false };
       const item = await this.payrollItemRepository.findOne({
         where: { transactionId: event.reference },
         relations: ['payrollRun'],
       });
       if (!item) return { received: true, matched: false };
-      merchantRef = `payroll_${item.payrollRunId}_${item.id}`;
+      merchantRef = buildPayrollMerchantRef(item.payrollRunId, item.id);
     }
 
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(merchantRef);
-    const tenantId = parsed ? await this.reconciliation.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true, matched: true };
+    const context = await this.resolvePayrollContext(merchantRef);
+    if (!context) return { received: true, matched: true };
 
     const changed = await this.reconciliation.applyTransferStatus(
       merchantRef,
       event.status,
       event.reference,
       PaymentProvider.NOAH,
-      tenantId,
+      context.tenantId,
     );
     if (changed) {
-      await this.reconciliation.reconcilePayrollRunStatus(parsed![1], tenantId);
+      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
     return { received: true, matched: true };
   }
@@ -106,9 +128,8 @@ export class PayoutWebhooks {
     const event = this.fincraApi.parsePayoutWebhook(payload);
     if (!event) return { received: true, matched: false };
 
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(event.merchantRef);
-    const tenantId = parsed ? await this.reconciliation.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true, matched: false };
+    const context = await this.resolvePayrollContext(event.merchantRef);
+    if (!context) return { received: true, matched: false };
 
     let reference = event.reference;
     let amount = event.amount;
@@ -136,11 +157,11 @@ export class PayoutWebhooks {
       status,
       reference,
       PaymentProvider.FINCRA,
-      tenantId,
+      context.tenantId,
       amount,
     );
-    if (changed && parsed) {
-      await this.reconciliation.reconcilePayrollRunStatus(parsed[1], tenantId);
+    if (changed) {
+      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
     return { received: true, matched: changed };
   }
@@ -151,20 +172,19 @@ export class PayoutWebhooks {
     status: string;
     amount?: number;
   }): Promise<{ received: boolean; matched: boolean }> {
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(payload.merchantRef);
-    const tenantId = parsed ? await this.reconciliation.resolveTenantId(parsed[1]) : undefined;
-    if (!tenantId) return { received: true, matched: false };
+    const context = await this.resolvePayrollContext(payload.merchantRef);
+    if (!context) return { received: true, matched: false };
 
     const changed = await this.reconciliation.applyTransferStatus(
       payload.merchantRef,
       payload.status,
       payload.transactionId,
       PaymentProvider.MONNIFY,
-      tenantId,
+      context.tenantId,
       payload.amount,
     );
-    if (changed && parsed) {
-      await this.reconciliation.reconcilePayrollRunStatus(parsed[1], tenantId);
+    if (changed) {
+      await this.reconciliation.reconcilePayrollRunStatus(context.payrollRunId, context.tenantId);
     }
     return { received: true, matched: changed };
   }

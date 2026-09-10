@@ -12,7 +12,7 @@ import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
   buildPayrollMerchantRef,
-  PAYROLL_MERCHANT_REF_PATTERN,
+  parsePayrollMerchantRef,
 } from '../utils/payroll-merchant-ref.util';
 
 const PAYROLL_AMOUNT_TOLERANCE = 1;
@@ -26,7 +26,15 @@ const SUCCESS_STATUSES = new Set([
   'PAID',
   'SETTLED',
 ]);
-const PENDING_STATUSES = new Set(['PENDING', 'PENDING_BILLING', 'PROCESSING', 'IN_PROGRESS']);
+const PENDING_STATUSES = new Set([
+  'PENDING',
+  'PENDING_BILLING',
+  'PROCESSING',
+  'IN_PROGRESS',
+  'PENDING_AUTHORIZATION',
+  'AWAITING_AUTHORIZATION',
+  'AWAITING_PROCESSING',
+]);
 const FAILED_STATUSES = new Set([
   'FAILED',
   'REFUND',
@@ -196,11 +204,14 @@ export class PayoutReconciliation {
     tenantId?: string,
     amount?: number,
   ): Promise<boolean> {
-    const parsed = PAYROLL_MERCHANT_REF_PATTERN.exec(merchantRef);
+    const parsed = parsePayrollMerchantRef(merchantRef);
     if (!parsed) return false;
 
-    const [, payrollRunId, itemId] = parsed;
-    const where: Record<string, unknown> = { id: itemId, payrollRunId };
+    const { payrollRunId, payrollItemId: itemId } = parsed;
+    const where: Record<string, unknown> = { id: itemId };
+    if (payrollRunId) {
+      where.payrollRunId = payrollRunId;
+    }
     if (tenantId) {
       where.payrollRun = { tenantId };
     }
@@ -210,7 +221,10 @@ export class PayoutReconciliation {
     });
     if (!item) return false;
     if (tenantId) {
-      const runTenantId = item.payrollRun?.tenantId ?? (await this.resolveTenantId(payrollRunId));
+      const runTenantId =
+        item.payrollRun?.tenantId ??
+        (payrollRunId ? await this.resolveTenantId(payrollRunId) : undefined) ??
+        (await this.resolveTenantId(item.payrollRunId));
       if (runTenantId && runTenantId !== tenantId) return false;
     }
 

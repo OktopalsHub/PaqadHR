@@ -30,7 +30,9 @@ export function isFincraPayoutTerminalFailure(status?: string | null): boolean {
 }
 
 export function normalizeFincraPayoutStatus(status?: string | null): string {
-  if (!status) return 'PROCESSING';
+  // Missing status is not "in flight" — callers must not treat empty as PROCESSING
+  // (that masked failed initiates that returned no body status).
+  if (!status) return '';
   const lower = status.toLowerCase();
   if (lower === 'successful' || lower === 'success') return 'SUCCESS';
   if (lower === 'failed') return 'FAILED';

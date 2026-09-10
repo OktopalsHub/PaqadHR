@@ -12,6 +12,7 @@ interface MonnifyDisbursementResponse {
     status?: string;
     totalFee?: number;
     transactionDescription?: string;
+    comment?: string;
   };
 }
 
@@ -91,13 +92,25 @@ export class MonnifyDisbursementService {
       payload.requestSuccessful === true &&
       Boolean(body?.reference) &&
       status != null &&
-      ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING'].includes(status);
+      [
+        'SUCCESS',
+        'SUCCESSFUL',
+        'PENDING',
+        'PROCESSING',
+        'PENDING_AUTHORIZATION',
+        'AWAITING_AUTHORIZATION',
+        'IN_PROGRESS',
+        'AWAITING_PROCESSING',
+      ].includes(status);
 
     return {
       success,
       reference: body?.reference ?? input.reference,
       status,
-      message: payload.responseMessage,
+      message:
+        status === 'PENDING_AUTHORIZATION' || status === 'AWAITING_AUTHORIZATION'
+          ? body?.comment || payload.responseMessage || 'Pending authorization'
+          : payload.responseMessage,
     };
   }
 
@@ -166,6 +179,8 @@ export class MonnifyDisbursementService {
         'SUCCESSFUL',
         'PENDING',
         'PROCESSING',
+        'PENDING_AUTHORIZATION',
+        'AWAITING_AUTHORIZATION',
         'IN_PROGRESS',
         'AWAITING_PROCESSING',
       ].includes(String(payload.responseBody?.status ?? 'PENDING').toUpperCase());

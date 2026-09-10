@@ -108,6 +108,7 @@ export class FincraProvider extends BasePaymentProvider {
         accountNumber: data.accountNumber,
         accountName: data.accountName,
         countryCode,
+        customerEmail: data.customerEmail,
       };
 
       if (currency === 'GBP') {

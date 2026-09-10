@@ -742,7 +742,7 @@ describe('MultiPaymentService', () => {
 
     expect(paymentProvider.createPayment).toHaveBeenCalledWith(
       expect.objectContaining({
-        merchantTxRef: `payroll_${failedItem.payrollRunId}_${failedItem.id}_r1`,
+        merchantTxRef: `pi_${failedItem.id.replace(/-/g, '')}_r1`,
       }),
     );
   });

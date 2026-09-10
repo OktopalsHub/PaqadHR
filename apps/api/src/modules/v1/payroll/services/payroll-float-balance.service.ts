@@ -155,10 +155,17 @@ export class PayrollFloatBalanceService {
   }
 
   private async getFincraBalance(currency: string): Promise<PayrollFloatBalanceResult> {
+    // Fincra requires businessID as a query param (header alone returns 422).
+    const businessId = await this.fincraAuth.resolveBusinessId();
     const { parsed, httpStatus } = await this.fincraAuth.request<
       | Array<{ currency?: string; availableBalance?: number | string; balance?: number | string }>
       | { currency?: string; availableBalance?: number | string; balance?: number | string }
-    >('GET', '/wallets', undefined, { includeBusinessId: true });
+    >(
+      'GET',
+      `/wallets?businessID=${encodeURIComponent(businessId)}`,
+      undefined,
+      { includeBusinessId: true },
+    );
 
     if (httpStatus >= 400) {
       throw new Error(`Fincra wallets failed (${httpStatus})`);

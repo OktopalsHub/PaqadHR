@@ -77,7 +77,14 @@ export class MonnifyProvider extends BasePaymentProvider {
         error: response.success ? undefined : response.message,
         retryable:
           !response.success &&
-          ['PENDING', 'PROCESSING'].includes((response.status ?? '').toUpperCase()),
+          [
+            'PENDING',
+            'PROCESSING',
+            'PENDING_AUTHORIZATION',
+            'AWAITING_AUTHORIZATION',
+            'IN_PROGRESS',
+            'AWAITING_PROCESSING',
+          ].includes((response.status ?? '').toUpperCase()),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -178,9 +185,14 @@ export class MonnifyProvider extends BasePaymentProvider {
         error: response.success ? undefined : response.message,
         retryable:
           !response.success &&
-          ['PENDING', 'PROCESSING', 'IN_PROGRESS', 'AWAITING_PROCESSING'].includes(
-            (response.status ?? '').toUpperCase(),
-          ),
+          [
+            'PENDING',
+            'PROCESSING',
+            'IN_PROGRESS',
+            'AWAITING_PROCESSING',
+            'PENDING_AUTHORIZATION',
+            'AWAITING_AUTHORIZATION',
+          ].includes((response.status ?? '').toUpperCase()),
       }));
       return [...earlyFailures, ...bulkResults];
     } catch (error) {

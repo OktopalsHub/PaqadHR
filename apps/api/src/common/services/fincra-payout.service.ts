@@ -159,7 +159,8 @@ export class FincraPayoutService {
           type: 'individual',
           country,
           accountNumber: input.accountNumber,
-          email: input.customerEmail ?? 'payroll@paqad.local',
+          // Fincra rejects invalid emails (e.g. *.local); omit when unset is also accepted for NGN.
+          ...(input.customerEmail ? { email: input.customerEmail } : {}),
         };
 
     if (!isCrypto) {

@@ -1,6 +1,8 @@
 import {
+  isFincraOperationPending,
   isFincraPayoutNotFound,
   isFincraPayoutTerminalFailure,
+  normalizeFincraPayoutStatus,
   resolveFincraFiatPaymentScheme,
   resolveFincraPaymentScheme,
 } from './fincra-api.util';
@@ -21,6 +23,20 @@ describe('fincra-api.util', () => {
       expect(isFincraPayoutNotFound(503, { message: 'upstream unavailable' })).toBe(false);
       expect(isFincraPayoutNotFound(503, { message: 'RESOURCE_NOT_FOUND' })).toBe(false);
       expect(isFincraPayoutNotFound(503, { code: 'RESOURCE_NOT_FOUND' })).toBe(false);
+    });
+  });
+
+  describe('normalizeFincraPayoutStatus', () => {
+    it('does not invent PROCESSING when status is missing', () => {
+      expect(normalizeFincraPayoutStatus(undefined)).toBe('');
+      expect(normalizeFincraPayoutStatus(null)).toBe('');
+      expect(isFincraOperationPending(normalizeFincraPayoutStatus(undefined))).toBe(false);
+    });
+
+    it('normalizes known statuses', () => {
+      expect(normalizeFincraPayoutStatus('successful')).toBe('SUCCESS');
+      expect(normalizeFincraPayoutStatus('processing')).toBe('PROCESSING');
+      expect(normalizeFincraPayoutStatus('failed')).toBe('FAILED');
     });
   });
 
