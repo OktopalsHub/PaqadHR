@@ -2,14 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { AuditEventType } from '../../../../common/enums/audit-event-type.enum';
 import type { AuditContext } from '../../../../common/interfaces/audit-context.interface';
 import type { AuditLogEntry } from '../../../../common/interfaces/audit-log-entry.interface';
-import type { TenantActivity } from '../../activities/entities/tenant-activity.entity';
-import { ActivitiesService } from '../../activities/services/activities.service';
+import { AuditReportService } from './audit-report.service';
 
 @Injectable()
-export class AuditService {
+export class AuditService extends AuditReportService {
   private readonly logger = new Logger(AuditService.name);
-
-  constructor(private readonly activitiesService: ActivitiesService) {}
 
   async logEvent(context: AuditContext, entry: AuditLogEntry): Promise<void> {
     if (!context.tenantId) {
@@ -301,33 +298,5 @@ export class AuditService {
         adjustmentsByType: summaryData.adjustmentsByType,
       },
     });
-  }
-
-  async getAuditTrail(payrollRunId: string, tenantId: string): Promise<TenantActivity[]> {
-    return this.activitiesService.listForResource(tenantId, 'payroll', payrollRunId, 100);
-  }
-
-  async generateAuditReport(
-    payrollRunId: string,
-    tenantId: string,
-  ): Promise<{
-    payrollRunId: string;
-    totalEvents: number;
-    eventsByType: Record<string, number>;
-    timeline: TenantActivity[];
-    generatedAt: Date;
-  }> {
-    const activities = await this.getAuditTrail(payrollRunId, tenantId);
-    const eventsByType: Record<string, number> = {};
-    for (const log of activities) {
-      eventsByType[log.action] = (eventsByType[log.action] || 0) + 1;
-    }
-    return {
-      payrollRunId,
-      totalEvents: activities.length,
-      eventsByType,
-      timeline: activities,
-      generatedAt: new Date(),
-    };
   }
 }

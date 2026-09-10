@@ -61,7 +61,7 @@ export class LeaveController {
   private assertLeaveMutation(member: MemberContext, leave: LeaveResponseDto): void {
     const isRequester = leave.requester?.id === member.id;
     const isPending = leave.status === LeaveStatus.PENDING;
-    if (!isTenantAdmin(member) && !(isRequester && isPending)) {
+    if (!isRequester || !isPending) {
       throw new ForbiddenException('You can only modify your own pending leave requests');
     }
   }
@@ -154,6 +154,23 @@ export class LeaveController {
     const leave = await this.leaveService.getLeave(tenantId, leaveId);
     this.assertLeaveMutation(member, leave);
     return this.leaveService.deleteLeave(tenantId, leaveId);
+  }
+
+  @Patch(':leaveId/cancel')
+  async cancelLeave(
+    @Param('tenantId') tenantId: string,
+    @Param('leaveId') leaveId: string,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    const leave = await this.leaveService.getLeave(tenantId, leaveId);
+    const isRequester = leave.requester?.id === member.id;
+    if (!isRequester) {
+      if (!leave.requester?.id) {
+        throw new ForbiddenException('Admin or manager access required');
+      }
+      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
+    }
+    return this.leaveService.cancelLeave(tenantId, leaveId, member.id);
   }
 
   @Patch(':leaveId/approve')

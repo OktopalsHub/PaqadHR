@@ -17,7 +17,6 @@ describe('BillingCronService', () => {
   const createService = () => {
     const billingService = {
       processDueRenewals: jest.fn(),
-      reconcileStaleManagedSubscriptions: jest.fn(),
       lapseStaleSubscriptions: jest.fn(),
       lapseStaleBachsSubscriptions: jest.fn(),
     } as unknown as SubscriptionBillingService;
@@ -70,22 +69,6 @@ describe('BillingCronService', () => {
     await cronService.processSubscriptionRenewals();
 
     expect(billingService.processDueRenewals).toHaveBeenCalledTimes(1);
-  });
-
-  it('reconciles stale managed subscriptions when billing is configured', async () => {
-    process.env.NOMBA_CLIENT_ID = 'client-id';
-    process.env.NOMBA_CLIENT_SECRET = 'client-secret';
-    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account-id';
-
-    const { cronService, billingService } = createService();
-    (billingService.reconcileStaleManagedSubscriptions as jest.Mock).mockResolvedValue({
-      synced: 2,
-      failed: 0,
-    });
-
-    await cronService.syncManagedSubscriptions();
-
-    expect(billingService.reconcileStaleManagedSubscriptions).toHaveBeenCalledTimes(1);
   });
 
   it('lapses stale subscriptions when billing is configured', async () => {

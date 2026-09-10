@@ -98,7 +98,7 @@ export function RecruitmentPipelinePage() {
         <EmptyState
           icon={Users}
           title="No candidates yet"
-          description="Add your first candidate to start building the pipeline."
+          description="Add a candidate."
           action={
             <Button variant="brandSolid" size="app" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" />
@@ -111,7 +111,7 @@ export function RecruitmentPipelinePage() {
         <EmptyState
           icon={Search}
           title="No matching candidates"
-          description="Try a different search term to find applicants in the pipeline."
+          description="Try another search."
           className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
         />
       ) : view === 'kanban' ? (

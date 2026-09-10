@@ -43,6 +43,8 @@ export function mapTenantMemberToEmployee(member: ApiTenantMember): Employee {
   const name =
     formatPersonName(member.firstName, member.lastName, '') ||
     formatDisplayName(member.preferredName, 'Unknown');
+  const departmentColor = member.department?.color;
+  const positionColor = member.position?.color;
 
   return {
     id: member.id,
@@ -55,8 +57,11 @@ export function mapTenantMemberToEmployee(member: ApiTenantMember): Employee {
     avatar: member.avatarUrl ?? '',
     reportsToId: member.reportsToId ?? undefined,
     employeeNumber: member.employeeNumber,
-    departmentColor: member.department?.color,
-    positionColor: member.position?.color,
+    // Omit absent optional values instead of serialising them as `undefined`.
+    // This keeps the response safe to validate when a member has no position
+    // or department assigned yet.
+    ...(departmentColor ? { departmentColor } : {}),
+    ...(positionColor ? { positionColor } : {}),
   };
 }
 

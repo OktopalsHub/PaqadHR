@@ -184,14 +184,14 @@ export function RecruitmentBoardPage({ jobId }: RecruitmentBoardPageProps) {
         <EmptyState
           icon={Users}
           title="No candidates yet"
-          description="Applications for this role will appear here once candidates apply."
+          description="No applications yet."
           className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
         />
       ) : boardCandidates.length === 0 ? (
         <EmptyState
           icon={Search}
           title="No matching candidates"
-          description="Try a different search term to find applicants for this role."
+          description="Try another search."
           className="min-h-[320px] border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/60"
         />
       ) : view === 'kanban' ? (

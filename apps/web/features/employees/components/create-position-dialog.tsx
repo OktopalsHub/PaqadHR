@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -37,20 +38,25 @@ export function CreatePositionDialog({ open, onOpenChange, onCreated }: CreatePo
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
 
   const reset = () => {
     setTitle('');
     setDescription('');
     setSelectedColor(COLORS[0]);
+    setConfirmationOpen(false);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const requestCreate = (event: React.FormEvent) => {
     event.preventDefault();
     if (title.trim().length < 2) {
       toast.error('Position title must be at least 2 characters');
       return;
     }
+    setConfirmationOpen(true);
+  };
 
+  const createPositionRecord = async () => {
     try {
       const created = await createPosition.mutateAsync({
         title: title.trim(),
@@ -76,7 +82,7 @@ export function CreatePositionDialog({ open, onOpenChange, onCreated }: CreatePo
       }}
     >
       <DialogContent className="sm:max-w-md">
-        <form onSubmit={(event) => void handleSubmit(event)}>
+        <form onSubmit={requestCreate}>
           <DialogHeader>
             <DialogTitle>Add position</DialogTitle>
           </DialogHeader>
@@ -131,6 +137,15 @@ export function CreatePositionDialog({ open, onOpenChange, onCreated }: CreatePo
           </DialogFooter>
         </form>
       </DialogContent>
+      <ConfirmActionDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+        title="Create position?"
+        description={`“${title.trim()}” will be added to your workspace.`}
+        actionLabel="Create position"
+        isPending={createPosition.isPending}
+        onConfirm={() => void createPositionRecord()}
+      />
     </Dialog>
   );
 }

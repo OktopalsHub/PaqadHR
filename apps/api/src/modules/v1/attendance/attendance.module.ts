@@ -7,14 +7,21 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantSettingsModule } from '../tenant-settings/tenant-settings.module';
 import { TenantsModule } from '../tenants/tenants.module';
-import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
+import { AttendanceClockController } from './attendance-clock.controller';
+import { AttendanceReportsController } from './attendance-reports.controller';
 import { Attendance } from './entities/attendance.entity';
 import { AttendanceException } from './entities/attendance-exception.entity';
 import { AttendancePolicy } from './entities/attendance-policy.entity';
 import { AttendanceRepository } from './repositories/attendance.repository';
 import { AttendanceExceptionRepository } from './repositories/attendance-exception.repository';
 import { AttendancePolicyRepository } from './repositories/attendance-policy.repository';
+import { AttendanceClockService } from './services/attendance-clock.service';
+import { AttendanceEligibilityService } from './services/attendance-eligibility.service';
+import { AttendanceExceptionService } from './services/attendance-exception.service';
+import { AttendancePolicyService } from './services/attendance-policy.service';
+import { AttendanceReportService } from './services/attendance-report.service';
+import { AttendanceSessionService } from './services/attendance-session.service';
 import { DepartmentUtils } from './utils/department.utils';
 
 @Module({
@@ -27,14 +34,28 @@ import { DepartmentUtils } from './utils/department.utils';
     ActivitiesModule,
     NotificationsModule,
   ],
-  controllers: [AttendanceController],
+  controllers: [AttendanceClockController, AttendanceReportsController],
   providers: [
     AttendanceService,
     AttendanceRepository,
     AttendancePolicyRepository,
     AttendanceExceptionRepository,
     DepartmentUtils,
+    AttendancePolicyService,
+    AttendanceClockService,
+    AttendanceEligibilityService,
+    AttendanceExceptionService,
+    AttendanceReportService,
+    AttendanceSessionService,
   ],
-  exports: [AttendanceService],
+  exports: [
+    AttendanceService,
+    AttendancePolicyService,
+    AttendanceClockService,
+    AttendanceEligibilityService,
+    AttendanceExceptionService,
+    AttendanceReportService,
+    AttendanceSessionService,
+  ],
 })
 export class AttendanceModule {}

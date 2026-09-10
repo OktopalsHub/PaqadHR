@@ -20,9 +20,7 @@ export function RecruitmentActivityFeed({ items }: RecruitmentActivityFeedProps)
     >
       {items.length === 0 ? (
         <div className="flex min-h-[300px] items-center justify-center text-center">
-          <p className="max-w-xs text-sm text-slate-500 dark:text-slate-400">
-            Activity will appear here as your team works in Recruitment.
-          </p>
+          <p className="max-w-xs text-sm text-slate-500 dark:text-slate-400">No activity yet.</p>
         </div>
       ) : (
         items.map((item) => (

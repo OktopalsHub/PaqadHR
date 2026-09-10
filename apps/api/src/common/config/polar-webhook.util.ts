@@ -1,5 +1,6 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { getPolarWebhookSecret } from 'src/common/config/polar.config';
+import { signaturesMatch } from './webhook-signature.util';
 
 const TIMESTAMP_SKEW_SECONDS = 300;
 
@@ -60,12 +61,7 @@ export function verifyPolarWebhookSignature(
     if (!value) {
       return false;
     }
-    const sigBuf = Buffer.from(value);
-    const expBuf = Buffer.from(expected);
-    if (sigBuf.length !== expBuf.length) {
-      return false;
-    }
-    return timingSafeEqual(sigBuf, expBuf);
+    return signaturesMatch(expected, value);
   });
 }
 

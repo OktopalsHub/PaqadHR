@@ -61,6 +61,7 @@ export class PositionMemberController {
       memberId,
       body.positionId,
       body.assignedAt ?? new Date(),
+      member.id,
     );
   }
 }

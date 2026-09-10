@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { UserRoundCheck, UserRoundX } from 'lucide-react';
 import type { TenantActivity } from '../../../lib/api/activities.ts';
 import {
   formatActivityChangePreview,
   formatActivityFieldValue,
   getActivityChangeEntries,
   getActivityDetailEntries,
+  getActivityPresentation,
 } from './activity-format.ts';
 
 function activity(partial: Partial<TenantActivity>): TenantActivity {
@@ -60,4 +62,24 @@ test('getActivityDetailEntries keeps useful details and hides id fields', () => 
     { label: 'Leave Type', value: 'Annual' },
     { label: 'Duration', value: '2' },
   ]);
+});
+
+for (const action of ['member.deactivated', 'member.removed'] as const) {
+  test(`${action} uses the destructive member-status presentation`, () => {
+    const presentation = getActivityPresentation(
+      activity({ action, description: 'Member status changed' }),
+    );
+
+    assert.equal(presentation.icon, UserRoundX);
+    assert.equal(presentation.iconClassName, 'bg-destructive/10 text-destructive');
+  });
+}
+
+test('member.reactivated uses the success member-status presentation', () => {
+  const presentation = getActivityPresentation(
+    activity({ action: 'member.reactivated', description: 'Member reactivated' }),
+  );
+
+  assert.equal(presentation.icon, UserRoundCheck);
+  assert.equal(presentation.iconClassName, 'bg-emerald-500/10 text-emerald-700');
 });

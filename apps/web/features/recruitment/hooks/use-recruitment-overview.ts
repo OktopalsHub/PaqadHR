@@ -35,10 +35,15 @@ export function useRecruitmentOverview(
     isLoading: jobsLoading,
     isError: jobsError,
     error: jobsErrorObj,
+    refetch: refetchJobs,
   } = dependencies.useJobOpenings(queryOptions);
-  const { data: apiCandidates = [], isLoading: candidatesLoading } =
-    dependencies.useAllCandidates(queryOptions);
-  const { data: calendarEvents = [] } = dependencies.useCalendarEvents(queryOptions);
+  const {
+    data: apiCandidates = [],
+    isLoading: candidatesLoading,
+    refetch: refetchCandidates,
+  } = dependencies.useAllCandidates(queryOptions);
+  const { data: calendarEvents = [], refetch: refetchCalendarEvents } =
+    dependencies.useCalendarEvents(queryOptions);
 
   const apiJobs = jobsData?.jobs ?? [];
   const isLoading = enabled && (jobsLoading || candidatesLoading);
@@ -76,5 +81,8 @@ export function useRecruitmentOverview(
     isLoading,
     jobsError: enabled ? jobsError : false,
     jobsErrorObj,
+    refetch: async () => {
+      await Promise.all([refetchJobs(), refetchCandidates(), refetchCalendarEvents()]);
+    },
   };
 }

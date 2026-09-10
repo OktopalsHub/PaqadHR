@@ -29,7 +29,7 @@ import {
   useTenantSettings,
 } from '@/hooks/queries/use-tenant-settings';
 import { useDeleteTenant, useUpdateTenant } from '@/hooks/queries/use-tenants';
-import { fetchUserTenants } from '@/lib/api/tenants';
+import { getSession } from '@/lib/api/auth';
 import { SUPPORTED_CRYPTO_CURRENCIES, SUPPORTED_FIAT_CURRENCIES } from '@/lib/constants/currencies';
 import { goToHref, resolvePostAuthHref } from '@/lib/navigation/resolve-post-auth-href';
 import { cn } from '@/lib/utils';
@@ -262,7 +262,7 @@ export function SettingsWorkspaceTab() {
           <SettingsFieldHint
             label="Payroll currencies"
             className="lg:col-span-2"
-            hint="Employees can be paid in any enabled currency. This is separate from your rewards wallet currency."
+            hint="Separate from rewards wallet."
           >
             <div className="dashboard-soft-tile rounded-[8px] px-4 py-4">
               <div className="flex flex-wrap gap-2">
@@ -289,22 +289,10 @@ export function SettingsWorkspaceTab() {
                   );
                 })}
               </div>
-              {payrollCurrencies.length > 0 ? (
-                <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                  Enabled:{' '}
-                  <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {payrollCurrencies.join(', ')}
-                  </span>
-                </p>
-              ) : null}
             </div>
           </SettingsFieldHint>
 
-          <SettingsFieldHint
-            label="Crypto payroll"
-            className="lg:col-span-2"
-            hint="Allow crypto payout rails (USDC, USDT, BTC, ETH). Independent from rewards wallet funding."
-          >
+          <SettingsFieldHint label="Crypto payroll" className="lg:col-span-2" hint="USDC / USDT.">
             <div className="flex items-center gap-3">
               <Switch
                 id="crypto-enabled"
@@ -386,11 +374,6 @@ export function SettingsWorkspaceTab() {
       {isOwner ? (
         <ContentCard title="Delete workspace">
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Soft-delete this workspace. Members lose access immediately. Payroll and employment
-              records may remain for legal retention. Contact support to restore within the grace
-              period.
-            </p>
             <Button
               size="sm"
               variant="destructive"
@@ -418,6 +401,7 @@ export function SettingsWorkspaceTab() {
             onChange={(event) => setDeleteConfirmName(event.target.value)}
             placeholder="Workspace name"
             autoComplete="off"
+            aria-label="Workspace name confirmation"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteWorkspaceOpen(false)}>
@@ -434,12 +418,24 @@ export function SettingsWorkspaceTab() {
                 void deleteTenantMutation
                   .mutateAsync(tenantId)
                   .then(async () => {
-                    const tenants = await fetchUserTenants();
                     toast.success('Workspace deleted');
                     setDeleteWorkspaceOpen(false);
                     setDeleteConfirmName('');
-                    const href = await resolvePostAuthHref({ tenants });
-                    goToHref(href, router.push);
+                    try {
+                      const bootstrap = await getSession();
+                      if (!bootstrap) {
+                        goToHref('/signin', router.push);
+                        return;
+                      }
+                      const href = await resolvePostAuthHref({
+                        tenants: bootstrap.workspaces,
+                        paymentsEnabled: bootstrap.paymentsEnabled,
+                      });
+                      goToHref(href, router.push);
+                    } catch {
+                      toast.error('Workspace deleted, but we could not refresh your workspaces.');
+                      goToHref('/signin', router.push);
+                    }
                   })
                   .catch((err: unknown) => {
                     toast.error(err instanceof Error ? err.message : 'Delete failed');

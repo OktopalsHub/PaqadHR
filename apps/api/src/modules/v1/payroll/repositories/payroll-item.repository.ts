@@ -19,8 +19,6 @@ export class PayrollItemRepository extends Repository<PayrollItem> {
     return this.createQueryBuilder('item')
       .innerJoin('item.payrollRun', 'run', 'run.tenantId = :tenantId', { tenantId })
       .leftJoinAndSelect('item.employee', 'employee')
-      .leftJoinAndSelect('item.deductions', 'deductions')
-      .leftJoinAndSelect('item.bonuses', 'bonuses')
       .where('item.payrollRunId = :payrollRunId', { payrollRunId })
       .andWhere('item.deletedAt IS NULL')
       .getMany();

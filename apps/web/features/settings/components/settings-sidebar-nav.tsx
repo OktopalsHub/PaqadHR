@@ -70,12 +70,6 @@ export function SettingsSidebarNav() {
         </SidebarMenu>
       </SidebarGroup>
 
-      <div className="px-3 pb-2 pt-4 group-data-[collapsible=icon]:hidden">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
-          Settings
-        </p>
-      </div>
-
       <SidebarGroup className="p-0">
         <SidebarMenu className="gap-1">
           {visibleTabs.map((tab) => {

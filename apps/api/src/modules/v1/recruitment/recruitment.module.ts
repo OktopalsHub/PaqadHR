@@ -22,6 +22,8 @@ import { InterviewRepository } from './repositories/interview.repository';
 import { JobOpeningRepository } from './repositories/job-opening.repository';
 import { CandidateService } from './services/candidate.service';
 import { InterviewService } from './services/interview.service';
+import { InterviewFeedbackService } from './services/interview-feedback.service';
+import { InterviewSchedulingService } from './services/interview-scheduling.service';
 import { JobOpeningService } from './services/job-opening.service';
 
 @Module({
@@ -46,6 +48,8 @@ import { JobOpeningService } from './services/job-opening.service';
     CandidateService,
     CandidateRepository,
     InterviewRepository,
+    InterviewSchedulingService,
+    InterviewFeedbackService,
     InterviewService,
     DepartmentExistsConstraint,
     TurnstileService,

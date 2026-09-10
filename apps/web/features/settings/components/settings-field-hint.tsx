@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-function HintIcon({ label, hint }: { label: string; hint: string }) {
+export function HintIcon({ label, hint }: { label: string; hint: string }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>

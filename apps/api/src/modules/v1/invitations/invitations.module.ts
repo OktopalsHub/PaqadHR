@@ -12,6 +12,9 @@ import { InvitationsController } from './invitations.controller';
 import { InvitationsService } from './invitations.service';
 import { PublicInvitesController } from './public-invites.controller';
 import { InvitationsRepository } from './repositories/invitations.repository';
+import { InvitationAcceptanceService } from './services/invitation-acceptance.service';
+import { InvitationManagementService } from './services/invitation-management.service';
+import { InvitationSendingService } from './services/invitation-sending.service';
 
 @Module({
   imports: [
@@ -25,7 +28,18 @@ import { InvitationsRepository } from './repositories/invitations.repository';
     PositionModule,
   ],
   controllers: [InvitationsController, PublicInvitesController],
-  providers: [InvitationsService, InvitationsRepository],
-  exports: [InvitationsService],
+  providers: [
+    InvitationsService,
+    InvitationManagementService,
+    InvitationSendingService,
+    InvitationAcceptanceService,
+    InvitationsRepository,
+  ],
+  exports: [
+    InvitationsService,
+    InvitationManagementService,
+    InvitationSendingService,
+    InvitationAcceptanceService,
+  ],
 })
 export class InvitationsModule {}

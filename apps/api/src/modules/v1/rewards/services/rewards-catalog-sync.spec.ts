@@ -2,10 +2,12 @@ import { DataSource } from 'typeorm';
 import { TenantSettings } from '../../tenant-settings/entities/tenant-settings.entity';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { TenantWallet } from '../entities/tenant-wallet.entity';
-import { RewardsService } from './rewards.service';
+import { RewardsCatalogService } from './rewards-catalog.service';
+import { RewardsCatalogQueryService } from './rewards-catalog-query.service';
+import { RewardsCatalogSyncService } from './rewards-catalog-sync.service';
 
-describe('RewardsService catalog sync', () => {
-  let service: RewardsService;
+describe('RewardsCatalogService catalog sync', () => {
+  let service: RewardsCatalogService;
   let settingsRow: {
     tenantId: string;
     settings: {
@@ -52,57 +54,53 @@ describe('RewardsService catalog sync', () => {
       listProducts: listTremendousProducts,
     };
 
-    service = new RewardsService(
-      {
-        getRepository: jest.fn((entity) => {
-          if (entity === TenantSettings) return settingsRepo;
-          if (entity === Tenant) {
-            return {
-              findOne: jest.fn().mockImplementation(async () => ({
-                id: 'tenant-1',
-                countryCode: tenantCountryCode,
-                preferredCurrency: tenantCountryCode === 'NG' ? 'NGN' : 'USD',
-                createdBy: null,
-              })),
-            };
-          }
-          if (entity === TenantWallet) {
-            return {
-              findOne: jest.fn().mockResolvedValue({
-                tenantId: 'tenant-1',
-                currencyCode: tenantCountryCode === 'NG' ? 'NGN' : 'USD',
-                balanceAmount: 0,
-              }),
-            };
-          }
-          return {};
-        }),
-      } as unknown as DataSource,
-      {} as any, // walletService
-      {} as any, // walletTopupService
-      { list: jest.fn().mockResolvedValue([]) } as any, // customRewardsService
-      {} as any, // _tenantConfigService
-      { convert: jest.fn() } as any, // fiatExchange
-      {} as any, // nombaBillApi
-      {} as any, // monnifyBillApi
-      {} as any, // _nombaTransferApi
-      {} as any, // subscriptionsService
-      {} as any, // activitiesService
-      tremendousApi as any, // tremendousApi
-      {} as any, // emailTemplateService
-      {} as any, // emailService
-      {} as any, // notificationHelper
-    );
+    const dataSource = {
+      getRepository: jest.fn((entity) => {
+        if (entity === TenantSettings) return settingsRepo;
+        if (entity === Tenant) {
+          return {
+            findOne: jest.fn().mockImplementation(async () => ({
+              id: 'tenant-1',
+              countryCode: tenantCountryCode,
+              preferredCurrency: tenantCountryCode === 'NG' ? 'NGN' : 'USD',
+              createdBy: null,
+            })),
+          };
+        }
+        if (entity === TenantWallet) {
+          return {
+            findOne: jest.fn().mockResolvedValue({
+              tenantId: 'tenant-1',
+              currencyCode: tenantCountryCode === 'NG' ? 'NGN' : 'USD',
+              balanceAmount: 0,
+            }),
+          };
+        }
+        return {};
+      }),
+    } as unknown as DataSource;
 
-    jest.spyOn(service as any, 'getSubscriptionFees').mockResolvedValue({
-      feePercentage: 2,
-      flatFee: 0,
-    });
-    jest
-      .spyOn(service as any, 'toWalletCurrency')
-      .mockImplementation(async (amount: number, from?: string) =>
-        from?.toUpperCase() === 'USD' ? amount * 1500 : amount,
-      );
+    const fiatExchange = {
+      convert: jest
+        .fn()
+        .mockImplementation(async (amount: number, from?: string) =>
+          from?.toUpperCase() === 'USD' ? amount * 1500 : amount,
+        ),
+    };
+
+    const queryService = new RewardsCatalogQueryService(dataSource, tremendousApi as never);
+    const syncService = new RewardsCatalogSyncService(
+      dataSource,
+      fiatExchange as never,
+      tremendousApi as never,
+    );
+    service = new RewardsCatalogService(
+      dataSource,
+      fiatExchange as never,
+      tremendousApi as never,
+      queryService,
+      syncService,
+    );
   });
 
   it('syncs Tremendous products for allowlisted countries', async () => {
@@ -119,7 +117,7 @@ describe('RewardsService catalog sync', () => {
       },
     ]);
 
-    const products = await service.syncTremendousProducts('tenant-1');
+    const products = await service.syncTremendousProducts('tenant-1', { force: true });
     expect(listTremendousProducts).toHaveBeenCalledWith(['NG']);
     expect(products).toHaveLength(1);
     expect(products[0].productId).toBe('AMAZON_NG');
@@ -141,7 +139,7 @@ describe('RewardsService catalog sync', () => {
       },
     ]);
 
-    const products = await service.syncTremendousProducts('tenant-1');
+    const products = await service.syncTremendousProducts('tenant-1', { force: true });
     expect(listTremendousProducts).toHaveBeenCalledWith(['NG', 'GB']);
     expect(products).toHaveLength(2);
     expect(products.map((p) => p.countryCode).sort()).toEqual(['GB', 'NG']);
@@ -169,7 +167,7 @@ describe('RewardsService catalog sync', () => {
       },
     ]);
 
-    const products = await service.syncTremendousProducts('tenant-1');
+    const products = await service.syncTremendousProducts('tenant-1', { force: true });
     expect(products).toHaveLength(1);
     expect(products[0].productId).toBe('AMAZONUS');
 
@@ -185,12 +183,12 @@ describe('RewardsService catalog sync', () => {
 
   it('defaults catalog countries to the tenant country', async () => {
     settingsRow.settings.rewards.catalogCountries = [];
-    const settings = await (service as any).getRewardsSettings('tenant-1');
+    const settings = await service.getRewardsSettings('tenant-1');
     expect(settings.catalogCountries).toEqual(['NG']);
 
     tenantCountryCode = 'GB';
     settingsRow.settings.rewards.catalogCountries = [];
-    const otherSettings = await (service as any).getRewardsSettings('tenant-1');
+    const otherSettings = await service.getRewardsSettings('tenant-1');
     expect(otherSettings.catalogCountries).toEqual(['GB']);
   });
 });

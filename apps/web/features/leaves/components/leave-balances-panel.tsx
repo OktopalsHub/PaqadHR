@@ -3,13 +3,14 @@ import type { LeaveBalance } from '@/lib/schemas/leave';
 
 type LeaveBalancesPanelProps = {
   balances: LeaveBalance[];
+  className?: string;
 };
 
-export function LeaveBalancesPanel({ balances }: LeaveBalancesPanelProps) {
+export function LeaveBalancesPanel({ balances, className }: LeaveBalancesPanelProps) {
   if (balances.length === 0) return null;
 
   return (
-    <ContentCard title="Your balances">
+    <ContentCard title="Your balances" className={className}>
       <ul className="space-y-3">
         {balances.map((balance) => (
           <li

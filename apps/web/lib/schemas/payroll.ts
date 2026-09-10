@@ -52,6 +52,22 @@ export const payrollReadinessSchema = z.object({
 
 export type PayrollReadiness = z.infer<typeof payrollReadinessSchema>;
 
+export const payrollSetupSummarySchema = z.object({
+  totalEmployees: z.number(),
+  paymentReadyCount: z.number(),
+  readyMemberIds: z.array(z.string()).optional().default([]),
+  byCurrency: z.array(
+    z.object({
+      currency: z.string(),
+      employeeCount: z.number(),
+      paymentReadyCount: z.number(),
+      readyMemberIds: z.array(z.string()).optional().default([]),
+    }),
+  ),
+});
+
+export type PayrollSetupSummary = z.infer<typeof payrollSetupSummarySchema>;
+
 export const createPayrollRunInputSchema = z.object({
   title: z.string().min(3),
   frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']),
@@ -64,12 +80,23 @@ export const createPayrollRunInputSchema = z.object({
 
 export type CreatePayrollRunInput = z.infer<typeof createPayrollRunInputSchema>;
 
+export const patchPayrollRunInputSchema = z.object({
+  title: z.string().min(3).optional(),
+  frequency: z.enum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually']).optional(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  paymentDate: z.string().optional(),
+  employeeIds: z.array(z.string()).min(1).optional(),
+});
+
+export type PatchPayrollRunInput = z.infer<typeof patchPayrollRunInputSchema>;
+
 export const payrollAdjustmentLineSchema = z.object({
   employeeId: z.string(),
   type: z.string(),
   method: z.enum(['fixed_amount', 'percentage']),
   value: z.number(),
-  reason: z.string(),
+  reason: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -85,6 +112,7 @@ export const payrollItemSchema = z.object({
   adjustments: z.union([z.number(), z.string()]).optional(),
   deductions: z.union([z.number(), z.string()]).optional(),
   netAmount: z.union([z.number(), z.string()]).optional(),
+  failureReason: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   employee: z
     .object({

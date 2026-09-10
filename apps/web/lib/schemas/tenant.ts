@@ -23,6 +23,9 @@ export const tenantSchema = z.object({
   preferredCurrency: z.string().optional(),
   member: tenantMemberSchema.optional(),
   settings: z.unknown().optional(),
+  entitled: z.boolean().optional(),
+  needsPayment: z.boolean().optional(),
+  plan: z.string().nullable().optional(),
 });
 
 export type Tenant = z.infer<typeof tenantSchema>;

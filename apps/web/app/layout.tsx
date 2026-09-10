@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
+import { Inter, Montserrat } from 'next/font/google';
 import { headers } from 'next/headers';
 import './globals.css';
 import { AppVersionWatcher } from '@/components/app-version-watcher';
-import { NetworkActivityIndicator } from '@/components/network-activity-indicator';
 import { Toaster } from '@/components/ui/sonner';
 import { brandFaviconUrls } from '@/lib/brand';
 import { CSP_NONCE_HEADER } from '@/lib/security/csp-nonce';
@@ -12,6 +12,18 @@ import { ObservabilityBridge } from '@/providers/observability-bridge';
 import { QueryProvider } from '@/providers/query-provider';
 import { TenantProvider } from '@/providers/tenant-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
+
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  variable: '--font-montserrat',
+  display: 'swap',
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -36,9 +48,8 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning nonce={nonce}>
-      <body className="antialiased font-sans">
+      <body className={`${montserrat.variable} ${inter.variable} antialiased font-sans`}>
         <QueryProvider>
-          <NetworkActivityIndicator />
           <AppVersionWatcher />
           <ThemeProvider
             attribute="class"

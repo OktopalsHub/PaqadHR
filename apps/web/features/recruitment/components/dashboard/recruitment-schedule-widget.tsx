@@ -28,7 +28,7 @@ export function RecruitmentScheduleWidget({ events }: RecruitmentScheduleWidgetP
       headerClassName="border-b border-[#d7e3f6] px-5 py-4 dark:border-slate-800"
       titleClassName="text-[17px] font-semibold text-slate-950 dark:text-slate-100"
       action={
-        <Link href={tenantHref('schedule')} className="dashboard-link text-xs font-semibold">
+        <Link href={tenantHref('calendar')} className="dashboard-link text-xs font-semibold">
           View all
         </Link>
       }

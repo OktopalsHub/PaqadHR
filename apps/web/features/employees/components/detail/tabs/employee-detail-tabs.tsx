@@ -16,6 +16,7 @@ interface EmployeeDetailTabsProps {
   memberId: string;
   viewerMemberId?: string;
   isAdmin?: boolean;
+  canManageOrganization?: boolean;
   canEditPersonal?: boolean;
 }
 
@@ -24,6 +25,7 @@ export function EmployeeDetailTabs({
   memberId,
   viewerMemberId,
   isAdmin = false,
+  canManageOrganization = false,
   canEditPersonal = false,
 }: EmployeeDetailTabsProps) {
   const [activeTab, setTab] = useUrlTab(isEmployeeDetailTab, 'personal');
@@ -34,14 +36,42 @@ export function EmployeeDetailTabs({
   const showIdentitySection = isSelf && requireIdentityForPayroll;
 
   return (
-    <div className="md:w-2/3">
+    <div className="min-w-0 xl:w-2/3">
       <Tabs value={activeTab} onValueChange={(value) => setTab(value as EmployeeDetailTab)}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="personal">Personal</TabsTrigger>
-          <TabsTrigger value="emergency">Emergency</TabsTrigger>
-          <TabsTrigger value="employment">Employment</TabsTrigger>
-          <TabsTrigger value="education">Education</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+        <TabsList
+          aria-label="Employee detail sections"
+          className="grid h-auto w-full grid-cols-5 rounded-md border border-border/70 bg-white p-1.5 shadow-sm dark:bg-card max-xl:flex max-xl:justify-start max-xl:overflow-x-auto"
+        >
+          <TabsTrigger
+            value="personal"
+            className="h-10 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none max-xl:min-w-28"
+          >
+            Personal
+          </TabsTrigger>
+          <TabsTrigger
+            value="emergency"
+            className="h-10 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none max-xl:min-w-28"
+          >
+            Emergency
+          </TabsTrigger>
+          <TabsTrigger
+            value="employment"
+            className="h-10 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none max-xl:min-w-28"
+          >
+            Employment
+          </TabsTrigger>
+          <TabsTrigger
+            value="education"
+            className="h-10 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none max-xl:min-w-28"
+          >
+            Education
+          </TabsTrigger>
+          <TabsTrigger
+            value="documents"
+            className="h-10 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-none max-xl:min-w-28"
+          >
+            Documents
+          </TabsTrigger>
         </TabsList>
 
         <PersonalInfoTab
@@ -54,6 +84,7 @@ export function EmployeeDetailTabs({
           form={form}
           memberId={memberId}
           isAdmin={isAdmin}
+          canManageOrganization={canManageOrganization}
           canViewCompensation={isAdmin || isSelf}
         />
         <EducationTab form={form} canEdit={canEditPersonal} />

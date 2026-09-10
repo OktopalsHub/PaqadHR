@@ -4,6 +4,7 @@ import type { Request } from 'express';
 import { Public } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
 import { Roles, TenantRoleGuard } from 'src/common/guards/tenant-member-role.guard';
+import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { GeoLocationHelper } from 'src/common/utils/geo-location.util';
 import { TenantMemberGuard } from '../../tenant-members/guards/tenant-members.guards';
 import { StartTrialDto } from '../dto/start-trial.dto';
@@ -41,13 +42,21 @@ export class SubscriptionsController {
   @UseGuards(TenantMemberGuard, TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
   @ApiOperation({ summary: 'Start or update a 14-day workspace trial on the selected plan' })
-  startTrial(@Param('tenantId') tenantId: string, @Body() dto: StartTrialDto, @Req() req: Request) {
+  startTrial(
+    @Param('tenantId') tenantId: string,
+    @Body() dto: StartTrialDto,
+    @Req() req: IAuthenticatedMemberRequest,
+  ) {
     const clientIp = GeoLocationHelper.resolveClientIp(
       req.headers,
       req.socket.remoteAddress,
       req.ip,
     );
-    return this.subscriptionsService.startTrial(tenantId, dto.planSlug, clientIp);
+    return this.subscriptionsService.startTrial(tenantId, dto.planSlug, {
+      clientIp,
+      headers: req.headers,
+      userId: req.auth?.principalId,
+    });
   }
   @Post('tenant/:tenantId/set-region')
   @UseGuards(TenantMemberGuard, TenantRoleGuard)

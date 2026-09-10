@@ -1,4 +1,5 @@
 import { formatReminderLabel, formatTimeRange } from '@/features/calenders/lib/calendar-event-form';
+import type { CalendarEventRecord } from '@/lib/api/calendar-events';
 import { fetchCalendarEvents as fetchManualCalendarEvents } from '@/lib/api/calendar-events';
 import { apiClient, tenantPath } from '@/lib/api/client';
 import type { Interview } from '@/lib/api/interviews';
@@ -137,18 +138,7 @@ function normalizeDbTime(raw?: string | null): string | undefined {
   return raw.slice(0, 5);
 }
 
-function manualEventToCalendar(event: {
-  id: string;
-  title: string;
-  description?: string;
-  startDate: string;
-  endDate: string;
-  allDay?: boolean;
-  startTime?: string | null;
-  endTime?: string | null;
-  reminderMinutes?: number | null;
-  type: string;
-}): CalendarEvent[] {
+function manualEventToCalendar(event: CalendarEventRecord): CalendarEvent[] {
   const eventType: CalendarEventType =
     event.type === 'review' ? 'review' : event.type === 'reminder' ? 'meeting' : 'meeting';
   const timeLabel =
@@ -157,15 +147,18 @@ function manualEventToCalendar(event: {
       : undefined;
   const reminderLabel = formatReminderLabel(event.reminderMinutes);
 
-  return eachDayInclusive(event.startDate, event.endDate).map((date, index) => ({
-    id: `manual-${event.id}-${date}`,
-    title: event.title,
-    date,
-    type: eventType,
-    description: event.description,
-    time: index === 0 ? timeLabel : undefined,
-    reminder: index === 0 ? reminderLabel : undefined,
-  }));
+  return [
+    {
+      id: `manual-${event.id}`,
+      title: event.title,
+      date: event.startDate,
+      type: eventType,
+      description: event.description ?? undefined,
+      time: timeLabel,
+      reminder: reminderLabel,
+      manualEvent: event,
+    },
+  ];
 }
 
 function normalizeHolidayDateString(raw: string, fallbackYear?: number): string {

@@ -23,12 +23,28 @@ import { BachsSubscriptionProvider } from './providers/bachs-subscription.provid
 import { MonnifySubscriptionProvider } from './providers/monnify-subscription.provider';
 import { NombaSubscriptionProvider } from './providers/nomba-subscription.provider';
 import { PolarSubscriptionProvider } from './providers/polar-subscription.provider';
+import { BachsProductSyncService } from './services/bachs-product-sync.service';
 import { BillingCronService } from './services/billing-cron.service';
+import { BillingEventStore } from './services/billing-event-store';
+import { BillingOverviewService } from './services/billing-overview.service';
 import { BillingProductSyncService } from './services/billing-product-sync.service';
 import { BillingProviderFactoryService } from './services/billing-provider-factory.service';
 import { NombaApiService } from './services/nomba-api.service';
+import { PaymentSuccessHandlers } from './services/payment-success-handlers';
+import { PaymentVerifier } from './services/payment-verifier';
+import { PolarProductSyncService } from './services/polar-product-sync.service';
+import { RenewalLifecycleService } from './services/renewal-lifecycle.service';
+import { RenewalProcessor } from './services/renewal-processor';
+import { RenewalSuccessApplicator } from './services/renewal-success-applicator';
+import { SeatPricingCalculator } from './services/seat-pricing-calculator';
 import { SubscriptionBillingService } from './services/subscription-billing.service';
+import { SubscriptionCheckoutService } from './services/subscription-checkout.service';
+import { SubscriptionEntitlementService } from './services/subscription-entitlement.service';
+import { SubscriptionLifecycleService } from './services/subscription-lifecycle.service';
+import { SubscriptionRegionService } from './services/subscription-region.service';
 import { SubscriptionsService } from './services/subscriptions.service';
+import { WebhookDispatcher } from './services/webhook-dispatcher';
+import { WebhookEventResolver } from './services/webhook-event-resolver';
 
 @Module({
   imports: [
@@ -55,9 +71,25 @@ import { SubscriptionsService } from './services/subscriptions.service';
   ],
   providers: [
     SubscriptionsService,
+    SubscriptionEntitlementService,
+    SubscriptionLifecycleService,
+    SubscriptionRegionService,
+    SeatPricingCalculator,
+    RenewalProcessor,
+    RenewalLifecycleService,
+    RenewalSuccessApplicator,
+    WebhookDispatcher,
+    WebhookEventResolver,
+    BillingEventStore,
+    PaymentVerifier,
+    PaymentSuccessHandlers,
     SubscriptionBillingService,
+    SubscriptionCheckoutService,
+    BillingOverviewService,
     BillingCronService,
     BillingProductSyncService,
+    BachsProductSyncService,
+    PolarProductSyncService,
     SubscriptionBillingListener,
     NombaApiService,
     NombaSubscriptionProvider,
@@ -70,8 +102,22 @@ import { SubscriptionsService } from './services/subscriptions.service';
   ],
   exports: [
     SubscriptionsService,
+    SubscriptionEntitlementService,
+    SubscriptionLifecycleService,
+    SubscriptionRegionService,
     SubscriptionBillingService,
+    SeatPricingCalculator,
+    RenewalProcessor,
+    RenewalLifecycleService,
+    RenewalSuccessApplicator,
+    WebhookDispatcher,
+    WebhookEventResolver,
+    BillingEventStore,
+    PaymentVerifier,
+    PaymentSuccessHandlers,
     BillingProductSyncService,
+    SubscriptionCheckoutService,
+    BillingOverviewService,
     NombaSubscriptionProvider,
     MonnifySubscriptionProvider,
     BachsSubscriptionProvider,

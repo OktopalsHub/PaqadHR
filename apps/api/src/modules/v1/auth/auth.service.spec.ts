@@ -14,12 +14,18 @@ import { AuditLogsService } from '../audit-logs/services/audit-logs.service';
 import { InvitationsService } from '../invitations/invitations.service';
 import { ZeptomailEmailService } from '../notifications/services/zeptomail-email.service';
 import { TenantMembersService } from '../tenant-members/tenant-members.service';
+import { TenantsService } from '../tenants/tenants.service';
 import type { User } from '../users/entities/user.entity';
 import { UserRepository } from '../users/repositories/users.repository';
 import { AuthService } from './auth.service';
 import { Account } from './entities/account.entity';
 import { Session } from './entities/session.entity';
 import { Verification } from './entities/verification.entity';
+import { AuthCredentialService } from './services/auth-credential.service';
+import { AuthEmailVerificationService } from './services/auth-email-verification.service';
+import { AuthOAuthService } from './services/auth-oauth.service';
+import { AuthPasswordService } from './services/auth-password.service';
+import { AuthSessionService } from './services/auth-session.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
@@ -105,6 +111,11 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AuthCredentialService,
+        AuthSessionService,
+        AuthEmailVerificationService,
+        AuthPasswordService,
+        AuthOAuthService,
         { provide: UserRepository, useValue: mockUserRepository },
         { provide: JwtService, useValue: mockJwtService },
         { provide: getRepositoryToken(Account), useValue: accountRepository },
@@ -115,6 +126,10 @@ describe('AuthService', () => {
         },
         { provide: InvitationsService, useValue: mockInvitationsService },
         { provide: TenantMembersService, useValue: mockTenantMembersService },
+        {
+          provide: TenantsService,
+          useValue: { getSessionWorkspaces: jest.fn().mockResolvedValue([]) },
+        },
         { provide: AuditLogsService, useValue: mockAuditLogsService },
         { provide: RateLimitService, useValue: mockRateLimitService },
         { provide: ZeptomailEmailService, useValue: mockZeptomailEmailService },
@@ -271,17 +286,48 @@ describe('AuthService', () => {
       } as User);
       accountRepository.create.mockImplementation((data) => data);
 
-      await authService.findOrCreateGoogleUser('google-new', 'new@example.com', {
-        ip: '8.8.8.8',
-        headers: {},
-      });
+      await authService.findOrCreateGoogleUser(
+        'google-new',
+        'new@example.com',
+        {
+          ip: '8.8.8.8',
+          headers: {},
+        },
+        true,
+        '1.0',
+      );
 
       expect(userRepository.insertUser).toHaveBeenCalledWith(
         expect.objectContaining({
           email: 'new@example.com',
           countryCode: 'US',
+          metadata: expect.objectContaining({
+            consent: expect.objectContaining({
+              privacyPolicyVersion: expect.any(String),
+            }),
+          }),
         }),
       );
+    });
+
+    it('rejects new Google signup without verified consent', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, false),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects new Google signup when accepted policy version is stale', async () => {
+      accountRepository.findOne.mockResolvedValue(null);
+      userRepository.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        authService.findOrCreateGoogleUser('google-new', 'new@example.com', {}, true, '0.9'),
+      ).rejects.toThrow(BadRequestException);
+      expect(userRepository.insertUser).not.toHaveBeenCalled();
     });
   });
 
@@ -545,7 +591,9 @@ describe('AuthService', () => {
         password: 'hashedpassword',
         isActive: true,
         role: UserRole.BASIC,
-      } as User;
+        emailVerified: false,
+        metadata: { other: 'keep' },
+      } as unknown as User;
 
       userRepository.findUserByEmail.mockResolvedValue(existingUser);
       accountRepository.findOne.mockResolvedValue({
@@ -558,15 +606,24 @@ describe('AuthService', () => {
       const result = await authService.register(
         'test@example.com',
         'CorrectPassword1!',
-        {
-          ip: '127.0.0.1',
-        },
+        { ip: '127.0.0.1' },
         undefined,
         true,
       );
 
       expect(result.user).toBe(existingUser);
       expect(userRepository.insertUser).not.toHaveBeenCalled();
+      expect(userRepository.update).toHaveBeenCalledWith(
+        'user-1',
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            other: 'keep',
+            consent: expect.objectContaining({
+              privacyPolicyVersion: expect.any(String),
+            }),
+          }),
+        }),
+      );
     });
 
     it('rejects registration when the email exists but the password is wrong', async () => {
@@ -636,6 +693,78 @@ describe('AuthService', () => {
           true,
         ),
       ).rejects.toThrow(UnprocessableEntityException);
+    });
+  });
+
+  describe('getSessionBootstrap', () => {
+    it('returns user and workspace entitlement snapshot', async () => {
+      const tenantsService = {
+        getSessionWorkspaces: jest.fn().mockResolvedValue([
+          {
+            id: 'tenant-1',
+            name: 'Acme',
+            slug: 'acme',
+            isActive: true,
+            member: { id: 'member-1', role: 'OWNER', isActive: true },
+            entitled: true,
+            needsPayment: false,
+            plan: 'growth',
+          },
+        ]),
+      };
+
+      const module: TestingModule = await Test.createTestingModule({
+        providers: [
+          AuthService,
+          AuthCredentialService,
+          AuthSessionService,
+          AuthEmailVerificationService,
+          AuthPasswordService,
+          AuthOAuthService,
+          { provide: UserRepository, useValue: userRepository },
+          { provide: JwtService, useValue: jwtService },
+          { provide: getRepositoryToken(Account), useValue: accountRepository },
+          { provide: getRepositoryToken(Session), useValue: sessionRepository },
+          {
+            provide: getRepositoryToken(Verification),
+            useValue: verificationRepository,
+          },
+          { provide: InvitationsService, useValue: { acceptInvitation: jest.fn() } },
+          { provide: TenantMembersService, useValue: { createTenantMember: jest.fn() } },
+          { provide: TenantsService, useValue: tenantsService },
+          { provide: AuditLogsService, useValue: auditLogsService },
+          { provide: RateLimitService, useValue: rateLimitService },
+          {
+            provide: ZeptomailEmailService,
+            useValue: { sendTemplateEmail: jest.fn().mockResolvedValue({ success: true }) },
+          },
+          {
+            provide: ProductAnalyticsService,
+            useValue: { capture: jest.fn(), identify: jest.fn() },
+          },
+        ],
+      }).compile();
+
+      const service = module.get(AuthService);
+      userRepository.findUser.mockResolvedValue({
+        id: 'user-1',
+        email: 'owner@example.com',
+        role: 'USER',
+        isActive: true,
+        emailVerified: true,
+      } as User);
+
+      const bootstrap = await service.getSessionBootstrap('user-1');
+
+      expect(bootstrap.user).toEqual({
+        id: 'user-1',
+        email: 'owner@example.com',
+        role: 'USER',
+        hasPassword: false,
+      });
+      expect(bootstrap.workspaces).toHaveLength(1);
+      expect(bootstrap.workspaces[0]?.entitled).toBe(true);
+      expect(tenantsService.getSessionWorkspaces).toHaveBeenCalledWith('user-1');
     });
   });
 });

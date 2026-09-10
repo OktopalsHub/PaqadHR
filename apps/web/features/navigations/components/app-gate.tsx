@@ -1,32 +1,32 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef } from 'react';
-import { LoadingBlock, LoadingSpinner } from '@/components/loading-block';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { LoadingSpinner } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
-import { loadUserTenantsWithRetry } from '@/lib/api/auth';
+import { readIdleLock } from '@/lib/auth/idle-lock';
 import {
   captureAuthReturnTo,
   goToAuthDestination,
   resolveAuthDestination,
 } from '@/lib/navigation/resolve-auth-destination';
-import { queryKeys } from '@/lib/query/keys';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function AppGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const queryClient = useQueryClient();
   const onboardingRedirectRef = useRef(false);
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { tenants, isLoading: tenantLoading, hasResolvedTenants, isError } = useTenant();
+  const { user, isAuthenticated, isLoading: authLoading, hasResolvedSession } = useAuth();
+  const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
+  const idleLocked = typeof window !== 'undefined' && Boolean(readIdleLock());
 
   const isLoading = authLoading || (isAuthenticated && tenantLoading);
+  // Keep shell while revalidating when we already have a user (cached) or soft lock.
+  const keepShell = Boolean(user) || idleLocked || isAuthenticated;
 
   useEffect(() => {
-    if (authLoading) return;
+    if (idleLocked) return;
+    if (authLoading || !hasResolvedSession) return;
 
     if (!isAuthenticated) {
       const destination = resolveAuthDestination({
@@ -38,62 +38,47 @@ export function AppGate({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (tenantLoading || !hasResolvedTenants || isError) return;
+    if (!hasResolvedTenants) return;
 
-    void (async () => {
-      let resolvedTenants = tenants;
-      if (resolvedTenants.length === 0) {
-        resolvedTenants = await loadUserTenantsWithRetry({ attempts: 2, baseDelayMs: 100 });
-        if (resolvedTenants.length > 0) {
-          queryClient.setQueryData(queryKeys.tenants.all, resolvedTenants);
-          return;
-        }
-      }
-
-      const destination = resolveAuthDestination({
-        isAuthenticated: true,
-        tenants: resolvedTenants,
-      });
-      if (destination.type === 'onboarding' && !onboardingRedirectRef.current) {
-        onboardingRedirectRef.current = true;
-        goToAuthDestination(destination, router.replace);
-      }
-    })();
+    const destination = resolveAuthDestination({
+      isAuthenticated: true,
+      tenants,
+    });
+    if (destination.type === 'onboarding' && !onboardingRedirectRef.current) {
+      onboardingRedirectRef.current = true;
+      goToAuthDestination(destination, router.replace);
+    }
   }, [
     authLoading,
+    hasResolvedSession,
     isAuthenticated,
-    tenantLoading,
     hasResolvedTenants,
-    isError,
     tenants,
     pathname,
     router,
-    queryClient,
+    idleLocked,
   ]);
 
-  if (isLoading || !hasResolvedTenants) {
+  if (idleLocked) {
+    return <>{children}</>;
+  }
+
+  if (!keepShell && (isLoading || !hasResolvedSession || !hasResolvedTenants)) {
     return <LoadingSpinner />;
   }
 
-  if (!isAuthenticated) {
+  if (hasResolvedSession && !isAuthenticated) {
     return <LoadingSpinner />;
   }
 
-  if (isError) {
-    return (
-      <div className="flex min-h-svh items-center justify-center p-6">
-        <Alert variant="destructive" className="max-w-md">
-          <AlertTitle>Unable to load workspace</AlertTitle>
-          <AlertDescription>Refresh the page or try signing in again.</AlertDescription>
-        </Alert>
-      </div>
-    );
+  if (keepShell && (!hasResolvedSession || !hasResolvedTenants)) {
+    return <>{children}</>;
   }
 
   if (tenants.length === 0) {
     return (
       <div className="flex min-h-svh items-center justify-center p-6">
-        <LoadingBlock />
+        <LoadingSpinner />
       </div>
     );
   }

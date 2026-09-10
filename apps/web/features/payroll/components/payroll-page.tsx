@@ -1,44 +1,49 @@
 'use client';
 
-import { AlertTriangle, CalendarDays, Download, FileText, Plus, Wallet } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  CalendarDays,
+  FileText,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Wallet,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
+import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingBlock } from '@/components/loading-block';
 import { StatCard } from '@/components/stat-card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamCompensation } from '@/features/employees/components/team-compensation';
+import { CreatePayrollRunDialog } from '@/features/payroll/components/create-payroll-run-dialog';
 import { PayrollRunDetail } from '@/features/payroll/components/payroll-run-detail';
 import { PaymentAdminSection } from '@/features/settings/components/payment-admin-section';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { useEmployees } from '@/hooks/queries/use-employees';
-import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
+import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
-  useCreatePayrollRun,
   usePayrollActions,
   usePayrollReadiness,
   usePayrollRuns,
+  usePayrollSetupSummary,
 } from '@/hooks/queries/use-payroll';
 import { canViewTeamPayroll, isTenantAdmin } from '@/lib/auth/manager-access';
 import { formatDate } from '@/lib/format-date';
@@ -59,6 +64,13 @@ function statusVariant(status: string) {
       return 'outline';
   }
 }
+
+function canDeletePayrollRun(run: Pick<PayrollRun, 'status'>) {
+  return run.status !== 'completed';
+}
+
+const APPROVE_BUTTON_CLASS =
+  'border-emerald-600 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 hover:text-white dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500';
 
 function PayrollRunRow({
   run,
@@ -81,6 +93,48 @@ function PayrollRunRow({
     run.payoutMode === 'scheduled' && run.paymentDate
       ? `Scheduled · ${formatDate(run.paymentDate)}`
       : null;
+
+  const canDelete = isAdmin && canDeletePayrollRun(run);
+
+  let primary: {
+    label: string;
+    action: string;
+    className?: string;
+    variant?: 'brandSolid';
+  } | null = null;
+  if (isAdmin && run.status === 'draft') {
+    primary = { label: 'Calculate', action: 'calculate' };
+  } else if (isAdmin && run.status === 'processing') {
+    primary = { label: 'Approve', action: 'approve', className: APPROVE_BUTTON_CLASS };
+  } else if (isAdmin && run.status === 'approved') {
+    primary = payrollGatewayEnabled
+      ? { label: 'Fund & pay', action: 'fund-and-pay', variant: 'brandSolid' }
+      : { label: 'Mark paid', action: 'disburse' };
+  } else if (isAdmin && run.status === 'failed' && payrollGatewayEnabled) {
+    primary = { label: 'Retry payment', action: 'retry', variant: 'brandSolid' };
+  }
+
+  const secondaryItems: Array<{
+    label: string;
+    action: string;
+    paymentDate?: string;
+    destructive?: boolean;
+  }> = [];
+
+  if (isAdmin && run.status === 'processing') {
+    secondaryItems.push({ label: 'Edit', action: 'reopen' });
+  }
+  if (isAdmin && run.status === 'approved' && payrollGatewayEnabled) {
+    secondaryItems.push({
+      label: 'Schedule',
+      action: 'schedule',
+      paymentDate: run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
+    });
+    secondaryItems.push({ label: 'Mark paid', action: 'disburse' });
+  }
+  if (canDelete) {
+    secondaryItems.push({ label: 'Delete', action: 'delete', destructive: true });
+  }
 
   return (
     <div
@@ -107,80 +161,51 @@ function PayrollRunRow({
             : ''}
         </p>
       </button>
-      <div className="flex flex-wrap gap-2">
-        {isAdmin && run.status === 'draft' ? (
+      <div className="flex flex-wrap items-center gap-2">
+        {primary ? (
           <Button
             size="sm"
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+            variant={primary.variant ?? (primary.className ? undefined : 'outline')}
+            className={
+              primary.className ??
+              (primary.variant
+                ? undefined
+                : 'border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100')
+            }
             disabled={busy}
-            onClick={() => onAction('calculate', run.id)}
+            onClick={() => onAction(primary.action, run.id)}
           >
-            Calculate
+            {primary.action === 'retry' ? <RefreshCw className="mr-1 size-4" /> : null}
+            {primary.label}
           </Button>
         ) : null}
-        {isAdmin && run.status === 'processing' ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-            disabled={busy}
-            onClick={() => onAction('approve', run.id)}
-          >
-            Approve
-          </Button>
-        ) : null}
-        {isAdmin && run.status === 'approved' ? (
-          <>
-            {payrollGatewayEnabled ? (
+        {secondaryItems.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
-                variant="brandSolid"
+                variant="outline"
+                className="border-slate-200 bg-white px-2 text-slate-700 shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
                 disabled={busy}
-                onClick={() => onAction('pay-now', run.id)}
+                aria-label="More actions"
               >
-                Pay now
+                <MoreHorizontal className="size-4" />
               </Button>
-            ) : null}
-            {payrollGatewayEnabled ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                disabled={busy}
-                onClick={() =>
-                  onAction(
-                    'schedule',
-                    run.id,
-                    run.paymentDate ? String(run.paymentDate).slice(0, 10) : undefined,
-                  )
-                }
-              >
-                Schedule
-              </Button>
-            ) : null}
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-              disabled={busy}
-              onClick={() => onAction('disburse', run.id)}
-            >
-              Mark paid
-            </Button>
-          </>
-        ) : null}
-        {isAdmin && ['processing', 'approved', 'completed'].includes(run.status) ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-            disabled={busy}
-            onClick={() => onAction('export', run.id)}
-          >
-            <Download className="mr-1 size-4" />
-            CSV
-          </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {secondaryItems.map((item) => (
+                <DropdownMenuItem
+                  key={item.action}
+                  variant={item.destructive ? 'destructive' : 'default'}
+                  onClick={() => onAction(item.action, run.id, item.paymentDate)}
+                >
+                  {item.destructive ? <Trash2 className="size-4" /> : null}
+                  {item.action === 'reopen' ? <Pencil className="size-4" /> : null}
+                  {item.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
       </div>
     </div>
@@ -190,102 +215,80 @@ function PayrollRunRow({
 export function PayrollPage() {
   const [activeTab, setActiveTab] = useState('runs');
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [deleteRunId, setDeleteRunId] = useState<string | null>(null);
   const now = new Date();
-  const defaultStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-  const defaultEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const defaultPayDate = new Date(now.getFullYear(), now.getMonth() + 1, 5)
     .toISOString()
     .slice(0, 10);
-  const [periodStart, setPeriodStart] = useState(defaultStart);
-  const [periodEnd, setPeriodEnd] = useState(defaultEnd);
-  const [paymentDate, setPaymentDate] = useState(defaultPayDate);
-  const [baseCurrency, setBaseCurrency] = useState('NGN');
 
   const { data: employees = [] } = useEmployees();
   const { tenant } = useTenant();
+  const role = tenant?.member?.role;
+  const viewerMemberId = tenant?.member?.id;
+  const isAdmin = isTenantAdmin(role);
+  const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
   const { data: billingOverview } = useBillingOverview();
-  const { data: currencyOptions } = useSupportedPaymentCurrencies();
   const { data, isLoading, isError, error } = usePayrollRuns();
   const { data: readiness } = usePayrollReadiness(selectedRunId ?? undefined);
-  const createRun = useCreatePayrollRun();
+  const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
   const actions = usePayrollActions();
 
-  const fiatCurrencies = currencyOptions?.fiat ?? ['NGN'];
-  const cryptoCurrencies = currencyOptions?.crypto ?? [];
-  const runCurrencies = [...fiatCurrencies, ...cryptoCurrencies];
-
-  useEffect(() => {
-    const preferred = tenant?.preferredCurrency?.toUpperCase();
-    if (preferred && runCurrencies.includes(preferred)) {
-      setBaseCurrency(preferred);
-      return;
-    }
-    if (runCurrencies[0]) {
-      setBaseCurrency(runCurrencies[0]);
-    }
-  }, [tenant?.preferredCurrency, runCurrencies[0]]);
-
   const busy =
-    createRun.isPending ||
     actions.calculate.isPending ||
     actions.approve.isPending ||
     actions.disburse.isPending ||
     actions.process.isPending ||
     actions.payNow.isPending ||
+    actions.fundAndPay.isPending ||
+    actions.retryFailed.isPending ||
     actions.schedule.isPending ||
-    actions.exportCsv.isPending ||
     actions.removeItem.isPending ||
+    actions.deleteRun.isPending ||
+    actions.reopen.isPending ||
+    actions.updateTitle.isPending ||
     actions.notifyPaymentSetup.isPending;
 
-  const activeEmployees = employees.filter((e) => e.status === 'Active');
+  const activeEmployees = useMemo(
+    () => employees.filter((e) => e.status === 'Active'),
+    [employees],
+  );
   const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
+  const [reopenRunId, setReopenRunId] = useState<string | null>(null);
+  const [payNowRunId, setPayNowRunId] = useState<string | null>(null);
 
-  const handleCreate = async () => {
-    if (!title.trim()) {
-      toast.error('Enter a payroll title');
+  const toastPayoutResult = (
+    result: { successfulPayments?: number; failedPayments?: number } | undefined,
+    emptyMessage: string,
+  ) => {
+    const ok = result?.successfulPayments ?? 0;
+    const failed = result?.failedPayments ?? 0;
+    if (ok > 0 && failed === 0) {
+      toast.success(`Paid ${ok} employee${ok === 1 ? '' : 's'}`);
       return;
     }
-    if (!periodStart || !periodEnd || !paymentDate) {
-      toast.error('Set period and expected pay dates');
+    if (ok > 0) {
+      toast.warning(`Paid ${ok}, ${failed} failed — use Retry payment for the rest`);
       return;
     }
-    if (new Date(periodEnd) <= new Date(periodStart)) {
-      toast.error('Period end must be after period start');
+    if (failed > 0) {
+      toast.error(`${failed} payment${failed === 1 ? '' : 's'} failed`);
       return;
     }
-    const activeIds = activeEmployees.map((e) => e.id);
-    if (!activeIds.length) {
-      toast.error('No active employees to include');
-      return;
-    }
-    try {
-      const run = await createRun.mutateAsync({
-        title: title.trim(),
-        frequency: 'monthly',
-        periodStart: new Date(periodStart).toISOString(),
-        periodEnd: new Date(periodEnd).toISOString(),
-        paymentDate: new Date(paymentDate).toISOString(),
-        baseCurrency,
-        employeeIds: activeIds,
-      });
-      setOpen(false);
-      setTitle('');
-      setSelectedRunId(run.id);
-      if (run.alreadyExists) {
-        toast.message('Run already exists for this period');
-      } else {
-        toast.success('Payroll run created');
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to create run');
-    }
+    toast.success(emptyMessage);
   };
 
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
+      if (action === 'delete') {
+        setDeleteRunId(id);
+        return;
+      }
+      if (action === 'reopen') {
+        setReopenRunId(id);
+        return;
+      }
       if (action === 'calculate') {
         const result = await actions.calculate.mutateAsync({ id });
         setSelectedRunId(id);
@@ -298,11 +301,21 @@ export function PayrollPage() {
         }
         return;
       }
-      if (action === 'approve') await actions.approve.mutateAsync(id);
+      if (action === 'approve') {
+        await actions.approve.mutateAsync(id);
+        toast.success(
+          'Payroll approved — run locked. Use Fund & pay, Schedule, or Mark paid to send money.',
+        );
+        return;
+      }
       if (action === 'disburse') await actions.disburse.mutateAsync(id);
-      if (action === 'process' || action === 'pay-now') {
-        await actions.payNow.mutateAsync(id);
-        toast.success('Payout started');
+      if (action === 'process' || action === 'pay-now' || action === 'fund-and-pay') {
+        setPayNowRunId(id);
+        return;
+      }
+      if (action === 'retry') {
+        const response = await actions.retryFailed.mutateAsync(id);
+        toastPayoutResult(response.result, 'Retry completed');
         return;
       }
       if (action === 'schedule') {
@@ -313,7 +326,6 @@ export function PayrollPage() {
         );
         return;
       }
-      if (action === 'export') await actions.exportCsv.mutateAsync(id);
       toast.success(`Payroll ${action} completed`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Action failed');
@@ -334,6 +346,67 @@ export function PayrollPage() {
       toast.success(`Scheduled for ${formatDate(scheduleDate)}`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Schedule failed');
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteRunId) return;
+    try {
+      await actions.deleteRun.mutateAsync(deleteRunId);
+      if (selectedRunId === deleteRunId) {
+        setSelectedRunId(null);
+      }
+      setDeleteRunId(null);
+      toast.success('Payroll run deleted');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete payroll run');
+    }
+  };
+
+  const confirmReopen = async () => {
+    if (!reopenRunId) return;
+    try {
+      await actions.reopen.mutateAsync(reopenRunId);
+      setSelectedRunId(reopenRunId);
+      setReopenRunId(null);
+      toast.success('Run opened for editing — update bonuses, then Calculate again');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to open payroll run for editing');
+    }
+  };
+
+  const confirmPayNow = async () => {
+    if (!payNowRunId) return;
+    const checkoutTab = window.open('about:blank', '_blank');
+    try {
+      const response = await actions.fundAndPay.mutateAsync(payNowRunId);
+      if (response.action === 'checkout') {
+        if (response.checkoutUrl) {
+          toast.message(
+            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
+          );
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
+        } else {
+          checkoutTab?.close();
+          toast.error(
+            response.preflight?.message ??
+              `Fund the payout provider${response.preflight?.dashboardUrl ? ` (${response.preflight.dashboardUrl})` : ''} then retry.`,
+          );
+        }
+        setPayNowRunId(null);
+        return;
+      }
+      checkoutTab?.close();
+      toastPayoutResult(response.result, 'Payout started');
+      setPayNowRunId(null);
+    } catch (err) {
+      checkoutTab?.close();
+      toast.error(err instanceof Error ? err.message : 'Payout failed');
     }
   };
 
@@ -381,11 +454,9 @@ export function PayrollPage() {
   const pendingRuns = runs.filter((r) =>
     ['draft', 'processing', 'approved'].includes(r.status),
   ).length;
-  const notReadyItems = readiness?.items.filter((item) => !item.ready) ?? [];
+  const notReadyItems =
+    readiness?.items.filter((item) => !item.ready && item.status !== 'cancelled') ?? [];
   const payrollGatewayEnabled = billingOverview?.payrollGatewayEnabled ?? false;
-  const role = tenant?.member?.role;
-  const viewerMemberId = tenant?.member?.id;
-  const isAdmin = isTenantAdmin(role);
   const canManagePayroll = canViewTeamPayroll(viewerMemberId, employees, role);
 
   return (
@@ -406,120 +477,140 @@ export function PayrollPage() {
           </div>
 
           {isAdmin && activeTab === 'runs' ? (
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="brandSolid" size="app" className="w-full sm:w-max">
-                  <Plus className="size-4" />
-                  New run
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create payroll run</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input
-                      placeholder="March 2026 payroll"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Period start</Label>
-                      <Input
-                        type="date"
-                        value={periodStart}
-                        onChange={(e) => setPeriodStart(e.target.value)}
-                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Period end</Label>
-                      <Input
-                        type="date"
-                        value={periodEnd}
-                        onChange={(e) => setPeriodEnd(e.target.value)}
-                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Expected pay date</Label>
-                      <Input
-                        type="date"
-                        value={paymentDate}
-                        onChange={(e) => setPaymentDate(e.target.value)}
-                        className="border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Currency</Label>
-                    <Select value={baseCurrency} onValueChange={setBaseCurrency}>
-                      <SelectTrigger className="w-full border-slate-200 bg-white text-slate-700 shadow-none focus-visible:border-transparent focus-visible:ring-2 focus-visible:ring-[#fbbf24] dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {runCurrencies.map((code) => (
-                          <SelectItem key={code} value={code}>
-                            {code}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    variant="brandSolid"
-                    className="w-full"
-                    disabled={createRun.isPending}
-                    onClick={handleCreate}
-                  >
-                    Create run
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <>
+              <Button
+                variant="brandSolid"
+                size="app"
+                className="w-full sm:w-max"
+                onClick={() => setOpen(true)}
+              >
+                <Plus className="size-4" />
+                New run
+              </Button>
+              <CreatePayrollRunDialog
+                open={open}
+                onOpenChange={setOpen}
+                activeEmployees={activeEmployees}
+                currentSalaries={currentSalaries}
+                fallbackCurrency={tenant?.preferredCurrency?.toUpperCase() ?? 'USD'}
+                paymentReadyByCurrency={
+                  new Map(
+                    (setupSummary?.byCurrency ?? []).map((row) => [
+                      row.currency.toUpperCase(),
+                      new Set(row.readyMemberIds ?? []),
+                    ]),
+                  )
+                }
+                onCreated={(runId) => {
+                  if (runId) setSelectedRunId(runId);
+                }}
+              />
+            </>
           ) : null}
         </div>
 
         <TabsContent value="runs" className="space-y-6 mt-0">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Active employees"
-              value={activeEmployees.length}
-              icon={Wallet}
-              iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
-            />
-            <StatCard
-              label="Total runs"
-              value={runs.length}
-              icon={FileText}
-              iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
-            />
-            <StatCard
-              label="Completed"
-              value={completedRuns}
-              icon={CalendarDays}
-              iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
-            />
-            <StatCard
-              label="In progress"
-              value={pendingRuns}
-              icon={Wallet}
-              iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
-            />
-          </div>
+          {isAdmin && setupSummary && setupSummary.totalEmployees > 0 ? (
+            <div className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                  Company payment setup
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {setupSummary.paymentReadyCount}/{setupSummary.totalEmployees} salary-eligible
+                  employees have payment details (workspace-wide, not this run)
+                </p>
+              </div>
+              {setupSummary.byCurrency.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                    Ready by currency
+                  </span>
+                  {setupSummary.byCurrency.map((row) => (
+                    <Badge key={row.currency} variant="outline">
+                      {row.currency} · {row.paymentReadyCount}/{row.employeeCount} ready
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {!selectedRunId ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                label="Active employees"
+                value={activeEmployees.length}
+                icon={Wallet}
+                iconClassName="bg-violet-500/12 text-violet-700 dark:bg-violet-500/18 dark:text-violet-200"
+              />
+              <StatCard
+                label="Total runs"
+                value={runs.length}
+                icon={FileText}
+                iconClassName="bg-blue-500/12 text-blue-700 dark:bg-blue-500/18 dark:text-blue-200"
+              />
+              <StatCard
+                label="Completed"
+                value={completedRuns}
+                icon={CalendarDays}
+                iconClassName="bg-emerald-500/12 text-emerald-700 dark:bg-emerald-500/18 dark:text-emerald-200"
+              />
+              <StatCard
+                label="In progress"
+                value={pendingRuns}
+                icon={Wallet}
+                iconClassName="bg-amber-500/14 text-amber-700 dark:bg-amber-500/18 dark:text-amber-200"
+              />
+            </div>
+          ) : null}
 
           {selectedRunId && notReadyItems.length > 0 ? (
             <Alert variant="destructive">
               <AlertTriangle className="size-4" />
-              <AlertTitle>Payment settings incomplete</AlertTitle>
-              <AlertDescription>
-                {notReadyItems.length} employee(s) will miss this payroll unless you remove them or
-                ask them to complete payment settings.
+              <AlertTitle>People on this run need payment details</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>
+                  {notReadyItems.length} employee
+                  {notReadyItems.length === 1 ? '' : 's'} on this run{' '}
+                  {notReadyItems.length === 1 ? 'is' : 'are'} missing payment details. Notify them
+                  or remove them before approving.
+                </p>
+                <ul className="space-y-2">
+                  {notReadyItems.map((item) => (
+                    <li
+                      key={item.itemId}
+                      className="flex flex-col gap-2 rounded-[6px] border border-red-200/80 bg-white/50 p-3 dark:border-red-900/50 dark:bg-slate-950/40 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                          {item.employeeName}
+                        </p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">{item.message}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-slate-200 bg-white text-slate-700 shadow-none dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+                          disabled={busy}
+                          onClick={() => handleNotify(selectedRunId, item.itemId)}
+                        >
+                          Notify
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-8"
+                          disabled={busy}
+                          onClick={() => handleRemove(selectedRunId, item.itemId)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </AlertDescription>
             </Alert>
           ) : null}
@@ -562,59 +653,9 @@ export function PayrollPage() {
                 runId={selectedRunId}
                 payrollGatewayEnabled={payrollGatewayEnabled}
                 isAdmin={isAdmin}
+                onDelete={() => setDeleteRunId(selectedRunId)}
+                onReopen={() => setReopenRunId(selectedRunId)}
               />
-            </ContentCard>
-          ) : null}
-
-          {isAdmin && selectedRunId && readiness ? (
-            <ContentCard
-              title="Employee payment readiness"
-              description={`${readiness.readyCount} ready · ${readiness.notReadyCount} need attention`}
-              className="dashboard-panel rounded-[8px]"
-              bodyClassName="space-y-3"
-            >
-              {readiness.items.map((item) => (
-                <div
-                  key={item.itemId}
-                  className="dashboard-soft-tile flex flex-col gap-3 rounded-[8px] border border-[#d7e3f6] p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-slate-950 dark:text-slate-100">
-                        {item.employeeName}
-                      </p>
-                      <Badge variant={item.ready ? 'default' : 'destructive'}>
-                        {item.ready ? 'Ready' : 'Will miss payment'}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">{item.message}</p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400">
-                      Net {item.netAmount.toLocaleString()} {readiness.currency}
-                    </p>
-                  </div>
-                  {!item.ready && item.status !== 'cancelled' ? (
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                        disabled={busy}
-                        onClick={() => handleNotify(selectedRunId, item.itemId)}
-                      >
-                        Notify employee
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        disabled={busy}
-                        onClick={() => handleRemove(selectedRunId, item.itemId)}
-                      >
-                        Remove from run
-                      </Button>
-                    </div>
-                  ) : null}
-                </div>
-              ))}
             </ContentCard>
           ) : null}
 
@@ -631,6 +672,34 @@ export function PayrollPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog
+        open={Boolean(payNowRunId)}
+        onOpenChange={(next) => {
+          if (!next) setPayNowRunId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fund & pay employees?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              If your payout provider float covers this run, employees are paid immediately. If not,
+              we open a shortfall checkout to fund the provider account, then pay automatically when
+              funding succeeds. Money never sits in a Paqad payroll wallet.
+            </p>
+            <Button
+              variant="brandSolid"
+              className="w-full"
+              disabled={actions.fundAndPay.isPending}
+              onClick={() => void confirmPayNow()}
+            >
+              Confirm fund & pay
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(scheduleRunId)}
@@ -663,6 +732,32 @@ export function PayrollPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DestructiveConfirmDialog
+        open={Boolean(deleteRunId)}
+        onOpenChange={(next) => {
+          if (!next) setDeleteRunId(null);
+        }}
+        title="Delete payroll run?"
+        description="Removes the run and its employees. Paid runs can't be deleted."
+        actionLabel="Delete run"
+        isPending={actions.deleteRun.isPending}
+        preventAutoClose
+        onConfirm={() => void confirmDelete()}
+      />
+
+      <DestructiveConfirmDialog
+        open={Boolean(reopenRunId)}
+        onOpenChange={(next) => {
+          if (!next) setReopenRunId(null);
+        }}
+        title="Edit payroll run?"
+        description="Returns run to draft so you can edit. Recalculate before approve."
+        actionLabel="Edit"
+        isPending={actions.reopen.isPending}
+        preventAutoClose
+        onConfirm={() => void confirmReopen()}
+      />
     </AppPage>
   );
 }

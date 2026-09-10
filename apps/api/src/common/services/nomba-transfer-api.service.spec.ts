@@ -1,7 +1,10 @@
+import { NombaAuthService } from './nomba-auth.service';
 import { NombaTransferApiService } from './nomba-transfer-api.service';
+import { NombaTransfersService } from './nomba-transfers.service';
 
 describe('NombaTransferApiService.parseTransferWebhook', () => {
-  const service = new NombaTransferApiService();
+  const auth = new NombaAuthService();
+  const service = new NombaTransferApiService(auth, new NombaTransfersService(auth));
 
   it('parses payout_success bank transfer events', () => {
     const event = service.parseTransferWebhook({

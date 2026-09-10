@@ -21,9 +21,9 @@ import {
 import { useAuth } from '@/providers/auth-provider';
 
 export function PrivacyConsentGate() {
-  const { isAuthenticated } = useAuth();
-  const { data, isLoading } = usePrivacyConsentStatus(isAuthenticated);
-  const acceptPrivacy = useAcceptPrivacyPolicy();
+  const { isAuthenticated, user } = useAuth();
+  const { data, isLoading } = usePrivacyConsentStatus(user?.id, isAuthenticated);
+  const acceptPrivacy = useAcceptPrivacyPolicy(user?.id);
   const [agreed, setAgreed] = useState(false);
 
   const open = isAuthenticated && !isLoading && Boolean(data?.needsReconsent);

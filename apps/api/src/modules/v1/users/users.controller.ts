@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Header, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthOnly, CurrentUser, RateLimit, RateLimitPresets } from 'src/common/decorators';
 import { UserRole } from 'src/common/enums';
@@ -14,6 +14,8 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private usersService: UsersService) {}
   @Get('profile')
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
   async getProfile(@CurrentUser() req: IAuthenticatedUserRequest): Promise<UserResponseDto | null> {
     const user = await this.usersService.getProfile(req.auth.principalId);
     if (!user) return null;
@@ -36,6 +38,8 @@ export class UsersController {
   }
 
   @Get('me/privacy-consent')
+  @Header('Cache-Control', 'private, no-store, max-age=0')
+  @Header('Pragma', 'no-cache')
   async getPrivacyConsentStatus(@CurrentUser() req: IAuthenticatedUserRequest): Promise<{
     currentVersion: string;
     acceptedVersion: string | null;

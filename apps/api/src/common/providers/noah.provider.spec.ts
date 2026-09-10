@@ -46,7 +46,7 @@ describe('NoahProvider', () => {
   it('returns error when crypto wallet address is missing', async () => {
     const result = await provider.createPayment({
       amount: 50,
-      currency: 'BTC',
+      currency: 'USDC',
       description: 'Payroll',
     });
 

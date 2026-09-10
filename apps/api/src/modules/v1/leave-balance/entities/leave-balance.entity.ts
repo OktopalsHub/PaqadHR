@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, DeleteDateColumn, Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../../common/database/entities/base.entity';
 import { LeaveType } from '../../leave-type/entities/leave-type.entity';
 import { TenantMember } from '../../tenant-members/entities/tenant-member.entity';
@@ -40,6 +40,8 @@ export class LeaveBalance extends BaseEntity {
   year: number;
   @Column({ name: 'tenant_id' })
   tenantId: string;
+  @DeleteDateColumn({ name: 'deleted_at', nullable: true })
+  deletedAt?: Date | null;
   @ManyToOne(() => Tenant)
   @JoinColumn({ name: 'tenant_id' })
   tenant: Tenant;

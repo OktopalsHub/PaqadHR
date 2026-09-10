@@ -1,6 +1,7 @@
 import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { PaymentMethodType } from '../enums/payment-type.enum';
+import { resolveIntlPaymentProvider } from './intl-money-provider.util';
 import { resolveNgPaymentProvider } from './ng-money-provider.util';
 
 export function resolvePaymentProvider(
@@ -10,14 +11,14 @@ export function resolvePaymentProvider(
   const code = currency.toUpperCase();
 
   if (isCryptoCurrency(code) || paymentMethodType === PaymentMethodType.CRYPTO) {
-    return PaymentProvider.NOAH;
+    return resolveIntlPaymentProvider();
   }
 
   if (code === 'NGN') {
     return resolveNgPaymentProvider();
   }
 
-  return PaymentProvider.NOAH;
+  return resolveIntlPaymentProvider();
 }
 
 export function paymentProviderLabel(provider: PaymentProvider): string {
@@ -25,6 +26,8 @@ export function paymentProviderLabel(provider: PaymentProvider): string {
     case PaymentProvider.NOMBA:
     case PaymentProvider.MONNIFY:
       return 'Local bank transfer';
+    case PaymentProvider.FINCRA:
+      return 'Fincra transfer';
     default:
       return 'International transfer';
   }

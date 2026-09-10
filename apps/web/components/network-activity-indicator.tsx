@@ -1,9 +1,10 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { getNetworkActivitySnapshot, subscribeToNetworkActivity } from '@/lib/network-activity';
 
 const getServerSnapshot = () => false;
+const DISPLAY_DELAY_MS = 250;
 
 export function NetworkActivityIndicator() {
   const isActive = useSyncExternalStore(
@@ -11,8 +12,22 @@ export function NetworkActivityIndicator() {
     getNetworkActivitySnapshot,
     getServerSnapshot,
   );
+  const [isVisible, setIsVisible] = useState(false);
 
-  if (!isActive) return null;
+  useEffect(() => {
+    if (!isActive) {
+      setIsVisible(false);
+      return;
+    }
+
+    const displayTimer = window.setTimeout(() => {
+      setIsVisible(true);
+    }, DISPLAY_DELAY_MS);
+
+    return () => window.clearTimeout(displayTimer);
+  }, [isActive]);
+
+  if (!isVisible) return null;
 
   return (
     <div

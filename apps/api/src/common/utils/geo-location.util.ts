@@ -70,24 +70,45 @@ export class GeoLocationHelper {
     return ip;
   }
 
+  /**
+   * Trust X-Forwarded-For / CF / X-Real-IP only behind a reverse proxy.
+   * Direct public peers can spoof those headers — ignore them unless TRUST_PROXY_HEADERS=true
+   * (set when the API sits behind Cloudflare or another edge that overwrites them).
+   */
+  static shouldTrustForwardedHeaders(socketRemoteAddress?: string): boolean {
+    if (process.env.TRUST_PROXY_HEADERS?.trim().toLowerCase() === 'true') {
+      return true;
+    }
+    if (!socketRemoteAddress) {
+      return false;
+    }
+    return GeoLocationHelper.isPrivateIp(socketRemoteAddress);
+  }
+
   static resolveClientIp(
     headers: Record<string, string | string[] | undefined>,
     socketRemoteAddress?: string,
     reqIp?: string,
   ): string {
-    const cf = headers['cf-connecting-ip'];
-    const realIp = headers['x-real-ip'];
-    const forwarded = headers['x-forwarded-for'];
+    const peer = socketRemoteAddress ? GeoLocationHelper.normalizeIp(socketRemoteAddress) : '';
     const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-    const raw =
-      pick(cf) ||
-      pick(realIp) ||
-      pick(forwarded)?.split(',')[0]?.trim() ||
-      reqIp ||
-      socketRemoteAddress ||
-      '127.0.0.1';
+    if (GeoLocationHelper.shouldTrustForwardedHeaders(socketRemoteAddress)) {
+      const cf = headers['cf-connecting-ip'];
+      const realIp = headers['x-real-ip'];
+      const forwarded = headers['x-forwarded-for'];
+      const raw =
+        pick(cf) ||
+        pick(realIp) ||
+        pick(forwarded)?.split(',')[0]?.trim() ||
+        reqIp ||
+        peer ||
+        '127.0.0.1';
+      return GeoLocationHelper.normalizeIp(raw);
+    }
 
+    // Direct public connection: never trust client-supplied forwarding headers.
+    const raw = peer || reqIp || '127.0.0.1';
     return GeoLocationHelper.normalizeIp(raw);
   }
 
@@ -247,14 +268,25 @@ export class GeoLocationHelper {
    * current value is null or GLOBAL-equivalent.
    */
   static async autoFillCountryCode<
-    T extends { countryCode: string | null; preferredCurrency: string | null },
+    T extends {
+      countryCode: string | null;
+      preferredCurrency: string | null;
+      pricingLocked?: boolean;
+    },
   >(
     tenant: T,
     clientIp?: string | null,
     headers?: Record<string, string | string[] | undefined>,
+    options?: {
+      userCountryCode?: string | null;
+      siblingTenant?: { countryCode: string | null; preferredCurrency: string | null } | null;
+    },
   ): Promise<T> {
     const current = GeoLocationHelper.toStoredCountryCode(tenant.countryCode);
     if (current && current !== DEFAULT_COUNTRY) {
+      return tenant;
+    }
+    if (tenant.pricingLocked) {
       return tenant;
     }
 
@@ -264,9 +296,23 @@ export class GeoLocationHelper {
       headers,
     });
 
-    if (detected.countryCode && detected.countryCode !== DEFAULT_COUNTRY) {
-      tenant.countryCode = detected.countryCode;
-      const defaults = GeoLocationHelper.getCountryDefaults(detected.countryCode);
+    let countryCode = detected.countryCode;
+    if (countryCode === DEFAULT_COUNTRY && options?.userCountryCode) {
+      const fromUser = GeoLocationHelper.toStoredCountryCode(options.userCountryCode);
+      if (fromUser) {
+        countryCode = fromUser;
+      }
+    }
+    if (countryCode === DEFAULT_COUNTRY && options?.siblingTenant?.countryCode) {
+      const fromSibling = GeoLocationHelper.toStoredCountryCode(options.siblingTenant.countryCode);
+      if (fromSibling) {
+        countryCode = fromSibling;
+      }
+    }
+
+    if (countryCode && countryCode !== DEFAULT_COUNTRY) {
+      tenant.countryCode = countryCode;
+      const defaults = GeoLocationHelper.getCountryDefaults(countryCode);
       tenant.preferredCurrency = defaults.currency;
     }
 

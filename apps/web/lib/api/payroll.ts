@@ -5,7 +5,9 @@ import type {
   PayrollReadiness,
   PayrollRun,
   PayrollRunsResponse,
+  PayrollSetupSummary,
 } from '@/lib/schemas/payroll';
+import { payrollSetupSummarySchema } from '@/lib/schemas/payroll';
 
 export async function fetchPayrollRuns(): Promise<PayrollRunsResponse> {
   const tenantId = await resolveTenantId();
@@ -104,11 +106,60 @@ export async function fetchPayrollReadiness(id: string): Promise<PayrollReadines
   return apiClient<PayrollReadiness>(tenantPath(tenantId, `payroll/runs/${id}/readiness`));
 }
 
+export async function fetchPayrollSetupSummary(): Promise<PayrollSetupSummary> {
+  const tenantId = await resolveTenantId();
+  const data = await apiClient<unknown>(tenantPath(tenantId, 'payroll/setup-summary'));
+  return payrollSetupSummarySchema.parse(data);
+}
+
+export async function updatePayrollRun(
+  id: string,
+  input: import('@/lib/schemas/payroll').PatchPayrollRunInput,
+): Promise<PayrollRun> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ payrollRun: PayrollRun }>(
+    tenantPath(tenantId, `payroll/runs/${id}`),
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+  return result.payrollRun;
+}
+
+export async function updatePayrollRunTitle(id: string, title: string): Promise<PayrollRun> {
+  return updatePayrollRun(id, { title });
+}
+
+export async function notifyMemberPaymentSetup(memberId: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, 'payroll/notify-payment-setup'), {
+    method: 'POST',
+    body: JSON.stringify({ memberId }),
+  });
+}
+
 export async function removePayrollItem(runId: string, itemId: string): Promise<void> {
   const tenantId = await resolveTenantId();
   await apiClient(tenantPath(tenantId, `payroll/runs/${runId}/items/${itemId}`), {
     method: 'DELETE',
   });
+}
+
+export async function deletePayrollRun(id: string): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payroll/runs/${id}`), {
+    method: 'DELETE',
+  });
+}
+
+export async function reopenPayrollRun(id: string): Promise<PayrollRun> {
+  const tenantId = await resolveTenantId();
+  const result = await apiClient<{ payrollRun: PayrollRun }>(
+    tenantPath(tenantId, `payroll/runs/${id}/reopen`),
+    { method: 'POST' },
+  );
+  return result.payrollRun;
 }
 
 export async function notifyEmployeePaymentSetup(runId: string, itemId: string): Promise<void> {
@@ -126,10 +177,57 @@ export async function processPayrollRun(id: string): Promise<void> {
   });
 }
 
-export async function payNowPayroll(id: string): Promise<void> {
+export async function fundAndPayPayroll(id: string): Promise<{
+  action: 'paid' | 'checkout';
+  message?: string;
+  checkoutUrl?: string;
+  orderReference?: string;
+  result?: {
+    totalItems: number;
+    successfulPayments: number;
+    failedPayments: number;
+  };
+  preflight?: {
+    ok: boolean;
+    shortfall: number;
+    currency: string;
+    message: string;
+    dashboardUrl?: string;
+    canCheckout?: boolean;
+  };
+}> {
   const tenantId = await resolveTenantId();
-  await apiClient(tenantPath(tenantId, `payroll/runs/${id}/pay-now`), {
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/fund-and-pay`), {
     method: 'POST',
+  });
+}
+
+export async function payNowPayroll(id: string): Promise<{
+  message: string;
+  result: {
+    totalItems: number;
+    successfulPayments: number;
+    failedPayments: number;
+  };
+}> {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/pay-now`), {
+    method: 'POST',
+  });
+}
+
+export async function retryFailedPayrollPayments(id: string): Promise<{
+  message: string;
+  result: {
+    totalItems: number;
+    successfulPayments: number;
+    failedPayments: number;
+  };
+}> {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-failed-payments`), {
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 

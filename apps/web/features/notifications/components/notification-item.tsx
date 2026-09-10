@@ -13,6 +13,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react';
+import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import type { AppNotification } from '@/lib/api/notifications';
 import { cn } from '@/lib/utils';
@@ -34,7 +35,7 @@ function iconFor(notification: AppNotification): LucideIcon {
   return (metadataType && TYPE_ICONS[metadataType]) || Bell;
 }
 
-export function NotificationItem({
+export const NotificationItem = memo(function NotificationItem({
   notification,
   onSelect,
   onDelete,
@@ -100,4 +101,4 @@ export function NotificationItem({
       ) : null}
     </div>
   );
-}
+});

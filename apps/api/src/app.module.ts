@@ -14,6 +14,7 @@ import { ApiKeyRouteGuard } from './common/guards/api-key-route.guard';
 import { AppAuthGuard } from './common/guards/app-auth.guard';
 import { FeatureAccessGuard } from './common/guards/feature-access.guard';
 import { TenantGuard } from './common/guards/tenant.guard';
+import { TenantMemberGuard } from './common/guards/tenant-member.guard';
 import { IntegrationModule } from './common/integrations/integrations.module';
 import { EncryptionModule } from './common/modules/encryption.module';
 import { ManagerAccessModule } from './common/modules/manager-access.module';
@@ -30,6 +31,7 @@ import { AuditLogsModule } from './modules/v1/audit-logs/audit-logs.module';
 import { AuditLogsService } from './modules/v1/audit-logs/services/audit-logs.service';
 import { AuthModule } from './modules/v1/auth/auth.module';
 import { CalendarEventsModule } from './modules/v1/calendar-events/calendar-events.module';
+import { ContactModule } from './modules/v1/contact/contact.module';
 import { DepartmentsModule } from './modules/v1/departments/departments.module';
 import { DocumentModule } from './modules/v1/document/document.module';
 import { EducationModule } from './modules/v1/education/education.module';
@@ -102,6 +104,7 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     ShoutoutsModule,
     AnalyticsModule,
     CalendarEventsModule,
+    ContactModule,
     RewardsModule,
   ],
   controllers: [AppController],
@@ -134,6 +137,10 @@ import { WebhooksModule } from './modules/v1/webhooks/webhooks.module';
     {
       provide: APP_GUARD,
       useClass: TenantGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: TenantMemberGuard,
     },
     {
       provide: APP_GUARD,

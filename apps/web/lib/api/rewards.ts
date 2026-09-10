@@ -243,11 +243,14 @@ export async function lookupUtilityMeter(params: {
   });
 }
 
-export async function calculatePointsCost(params: {
-  type: 'airtime' | 'utility' | 'ng-airtime' | 'ng-utility';
-  billerId: number;
-  amount: number;
-}): Promise<{
+export async function calculatePointsCost(
+  params: {
+    type: 'airtime' | 'utility' | 'ng-airtime' | 'ng-utility';
+    billerId: number;
+    amount: number;
+  },
+  signal?: AbortSignal,
+): Promise<{
   pointsCost: number;
   currencyValue: number;
   currencyCode: string;
@@ -262,7 +265,9 @@ export async function calculatePointsCost(params: {
   if (params.billerId) {
     query.set('billerId', String(params.billerId));
   }
-  return apiClient(tenantPath(tenantId, `rewards/calculate-points?${query.toString()}`));
+  return apiClient(tenantPath(tenantId, `rewards/calculate-points?${query.toString()}`), {
+    signal,
+  });
 }
 
 export async function manualTopupWallet(tenantId: string, amount: number): Promise<TenantWallet> {

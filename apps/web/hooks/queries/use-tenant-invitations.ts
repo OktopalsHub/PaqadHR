@@ -26,12 +26,12 @@ export function useResendTenantInvitation() {
   return useMutation({
     mutationFn: (invitationId: string) => resendTenantInvitation(invitationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.invitations.all });
-      if (tenantId) {
-        await queryClient.invalidateQueries({
-          queryKey: [...queryKeys.invitations.all, tenantId],
-        });
-      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.invitations.all }),
+        ...(tenantId
+          ? [queryClient.invalidateQueries({ queryKey: [...queryKeys.invitations.all, tenantId] })]
+          : []),
+      ]);
     },
   });
 }
@@ -43,12 +43,12 @@ export function useRevokeTenantInvitation() {
   return useMutation({
     mutationFn: (invitationId: string) => revokeTenantInvitation(invitationId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.invitations.all });
-      if (tenantId) {
-        await queryClient.invalidateQueries({
-          queryKey: [...queryKeys.invitations.all, tenantId],
-        });
-      }
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.invitations.all }),
+        ...(tenantId
+          ? [queryClient.invalidateQueries({ queryKey: [...queryKeys.invitations.all, tenantId] })]
+          : []),
+      ]);
     },
   });
 }

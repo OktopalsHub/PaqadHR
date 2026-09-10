@@ -4,7 +4,7 @@ import {
   assertCandidateDocumentContentType,
   assertImageUploadContentType,
   isPublicUploadLocation,
-} from './file.service';
+} from './file-upload';
 
 describe('file upload security helpers', () => {
   it('treats resume locations as private', () => {

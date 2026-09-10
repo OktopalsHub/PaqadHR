@@ -1,11 +1,9 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { isMonnifyLive } from 'src/common/config/monnify.config';
 import { verifyMonnifyWebhookSignature } from 'src/common/config/monnify-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
@@ -19,8 +17,6 @@ import {
 
 @Injectable()
 export class MonnifyWebhookService {
-  private readonly logger = new Logger(MonnifyWebhookService.name);
-
   constructor(
     private readonly walletTopupService: TenantWalletTopupService,
     private readonly subscriptionBillingService: SubscriptionBillingService,
@@ -30,12 +26,9 @@ export class MonnifyWebhookService {
   async dispatch(rawBody: string, signature: string): Promise<{ received: boolean }> {
     const trimmedSig = signature?.trim() ?? '';
     if (!trimmedSig) {
-      // Monnify docs: monnify-signature is production-only; sandbox omits it.
-      if (isMonnifyLive()) {
-        throw new UnauthorizedException('Missing webhook signature');
-      }
-      this.logger.warn('Accepting Monnify sandbox webhook without signature header');
-    } else if (!verifyMonnifyWebhookSignature(rawBody, trimmedSig)) {
+      throw new UnauthorizedException('Missing webhook signature');
+    }
+    if (!verifyMonnifyWebhookSignature(rawBody, trimmedSig)) {
       throw new UnauthorizedException('Invalid webhook signature');
     }
 

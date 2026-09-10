@@ -87,7 +87,6 @@ export function PaymentAdminSection() {
             <div className="flex flex-wrap items-center gap-2">
               <p className="font-medium">{method.employeeName}</p>
               <Badge variant="outline">{method.currency}</Badge>
-              {method.isPrimary ? <Badge variant="secondary">Primary payroll account</Badge> : null}
             </div>
             <p className="text-sm text-muted-foreground">{method.displayInfo}</p>
             {method.accountName ? (
@@ -127,7 +126,7 @@ export function PaymentAdminSection() {
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="destructive"
               disabled={verify.isPending}
               onClick={() => openReject(method.id)}
             >

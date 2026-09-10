@@ -5,7 +5,11 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios';
-import { refreshAccessToken, startProactiveRefresh } from '@/lib/api/auth-refresh';
+import {
+  isAuthRefreshPaused,
+  refreshAccessToken,
+  startProactiveRefresh,
+} from '@/lib/api/auth-refresh';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
 import { beginNetworkActivity } from '@/lib/network-activity';
 import { prepareApiRequestHeaders } from './api-request-headers';
@@ -156,6 +160,7 @@ const AUTH_PATHS_WITHOUT_REFRESH = [
   '/auth/login',
   '/auth/register',
   '/auth/refresh',
+  '/auth/clear-access',
   '/auth/forgot-password',
   '/auth/reset-password',
 ];
@@ -221,15 +226,31 @@ http.interceptors.response.use(
     const isRetry = requestConfig._isRetry ?? false;
 
     if (status === 401 && !isRetry && shouldAttemptAuthRefresh(path)) {
+      if (isAuthRefreshPaused()) {
+        const payload = error.response ? await parseAxiosErrorPayload(error.response) : null;
+        const message = resolveApiErrorMessage(status, payload);
+        throw new ApiError(message, status, payload?.code);
+      }
+
       requestConfig._isRetry = true;
 
-      for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
-        const refreshed = await refreshAccessToken();
+      // Session probe: one soft refresh — anonymous users must not burn toward hard logout.
+      const isSessionProbe = path.includes('/auth/session');
+      if (isSessionProbe) {
+        const refreshed = await refreshAccessToken({ softFail: true });
         if (refreshed) {
           startProactiveRefresh();
           return http(requestConfig);
         }
-        await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+      } else {
+        for (let attempt = 0; attempt < REFRESH_RETRY_DELAYS_MS.length; attempt++) {
+          const refreshed = await refreshAccessToken();
+          if (refreshed) {
+            startProactiveRefresh();
+            return http(requestConfig);
+          }
+          await sleep(REFRESH_RETRY_DELAYS_MS[attempt]);
+        }
       }
     }
 
@@ -270,6 +291,7 @@ export async function apiClient<T>(
     method: init?.method ?? 'GET',
     data: init?.body ?? init?.data,
     params: init?.params,
+    signal: init?.signal,
     _isRetry: isRetry,
     skipCsrf: init?.skipCsrf,
     headers,

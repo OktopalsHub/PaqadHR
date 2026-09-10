@@ -31,18 +31,6 @@ export class BillingCronService {
     });
   }
 
-  /** Pull Polar/Bachs remote state for subscriptions not touched in 24h. */
-  @Cron(CronExpression.EVERY_12_HOURS)
-  async syncManagedSubscriptions(): Promise<void> {
-    if (!isBillingGatewayEnabled()) {
-      return;
-    }
-
-    await runCronJob(this.logger, 'managed-subscription-sync', async () => {
-      return this.billingService.reconcileStaleManagedSubscriptions();
-    });
-  }
-
   /**
    * Managed (Bachs/Polar) and checkout-only (Monnify) renewals are not cron-charged.
    * If nextBillingDate drifts past a 3-day grace window, mark PAST_DUE so the gate kicks in.

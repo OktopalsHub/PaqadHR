@@ -52,6 +52,13 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
     getBillingStatus: jest.fn(),
     getTenantSubscription: jest.fn(),
     computeNeedsPayment: jest.fn().mockReturnValue(false),
+    isTrialEligible: jest.fn().mockResolvedValue(true),
+    resolveAndLockTenantRegion: jest.fn(async (tenantId: string) => ({
+      id: tenantId,
+      countryCode: 'NG',
+      preferredCurrency: 'NGN',
+      pricingLocked: true,
+    })),
     healNgSubscriptionPlanPrice: jest.fn(async (_country: string, subscription: unknown) => ({
       subscription,
       pricingMismatch: null,
@@ -94,18 +101,14 @@ function buildSubscriptionBillingService(nombaProviderOverrides: Record<string, 
   };
 
   const service = new SubscriptionBillingService(
-    billingProviderFactory as never,
-    nombaApi as never,
-    monnifyApi as never,
     subscriptionsService as never,
-    tenantSettingsService as never,
-    plansService as never,
     subscriptionRepo as never,
-    tenantRepo as never,
-    userRepo as never,
-    tenantMemberRepo as never,
-    billingEventRepo as never,
-    dataSource as never,
+    { handleWebhook: jest.fn() } as never,
+    { processRenewals: jest.fn() } as never,
+    { getTenantSeatCount: jest.fn() } as never,
+    { createSubscriptionCheckout: jest.fn() } as never,
+    { getBillingOverview: jest.fn() } as never,
+    billingProviderFactory as never,
   );
 
   return {
@@ -965,48 +968,6 @@ describe('SubscriptionBillingService webhooks', () => {
     );
   });
 
-  it('heals ACTIVE Bachs subscription still trialing remotely during sync', async () => {
-    const { service, bachsProvider, subscriptionRepo, billingProviderFactory, billingEventRepo } =
-      createService();
-    billingEventRepo.exists.mockResolvedValue(false);
-    billingEventRepo.findOne.mockResolvedValue(null);
-    const subscription = {
-      tenantId: '11111111-1111-4111-8111-111111111111',
-      billingProvider: BillingProvider.BACHS,
-      status: SubscriptionStatus.ACTIVE,
-      externalSubscriptionId: 'sub_stuck_trial',
-      currentPeriodEnd: new Date('2026-09-12T00:00:00.000Z'),
-      nextBillingDate: new Date('2026-09-12T00:00:00.000Z'),
-      billingHistory: [{ date: new Date(), amount: 49, currency: 'USD', status: 'paid' as const }],
-      planPrice: { currency: 'USD' },
-    };
-    (bachsProvider as any).getSubscription = jest
-      .fn()
-      .mockResolvedValueOnce({
-        status: 'trialing',
-        trial_end: '2026-08-26T00:00:00.000Z',
-        next_billed_at: '2026-08-26T00:00:00.000Z',
-        current_period_end: '2026-08-26T00:00:00.000Z',
-      })
-      .mockResolvedValueOnce({
-        status: 'active',
-        trial_end: null,
-        next_billed_at: '2026-09-12T00:00:00.000Z',
-        current_period_end: '2026-09-12T00:00:00.000Z',
-        cancel_at_period_end: false,
-      });
-
-    const saved = await service.syncExternalSubscription(subscription as never);
-
-    expect(billingProviderFactory.endExternalTrial).toHaveBeenCalledWith(
-      BillingProvider.BACHS,
-      'sub_stuck_trial',
-    );
-    expect(saved.status).toBe(SubscriptionStatus.ACTIVE);
-    expect(saved.nextBillingDate?.toISOString()).toBe('2026-09-12T00:00:00.000Z');
-    expect(subscriptionRepo.save).toHaveBeenCalled();
-  });
-
   it('ignores renewal when cancelAtPeriodEnd is scheduled', async () => {
     const tenantId = '11111111-1111-4111-8111-111111111111';
     const { service, subscriptionRepo, billingEventRepo, plansService } = createService();
@@ -1183,6 +1144,59 @@ describe('SubscriptionBillingService billing overview privacy', () => {
 
     expect(overview.ownerEmail).toBeNull();
     expect(overview.billingContact).toEqual({});
+  });
+
+  it('reads paid Bachs subscription from DB without calling getSubscription', async () => {
+    const {
+      service,
+      tenantRepo,
+      subscriptionsService,
+      tenantSettingsService,
+      tenantMemberRepo,
+      bachsProvider,
+      plansService,
+    } = createService();
+    const tenantId = '11111111-1111-4111-8111-111111111111';
+    const getSubscription = jest.fn();
+    (bachsProvider as { getSubscription?: jest.Mock }).getSubscription = getSubscription;
+
+    tenantRepo.findOne.mockResolvedValue({
+      id: tenantId,
+      name: 'Acme',
+      countryCode: 'US',
+      preferredCurrency: 'USD',
+      createdBy: { email: 'owner@example.com' },
+    });
+    subscriptionsService.getBillingStatus.mockResolvedValue({
+      paymentsEnabled: true,
+      entitled: true,
+      needsPayment: false,
+      subscription: {
+        status: SubscriptionStatus.ACTIVE,
+        plan: 'scale',
+        trialEndsAt: null,
+        isOnTrial: false,
+        daysRemaining: null,
+        currentPeriodEnd: new Date('2026-09-12T00:00:00.000Z'),
+      },
+    });
+    subscriptionsService.getTenantSubscription.mockResolvedValue({
+      status: SubscriptionStatus.ACTIVE,
+      billingProvider: BillingProvider.BACHS,
+      externalSubscriptionId: 'sub_38ffe427df864bcdae4b',
+      nextBillingDate: new Date('2026-09-12T00:00:00.000Z'),
+      currentPeriodEnd: new Date('2026-09-12T00:00:00.000Z'),
+      billingHistory: [{ date: new Date(), amount: 49, currency: 'USD', status: 'paid' as const }],
+    });
+    plansService.getPricesForCountry.mockResolvedValue([]);
+    tenantSettingsService.getTenantSettings.mockResolvedValue({
+      settings: { billing: { contactEmail: 'billing@example.com' } },
+    });
+    tenantMemberRepo.count.mockResolvedValue(1);
+
+    await service.getBillingOverview(tenantId, true);
+
+    expect(getSubscription).not.toHaveBeenCalled();
   });
 });
 
@@ -1473,5 +1487,104 @@ describe('SubscriptionBillingService resume guards', () => {
     });
 
     await expect(service.resumeSubscription('tenant-1')).rejects.toThrow(/cancelled/i);
+  });
+});
+
+describe('SubscriptionBillingService Bachs cross-currency initial payment', () => {
+  const tenantId = '11111111-1111-4111-8111-111111111111';
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('accepts Bachs payment in a different currency than catalog plan_price', async () => {
+    const { service, billingEventRepo, subscriptionRepo, tenantRepo, plansService } =
+      buildSubscriptionBillingService();
+
+    billingEventRepo.exists.mockResolvedValue(false);
+    billingEventRepo.findOne.mockResolvedValue(null);
+    subscriptionRepo.findOne.mockResolvedValue({
+      tenantId,
+      status: SubscriptionStatus.TRIAL,
+    });
+    tenantRepo.findOne.mockResolvedValue({ id: tenantId });
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-usd',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'USD',
+      monthlyPrice: 99,
+      calculateMonthlyPrice: (seats: number) => ({ totalPrice: 99 * seats }),
+    });
+    jest.spyOn(service as any, 'getTenantSeatCount').mockResolvedValue(1);
+    jest.spyOn(service as any, 'verifyPaymentReference').mockResolvedValue({ status: 'success' });
+    jest.spyOn(service as any, 'endProviderTrialBestEffort').mockResolvedValue(undefined);
+
+    await (service as any).processInitialPaymentSuccess(
+      {
+        eventId: 'evt-cc-1',
+        reference: 'inv_cc_1',
+        tenantId,
+        planId: 'plan-1',
+        planPriceId: 'price-usd',
+        amount: 75000,
+        currency: 'NGN',
+        billingType: BillingChargeType.SUBSCRIPTION,
+        externalSubscriptionId: 'sub_bachs_1',
+        nextBillingDate: '2026-09-01T00:00:00.000Z',
+      },
+      BillingProvider.BACHS,
+    );
+
+    expect(subscriptionRepo.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: SubscriptionStatus.ACTIVE,
+        billingHistory: expect.arrayContaining([
+          expect.objectContaining({
+            amount: 75000,
+            currency: 'NGN',
+          }),
+        ]),
+      }),
+    );
+  });
+
+  it('rejects cross-currency initial payment for Nomba', async () => {
+    const { service, billingEventRepo, subscriptionRepo, tenantRepo, plansService } =
+      buildSubscriptionBillingService();
+
+    billingEventRepo.exists.mockResolvedValue(false);
+    subscriptionRepo.findOne.mockResolvedValue(null);
+    tenantRepo.findOne.mockResolvedValue({ id: tenantId });
+    plansService.getPlanPriceById.mockResolvedValue({
+      id: 'price-usd',
+      planId: 'plan-1',
+      isActive: true,
+      currency: 'USD',
+      monthlyPrice: 99,
+      calculateMonthlyPrice: (seats: number) => ({ totalPrice: 99 * seats }),
+    });
+    jest.spyOn(service as any, 'getTenantSeatCount').mockResolvedValue(1);
+    jest.spyOn(service as any, 'verifyPaymentReference').mockResolvedValue({
+      status: 'success',
+      amount: 75000,
+    });
+
+    await expect(
+      (service as any).processInitialPaymentSuccess(
+        {
+          eventId: 'evt-cc-nomba',
+          reference: 'ref_nomba_1',
+          tenantId,
+          planId: 'plan-1',
+          planPriceId: 'price-usd',
+          amount: 75000,
+          currency: 'NGN',
+          billingType: BillingChargeType.SUBSCRIPTION,
+          tokenKey: 'tok_1',
+        },
+        BillingProvider.NOMBA,
+      ),
+    ).rejects.toThrow(/Payment amount does not match server quote/);
   });
 });

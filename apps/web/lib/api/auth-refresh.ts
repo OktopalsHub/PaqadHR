@@ -1,5 +1,7 @@
 import axios from 'axios';
 import { normalizeApiV1Base, resolveApiBaseUrl } from '@/lib/api-origin';
+import { isPublicAuthOrMarketingPath } from '@/lib/navigation/public-routes';
+import { authPageUrl } from '@/lib/navigation/tenant-routes';
 import { clearSessionStorage } from '@/lib/session';
 import { API_REQUEST_TIMEOUT_MS } from './request-timeout';
 
@@ -14,10 +16,31 @@ function resolveApiV1Base(): string {
 let refreshPromise: Promise<boolean> | null = null;
 let proactiveTimer: ReturnType<typeof setInterval> | null = null;
 let consecutiveFailures = 0;
+let refreshPaused = false;
 const MAX_CONSECUTIVE_FAILURES = 3;
 const PROACTIVE_REFRESH_INTERVAL_MS = 12 * 60 * 1000;
 
 let visibilityHandler: (() => void) | null = null;
+let onRefreshSuccess: (() => void) | null = null;
+
+export function setRefreshCallbacks(callbacks: { onSuccess?: () => void }): void {
+  onRefreshSuccess = callbacks.onSuccess ?? null;
+}
+
+export function isAuthRefreshPaused(): boolean {
+  return refreshPaused;
+}
+
+/** Soft idle lock: stop silent refresh so access stays cleared until unlock. */
+export function pauseAuthRefresh(): void {
+  refreshPaused = true;
+  stopProactiveRefresh();
+}
+
+export function resumeAuthRefresh(): void {
+  refreshPaused = false;
+  consecutiveFailures = 0;
+}
 
 export function invalidateSession() {
   stopProactiveRefresh();
@@ -28,8 +51,34 @@ export function invalidateSession() {
   }
 }
 
-export async function refreshAccessToken(): Promise<boolean> {
+/** Exported for tests — whether refresh expiry should hard-navigate to sign-in. */
+export function shouldHardRedirectOnRefreshExpiry(pathname: string): boolean {
+  return !isPublicAuthOrMarketingPath(pathname);
+}
+
+function handleRefreshExpired(): void {
+  stopProactiveRefresh();
+  invalidateSession();
+  consecutiveFailures = 0;
+
+  if (typeof window === 'undefined') return;
+
+  const pathname = window.location.pathname;
+  if (!shouldHardRedirectOnRefreshExpiry(pathname)) {
+    return;
+  }
+
+  window.location.assign(authPageUrl('/signin'));
+}
+
+export async function refreshAccessToken(options?: {
+  /** When true, a failure does not increment toward hard logout (session probe soft path). */
+  softFail?: boolean;
+}): Promise<boolean> {
+  if (refreshPaused) return false;
   if (refreshPromise) return refreshPromise;
+
+  const softFail = options?.softFail === true;
 
   refreshPromise = (async () => {
     try {
@@ -44,12 +93,23 @@ export async function refreshAccessToken(): Promise<boolean> {
       );
       if (response.status >= 200 && response.status < 300) {
         consecutiveFailures = 0;
+        onRefreshSuccess?.();
         return true;
       }
-      consecutiveFailures++;
+      if (!softFail) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          handleRefreshExpired();
+        }
+      }
       return false;
     } catch {
-      consecutiveFailures++;
+      if (!softFail) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          handleRefreshExpired();
+        }
+      }
       return false;
     } finally {
       refreshPromise = null;
@@ -64,6 +124,7 @@ export async function refreshAccessToken(): Promise<boolean> {
  * Called on a 12-minute interval (token expires in 15 min).
  */
 async function proactiveRefresh(): Promise<void> {
+  if (refreshPaused) return;
   const success = await refreshAccessToken();
   if (!success && consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
     stopProactiveRefresh();
@@ -78,6 +139,7 @@ function onVisibilityChange(): void {
 
 export function startProactiveRefresh(): void {
   if (typeof window === 'undefined') return;
+  if (refreshPaused) return;
   if (proactiveTimer !== null) return; // Already running — don't reset
   proactiveTimer = setInterval(() => {
     void proactiveRefresh();

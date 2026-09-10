@@ -1,12 +1,13 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 import { PaqadLogo } from '@/components/paqad-logo';
 import { Button } from '@/components/ui/button';
-import { fadeIn } from '../../constants/landing-motion';
+import { useAuth } from '@/hooks/use-auth';
+import { tenantRoot } from '@/lib/navigation/tenant-routes';
+import { readTenantSlug } from '@/lib/session';
 
 const navLinks = [
   { label: 'Home', href: '/' },
@@ -17,14 +18,82 @@ const navLinks = [
 
 export const LandingNav = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAuthenticated, hasResolvedSession, isLoading } = useAuth();
+  const authCtaPending = isLoading || !hasResolvedSession;
+
+  const dashboardHref = (() => {
+    if (!isAuthenticated) return null;
+    const slug = typeof window !== 'undefined' ? readTenantSlug() : null;
+    if (slug) {
+      try {
+        return tenantRoot(slug);
+      } catch {
+        return `/${slug}`;
+      }
+    }
+    return '/onboarding';
+  })();
+
+  const renderAuthCta = (mobile: boolean) => {
+    if (authCtaPending) {
+      return (
+        <div
+          className={
+            mobile
+              ? 'h-10 w-full animate-pulse rounded-full bg-muted'
+              : 'h-9 w-28 animate-pulse rounded-full bg-muted'
+          }
+          aria-hidden
+        />
+      );
+    }
+
+    if (isAuthenticated && dashboardHref) {
+      return (
+        <Button
+          asChild
+          size="sm"
+          className={
+            mobile
+              ? 'w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
+          }
+        >
+          <a href={dashboardHref}>Dashboard</a>
+        </Button>
+      );
+    }
+
+    return (
+      <>
+        <Link
+          href="/signin"
+          className={
+            mobile
+              ? 'text-sm font-medium cursor-pointer'
+              : 'text-sm font-medium transition-colors hover:text-muted-foreground cursor-pointer'
+          }
+          onClick={mobile ? () => setMobileOpen(false) : undefined}
+        >
+          Sign in
+        </Link>
+        <Button
+          asChild
+          size="sm"
+          className={
+            mobile
+              ? 'w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90'
+              : 'h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
+          }
+        >
+          <Link href="/signup">Sign up</Link>
+        </Button>
+      </>
+    );
+  };
 
   return (
-    <motion.header
-      initial="hidden"
-      animate="show"
-      variants={fadeIn}
-      className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md"
-    >
+    <header className="sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur-md">
       <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-6">
         <Link href="/" aria-label="Paqad home" className="justify-self-start">
           <PaqadLogo />
@@ -43,19 +112,7 @@ export const LandingNav = () => {
         </nav>
 
         <div className="hidden items-center justify-self-end gap-5 md:flex">
-          <Link
-            href="/signin"
-            className="text-sm font-medium transition-colors hover:text-muted-foreground cursor-pointer"
-          >
-            Sign in
-          </Link>
-          <Button
-            asChild
-            size="sm"
-            className="h-9 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            <Link href="/signup">Sign up</Link>
-          </Button>
+          {renderAuthCta(false)}
         </div>
 
         <Button
@@ -82,18 +139,10 @@ export const LandingNav = () => {
                 {link.label}
               </a>
             ))}
-            <Link href="/signin" className="text-sm font-medium cursor-pointer">
-              Sign in
-            </Link>
-            <Button
-              asChild
-              className="w-full rounded-full bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <Link href="/signup">Sign up</Link>
-            </Button>
+            {renderAuthCta(true)}
           </div>
         </div>
       ) : null}
-    </motion.header>
+    </header>
   );
 };

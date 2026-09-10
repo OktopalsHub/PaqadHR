@@ -1,8 +1,55 @@
 import { GeoLocationHelper, getDefaultFiatCurrencyForCountry } from './geo-location.util';
 
 describe('GeoLocationHelper', () => {
+  const originalTrust = process.env.TRUST_PROXY_HEADERS;
+
+  afterEach(() => {
+    if (originalTrust === undefined) {
+      delete process.env.TRUST_PROXY_HEADERS;
+    } else {
+      process.env.TRUST_PROXY_HEADERS = originalTrust;
+    }
+  });
+
   it('maps Africa/Lagos timezone to Nigeria', () => {
     expect(GeoLocationHelper.resolveCountryFromTimezone('Africa/Lagos')).toBe('NG');
+  });
+
+  it('ignores spoofed forwarding headers from a direct public peer', () => {
+    delete process.env.TRUST_PROXY_HEADERS;
+    expect(
+      GeoLocationHelper.resolveClientIp(
+        {
+          'cf-connecting-ip': '1.2.3.4',
+          'x-forwarded-for': '1.2.3.4',
+          'x-real-ip': '1.2.3.4',
+        },
+        '203.0.113.50',
+        '1.2.3.4',
+      ),
+    ).toBe('203.0.113.50');
+  });
+
+  it('trusts forwarding headers behind a private proxy hop', () => {
+    delete process.env.TRUST_PROXY_HEADERS;
+    expect(
+      GeoLocationHelper.resolveClientIp(
+        { 'cf-connecting-ip': '198.51.100.10' },
+        '10.0.0.2',
+        '10.0.0.2',
+      ),
+    ).toBe('198.51.100.10');
+  });
+
+  it('trusts forwarding headers when TRUST_PROXY_HEADERS=true', () => {
+    process.env.TRUST_PROXY_HEADERS = 'true';
+    expect(
+      GeoLocationHelper.resolveClientIp(
+        { 'x-forwarded-for': '198.51.100.20' },
+        '203.0.113.50',
+        '203.0.113.50',
+      ),
+    ).toBe('198.51.100.20');
   });
 
   it('falls back to Nigeria timezone when IP is localhost', async () => {

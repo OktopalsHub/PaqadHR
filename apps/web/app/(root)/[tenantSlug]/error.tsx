@@ -21,7 +21,7 @@ export default function AppError({
       <div className="max-w-md space-y-4">
         <Alert variant="destructive">
           <AlertTitle>Something went wrong</AlertTitle>
-          <AlertDescription>{error.message}</AlertDescription>
+          <AlertDescription>We couldn&apos;t load this page. Try again.</AlertDescription>
         </Alert>
         <Button onClick={reset}>Try again</Button>
       </div>

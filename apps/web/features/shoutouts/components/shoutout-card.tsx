@@ -1,6 +1,7 @@
 'use client';
 
 import { Sparkles } from 'lucide-react';
+import { memo } from 'react';
 import { MemberAvatar, memberLabel } from '@/components/member-avatar';
 import { Badge } from '@/components/ui/badge';
 import { formatPaqPointsDelta } from '@/lib/constants/paq-points';
@@ -18,7 +19,7 @@ function categoryStyle(color?: string | null) {
   return undefined;
 }
 
-export function ShoutoutCard({
+export const ShoutoutCard = memo(function ShoutoutCard({
   shoutout,
   employees = [],
   categories = [],
@@ -84,4 +85,4 @@ export function ShoutoutCard({
       </div>
     </article>
   );
-}
+});

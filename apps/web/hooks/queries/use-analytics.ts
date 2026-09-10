@@ -9,7 +9,7 @@ export function useAnalyticsOverview() {
   const { tenantId, isLoading: tenantLoading } = useTenant();
 
   return useQuery({
-    queryKey: [...queryKeys.analytics.overview, tenantId],
+    queryKey: queryKeys.analytics.overview(tenantId ?? ''),
     queryFn: fetchAnalyticsOverview,
     enabled: !tenantLoading && Boolean(tenantId),
   });

@@ -1,5 +1,6 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { getMonnifyWebhookSecret } from './monnify.config';
+import { signaturesMatch } from './webhook-signature.util';
 
 export function verifyMonnifyWebhookSignature(rawBody: string, signature: string): boolean {
   const secret = getMonnifyWebhookSecret();
@@ -23,14 +24,4 @@ export function verifyMonnifyWebhookSignature(rawBody: string, signature: string
   } catch {}
 
   return false;
-}
-
-function signaturesMatch(expected: string, received: string): boolean {
-  try {
-    const a = Buffer.from(expected.toLowerCase(), 'utf8');
-    const b = Buffer.from(received.toLowerCase(), 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
 }

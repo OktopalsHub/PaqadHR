@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { SearchSelect } from '@/components/search-select';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,6 +53,7 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
   const [departmentId, setDepartmentId] = useState('');
   const [positionId, setPositionId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [createDepartmentOpen, setCreateDepartmentOpen] = useState(false);
   const [createPositionOpen, setCreatePositionOpen] = useState(false);
 
@@ -72,14 +74,18 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
     setRole('member');
     setDepartmentId('');
     setPositionId('');
+    setConfirmationOpen(false);
   };
 
-  const handleSubmit = async () => {
+  const requestInvite = () => {
     if (!email.trim()) {
       toast.error('Email is required');
       return;
     }
+    setConfirmationOpen(true);
+  };
 
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       const result = await createEmployeeInvite({
@@ -204,12 +210,21 @@ export const AddEmployeeDialog = ({ isOpen, onOpenChange }: AddEmployeeDialogPro
             >
               Cancel
             </Button>
-            <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
+            <Button type="button" onClick={requestInvite} disabled={isSubmitting}>
               {isSubmitting ? 'Sending…' : 'Send invite'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmActionDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+        title="Send employee invitation?"
+        description={`An invitation will be sent to ${email.trim()}.`}
+        actionLabel="Send invitation"
+        isPending={isSubmitting}
+        onConfirm={() => void handleSubmit()}
+      />
 
       <CreateDepartmentDialog
         open={createDepartmentOpen}

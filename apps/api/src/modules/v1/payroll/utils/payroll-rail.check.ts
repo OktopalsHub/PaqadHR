@@ -30,3 +30,5 @@ assert(!railOk('USD', PaymentMethodType.CRYPTO), 'USD crypto not ok');
 assert(paymentProviderLabel(PaymentProvider.NOMBA).includes('Local bank'), 'Nomba label');
 assert(paymentProviderLabel(PaymentProvider.NOAH).includes('International'), 'Noah label');
 assert(!isCryptoCurrency('SOL'), 'SOL dropped from supported crypto');
+assert(!isCryptoCurrency('BTC'), 'BTC dropped from supported crypto');
+assert(!isCryptoCurrency('ETH'), 'ETH dropped from supported crypto');

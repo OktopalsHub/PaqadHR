@@ -3,6 +3,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
+  type PutObjectCommandInput,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -83,16 +84,14 @@ export class CloudflareR2Service {
     options: PresignedUrlOptions,
   ): Promise<{ uploadUrl: string; fileKey: string }> {
     const fileKey = this.generateFileKey(options.tenantId, options.location, options.fileName);
-    const commandInput: {
-      Bucket: string;
-      Key: string;
-      ContentType?: string;
-      ACL?: 'public-read';
-    } = {
+    const commandInput: PutObjectCommandInput = {
       Bucket: this.bucketName,
       Key: fileKey,
       ContentType: options.contentType,
     };
+    if (options.contentLength !== undefined) {
+      commandInput.ContentLength = options.contentLength;
+    }
     if (options.public === true) {
       commandInput.ACL = 'public-read';
     }

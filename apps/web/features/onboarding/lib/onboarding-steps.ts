@@ -15,13 +15,13 @@ export const ONBOARDING_STEP_DETAILS: OnboardingStepDetail[] = [
   {
     label: 'Company',
     title: 'Set up your company',
-    description: 'Tell us about your organization to personalize your workspace.',
+    description: 'Company details.',
     icon: Building2,
   },
   {
     label: 'You',
     title: 'About you',
-    description: "This is how you'll appear to your team in the workspace.",
+    description: 'Your profile.',
     icon: UserRound,
   },
   {
@@ -33,8 +33,7 @@ export const ONBOARDING_STEP_DETAILS: OnboardingStepDetail[] = [
   {
     label: 'Review',
     title: 'Review and start your trial',
-    description:
-      "Confirm your workspace details. We'll create everything when you start your trial.",
+    description: 'Confirm details, then start trial.',
     icon: ClipboardList,
   },
 ];

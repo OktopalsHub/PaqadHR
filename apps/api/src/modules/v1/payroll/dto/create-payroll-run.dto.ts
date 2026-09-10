@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsDate,
   IsEnum,
   IsIn,
   IsNotEmpty,
@@ -17,6 +18,7 @@ import {
 } from 'class-validator';
 import { getSupportedPaymentCurrencies } from 'src/common/constants/supported-payment-currencies.constant';
 import { TransactionType } from 'src/common/enums';
+import { PayrollFrequency } from 'src/common/enums/payroll-frequency.enum';
 import {
   IsAfterStartDate,
   IsNotFuture,
@@ -88,15 +90,14 @@ export class CreatePayrollRunDto {
   title: string;
   @ApiProperty({
     description: 'Payroll frequency',
-    enum: ['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'],
-    example: 'monthly',
+    enum: PayrollFrequency,
+    example: PayrollFrequency.MONTHLY,
   })
-  @IsString()
   @Transform(({ value }) => (typeof value === 'string' ? value.toLowerCase() : value))
-  @IsEnum(['weekly', 'biweekly', 'monthly', 'quarterly', 'annually'], {
+  @IsEnum(PayrollFrequency, {
     message: 'Frequency must be one of: weekly, biweekly, monthly, quarterly, annually',
   })
-  frequency: string;
+  frequency: PayrollFrequency;
   @ApiProperty({ description: 'Pay period start date' })
   @Type(() => Date)
   @IsNotFuture({ message: 'Pay period start date cannot be in the future' })
@@ -114,6 +115,7 @@ export class CreatePayrollRunDto {
     description: 'Scheduled payment date (any calendar day; usually on or after period end)',
   })
   @Type(() => Date)
+  @IsDate({ message: 'Expected pay date must be a valid date' })
   paymentDate: Date;
   @ApiProperty({
     description:
@@ -124,8 +126,7 @@ export class CreatePayrollRunDto {
   @IsNotEmpty()
   @Transform(({ value }) => (typeof value === 'string' ? value.toUpperCase() : value))
   @IsIn(getSupportedPaymentCurrencies(), {
-    message:
-      'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, BTC, ETH, USDT, USDC)',
+    message: 'Base currency must be a supported payroll currency (NGN, USD, EUR, GBP, USDT, USDC)',
   })
   baseCurrency: string;
   @ApiProperty({

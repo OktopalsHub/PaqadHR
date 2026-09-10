@@ -8,7 +8,6 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
@@ -36,7 +35,7 @@ interface LoginProps {
 export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
   const router = useRouter();
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { login, isLoading, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, isLoading, isAuthenticated, isLoading: authLoading, paymentsEnabled } = useAuth();
   const { tenants, isLoading: tenantLoading, hasResolvedTenants } = useTenant();
 
   const showRedirectSpinner = isAuthenticated && hasResolvedTenants && !tenantLoading;
@@ -45,22 +44,30 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
     if (!isAuthenticated || !hasResolvedTenants || tenantLoading || authLoading) return;
 
     void (async () => {
-      const href = await resolvePostAuthHref({ tenants, redirect });
+      const href = await resolvePostAuthHref({ tenants, paymentsEnabled, redirect });
       goToHref(href, router.replace);
     })();
-  }, [authLoading, isAuthenticated, hasResolvedTenants, tenantLoading, tenants, router, redirect]);
+  }, [
+    authLoading,
+    isAuthenticated,
+    hasResolvedTenants,
+    tenantLoading,
+    tenants,
+    paymentsEnabled,
+    router,
+    redirect,
+  ]);
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       email: '',
       password: '',
-      rememberMe: false,
     },
   });
 
   const handleLoginSubmit = form.handleSubmit(async (values) => {
-    await submitHandledAuthAction(() => login(values));
+    await submitHandledAuthAction(() => login({ ...values, rememberMe: true }));
   });
 
   if (showRedirectSpinner) {
@@ -86,9 +93,6 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
         <h1 className="text-[clamp(1.8rem,2.5vw,2.25rem)] font-semibold tracking-[-0.05em] text-slate-950">
           Sign in
         </h1>
-        <p className="max-w-sm text-sm leading-6 text-slate-500">
-          Welcome back. Enter your details to continue.
-        </p>
       </div>
 
       {googleSignInFailed && !isAuthenticated && !authLoading ? (
@@ -159,24 +163,11 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
             )}
           />
 
-          <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
-            <FormField
-              control={form.control}
-              name="rememberMe"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-2 space-y-0">
-                  <FormControl>
-                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <FormLabel className="text-sm font-medium text-slate-500">Remember me</FormLabel>
-                </FormItem>
-              )}
-            />
-
+          <div className="flex justify-end pt-1">
             <button
               type="button"
               onClick={() => setShowForgotPassword(true)}
-              className="cursor-pointer self-start text-sm font-semibold text-primary hover:text-primary/90 sm:self-auto"
+              className="cursor-pointer text-sm font-semibold text-primary hover:text-primary/90"
             >
               Forgot password?
             </button>

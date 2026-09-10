@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
+import { DestructiveConfirmDialog } from '@/components/destructive-confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -68,10 +70,15 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadConfirmationOpen, setUploadConfirmationOpen] = useState(false);
   const [uploadName, setUploadName] = useState('');
   const [uploadType, setUploadType] = useState<string>(UPLOAD_DOCUMENT_TYPES[0].value);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [expandedFolder, setExpandedFolder] = useState<string | null>('employment');
+  const [documentPendingDeletion, setDocumentPendingDeletion] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const documentsQueryKey = [...queryKeys.employees.detail(memberId), tenantId, 'documents'];
 
@@ -103,6 +110,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
         selectedFile.name,
         selectedFile.type || undefined,
         tenantId,
+        selectedFile.size,
       );
       await uploadFileToPresignedUrl(uploadUrl, selectedFile);
       return createMemberDocument(
@@ -120,6 +128,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
       void queryClient.invalidateQueries({ queryKey: [...documentsQueryKey, 'all'] });
       toast.success('Document uploaded');
       setUploadOpen(false);
+      setUploadConfirmationOpen(false);
       setUploadName('');
       setSelectedFile(null);
       setUploadType(UPLOAD_DOCUMENT_TYPES[0].value);
@@ -185,6 +194,18 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
     if (file && !uploadName.trim()) {
       setUploadName(file.name.replace(/\.[^.]+$/, ''));
     }
+  };
+
+  const requestUpload = () => {
+    if (!selectedFile) {
+      toast.error('Choose a file');
+      return;
+    }
+    if (!uploadName.trim()) {
+      toast.error('Enter a document name');
+      return;
+    }
+    setUploadConfirmationOpen(true);
   };
 
   const EMPLOYMENT_DETAILS_TYPES = [
@@ -336,7 +357,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
             variant="ghost"
             size="icon"
             className="size-8 hover:text-destructive hover:bg-destructive/10"
-            onClick={() => void handleDelete(doc.id)}
+            onClick={() => setDocumentPendingDeletion({ id: doc.id, name: doc.name })}
           >
             <Trash2 className="size-4 text-destructive" />
           </Button>
@@ -408,15 +429,20 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
   };
 
   return (
-    <TabsContent value="documents">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Documents</h3>
+    <TabsContent value="documents" className="mt-4">
+      <div className="rounded-md border border-border/80 bg-white p-4 shadow-sm dark:bg-card sm:p-5">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-base font-semibold">Documents</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Manage employee files and records in one place.
+            </p>
+          </div>
           {canUpload ? (
             <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
               <DialogTrigger asChild>
-                <Button size="sm" variant="outline" className="h-8">
-                  <Upload className="mr-1.5 size-3.5" />
+                <Button size="sm" className="shrink-0">
+                  <Upload className="mr-1.5 size-4" />
                   Upload
                 </Button>
               </DialogTrigger>
@@ -463,7 +489,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                 <DialogFooter>
                   <Button
                     disabled={uploadMutation.isPending || !selectedFile}
-                    onClick={() => uploadMutation.mutate()}
+                    onClick={requestUpload}
                   >
                     {uploadMutation.isPending ? (
                       <Loader2 className="mr-2 size-4 animate-spin" />
@@ -482,18 +508,21 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
             <p className="text-sm">Loading documents...</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="space-y-2">
             {folders.map((folder) => {
               const isExpanded = expandedFolder === folder.key;
               const count = folder.key === 'payslips' ? allPayslips.length : folder.docs.length;
               const Icon = isExpanded ? FolderOpen : Folder;
 
               return (
-                <div key={folder.key} className="border rounded-lg overflow-hidden">
+                <div
+                  key={folder.key}
+                  className="overflow-hidden rounded-lg border border-border/80 bg-white transition-shadow hover:shadow-sm dark:bg-card"
+                >
                   <button
                     type="button"
                     onClick={() => setExpandedFolder(isExpanded ? null : folder.key)}
-                    className="flex items-center gap-3 w-full px-4 py-3 hover:bg-muted/40 transition-colors text-left"
+                    className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
                   >
                     <Icon
                       className={`size-4 shrink-0 ${folderColorMap[folder.color] ?? 'text-muted-foreground'}`}
@@ -509,10 +538,10 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                     )}
                   </button>
                   {isExpanded && (
-                    <div className="border-t divide-y bg-background/50">
+                    <div className="divide-y border-t bg-muted/20">
                       {folder.key === 'payslips' ? (
                         allPayslips.length === 0 ? (
-                          <div className="p-6 text-center text-sm text-muted-foreground">
+                          <div className="px-6 py-8 text-center text-sm text-muted-foreground">
                             {isAdmin
                               ? 'No published payslips yet. Publish them from a completed payroll run.'
                               : 'No published payslips yet.'}
@@ -521,7 +550,7 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
                           allPayslips.map(renderPayslipRow)
                         )
                       ) : folder.docs.length === 0 ? (
-                        <div className="p-6 text-center text-sm text-muted-foreground">
+                        <div className="px-6 py-8 text-center text-sm text-muted-foreground">
                           No documents in this folder.
                         </div>
                       ) : (
@@ -535,6 +564,26 @@ export function DocumentsTab({ memberId, isSelf, isAdmin }: DocumentsTabProps) {
           </div>
         )}
       </div>
+      <DestructiveConfirmDialog
+        open={Boolean(documentPendingDeletion)}
+        onOpenChange={(open) => !open && setDocumentPendingDeletion(null)}
+        title="Delete document?"
+        description={`"${documentPendingDeletion?.name ?? 'This document'}" will be permanently deleted.`}
+        actionLabel="Delete document"
+        onConfirm={() => {
+          if (documentPendingDeletion) void handleDelete(documentPendingDeletion.id);
+          setDocumentPendingDeletion(null);
+        }}
+      />
+      <ConfirmActionDialog
+        open={uploadConfirmationOpen}
+        onOpenChange={setUploadConfirmationOpen}
+        title="Upload document?"
+        description="The selected document will be added to this employee profile."
+        actionLabel="Upload document"
+        isPending={uploadMutation.isPending}
+        onConfirm={() => uploadMutation.mutate()}
+      />
     </TabsContent>
   );
 }

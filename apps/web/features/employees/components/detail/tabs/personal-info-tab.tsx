@@ -31,7 +31,7 @@ export function PersonalInfoTab({
   const [showIdentity, setShowIdentity] = useState(false);
 
   return (
-    <TabsContent value="personal">
+    <TabsContent value="personal" className="mt-4">
       <Card>
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
@@ -98,7 +98,7 @@ export function PersonalInfoTab({
             <div className="space-y-2">
               <Label htmlFor="gender">Gender</Label>
               <Select
-                value={employee.personalInfo.gender || undefined}
+                value={employee.personalInfo.gender || ''}
                 onValueChange={(value) => handleNestedInputChange('personalInfo', 'gender', value)}
                 disabled={!canEdit}
               >

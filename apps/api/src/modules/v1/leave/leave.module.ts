@@ -11,7 +11,10 @@ import { Leave } from './entities/leave.entity';
 import { LeaveController } from './leave.controller';
 import { LeaveRepository } from './leave.repository';
 import { LeaveService } from './leave.service';
+import { LeaveApprovalService } from './services/leave-approval.service';
 import { LeaveAuthorizationService } from './services/leave-authorization.service';
+import { LeaveBalanceUpdateService } from './services/leave-balance-update.service';
+import { LeaveRequestService } from './services/leave-request.service';
 
 @Module({
   imports: [
@@ -25,7 +28,14 @@ import { LeaveAuthorizationService } from './services/leave-authorization.servic
     NotificationsModule,
   ],
   controllers: [LeaveController],
-  providers: [LeaveService, LeaveRepository, LeaveAuthorizationService],
+  providers: [
+    LeaveService,
+    LeaveRequestService,
+    LeaveApprovalService,
+    LeaveBalanceUpdateService,
+    LeaveRepository,
+    LeaveAuthorizationService,
+  ],
   exports: [LeaveService, LeaveAuthorizationService],
 })
 export class LeaveModule {}

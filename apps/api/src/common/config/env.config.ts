@@ -7,14 +7,24 @@ dotenv.config();
 type JwtExpiresIn = `${number}${'s' | 'm' | 'h' | 'd'}`;
 
 function resolveJwtAccessExpiresIn(): string | number {
-  const raw = process.env.ACCESS_EXPIRES_IN;
-  if (!raw) return '1h';
+  const raw = process.env.ACCESS_EXPIRES_IN?.trim();
+  if (!raw) return '15m';
   if (/^\d+$/.test(raw)) {
+    // L-6: Numeric ms is deprecated — use duration string like 15m; keep compat for 900000→900s
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[deprecated] ACCESS_EXPIRES_IN numeric value is deprecated — use duration string e.g., 15m',
+    );
     const n = parseInt(raw, 10);
     if (n >= 10000) return Math.floor(n / 1000);
     return n;
   }
-  return raw as JwtExpiresIn;
+  if (!/^\d+(s|m|h|d)$/.test(raw.toLowerCase())) {
+    // eslint-disable-next-line no-console
+    console.warn(`[warn] ACCESS_EXPIRES_IN "${raw}" is not a valid duration, using 15m`);
+    return '15m';
+  }
+  return raw.toLowerCase() as JwtExpiresIn;
 }
 
 export interface IEnvironment {

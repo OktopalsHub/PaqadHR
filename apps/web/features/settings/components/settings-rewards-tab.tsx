@@ -534,10 +534,7 @@ export function SettingsRewardsTab() {
             ) : (
               <Alert>
                 <AlertTitle>Auto-topup unavailable</AlertTitle>
-                <AlertDescription>
-                  Saved-card auto-topup is not available for this workspace. Use Top up to fund the
-                  wallet via checkout or bank transfer.
-                </AlertDescription>
+                <AlertDescription>Auto-topup unavailable. Use Top up.</AlertDescription>
               </Alert>
             )}
           </div>

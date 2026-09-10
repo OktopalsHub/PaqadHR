@@ -1,131 +1,63 @@
 import { Logger } from '@nestjs/common';
 import {
+  collectAccessExpiresInErrors,
+  collectConfigErrors,
+  collectCookieErrors,
+  collectCriticalErrors,
+  collectFincraErrors,
+  collectMonnifyErrors,
+  collectNoahErrors,
+  collectNombaErrors,
+  collectPm2Warnings,
+  resolveIntlPayrollProvider,
+  resolveIntlRewardsDepositProvider,
+  resolveNgPayrollProvider,
+  resolveNgRewardsAirtimeProvider,
+  resolveNgRewardsDepositProvider,
+  resolveRewardsGiftCardProvider,
+} from './env-validation-rules';
+import {
   isMonnifyLive,
   MONNIFY_PRODUCTION_BASE_URL,
   MONNIFY_SANDBOX_BASE_URL,
 } from './monnify.config';
 import { getNoahSigningPrivateKeyValidationWarning } from './noah.config';
-import { resolveTrustedOrigins } from './trusted-origins';
-
-const CRITICAL = [
-  'DATABASE_URL',
-  'ACCESS_SECRET',
-  'REFRESH_SECRET',
-  'ENCRYPTION_KEY',
-  'R2_ACCOUNT_ID',
-  'R2_ACCESS_KEY_ID',
-  'R2_SECRET_ACCESS_KEY',
-  'R2_BUCKET_NAME',
-] as const;
-
-function resolveNgPayrollProvider(): string {
-  return (process.env.NG_PAYROLL_PROVIDER || process.env.NG_PAYMENTS_PROVIDER || 'nomba')
-    .trim()
-    .toLowerCase();
-}
-
-function resolveNgRewardsDepositProvider(): string {
-  return (process.env.NG_REWARDS_DEPOSIT_PROVIDER || process.env.NG_WALLET_PAYMENTS_PROVIDER || '')
-    .trim()
-    .toLowerCase();
-}
-
-function resolveNgRewardsAirtimeProvider(): string {
-  return (process.env.NG_REWARDS_AIRTIME_PROVIDER || 'nomba').trim().toLowerCase();
-}
-
-function resolveRewardsGiftCardProvider(): string {
-  const value = (process.env.REWARDS_GIFT_CARD_PROVIDER || 'tremendous').trim().toLowerCase();
-  return value || 'tremendous';
-}
 
 export function validateEnvAtBoot(): void {
   const logger = new Logger('EnvValidation');
   const isProduction = (process.env.NODE_ENV || 'development') === 'production';
   const errors: string[] = [];
   const warnings: string[] = [];
-  const cookieCrossSite = process.env.COOKIE_CROSS_SITE?.trim().toLowerCase();
-  const nombaLive = process.env.NOMBA_LIVE === 'true';
-  const monnifyLive = isMonnifyLive();
-  const noahProduction = process.env.NOAH_ENVIRONMENT === 'production';
+
   const ngPayrollProvider = resolveNgPayrollProvider();
   const ngRewardsDepositProvider = resolveNgRewardsDepositProvider();
   const ngRewardsAirtimeProvider = resolveNgRewardsAirtimeProvider();
   const rewardsGiftCardProvider = resolveRewardsGiftCardProvider();
 
-  for (const key of CRITICAL) {
-    if (!process.env[key]?.trim()) {
-      errors.push(`${key} is not set`);
-    }
-  }
+  errors.push(...collectCriticalErrors());
+  errors.push(...collectCookieErrors(isProduction));
+  errors.push(...collectConfigErrors());
 
-  if (cookieCrossSite !== undefined && !['true', 'false'].includes(cookieCrossSite)) {
-    errors.push('COOKIE_CROSS_SITE must be true or false');
-  }
-  if (isProduction && cookieCrossSite !== 'true') {
-    errors.push('COOKIE_CROSS_SITE=true is required in production');
-  }
-  if (cookieCrossSite === 'true') {
-    const appDomain = process.env.APP_DOMAIN?.trim();
-    if (!appDomain || appDomain === 'localhost') {
-      errors.push('COOKIE_CROSS_SITE=true requires a non-localhost APP_DOMAIN');
-    }
-  }
+  const nomba = collectNombaErrors(isProduction);
+  errors.push(...nomba.errors);
+  warnings.push(...nomba.warnings);
 
-  if (resolveTrustedOrigins().length === 0) {
-    errors.push('TRUSTED_ORIGINS is not set');
-  }
+  const monnify = collectMonnifyErrors(isProduction, ngPayrollProvider, ngRewardsAirtimeProvider);
+  errors.push(...monnify.errors);
+  warnings.push(...monnify.warnings);
 
-  const publicId = process.env.R2_PUBLIC_ID?.trim();
-  const customDomain = process.env.R2_CUSTOM_DOMAIN?.trim();
-  if (!publicId && !customDomain) {
-    errors.push('Set R2_PUBLIC_ID or R2_CUSTOM_DOMAIN for public file URLs');
-  }
+  const noah = collectNoahErrors();
+  errors.push(...noah.errors);
+  warnings.push(...noah.warnings);
 
-  const encryptionKey = process.env.ENCRYPTION_KEY?.trim();
-  if (encryptionKey && encryptionKey.length < 32) {
-    errors.push('ENCRYPTION_KEY must be at least 32 characters');
-  }
+  const fincra = collectFincraErrors(isProduction);
+  errors.push(...fincra.errors);
+  warnings.push(...fincra.warnings);
 
-  if (nombaLive && !isProduction) {
-    warnings.push(
-      'NOMBA_LIVE=true while NODE_ENV is not production — real Nomba charges may run outside production app mode',
-    );
-  }
-  if (monnifyLive && !isProduction) {
-    warnings.push(
-      'MONNIFY_LIVE=true while NODE_ENV is not production — real Monnify charges may run outside production app mode',
-    );
-  }
-
-  if (nombaLive && !process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim()) {
-    errors.push('NOMBA_WEBHOOK_SIGNATURE_KEY is required when NOMBA_LIVE=true');
-  }
-
-  if (monnifyLive) {
-    if (!process.env.MONNIFY_WEBHOOK_SECRET?.trim()) {
-      errors.push('MONNIFY_WEBHOOK_SECRET is required when MONNIFY_LIVE=true');
-    }
-    if (
-      ngPayrollProvider === 'monnify' &&
-      (!process.env.MONNIFY_API_KEY?.trim() ||
-        !process.env.MONNIFY_SECRET_KEY?.trim() ||
-        !process.env.MONNIFY_CONTRACT_CODE?.trim())
-    ) {
-      errors.push(
-        'MONNIFY_LIVE=true with NG_PAYROLL_PROVIDER=monnify requires MONNIFY_API_KEY, MONNIFY_SECRET_KEY, and MONNIFY_CONTRACT_CODE',
-      );
-    }
-  }
-
-  if (noahProduction) {
-    if (!process.env.NOAH_API_KEY?.trim()) {
-      errors.push('NOAH_API_KEY is required when NOAH_ENVIRONMENT=production');
-    }
-    if (!process.env.NOAH_SIGNING_PRIVATE_KEY?.trim()) {
-      errors.push('NOAH_SIGNING_PRIVATE_KEY is required when NOAH_ENVIRONMENT=production');
-    }
-  }
+  const pm2 = collectPm2Warnings(isProduction);
+  errors.push(...pm2.errors);
+  warnings.push(...pm2.warnings);
+  errors.push(...collectAccessExpiresInErrors());
 
   logger.log(
     `NG rails: payroll=${ngPayrollProvider} deposits=${ngRewardsDepositProvider || `(follow payroll:${ngPayrollProvider})`} airtime=${ngRewardsAirtimeProvider}`,
@@ -153,59 +85,21 @@ export function validateEnvAtBoot(): void {
     );
   }
 
-  if (isProduction) {
-    const nombaOk =
-      process.env.NOMBA_CLIENT_ID?.trim() &&
-      process.env.NOMBA_CLIENT_SECRET?.trim() &&
-      (process.env.NOMBA_PARENT_ACCOUNT_ID?.trim() || process.env.NOMBA_ACCOUNT_ID?.trim());
-    if (!nombaOk) {
-      warnings.push(
-        'Nomba billing is not fully configured (NOMBA_CLIENT_ID/SECRET/PARENT_ACCOUNT_ID)',
-      );
-    }
-    if (!nombaLive && !process.env.NOMBA_WEBHOOK_SIGNATURE_KEY?.trim()) {
-      warnings.push(
-        'NOMBA_WEBHOOK_SIGNATURE_KEY is not set — Nomba webhooks will reject signatures',
-      );
-    }
-    if (!process.env.NOAH_API_KEY?.trim()) {
-      warnings.push('NOAH_API_KEY is not set — non-NGN payments will be unavailable');
-    }
-    if (
-      ngPayrollProvider === 'monnify' &&
-      (!process.env.MONNIFY_API_KEY?.trim() ||
-        !process.env.MONNIFY_SECRET_KEY?.trim() ||
-        !process.env.MONNIFY_CONTRACT_CODE?.trim())
-    ) {
-      warnings.push(
-        'NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY/SECRET_KEY/CONTRACT_CODE is incomplete',
-      );
-    }
-    if (process.env.MONNIFY_API_KEY?.trim() && !process.env.MONNIFY_WEBHOOK_SECRET?.trim()) {
-      if (monnifyLive) {
-        errors.push('MONNIFY_WEBHOOK_SECRET is required in production when MONNIFY_LIVE=true');
-      } else {
-        warnings.push(
-          'MONNIFY_WEBHOOK_SECRET is not set — Monnify webhooks will fall back to the secret key',
-        );
-      }
-    }
-    logger.log(
-      nombaLive
-        ? 'Nomba live mode (NOMBA_LIVE=true → https://api.nomba.com unless NOMBA_BASE_URL overrides)'
-        : 'Nomba sandbox mode (NOMBA_LIVE≠true → https://sandbox.nomba.com unless NOMBA_BASE_URL overrides)',
+  const intlPayrollProvider = resolveIntlPayrollProvider();
+  const intlRewardsDepositProvider = resolveIntlRewardsDepositProvider();
+  if (intlPayrollProvider !== 'noah' && intlPayrollProvider !== 'fincra') {
+    warnings.push('INTL_PAYROLL_PROVIDER must be noah or fincra');
+  }
+  if (intlRewardsDepositProvider !== 'noah' && intlRewardsDepositProvider !== 'fincra') {
+    warnings.push('INTL_REWARDS_DEPOSIT_PROVIDER must be noah or fincra');
+  }
+  if (intlPayrollProvider === 'fincra' && !isFincraConfigured()) {
+    warnings.push('INTL_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY is not set');
+  }
+  if (intlRewardsDepositProvider === 'fincra' && !isFincraCheckoutConfigured()) {
+    warnings.push(
+      'INTL_REWARDS_DEPOSIT_PROVIDER=fincra but FINCRA_API_KEY and FINCRA_PUBLIC_KEY must both be set',
     );
-    const nombaBase = process.env.NOMBA_BASE_URL?.trim().replace(/\/$/, '');
-    if (nombaLive && nombaBase?.includes('sandbox.nomba.com')) {
-      warnings.push(
-        'NOMBA_LIVE=true but NOMBA_BASE_URL points at sandbox — credentials/host mismatch risk',
-      );
-    }
-    if (!nombaLive && nombaBase === 'https://api.nomba.com') {
-      warnings.push(
-        'NOMBA_LIVE is not true but NOMBA_BASE_URL is production — pair sandbox credentials with sandbox.nomba.com',
-      );
-    }
   }
 
   const bachsKey = process.env.BACHS_SECRET_KEY?.trim();
@@ -232,9 +126,12 @@ export function validateEnvAtBoot(): void {
   if (ngPayrollProvider === 'monnify' && !process.env.MONNIFY_API_KEY?.trim()) {
     warnings.push('NG_PAYROLL_PROVIDER=monnify but MONNIFY_API_KEY is empty');
   }
+  if (ngPayrollProvider === 'fincra' && !isFincraConfigured()) {
+    warnings.push('NG_PAYROLL_PROVIDER=fincra but FINCRA_API_KEY is not set');
+  }
   if (ngPayrollProvider === 'bachs') {
     warnings.push(
-      'NG_PAYROLL_PROVIDER must be nomba or monnify — use NG_REWARDS_DEPOSIT_PROVIDER=bachs for Bachs wallet deposits only',
+      'NG_PAYROLL_PROVIDER must be nomba, monnify, or fincra — use NG_REWARDS_DEPOSIT_PROVIDER=bachs for Bachs wallet deposits only',
     );
   }
   if (ngRewardsDepositProvider === 'bachs' && !process.env.BACHS_WALLET_TOPUP_PRODUCT_NGN?.trim()) {
@@ -249,23 +146,9 @@ export function validateEnvAtBoot(): void {
     warnings.push('NG_REWARDS_AIRTIME_PROVIDER must be nomba or monnify');
   }
 
-  const monnifyBase = process.env.MONNIFY_BASE_URL?.trim().replace(/\/$/, '');
-  if (monnifyLive && monnifyBase?.includes('sandbox.monnify.com')) {
-    warnings.push(
-      'MONNIFY_LIVE=true but MONNIFY_BASE_URL points at sandbox — credentials/host mismatch risk',
-    );
-  }
-  if (!monnifyLive && monnifyBase === MONNIFY_PRODUCTION_BASE_URL) {
-    warnings.push(
-      'MONNIFY_LIVE is not true but MONNIFY_BASE_URL is production — pair sandbox credentials with sandbox.monnify.com',
-    );
-  }
-  if (
-    (ngPayrollProvider === 'monnify' || ngRewardsAirtimeProvider === 'monnify') &&
-    process.env.MONNIFY_API_KEY?.trim()
-  ) {
+  if (isProduction) {
     logger.log(
-      monnifyLive
+      isMonnifyLive()
         ? `Monnify live mode (MONNIFY_LIVE=true → ${MONNIFY_PRODUCTION_BASE_URL} unless MONNIFY_BASE_URL overrides)`
         : `Monnify sandbox mode (MONNIFY_LIVE≠true → ${MONNIFY_SANDBOX_BASE_URL} unless MONNIFY_BASE_URL overrides)`,
     );
@@ -287,4 +170,12 @@ export function validateEnvAtBoot(): void {
   }
 
   logger.log('Environment validation passed');
+}
+
+function isFincraConfigured(): boolean {
+  return Boolean(process.env.FINCRA_API_KEY?.trim());
+}
+
+function isFincraCheckoutConfigured(): boolean {
+  return Boolean(process.env.FINCRA_API_KEY?.trim() && process.env.FINCRA_PUBLIC_KEY?.trim());
 }

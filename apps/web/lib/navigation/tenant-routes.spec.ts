@@ -5,6 +5,7 @@ import {
   getTenantSlugFromHost,
   getTenantSlugFromPath,
   isSubdomainTenantsEnabled,
+  isValidTenantSlug,
   marketingOriginFromHost,
   subscribePagePath,
   tenantPath,
@@ -63,6 +64,19 @@ test('resolves marketing apex from tenant dev subdomain host', () => {
 test('returns null for subscribe on apex path parsing', () => {
   withTenantEnv(() => {
     assert.equal(getTenantSlugFromPath('/subscribe'), null);
+  });
+});
+
+test('rejects unsafe tenant slugs before they can be used in paths or hosts', () => {
+  withTenantEnv(() => {
+    assert.equal(isValidTenantSlug('acme-team'), true);
+    assert.equal(isValidTenantSlug('acme?next=https://malicious.example'), false);
+    assert.equal(getTenantSlugFromPath('/acme%3Fnext%3Dhttps%3A%2F%2Fmalicious.example'), null);
+    assert.throws(
+      () => buildTenantHost('acme?next=https://malicious.example'),
+      /Invalid tenant slug/,
+    );
+    assert.throws(() => buildTenantHost('api'), /Reserved tenant slug/);
   });
 });
 

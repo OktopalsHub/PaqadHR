@@ -49,8 +49,8 @@ export class PaymentMethodsController {
         accountName: { type: 'string', example: 'John Doe' },
         accountNumber: { type: 'string', example: '1234567890' },
         country: { type: 'string', example: 'US' },
-        cryptoSymbol: { type: 'string', example: 'BTC' },
-        cryptoNetwork: { type: 'string', example: 'BTC' },
+        cryptoSymbol: { type: 'string', example: 'USDC' },
+        cryptoNetwork: { type: 'string', example: 'ERC20' },
         publicAddress: {
           type: 'string',
           example: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
@@ -240,11 +240,17 @@ export class PaymentMethodsController {
     @Param('tenantId') tenantId: string,
     @Param('paymentMethodId') paymentMethodId: string,
     @Body() body: { status: string; notes?: string },
+    @CurrentTenantMember() member: MemberContext,
   ) {
-    return this.paymentMethodService.verifyPaymentMethod(paymentMethodId, tenantId, {
-      status: body.status as PaymentMethodStatus,
-      notes: body.notes,
-    });
+    return this.paymentMethodService.verifyPaymentMethod(
+      paymentMethodId,
+      tenantId,
+      {
+        status: body.status as PaymentMethodStatus,
+        notes: body.notes,
+      },
+      member.id,
+    );
   }
   @Get('member/:memberId')
   @UseGuards(TenantMemberGuard)

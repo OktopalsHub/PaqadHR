@@ -1,4 +1,5 @@
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
@@ -65,6 +66,7 @@ describe('NombaWebhookService', () => {
     service = new NombaWebhookService(
       subscriptionBilling as unknown as SubscriptionBillingService,
       payrollPayout as unknown as PayrollPayoutService,
+      {} as PayrollFloatTopupService,
       walletTopupService as unknown as TenantWalletTopupService,
     );
 

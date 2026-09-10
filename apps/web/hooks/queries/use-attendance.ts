@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useClockInEnabled } from '@/hooks/queries/use-tenant-settings';
 import {
   approveAttendanceException,
@@ -64,6 +64,7 @@ export function useMyAttendanceRecords(from: string, to: string) {
     queryKey: [...queryKeys.attendance.myRecords, tenantId, memberId, from, to],
     queryFn: () => fetchMyAttendanceRecords(from, to, memberId!),
     enabled: !tenantLoading && Boolean(tenantId && memberId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -75,6 +76,7 @@ export function useMonthlyTimesheet(month: number, year: number, page = 1) {
     queryKey: [...queryKeys.attendance.monthly, tenantId, month, year, page],
     queryFn: () => fetchMonthlyTimesheet(month, year, page),
     enabled: !tenantLoading && Boolean(tenantId) && canViewTeam,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -86,6 +88,7 @@ export function useTeamAttendanceRecords(from: string, to: string) {
     queryKey: [...queryKeys.attendance.teamRecords, tenantId, from, to],
     queryFn: () => fetchTeamAttendanceRecords(from, to),
     enabled: !tenantLoading && Boolean(tenantId) && canViewTeam,
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -173,6 +176,7 @@ export function useAttendanceStats(startDate?: string, endDate?: string) {
     queryKey: [...queryKeys.attendance.stats, tenantId, startDate, endDate],
     queryFn: () => fetchAttendanceStats(startDate, endDate),
     enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -188,6 +192,7 @@ export function useAttendanceExceptions(filters?: {
     queryKey: [...queryKeys.attendance.exceptions, tenantId, filters],
     queryFn: () => fetchAttendanceExceptions(filters),
     enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -233,6 +238,7 @@ export function useDailyReport(date?: string) {
     queryKey: [...queryKeys.attendance.dailyReport, tenantId, date],
     queryFn: () => fetchDailyReport(date),
     enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -243,6 +249,7 @@ export function useMonthlyReport(month: number, year: number) {
     queryKey: [...queryKeys.attendance.monthlyReport, tenantId, month, year],
     queryFn: () => fetchMonthlyReport(month, year),
     enabled: !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -253,6 +260,7 @@ export function useEmployeeReport(employeeId: string, startDate: string, endDate
     queryKey: [...queryKeys.attendance.monthlyReport, 'employee', employeeId, startDate, endDate],
     queryFn: () => fetchEmployeeReport(employeeId, startDate, endDate),
     enabled: !tenantLoading && Boolean(tenantId) && Boolean(employeeId),
+    placeholderData: keepPreviousData,
   });
 }
 

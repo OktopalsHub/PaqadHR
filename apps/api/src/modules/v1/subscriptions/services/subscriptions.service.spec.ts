@@ -1,14 +1,28 @@
+import { BadRequestException } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { FeatureAccess, SubscriptionStatus } from 'src/common/enums/subscription.enum';
+import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { PlansService } from '../../plans/services/plans.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
+import { User } from '../../users/entities/user.entity';
 import { TenantSubscription } from '../entities/tenant-subscription.entity';
+import { SubscriptionEntitlementService } from './subscription-entitlement.service';
+import { SubscriptionLifecycleService } from './subscription-lifecycle.service';
+import { SubscriptionRegionService } from './subscription-region.service';
 import { SubscriptionsService } from './subscriptions.service';
 
 describe('SubscriptionsService', () => {
   let service: SubscriptionsService;
-  let subscriptionRepo: { findOne: jest.Mock; save: jest.Mock };
+  let subscriptionRepo: {
+    findOne: jest.Mock;
+    find: jest.Mock;
+    save: jest.Mock;
+    remove: jest.Mock;
+    create: jest.Mock;
+    createQueryBuilder: jest.Mock;
+  };
+  let tenantRepo: { findOne: jest.Mock; save: jest.Mock; createQueryBuilder: jest.Mock };
   let plansService: {
     getPlanPrice: jest.Mock;
     getPricesForCountry: jest.Mock;
@@ -16,7 +30,19 @@ describe('SubscriptionsService', () => {
   };
 
   beforeEach(async () => {
-    subscriptionRepo = { findOne: jest.fn(), save: jest.fn(async (s) => s) };
+    subscriptionRepo = {
+      findOne: jest.fn(),
+      find: jest.fn(),
+      save: jest.fn(async (s) => s),
+      remove: jest.fn(),
+      create: jest.fn((value) => value),
+      createQueryBuilder: jest.fn(),
+    };
+    tenantRepo = {
+      findOne: jest.fn(),
+      save: jest.fn(async (tenant) => tenant),
+      createQueryBuilder: jest.fn(),
+    };
     plansService = {
       getPlanPrice: jest.fn(),
       getPricesForCountry: jest.fn(),
@@ -26,17 +52,28 @@ describe('SubscriptionsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SubscriptionsService,
+        SubscriptionEntitlementService,
+        SubscriptionLifecycleService,
+        SubscriptionRegionService,
         {
           provide: getRepositoryToken(TenantSubscription),
           useValue: subscriptionRepo,
         },
         {
           provide: getRepositoryToken(Tenant),
+          useValue: tenantRepo,
+        },
+        {
+          provide: getRepositoryToken(User),
           useValue: { findOne: jest.fn() },
         },
         {
           provide: PlansService,
           useValue: plansService,
+        },
+        {
+          provide: AuditLogsService,
+          useValue: { queueAuditLog: jest.fn().mockResolvedValue(undefined) },
         },
       ],
     }).compile();
@@ -77,6 +114,68 @@ describe('SubscriptionsService', () => {
         trialEndsAt: new Date(Date.now() - 86_400_000),
       } as TenantSubscription;
       expect(service.isSubscriptionEntitled(sub)).toBe(false);
+    });
+  });
+
+  describe('getEntitlementsForTenants', () => {
+    it('returns unpaid defaults when subscription rows are missing', async () => {
+      subscriptionRepo.find.mockResolvedValue([]);
+
+      const entitlements = await service.getEntitlementsForTenants(['tenant-1', 'tenant-2']);
+
+      expect(subscriptionRepo.find).toHaveBeenCalledTimes(1);
+      expect(entitlements.get('tenant-1')).toEqual({
+        entitled: false,
+        needsPayment: true,
+        plan: null,
+      });
+      expect(entitlements.get('tenant-2')).toEqual({
+        entitled: false,
+        needsPayment: true,
+        plan: null,
+      });
+    });
+
+    it('maps active subscriptions to entitled workspaces', async () => {
+      subscriptionRepo.find.mockResolvedValue([
+        {
+          tenantId: 'tenant-1',
+          status: SubscriptionStatus.ACTIVE,
+          trialEndsAt: null,
+          nextBillingDate: new Date(Date.now() + 86_400_000),
+          currentPeriodEnd: new Date(Date.now() + 86_400_000),
+          plan: { slug: 'growth' },
+        },
+      ]);
+
+      const entitlements = await service.getEntitlementsForTenants(['tenant-1']);
+
+      expect(entitlements.get('tenant-1')).toEqual({
+        entitled: true,
+        needsPayment: false,
+        plan: 'growth',
+      });
+    });
+
+    it('marks expired trials as needing payment', async () => {
+      subscriptionRepo.find.mockResolvedValue([
+        {
+          tenantId: 'tenant-1',
+          status: SubscriptionStatus.TRIAL,
+          trialEndsAt: new Date(Date.now() - 86_400_000),
+          nextBillingDate: new Date(Date.now() + 86_400_000),
+          currentPeriodEnd: new Date(Date.now() + 86_400_000),
+          plan: { slug: 'starter' },
+        },
+      ]);
+
+      const entitlements = await service.getEntitlementsForTenants(['tenant-1']);
+
+      expect(entitlements.get('tenant-1')).toEqual({
+        entitled: false,
+        needsPayment: true,
+        plan: 'starter',
+      });
     });
   });
 
@@ -250,6 +349,61 @@ describe('SubscriptionsService', () => {
       expect(plansService.getPlanPrice).not.toHaveBeenCalled();
       expect(result.pricingMismatch).toBeNull();
       expect(result.subscription).toBe(subscription);
+    });
+  });
+
+  describe('startTrial', () => {
+    it('rejects a second trial when the user already used one on another owned workspace', async () => {
+      subscriptionRepo.findOne.mockResolvedValue(null);
+      subscriptionRepo.createQueryBuilder.mockReturnValue({
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getCount: jest.fn().mockResolvedValue(1),
+      });
+
+      await expect(
+        service.startTrial('tenant-b', 'growth', { userId: 'user-1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('allows updating the plan while the current workspace trial is active', async () => {
+      subscriptionRepo.findOne
+        .mockResolvedValueOnce({
+          tenantId: 'tenant-a',
+          status: SubscriptionStatus.TRIAL,
+          planId: 'plan-1',
+          planPriceId: 'price-1',
+        })
+        .mockResolvedValueOnce({
+          tenantId: 'tenant-a',
+          status: SubscriptionStatus.TRIAL,
+          planId: 'plan-1',
+          planPriceId: 'price-1',
+        })
+        .mockResolvedValueOnce({
+          tenantId: 'tenant-a',
+          status: SubscriptionStatus.TRIAL,
+          planId: 'plan-1',
+          planPriceId: 'price-2',
+          plan: { slug: 'scale' },
+          planPrice: { id: 'price-2', plan: { slug: 'scale' } },
+        });
+      tenantRepo.findOne.mockResolvedValue({
+        id: 'tenant-a',
+        countryCode: 'NG',
+        preferredCurrency: 'NGN',
+        pricingLocked: true,
+      });
+      plansService.getPlanPrice.mockResolvedValue({
+        id: 'price-2',
+        planId: 'plan-2',
+        plan: { slug: 'scale' },
+      });
+
+      const result = await service.startTrial('tenant-a', 'scale', { userId: 'user-1' });
+
+      expect(result.planPriceId).toBe('price-2');
     });
   });
 });

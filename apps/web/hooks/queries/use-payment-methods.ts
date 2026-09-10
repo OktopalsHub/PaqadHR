@@ -144,7 +144,8 @@ export function useNigerianBanks(options?: { enabled?: boolean }) {
 
 export function useBankLookup() {
   return useMutation({
-    mutationFn: lookupNigerianBankAccount,
+    mutationFn: (input: { accountNumber: string; bankCode: string; bankName?: string }) =>
+      lookupNigerianBankAccount(input),
   });
 }
 

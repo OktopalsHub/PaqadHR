@@ -18,6 +18,8 @@ export const RESERVED_ROUTE_SEGMENTS = new Set([
   'subscribe',
   'privacy',
   'terms',
+  'contact',
+  'dpa',
   'app',
   'api',
   '_next',

@@ -1,35 +1,44 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 import { getNavItems, type NavItem } from '@/features/navigations/constants/nav-items';
 import { isTenantAdmin } from '@/lib/auth/manager-access';
-import { tenantPath } from '@/lib/navigation/tenant-routes';
+import { getTenantSlugFromPath, tenantPath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function useTenantNavItems(): NavItem[] {
   const { tenant } = useTenant();
+  const pathname = usePathname();
 
   return useMemo(() => {
-    if (!tenant?.slug) return [];
+    const slug = tenant?.slug ?? getTenantSlugFromPath(pathname);
+    if (!slug) return [];
 
-    const items = getNavItems(tenant.slug).filter((item) => item.segment !== 'settings');
+    const items = getNavItems(slug).filter((item) => item.segment !== 'settings');
+    // The URL supplies the current workspace while its membership record loads.
+    // Role-based filtering is applied as soon as the server-provided role arrives.
+    if (!tenant?.member?.role) return items;
+
     if (isTenantAdmin(tenant.member?.role)) {
       return items;
     }
 
     const memberHidden = new Set(['payroll', 'recruitment', 'analytics', 'activity']);
     return items.filter((item) => !item.segment || !memberHidden.has(item.segment));
-  }, [tenant?.slug, tenant?.member?.role]);
+  }, [pathname, tenant?.slug, tenant?.member?.role]);
 }
 
 export function useTenantHref() {
   const { tenant } = useTenant();
+  const pathname = usePathname();
 
   return useCallback(
     (segment?: string) => {
-      if (!tenant?.slug) return '#';
-      return tenantPath(tenant.slug, segment);
+      const slug = tenant?.slug ?? getTenantSlugFromPath(pathname);
+      if (!slug) return '#';
+      return tenantPath(slug, segment);
     },
-    [tenant?.slug],
+    [pathname, tenant?.slug],
   );
 }

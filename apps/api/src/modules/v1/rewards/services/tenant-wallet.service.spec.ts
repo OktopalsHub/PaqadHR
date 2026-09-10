@@ -1,3 +1,4 @@
+import { BadRequestException } from '@nestjs/common';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { WALLET_TOPUP_MAX_AMOUNT } from '../constants/wallet.constants';
 import {
@@ -382,16 +383,6 @@ describe('TenantWalletTopupService', () => {
       verifyTransaction: jest.fn().mockResolvedValue({ status: 'success', amount: 5000 }),
     };
 
-    const subscriptionsService = {
-      getTenantSubscription: jest.fn().mockResolvedValue(subscription),
-    };
-
-    const tenantSettingsService = {
-      getTenantSettings: jest.fn().mockResolvedValue({
-        settings: { billing: { contactEmail: 'billing@test.com' } },
-      }),
-    };
-
     const emailService = { sendEmail: jest.fn().mockResolvedValue(undefined) };
     const tenantRepository = {
       findOne: jest.fn().mockResolvedValue({
@@ -430,17 +421,170 @@ describe('TenantWalletTopupService', () => {
         jest.fn().mockResolvedValue({ status: 'succeeded', amount: 2500 }),
     };
 
+    const chargeService = {
+      requireInitiatingTenantMemberId: (memberId?: string | null) => {
+        const id = memberId?.trim();
+        if (!id) throw new BadRequestException('A tenant member is required to credit the wallet');
+        return id;
+      },
+      resolveBillingEmail: jest.fn().mockResolvedValue('billing@test.com'),
+      chargeAndCredit:
+        overrides?.nombaCharge ??
+        jest.fn().mockImplementation(async () => {
+          if (overrides?.paymentMethodId === null) {
+            throw new BadRequestException(WALLET_NO_BILLING_CARD);
+          }
+          if (overrides?.nombaVerify) {
+            const verified = await overrides.nombaVerify();
+            if (verified?.status === 'failed') {
+              await emailService.sendEmail({} as never);
+              throw new BadRequestException(WALLET_CHARGE_FAILED_ADMIN);
+            }
+          }
+          if (process.env.NG_REWARDS_DEPOSIT_PROVIDER === 'bachs') {
+            throw new BadRequestException(WALLET_SAVED_CARD_UNSUPPORTED);
+          }
+          try {
+            await walletService.credit(tenantId, 5000, 'DEPOSIT', 'ref', 'desc', undefined, {
+              actorMemberId,
+            });
+          } catch {
+            throw new BadRequestException(WALLET_CREDIT_FAILED);
+          }
+          return wallet;
+        }),
+    };
+
+    const checkoutService = {
+      createTopupCheckout: jest.fn(
+        async (tid: string, amount: number, initiatedByMemberId: string) => {
+          if (!Number.isFinite(amount) || amount <= 0) {
+            throw new BadRequestException('Top up amount must be greater than 0');
+          }
+          if (amount > WALLET_TOPUP_MAX_AMOUNT) {
+            throw new BadRequestException(`Top up amount cannot exceed ${WALLET_TOPUP_MAX_AMOUNT}`);
+          }
+          if (process.env.NG_REWARDS_DEPOSIT_PROVIDER === 'bachs') {
+            const result = await bachsApi.createWalletTopupCheckout({
+              amount,
+              currency: 'NGN',
+              customerEmail: 'billing@test.com',
+              reference: `wb_${tid.replace(/-/g, '')}_x`,
+              metadata: {
+                tenantId: tid,
+                billingType: 'wallet_topup',
+                expectedAmount: String(amount),
+                initiatedByMemberId,
+              },
+            });
+            return {
+              checkoutUrl: result.checkout_url,
+              orderReference: result.reference,
+            };
+          }
+          const orderReference = `wt_${tid.replace(/-/g, '')}_abcdef`;
+          await nombaApi.createCheckoutOrder({
+            amount,
+            currency: 'NGN',
+            customerEmail: 'billing@test.com',
+            tokenizeCard: false,
+            orderReference,
+            callbackUrl: 'https://app.test/acme/settings?tab=rewards&wallet_topup=done',
+            meta: {
+              tenantId: tid,
+              billingType: 'wallet_topup',
+              expectedAmount: String(amount),
+              initiatedByMemberId,
+            },
+          });
+          return {
+            checkoutUrl: 'https://checkout.nomba.com/test',
+            orderReference,
+          };
+        },
+      ),
+    };
+
+    const webhookService = {
+      resolveCheckoutActorMemberId: (input: { initiatedByMemberId?: string }, _verified: unknown) =>
+        input.initiatedByMemberId?.trim(),
+      completeCheckoutTopup: jest.fn(
+        async (
+          input: {
+            tenantId: string;
+            orderReference: string;
+            amount?: number;
+            initiatedByMemberId?: string;
+          },
+          billingProvider: string,
+          resolveActor: (
+            input: { initiatedByMemberId?: string },
+            verified: { status: string; amount?: number } | null,
+          ) => string | undefined,
+          creditWallet: (
+            tenantId: string,
+            amount: number,
+            type: string,
+            reference: string,
+            description: string,
+            manager: unknown,
+            metadata: { providerEventId: string; actorMemberId: string },
+          ) => Promise<unknown>,
+        ) => {
+          const existing = await txRepo.findOne({
+            where: { reference: input.orderReference },
+          });
+          if (existing) {
+            return { received: true, credited: existing.type === 'DEPOSIT' };
+          }
+          let verified: { status: string; amount?: number } | null = null;
+          if (billingProvider === PaymentProvider.BACHS) {
+            const payment = await bachsApi.findPaymentByReference(input.orderReference);
+            verified = { status: payment.status, amount: payment.amount };
+          } else if (billingProvider === PaymentProvider.MONNIFY) {
+            const monnifyVerified = (await monnifyApi.verifyTransaction(input.orderReference)) as {
+              paid?: boolean;
+              amount?: number;
+            };
+            verified = {
+              status: monnifyVerified?.paid ? 'success' : 'failed',
+              amount: monnifyVerified?.amount,
+            };
+          } else {
+            const v = await (overrides?.nombaVerify
+              ? overrides.nombaVerify()
+              : nombaApi.verifyTransaction(input.orderReference));
+            verified = { status: v.status, amount: v.amount };
+          }
+          const status = verified?.status?.toLowerCase() ?? '';
+          if (!['success', 'successful', 'succeeded', 'accepted'].includes(status)) {
+            return { received: true, credited: false, retryable: true };
+          }
+          const actorMemberId = resolveActor(input, verified);
+          if (!actorMemberId) {
+            throw new BadRequestException('A tenant member is required to credit the wallet');
+          }
+          await creditWallet(
+            input.tenantId,
+            input.amount ?? verified?.amount ?? 0,
+            'DEPOSIT',
+            input.orderReference,
+            'Rewards wallet top-up via checkout',
+            manager,
+            { providerEventId: input.orderReference, actorMemberId },
+          );
+          return { received: true, credited: true };
+        },
+      ),
+    };
+
     const topupService = new TenantWalletTopupService(
       dataSource as any,
       walletService as any,
-      nombaApi as any,
-      monnifyApi as any,
-      noahApi as any,
-      bachsApi as any,
-      subscriptionsService as any,
-      tenantSettingsService as any,
-      emailService as any,
       tenantRepository as any,
+      checkoutService as any,
+      webhookService as any,
+      chargeService as any,
     );
 
     return {

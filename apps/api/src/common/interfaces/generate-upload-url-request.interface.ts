@@ -5,5 +5,6 @@ export interface GenerateUploadUrlRequest {
   location: FileUploadLocation;
   originalName: string;
   contentType?: string;
+  contentLength?: number;
   expiresIn?: number;
 }

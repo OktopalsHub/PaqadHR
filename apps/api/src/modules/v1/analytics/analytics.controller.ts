@@ -3,7 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RequireFeatures } from 'src/common/decorators/feature-access.decorator';
 import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import { TenantMemberGuard } from '../tenant-members/guards/tenant-members.guards';
-import { AnalyticsService } from './analytics.service';
+import { AnalyticsAggregationService as AnalyticsService } from './analytics-aggregation.service';
 import type { AnalyticsOverviewDto } from './dto/analytics-overview.dto';
 
 @ApiTags('Analytics')

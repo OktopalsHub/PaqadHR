@@ -1,9 +1,10 @@
 'use client';
 
+import { memo } from 'react';
 import { useFeatureAccess } from '@/hooks/queries/use-feature-access';
 import type { FeatureAccess } from '@/lib/constants/feature-access';
 
-export function FeatureGate({
+export const FeatureGate = memo(function FeatureGate({
   feature,
   fallback = null,
   children,
@@ -19,4 +20,4 @@ export function FeatureGate({
   }
 
   return <>{children}</>;
-}
+});

@@ -17,4 +17,5 @@ export enum PaymentProvider {
   MONNIFY = 'monnify',
   NOAH = 'noah',
   BACHS = 'bachs',
+  FINCRA = 'fincra',
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { Check } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { getPlanCatalog } from '@/lib/constants/plan-catalog';
 import { formatPlanMoney } from '@/lib/format-plan-money';
@@ -25,7 +25,7 @@ export interface PlanPricingCardProps {
   variant?: 'app' | 'marketing' | 'onboarding';
 }
 
-export function PlanPricingCard({
+export const PlanPricingCard = memo(function PlanPricingCard({
   slug,
   name,
   description,
@@ -178,4 +178,4 @@ export function PlanPricingCard({
       {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
-}
+});

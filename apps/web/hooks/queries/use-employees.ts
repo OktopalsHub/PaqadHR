@@ -1,7 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchEmployeeById, fetchEmployees, updateEmployeeMemberStatus } from '@/lib/api/employees';
+import {
+  fetchEmployeeById,
+  fetchEmployees,
+  updateEmployee,
+  updateEmployeeMemberStatus,
+} from '@/lib/api/employees';
 import { queryKeys } from '@/lib/query/keys';
 import type { Employee } from '@/lib/schemas/employee';
 import { useTenant } from '@/providers/tenant-provider';
@@ -44,6 +49,24 @@ export function useUpdateEmployeeMemberStatus(memberId: string) {
         }),
         queryClient.invalidateQueries({
           queryKey: [...queryKeys.employees.all, tenantId, 'directory'],
+        }),
+      ]);
+    },
+  });
+}
+
+export function useUpdateEmployeeOrganization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ memberId, departmentId }: { memberId: string; departmentId: string | null }) =>
+      updateEmployee(memberId, { departmentId }),
+    onSuccess: async (_member, variables) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.departments.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.employees.all }),
+        queryClient.invalidateQueries({
+          queryKey: [...queryKeys.employees.detail(variables.memberId), 'member'],
         }),
       ]);
     },

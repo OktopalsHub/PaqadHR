@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import { InvitationStatus } from '../../../common/enums';
 import { InvitationsService } from './invitations.service';
+import { InvitationAcceptanceService } from './services/invitation-acceptance.service';
+import { InvitationManagementService } from './services/invitation-management.service';
+import { InvitationSendingService } from './services/invitation-sending.service';
 
 describe('InvitationsService', () => {
   const baseInvitation = {
@@ -79,18 +82,38 @@ describe('InvitationsService', () => {
       sendInvitationDeclinedNotification: jest.fn().mockResolvedValue(undefined),
     };
 
-    const service = new InvitationsService(
+    const productAnalytics = { capture: jest.fn() };
+
+    const managementService = new InvitationManagementService(
       invitationsRepository as any,
-      tenantMembersService as any,
-      usersService as any,
       tenantsService as any,
+      usersService as any,
       rateLimitService as any,
+      tenantMembersService as any,
       zeptomailEmailService as any,
       activitiesService as any,
+      productAnalytics as any,
+    );
+    const sendingService = new InvitationSendingService(
+      invitationsRepository as any,
+      usersService as any,
+      tenantMembersService as any,
+      managementService,
+    );
+    const acceptanceService = new InvitationAcceptanceService(
+      invitationsRepository as any,
+      usersService as any,
+      tenantMembersService as any,
+      tenantsService as any,
       departmentsService as any,
       positionMemberService as any,
       notificationHelperService as any,
+      activitiesService as any,
+      productAnalytics as any,
+      rateLimitService as any,
+      managementService,
     );
+    const service = new InvitationsService(managementService, sendingService, acceptanceService);
 
     return {
       service,
@@ -140,6 +163,47 @@ describe('InvitationsService', () => {
 
       expect(result.emailSent).toBe(false);
       expect(result.emailError).toBe('smtp down');
+    });
+
+    it('skips email when sendEmail is false', async () => {
+      const { service, zeptomailEmailService } = buildService();
+
+      const result = await service.createInvitation(
+        { email: 'new@example.com', role: 'member' },
+        'tenant-1',
+        'member-1',
+        { sendEmail: false },
+      );
+
+      expect(result.emailSent).toBe(false);
+      expect(zeptomailEmailService.sendTemplateEmail).not.toHaveBeenCalled();
+    });
+
+    it('builds accept-invite links from FRONTEND_URL', async () => {
+      const previous = process.env.FRONTEND_URL;
+      process.env.FRONTEND_URL = 'https://app.paqadhr.com';
+      const { service, zeptomailEmailService } = buildService();
+
+      try {
+        await service.createInvitation(
+          { email: 'new@example.com', role: 'member' },
+          'tenant-1',
+          'member-1',
+        );
+
+        expect(zeptomailEmailService.sendTemplateEmail).toHaveBeenCalledWith(
+          'new@example.com',
+          'invitation',
+          expect.objectContaining({
+            inviteLink: expect.stringMatching(
+              /^https:\/\/app\.paqadhr\.com\/accept-invite\?token=.+&email=new%40example\.com$/,
+            ),
+          }),
+        );
+      } finally {
+        if (previous === undefined) delete process.env.FRONTEND_URL;
+        else process.env.FRONTEND_URL = previous;
+      }
     });
 
     it('allows inviting a user who belongs to another workspace', async () => {

@@ -1,13 +1,23 @@
-import { DEFAULT_PRIVACY_POLICY_VERSION, getPrivacyPolicyVersion } from './privacy.config';
+import {
+  DEFAULT_PRIVACY_POLICY_VERSION,
+  getPrivacyPolicyVersion,
+  isPrivacyReconsentEnabled,
+} from './privacy.config';
 
 describe('privacy.config', () => {
-  const original = process.env.PRIVACY_POLICY_VERSION;
+  const originalVersion = process.env.PRIVACY_POLICY_VERSION;
+  const originalEnabled = process.env.PRIVACY_RECONSENT_ENABLED;
 
   afterEach(() => {
-    if (original === undefined) {
+    if (originalVersion === undefined) {
       delete process.env.PRIVACY_POLICY_VERSION;
     } else {
-      process.env.PRIVACY_POLICY_VERSION = original;
+      process.env.PRIVACY_POLICY_VERSION = originalVersion;
+    }
+    if (originalEnabled === undefined) {
+      delete process.env.PRIVACY_RECONSENT_ENABLED;
+    } else {
+      process.env.PRIVACY_RECONSENT_ENABLED = originalEnabled;
     }
   });
 
@@ -19,5 +29,15 @@ describe('privacy.config', () => {
   it('reads PRIVACY_POLICY_VERSION from env', () => {
     process.env.PRIVACY_POLICY_VERSION = '2.1';
     expect(getPrivacyPolicyVersion()).toBe('2.1');
+  });
+
+  it('defaults reconsent enabled to true', () => {
+    delete process.env.PRIVACY_RECONSENT_ENABLED;
+    expect(isPrivacyReconsentEnabled()).toBe(true);
+  });
+
+  it('disables reconsent when PRIVACY_RECONSENT_ENABLED=false', () => {
+    process.env.PRIVACY_RECONSENT_ENABLED = 'false';
+    expect(isPrivacyReconsentEnabled()).toBe(false);
   });
 });

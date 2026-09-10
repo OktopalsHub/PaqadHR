@@ -11,7 +11,7 @@ export const REUI_EVENT_COLORS: Record<CalendarEventType, string> = {
   celebration: '#db2777',
 };
 
-type PaqadEventMeta = {
+export type PaqadEventMeta = {
   source: CalendarEvent;
   manual: boolean;
 };
@@ -49,14 +49,17 @@ function parseInterviewDuration(description?: string): number {
   return Number.isFinite(minutes) && minutes > 0 ? minutes : 60;
 }
 
-export function paqadEventToReui(event: CalendarEvent): ReuiCalendarEvent<PaqadEventMeta> {
-  const day = parseEventDate(event.date);
-  const manual = event.id.startsWith('manual-');
+export function paqadEventToReui(
+  event: CalendarEvent,
+  options?: { editableManualEvents?: boolean },
+): ReuiCalendarEvent<PaqadEventMeta> {
+  const manual = Boolean(event.manualEvent);
+  const day = parseEventDate(event.manualEvent?.startDate ?? event.date);
 
   if (event.time) {
     const start = parseTimeOnDate(day, event.time) ?? startOfDay(day);
     const end =
-      event.type === 'meeting' || event.type === 'review'
+      !manual && (event.type === 'meeting' || event.type === 'review')
         ? addHours(start, parseInterviewDuration(event.description) / 60)
         : parseEndFromRange(day, event.time, start);
 
@@ -67,24 +70,30 @@ export function paqadEventToReui(event: CalendarEvent): ReuiCalendarEvent<PaqadE
       end: end > start ? end : addHours(start, 1),
       allDay: false,
       color: REUI_EVENT_COLORS[event.type],
-      readOnly: true,
+      readOnly: !manual || !options?.editableManualEvents,
       data: { source: event, manual },
     };
   }
 
   const start = startOfDay(day);
+  const end = event.manualEvent
+    ? addDays(startOfDay(parseEventDate(event.manualEvent.endDate)), 1)
+    : addDays(start, 1);
   return {
     id: event.id,
     title: event.title,
     start,
-    end: addDays(start, 1),
+    end,
     allDay: true,
     color: REUI_EVENT_COLORS[event.type],
-    readOnly: true,
+    readOnly: !manual || !options?.editableManualEvents,
     data: { source: event, manual },
   };
 }
 
-export function paqadEventsToReui(events: CalendarEvent[]): ReuiCalendarEvent<PaqadEventMeta>[] {
-  return events.map(paqadEventToReui);
+export function paqadEventsToReui(
+  events: CalendarEvent[],
+  options?: { editableManualEvents?: boolean },
+): ReuiCalendarEvent<PaqadEventMeta>[] {
+  return events.map((event) => paqadEventToReui(event, options));
 }

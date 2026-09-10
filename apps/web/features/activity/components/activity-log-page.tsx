@@ -81,7 +81,7 @@ export function ActivityLogPage() {
 
         <ContentCard
           title="Restricted access"
-          description="Only workspace owners and admins can view the activity log."
+          description="Admins only."
           className="dashboard-panel rounded-[8px]"
           bodyClassName="p-5"
         >
@@ -90,11 +90,7 @@ export function ActivityLogPage() {
               <ShieldAlert className="size-5" />
             </div>
             <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              Admin access required
-            </p>
-            <p className="mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
-              Ask a workspace owner or admin to grant access if you need to review the activity
-              feed.
+              Admins only
             </p>
           </div>
         </ContentCard>

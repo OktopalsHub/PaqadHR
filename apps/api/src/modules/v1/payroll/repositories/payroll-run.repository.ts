@@ -26,7 +26,7 @@ export class PayrollRunRepository extends Repository<PayrollRun> {
   async findByIdWithItems(id: string, tenantId: string): Promise<PayrollRun | null> {
     return this.findOne({
       where: { id, tenantId },
-      relations: ['items', 'items.employee', 'items.deductions', 'items.bonuses', 'createdBy'],
+      relations: ['items', 'items.employee', 'createdBy'],
     });
   }
   async findByTenantId(tenantId: string): Promise<PayrollRun[]> {

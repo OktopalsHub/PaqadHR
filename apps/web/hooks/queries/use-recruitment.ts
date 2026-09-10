@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   archiveJobOpening,
   closeJobOpening,
@@ -33,6 +33,7 @@ export function useJobOpenings(searchOrOptions?: string | { search?: string; ena
     queryKey: [...queryKeys.recruitment.jobs, tenantId, search ?? ''],
     queryFn: () => fetchJobOpenings({ search, limit: 50 }),
     enabled: (enabledOption ?? true) && !tenantLoading && Boolean(tenantId),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -99,6 +100,7 @@ export function useAllCandidates(options?: { enabled?: boolean; limit?: number }
     select: options?.limit ? (data) => data.slice(0, options.limit) : undefined,
     enabled: (options?.enabled ?? true) && !tenantLoading && Boolean(tenantId),
     retry: false,
+    placeholderData: keepPreviousData,
   });
 }
 

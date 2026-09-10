@@ -1,14 +1,14 @@
 'use client';
 
-import { ArrowUpRight, Briefcase, Building2, CalendarClock, Users } from 'lucide-react';
+import { Briefcase, Building2, CalendarClock, RefreshCw, Users } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useMemo, useState } from 'react';
 import { AppPage } from '@/components/app-page';
 import { ContentCard } from '@/components/content-card';
-import { LoadingBlock } from '@/components/loading-block';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardActivityFeed } from '@/features/dashboard/components/dashboard-activity-feed';
 import { UpcomingReminders } from '@/features/dashboard/components/upcoming-reminders';
 import { getDashboardRecruitmentAccessState } from '@/features/dashboard/lib/dashboard-feature-access';
@@ -56,8 +56,14 @@ export const Dashboard = () => {
     data: employees = [],
     isLoading: employeesLoading,
     isError: employeesError,
+    refetch: refetchEmployees,
   } = useEmployees();
-  const { data: leaves = [], isLoading: leavesLoading, isError: leavesError } = useLeaves();
+  const {
+    data: leaves = [],
+    isLoading: leavesLoading,
+    isError: leavesError,
+    refetch: refetchLeaves,
+  } = useLeaves();
   const {
     data: jobsData,
     isLoading: jobsLoading,
@@ -67,14 +73,11 @@ export const Dashboard = () => {
     overview,
     isLoading: overviewLoading,
     jobsError: overviewError,
+    refetch: refetchOverview,
   } = useRecruitmentOverview({ enabled: recruitmentQueriesEnabled });
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const tenantHref = useTenantHref();
 
-  const isLoading =
-    employeesLoading ||
-    leavesLoading ||
-    (isAdmin && canAccessRecruitment && (jobsLoading || overviewLoading));
   const hasError =
     employeesError ||
     leavesError ||
@@ -115,7 +118,7 @@ export const Dashboard = () => {
   const statCards = [
     {
       label: 'Headcount',
-      value: employees.length,
+      value: employeesLoading ? '—' : employees.length,
       hint: 'Active employees',
       icon: Users,
       iconClassName: 'bg-warning/15 text-warning',
@@ -124,8 +127,11 @@ export const Dashboard = () => {
       ? [
           {
             label: 'Open roles',
-            value: openRoles,
-            hint: `${jobs.length} total postings`,
+            value: jobsLoading || overviewLoading ? '—' : openRoles,
+            hint:
+              jobsLoading || overviewLoading
+                ? 'Loading postings…'
+                : `${jobs.length} total postings`,
             icon: Briefcase,
             iconClassName: 'bg-info/15 text-info',
           },
@@ -133,14 +139,14 @@ export const Dashboard = () => {
       : []),
     {
       label: 'Pending leave',
-      value: pendingLeaves,
-      hint: `${leaves.length} requests total`,
+      value: leavesLoading ? '—' : pendingLeaves,
+      hint: leavesLoading ? 'Loading requests…' : `${leaves.length} requests total`,
       icon: CalendarClock,
       iconClassName: 'bg-success/15 text-success',
     },
     {
       label: 'Departments',
-      value: departmentCount,
+      value: employeesLoading ? '—' : departmentCount,
       hint: 'With assigned members',
       icon: Building2,
       iconClassName: 'bg-indigo-100 text-indigo-700',
@@ -159,43 +165,30 @@ export const Dashboard = () => {
     if (!open) setSelectedJobId(null);
   }, []);
 
-  if (isLoading) {
-    return (
-      <AppPage>
-        <LoadingBlock />
-      </AppPage>
-    );
-  }
-
-  if (hasError) {
-    return (
-      <AppPage>
-        <Alert variant="destructive">
-          <AlertTitle>Unable to load dashboard</AlertTitle>
-          <AlertDescription>
-            Some workspace data could not be loaded. Refresh the page or try again shortly.
-          </AlertDescription>
-        </Alert>
-      </AppPage>
-    );
-  }
+  const retryDashboard = () => {
+    void refetchEmployees();
+    void refetchLeaves();
+    if (recruitmentQueriesEnabled) {
+      void refetchOverview();
+    }
+  };
 
   return (
     <AppPage className="space-y-6">
-      {recruitmentAccess.showRecruitmentCallToAction ? (
-        <div className="flex justify-stretch sm:justify-end">
-          <Button
-            asChild
-            variant="brand"
-            size="appCta"
-            className="w-full normal-case tracking-normal text-sm sm:w-auto"
-          >
-            <Link href={tenantHref('recruitment')}>
-              View Recruitment
-              <ArrowUpRight className="ml-1.5 size-3.5" />
-            </Link>
+      {hasError ? (
+        <Alert
+          variant="destructive"
+          className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <AlertTitle>Couldn’t load some data</AlertTitle>
+            <AlertDescription>Retry the failed sections.</AlertDescription>
+          </div>
+          <Button variant="outline" size="sm" className="shrink-0" onClick={retryDashboard}>
+            <RefreshCw className="size-4" aria-hidden="true" />
+            Retry
           </Button>
-        </div>
+        </Alert>
       ) : null}
 
       <div className={statGridClassName}>
@@ -241,7 +234,30 @@ export const Dashboard = () => {
           }
           bodyClassName="p-4"
         >
-          {recentLeaves.length === 0 ? (
+          {leavesLoading ? (
+            <div className="space-y-3 py-1">
+              {['first', 'second', 'third'].map((placeholder) => (
+                <div
+                  key={placeholder}
+                  className="dashboard-soft-tile flex items-center justify-between gap-3 rounded-[8px] px-4 py-3"
+                >
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-3 w-44" />
+                  </div>
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              ))}
+            </div>
+          ) : leavesError ? (
+            <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
+              <CalendarClock className="size-10 text-muted-foreground" />
+              <p className="text-sm">Leave requests could not be loaded right now.</p>
+              <Button variant="outline" size="sm" onClick={() => void refetchLeaves()}>
+                Try again
+              </Button>
+            </div>
+          ) : recentLeaves.length === 0 ? (
             <div className="flex min-h-70 flex-col items-center justify-center gap-3 text-center text-muted-foreground">
               <CalendarClock className="size-10 text-muted-foreground" />
               <p className="text-sm">No leave requests yet.</p>

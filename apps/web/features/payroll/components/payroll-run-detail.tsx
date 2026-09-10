@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Lock, Plus } from 'lucide-react';
+import { Download, Lock, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PersonAvatar } from '@/components/person-avatar';
@@ -33,8 +33,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { EditPayrollRunDialog } from '@/features/payroll/components/edit-payroll-run-dialog';
+import { formatAdjustmentLineLabel } from '@/features/payroll/lib/format-adjustment-line';
 import { useEmployees } from '@/hooks/queries/use-employees';
-import { usePayrollActions, usePayrollRun, useRunPayslips } from '@/hooks/queries/use-payroll';
+import { useCurrentSalaries } from '@/hooks/queries/use-employment';
+import {
+  usePayrollActions,
+  usePayrollRun,
+  usePayrollSetupSummary,
+  useRunPayslips,
+} from '@/hooks/queries/use-payroll';
 import { useTenantSettings } from '@/hooks/queries/use-tenant-settings';
 import { downloadPayslipPdf } from '@/lib/api/payroll';
 import { canManageMember } from '@/lib/auth/manager-access';
@@ -120,8 +128,8 @@ function BonusDialog({
 
   const handleSave = async () => {
     const amount = Number(value);
-    if (!reason.trim() || !amount || amount <= 0) {
-      toast.error('Enter a valid amount and reason');
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Enter a valid amount');
       return;
     }
 
@@ -234,20 +242,46 @@ export function PayrollRunDetail({
   runId,
   payrollGatewayEnabled,
   isAdmin,
+  onDelete,
+  onReopen,
 }: {
   runId: string;
   payrollGatewayEnabled: boolean;
   isAdmin: boolean;
+  onDelete?: () => void;
+  onReopen?: () => void;
 }) {
   const { data: run, isLoading, refetch } = usePayrollRun(runId);
   const { data: employees = [] } = useEmployees();
+  const { data: currentSalaries = [] } = useCurrentSalaries(isAdmin);
+  const { data: setupSummary } = usePayrollSetupSummary(isAdmin);
   const { data: tenantSettings } = useTenantSettings();
   const { data: payslips = [] } = useRunPayslips(run?.status === 'completed' ? runId : undefined);
   const actions = usePayrollActions();
   const [sendEmail, setSendEmail] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const { tenant } = useTenant();
   const viewerMemberId = tenant?.member?.id;
   const viewerRole = tenant?.member?.role;
+
+  const paymentReadyByCurrency = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const row of setupSummary?.byCurrency ?? []) {
+      map.set(row.currency.toUpperCase(), new Set(row.readyMemberIds ?? []));
+    }
+    return map;
+  }, [setupSummary?.byCurrency]);
+
+  const paymentReadyMemberIds = useMemo(() => {
+    const currency = run?.baseCurrency?.toUpperCase();
+    if (!currency) return new Set<string>();
+    return paymentReadyByCurrency.get(currency) ?? new Set<string>();
+  }, [run?.baseCurrency, paymentReadyByCurrency]);
+
+  const activeEmployees = useMemo(
+    () => employees.filter((employee) => employee.status === 'Active'),
+    [employees],
+  );
 
   const canManagePayrollItem = (memberId: string) => {
     if (isAdmin) {
@@ -266,12 +300,41 @@ export function PayrollRunDetail({
 
   const detail = run as PayrollRunDetailType | undefined;
   const isDraft = detail?.status === 'draft';
-  const isLocked = detail?.status === 'approved' || detail?.status === 'completed';
+  const isLocked =
+    detail?.status === 'approved' || detail?.status === 'completed' || detail?.status === 'failed';
+  const canEditTitle = Boolean(
+    isAdmin && detail && (detail.status === 'draft' || detail.status === 'processing'),
+  );
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [payNowConfirmOpen, setPayNowConfirmOpen] = useState(false);
+
+  useEffect(() => {
+    if (detail?.title) {
+      setTitleDraft(detail.title);
+    }
+  }, [detail?.title]);
 
   const activeItems = useMemo(
     () => (detail?.items ?? []).filter((item) => item.status !== 'cancelled'),
     [detail?.items],
   );
+
+  const hasPaidOrInFlight = activeItems.some(
+    (item) => item.status === 'paid' || item.status === 'processing',
+  );
+  const canDelete = Boolean(
+    detail && detail.status !== 'completed' && onDelete && !hasPaidOrInFlight,
+  );
+  const hasFailedItems = activeItems.some((item) => item.status === 'failed');
+  const canReopen =
+    Boolean(isAdmin && detail?.status === 'processing' && onReopen) && !hasPaidOrInFlight;
+  const canRetry =
+    Boolean(isAdmin && payrollGatewayEnabled) &&
+    hasFailedItems &&
+    (detail?.status === 'failed' ||
+      detail?.status === 'processing' ||
+      detail?.status === 'approved');
 
   const busy =
     actions.calculate.isPending ||
@@ -279,8 +342,12 @@ export function PayrollRunDetail({
     actions.disburse.isPending ||
     actions.process.isPending ||
     actions.payNow.isPending ||
+    actions.fundAndPay.isPending ||
+    actions.retryFailed.isPending ||
     actions.schedule.isPending ||
-    actions.publishPayslips.isPending;
+    actions.publishPayslips.isPending ||
+    actions.reopen.isPending ||
+    actions.updateTitle.isPending;
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
@@ -290,6 +357,27 @@ export function PayrollRunDetail({
       setScheduleDate(String(detail.paymentDate).slice(0, 10));
     }
   }, [detail?.paymentDate]);
+
+  const toastPayoutResult = (
+    result: { successfulPayments: number; failedPayments: number } | undefined,
+    verb: 'started' | 'retried',
+  ) => {
+    const ok = result?.successfulPayments ?? 0;
+    const failed = result?.failedPayments ?? 0;
+    if (ok > 0 && failed === 0) {
+      toast.success(`Paid ${ok} employee${ok === 1 ? '' : 's'}`);
+      return;
+    }
+    if (ok > 0 && failed > 0) {
+      toast.warning(`Paid ${ok}, ${failed} failed — use Retry payment for the rest`);
+      return;
+    }
+    if (failed > 0) {
+      toast.error(`Payout ${verb}: ${failed} payment${failed === 1 ? '' : 's'} failed`);
+      return;
+    }
+    toast.success(verb === 'retried' ? 'Retry completed' : 'Payout started');
+  };
 
   const handleDownloadPayslip = async (payslip: {
     runId: string;
@@ -322,12 +410,70 @@ export function PayrollRunDetail({
   };
 
   const handlePayNow = async () => {
+    const checkoutTab = window.open('about:blank', '_blank');
     try {
-      await actions.payNow.mutateAsync(runId);
-      toast.success('Payout started');
+      const response = await actions.fundAndPay.mutateAsync(runId);
+      if (response.action === 'checkout') {
+        if (response.checkoutUrl) {
+          toast.message(
+            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
+          );
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
+        } else {
+          checkoutTab?.close();
+          toast.error(response.preflight?.message ?? 'Fund the payout provider, then retry');
+        }
+        setPayNowConfirmOpen(false);
+        await refetch();
+        return;
+      }
+      checkoutTab?.close();
+      toastPayoutResult(response.result, 'started');
+      setPayNowConfirmOpen(false);
       await refetch();
     } catch (err) {
+      checkoutTab?.close();
       toast.error(err instanceof Error ? err.message : 'Payout failed');
+      await refetch();
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    try {
+      const response = await actions.retryFailed.mutateAsync(runId);
+      toastPayoutResult(response.result, 'retried');
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Retry failed');
+      await refetch();
+    }
+  };
+
+  const saveTitle = async () => {
+    const next = titleDraft.trim();
+    if (!detail || next.length < 3) {
+      toast.error('Title must be at least 3 characters');
+      setTitleDraft(detail?.title ?? '');
+      setEditingTitle(false);
+      return;
+    }
+    if (next === detail.title) {
+      setEditingTitle(false);
+      return;
+    }
+    try {
+      await actions.updateTitle.mutateAsync({ id: runId, title: next });
+      setEditingTitle(false);
+      toast.success('Title updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update title');
+      setTitleDraft(detail.title);
+      setEditingTitle(false);
     }
   };
 
@@ -372,320 +518,461 @@ export function PayrollRunDetail({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-slate-950 dark:text-slate-100">
-              {detail.title}
-            </h3>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${getPayrollStatusStyles(
-                detail.status,
-              )}`}
-            >
-              <span
-                className={`size-1.5 rounded-full ${getPayrollStatusDotClass(detail.status)}`}
-              />
-              {detail.status}
-            </span>
-            {detail.payoutMode === 'scheduled' && detail.paymentDate ? (
-              <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400">
-                Scheduled · {formatDate(detail.paymentDate)}
-              </span>
-            ) : null}
-          </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {formatDate(detail.periodStart)} – {formatDate(detail.periodEnd)}
-            {detail.paymentDate ? ` · Expected pay ${formatDate(detail.paymentDate)}` : ''} ·{' '}
-            {detail.baseCurrency}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {isAdmin && isDraft ? (
-            <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
-              Calculate
-            </Button>
-          ) : null}
-          {isAdmin && detail.status === 'processing' ? (
-            <Button
-              size="sm"
-              variant="brandSolid"
-              disabled={busy}
-              onClick={async () => {
-                try {
-                  await actions.approve.mutateAsync(runId);
-                  toast.success('Payroll approved');
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : 'Approve failed');
-                }
-              }}
-            >
-              Approve
-            </Button>
-          ) : null}
-          {isAdmin && detail.status === 'approved' ? (
-            <>
-              {payrollGatewayEnabled ? (
-                <Button size="sm" variant="brandSolid" disabled={busy} onClick={handlePayNow}>
-                  Pay now
-                </Button>
-              ) : null}
-              {payrollGatewayEnabled ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                  disabled={busy}
-                  onClick={() => setScheduleOpen(true)}
+    <>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              {editingTitle && canEditTitle ? (
+                <Input
+                  value={titleDraft}
+                  autoFocus
+                  className="h-9 max-w-md border-slate-200 bg-white text-lg font-semibold text-slate-950 shadow-none dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-100"
+                  onChange={(e) => setTitleDraft(e.target.value)}
+                  onBlur={() => void saveTitle()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void saveTitle();
+                    }
+                    if (e.key === 'Escape') {
+                      setTitleDraft(detail.title);
+                      setEditingTitle(false);
+                    }
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  className={`flex items-center gap-1.5 text-left text-lg font-semibold text-slate-950 dark:text-slate-100 ${
+                    canEditTitle ? 'cursor-pointer hover:underline' : 'cursor-default'
+                  }`}
+                  disabled={!canEditTitle || busy}
+                  onClick={() => {
+                    if (canEditTitle) setEditingTitle(true);
+                  }}
                 >
-                  Schedule
-                  {detail.paymentDate ? ` for ${formatDate(detail.paymentDate)}` : ''}
-                </Button>
+                  {detail.title}
+                  {canEditTitle ? <Pencil className="size-3.5 shrink-0 opacity-60" /> : null}
+                </button>
+              )}
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium capitalize ${getPayrollStatusStyles(
+                  detail.status,
+                )}`}
+              >
+                <span
+                  className={`size-1.5 rounded-full ${getPayrollStatusDotClass(detail.status)}`}
+                />
+                {detail.status}
+              </span>
+              {detail.payoutMode === 'scheduled' && detail.paymentDate ? (
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-400">
+                  Scheduled · {formatDate(detail.paymentDate)}
+                </span>
               ) : null}
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {formatDate(detail.periodStart)} – {formatDate(detail.periodEnd)}
+              {detail.paymentDate ? ` · Expected pay ${formatDate(detail.paymentDate)}` : ''} ·{' '}
+              {detail.baseCurrency}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {isAdmin && isDraft ? (
               <Button
                 size="sm"
                 variant="outline"
-                className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
                 disabled={busy}
-                onClick={async () => {
-                  try {
-                    await actions.disburse.mutateAsync(runId);
-                    toast.success('Marked as paid');
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : 'Disburse failed');
-                  }
-                }}
+                onClick={() => setEditOpen(true)}
               >
-                Mark paid
+                <Pencil className="mr-1 size-4" />
+                Edit run
               </Button>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule payout</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label>Payment date</Label>
-              <Input
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-              />
-            </div>
-            <Button
-              variant="brandSolid"
-              className="w-full"
-              disabled={busy}
-              onClick={handleSchedule}
-            >
-              Confirm schedule
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {isLocked ? (
-        <Alert>
-          <Lock className="size-4" />
-          <AlertTitle>Run locked</AlertTitle>
-          <AlertDescription>
-            Line items cannot be edited after approval. Bonuses and removals are disabled.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      <AppTablePanel>
-        <AppTable className="min-w-[880px]">
-          <AppTableHeaderSection>
-            <AppTableHeaderRow>
-              <AppTableHeadCell>Employee</AppTableHeadCell>
-              <AppTableHeadCell>Base</AppTableHeadCell>
-              <AppTableHeadCell>Bonuses</AppTableHeadCell>
-              <AppTableHeadCell>Deductions</AppTableHeadCell>
-              <AppTableHeadCell>Net</AppTableHeadCell>
-              <AppTableHeadCell>Status</AppTableHeadCell>
-              {isAdmin && isDraft ? <AppTableHeadCell>Actions</AppTableHeadCell> : null}
-            </AppTableHeaderRow>
-          </AppTableHeaderSection>
-          <AppTableBodySection>
-            {activeItems.map((item) => {
-              const lines =
-                (item.metadata?.adjustmentLines as PayrollAdjustmentLine[] | undefined) ?? [];
-              const name = employeeName(item);
-              const employee = employees.find((emp) => emp.id === item.memberId);
-              return (
-                <AppTableBodyRow key={item.id}>
-                  <AppTableCell>
-                    <div className="flex items-center gap-3">
-                      <PersonAvatar
-                        src={employee?.avatar}
-                        name={name}
-                        className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
-                        fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                      />
-                      <span className="font-medium">{name}</span>
-                    </div>
-                  </AppTableCell>
-                  <AppTableCell>
-                    {Number(item.baseSalary ?? 0).toLocaleString()}{' '}
-                    {item.baseSalaryCurrency || detail.baseCurrency}
-                  </AppTableCell>
-                  <AppTableCell>
-                    {Number(item.adjustments ?? 0).toLocaleString()}
-                    {lines.length > 0 ? (
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {lines.length} line(s)
-                      </p>
-                    ) : null}
-                  </AppTableCell>
-                  <AppTableCell>{Number(item.deductions ?? 0).toLocaleString()}</AppTableCell>
-                  <AppTableCell className="font-medium">
-                    {Number(item.netAmount ?? 0).toLocaleString()} {detail.baseCurrency}
-                  </AppTableCell>
-                  <AppTableCell>
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${getPayrollStatusStyles(
-                        item.status,
-                      )}`}
-                    >
-                      <span
-                        className={`size-1.5 rounded-full ${getPayrollStatusDotClass(item.status)}`}
-                      />
-                      {item.status}
-                    </span>
-                  </AppTableCell>
-                  {isAdmin && isDraft ? (
-                    <AppTableCell>
-                      <BonusDialog
-                        item={item}
-                        runId={runId}
-                        currency={detail.baseCurrency}
-                        onSaved={() => void refetch()}
-                      />
-                    </AppTableCell>
-                  ) : null}
-                </AppTableBodyRow>
-              );
-            })}
-          </AppTableBodySection>
-        </AppTable>
-      </AppTablePanel>
-
-      {detail.status === 'completed' && payslips.length > 0 ? (
-        <div className="dashboard-panel space-y-3 rounded-[8px] p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h4 className="font-medium text-slate-950 dark:text-slate-100">Payslips</h4>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {isAdmin ? (
-                // biome-ignore lint/a11y/noLabelWithoutControl: Checkbox component is wrapped inside label
-                <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                  <Checkbox checked={sendEmail} onCheckedChange={(v) => setSendEmail(v === true)} />
-                  Send email on publish
-                  {tenantSettings?.settings?.general?.emailPayslipOnPublish ? (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
-                      (workspace default: on)
-                    </span>
-                  ) : null}
-                </label>
-              ) : null}
+            ) : null}
+            {canReopen ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
+                disabled={busy}
+                onClick={() => onReopen?.()}
+              >
+                <Pencil className="mr-1 size-4" />
+                Edit
+              </Button>
+            ) : null}
+            {canRetry ? (
               <Button
                 size="sm"
                 variant="brandSolid"
-                disabled={
-                  busy || payslips.every((p) => p.published || !canManagePayrollItem(p.memberId))
-                }
-                onClick={handlePublishAll}
+                disabled={busy}
+                onClick={() => void handleRetryFailed()}
               >
-                Publish all
+                <RefreshCw className="mr-1 size-4" />
+                Retry payment
+              </Button>
+            ) : null}
+            {isAdmin && canDelete ? (
+              <Button size="sm" variant="destructive" disabled={busy} onClick={() => onDelete?.()}>
+                <Trash2 className="mr-1 size-4" />
+                Delete
+              </Button>
+            ) : null}
+            {isAdmin && isDraft ? (
+              <Button size="sm" variant="brandSolid" disabled={busy} onClick={handleCalculate}>
+                Calculate
+              </Button>
+            ) : null}
+            {isAdmin && detail.status === 'processing' ? (
+              <Button
+                size="sm"
+                className="border-emerald-600 bg-emerald-600 text-white shadow-none hover:bg-emerald-700 hover:text-white dark:border-emerald-500 dark:bg-emerald-600 dark:hover:bg-emerald-500"
+                disabled={busy}
+                onClick={async () => {
+                  try {
+                    await actions.approve.mutateAsync(runId);
+                    toast.success(
+                      'Payroll approved — run locked. Use Fund & pay, Schedule, or Mark paid to send money.',
+                    );
+                    await refetch();
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : 'Approve failed');
+                  }
+                }}
+              >
+                Approve
+              </Button>
+            ) : null}
+            {isAdmin && detail.status === 'approved' ? (
+              <>
+                {payrollGatewayEnabled ? (
+                  <Button
+                    size="sm"
+                    variant="brandSolid"
+                    disabled={busy}
+                    onClick={() => setPayNowConfirmOpen(true)}
+                  >
+                    Fund & pay
+                  </Button>
+                ) : null}
+                {payrollGatewayEnabled ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="bg-slate-100 text-slate-800 shadow-none hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    disabled={busy}
+                    onClick={() => setScheduleOpen(true)}
+                  >
+                    Schedule
+                    {detail.paymentDate ? ` for ${formatDate(detail.paymentDate)}` : ''}
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                  disabled={busy}
+                  onClick={async () => {
+                    try {
+                      await actions.disburse.mutateAsync(runId);
+                      toast.success('Marked as paid');
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Disburse failed');
+                    }
+                  }}
+                >
+                  Mark paid
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        <Dialog open={payNowConfirmOpen} onOpenChange={setPayNowConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Fund & pay employees?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                If your payout provider float covers this run, employees are paid immediately. If
+                not, we open a shortfall checkout to fund the provider account, then pay
+                automatically when funding succeeds.
+              </p>
+              <Button
+                variant="brandSolid"
+                className="w-full"
+                disabled={busy}
+                onClick={() => void handlePayNow()}
+              >
+                Confirm fund & pay
               </Button>
             </div>
-          </div>
-          <div className="overflow-hidden rounded-[8px] border border-[#d7e3f6] dark:border-slate-800">
-            {payslips
-              .filter((payslip) => canManagePayrollItem(payslip.memberId))
-              .map((payslip) => {
-                const employee = employees.find((emp) => emp.id === payslip.memberId);
-                const name = payslip.employeeName;
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Schedule payout</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <div className="space-y-2">
+                <Label>Payment date</Label>
+                <Input
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                />
+              </div>
+              <Button
+                variant="brandSolid"
+                className="w-full"
+                disabled={busy}
+                onClick={handleSchedule}
+              >
+                Confirm schedule
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {isLocked ? (
+          <Alert>
+            <Lock className="size-4" />
+            <AlertTitle>Run locked</AlertTitle>
+            <AlertDescription>
+              {detail.status === 'failed'
+                ? 'Payments failed for one or more employees. Fix payment methods or fund your provider, then use Retry payment. Editing is disabled after payout starts.'
+                : 'Line items cannot be edited after approval. Bonuses and removals are disabled.'}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        <AppTablePanel>
+          <AppTable className="min-w-[880px]">
+            <AppTableHeaderSection>
+              <AppTableHeaderRow>
+                <AppTableHeadCell>Employee</AppTableHeadCell>
+                <AppTableHeadCell>Base</AppTableHeadCell>
+                <AppTableHeadCell>Bonuses</AppTableHeadCell>
+                <AppTableHeadCell>Deductions</AppTableHeadCell>
+                <AppTableHeadCell>Net</AppTableHeadCell>
+                <AppTableHeadCell>Status</AppTableHeadCell>
+                {isAdmin && isDraft ? <AppTableHeadCell>Actions</AppTableHeadCell> : null}
+              </AppTableHeaderRow>
+            </AppTableHeaderSection>
+            <AppTableBodySection>
+              {activeItems.map((item) => {
+                const lines =
+                  (item.metadata?.adjustmentLines as PayrollAdjustmentLine[] | undefined) ?? [];
+                const name = employeeName(item);
+                const employee = employees.find((emp) => emp.id === item.memberId);
                 return (
-                  <div
-                    key={payslip.itemId}
-                    className="flex flex-col gap-3 border-b border-[#d7e3f6] bg-white/65 p-4 last:border-b-0 dark:border-slate-800 dark:bg-slate-950/45 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <PersonAvatar
-                        src={employee?.avatar}
-                        name={name}
-                        className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
-                        fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
-                          {name}
-                        </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                          {payslip.paidAt ? `Paid ${formatDate(payslip.paidAt)}` : 'Paid'}
-                        </p>
+                  <AppTableBodyRow key={item.id}>
+                    <AppTableCell>
+                      <div className="flex items-center gap-3">
+                        <PersonAvatar
+                          src={employee?.avatar}
+                          name={name}
+                          className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                          fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                        />
+                        <span className="font-medium">{name}</span>
                       </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getPayrollStatusStyles(
-                          payslip.published ? 'published' : 'unpublished',
-                        )}`}
-                      >
+                    </AppTableCell>
+                    <AppTableCell>
+                      {Number(item.baseSalary ?? 0).toLocaleString()}{' '}
+                      {item.baseSalaryCurrency || detail.baseCurrency}
+                    </AppTableCell>
+                    <AppTableCell>
+                      <div className="space-y-1">
+                        <p>
+                          {Number(item.adjustments ?? 0).toLocaleString()} {detail.baseCurrency}
+                        </p>
+                        {lines.length > 0 ? (
+                          <ul className="space-y-0.5">
+                            {lines.map((line) => (
+                              <li
+                                key={`${line.type}-${line.method}-${line.value}-${line.reason ?? ''}`}
+                                className="text-xs text-slate-500 dark:text-slate-400"
+                              >
+                                {formatAdjustmentLineLabel(line, detail.baseCurrency)}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    </AppTableCell>
+                    <AppTableCell>{Number(item.deductions ?? 0).toLocaleString()}</AppTableCell>
+                    <AppTableCell className="font-medium">
+                      {Number(item.netAmount ?? 0).toLocaleString()} {detail.baseCurrency}
+                    </AppTableCell>
+                    <AppTableCell>
+                      <div className="space-y-1">
                         <span
-                          className={`size-1.5 rounded-full ${getPayrollStatusDotClass(
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${getPayrollStatusStyles(
+                            item.status,
+                          )}`}
+                        >
+                          <span
+                            className={`size-1.5 rounded-full ${getPayrollStatusDotClass(item.status)}`}
+                          />
+                          {item.status}
+                        </span>
+                        {item.status === 'failed' && item.failureReason ? (
+                          <p className="max-w-[220px] text-xs text-red-600 dark:text-red-400">
+                            {item.failureReason}
+                          </p>
+                        ) : null}
+                      </div>
+                    </AppTableCell>
+                    {isAdmin && isDraft ? (
+                      <AppTableCell>
+                        <BonusDialog
+                          item={item}
+                          runId={runId}
+                          currency={detail.baseCurrency}
+                          onSaved={() => void refetch()}
+                        />
+                      </AppTableCell>
+                    ) : null}
+                  </AppTableBodyRow>
+                );
+              })}
+            </AppTableBodySection>
+          </AppTable>
+        </AppTablePanel>
+
+        {detail.status === 'completed' && payslips.length > 0 ? (
+          <div className="dashboard-panel space-y-3 rounded-[8px] p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h4 className="font-medium text-slate-950 dark:text-slate-100">Payslips</h4>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {isAdmin ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <Checkbox
+                      id="send-email-on-publish"
+                      checked={sendEmail}
+                      onCheckedChange={(v) => setSendEmail(v === true)}
+                    />
+                    <Label htmlFor="send-email-on-publish" className="font-normal">
+                      Send email on publish
+                      {tenantSettings?.settings?.general?.emailPayslipOnPublish ? (
+                        <span className="text-xs text-slate-500 dark:text-slate-400">
+                          {' '}
+                          (workspace default: on)
+                        </span>
+                      ) : null}
+                    </Label>
+                  </div>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="brandSolid"
+                  disabled={
+                    busy || payslips.every((p) => p.published || !canManagePayrollItem(p.memberId))
+                  }
+                  onClick={handlePublishAll}
+                >
+                  Publish all
+                </Button>
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-[8px] border border-[#d7e3f6] dark:border-slate-800">
+              {payslips
+                .filter((payslip) => canManagePayrollItem(payslip.memberId))
+                .map((payslip) => {
+                  const employee = employees.find((emp) => emp.id === payslip.memberId);
+                  const name = payslip.employeeName;
+                  return (
+                    <div
+                      key={payslip.itemId}
+                      className="flex flex-col gap-3 border-b border-[#d7e3f6] bg-white/65 p-4 last:border-b-0 dark:border-slate-800 dark:bg-slate-950/45 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <PersonAvatar
+                          src={employee?.avatar}
+                          name={name}
+                          className="h-8 w-8 flex-shrink-0 border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900"
+                          fallbackClassName="bg-slate-100 text-[10px] font-bold text-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-slate-950 dark:text-slate-100">
+                            {name}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {payslip.paidAt ? `Paid ${formatDate(payslip.paidAt)}` : 'Paid'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${getPayrollStatusStyles(
                             payslip.published ? 'published' : 'unpublished',
                           )}`}
-                        />
-                        {payslip.published ? 'Published' : 'Unpublished'}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                        onClick={() => void handleDownloadPayslip(payslip)}
-                      >
-                        <Download className="mr-1 size-3.5" />
-                        {payslip.published ? 'Download' : 'Preview'}
-                      </Button>
-                      {!payslip.published ? (
+                        >
+                          <span
+                            className={`size-1.5 rounded-full ${getPayrollStatusDotClass(
+                              payslip.published ? 'published' : 'unpublished',
+                            )}`}
+                          />
+                          {payslip.published ? 'Published' : 'Unpublished'}
+                        </span>
                         <Button
                           size="sm"
                           variant="outline"
                           className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
-                          disabled={busy}
-                          onClick={async () => {
-                            try {
-                              await actions.publishPayslips.mutateAsync({
-                                runId,
-                                itemIds: [payslip.itemId],
-                                sendEmail,
-                              });
-                              toast.success('Payslip published');
-                            } catch (err) {
-                              toast.error(err instanceof Error ? err.message : 'Publish failed');
-                            }
-                          }}
+                          onClick={() => void handleDownloadPayslip(payslip)}
                         >
-                          Publish
+                          <Download className="mr-1 size-3.5" />
+                          {payslip.published ? 'Download' : 'Preview'}
                         </Button>
-                      ) : null}
+                        {!payslip.published ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200 dark:hover:bg-slate-900 dark:hover:text-slate-100"
+                            disabled={busy}
+                            onClick={async () => {
+                              try {
+                                await actions.publishPayslips.mutateAsync({
+                                  runId,
+                                  itemIds: [payslip.itemId],
+                                  sendEmail,
+                                });
+                                toast.success('Payslip published');
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : 'Publish failed');
+                              }
+                            }}
+                          >
+                            Publish
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+            </div>
           </div>
-        </div>
-      ) : null}
-    </div>
+        ) : null}
+      </div>
+      <EditPayrollRunDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        run={detail}
+        activeEmployees={activeEmployees}
+        currentSalaries={currentSalaries}
+        paymentReadyMemberIds={paymentReadyMemberIds}
+        onSaved={() => {
+          void refetch();
+        }}
+      />
+    </>
   );
 }

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 import { z } from 'zod';
+import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { ToastMessage } from '@/components/toast-message';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +51,8 @@ export function EducationForm({
   editMode = false,
 }: EducationFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [pendingValues, setPendingValues] = useState<EducationFormValues | null>(null);
 
   const initialValues = {
     degree: '',
@@ -95,68 +98,111 @@ export function EducationForm({
     }
   };
 
+  const requestSubmit = (values: EducationFormValues) => {
+    setPendingValues(values);
+    setConfirmationOpen(true);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>{editMode ? 'Edit Education' : 'Add Education'}</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="degree"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Degree/Certificate*</FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., Bachelor of Science, MBA" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>{editMode ? 'Edit Education' : 'Add Education'}</DialogTitle>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(requestSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="institution"
+                name="degree"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Institution*</FormLabel>
+                    <FormLabel>Degree/Certificate*</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., University of California" {...field} />
+                      <Input placeholder="e.g., Bachelor of Science, MBA" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="year"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Year of Completion*</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., 2020" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="institution"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Institution*</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., University of California" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="year"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Year of Completion*</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., 2020" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="field"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Field of Study (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., Computer Science"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="grade"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Grade/GPA (Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="e.g., 3.8/4.0, First Class"
+                          {...field}
+                          value={field.value || ''}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="field"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Field of Study (Optional)</FormLabel>
+                    <FormLabel>Additional Information (Optional)</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="e.g., Computer Science"
+                      <Textarea
+                        placeholder="Any additional details about this education"
                         {...field}
                         value={field.value || ''}
                       />
@@ -166,61 +212,40 @@ export function EducationForm({
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="grade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Grade/GPA (Optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., 3.8/4.0, First Class"
-                        {...field}
-                        value={field.value || ''}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Additional Information (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any additional details about this education"
-                      {...field}
-                      value={field.value || ''}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  onOpenChange(false);
-                  form.reset(initialValues);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : editMode ? 'Update Education' : 'Add Education'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    onOpenChange(false);
+                    form.reset(initialValues);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? 'Saving...' : editMode ? 'Update Education' : 'Add Education'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      <ConfirmActionDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+        title={editMode ? 'Update education record?' : 'Add education record?'}
+        description={
+          editMode
+            ? 'The updated education information will be saved to this employee profile.'
+            : 'This education record will be added to the employee profile.'
+        }
+        actionLabel={editMode ? 'Update record' : 'Add record'}
+        isPending={isLoading}
+        onConfirm={() => {
+          if (pendingValues) void handleSubmit(pendingValues);
+        }}
+      />
+    </>
   );
 }

@@ -15,8 +15,14 @@ import { PaymentMethodPasscodeHistory } from './entities/payment-method-passcode
 import { PaymentSecurity } from './entities/payment-security.entity';
 import { PaymentMethodRepository } from './repositories/payment-method.repository';
 import { PaymentSecurityRepository } from './repositories/payment-security.repository';
+import { NigerianBankService } from './services/nigerian-bank.service';
 import { PaymentMethodService } from './services/payment-method.service';
+import { PaymentMethodVerificationService } from './services/payment-method-verification.service';
 import { PaymentSecurityService } from './services/payment-security.service';
+import { PayrollReadinessService } from './services/payroll-readiness.service';
+import { PmCreationService } from './services/pm-creation.service';
+import { PmPasscodeService } from './services/pm-passcode.service';
+import { PmVerificationService } from './services/pm-verification.service';
 
 @Module({
   imports: [
@@ -37,10 +43,22 @@ import { PaymentSecurityService } from './services/payment-security.service';
   controllers: [PaymentMethodController, PaymentSecurityController],
   providers: [
     PaymentMethodService,
+    PmCreationService,
+    PmPasscodeService,
+    PmVerificationService,
     PaymentMethodRepository,
     PaymentSecurityService,
     PaymentSecurityRepository,
+    NigerianBankService,
+    PayrollReadinessService,
+    PaymentMethodVerificationService,
   ],
-  exports: [PaymentMethodService, PaymentSecurityService],
+  exports: [
+    PaymentMethodService,
+    PaymentSecurityService,
+    NigerianBankService,
+    PayrollReadinessService,
+    PaymentMethodVerificationService,
+  ],
 })
 export class PaymentMethodModule {}

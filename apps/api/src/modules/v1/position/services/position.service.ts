@@ -75,7 +75,7 @@ export class PositionService {
   }
   async deletePosition(id: string, tenantId: string, actorMemberId?: string): Promise<void> {
     await this.getPosition(id, tenantId);
-    await this.positionRepository.softDelete(id);
+    await this.positionRepository.softDeletePosition(id, tenantId);
 
     if (actorMemberId) {
       void this.activitiesService

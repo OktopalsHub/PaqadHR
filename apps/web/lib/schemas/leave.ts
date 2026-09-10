@@ -6,6 +6,7 @@ export const leaveRequestSchema = z.object({
   id: z.string(),
   employee: z.string(),
   requesterId: z.string().optional(),
+  leaveTypeId: z.string().optional(),
   type: z.string(),
   startDate: z.string(),
   endDate: z.string(),
@@ -34,3 +35,7 @@ export const createLeaveSchema = z.object({
 });
 
 export type CreateLeaveInput = z.infer<typeof createLeaveSchema>;
+
+export const updateLeaveSchema = createLeaveSchema;
+
+export type UpdateLeaveInput = z.infer<typeof updateLeaveSchema>;

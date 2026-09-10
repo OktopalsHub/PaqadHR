@@ -7,6 +7,7 @@ import { ShoutoutsModule } from '../shoutouts/shoutouts.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { WebhooksController } from './controllers/webhooks.controller';
 import { BachsWebhookService } from './services/bachs-webhook.service';
+import { FincraWebhookService } from './services/fincra-webhook.service';
 import { MonnifyWebhookService } from './services/monnify-webhook.service';
 import { NoahWebhookService } from './services/noah-webhook.service';
 import { NombaWebhookService } from './services/nomba-webhook.service';
@@ -27,6 +28,7 @@ import { TremendousWebhookService } from './services/tremendous-webhook.service'
     NombaWebhookService,
     MonnifyWebhookService,
     NoahWebhookService,
+    FincraWebhookService,
     BachsWebhookService,
     PolarWebhookService,
     TremendousWebhookService,

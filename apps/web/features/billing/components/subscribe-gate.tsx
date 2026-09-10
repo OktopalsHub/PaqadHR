@@ -4,7 +4,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { LoadingSpinner } from '@/components/loading-block';
 import { useAuth } from '@/hooks/use-auth';
-import { authPageUrl, subscribePageUrl } from '@/lib/navigation/tenant-routes';
+import { authPageUrl, subscribePagePath } from '@/lib/navigation/tenant-routes';
 import { useTenant } from '@/providers/tenant-provider';
 
 export function SubscribeGate({ children }: { children: React.ReactNode }) {
@@ -28,7 +28,7 @@ export function SubscribeGate({ children }: { children: React.ReactNode }) {
       window.location.assign(
         authPageUrl(
           '/signin',
-          subscribePageUrl({
+          subscribePagePath({
             workspace: workspaceSlug ?? undefined,
             welcome: isWelcome || undefined,
           }),

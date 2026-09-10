@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { IntegrationType } from 'src/common/enums';
 import type { IPlatformUser } from 'src/common/interfaces';
 import { IsNull } from 'typeorm';
+import { InvitationsService } from '../../../modules/v1/invitations/invitations.service';
 import { TenantMembersService } from '../../../modules/v1/tenant-members/tenant-members.service';
 import { SlackClient } from '../clients/slack.client';
 import type { PlatformIntegration } from '../entities/platform-integration.entity';
@@ -15,6 +16,7 @@ export class UserSyncService {
   private readonly logger = new Logger(UserSyncService.name);
   constructor(
     private readonly tenantMembersService: TenantMembersService,
+    private readonly invitationsService: InvitationsService,
     private readonly platformUserRepo: PlatformUserRepository,
     private readonly integrationRepo: PlatformIntegrationRepository,
   ) {}
@@ -123,7 +125,7 @@ export class UserSyncService {
     for (const platformUser of unmatchedUsers) {
       try {
         if (platformUser.platformEmail) {
-          await this.tenantMembersService.inviteMember(
+          await this.invitationsService.inviteMember(
             tenantId,
             {
               email: platformUser.platformEmail,
