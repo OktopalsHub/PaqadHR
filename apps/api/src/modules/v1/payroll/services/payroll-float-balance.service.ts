@@ -40,7 +40,8 @@ export class PayrollFloatBalanceService {
         default:
           return {
             supported: false,
-            reason: 'Balance lookup is not available for this payout provider. Fund it in the provider dashboard.',
+            reason:
+              'Balance lookup is not available for this payout provider. Fund it in the provider dashboard.',
           };
       }
     } catch (error) {
@@ -82,25 +83,31 @@ export class PayrollFloatBalanceService {
     }
     const token = await this.nombaAuth.getAccessToken();
     const accountId = getNombaSubAccountId() || getNombaAccountId();
-    const response = await fetch(`${getNombaBaseUrl()}/v1/accounts/${encodeURIComponent(accountId)}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        accountId: getNombaAccountId(),
-        Accept: 'application/json',
+    const response = await fetch(
+      `${getNombaBaseUrl()}/v1/accounts/${encodeURIComponent(accountId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          accountId: getNombaAccountId(),
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(10_000),
       },
-    });
+    );
     const text = await response.text();
     if (!response.ok) {
       throw new Error(`Nomba account lookup failed (${response.status})`);
     }
-    const parsed = text ? (JSON.parse(text) as {
-      data?: {
-        availableBalance?: number | string;
-        balance?: number | string;
-        currency?: string;
-      };
-    }) : {};
+    const parsed = text
+      ? (JSON.parse(text) as {
+          data?: {
+            availableBalance?: number | string;
+            balance?: number | string;
+            currency?: string;
+          };
+        })
+      : {};
     const raw = parsed.data?.availableBalance ?? parsed.data?.balance;
     const available = Number(raw);
     if (!Number.isFinite(available)) {
@@ -149,7 +156,7 @@ export class PayrollFloatBalanceService {
 
   private async getFincraBalance(currency: string): Promise<PayrollFloatBalanceResult> {
     const { parsed, httpStatus } = await this.fincraAuth.request<
-      Array<{ currency?: string; availableBalance?: number | string; balance?: number | string }>
+      | Array<{ currency?: string; availableBalance?: number | string; balance?: number | string }>
       | { currency?: string; availableBalance?: number | string; balance?: number | string }
     >('GET', '/wallets', undefined, { includeBusinessId: true });
 
@@ -157,11 +164,7 @@ export class PayrollFloatBalanceService {
       throw new Error(`Fincra wallets failed (${httpStatus})`);
     }
 
-    const rows = Array.isArray(parsed.data)
-      ? parsed.data
-      : parsed.data
-        ? [parsed.data]
-        : [];
+    const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data ? [parsed.data] : [];
     const match =
       rows.find((row) => (row.currency || '').toUpperCase() === currency.toUpperCase()) ?? rows[0];
     if (!match) {

@@ -45,4 +45,37 @@ describe('runConcurrentCreatePayments', () => {
     await expect(runConcurrentCreatePayments(createPayment, [])).resolves.toEqual([]);
     expect(createPayment).not.toHaveBeenCalled();
   });
+
+  it('keeps sibling successes when one createPayment rejects', async () => {
+    const transfers = [
+      { merchantTxRef: 'ref-a', amount: 1, currency: 'NGN', description: 'a' },
+      { merchantTxRef: 'ref-b', amount: 2, currency: 'NGN', description: 'b' },
+      { merchantTxRef: 'ref-c', amount: 3, currency: 'NGN', description: 'c' },
+    ] as CreatePaymentData[];
+
+    const createPayment = jest
+      .fn()
+      .mockImplementation(async (data: CreatePaymentData): Promise<PaymentResult> => {
+        if (data.merchantTxRef === 'ref-b') {
+          throw new Error('provider blew up');
+        }
+        return {
+          success: true,
+          transactionId: `txn-${data.merchantTxRef}`,
+          reference: data.merchantTxRef,
+        };
+      });
+
+    const results = await runConcurrentCreatePayments(createPayment, transfers, 2);
+
+    expect(results).toHaveLength(3);
+    expect(results[0].success).toBe(true);
+    expect(results[0].reference).toBe('ref-a');
+    expect(results[1].success).toBe(false);
+    expect(results[1].retryable).toBe(true);
+    expect(results[1].error).toContain('provider blew up');
+    expect(results[1].reference).toBe('ref-b');
+    expect(results[2].success).toBe(true);
+    expect(results[2].reference).toBe('ref-c');
+  });
 });

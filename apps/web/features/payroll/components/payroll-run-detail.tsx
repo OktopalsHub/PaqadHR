@@ -301,9 +301,7 @@ export function PayrollRunDetail({
   const detail = run as PayrollRunDetailType | undefined;
   const isDraft = detail?.status === 'draft';
   const isLocked =
-    detail?.status === 'approved' ||
-    detail?.status === 'completed' ||
-    detail?.status === 'failed';
+    detail?.status === 'approved' || detail?.status === 'completed' || detail?.status === 'failed';
   const canDelete = Boolean(detail && detail.status !== 'completed' && onDelete);
   const canEditTitle = Boolean(
     isAdmin && detail && (detail.status === 'draft' || detail.status === 'processing'),
@@ -332,7 +330,9 @@ export function PayrollRunDetail({
   const canRetry =
     Boolean(isAdmin && payrollGatewayEnabled) &&
     hasFailedItems &&
-    (detail?.status === 'failed' || detail?.status === 'processing' || detail?.status === 'approved');
+    (detail?.status === 'failed' ||
+      detail?.status === 'processing' ||
+      detail?.status === 'approved');
 
   const busy =
     actions.calculate.isPending ||
@@ -408,6 +408,7 @@ export function PayrollRunDetail({
   };
 
   const handlePayNow = async () => {
+    const checkoutTab = window.open('about:blank', '_blank');
     try {
       const response = await actions.fundAndPay.mutateAsync(runId);
       if (response.action === 'checkout') {
@@ -415,18 +416,26 @@ export function PayrollRunDetail({
           toast.message(
             response.preflight?.message ?? 'Complete provider checkout to fund payroll',
           );
-          window.open(response.checkoutUrl, '_blank', 'noopener,noreferrer');
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
         } else {
+          checkoutTab?.close();
           toast.error(response.preflight?.message ?? 'Fund the payout provider, then retry');
         }
         setPayNowConfirmOpen(false);
         await refetch();
         return;
       }
+      checkoutTab?.close();
       toastPayoutResult(response.result, 'started');
       setPayNowConfirmOpen(false);
       await refetch();
     } catch (err) {
+      checkoutTab?.close();
       toast.error(err instanceof Error ? err.message : 'Payout failed');
       await refetch();
     }

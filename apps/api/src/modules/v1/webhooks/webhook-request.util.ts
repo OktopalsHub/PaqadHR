@@ -95,7 +95,9 @@ export function extractPayrollFloatTopupCheckout(payload: unknown): {
   const flatMeta = (body.data?.meta ?? body.data?.metadata ?? {}) as Record<string, unknown>;
   const payrollRunIdRaw = orderMeta.payrollRunId ?? flatMeta.payrollRunId;
   const payrollRunId =
-    payrollRunIdRaw !== undefined && payrollRunIdRaw !== null && String(payrollRunIdRaw).trim() !== ''
+    payrollRunIdRaw !== undefined &&
+    payrollRunIdRaw !== null &&
+    String(payrollRunIdRaw).trim() !== ''
       ? String(payrollRunIdRaw)
       : undefined;
   return { ...base, payrollRunId };

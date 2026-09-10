@@ -1,6 +1,17 @@
 export const MONNIFY_PRODUCTION_BASE_URL = 'https://api.monnify.com';
 export const MONNIFY_SANDBOX_BASE_URL = 'https://sandbox.monnify.com';
 
+const ALLOWED_MONNIFY_HOSTS = new Set(['api.monnify.com', 'sandbox.monnify.com']);
+
+export function isAllowedMonnifyBaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && ALLOWED_MONNIFY_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export function isMonnifyLive(): boolean {
   return process.env.MONNIFY_LIVE === 'true';
 }
@@ -8,7 +19,13 @@ export function isMonnifyLive(): boolean {
 export function getMonnifyBaseUrl(): string {
   const explicit = process.env.MONNIFY_BASE_URL?.trim();
   if (explicit) {
-    return explicit.replace(/\/$/, '');
+    const normalized = explicit.replace(/\/$/, '');
+    if (!isAllowedMonnifyBaseUrl(normalized)) {
+      throw new Error(
+        'MONNIFY_BASE_URL must use HTTPS and point to api.monnify.com or sandbox.monnify.com',
+      );
+    }
+    return normalized;
   }
   return (isMonnifyLive() ? MONNIFY_PRODUCTION_BASE_URL : MONNIFY_SANDBOX_BASE_URL).replace(
     /\/$/,

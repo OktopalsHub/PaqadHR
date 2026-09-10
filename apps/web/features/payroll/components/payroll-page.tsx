@@ -279,27 +279,6 @@ export function PayrollPage() {
     toast.success(emptyMessage);
   };
 
-  const handleFundAndPayOutcome = (outcome: {
-    action: 'paid' | 'checkout';
-    checkoutUrl?: string;
-    result?: { successfulPayments?: number; failedPayments?: number };
-    preflight?: { message?: string; dashboardUrl?: string };
-  }) => {
-    if (outcome.action === 'checkout') {
-      if (outcome.checkoutUrl) {
-        toast.message(outcome.preflight?.message ?? 'Complete provider checkout to fund payroll');
-        window.open(outcome.checkoutUrl, '_blank', 'noopener,noreferrer');
-        return;
-      }
-      toast.error(
-        outcome.preflight?.message ??
-          `Fund the payout provider${outcome.preflight?.dashboardUrl ? ` (${outcome.preflight.dashboardUrl})` : ''} then retry.`,
-      );
-      return;
-    }
-    toastPayoutResult(outcome.result, 'Payout started');
-  };
-
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
       if (action === 'delete') {
@@ -398,11 +377,35 @@ export function PayrollPage() {
 
   const confirmPayNow = async () => {
     if (!payNowRunId) return;
+    const checkoutTab = window.open('about:blank', '_blank');
     try {
       const response = await actions.fundAndPay.mutateAsync(payNowRunId);
-      handleFundAndPayOutcome(response);
+      if (response.action === 'checkout') {
+        if (response.checkoutUrl) {
+          toast.message(
+            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
+          );
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
+        } else {
+          checkoutTab?.close();
+          toast.error(
+            response.preflight?.message ??
+              `Fund the payout provider${response.preflight?.dashboardUrl ? ` (${response.preflight.dashboardUrl})` : ''} then retry.`,
+          );
+        }
+        setPayNowRunId(null);
+        return;
+      }
+      checkoutTab?.close();
+      toastPayoutResult(response.result, 'Payout started');
       setPayNowRunId(null);
     } catch (err) {
+      checkoutTab?.close();
       toast.error(err instanceof Error ? err.message : 'Payout failed');
     }
   };

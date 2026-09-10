@@ -21,11 +21,20 @@ export async function runConcurrentCreatePayments(
       nextIndex += 1;
       if (index >= transfers.length) return;
       const transfer = transfers[index];
-      const result = await createPayment(transfer);
-      results[index] = {
-        ...result,
-        reference: result.reference ?? transfer.merchantTxRef,
-      };
+      try {
+        const result = await createPayment(transfer);
+        results[index] = {
+          ...result,
+          reference: result.reference ?? transfer.merchantTxRef,
+        };
+      } catch (error) {
+        results[index] = {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+          retryable: true,
+          reference: transfer.merchantTxRef,
+        };
+      }
     }
   });
 

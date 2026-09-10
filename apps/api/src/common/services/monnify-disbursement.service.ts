@@ -155,29 +155,39 @@ export class MonnifyDisbursementService {
     const payload = (await response.json().catch(() => ({}))) as MonnifyBatchDisbursementResponse;
     const lines = payload.responseBody?.transactionList ?? [];
     const byRef = new Map(
-      lines
-        .filter((line) => line.reference)
-        .map((line) => [String(line.reference), line] as const),
+      lines.filter((line) => line.reference).map((line) => [String(line.reference), line] as const),
     );
 
     const accepted =
       response.ok &&
       payload.requestSuccessful === true &&
-      ['SUCCESS', 'SUCCESSFUL', 'PENDING', 'PROCESSING', 'IN_PROGRESS', 'AWAITING_PROCESSING'].includes(
-        String(payload.responseBody?.status ?? 'PENDING').toUpperCase(),
-      );
+      [
+        'SUCCESS',
+        'SUCCESSFUL',
+        'PENDING',
+        'PROCESSING',
+        'IN_PROGRESS',
+        'AWAITING_PROCESSING',
+      ].includes(String(payload.responseBody?.status ?? 'PENDING').toUpperCase());
 
     return input.transactions.map((tx) => {
       const line = byRef.get(tx.reference);
-      const status = String(line?.status ?? payload.responseBody?.status ?? 'PENDING').toUpperCase();
+      if (!line) {
+        return {
+          success: false,
+          reference: tx.reference,
+          status: 'PENDING',
+          message: 'Missing per-transaction status in batch response',
+        };
+      }
+      const status = String(line.status ?? 'PENDING').toUpperCase();
       const success =
-        accepted &&
-        !['FAILED', 'FAILED_TRANSACTION', 'REVERSED', 'CANCELLED'].includes(status);
+        accepted && !['FAILED', 'FAILED_TRANSACTION', 'REVERSED', 'CANCELLED'].includes(status);
       return {
         success,
         reference: tx.reference,
         status,
-        message: success ? undefined : payload.responseMessage || line?.transactionDescription,
+        message: success ? undefined : payload.responseMessage || line.transactionDescription,
       };
     });
   }

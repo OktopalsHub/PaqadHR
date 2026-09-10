@@ -1,14 +1,16 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import { PayrollItemStatus } from 'src/common/enums/payroll-item-status.enum';
 import { PayrollStatus } from 'src/common/enums/payroll-status.enum';
-import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
 import type { AuditContext } from 'src/common/interfaces/audit-context.interface';
 import { PaymentProviderFactoryService } from 'src/common/services/payment-provider-factory.service';
 import { resolvePaymentProvider } from 'src/common/utils/resolve-payment-provider.util';
 import { tenantFrontendUrl } from 'src/common/utils/tenant-frontend-url.util';
 import { Repository } from 'typeorm';
 import { resolveCheckoutCustomerFullName } from '../../rewards/utils/checkout-customer-name.util';
+import { BILLING_AMOUNT_TOLERANCE } from '../../subscriptions/constants/billing.constants';
+import { normalizeWebhookAmount } from '../../subscriptions/utils/per-seat-pricing.util';
 import { TenantSettingsService } from '../../tenant-settings/services/tenant-settings.service';
 import { Tenant } from '../../tenants/entities/tenant.entity';
 import { isPayrollGatewayEnabled } from '../config/payroll-disbursement.config';
@@ -20,6 +22,8 @@ import {
 } from '../utils/payroll-float-order-ref.util';
 import { PayrollFloatBalanceService } from './payroll-float-balance.service';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
+
+const SUCCESSFUL_CHECKOUT_STATUSES = new Set(['success', 'successful', 'succeeded', 'accepted']);
 
 export type PayrollFundPreflight = {
   ok: boolean;
@@ -208,46 +212,82 @@ export class PayrollFloatTopupService {
 
     const provider = resolvePaymentProvider(run.baseCurrency) as PayrollFloatOrderRefProvider;
     const adapter = this.paymentFactory.resolveCheckoutAdapter(provider);
-    if (adapter?.isConfigured()) {
-      const verified = await adapter.verifyCheckout({ orderReference: input.orderReference });
-      if (verified && !this.isSuccessfulCheckoutStatus(verified.status)) {
-        this.logger.warn(
-          `Payroll float top-up not successful yet for ${input.orderReference}: ${verified.status}`,
-        );
-        return { received: true, paid: false };
-      }
-    }
-
-    run.metadata = {
-      ...run.metadata,
-      floatTopup: {
-        orderReference: input.orderReference,
-        status: 'completed',
-        completedAt: new Date().toISOString(),
-        shortfall: meta.shortfall,
-        provider,
-      } satisfies FloatTopupMeta,
-    };
-    await this.payrollRunRepository.save(run);
-
-    if (run.status !== PayrollStatus.APPROVED) {
+    if (!adapter?.isConfigured()) {
       this.logger.warn(
-        `Payroll float top-up completed but run ${run.id} status is ${run.status}; skipping auto-pay`,
+        `Payroll float top-up rejected: checkout adapter unavailable for ${input.orderReference}`,
       );
       return { received: true, paid: false };
     }
 
-    const performedById = input.initiatedByMemberId || run.createdById;
+    const verified = await adapter.verifyCheckout({ orderReference: input.orderReference });
+    if (!verified) {
+      this.logger.warn(
+        `Payroll float top-up rejected: verification missing for ${input.orderReference}`,
+      );
+      return { received: true, paid: false };
+    }
+
+    const status = verified.status.toLowerCase();
+    if (!SUCCESSFUL_CHECKOUT_STATUSES.has(status)) {
+      this.logger.warn(
+        `Payroll float top-up not successful yet for ${input.orderReference}: ${verified.status}`,
+      );
+      return { received: true, paid: false };
+    }
+
+    const expected = Number(meta.shortfall ?? input.amount ?? 0);
+    const verifiedAmount = Number(verified.amount ?? 0);
+    const rawPaid =
+      Number.isFinite(verifiedAmount) && verifiedAmount > 0
+        ? verifiedAmount
+        : Number.isFinite(Number(input.amount)) && Number(input.amount) > 0
+          ? Number(input.amount)
+          : verifiedAmount;
+    const paidAmount = normalizeWebhookAmount(
+      rawPaid,
+      expected > 0 ? expected : rawPaid,
+      run.baseCurrency,
+    );
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
+      this.logger.warn(`Payroll float top-up invalid amount for ${input.orderReference}`);
+      return { received: true, paid: false };
+    }
+    if (expected > 0 && paidAmount + BILLING_AMOUNT_TOLERANCE < expected) {
+      this.logger.warn(
+        `Payroll float top-up underpaid for ${input.orderReference}: expected ${expected}, got ${paidAmount}`,
+      );
+      return { received: true, paid: false };
+    }
+
+    const claimed = await this.claimFloatTopupCompleted({
+      runId: run.id,
+      tenantId: run.tenantId,
+      orderReference: input.orderReference,
+      shortfall: meta.shortfall,
+      provider,
+    });
+    if (!claimed) {
+      return { received: true, paid: true };
+    }
+
+    if (claimed.status !== PayrollStatus.APPROVED) {
+      this.logger.warn(
+        `Payroll float top-up completed but run ${claimed.id} status is ${claimed.status}; skipping auto-pay`,
+      );
+      return { received: true, paid: false };
+    }
+
+    const performedById = input.initiatedByMemberId || claimed.createdById;
     try {
-      await this.paymentOrchestrator.payNowPayroll(run.id, run.tenantId, {
-        tenantId: run.tenantId,
-        payrollRunId: run.id,
+      await this.paymentOrchestrator.payNowPayroll(claimed.id, claimed.tenantId, {
+        tenantId: claimed.tenantId,
+        payrollRunId: claimed.id,
         performedById,
       });
       return { received: true, paid: true };
     } catch (error) {
       this.logger.error(
-        `Auto pay-now after float top-up failed for run ${run.id}: ${
+        `Auto pay-now after float top-up failed for run ${claimed.id}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
@@ -366,15 +406,54 @@ export class PayrollFloatTopupService {
       });
     }
 
-    const runs = await this.payrollRunRepository.find({
-      where: { tenantId: input.tenantId, status: PayrollStatus.APPROVED },
-      order: { updatedAt: 'DESC' },
-      take: 25,
+    return this.payrollRunRepository
+      .createQueryBuilder('run')
+      .where('run.tenantId = :tenantId', { tenantId: input.tenantId })
+      .andWhere(`(run.metadata::jsonb -> 'floatTopup' ->> 'orderReference') = :ref`, {
+        ref: input.orderReference,
+      })
+      .getOne();
+  }
+
+  /**
+   * Atomically mark float top-up completed. Returns the locked run when this caller wins the claim;
+   * null when another delivery already completed the same orderReference.
+   */
+  private async claimFloatTopupCompleted(input: {
+    runId: string;
+    tenantId: string;
+    orderReference: string;
+    shortfall?: number;
+    provider: string;
+  }): Promise<PayrollRun | null> {
+    return this.payrollRunRepository.manager.transaction(async (manager) => {
+      const locked = await manager
+        .getRepository(PayrollRun)
+        .createQueryBuilder('run')
+        .setLock('pessimistic_write')
+        .where('run.id = :id', { id: input.runId })
+        .andWhere('run.tenantId = :tenantId', { tenantId: input.tenantId })
+        .getOne();
+      if (!locked) return null;
+
+      const meta = this.readFloatTopupMeta(locked);
+      if (meta.status === 'completed' && meta.orderReference === input.orderReference) {
+        return null;
+      }
+
+      locked.metadata = {
+        ...locked.metadata,
+        floatTopup: {
+          orderReference: input.orderReference,
+          status: 'completed',
+          completedAt: new Date().toISOString(),
+          shortfall: input.shortfall ?? meta.shortfall,
+          provider: input.provider,
+        } satisfies FloatTopupMeta,
+      };
+      await manager.save(locked);
+      return locked;
     });
-    return (
-      runs.find((run) => this.readFloatTopupMeta(run).orderReference === input.orderReference) ??
-      null
-    );
   }
 
   private async resolveBillingEmail(tenantId: string): Promise<string | null> {
@@ -390,15 +469,5 @@ export class PayrollFloatTopupService {
       relations: ['createdBy'],
     });
     return tenant?.createdBy?.email?.trim() ?? null;
-  }
-
-  private isSuccessfulCheckoutStatus(status: string): boolean {
-    const normalized = status.toLowerCase();
-    return (
-      normalized.includes('success') ||
-      normalized.includes('paid') ||
-      normalized.includes('complete') ||
-      normalized === 'successful'
-    );
   }
 }

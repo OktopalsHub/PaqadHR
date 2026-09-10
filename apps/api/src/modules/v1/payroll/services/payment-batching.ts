@@ -11,8 +11,8 @@ import {
 import { PayrollItemStatus } from '../../../../common/enums/payroll-item-status.enum';
 import type { PaymentBatch } from '../../../../common/interfaces/payment-batch.interface';
 import type { PaymentResult } from '../../../../common/interfaces/payment-result.interface';
-import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import type { PaymentMethod } from '../../payment-method/entities/payment-method.entity';
+import { PaymentMethodService } from '../../payment-method/services/payment-method.service';
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
@@ -165,20 +165,21 @@ export class PaymentBatching {
       const byRef = new Map<string, PaymentResult>();
       for (const result of bulkResults) {
         const key = result.reference ?? result.transactionId;
-        if (key) byRef.set(key, result);
+        if (key && !byRef.has(key)) byRef.set(key, result);
       }
 
-      for (let i = 0; i < group.length; i++) {
-        const entry = group[i];
+      for (const entry of group) {
         const ref = entry.paymentData.merchantTxRef;
-        const result =
-          (ref ? byRef.get(ref) : undefined) ??
-          bulkResults[i] ?? {
-            success: false,
-            error: 'Missing bulk transfer result for payroll item',
-            rail: entry.rail,
-            reference: ref,
-          };
+        const matched = ref ? byRef.get(ref) : undefined;
+        if (matched && ref) {
+          byRef.delete(ref);
+        }
+        const result = matched ?? {
+          success: false,
+          error: 'Missing bulk transfer result for payroll item',
+          rail: entry.rail,
+          reference: ref,
+        };
         results.push(await this.applyPayoutResult(entry, result));
       }
     }

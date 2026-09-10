@@ -93,7 +93,6 @@ export const Login = ({ googleSignInFailed, redirect }: LoginProps) => {
         <h1 className="text-[clamp(1.8rem,2.5vw,2.25rem)] font-semibold tracking-[-0.05em] text-slate-950">
           Sign in
         </h1>
-        <p className="max-w-sm text-sm leading-6 text-slate-500">Welcome back</p>
       </div>
 
       {googleSignInFailed && !isAuthenticated && !authLoading ? (
