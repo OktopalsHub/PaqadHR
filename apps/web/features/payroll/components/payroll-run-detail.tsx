@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { EditPayrollRunDialog } from '@/features/payroll/components/edit-payroll-run-dialog';
 import { formatAdjustmentLineLabel } from '@/features/payroll/lib/format-adjustment-line';
+import { toastPayrollPayoutResult } from '@/features/payroll/toast-payroll-payout';
 import { useEmployees } from '@/hooks/queries/use-employees';
 import { useCurrentSalaries } from '@/hooks/queries/use-employment';
 import {
@@ -358,38 +359,6 @@ export function PayrollRunDetail({
     }
   }, [detail?.paymentDate]);
 
-  const toastPayoutResult = (
-    result:
-      | {
-          successfulPayments: number;
-          failedPayments: number;
-          processingPayments?: number;
-        }
-      | undefined,
-    verb: 'started' | 'retried',
-  ) => {
-    const ok = result?.successfulPayments ?? 0;
-    const failed = result?.failedPayments ?? 0;
-    const processing = result?.processingPayments ?? 0;
-    if (ok > 0 && failed === 0 && processing === 0) {
-      toast.success(`Paid ${ok}`);
-      return;
-    }
-    if (processing > 0 && failed === 0) {
-      toast.success(ok > 0 ? `Paid ${ok}, ${processing} pending` : 'Payment submitted');
-      return;
-    }
-    if (ok > 0 || processing > 0) {
-      toast.warning(`Paid ${ok}, ${failed} failed — retry the rest`);
-      return;
-    }
-    if (failed > 0) {
-      toast.error(verb === 'retried' ? 'Retry failed' : 'Payment failed');
-      return;
-    }
-    toast.success(verb === 'retried' ? 'Retry completed' : 'Payout started');
-  };
-
   const handleDownloadPayslip = async (payslip: {
     runId: string;
     itemId: string;
@@ -426,9 +395,7 @@ export function PayrollRunDetail({
       const response = await actions.fundAndPay.mutateAsync(runId);
       if (response.action === 'checkout') {
         if (response.checkoutUrl) {
-          toast.message(
-            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
-          );
+          toast.message('Complete checkout to fund, then we pay automatically');
           if (checkoutTab) {
             checkoutTab.opener = null;
             checkoutTab.location.href = response.checkoutUrl;
@@ -444,7 +411,7 @@ export function PayrollRunDetail({
         return;
       }
       checkoutTab?.close();
-      toastPayoutResult(response.result, 'started');
+      toastPayrollPayoutResult(response.result, 'pay');
       setPayNowConfirmOpen(false);
       await refetch();
     } catch (err) {
@@ -457,7 +424,7 @@ export function PayrollRunDetail({
   const handleRetryFailed = async () => {
     try {
       const response = await actions.retryFailed.mutateAsync(runId);
-      toastPayoutResult(response.result, 'retried');
+      toastPayrollPayoutResult(response.result, 'retry');
       await refetch();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Retry failed');
@@ -644,9 +611,7 @@ export function PayrollRunDetail({
                 onClick={async () => {
                   try {
                     await actions.approve.mutateAsync(runId);
-                    toast.success(
-                      'Payroll approved — run locked. Use Fund & pay, Schedule, or Mark paid to send money.',
-                    );
+                    toast.success('Payroll approved');
                     await refetch();
                   } catch (err) {
                     toast.error(err instanceof Error ? err.message : 'Approve failed');
@@ -665,7 +630,7 @@ export function PayrollRunDetail({
                     disabled={busy}
                     onClick={() => setPayNowConfirmOpen(true)}
                   >
-                    Fund & pay
+                    Pay employees
                   </Button>
                 ) : null}
                 {payrollGatewayEnabled ? (
@@ -704,13 +669,12 @@ export function PayrollRunDetail({
         <Dialog open={payNowConfirmOpen} onOpenChange={setPayNowConfirmOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Fund & pay employees?</DialogTitle>
+              <DialogTitle>Pay employees?</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-2">
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                If your payout provider float covers this run, employees are paid immediately. If
-                not, we open a shortfall checkout to fund the provider account, then pay
-                automatically when funding succeeds.
+                Pays from your payout provider balance. Opens checkout only if that balance is
+                short.
               </p>
               <Button
                 variant="brandSolid"
@@ -718,7 +682,7 @@ export function PayrollRunDetail({
                 disabled={busy}
                 onClick={() => void handlePayNow()}
               >
-                Confirm fund & pay
+                Pay now
               </Button>
             </div>
           </DialogContent>

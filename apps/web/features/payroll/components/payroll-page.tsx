@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeamCompensation } from '@/features/employees/components/team-compensation';
 import { CreatePayrollRunDialog } from '@/features/payroll/components/create-payroll-run-dialog';
 import { PayrollRunDetail } from '@/features/payroll/components/payroll-run-detail';
+import { toastPayrollPayoutResult } from '@/features/payroll/toast-payroll-payout';
 import { PaymentAdminSection } from '@/features/settings/components/payment-admin-section';
 import { useBillingOverview } from '@/hooks/queries/use-billing';
 import { useEmployees } from '@/hooks/queries/use-employees';
@@ -108,7 +109,7 @@ function PayrollRunRow({
     primary = { label: 'Approve', action: 'approve', className: APPROVE_BUTTON_CLASS };
   } else if (isAdmin && run.status === 'approved') {
     primary = payrollGatewayEnabled
-      ? { label: 'Fund & pay', action: 'fund-and-pay', variant: 'brandSolid' }
+      ? { label: 'Pay employees', action: 'fund-and-pay', variant: 'brandSolid' }
       : { label: 'Mark paid', action: 'disburse' };
   } else if (isAdmin && run.status === 'failed' && payrollGatewayEnabled) {
     primary = { label: 'Retry payment', action: 'retry', variant: 'brandSolid' };
@@ -258,38 +259,6 @@ export function PayrollPage() {
   const [reopenRunId, setReopenRunId] = useState<string | null>(null);
   const [payNowRunId, setPayNowRunId] = useState<string | null>(null);
 
-  const toastPayoutResult = (
-    result:
-      | {
-          successfulPayments?: number;
-          failedPayments?: number;
-          processingPayments?: number;
-        }
-      | undefined,
-    emptyMessage: string,
-  ) => {
-    const ok = result?.successfulPayments ?? 0;
-    const failed = result?.failedPayments ?? 0;
-    const processing = result?.processingPayments ?? 0;
-    if (ok > 0 && failed === 0 && processing === 0) {
-      toast.success(`Paid ${ok}`);
-      return;
-    }
-    if (processing > 0 && failed === 0) {
-      toast.success(ok > 0 ? `Paid ${ok}, ${processing} pending` : 'Payment submitted');
-      return;
-    }
-    if (ok > 0 || processing > 0) {
-      toast.warning(`Paid ${ok}, ${failed} failed — retry the rest`);
-      return;
-    }
-    if (failed > 0) {
-      toast.error('Payment failed');
-      return;
-    }
-    toast.success(emptyMessage);
-  };
-
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
       if (action === 'delete') {
@@ -314,19 +283,21 @@ export function PayrollPage() {
       }
       if (action === 'approve') {
         await actions.approve.mutateAsync(id);
-        toast.success(
-          'Payroll approved — run locked. Use Fund & pay, Schedule, or Mark paid to send money.',
-        );
+        toast.success('Payroll approved');
         return;
       }
-      if (action === 'disburse') await actions.disburse.mutateAsync(id);
+      if (action === 'disburse') {
+        await actions.disburse.mutateAsync(id);
+        toast.success('Marked as paid');
+        return;
+      }
       if (action === 'process' || action === 'pay-now' || action === 'fund-and-pay') {
         setPayNowRunId(id);
         return;
       }
       if (action === 'retry') {
         const response = await actions.retryFailed.mutateAsync(id);
-        toastPayoutResult(response.result, 'Retry completed');
+        toastPayrollPayoutResult(response.result, 'retry');
         return;
       }
       if (action === 'schedule') {
@@ -393,9 +364,7 @@ export function PayrollPage() {
       const response = await actions.fundAndPay.mutateAsync(payNowRunId);
       if (response.action === 'checkout') {
         if (response.checkoutUrl) {
-          toast.message(
-            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
-          );
+          toast.message('Complete checkout to fund, then we pay automatically');
           if (checkoutTab) {
             checkoutTab.opener = null;
             checkoutTab.location.href = response.checkoutUrl;
@@ -413,7 +382,7 @@ export function PayrollPage() {
         return;
       }
       checkoutTab?.close();
-      toastPayoutResult(response.result, 'Payout started');
+      toastPayrollPayoutResult(response.result, 'pay');
       setPayNowRunId(null);
     } catch (err) {
       checkoutTab?.close();
@@ -692,13 +661,11 @@ export function PayrollPage() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Fund & pay employees?</DialogTitle>
+            <DialogTitle>Pay employees?</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              If your payout provider float covers this run, employees are paid immediately. If not,
-              we open a shortfall checkout to fund the provider account, then pay automatically when
-              funding succeeds. Money never sits in a Paqad payroll wallet.
+              Pays from your payout provider balance. Opens checkout only if that balance is short.
             </p>
             <Button
               variant="brandSolid"
@@ -706,7 +673,7 @@ export function PayrollPage() {
               disabled={actions.fundAndPay.isPending}
               onClick={() => void confirmPayNow()}
             >
-              Confirm fund & pay
+              Pay now
             </Button>
           </div>
         </DialogContent>

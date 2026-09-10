@@ -30,8 +30,11 @@ export class NombaWebhookService {
     signature: string,
     timestamp?: string,
   ): Promise<{ received: boolean }> {
+    // Nomba dashboard validates webhook URLs with an unsigned POST and requires 2xx.
+    // Acknowledge probes; never process events without a verified signature.
     if (!signature?.trim()) {
-      throw new UnauthorizedException('Missing webhook signature');
+      this.logger.debug('Nomba webhook without signature — acknowledging URL validation probe');
+      return { received: true };
     }
     if (!verifyNombaWebhookSignature(rawBody, signature, timestamp)) {
       throw new UnauthorizedException('Invalid webhook signature');
