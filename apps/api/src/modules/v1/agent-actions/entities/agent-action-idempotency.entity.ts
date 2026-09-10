@@ -18,6 +18,10 @@ export class AgentActionIdempotency extends BaseEntity {
   @Column({ type: 'varchar', length: 80 })
   action: string;
 
+  /** SHA-256 of stably serialized request params; detects idempotency key reuse with a different payload. */
+  @Column({ name: 'params_hash', type: 'varchar', length: 64 })
+  paramsHash: string;
+
   @Column({ type: 'jsonb' })
   response: Record<string, unknown>;
 }

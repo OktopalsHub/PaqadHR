@@ -86,7 +86,7 @@ Use these decorators on controllers/handlers:
 
 **BOLA/IDOR:** Every read/write by ID must verify `tenantId` scope in the service layer, not only in the route.
 
-**Agent auth:** API keys (`Bearer paq_...`) populate `request.auth` with `authType: 'api_key'` and scoped permissions. MCP and agents use `POST /agent/actions` (version-neutral; tenant derived from key). Tenant-scoped approval routes remain under `/api/v1/tenants/:tenantId/agent/approvals/*`.
+**Agent auth:** API keys (`Bearer paq_...`) populate `request.auth` with `authType: 'api_key'` and scoped permissions. MCP and agents use `POST /agent/actions` (version-neutral; tenant derived from key). Human approval of high-risk actions is **JWT/session only** under `/api/v1/tenants/:tenantId/agent/approvals/*` (API keys are denied).
 
 ## Change recipes
 

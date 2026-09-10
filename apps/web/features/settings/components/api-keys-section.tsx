@@ -151,15 +151,17 @@ export function ApiKeysSection() {
       <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
         <p className="text-sm font-medium">MCP / agent setup</p>
         <p className="text-xs text-muted-foreground">
-          Agent tools call this gateway directly (no <code className="text-xs">/api/v1</code> prefix).
-          MCP config uses the host only — protect your <code className="text-xs">paq_...</code> key,
-          not the URL.
+          Agent tools call this gateway directly (no <code className="text-xs">/api/v1</code>{' '}
+          prefix). MCP config uses the host only — protect your{' '}
+          <code className="text-xs">paq_...</code> key, not the URL.
         </p>
         <div className="space-y-2 text-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-muted-foreground">Agent gateway URL</span>
             <div className="flex items-center gap-2">
-              <code className="rounded bg-background px-2 py-1 text-xs break-all">{agentGatewayUrl}</code>
+              <code className="rounded bg-background px-2 py-1 text-xs break-all">
+                {agentGatewayUrl}
+              </code>
               <Button
                 type="button"
                 size="sm"
@@ -174,7 +176,9 @@ export function ApiKeysSection() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-muted-foreground">Workspace ID (optional)</span>
               <div className="flex items-center gap-2">
-                <code className="rounded bg-background px-2 py-1 text-xs break-all">{tenantId}</code>
+                <code className="rounded bg-background px-2 py-1 text-xs break-all">
+                  {tenantId}
+                </code>
                 <Button
                   type="button"
                   size="sm"
@@ -277,7 +281,12 @@ export function ApiKeysSection() {
               <Copy className="mr-1 h-3 w-3" />
               Copy key
             </Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => copyMcpConfig(createdSecret)}>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => copyMcpConfig(createdSecret)}
+            >
               <Copy className="mr-1 h-3 w-3" />
               Copy MCP config
             </Button>

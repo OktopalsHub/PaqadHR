@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  Headers,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RateLimit, RateLimitPresets } from 'src/common/decorators';
 import { TenantMemberRole } from 'src/common/enums';
@@ -9,6 +19,15 @@ import { ExecuteAgentActionDto } from './dto/execute-agent-action.dto';
 import { PendingAgentActionListItemDto } from './dto/pending-agent-action-list-item.dto';
 import { RejectAgentActionDto } from './dto/reject-agent-action.dto';
 import { AgentActionsService } from './services/agent-actions.service';
+
+function assertUserSession(request: IAuthenticatedMemberRequest): void {
+  if (request.auth?.authType === 'api_key') {
+    throw new ForbiddenException({
+      message: 'Agent approvals require a signed-in admin (API keys cannot approve)',
+      code: 'AGENT_APPROVAL_USER_REQUIRED',
+    });
+  }
+}
 
 @ApiTags('Agent Actions')
 @ApiBearerAuth('JWT-auth')
@@ -35,7 +54,8 @@ export class AgentActionsController {
   @ApiOkResponse({ type: PendingAgentActionListItemDto, isArray: true })
   @UseGuards(TenantRoleGuard)
   @Roles(TenantMemberRole.OWNER, TenantMemberRole.ADMIN)
-  listPending(@Param('tenantId') tenantId: string) {
+  listPending(@Param('tenantId') tenantId: string, @Req() request: IAuthenticatedMemberRequest) {
+    assertUserSession(request);
     return this.agentActionsService.listPendingApprovals(tenantId);
   }
 
@@ -49,6 +69,7 @@ export class AgentActionsController {
     @Param('actionId') actionId: string,
     @Req() request: IAuthenticatedMemberRequest,
   ) {
+    assertUserSession(request);
     return this.agentActionsService.approvePendingAction(tenantId, actionId, request.member.id);
   }
 
@@ -63,6 +84,7 @@ export class AgentActionsController {
     @Req() request: IAuthenticatedMemberRequest,
     @Body() dto: RejectAgentActionDto,
   ) {
+    assertUserSession(request);
     return this.agentActionsService.rejectPendingAction(
       tenantId,
       actionId,

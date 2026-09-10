@@ -28,7 +28,11 @@ describe('LeaveAuthorizationService', () => {
     });
 
     await expect(
-      service.assertCanApproveOrReject('tenant-1', { id: 'member-1', role: 'MEMBER', memberId: 'member-1' }, 'leave-1'),
+      service.assertCanApproveOrReject(
+        'tenant-1',
+        { id: 'member-1', role: 'MEMBER', memberId: 'member-1' },
+        'leave-1',
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 
@@ -43,7 +47,11 @@ describe('LeaveAuthorizationService', () => {
     );
 
     await expect(
-      service.assertCanApproveOrReject('tenant-1', { id: 'member-1', role: 'MEMBER', memberId: 'member-1' }, 'leave-1'),
+      service.assertCanApproveOrReject(
+        'tenant-1',
+        { id: 'member-1', role: 'MEMBER', memberId: 'member-1' },
+        'leave-1',
+      ),
     ).rejects.toThrow(ForbiddenException);
   });
 });

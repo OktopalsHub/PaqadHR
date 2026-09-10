@@ -17,7 +17,13 @@ export type AgentActionName = (typeof AGENT_ACTIONS)[number];
 
 export type AgentActorType = 'user' | 'api_key' | 'slack_bot' | 'system';
 
-export type PendingAgentActionStatus = 'awaiting_approval' | 'approved' | 'rejected' | 'executed' | 'failed';
+export type PendingAgentActionStatus =
+  | 'awaiting_approval'
+  | 'executing'
+  | 'approved'
+  | 'rejected'
+  | 'executed'
+  | 'failed';
 
 /** Actions that always require human approval before execution. */
 export const HIGH_RISK_AGENT_ACTIONS: readonly AgentActionName[] = [

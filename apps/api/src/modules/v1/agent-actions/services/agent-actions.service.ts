@@ -24,10 +24,8 @@ import { FeatureAccess } from 'src/common/enums/subscription.enum';
 import type { IAuthenticatedMemberRequest, MemberContext } from 'src/common/interfaces';
 
 import { getRequestCorrelationId } from 'src/common/observability/correlation-id.storage';
-
-import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
-
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
+import { formatMemberDisplayName } from 'src/common/utils/member-display.util';
 
 import { Repository } from 'typeorm';
 
@@ -45,13 +43,10 @@ import { ShoutoutsService } from '../../shoutouts/services/shoutouts.service';
 import { SubscriptionsService } from '../../subscriptions/services/subscriptions.service';
 
 import { TenantMembersService } from '../../tenant-members/tenant-members.service';
-
+import { hashAgentActionParams, validateAgentActionParams } from '../agent-action-params';
 import type { ExecuteAgentActionDto } from '../dto/execute-agent-action.dto';
-
 import { PendingAgentActionListItemDto } from '../dto/pending-agent-action-list-item.dto';
-
 import { AgentActionIdempotency } from '../entities/agent-action-idempotency.entity';
-
 import { PendingAgentAction } from '../entities/pending-agent-action.entity';
 
 export interface AgentActionContext {
@@ -144,6 +139,9 @@ export class AgentActionsService {
 
     const action = dto.action as AgentActionName;
 
+    validateAgentActionParams(action, dto.params);
+    const paramsHash = hashAgentActionParams(dto.params);
+
     const context = this.buildContext(tenantId, request, idempotencyKey);
 
     await this.assertActionAuth(context, action);
@@ -154,9 +152,9 @@ export class AgentActionsService {
       });
 
       if (cached) {
-        if (cached.action !== action) {
+        if (cached.action !== action || cached.paramsHash !== paramsHash) {
           throw new ConflictException({
-            message: 'Idempotency key reused with a different action',
+            message: 'Idempotency key reused with a different action or payload',
 
             code: 'IDEMPOTENCY_CONFLICT',
           });
@@ -167,12 +165,12 @@ export class AgentActionsService {
     }
 
     if ((HIGH_RISK_AGENT_ACTIONS as readonly string[]).includes(action)) {
-      return this.queueForApproval(tenantId, action, dto.params, context);
+      return this.queueForApproval(tenantId, action, dto.params, context, paramsHash);
     }
 
     const result = await this.dispatch(action, tenantId, dto.params, context);
 
-    await this.recordSuccess(tenantId, action, context, result);
+    await this.recordSuccess(tenantId, action, context, result, undefined, paramsHash);
 
     return { ...result, correlationId: context.correlationId };
   }
@@ -222,15 +220,31 @@ export class AgentActionsService {
 
     approverMemberId: string,
   ): Promise<Record<string, unknown>> {
-    const pending = await this.pendingActionRepository.findOne({
-      where: { id: actionId, tenantId, status: 'awaiting_approval' },
-    });
+    const claimResult = await this.pendingActionRepository.update(
+      { id: actionId, tenantId, status: 'awaiting_approval' },
+      {
+        status: 'executing',
+        approvedByMemberId: approverMemberId,
+      },
+    );
 
-    if (!pending) {
+    if (!claimResult.affected) {
       throw new NotFoundException('Pending action not found');
     }
 
+    const pending = await this.pendingActionRepository.findOne({
+      where: { id: actionId, tenantId, status: 'executing' },
+    });
+
+    if (!pending) {
+      throw new ConflictException('Pending action was already processed');
+    }
+
     if (!isAgentActionName(pending.action)) {
+      await this.pendingActionRepository.update(
+        { id: actionId, tenantId, status: 'executing' },
+        { status: 'failed', result: { code: 'AGENT_ACTION_UNKNOWN' } as never },
+      );
       throw new BadRequestException('Invalid pending action');
     }
 
@@ -257,26 +271,36 @@ export class AgentActionsService {
       idempotencyKey: pending.idempotencyKey ?? undefined,
     };
 
-    const result = await this.dispatch(action, tenantId, pending.params, context);
+    try {
+      const result = await this.dispatch(action, tenantId, pending.params, context);
 
-    const updateResult = await this.pendingActionRepository.update(
-      { id: actionId, tenantId, status: 'awaiting_approval' },
+      const finalizeResult = await this.pendingActionRepository.update(
+        { id: actionId, tenantId, status: 'executing' },
+        {
+          status: 'executed',
+          result: result as never,
+        },
+      );
 
-      {
-        status: 'executed',
+      if (!finalizeResult.affected) {
+        throw new ConflictException('Pending action was already processed');
+      }
 
-        approvedByMemberId: approverMemberId,
-        result: result as never,
-      },
-    );
+      const paramsHash = hashAgentActionParams(pending.params);
+      await this.recordSuccess(tenantId, action, context, result, approverMemberId, paramsHash);
 
-    if (!updateResult.affected) {
-      throw new ConflictException('Pending action was already processed');
+      return { ...result, correlationId: context.correlationId, pendingActionId: pending.id };
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Agent action execution failed';
+      await this.pendingActionRepository.update(
+        { id: actionId, tenantId, status: 'executing' },
+        {
+          status: 'failed',
+          result: { message, code: 'AGENT_ACTION_FAILED' } as never,
+        },
+      );
+      throw error;
     }
-
-    await this.recordSuccess(tenantId, action, context, result, approverMemberId);
-
-    return { ...result, correlationId: context.correlationId, pendingActionId: pending.id };
   }
 
   async rejectPendingAction(
@@ -403,6 +427,8 @@ export class AgentActionsService {
     params: Record<string, unknown>,
 
     context: AgentActionContext,
+
+    paramsHash: string,
   ): Promise<Record<string, unknown>> {
     if (context.idempotencyKey) {
       const existing = await this.pendingActionRepository.findOne({
@@ -416,6 +442,14 @@ export class AgentActionsService {
       });
 
       if (existing) {
+        if (existing.action !== action || hashAgentActionParams(existing.params) !== paramsHash) {
+          throw new ConflictException({
+            message: 'Idempotency key reused with a different action or payload',
+
+            code: 'IDEMPOTENCY_CONFLICT',
+          });
+        }
+
         return {
           status: existing.status,
 
@@ -787,8 +821,14 @@ export class AgentActionsService {
     result: Record<string, unknown>,
 
     actorMemberId?: string,
+
+    paramsHash?: string,
   ): Promise<void> {
     if (context.idempotencyKey) {
+      if (!paramsHash) {
+        throw new BadRequestException('paramsHash required when Idempotency-Key is set');
+      }
+
       try {
         await this.idempotencyRepository.save({
           tenantId,
@@ -796,6 +836,8 @@ export class AgentActionsService {
           idempotencyKey: context.idempotencyKey,
 
           action,
+
+          paramsHash,
 
           response: result,
         });
@@ -805,9 +847,9 @@ export class AgentActionsService {
             where: { tenantId, idempotencyKey: context.idempotencyKey },
           });
 
-          if (cached && cached.action !== action) {
+          if (cached && (cached.action !== action || cached.paramsHash !== paramsHash)) {
             throw new ConflictException({
-              message: 'Idempotency key reused with a different action',
+              message: 'Idempotency key reused with a different action or payload',
 
               code: 'IDEMPOTENCY_CONFLICT',
             });

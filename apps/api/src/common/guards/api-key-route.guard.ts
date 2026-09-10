@@ -8,9 +8,10 @@ import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import type { IAuthenticatedUserRequest } from '../interfaces';
 
+/** API keys may execute actions only — human approval routes require a user JWT. */
 const API_KEY_ALLOWED_PATHS = [
-  /^\/api\/v1\/tenants\/[^/]+\/agent(\/|$)/,
-  /^\/agent(\/|$)/,
+  /^\/api\/v1\/tenants\/[^/]+\/agent\/actions\/?$/,
+  /^\/agent\/actions\/?$/,
 ];
 
 @Injectable()

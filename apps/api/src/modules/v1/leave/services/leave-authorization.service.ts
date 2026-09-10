@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { LeaveStatus } from 'src/common/enums';
 import type { MemberContext } from 'src/common/interfaces';
 import { ManagerAccessService } from 'src/common/services/manager-access.service';
@@ -35,11 +31,7 @@ export class LeaveAuthorizationService {
       throw new ForbiddenException('You cannot approve your own leave request');
     }
     if (leave.requester?.id) {
-      await this.managerAccessService.assertAdminOrManagerOf(
-        member,
-        leave.requester.id,
-        tenantId,
-      );
+      await this.managerAccessService.assertAdminOrManagerOf(member, leave.requester.id, tenantId);
     } else {
       throw new ForbiddenException('Admin or manager access required');
     }

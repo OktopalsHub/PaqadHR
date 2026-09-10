@@ -8,8 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { resolveApiKeyMemberContext } from 'src/common/utils/api-key-member-context.util';
 import { Repository } from 'typeorm';
-import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
 import { TenantMembersService } from '../../modules/v1/tenant-members/tenant-members.service';
+import { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
 
 @Injectable()
 export class AgentApiKeyMemberGuard implements CanActivate {

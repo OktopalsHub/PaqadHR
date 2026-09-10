@@ -16,7 +16,10 @@ export function fetchPendingAgentApprovals(tenantId: string): Promise<PendingAge
   return apiClient<PendingAgentAction[]>(tenantPath(tenantId, 'agent/approvals/pending'));
 }
 
-export function approveAgentAction(tenantId: string, actionId: string): Promise<Record<string, unknown>> {
+export function approveAgentAction(
+  tenantId: string,
+  actionId: string,
+): Promise<Record<string, unknown>> {
   return apiClient<Record<string, unknown>>(
     tenantPath(tenantId, `agent/approvals/${actionId}/approve`),
     { method: 'POST' },

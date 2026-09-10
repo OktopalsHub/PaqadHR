@@ -82,11 +82,16 @@ export class LeaveController {
     @CurrentTenantMember() member: MemberContext,
   ) {
     const { status, from, to, ...pagination } = query;
-    return this.leaveAuthorizationService.listPendingLeavesForApprover(tenantId, member, pagination, {
-      status,
-      from,
-      to,
-    });
+    return this.leaveAuthorizationService.listPendingLeavesForApprover(
+      tenantId,
+      member,
+      pagination,
+      {
+        status,
+        from,
+        to,
+      },
+    );
   }
 
   @Get('me')

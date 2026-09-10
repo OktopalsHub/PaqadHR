@@ -1,4 +1,8 @@
-import { AGENT_ACTION_REQUIRED_SCOPES, AGENT_ACTIONS, HIGH_RISK_AGENT_ACTIONS } from '@paqadhr/contracts';
+import {
+  AGENT_ACTION_REQUIRED_SCOPES,
+  AGENT_ACTIONS,
+  HIGH_RISK_AGENT_ACTIONS,
+} from '@paqadhr/contracts';
 
 describe('agent action contracts', () => {
   it('maps every action to required scopes', () => {

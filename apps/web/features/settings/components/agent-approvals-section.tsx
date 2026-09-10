@@ -34,10 +34,15 @@ function formatActionLabel(action: string): string {
 }
 
 function formatParamsSummary(params: Record<string, unknown>): string {
-  const entries = Object.entries(params).filter(([, value]) => value !== undefined && value !== null);
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== undefined && value !== null,
+  );
   if (!entries.length) return 'No parameters';
   return entries
-    .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
+    .map(
+      ([key, value]) =>
+        `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`,
+    )
     .join(' · ');
 }
 

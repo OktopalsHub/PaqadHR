@@ -20,12 +20,7 @@ export interface TenantActivityListItemDto {
   createdAt: Date;
 }
 
-const TENANT_HIDDEN_METADATA_KEYS = [
-  'provider',
-  'paymentProvider',
-  'apiKeyId',
-  'result',
-] as const;
+const TENANT_HIDDEN_METADATA_KEYS = ['provider', 'paymentProvider', 'apiKeyId', 'result'] as const;
 
 function sanitizeTenantActivityMetadata(
   metadata: Record<string, unknown> | null,

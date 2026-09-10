@@ -11,8 +11,8 @@ export class ApiKeys1787950600190 implements MigrationInterface {
         "updated_at" TIMESTAMP NOT NULL DEFAULT now(),
         "tenant_id" uuid NOT NULL,
         "created_by_member_id" uuid NOT NULL,
-        "name" character varying(120) NOT NULL,
-        "key_prefix" character varying(16) NOT NULL,
+        "name" varchar(120) NOT NULL,
+        "key_prefix" varchar(16) NOT NULL,
         "key_hash" text NOT NULL,
         "scopes" jsonb NOT NULL DEFAULT '[]',
         "expires_at" TIMESTAMP,
@@ -23,9 +23,9 @@ export class ApiKeys1787950600190 implements MigrationInterface {
         CONSTRAINT "FK_api_keys_member" FOREIGN KEY ("created_by_member_id") REFERENCES "tenant_members"("id") ON DELETE CASCADE
       )
     `);
-    await queryRunner.query(
-      `CREATE INDEX "IDX_api_keys_tenant_prefix" ON "api_keys" ("tenant_id", "key_prefix")`,
-    );
+    await queryRunner.query(`
+      CREATE INDEX "IDX_api_keys_tenant_prefix" ON "api_keys" ("tenant_id", "key_prefix")
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {

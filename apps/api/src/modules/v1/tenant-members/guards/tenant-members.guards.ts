@@ -7,10 +7,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { InjectRepository } from '@nestjs/typeorm';
+import { tenantContext } from 'src/common/context/tenant.context';
 import type { TenantMemberRole } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import { resolveApiKeyMemberContext } from 'src/common/utils/api-key-member-context.util';
-import { tenantContext } from 'src/common/context/tenant.context';
 import { Repository } from 'typeorm';
 import { firstRouteParam } from '../../../../common/utils/route-param.util';
 import { resolveTenantIdFromRequest } from '../../../../common/utils/tenant-request.util';

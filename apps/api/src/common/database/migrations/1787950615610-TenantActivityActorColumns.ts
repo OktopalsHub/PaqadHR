@@ -4,16 +4,22 @@ export class TenantActivityActorColumns1787950615610 implements MigrationInterfa
   name = 'TenantActivityActorColumns1787950615610';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(
-      `ALTER TABLE "tenant_activities" ADD COLUMN "actor_type" character varying(20) NOT NULL DEFAULT 'user'`,
-    );
-    await queryRunner.query(
-      `ALTER TABLE "tenant_activities" ADD COLUMN "correlation_id" character varying(64)`,
-    );
+    await queryRunner.query(`
+      ALTER TABLE "tenant_activities"
+      ADD COLUMN "actor_type" varchar(20) NOT NULL DEFAULT 'user'
+    `);
+    await queryRunner.query(`
+      ALTER TABLE "tenant_activities"
+      ADD COLUMN "correlation_id" varchar(64)
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`ALTER TABLE "tenant_activities" DROP COLUMN "correlation_id"`);
-    await queryRunner.query(`ALTER TABLE "tenant_activities" DROP COLUMN "actor_type"`);
+    await queryRunner.query(`
+      ALTER TABLE "tenant_activities" DROP COLUMN "correlation_id"
+    `);
+    await queryRunner.query(`
+      ALTER TABLE "tenant_activities" DROP COLUMN "actor_type"
+    `);
   }
 }

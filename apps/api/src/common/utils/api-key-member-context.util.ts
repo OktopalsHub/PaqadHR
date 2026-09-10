@@ -3,8 +3,8 @@ import { tenantContext } from 'src/common/context/tenant.context';
 import type { TenantMemberRole } from 'src/common/enums';
 import type { IAuthenticatedMemberRequest } from 'src/common/interfaces';
 import type { Repository } from 'typeorm';
-import type { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
 import type { TenantMembersService } from '../../modules/v1/tenant-members/tenant-members.service';
+import type { Tenant } from '../../modules/v1/tenants/entities/tenant.entity';
 
 export async function resolveApiKeyMemberContext(
   request: IAuthenticatedMemberRequest,

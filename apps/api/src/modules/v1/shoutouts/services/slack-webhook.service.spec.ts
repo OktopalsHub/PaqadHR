@@ -46,8 +46,8 @@ describe('SlackWebhookService.verifySlackSignature', () => {
       {} as never,
     );
 
-    await expect(
-      service.verifySlackSignature(rawBody, 'v0=deadbeef', timestamp),
-    ).resolves.toBe(false);
+    await expect(service.verifySlackSignature(rawBody, 'v0=deadbeef', timestamp)).resolves.toBe(
+      false,
+    );
   });
 });

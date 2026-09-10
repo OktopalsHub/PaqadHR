@@ -155,9 +155,7 @@ export class ApiKeysService {
       (HIGH_RISK_API_KEY_SCOPES as readonly string[]).includes(scope),
     );
     if (hasHighRisk && !normalized.includes('agent:actions')) {
-      throw new BadRequestException(
-        'High-risk scopes require explicitly including agent:actions',
-      );
+      throw new BadRequestException('High-risk scopes require explicitly including agent:actions');
     }
 
     return normalized;
