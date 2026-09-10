@@ -16,7 +16,7 @@ import { PaymentMethodService } from '../../payment-method/services/payment-meth
 import { PAYROLL_SECURITY_CONFIG } from '../config/security.config';
 import type { PayrollItem } from '../entities/payroll-item.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
-import { buildPayrollPaymentData } from '../utils/payroll-payment.util';
+import { buildPayrollPaymentData, resolvePayrollPayoutAmount } from '../utils/payroll-payment.util';
 import { PayrollPayoutService } from './payroll-payout.service';
 
 type PreparedPayout = {
@@ -196,16 +196,17 @@ export class PaymentBatching {
     payrollRunTitle: string | undefined,
     rail: 'bank' | 'crypto',
   ): Promise<PreparedPayout> {
-    if (!item.paymentAmount || item.paymentAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
+    const payoutAmount = resolvePayrollPayoutAmount(item);
+    if (payoutAmount < PAYROLL_SECURITY_CONFIG.MIN_PAYMENT_AMOUNT) {
+      throw new BadRequestException('Invalid payment amount');
+    }
+    if (payoutAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
       throw new BadRequestException(
-        `Invalid payment amount: ${item.paymentAmount} for employee ${item.memberId}`,
+        `Payment amount exceeds maximum limit of ${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT}`,
       );
     }
-    if (item.paymentAmount > PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT) {
-      throw new BadRequestException(
-        `Payment amount exceeds maximum limit of ${PAYROLL_SECURITY_CONFIG.MAX_PAYMENT_LIMIT} for employee ${item.memberId}`,
-      );
-    }
+    // Keep paymentAmount in sync for rows calculated before payout amount was written.
+    item.paymentAmount = payoutAmount;
 
     const readiness = await this.paymentMethodService.assessPayrollReadiness(
       tenantId,

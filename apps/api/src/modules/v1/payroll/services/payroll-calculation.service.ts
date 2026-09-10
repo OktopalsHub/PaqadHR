@@ -60,6 +60,9 @@ export class PayrollCalculationService {
         item.baseSalaryCurrency = salaryInfo.currency;
         item.grossAmount = salaryInfo.baseSalary;
         item.netAmount = salaryInfo.baseSalary;
+        item.paymentCurrency = run.baseCurrency || salaryInfo.currency;
+        item.paymentAmount = salaryInfo.baseSalary;
+        item.exchangeRate = 1;
         item.metadata = {
           ...item.metadata,
           payType: salaryInfo.payType,

@@ -364,7 +364,6 @@ export function PayrollRunDetail({
           successfulPayments: number;
           failedPayments: number;
           processingPayments?: number;
-          payoutResults?: Array<{ error?: string; outcome?: string }>;
         }
       | undefined,
     verb: 'started' | 'retried',
@@ -372,32 +371,20 @@ export function PayrollRunDetail({
     const ok = result?.successfulPayments ?? 0;
     const failed = result?.failedPayments ?? 0;
     const processing = result?.processingPayments ?? 0;
-    const firstError = result?.payoutResults?.find(
-      (row) => row.outcome === 'failed' || (!row.outcome && row.error),
-    )?.error;
     if (ok > 0 && failed === 0 && processing === 0) {
-      toast.success(`Paid ${ok} employee${ok === 1 ? '' : 's'}`);
+      toast.success(`Paid ${ok}`);
       return;
     }
     if (processing > 0 && failed === 0) {
-      const paidBit = ok > 0 ? `Paid ${ok}, ` : '';
-      toast.success(
-        `${paidBit}${processing} payment${processing === 1 ? '' : 's'} submitted — awaiting confirmation`,
-      );
+      toast.success(ok > 0 ? `Paid ${ok}, ${processing} pending` : 'Payment submitted');
       return;
     }
     if (ok > 0 || processing > 0) {
-      toast.warning(
-        `Paid ${ok}, ${processing} pending, ${failed} failed — use Retry payment for the rest`,
-      );
+      toast.warning(`Paid ${ok}, ${failed} failed — retry the rest`);
       return;
     }
     if (failed > 0) {
-      toast.error(
-        firstError
-          ? `Payout ${verb}: ${failed} payment${failed === 1 ? '' : 's'} failed: ${firstError}`
-          : `Payout ${verb}: ${failed} payment${failed === 1 ? '' : 's'} failed`,
-      );
+      toast.error(verb === 'retried' ? 'Retry failed' : 'Payment failed');
       return;
     }
     toast.success(verb === 'retried' ? 'Retry completed' : 'Payout started');

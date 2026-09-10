@@ -7,6 +7,19 @@ import type { PayrollItem } from '../entities/payroll-item.entity';
 
 import { buildPayrollMerchantRef } from './payroll-merchant-ref.util';
 
+/** Prefer paymentAmount; fall back to netAmount for legacy rows that never synced payout amount. */
+export function resolvePayrollPayoutAmount(item: PayrollItem): number {
+  const payment = Number(item.paymentAmount);
+  if (Number.isFinite(payment) && payment > 0) {
+    return payment;
+  }
+  const net = Number(item.netAmount);
+  if (Number.isFinite(net) && net > 0) {
+    return net;
+  }
+  return 0;
+}
+
 export function buildPayrollPaymentData(
   item: PayrollItem,
   paymentMethod: PaymentMethod,
@@ -24,7 +37,7 @@ export function buildPayrollPaymentData(
     typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
 
   return {
-    amount: Number(item.paymentAmount),
+    amount: resolvePayrollPayoutAmount(item),
     currency,
     description: item.description ?? baseDescription,
     accountNumber: isCrypto
