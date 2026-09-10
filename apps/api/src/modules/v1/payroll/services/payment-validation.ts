@@ -7,10 +7,25 @@ import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 interface PaymentSummary {
   bankSuccess: number;
   bankFailed: number;
+  bankProcessing: number;
   cryptoSuccess: number;
   cryptoFailed: number;
+  cryptoProcessing: number;
   fiatSuccess: number;
   fiatFailed: number;
+}
+
+function resolvePaymentOutcome(result: PaymentResult): 'paid' | 'processing' | 'failed' {
+  if (result.outcome) {
+    return result.outcome;
+  }
+  if (result.success) {
+    return 'paid';
+  }
+  if (result.retryable) {
+    return 'processing';
+  }
+  return 'failed';
 }
 
 export class PaymentValidation {
@@ -19,15 +34,19 @@ export class PaymentValidation {
   calculatePaymentSummary(results: PaymentResult[]): PaymentSummary {
     const bank = results.filter((r) => r.rail !== 'crypto');
     const crypto = results.filter((r) => r.rail === 'crypto');
-    const bankSuccess = bank.filter((r) => r.success).length;
-    const bankFailed = bank.filter((r) => !r.success).length;
-    const cryptoSuccess = crypto.filter((r) => r.success).length;
-    const cryptoFailed = crypto.filter((r) => !r.success).length;
+    const bankSuccess = bank.filter((r) => resolvePaymentOutcome(r) === 'paid').length;
+    const bankFailed = bank.filter((r) => resolvePaymentOutcome(r) === 'failed').length;
+    const bankProcessing = bank.filter((r) => resolvePaymentOutcome(r) === 'processing').length;
+    const cryptoSuccess = crypto.filter((r) => resolvePaymentOutcome(r) === 'paid').length;
+    const cryptoFailed = crypto.filter((r) => resolvePaymentOutcome(r) === 'failed').length;
+    const cryptoProcessing = crypto.filter((r) => resolvePaymentOutcome(r) === 'processing').length;
     return {
       bankSuccess,
       bankFailed,
+      bankProcessing,
       cryptoSuccess,
       cryptoFailed,
+      cryptoProcessing,
       fiatSuccess: bankSuccess + cryptoSuccess,
       fiatFailed: bankFailed + cryptoFailed,
     };

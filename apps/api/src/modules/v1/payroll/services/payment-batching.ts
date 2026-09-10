@@ -120,6 +120,7 @@ export class PaymentBatching {
       if (!claimedIds.has(item.id)) {
         results.push({
           success: false,
+          outcome: 'failed',
           error: 'Item already claimed or not pending',
           rail,
         });
@@ -176,6 +177,7 @@ export class PaymentBatching {
         }
         const result = matched ?? {
           success: false,
+          outcome: 'failed' as const,
           error: 'Missing bulk transfer result for payroll item',
           rail: entry.rail,
           reference: ref,
@@ -252,13 +254,13 @@ export class PaymentBatching {
     try {
       if (result.success) {
         await this.paymentMethodService.recordPaymentMethodUsage(paymentMethod.id);
-        const outcome = this.payrollPayoutService.classifyPaymentResultStatus(
+        const classification = this.payrollPayoutService.classifyPaymentResultStatus(
           result.providerStatus,
         );
         const itemStatus =
-          outcome === 'paid'
+          classification === 'paid'
             ? PayrollItemStatus.PAID
-            : outcome === 'failed'
+            : classification === 'failed'
               ? PayrollItemStatus.FAILED
               : PayrollItemStatus.PROCESSING;
 
@@ -273,12 +275,20 @@ export class PaymentBatching {
               ? result.error || `${providerName} transfer failed`
               : null,
         });
+        const outcome =
+          itemStatus === PayrollItemStatus.PAID
+            ? ('paid' as const)
+            : itemStatus === PayrollItemStatus.FAILED
+              ? ('failed' as const)
+              : ('processing' as const);
         return {
-          success: itemStatus === PayrollItemStatus.PAID,
+          success: outcome === 'paid',
+          outcome,
           transactionId: result.transactionId,
           reference: result.reference ?? entry.paymentData.merchantTxRef,
           provider: providerName,
-          error: itemStatus === PayrollItemStatus.FAILED ? result.error : undefined,
+          providerStatus: result.providerStatus,
+          error: outcome === 'failed' ? result.error : undefined,
           rail,
         };
       }
@@ -293,9 +303,11 @@ export class PaymentBatching {
         });
         return {
           success: false,
+          outcome: 'processing',
           transactionId: result.transactionId,
           reference: result.reference ?? entry.paymentData.merchantTxRef,
           provider: providerName,
+          providerStatus: result.providerStatus,
           error: result.error,
           rail,
         };
@@ -331,8 +343,10 @@ export class PaymentBatching {
     }
     return {
       success: false,
+      outcome: retryable ? 'processing' : 'failed',
       error: message,
       rail,
+      retryable,
     };
   }
 }

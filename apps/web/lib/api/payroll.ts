@@ -186,6 +186,8 @@ export async function fundAndPayPayroll(id: string): Promise<{
     totalItems: number;
     successfulPayments: number;
     failedPayments: number;
+    processingPayments?: number;
+    payoutResults?: Array<{ error?: string; outcome?: string }>;
   };
   preflight?: {
     ok: boolean;
@@ -208,6 +210,8 @@ export async function payNowPayroll(id: string): Promise<{
     totalItems: number;
     successfulPayments: number;
     failedPayments: number;
+    processingPayments?: number;
+    payoutResults?: Array<{ error?: string; outcome?: string }>;
   };
 }> {
   const tenantId = await resolveTenantId();
@@ -222,6 +226,8 @@ export async function retryFailedPayrollPayments(id: string): Promise<{
     totalItems: number;
     successfulPayments: number;
     failedPayments: number;
+    processingPayments?: number;
+    payoutResults?: Array<{ error?: string; outcome?: string }>;
   };
 }> {
   const tenantId = await resolveTenantId();

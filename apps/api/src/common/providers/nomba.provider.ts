@@ -95,6 +95,14 @@ export class NombaProvider extends BasePaymentProvider {
 
       const status = response.data?.status?.toUpperCase();
       const success = isNombaOperationSuccessful({ code: response.code, status });
+      const pendingStatuses = new Set([
+        'PENDING',
+        'PENDING_BILLING',
+        'PROCESSING',
+        'NEW',
+        'IN_PROGRESS',
+        'AWAITING_PROCESSING',
+      ]);
 
       return {
         success,
@@ -102,7 +110,8 @@ export class NombaProvider extends BasePaymentProvider {
         reference: merchantTxRef,
         providerStatus: status,
         error: success ? undefined : response.description,
-        retryable: !success,
+        // Hard failures (FAILED / REFUND) must not look "in flight" — only uncertain states.
+        retryable: !success && (!status || pendingStatuses.has(status)),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

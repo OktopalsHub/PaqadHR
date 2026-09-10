@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { isNoahConfigured } from '../config/noah.config';
-import { isNoahOperationSuccessful } from '../config/noah-api.util';
+import { isNoahOperationSuccessful, isNoahTerminalFailure } from '../config/noah-api.util';
 import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
 import type { TransactionStatus } from '../enums/transaction-status.enum';
 import type { CreatePaymentData } from '../interfaces/create-payment-data.interface';
@@ -83,7 +83,7 @@ export class NoahProvider extends BasePaymentProvider {
           reference: merchantTxRef,
           providerStatus: response.status,
           error: success ? undefined : `Noah crypto payout ${response.status}`,
-          retryable: !success,
+          retryable: !success && !isNoahTerminalFailure(response.status),
         };
       }
 
@@ -125,7 +125,7 @@ export class NoahProvider extends BasePaymentProvider {
         reference: merchantTxRef,
         providerStatus: response.status,
         error: success ? undefined : `Noah payout ${response.status}`,
-        retryable: !success,
+        retryable: !success && !isNoahTerminalFailure(response.status),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

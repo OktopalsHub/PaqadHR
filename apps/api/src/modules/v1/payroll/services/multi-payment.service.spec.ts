@@ -228,6 +228,9 @@ describe('MultiPaymentService', () => {
     } as never);
 
     expect(result.totalItems).toBe(1);
+    expect(result.successfulPayments).toBe(0);
+    expect(result.failedPayments).toBe(0);
+    expect(result.processingPayments).toBe(1);
     expect(payrollPayoutService.reconcilePayrollRunStatus).toHaveBeenCalledWith(
       'run-1',
       'tenant-1',
