@@ -130,13 +130,14 @@ export class RunLifecycle {
     });
     const runIds = [...new Set(items.map((i) => i.payrollRunId))];
     if (runIds.length === 0) return { runs: [], total: 0 };
-    return this.payrollRunRepository.paginate({
+    const { data: runs, total } = await this.payrollRunRepository.paginate({
       where: { tenantId, id: In(runIds) },
       order: { createdAt: 'DESC' },
       take: limit,
       skip: offset,
       relations: ['createdBy', 'tenant'],
     });
+    return { runs, total };
   }
   async getPayrollRunForRequester(
     id: string,

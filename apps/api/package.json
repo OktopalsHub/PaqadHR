@@ -31,9 +31,11 @@
     "sync:bachs-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-products.ts",
     "sync:bachs-wallet-products": "ts-node -r tsconfig-paths/register src/scripts/sync-bachs-wallet-products.ts",
     "sync:polar-products": "ts-node -r tsconfig-paths/register src/scripts/sync-polar-products.ts",
-    "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts"
+    "sync:billing-products": "ts-node -r tsconfig-paths/register src/scripts/sync-billing-products.ts",
+    "openapi:export": "pnpm build && node dist/scripts/export-openapi.js"
   },
   "dependencies": {
+    "@paqadhr/contracts": "workspace:*",
     "@aws-sdk/client-s3": "^3.1064.0",
     "@aws-sdk/s3-request-presigner": "^3.1064.0",
     "@nestjs/cli": "^11.0.23",

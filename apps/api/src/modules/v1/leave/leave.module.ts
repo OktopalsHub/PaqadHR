@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ManagerAccessModule } from 'src/common/modules/manager-access.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { LeaveBalanceModule } from '../leave-balance/leave-balance.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -11,12 +12,14 @@ import { LeaveController } from './leave.controller';
 import { LeaveRepository } from './leave.repository';
 import { LeaveService } from './leave.service';
 import { LeaveApprovalService } from './services/leave-approval.service';
+import { LeaveAuthorizationService } from './services/leave-authorization.service';
 import { LeaveBalanceUpdateService } from './services/leave-balance-update.service';
 import { LeaveRequestService } from './services/leave-request.service';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Leave]),
+    ManagerAccessModule,
     TenantsModule,
     TenantMembersModule,
     TenantSettingsModule,
@@ -31,7 +34,8 @@ import { LeaveRequestService } from './services/leave-request.service';
     LeaveApprovalService,
     LeaveBalanceUpdateService,
     LeaveRepository,
+    LeaveAuthorizationService,
   ],
-  exports: [LeaveService],
+  exports: [LeaveService, LeaveAuthorizationService],
 })
 export class LeaveModule {}

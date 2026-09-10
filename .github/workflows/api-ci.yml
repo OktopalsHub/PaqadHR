@@ -5,6 +5,9 @@ on:
     branches: [main, dev]
     paths:
       - 'apps/api/**'
+      - 'packages/contracts/**'
+      - 'packages/mcp-server/**'
+      - 'docs/openapi.json'
       - '.github/scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -15,6 +18,9 @@ on:
     branches: [main, dev]
     paths:
       - 'apps/api/**'
+      - 'packages/contracts/**'
+      - 'packages/mcp-server/**'
+      - 'docs/openapi.json'
       - '.github/scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -61,19 +67,41 @@ jobs:
       - name: Lint API
         run: pnpm --filter api check
 
+      - name: Check contracts package
+        run: pnpm --filter @paqadhr/contracts check
+
       - name: Check @Body() DTO imports
         run: pnpm --filter api check:body-dtos
+
+      - name: Build contracts
+        run: pnpm --filter @paqadhr/contracts build
 
       - name: Build API
         run: pnpm --filter api build
 
+      - name: Export OpenAPI spec
+        run: pnpm --filter api openapi:export
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+          NODE_ENV: development
+          JWT_ACCESS_SECRET: test-access-secret-min-32-chars-long
+          JWT_REFRESH_SECRET: test-refresh-secret-min-32-chars-long
+          JWT_ACCESS_EXPIRES_IN: 15m
+          JWT_REFRESH_EXPIRES_IN: 7d
+          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+
       - name: Check DTO module load (TDZ guard)
         run: pnpm --filter api check:dto-load
 
-    #  - name: Run API tests
-        #run: pnpm --filter api test
-        #env:
-         # DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+      - name: Run API tests
+        run: pnpm --filter api test
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/paqadhr_test
+          JWT_ACCESS_SECRET: test-access-secret-min-32-chars-long
+          JWT_REFRESH_SECRET: test-refresh-secret-min-32-chars-long
+          JWT_ACCESS_EXPIRES_IN: 15m
+          JWT_REFRESH_EXPIRES_IN: 7d
+          ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
 
   build-and-publish:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')

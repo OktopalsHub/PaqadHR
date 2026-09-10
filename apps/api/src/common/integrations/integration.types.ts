@@ -117,9 +117,11 @@ export interface SlackInteractivePayload {
   type: string;
   user: { id: string };
   team: { id: string };
-  actions: Array<{ action_id: string }>;
+  actions: Array<{ action_id: string; value?: string }>;
   view?: { callback_id: string };
   callback_id?: string;
+  response_url?: string;
+  message?: { ts?: string; blocks?: unknown[] };
 }
 
 export interface SlackSlashCommandPayload {

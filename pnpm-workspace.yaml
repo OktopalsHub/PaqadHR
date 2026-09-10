@@ -1,5 +1,6 @@
 packages:
   - "apps/*"
+  - "packages/*"
 
 allowBuilds:
   # Scarf only sends package-install telemetry; no application functionality

@@ -43,6 +43,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       principalId: user.principalId,
       email: user.email,
       role: user.role,
+      authType: 'user',
     };
     return user as TUser;
   }

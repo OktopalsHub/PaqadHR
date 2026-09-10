@@ -48,4 +48,10 @@ export class TenantActivity extends BaseEntity {
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, unknown> | null;
+
+  @Column({ name: 'actor_type', type: 'varchar', length: 20, default: 'user' })
+  actorType: string;
+
+  @Column({ name: 'correlation_id', type: 'varchar', length: 64, nullable: true })
+  correlationId: string | null;
 }

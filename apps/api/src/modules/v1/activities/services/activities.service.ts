@@ -165,6 +165,8 @@ export class ActivitiesService implements OnModuleInit, OnModuleDestroy {
           ipAddress: entry.ipAddress ?? null,
           userAgent: entry.userAgent ?? null,
           metadata: entry.metadata ?? null,
+          actorType: entry.actorType ?? 'user',
+          correlationId: entry.correlationId ?? null,
         }),
       );
 
