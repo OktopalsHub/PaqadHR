@@ -13,21 +13,14 @@ describe('PayrollFloatBalanceService getFincraBalance', () => {
       resolveBusinessId: jest.fn().mockResolvedValue('biz-abc'),
       request,
     };
-    const service = new PayrollFloatBalanceService(
-      {} as never,
-      {} as never,
-      fincraAuth as never,
-    );
+    const service = new PayrollFloatBalanceService({} as never, {} as never, fincraAuth as never);
 
     const result = await service.getAvailableBalance(PaymentProvider.FINCRA, 'NGN');
 
     expect(fincraAuth.resolveBusinessId).toHaveBeenCalled();
-    expect(request).toHaveBeenCalledWith(
-      'GET',
-      '/wallets?businessID=biz-abc',
-      undefined,
-      { includeBusinessId: true },
-    );
+    expect(request).toHaveBeenCalledWith('GET', '/wallets?businessID=biz-abc', undefined, {
+      includeBusinessId: true,
+    });
     expect(result).toEqual({ supported: true, available: 125000, currency: 'NGN' });
   });
 });

@@ -160,12 +160,9 @@ export class PayrollFloatBalanceService {
     const { parsed, httpStatus } = await this.fincraAuth.request<
       | Array<{ currency?: string; availableBalance?: number | string; balance?: number | string }>
       | { currency?: string; availableBalance?: number | string; balance?: number | string }
-    >(
-      'GET',
-      `/wallets?businessID=${encodeURIComponent(businessId)}`,
-      undefined,
-      { includeBusinessId: true },
-    );
+    >('GET', `/wallets?businessID=${encodeURIComponent(businessId)}`, undefined, {
+      includeBusinessId: true,
+    });
 
     if (httpStatus >= 400) {
       throw new Error(`Fincra wallets failed (${httpStatus})`);
