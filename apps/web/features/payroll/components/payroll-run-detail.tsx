@@ -302,7 +302,6 @@ export function PayrollRunDetail({
   const isDraft = detail?.status === 'draft';
   const isLocked =
     detail?.status === 'approved' || detail?.status === 'completed' || detail?.status === 'failed';
-  const canDelete = Boolean(detail && detail.status !== 'completed' && onDelete);
   const canEditTitle = Boolean(
     isAdmin && detail && (detail.status === 'draft' || detail.status === 'processing'),
   );
@@ -323,6 +322,9 @@ export function PayrollRunDetail({
 
   const hasPaidOrInFlight = activeItems.some(
     (item) => item.status === 'paid' || item.status === 'processing',
+  );
+  const canDelete = Boolean(
+    detail && detail.status !== 'completed' && onDelete && !hasPaidOrInFlight,
   );
   const hasFailedItems = activeItems.some((item) => item.status === 'failed');
   const canReopen =

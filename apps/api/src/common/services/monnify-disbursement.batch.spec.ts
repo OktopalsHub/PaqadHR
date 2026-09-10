@@ -1,6 +1,16 @@
 import { MonnifyDisbursementService } from './monnify-disbursement.service';
 
 describe('MonnifyDisbursementService.batchTransfer', () => {
+  const originalWalletAccount = process.env.MONNIFY_WALLET_ACCOUNT_NUMBER;
+
+  afterEach(() => {
+    if (originalWalletAccount === undefined) {
+      delete process.env.MONNIFY_WALLET_ACCOUNT_NUMBER;
+    } else {
+      process.env.MONNIFY_WALLET_ACCOUNT_NUMBER = originalWalletAccount;
+    }
+  });
+
   it('marks omitted transaction lines as non-success PENDING', async () => {
     process.env.MONNIFY_WALLET_ACCOUNT_NUMBER = '0123456789';
 

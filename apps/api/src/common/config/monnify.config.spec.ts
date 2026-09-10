@@ -20,13 +20,22 @@ describe('monnify.config', () => {
     expect(isMonnifyLive()).toBe(true);
   });
 
-  it('restricts MONNIFY_BASE_URL overrides to HTTPS Monnify hosts', () => {
+  it('restricts MONNIFY_BASE_URL overrides to HTTPS Monnify origins', () => {
     expect(isAllowedMonnifyBaseUrl('https://api.monnify.com')).toBe(true);
     expect(isAllowedMonnifyBaseUrl('https://sandbox.monnify.com')).toBe(true);
+    expect(isAllowedMonnifyBaseUrl('https://api.monnify.com/')).toBe(true);
     expect(isAllowedMonnifyBaseUrl('http://api.monnify.com')).toBe(false);
     expect(isAllowedMonnifyBaseUrl('https://evil.example.com')).toBe(false);
+    expect(isAllowedMonnifyBaseUrl('https://api.monnify.com/custom')).toBe(false);
+    expect(isAllowedMonnifyBaseUrl('https://api.monnify.com?x=1')).toBe(false);
+    expect(isAllowedMonnifyBaseUrl('https://api.monnify.com#frag')).toBe(false);
+    expect(isAllowedMonnifyBaseUrl('https://user:pass@api.monnify.com')).toBe(false);
+    expect(isAllowedMonnifyBaseUrl('https://api.monnify.com:8443')).toBe(false);
 
     process.env.MONNIFY_BASE_URL = 'http://api.monnify.com';
+    expect(() => getMonnifyBaseUrl()).toThrow('MONNIFY_BASE_URL must use HTTPS');
+
+    process.env.MONNIFY_BASE_URL = 'https://api.monnify.com/custom';
     expect(() => getMonnifyBaseUrl()).toThrow('MONNIFY_BASE_URL must use HTTPS');
   });
 });

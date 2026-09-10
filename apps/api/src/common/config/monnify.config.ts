@@ -6,7 +6,14 @@ const ALLOWED_MONNIFY_HOSTS = new Set(['api.monnify.com', 'sandbox.monnify.com']
 export function isAllowedMonnifyBaseUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' && ALLOWED_MONNIFY_HOSTS.has(parsed.hostname.toLowerCase());
+    if (parsed.protocol !== 'https:') return false;
+    if (!ALLOWED_MONNIFY_HOSTS.has(parsed.hostname.toLowerCase())) return false;
+    // Origin only: reject path, query, fragment, credentials, and non-default ports.
+    if (parsed.username || parsed.password) return false;
+    if (parsed.port) return false;
+    if (parsed.pathname !== '/' && parsed.pathname !== '') return false;
+    if (parsed.search || parsed.hash) return false;
+    return true;
   } catch {
     return false;
   }
