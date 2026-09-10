@@ -140,9 +140,9 @@ export class PayrollFloatTopupService {
   }
 
   /**
-   * If float is enough → pay now.
-   * If short and hosted top-up exists → return checkout URL (webhook auto-pays).
-   * Otherwise → hard error with dashboard guidance.
+   * Nomba/Fincra (hosted float top-up): always open checkout for the full run amount
+   * so the company pays like rewards wallet top-up; webhook then auto-pays employees.
+   * Other providers: pay from float when covered; otherwise error with dashboard guidance.
    */
   async fundAndPay(
     payrollRunId: string,
@@ -158,6 +158,28 @@ export class PayrollFloatTopupService {
       }
   > {
     const preflight = await this.preflight(payrollRunId, tenantId);
+
+    if (preflight.canCheckout && preflight.requiredAmount > 0) {
+      const checkoutPreflight: PayrollFundPreflight = {
+        ...preflight,
+        ok: false,
+        shortfall: preflight.requiredAmount,
+        message: `Checkout will charge ${preflight.requiredAmount} ${preflight.currency}, then payout starts automatically.`,
+      };
+      const checkout = await this.createFloatTopupCheckout(
+        payrollRunId,
+        tenantId,
+        auditContext.performedById,
+        checkoutPreflight,
+      );
+      return {
+        action: 'checkout',
+        checkoutUrl: checkout.checkoutUrl,
+        orderReference: checkout.orderReference,
+        preflight: checkoutPreflight,
+      };
+    }
+
     if (preflight.ok) {
       const result = await this.paymentOrchestrator.payNowPayroll(
         payrollRunId,
@@ -167,22 +189,7 @@ export class PayrollFloatTopupService {
       return { action: 'paid', result };
     }
 
-    if (!preflight.canCheckout || preflight.shortfall <= 0) {
-      throw new BadRequestException(preflight.message);
-    }
-
-    const checkout = await this.createFloatTopupCheckout(
-      payrollRunId,
-      tenantId,
-      auditContext.performedById,
-      preflight,
-    );
-    return {
-      action: 'checkout',
-      checkoutUrl: checkout.checkoutUrl,
-      orderReference: checkout.orderReference,
-      preflight,
-    };
+    throw new BadRequestException(preflight.message);
   }
 
   async assertFundedOrThrow(payrollRunId: string, tenantId: string): Promise<void> {

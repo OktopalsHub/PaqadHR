@@ -211,3 +211,86 @@ describe('PayrollFloatTopupService.completeFloatTopup', () => {
     );
   });
 });
+
+describe('PayrollFloatTopupService.fundAndPay', () => {
+  const createFundService = () => {
+    const payrollRunRepository = {
+      findOne: jest.fn(),
+      save: jest.fn(async (run: PayrollRun) => run),
+    } as unknown as PayrollRunRepository;
+
+    const balanceService = {
+      supportsHostedFloatTopup: jest.fn().mockReturnValue(true),
+      providerDashboardUrl: jest.fn().mockReturnValue('https://dashboard.nomba.com'),
+      getAvailableBalance: jest.fn().mockResolvedValue({
+        supported: true,
+        available: 10_000_000,
+      }),
+    } as unknown as PayrollFloatBalanceService;
+
+    const createCheckout = jest.fn().mockResolvedValue({
+      checkoutLink: 'https://checkout.nomba.com/pay',
+      orderReference: 'pf_new',
+    });
+    const paymentFactory = {
+      resolveCheckoutAdapter: jest.fn().mockReturnValue({
+        isConfigured: () => true,
+        createCheckout,
+      }),
+    } as unknown as PaymentProviderFactoryService;
+
+    const paymentOrchestrator = {
+      payNowPayroll: jest.fn().mockResolvedValue({ successfulPayments: 1 }),
+    } as unknown as PayrollPaymentOrchestrator;
+
+    const tenantSettingsService = {
+      getTenantSettings: jest.fn().mockResolvedValue({
+        settings: { billing: { contactEmail: 'billing@paqad.test' } },
+      }),
+    } as unknown as TenantSettingsService;
+
+    const tenantRepository = {
+      findOne: jest.fn().mockResolvedValue({ id: 'tenant-1', slug: 'acme', name: 'Acme' }),
+    } as unknown as Repository<Tenant>;
+
+    const service = new PayrollFloatTopupService(
+      payrollRunRepository,
+      balanceService,
+      paymentFactory,
+      paymentOrchestrator,
+      tenantSettingsService,
+      tenantRepository,
+    );
+
+    return { service, paymentOrchestrator, createCheckout, payrollRunRepository };
+  };
+
+  it('always opens checkout for full run amount when hosted top-up is supported', async () => {
+    const { service, paymentOrchestrator, createCheckout, payrollRunRepository } =
+      createFundService();
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-1',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      totalNetAmount: 50_000,
+      items: [{ status: 'pending', netAmount: 50_000 }],
+      metadata: {},
+    } as unknown as PayrollRun);
+
+    const outcome = await service.fundAndPay('run-1', 'tenant-1', {
+      tenantId: 'tenant-1',
+      payrollRunId: 'run-1',
+      performedById: 'member-1',
+    });
+
+    expect(outcome.action).toBe('checkout');
+    if (outcome.action !== 'checkout') return;
+    expect(outcome.checkoutUrl).toBe('https://checkout.nomba.com/pay');
+    expect(outcome.preflight.shortfall).toBe(50_000);
+    expect(createCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 50_000, currency: 'NGN' }),
+    );
+    expect(paymentOrchestrator.payNowPayroll).not.toHaveBeenCalled();
+  });
+});
