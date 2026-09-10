@@ -5,10 +5,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  extractFincraPayrollFloatTopupCheckout,
   extractFincraWalletTopupCheckout,
   verifyFincraWebhookSignature,
 } from 'src/common/config/fincra-webhook.util';
 import { PaymentProvider } from 'src/common/enums/payment-provider.enum';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 
@@ -16,6 +18,7 @@ import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-t
 export class FincraWebhookService {
   constructor(
     private readonly walletTopupService: TenantWalletTopupService,
+    private readonly payrollFloatTopupService: PayrollFloatTopupService,
     private readonly payrollPayoutService: PayrollPayoutService,
   ) {}
 
@@ -33,6 +36,12 @@ export class FincraWebhookService {
       payload = JSON.parse(rawBody);
     } catch {
       throw new BadRequestException('Invalid webhook JSON');
+    }
+
+    const payrollFloatTopup = extractFincraPayrollFloatTopupCheckout(payload);
+    if (payrollFloatTopup) {
+      const result = await this.payrollFloatTopupService.completeFloatTopup(payrollFloatTopup);
+      return { received: result.received };
     }
 
     const walletTopup = extractFincraWalletTopupCheckout(payload);

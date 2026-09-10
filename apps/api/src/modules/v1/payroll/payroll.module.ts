@@ -9,6 +9,7 @@ import { PaymentMethodModule } from '../payment-method/payment-method.module';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { TenantMembersModule } from '../tenant-members/tenant-members.module';
 import { TenantConfigModule } from '../tenant-settings/tenant-config.module';
+import { Tenant } from '../tenants/entities/tenant.entity';
 import { TenantsModule } from '../tenants/tenants.module';
 import { PayrollExportController } from './controllers/payroll-export.controller';
 import { PayrollFeeController } from './controllers/payroll-fee.controller';
@@ -28,6 +29,8 @@ import { PayrollAccessGuard } from './services/payroll-access-guard';
 import { PayrollCalculationService } from './services/payroll-calculation.service';
 import { PayrollExportService } from './services/payroll-export.service';
 import { PayrollFeeService } from './services/payroll-fee.service';
+import { PayrollFloatBalanceService } from './services/payroll-float-balance.service';
+import { PayrollFloatTopupService } from './services/payroll-float-topup.service';
 import { PayrollPaymentOrchestrator } from './services/payroll-payment-orchestrator';
 import { PayrollPayoutService } from './services/payroll-payout.service';
 import { PayrollPayoutCronService } from './services/payroll-payout-cron.service';
@@ -35,7 +38,7 @@ import { PayrollRunService } from './services/payroll-run.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([PayrollRun, PayrollItem]),
+    TypeOrmModule.forFeature([PayrollRun, PayrollItem, Tenant]),
     ActivitiesModule,
     PaymentsModule,
     SubscriptionsModule,
@@ -70,6 +73,8 @@ import { PayrollRunService } from './services/payroll-run.service';
     PayrollExportService,
     PayrollPayoutService,
     PayrollPayoutCronService,
+    PayrollFloatBalanceService,
+    PayrollFloatTopupService,
   ],
   exports: [
     PayrollService,
@@ -81,6 +86,7 @@ import { PayrollRunService } from './services/payroll-run.service';
     MultiPaymentService,
     AuditService,
     PayrollPayoutService,
+    PayrollFloatTopupService,
   ],
 })
 export class PayrollModule {}

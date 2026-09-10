@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
+import { PayrollFloatTopupService } from '../../payroll/services/payroll-float-topup.service';
 import { PayrollPayoutService } from '../../payroll/services/payroll-payout.service';
 import { TenantWalletTopupService } from '../../rewards/services/tenant-wallet-topup.service';
 import { SubscriptionBillingService } from '../../subscriptions/services/subscription-billing.service';
 import {
   extractNombaEventType,
+  extractPayrollFloatTopupCheckout,
   extractPayrollMerchantRef,
   extractWalletTopupCheckout,
   isSubscriptionPaymentEvent,
@@ -19,6 +21,7 @@ export class NombaWebhookService {
   constructor(
     private readonly subscriptionBillingService: SubscriptionBillingService,
     private readonly payrollPayoutService: PayrollPayoutService,
+    private readonly payrollFloatTopupService: PayrollFloatTopupService,
     private readonly walletTopupService: TenantWalletTopupService,
   ) {}
 
@@ -42,6 +45,12 @@ export class NombaWebhookService {
     }
 
     const eventType = extractNombaEventType(payload);
+    const payrollFloatTopup = extractPayrollFloatTopupCheckout(payload);
+    if (payrollFloatTopup) {
+      const result = await this.payrollFloatTopupService.completeFloatTopup(payrollFloatTopup);
+      return { received: result.received };
+    }
+
     const walletTopup = extractWalletTopupCheckout(payload);
     if (walletTopup) {
       return this.walletTopupService.completeCheckoutTopup(walletTopup);

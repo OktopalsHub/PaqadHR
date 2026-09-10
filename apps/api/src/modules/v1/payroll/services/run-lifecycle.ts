@@ -257,7 +257,10 @@ export class RunLifecycle {
     tenantId: string,
     auditContext: AuditContext,
   ): Promise<void> {
-    const run = await this.payrollRunRepository.findOne({ where: { id: payrollRunId, tenantId } });
+    const run = await this.payrollRunRepository.findOne({
+      where: { id: payrollRunId, tenantId },
+      relations: ['items'],
+    });
     if (!run) throw new BadRequestException('Payroll run not found');
     assertPayrollRunDeletable(run);
     await this.payrollRunRepository.delete(payrollRunId);

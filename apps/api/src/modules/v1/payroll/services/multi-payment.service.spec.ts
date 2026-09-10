@@ -38,7 +38,21 @@ describe('MultiPaymentService', () => {
 
     const paymentProvider = {
       createPayment: jest.fn(),
+      createBulkTransfer: jest.fn(),
     };
+    (paymentProvider.createBulkTransfer as jest.Mock).mockImplementation(
+      async (transfers: Array<{ merchantTxRef?: string }>) => {
+        const results: Array<Record<string, unknown>> = [];
+        for (const transfer of transfers) {
+          const result = (await paymentProvider.createPayment(transfer)) as Record<string, unknown>;
+          results.push({
+            ...result,
+            reference: result.reference ?? transfer.merchantTxRef,
+          });
+        }
+        return results;
+      },
+    );
 
     const paymentProviderFactory = {
       resolveProvider: jest.fn().mockReturnValue(paymentProvider),
@@ -96,6 +110,46 @@ describe('MultiPaymentService', () => {
     process.env.NOMBA_PARENT_ACCOUNT_ID = originalNombaAccountId;
     process.env.NOAH_API_KEY = originalNoahApiKey;
     jest.restoreAllMocks();
+  });
+
+  it('throws when no pending employees are payable', async () => {
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
+
+    const { service, payrollRunRepository, paymentMethodService, payrollPayoutService } =
+      createService();
+
+    const item = {
+      id: 'item-1',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 1000,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Ada', lastName: 'Lovelace' },
+      metadata: {},
+    } as PayrollItem;
+
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: 'run-1',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      items: [item],
+      tenant: { name: 'Acme' },
+    });
+    (paymentMethodService.assessPayrollReadiness as jest.Mock).mockResolvedValue({
+      ready: false,
+      message: 'No verified bank account',
+    });
+
+    await expect(
+      service.processMultiPaymentPayroll('run-1', 'tenant-1', { userId: 'u1' } as never),
+    ).rejects.toThrow(/No employees could be paid/);
+    expect(payrollPayoutService.reconcilePayrollRunStatus).toHaveBeenCalledWith(
+      'run-1',
+      'tenant-1',
+    );
   });
 
   it('throws when no payroll gateway is configured', async () => {
@@ -181,6 +235,193 @@ describe('MultiPaymentService', () => {
     expect(payrollItemRepository.update).toHaveBeenCalledWith(
       'item-1',
       expect.objectContaining({ status: PayrollItemStatus.PROCESSING }),
+    );
+  });
+
+  it('pays multiple pending employees via one createBulkTransfer call', async () => {
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
+
+    const {
+      service,
+      payrollRunRepository,
+      payrollItemRepository,
+      paymentMethodService,
+      paymentProvider,
+      payrollPayoutService,
+    } = createService();
+
+    const itemA = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 1000,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Ada', lastName: 'Lovelace' },
+      metadata: {},
+    } as PayrollItem;
+
+    const itemB = {
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-2',
+      paymentCurrency: 'NGN',
+      paymentAmount: 2000,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Grace', lastName: 'Hopper' },
+      metadata: {},
+    } as PayrollItem;
+
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      title: 'September',
+      items: [itemA, itemB],
+      tenant: { name: 'Acme' },
+    });
+    (paymentMethodService.assessPayrollReadiness as jest.Mock).mockResolvedValue({
+      ready: true,
+      paymentMethodId: 'pm-1',
+    });
+    (paymentMethodService.findById as jest.Mock).mockResolvedValue({
+      id: 'pm-1',
+      accountNumber: '1234567890',
+      accountName: 'Employee',
+      bankCode: '058',
+      bankName: 'GTBank',
+      currency: 'NGN',
+      country: 'NG',
+    });
+    (paymentProvider.createBulkTransfer as jest.Mock).mockImplementation(
+      async (transfers: Array<{ merchantTxRef?: string }>) =>
+        transfers.map((transfer, index) => ({
+          success: index === 0,
+          transactionId: `txn-${index}`,
+          reference: transfer.merchantTxRef,
+          providerStatus: index === 0 ? 'SUCCESS' : undefined,
+          error: index === 0 ? undefined : 'insufficient funds',
+          retryable: false,
+        })),
+    );
+    (payrollPayoutService.classifyPaymentResultStatus as jest.Mock).mockReturnValue('paid');
+
+    const result = await service.processMultiPaymentPayroll(
+      '11111111-1111-4111-8111-111111111111',
+      'tenant-1',
+      { userId: 'u1' } as never,
+    );
+
+    expect(paymentProvider.createBulkTransfer).toHaveBeenCalledTimes(1);
+    expect(paymentProvider.createBulkTransfer.mock.calls[0][0]).toHaveLength(2);
+    expect(paymentProvider.createPayment).not.toHaveBeenCalled();
+    expect(result.totalItems).toBe(2);
+    expect(payrollItemRepository.update).toHaveBeenCalledWith(
+      itemA.id,
+      expect.objectContaining({ status: PayrollItemStatus.PAID }),
+    );
+    expect(payrollItemRepository.update).toHaveBeenCalledWith(
+      itemB.id,
+      expect.objectContaining({ status: PayrollItemStatus.FAILED }),
+    );
+  });
+
+  it('maps reordered bulk results by merchantTxRef and fails missing refs', async () => {
+    process.env.NOMBA_CLIENT_ID = 'id';
+    process.env.NOMBA_CLIENT_SECRET = 'secret';
+    process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
+
+    const {
+      service,
+      payrollRunRepository,
+      payrollItemRepository,
+      paymentMethodService,
+      paymentProvider,
+      payrollPayoutService,
+    } = createService();
+
+    const itemA = {
+      id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-1',
+      paymentCurrency: 'NGN',
+      paymentAmount: 1000,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Ada', lastName: 'Lovelace' },
+      metadata: {},
+    } as PayrollItem;
+
+    const itemB = {
+      id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      payrollRunId: '11111111-1111-4111-8111-111111111111',
+      memberId: 'member-2',
+      paymentCurrency: 'NGN',
+      paymentAmount: 2000,
+      status: PayrollItemStatus.PENDING,
+      employee: { firstName: 'Grace', lastName: 'Hopper' },
+      metadata: {},
+    } as PayrollItem;
+
+    (payrollRunRepository.findOne as jest.Mock).mockResolvedValue({
+      id: '11111111-1111-4111-8111-111111111111',
+      tenantId: 'tenant-1',
+      status: PayrollStatus.APPROVED,
+      baseCurrency: 'NGN',
+      title: 'September',
+      items: [itemA, itemB],
+      tenant: { name: 'Acme' },
+    });
+    (paymentMethodService.assessPayrollReadiness as jest.Mock).mockResolvedValue({
+      ready: true,
+      paymentMethodId: 'pm-1',
+    });
+    (paymentMethodService.findById as jest.Mock).mockResolvedValue({
+      id: 'pm-1',
+      accountNumber: '1234567890',
+      accountName: 'Employee',
+      bankCode: '058',
+      bankName: 'GTBank',
+      currency: 'NGN',
+      country: 'NG',
+    });
+    (paymentProvider.createBulkTransfer as jest.Mock).mockImplementation(
+      async (transfers: Array<{ merchantTxRef?: string }>) => {
+        const second = transfers[1];
+        return [
+          {
+            success: true,
+            transactionId: 'txn-b',
+            reference: second.merchantTxRef,
+            providerStatus: 'SUCCESS',
+          },
+          {
+            success: true,
+            transactionId: 'orphan',
+            reference: undefined,
+            providerStatus: 'SUCCESS',
+          },
+        ];
+      },
+    );
+    (payrollPayoutService.classifyPaymentResultStatus as jest.Mock).mockReturnValue('paid');
+
+    await service.processMultiPaymentPayroll('11111111-1111-4111-8111-111111111111', 'tenant-1', {
+      userId: 'u1',
+    } as never);
+
+    expect(payrollItemRepository.update).toHaveBeenCalledWith(
+      itemA.id,
+      expect.objectContaining({
+        status: PayrollItemStatus.FAILED,
+        failureReason: expect.stringContaining('Missing bulk transfer result'),
+      }),
+    );
+    expect(payrollItemRepository.update).toHaveBeenCalledWith(
+      itemB.id,
+      expect.objectContaining({ status: PayrollItemStatus.PAID }),
     );
   });
 
@@ -390,7 +631,7 @@ describe('MultiPaymentService', () => {
     );
   });
 
-  it('does not initiate createPayment when claim loses the race', async () => {
+  it('does not initiate payout when claim loses the race', async () => {
     process.env.NOMBA_CLIENT_ID = 'id';
     process.env.NOMBA_CLIENT_SECRET = 'secret';
     process.env.NOMBA_PARENT_ACCOUNT_ID = 'account';
@@ -441,6 +682,7 @@ describe('MultiPaymentService', () => {
     } as never);
 
     expect(paymentProvider.createPayment).not.toHaveBeenCalled();
+    expect(paymentProvider.createBulkTransfer).not.toHaveBeenCalled();
     expect(result.failedPayments).toBe(1);
   });
 

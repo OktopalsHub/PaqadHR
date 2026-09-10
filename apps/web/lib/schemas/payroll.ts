@@ -112,6 +112,7 @@ export const payrollItemSchema = z.object({
   adjustments: z.union([z.number(), z.string()]).optional(),
   deductions: z.union([z.number(), z.string()]).optional(),
   netAmount: z.union([z.number(), z.string()]).optional(),
+  failureReason: z.string().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   employee: z
     .object({

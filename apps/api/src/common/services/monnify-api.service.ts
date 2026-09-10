@@ -42,6 +42,10 @@ export class MonnifyApiService {
     return this.disbursement.singleTransfer(input);
   }
 
+  batchTransfer(input: Parameters<MonnifyDisbursementService['batchTransfer']>[0]) {
+    return this.disbursement.batchTransfer(input);
+  }
+
   getDisbursementStatus(reference: string) {
     return this.disbursement.getDisbursementStatus(reference);
   }

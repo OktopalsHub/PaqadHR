@@ -7,6 +7,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
+  RefreshCw,
   Trash2,
   Wallet,
 } from 'lucide-react';
@@ -107,8 +108,10 @@ function PayrollRunRow({
     primary = { label: 'Approve', action: 'approve', className: APPROVE_BUTTON_CLASS };
   } else if (isAdmin && run.status === 'approved') {
     primary = payrollGatewayEnabled
-      ? { label: 'Pay now', action: 'pay-now', variant: 'brandSolid' }
+      ? { label: 'Fund & pay', action: 'fund-and-pay', variant: 'brandSolid' }
       : { label: 'Mark paid', action: 'disburse' };
+  } else if (isAdmin && run.status === 'failed' && payrollGatewayEnabled) {
+    primary = { label: 'Retry payment', action: 'retry', variant: 'brandSolid' };
   }
 
   const secondaryItems: Array<{
@@ -172,6 +175,7 @@ function PayrollRunRow({
             disabled={busy}
             onClick={() => onAction(primary.action, run.id)}
           >
+            {primary.action === 'retry' ? <RefreshCw className="mr-1 size-4" /> : null}
             {primary.label}
           </Button>
         ) : null}
@@ -236,6 +240,8 @@ export function PayrollPage() {
     actions.disburse.isPending ||
     actions.process.isPending ||
     actions.payNow.isPending ||
+    actions.fundAndPay.isPending ||
+    actions.retryFailed.isPending ||
     actions.schedule.isPending ||
     actions.removeItem.isPending ||
     actions.deleteRun.isPending ||
@@ -250,6 +256,28 @@ export function PayrollPage() {
   const [scheduleRunId, setScheduleRunId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState(defaultPayDate);
   const [reopenRunId, setReopenRunId] = useState<string | null>(null);
+  const [payNowRunId, setPayNowRunId] = useState<string | null>(null);
+
+  const toastPayoutResult = (
+    result: { successfulPayments?: number; failedPayments?: number } | undefined,
+    emptyMessage: string,
+  ) => {
+    const ok = result?.successfulPayments ?? 0;
+    const failed = result?.failedPayments ?? 0;
+    if (ok > 0 && failed === 0) {
+      toast.success(`Paid ${ok} employee${ok === 1 ? '' : 's'}`);
+      return;
+    }
+    if (ok > 0) {
+      toast.warning(`Paid ${ok}, ${failed} failed — use Retry payment for the rest`);
+      return;
+    }
+    if (failed > 0) {
+      toast.error(`${failed} payment${failed === 1 ? '' : 's'} failed`);
+      return;
+    }
+    toast.success(emptyMessage);
+  };
 
   const handleAction = async (action: string, id: string, paymentDateOverride?: string) => {
     try {
@@ -276,14 +304,18 @@ export function PayrollPage() {
       if (action === 'approve') {
         await actions.approve.mutateAsync(id);
         toast.success(
-          'Payroll approved — run locked. Use Pay now, Schedule, or Mark paid to send money.',
+          'Payroll approved — run locked. Use Fund & pay, Schedule, or Mark paid to send money.',
         );
         return;
       }
       if (action === 'disburse') await actions.disburse.mutateAsync(id);
-      if (action === 'process' || action === 'pay-now') {
-        await actions.payNow.mutateAsync(id);
-        toast.success('Payout started');
+      if (action === 'process' || action === 'pay-now' || action === 'fund-and-pay') {
+        setPayNowRunId(id);
+        return;
+      }
+      if (action === 'retry') {
+        const response = await actions.retryFailed.mutateAsync(id);
+        toastPayoutResult(response.result, 'Retry completed');
         return;
       }
       if (action === 'schedule') {
@@ -340,6 +372,41 @@ export function PayrollPage() {
       toast.success('Run opened for editing — update bonuses, then Calculate again');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to open payroll run for editing');
+    }
+  };
+
+  const confirmPayNow = async () => {
+    if (!payNowRunId) return;
+    const checkoutTab = window.open('about:blank', '_blank');
+    try {
+      const response = await actions.fundAndPay.mutateAsync(payNowRunId);
+      if (response.action === 'checkout') {
+        if (response.checkoutUrl) {
+          toast.message(
+            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
+          );
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
+        } else {
+          checkoutTab?.close();
+          toast.error(
+            response.preflight?.message ??
+              `Fund the payout provider${response.preflight?.dashboardUrl ? ` (${response.preflight.dashboardUrl})` : ''} then retry.`,
+          );
+        }
+        setPayNowRunId(null);
+        return;
+      }
+      checkoutTab?.close();
+      toastPayoutResult(response.result, 'Payout started');
+      setPayNowRunId(null);
+    } catch (err) {
+      checkoutTab?.close();
+      toast.error(err instanceof Error ? err.message : 'Payout failed');
     }
   };
 
@@ -605,6 +672,34 @@ export function PayrollPage() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog
+        open={Boolean(payNowRunId)}
+        onOpenChange={(next) => {
+          if (!next) setPayNowRunId(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Fund & pay employees?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              If your payout provider float covers this run, employees are paid immediately. If not,
+              we open a shortfall checkout to fund the provider account, then pay automatically when
+              funding succeeds. Money never sits in a Paqad payroll wallet.
+            </p>
+            <Button
+              variant="brandSolid"
+              className="w-full"
+              disabled={actions.fundAndPay.isPending}
+              onClick={() => void confirmPayNow()}
+            >
+              Confirm fund & pay
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={Boolean(scheduleRunId)}

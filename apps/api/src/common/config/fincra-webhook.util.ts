@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { parseTenantIdFromPayrollFloatOrderRef } from '../../modules/v1/payroll/utils/payroll-float-order-ref.util';
 import { isPayrollMerchantRef } from '../../modules/v1/payroll/utils/payroll-merchant-ref.util';
 import { parseTenantIdFromFincraWalletTopupOrderRef } from '../../modules/v1/rewards/utils/wallet-order-ref.util';
 import { getFincraWebhookSecret } from './fincra.config';
@@ -96,7 +97,7 @@ export function parseFincraPayinWebhook(payload: unknown): FincraParsedPayinWebh
   const data = body.data;
   const metadata = data?.metadata ?? {};
   const billingType = metadata.billingType ?? metadata.billing_type;
-  if (billingType !== 'wallet_topup') {
+  if (billingType !== 'wallet_topup' && billingType !== 'payroll_float_topup') {
     return null;
   }
 
@@ -125,6 +126,8 @@ export function extractFincraWalletTopupCheckout(payload: unknown): {
 } | null {
   const parsed = parseFincraPayinWebhook(payload);
   if (!parsed) return null;
+  const billingType = parsed.metadata?.billingType ?? parsed.metadata?.billing_type;
+  if (billingType !== 'wallet_topup') return null;
 
   const meta = parsed.metadata ?? {};
   let tenantId = meta.tenantId ?? meta.tenant_id;
@@ -150,6 +153,53 @@ export function extractFincraWalletTopupCheckout(payload: unknown): {
       initiatedByRaw !== null &&
       String(initiatedByRaw).trim() !== ''
         ? String(initiatedByRaw)
+        : undefined,
+  };
+}
+
+export function extractFincraPayrollFloatTopupCheckout(payload: unknown): {
+  tenantId: string;
+  orderReference: string;
+  amount?: number;
+  initiatedByMemberId?: string;
+  payrollRunId?: string;
+} | null {
+  const parsed = parseFincraPayinWebhook(payload);
+  if (!parsed) return null;
+  const billingType = parsed.metadata?.billingType ?? parsed.metadata?.billing_type;
+  if (billingType !== 'payroll_float_topup') return null;
+
+  const meta = parsed.metadata ?? {};
+  let tenantId = meta.tenantId ?? meta.tenant_id;
+  if (!tenantId) {
+    const fromRef = parseTenantIdFromPayrollFloatOrderRef(parsed.merchantReference);
+    if (fromRef) tenantId = fromRef;
+  }
+  if (!tenantId) return null;
+
+  const expectedRaw = meta.expectedAmount ?? meta.expected_amount;
+  const expectedAmount =
+    expectedRaw !== undefined && expectedRaw !== null && String(expectedRaw).trim() !== ''
+      ? Number(expectedRaw)
+      : undefined;
+  const initiatedByRaw = meta.initiatedByMemberId ?? meta.initiated_by_member_id;
+  const payrollRunIdRaw = meta.payrollRunId ?? meta.payroll_run_id;
+
+  return {
+    tenantId: String(tenantId),
+    orderReference: parsed.merchantReference,
+    amount: Number.isFinite(expectedAmount) ? expectedAmount : parsed.amount,
+    initiatedByMemberId:
+      initiatedByRaw !== undefined &&
+      initiatedByRaw !== null &&
+      String(initiatedByRaw).trim() !== ''
+        ? String(initiatedByRaw)
+        : undefined,
+    payrollRunId:
+      payrollRunIdRaw !== undefined &&
+      payrollRunIdRaw !== null &&
+      String(payrollRunIdRaw).trim() !== ''
+        ? String(payrollRunIdRaw)
         : undefined,
   };
 }

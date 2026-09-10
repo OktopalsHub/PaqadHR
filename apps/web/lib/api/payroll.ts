@@ -177,10 +177,57 @@ export async function processPayrollRun(id: string): Promise<void> {
   });
 }
 
-export async function payNowPayroll(id: string): Promise<void> {
+export async function fundAndPayPayroll(id: string): Promise<{
+  action: 'paid' | 'checkout';
+  message?: string;
+  checkoutUrl?: string;
+  orderReference?: string;
+  result?: {
+    totalItems: number;
+    successfulPayments: number;
+    failedPayments: number;
+  };
+  preflight?: {
+    ok: boolean;
+    shortfall: number;
+    currency: string;
+    message: string;
+    dashboardUrl?: string;
+    canCheckout?: boolean;
+  };
+}> {
   const tenantId = await resolveTenantId();
-  await apiClient(tenantPath(tenantId, `payroll/runs/${id}/pay-now`), {
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/fund-and-pay`), {
     method: 'POST',
+  });
+}
+
+export async function payNowPayroll(id: string): Promise<{
+  message: string;
+  result: {
+    totalItems: number;
+    successfulPayments: number;
+    failedPayments: number;
+  };
+}> {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/pay-now`), {
+    method: 'POST',
+  });
+}
+
+export async function retryFailedPayrollPayments(id: string): Promise<{
+  message: string;
+  result: {
+    totalItems: number;
+    successfulPayments: number;
+    failedPayments: number;
+  };
+}> {
+  const tenantId = await resolveTenantId();
+  return apiClient(tenantPath(tenantId, `payroll/runs/${id}/retry-failed-payments`), {
+    method: 'POST',
+    body: JSON.stringify({}),
   });
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, Lock, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Download, Lock, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { PersonAvatar } from '@/components/person-avatar';
@@ -300,13 +300,14 @@ export function PayrollRunDetail({
 
   const detail = run as PayrollRunDetailType | undefined;
   const isDraft = detail?.status === 'draft';
-  const isLocked = detail?.status === 'approved' || detail?.status === 'completed';
-  const canDelete = Boolean(detail && detail.status !== 'completed' && onDelete);
+  const isLocked =
+    detail?.status === 'approved' || detail?.status === 'completed' || detail?.status === 'failed';
   const canEditTitle = Boolean(
     isAdmin && detail && (detail.status === 'draft' || detail.status === 'processing'),
   );
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState('');
+  const [payNowConfirmOpen, setPayNowConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (detail?.title) {
@@ -319,12 +320,30 @@ export function PayrollRunDetail({
     [detail?.items],
   );
 
+  const hasPaidOrInFlight = activeItems.some(
+    (item) => item.status === 'paid' || item.status === 'processing',
+  );
+  const canDelete = Boolean(
+    detail && detail.status !== 'completed' && onDelete && !hasPaidOrInFlight,
+  );
+  const hasFailedItems = activeItems.some((item) => item.status === 'failed');
+  const canReopen =
+    Boolean(isAdmin && detail?.status === 'processing' && onReopen) && !hasPaidOrInFlight;
+  const canRetry =
+    Boolean(isAdmin && payrollGatewayEnabled) &&
+    hasFailedItems &&
+    (detail?.status === 'failed' ||
+      detail?.status === 'processing' ||
+      detail?.status === 'approved');
+
   const busy =
     actions.calculate.isPending ||
     actions.approve.isPending ||
     actions.disburse.isPending ||
     actions.process.isPending ||
     actions.payNow.isPending ||
+    actions.fundAndPay.isPending ||
+    actions.retryFailed.isPending ||
     actions.schedule.isPending ||
     actions.publishPayslips.isPending ||
     actions.reopen.isPending ||
@@ -338,6 +357,27 @@ export function PayrollRunDetail({
       setScheduleDate(String(detail.paymentDate).slice(0, 10));
     }
   }, [detail?.paymentDate]);
+
+  const toastPayoutResult = (
+    result: { successfulPayments: number; failedPayments: number } | undefined,
+    verb: 'started' | 'retried',
+  ) => {
+    const ok = result?.successfulPayments ?? 0;
+    const failed = result?.failedPayments ?? 0;
+    if (ok > 0 && failed === 0) {
+      toast.success(`Paid ${ok} employee${ok === 1 ? '' : 's'}`);
+      return;
+    }
+    if (ok > 0 && failed > 0) {
+      toast.warning(`Paid ${ok}, ${failed} failed — use Retry payment for the rest`);
+      return;
+    }
+    if (failed > 0) {
+      toast.error(`Payout ${verb}: ${failed} payment${failed === 1 ? '' : 's'} failed`);
+      return;
+    }
+    toast.success(verb === 'retried' ? 'Retry completed' : 'Payout started');
+  };
 
   const handleDownloadPayslip = async (payslip: {
     runId: string;
@@ -370,12 +410,47 @@ export function PayrollRunDetail({
   };
 
   const handlePayNow = async () => {
+    const checkoutTab = window.open('about:blank', '_blank');
     try {
-      await actions.payNow.mutateAsync(runId);
-      toast.success('Payout started');
+      const response = await actions.fundAndPay.mutateAsync(runId);
+      if (response.action === 'checkout') {
+        if (response.checkoutUrl) {
+          toast.message(
+            response.preflight?.message ?? 'Complete provider checkout to fund payroll',
+          );
+          if (checkoutTab) {
+            checkoutTab.opener = null;
+            checkoutTab.location.href = response.checkoutUrl;
+          } else {
+            window.location.assign(response.checkoutUrl);
+          }
+        } else {
+          checkoutTab?.close();
+          toast.error(response.preflight?.message ?? 'Fund the payout provider, then retry');
+        }
+        setPayNowConfirmOpen(false);
+        await refetch();
+        return;
+      }
+      checkoutTab?.close();
+      toastPayoutResult(response.result, 'started');
+      setPayNowConfirmOpen(false);
       await refetch();
     } catch (err) {
+      checkoutTab?.close();
       toast.error(err instanceof Error ? err.message : 'Payout failed');
+      await refetch();
+    }
+  };
+
+  const handleRetryFailed = async () => {
+    try {
+      const response = await actions.retryFailed.mutateAsync(runId);
+      toastPayoutResult(response.result, 'retried');
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Retry failed');
+      await refetch();
     }
   };
 
@@ -516,16 +591,27 @@ export function PayrollRunDetail({
                 Edit run
               </Button>
             ) : null}
-            {isAdmin && detail.status === 'processing' && onReopen ? (
+            {canReopen ? (
               <Button
                 size="sm"
                 variant="outline"
                 className="border-slate-200 bg-white text-slate-700 shadow-none hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-200"
                 disabled={busy}
-                onClick={() => onReopen()}
+                onClick={() => onReopen?.()}
               >
                 <Pencil className="mr-1 size-4" />
                 Edit
+              </Button>
+            ) : null}
+            {canRetry ? (
+              <Button
+                size="sm"
+                variant="brandSolid"
+                disabled={busy}
+                onClick={() => void handleRetryFailed()}
+              >
+                <RefreshCw className="mr-1 size-4" />
+                Retry payment
               </Button>
             ) : null}
             {isAdmin && canDelete ? (
@@ -548,7 +634,7 @@ export function PayrollRunDetail({
                   try {
                     await actions.approve.mutateAsync(runId);
                     toast.success(
-                      'Payroll approved — run locked. Use Pay now, Schedule, or Mark paid to send money.',
+                      'Payroll approved — run locked. Use Fund & pay, Schedule, or Mark paid to send money.',
                     );
                     await refetch();
                   } catch (err) {
@@ -562,8 +648,13 @@ export function PayrollRunDetail({
             {isAdmin && detail.status === 'approved' ? (
               <>
                 {payrollGatewayEnabled ? (
-                  <Button size="sm" variant="brandSolid" disabled={busy} onClick={handlePayNow}>
-                    Pay now
+                  <Button
+                    size="sm"
+                    variant="brandSolid"
+                    disabled={busy}
+                    onClick={() => setPayNowConfirmOpen(true)}
+                  >
+                    Fund & pay
                   </Button>
                 ) : null}
                 {payrollGatewayEnabled ? (
@@ -599,6 +690,29 @@ export function PayrollRunDetail({
           </div>
         </div>
 
+        <Dialog open={payNowConfirmOpen} onOpenChange={setPayNowConfirmOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Fund & pay employees?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-2">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                If your payout provider float covers this run, employees are paid immediately. If
+                not, we open a shortfall checkout to fund the provider account, then pay
+                automatically when funding succeeds.
+              </p>
+              <Button
+                variant="brandSolid"
+                className="w-full"
+                disabled={busy}
+                onClick={() => void handlePayNow()}
+              >
+                Confirm fund & pay
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={scheduleOpen} onOpenChange={setScheduleOpen}>
           <DialogContent>
             <DialogHeader>
@@ -630,7 +744,9 @@ export function PayrollRunDetail({
             <Lock className="size-4" />
             <AlertTitle>Run locked</AlertTitle>
             <AlertDescription>
-              Line items cannot be edited after approval. Bonuses and removals are disabled.
+              {detail.status === 'failed'
+                ? 'Payments failed for one or more employees. Fix payment methods or fund your provider, then use Retry payment. Editing is disabled after payout starts.'
+                : 'Line items cannot be edited after approval. Bonuses and removals are disabled.'}
             </AlertDescription>
           </Alert>
         ) : null}
@@ -695,16 +811,23 @@ export function PayrollRunDetail({
                       {Number(item.netAmount ?? 0).toLocaleString()} {detail.baseCurrency}
                     </AppTableCell>
                     <AppTableCell>
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${getPayrollStatusStyles(
-                          item.status,
-                        )}`}
-                      >
+                      <div className="space-y-1">
                         <span
-                          className={`size-1.5 rounded-full ${getPayrollStatusDotClass(item.status)}`}
-                        />
-                        {item.status}
-                      </span>
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium capitalize ${getPayrollStatusStyles(
+                            item.status,
+                          )}`}
+                        >
+                          <span
+                            className={`size-1.5 rounded-full ${getPayrollStatusDotClass(item.status)}`}
+                          />
+                          {item.status}
+                        </span>
+                        {item.status === 'failed' && item.failureReason ? (
+                          <p className="max-w-[220px] text-xs text-red-600 dark:text-red-400">
+                            {item.failureReason}
+                          </p>
+                        ) : null}
+                      </div>
                     </AppTableCell>
                     {isAdmin && isDraft ? (
                       <AppTableCell>
