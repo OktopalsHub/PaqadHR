@@ -3,6 +3,7 @@ export {
   BankLookupDto,
   PasscodeChangeDto,
   PaymentMethodMetadataDto,
+  SetPrimaryPaymentMethodDto,
   SubmitForVerificationDto,
   SwitchPaymentTypeDto,
   VerifyPaymentMethodDto,

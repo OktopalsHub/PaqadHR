@@ -79,6 +79,20 @@ export class PaymentMethodService {
     );
   }
 
+  async setPrimaryPaymentMethod(
+    paymentMethodId: string,
+    tenantId: string,
+    memberId: string,
+    passcode: string,
+  ) {
+    return this.pmCreationService.setPrimaryPaymentMethod(
+      paymentMethodId,
+      tenantId,
+      memberId,
+      passcode,
+    );
+  }
+
   async changePasscode(
     paymentMethodId: string,
     tenantId: string,
@@ -131,6 +145,7 @@ export class PaymentMethodService {
     memberId: string,
     currency?: string,
   ): Promise<PaymentMethodSummary[]> {
+    await this.pmCreationService.ensureSinglePrimary(tenantId, memberId);
     const q = this.repo
       .createQueryBuilder('pm')
       .where('pm.tenantId = :tenantId', { tenantId })

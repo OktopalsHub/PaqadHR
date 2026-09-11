@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ConfirmActionDialog } from '@/components/confirm-action-dialog';
 import { SearchSelect } from '@/components/search-select';
@@ -32,6 +32,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { memberFullName } from '@/features/employees/lib/employee-detail-state';
 import { useDepartments } from '@/hooks/queries/use-departments';
 import { useAddCompensation, useEmployments } from '@/hooks/queries/use-employment';
+import { useSupportedPaymentCurrencies } from '@/hooks/queries/use-payment-methods';
 import { useAssignPosition, usePositionHistory, usePositions } from '@/hooks/queries/use-positions';
 import { fetchTenantMembers } from '@/lib/api/employees';
 import { formatDate } from '@/lib/format-date';
@@ -76,7 +77,24 @@ export function EmploymentTab({
 }: EmploymentTabProps) {
   const { employee, handleInputChange } = form;
   const { tenant, tenantId } = useTenant();
-  const currency = tenant?.preferredCurrency ?? 'USD';
+  const preferredCurrency = (tenant?.preferredCurrency ?? 'USD').toUpperCase();
+  const { data: supportedCurrencies } = useSupportedPaymentCurrencies();
+  const salaryCurrencyOptions = useMemo(() => {
+    const fiat = supportedCurrencies?.fiat ?? [];
+    const crypto = supportedCurrencies?.crypto ?? [];
+    const merged = [...fiat, ...crypto].map((code) => code.toUpperCase());
+    if (preferredCurrency && !merged.includes(preferredCurrency)) {
+      merged.unshift(preferredCurrency);
+    }
+    return Array.from(new Set(merged.length > 0 ? merged : [preferredCurrency]));
+  }, [supportedCurrencies, preferredCurrency]);
+  const [salaryCurrency, setSalaryCurrency] = useState(preferredCurrency);
+
+  useEffect(() => {
+    setSalaryCurrency((current) =>
+      salaryCurrencyOptions.includes(current) ? current : preferredCurrency,
+    );
+  }, [preferredCurrency, salaryCurrencyOptions]);
 
   const { data: departments = [], isLoading: departmentsLoading } = useDepartments();
   const { data: tenantMembers = [] } = useQuery({
@@ -150,6 +168,7 @@ export function EmploymentTab({
     setPayType('Salary');
     setPaySchedule('Monthly');
     setComments('');
+    setSalaryCurrency(preferredCurrency);
   };
 
   const resetPositionDialog = () => {
@@ -179,6 +198,7 @@ export function EmploymentTab({
         payRate: rate,
         payType,
         paySchedule,
+        currency: salaryCurrency,
         comments: comments.trim() || undefined,
       });
       toast.success('Salary added');
@@ -483,6 +503,25 @@ export function EmploymentTab({
                               </p>
                             ) : null}
                           </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="add-salary-currency">Currency</Label>
+                            <Select value={salaryCurrency} onValueChange={setSalaryCurrency}>
+                              <SelectTrigger id="add-salary-currency">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {salaryCurrencyOptions.map((code) => (
+                                  <SelectItem key={code} value={code}>
+                                    {code}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                              Must match the employee&apos;s payout method currency for payroll
+                              readiness.
+                            </p>
+                          </div>
                           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div className="space-y-2">
                               <Label htmlFor="add-pay-type">Pay type</Label>
@@ -577,7 +616,10 @@ export function EmploymentTab({
                             </div>
                             <p className="font-medium">
                               {Number.isFinite(amount)
-                                ? formatMoney(amount, currency)
+                                ? formatMoney(
+                                    amount,
+                                    (record.currency ?? preferredCurrency).toUpperCase(),
+                                  )
                                 : displayValue(String(record.payRate))}
                             </p>
                             <p className="capitalize">{record.payType}</p>

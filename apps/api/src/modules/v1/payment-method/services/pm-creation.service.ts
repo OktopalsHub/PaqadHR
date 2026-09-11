@@ -5,7 +5,7 @@ import { AuditAction, AuditSeverity, AuditStatus } from 'src/common/enums/audit-
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { PaymentMethodType } from 'src/common/enums/payment-type.enum';
 import { EncryptionService } from 'src/common/services/encryption.service';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { AuditLogsService } from '../../audit-logs/services/audit-logs.service';
 import { AuthService } from '../../auth/auth.service';
 import { TenantConfigService } from '../../tenant-settings/services/tenant-config.service';
@@ -64,7 +64,9 @@ export class PmCreationService {
       if (dto.passcode?.length !== 6)
         throw new BadRequestException('Passcode must be exactly 6 characters');
       await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, dto.passcode);
-      if (dto.isPrimary) await this.unsetPrimaryMethods(tenantId, memberId, dto.currency);
+      const existingCount = await this.repo.count({ where: { tenantId, memberId } });
+      const makePrimary = Boolean(dto.isPrimary) || existingCount === 0;
+      if (makePrimary) await this.unsetPrimaryMethods(tenantId, memberId);
 
       const status = PaymentMethodStatus.DRAFT;
       let accountName = dto.accountName;
@@ -110,7 +112,7 @@ export class PmCreationService {
         accountName: this.encryptField(accountName) ?? accountName,
         accountNumber: this.encryptField(normalizedAccount) ?? normalizedAccount,
         country: dto.country,
-        isPrimary: dto.isPrimary || false,
+        isPrimary: makePrimary,
         status,
         verifiedAt: null,
         passcodeHash: null,
@@ -126,7 +128,7 @@ export class PmCreationService {
       void this.auditLogsService
         .queueAuditLog({
           action: AuditAction.CREATE,
-          description: `Payment method created (${normalizedCurrency}${dto.isPrimary ? ', primary' : ''})`,
+          description: `Payment method created (${normalizedCurrency}${makePrimary ? ', primary' : ''})`,
           severity: AuditSeverity.LOW,
           status: AuditStatus.SUCCESS,
           resourceType: 'payment_method',
@@ -136,7 +138,7 @@ export class PmCreationService {
           metadata: {
             currency: normalizedCurrency,
             type: dto.type || 'bank',
-            isPrimary: dto.isPrimary || false,
+            isPrimary: makePrimary,
           },
         })
         .catch(() => {});
@@ -162,8 +164,7 @@ export class PmCreationService {
       tenantId,
       dto.currentPasscode,
     );
-    if (dto.isPrimary && !pm.isPrimary && pm.currency)
-      await this.unsetPrimaryMethods(tenantId, memberId, pm.currency);
+    if (dto.isPrimary && !pm.isPrimary) await this.unsetPrimaryMethods(tenantId, memberId);
 
     const updatedCurrency = pm.currency?.toUpperCase();
     const isNgn = updatedCurrency === 'NGN';
@@ -254,6 +255,41 @@ export class PmCreationService {
       .catch(() => {});
   }
 
+  async setPrimaryPaymentMethod(
+    paymentMethodId: string,
+    tenantId: string,
+    memberId: string,
+    passcode: string,
+  ): Promise<PaymentMethod> {
+    const pm = await this.repo.findOne({ where: { id: paymentMethodId, tenantId, memberId } });
+    if (!pm) throw new NotFoundException('Payment method not found');
+    if (pm.status === PaymentMethodStatus.SUSPENDED) {
+      throw new BadRequestException('Cannot set a deleted payment method as primary');
+    }
+    if (!passcode?.trim()) {
+      throw new BadRequestException('Passcode is required to change primary payout method');
+    }
+    await this.paymentSecurityService.ensureOrVerifyPasscode(memberId, tenantId, passcode);
+    if (pm.isPrimary) return pm;
+    await this.unsetPrimaryMethods(tenantId, memberId);
+    pm.isPrimary = true;
+    const saved = await this.repo.save(pm);
+    void this.auditLogsService
+      .queueAuditLog({
+        action: AuditAction.UPDATE,
+        description: `Primary payout method set (${pm.currency})`,
+        severity: AuditSeverity.LOW,
+        status: AuditStatus.SUCCESS,
+        resourceType: 'payment_method',
+        resourceId: paymentMethodId,
+        tenantId,
+        userId: memberId,
+        metadata: { currency: pm.currency, isPrimary: true },
+      })
+      .catch(() => {});
+    return saved;
+  }
+
   encryptField(value?: string | null): string | null | undefined {
     if (!value?.trim()) return value;
     if (this.encryptionService.isEncrypted(value)) return value;
@@ -266,13 +302,20 @@ export class PmCreationService {
     return this.encryptionService.decrypt(value);
   }
 
-  private async unsetPrimaryMethods(
-    tenantId: string,
-    memberId: string,
-    currency: string,
-  ): Promise<void> {
+  private async unsetPrimaryMethods(tenantId: string, memberId: string): Promise<void> {
+    await this.repo.update({ tenantId, memberId, isPrimary: true }, { isPrimary: false });
+  }
+
+  /** Keep a single primary payout method per member (heal legacy per-currency primaries). */
+  async ensureSinglePrimary(tenantId: string, memberId: string): Promise<void> {
+    const primaries = await this.repo.find({
+      where: { tenantId, memberId, isPrimary: true },
+      order: { updatedAt: 'DESC', createdAt: 'DESC' },
+      select: ['id'],
+    });
+    if (primaries.length <= 1) return;
     await this.repo.update(
-      { tenantId, memberId, currency: currency.toUpperCase(), isPrimary: true },
+      { tenantId, memberId, isPrimary: true, id: Not(primaries[0].id) },
       { isPrimary: false },
     );
   }

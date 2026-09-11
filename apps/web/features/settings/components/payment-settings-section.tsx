@@ -1,7 +1,15 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { CheckCircle2, Loader2, Send, ShieldCheck, Trash2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  Loader2,
+  MoreHorizontal,
+  Send,
+  ShieldCheck,
+  Star,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { BankLogo } from '@/components/bank-logo';
@@ -12,6 +20,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -29,6 +43,7 @@ import {
   useNigerianBanks,
   usePaymentMethods,
   usePaymentPasscodeStatus,
+  useSetPrimaryPaymentMethod,
   useSubmitPaymentMethodForVerification,
   useSupportedPaymentCurrencies,
 } from '@/hooks/queries/use-payment-methods';
@@ -40,6 +55,7 @@ import {
   isGlobalBankCurrency,
   normalizeAccountInput,
   normalizeInstitutionInput,
+  parseUkIban,
   validateGlobalBankFields,
 } from '@/lib/payout-bank-fields';
 import type { PaymentMethodSummary } from '@/lib/schemas/payment-method';
@@ -67,18 +83,25 @@ function statusLabel(status: string) {
 
 function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
   const deleteMethod = useDeletePaymentMethod();
+  const setPrimaryMethod = useSetPrimaryPaymentMethod();
   const submitMethod = useSubmitPaymentMethodForVerification();
-  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<'primary' | 'delete' | null>(null);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [otpOpen, setOtpOpen] = useState(false);
   const [currentPasscode, setCurrentPasscode] = useState('');
 
   const canSubmit = method.status === 'draft' || method.status === 'rejected';
+  const confirmOpen = confirmAction !== null;
 
   useEffect(() => {
-    if (!deleteOpen) return;
+    if (!confirmOpen) return;
     setCurrentPasscode('');
-  }, [deleteOpen]);
+  }, [confirmOpen]);
+
+  useEffect(() => {
+    if (!submitOpen) return;
+    setCurrentPasscode('');
+  }, [submitOpen]);
 
   const requestSubmit = () => {
     if (currentPasscode.length !== 6) {
@@ -103,32 +126,61 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleConfirmPasscodeAction = async () => {
     if (currentPasscode.length !== 6) {
-      toast.error('Passcode is required to delete');
+      toast.error('Passcode is required');
       return;
     }
     try {
-      await deleteMethod.mutateAsync({ paymentMethodId: method.id, passcode: currentPasscode });
-      toast.success('Payment method deleted');
-      setDeleteOpen(false);
+      if (confirmAction === 'primary') {
+        await setPrimaryMethod.mutateAsync({
+          paymentMethodId: method.id,
+          passcode: currentPasscode,
+        });
+        toast.success('Primary payout method updated');
+      } else if (confirmAction === 'delete') {
+        await deleteMethod.mutateAsync({
+          paymentMethodId: method.id,
+          passcode: currentPasscode,
+        });
+        toast.success('Payment method deleted');
+      }
+      setConfirmAction(null);
       setCurrentPasscode('');
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Delete failed');
+      toast.error(err instanceof Error ? err.message : 'Action failed');
     }
   };
 
+  const confirmPending = setPrimaryMethod.isPending || deleteMethod.isPending;
+
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {canSubmit ? (
-        <Button size="sm" variant="outline" onClick={() => setSubmitOpen(true)}>
-          <Send className="mr-1 size-3.5" />
-          Submit for review
-        </Button>
-      ) : null}
-      <Button size="sm" variant="ghost" onClick={() => setDeleteOpen(true)}>
-        <Trash2 className="size-3.5 text-destructive" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost" className="px-2" aria-label="Payment method actions">
+            <MoreHorizontal className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {!method.isPrimary ? (
+            <DropdownMenuItem onClick={() => setConfirmAction('primary')}>
+              <Star className="size-4" />
+              Set as primary
+            </DropdownMenuItem>
+          ) : null}
+          {canSubmit ? (
+            <DropdownMenuItem onClick={() => setSubmitOpen(true)}>
+              <Send className="size-4" />
+              Submit for review
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem variant="destructive" onClick={() => setConfirmAction('delete')}>
+            <Trash2 className="size-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Dialog open={submitOpen} onOpenChange={setSubmitOpen}>
         <DialogContent>
@@ -163,12 +215,25 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
         onVerified={(proof) => void handleSubmitForReview(proof)}
       />
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!open) setConfirmAction(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete payment method</DialogTitle>
+            <DialogTitle>
+              {confirmAction === 'primary' ? 'Set as primary payout' : 'Delete payment method'}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 pt-2">
+            {confirmAction === 'primary' ? (
+              <p className="text-sm text-muted-foreground">
+                Use {method.displayInfo} as your primary payout method. Enter your payment passcode
+                to confirm.
+              </p>
+            ) : null}
             <div className="space-y-2">
               <Label>Payment passcode</Label>
               <PasswordInput
@@ -178,12 +243,13 @@ function PaymentMethodActions({ method }: { method: PaymentMethodSummary }) {
               />
             </div>
             <Button
-              variant="destructive"
+              variant={confirmAction === 'delete' ? 'destructive' : 'default'}
               className="w-full"
-              disabled={deleteMethod.isPending}
-              onClick={handleDelete}
+              disabled={confirmPending}
+              onClick={() => void handleConfirmPasscodeAction()}
             >
-              Delete
+              {confirmPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
+              {confirmAction === 'primary' ? 'Set as primary' : 'Delete'}
             </Button>
           </div>
         </DialogContent>
@@ -267,6 +333,7 @@ export function PaymentSettingsSection() {
     setAccountNumber('');
     setWalletAddress('');
     setCryptoNetwork('');
+    // Only the first method defaults to primary; later methods stay off unless checked.
     setIsPrimary(!hasAnyPrimary);
   }, [hasAnyPrimary]);
 
@@ -461,9 +528,13 @@ export function PaymentSettingsSection() {
       const normalizedAccount = payoutConfig
         ? normalizeAccountInput(accountNumber, payoutConfig)
         : accountNumber.trim();
-      const normalizedInstitution = payoutConfig
+      let normalizedInstitution = payoutConfig
         ? normalizeInstitutionInput(institutionCode, payoutConfig)
         : bankCode.trim();
+      if (currency === 'GBP' && !normalizedInstitution) {
+        const ukIban = parseUkIban(normalizedAccount);
+        if (ukIban) normalizedInstitution = ukIban.sortCode;
+      }
 
       await createMethod.mutateAsync({
         type: isCrypto ? 'crypto' : 'bank',
@@ -551,7 +622,7 @@ export function PaymentSettingsSection() {
                 <Badge variant={statusBadgeVariant(method.status)}>
                   {statusLabel(method.status)}
                 </Badge>
-                {method.isPrimary ? <Badge variant="secondary">Primary</Badge> : null}
+                {method.isPrimary ? <Badge variant="secondary">Primary payout</Badge> : null}
                 {method.canReceivePayments ? (
                   <Badge>
                     <ShieldCheck className="mr-1 size-3" />
@@ -689,6 +760,7 @@ export function PaymentSettingsSection() {
                 <Input
                   value={institutionCode}
                   placeholder={payoutConfig.institutionPlaceholder}
+                  inputMode={payoutConfig.institutionAlphanumeric ? 'text' : 'numeric'}
                   onChange={(e) =>
                     setInstitutionCode(normalizeInstitutionInput(e.target.value, payoutConfig))
                   }
@@ -699,10 +771,18 @@ export function PaymentSettingsSection() {
                 <Input
                   value={accountNumber}
                   placeholder={payoutConfig.accountPlaceholder}
-                  onChange={(e) =>
-                    setAccountNumber(normalizeAccountInput(e.target.value, payoutConfig))
-                  }
+                  inputMode={payoutConfig.accountAlphanumeric ? 'text' : 'numeric'}
+                  autoCapitalize="characters"
+                  onChange={(e) => {
+                    const next = normalizeAccountInput(e.target.value, payoutConfig);
+                    setAccountNumber(next);
+                    if (currency === 'GBP') {
+                      const ukIban = parseUkIban(next);
+                      if (ukIban) setInstitutionCode(ukIban.sortCode);
+                    }
+                  }}
                 />
+                <p className="text-xs text-muted-foreground">{payoutConfig.help}</p>
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Account name</Label>
@@ -729,16 +809,22 @@ export function PaymentSettingsSection() {
             </>
           )}
 
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <Checkbox
-              id="is-primary"
-              checked={isPrimary}
-              disabled={!isPrimary && !hasAnyPrimary}
-              onCheckedChange={(checked) => setIsPrimary(checked === true)}
-            />
-            <Label htmlFor="is-primary">
-              Use for payroll ({currency}){!isPrimary && !hasAnyPrimary ? ' — Required' : ''}
-            </Label>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="is-primary"
+                checked={isPrimary}
+                onCheckedChange={(checked) => setIsPrimary(checked === true)}
+              />
+              <Label htmlFor="is-primary">
+                Primary payout method
+                {!hasAnyPrimary ? ' — Required for your first method' : ''}
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground pl-6">
+              Only one method can be primary. Checking this replaces your current primary
+              {hasAnyPrimary ? ' (even if it is a different currency)' : ''}.
+            </p>
           </div>
 
           <div className="space-y-2 sm:col-span-2">

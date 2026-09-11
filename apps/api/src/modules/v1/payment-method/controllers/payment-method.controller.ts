@@ -29,6 +29,7 @@ import {
   BankLookupDto,
   CreatePaymentMethodDto,
   PasscodeChangeDto,
+  SetPrimaryPaymentMethodDto,
   SubmitForVerificationDto,
   VerifyPaymentMethodDto,
 } from '../dto/payment-method.dto';
@@ -113,6 +114,24 @@ export class PaymentMethodController {
   async updatePaymentMethod() {
     throw new MethodNotAllowedException(
       'Editing payment methods is not allowed. Delete this account and add a new one.',
+    );
+  }
+  @Post(':paymentMethodId/primary')
+  @UseGuards(TenantMemberGuard)
+  @RateLimit(RateLimitPresets.SENSITIVE)
+  @ApiOperation({ summary: 'Set this payment method as the member primary payout method' })
+  @ApiResponse({ status: 200, description: 'Primary payout method updated' })
+  async setPrimaryPaymentMethod(
+    @Param('tenantId') tenantId: string,
+    @Param('paymentMethodId') paymentMethodId: string,
+    @Body() dto: SetPrimaryPaymentMethodDto,
+    @CurrentTenantMember() member: MemberContext,
+  ) {
+    return this.paymentMethodService.setPrimaryPaymentMethod(
+      paymentMethodId,
+      tenantId,
+      member.id,
+      dto.passcode,
     );
   }
   @Put(':paymentMethodId/passcode')

@@ -50,6 +50,13 @@ export class SubmitForVerificationDto {
   otpProof: string;
 }
 
+export class SetPrimaryPaymentMethodDto {
+  @ApiProperty({ description: 'Member payment passcode (exactly 6 digits)' })
+  @IsNotEmpty({ message: 'Passcode is required' })
+  @IsString()
+  passcode: string;
+}
+
 export class VerifyPaymentMethodDto {
   @ApiProperty({ description: 'Verification decision', enum: PaymentMethodStatus })
   @IsNotEmpty({ message: 'Status is required' })

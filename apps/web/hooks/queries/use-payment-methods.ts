@@ -10,6 +10,7 @@ import {
   fetchPendingPaymentMethods,
   fetchSupportedPaymentCurrencies,
   lookupNigerianBankAccount,
+  setPrimaryPaymentMethod,
   submitPaymentMethodForVerification,
   updatePaymentMethod,
   verifyPaymentMethod,
@@ -179,6 +180,21 @@ export function useDeletePaymentMethod() {
   return useMutation({
     mutationFn: ({ paymentMethodId, passcode }: { paymentMethodId: string; passcode?: string }) =>
       deletePaymentMethod(paymentMethodId, passcode),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: [...queryKeys.paymentMethods.all, tenantId],
+      });
+    },
+  });
+}
+
+export function useSetPrimaryPaymentMethod() {
+  const queryClient = useQueryClient();
+  const { tenantId } = useTenant();
+
+  return useMutation({
+    mutationFn: ({ paymentMethodId, passcode }: { paymentMethodId: string; passcode: string }) =>
+      setPrimaryPaymentMethod(paymentMethodId, passcode),
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: [...queryKeys.paymentMethods.all, tenantId],

@@ -13,6 +13,7 @@ export type ApiEmployment = {
   payType: string;
   paySchedule: string;
   payRate: number | string;
+  currency?: string;
   comments?: string | null;
   positionId?: string;
 };

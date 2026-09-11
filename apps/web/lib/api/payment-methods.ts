@@ -28,7 +28,7 @@ export async function createPaymentMethod(
   const body = {
     ...input,
     type: input.type ?? (isCrypto ? 'crypto' : 'bank'),
-    isPrimary: input.isPrimary ?? true,
+    isPrimary: input.isPrimary === true,
     accountNumber: input.accountNumber ?? input.walletAddress,
   };
   return apiClient<PaymentMethodSummary>(tenantPath(tenantId, 'payment-methods'), {
@@ -148,5 +148,16 @@ export async function deletePaymentMethod(
   await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}`), {
     method: 'DELETE',
     body: JSON.stringify(passcode ? { passcode } : {}),
+  });
+}
+
+export async function setPrimaryPaymentMethod(
+  paymentMethodId: string,
+  passcode: string,
+): Promise<void> {
+  const tenantId = await resolveTenantId();
+  await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/primary`), {
+    method: 'POST',
+    body: JSON.stringify({ passcode }),
   });
 }

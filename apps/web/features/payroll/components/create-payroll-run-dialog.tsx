@@ -295,16 +295,22 @@ export function CreatePayrollRunDialog({
               />
             </div>
             {allEligibleEmployeeIds.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {groupEmployeeIdsBySalaryCurrency(
-                  allEligibleEmployeeIds,
-                  currentSalaries,
-                  fallbackCurrency,
-                ).map((row) => (
-                  <Badge key={row.currency} variant="outline">
-                    {row.currency} · {row.employeeIds.length}
-                  </Badge>
-                ))}
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {groupEmployeeIdsBySalaryCurrency(
+                    allEligibleEmployeeIds,
+                    currentSalaries,
+                    fallbackCurrency,
+                  ).map((row) => (
+                    <Badge key={row.currency} variant="outline">
+                      {row.currency} · {row.employeeIds.length}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Runs split by each employee&apos;s salary currency (Employment → Add salary).
+                  Crypto salaries (e.g. SOL) only appear after salary is saved in that currency.
+                </p>
               </div>
             ) : (
               <p className="text-sm text-muted-foreground">

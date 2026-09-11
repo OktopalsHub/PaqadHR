@@ -44,7 +44,8 @@ export function validatePaymentMethodData(dto: CreatePaymentMethodDto): void {
       'Bank payment method requires account number, name, bank name, and country',
     );
   }
-  const maxLen = dto.currency.toUpperCase() === 'EUR' ? 34 : 17;
+  const maxLen =
+    dto.currency.toUpperCase() === 'EUR' || dto.currency.toUpperCase() === 'GBP' ? 34 : 17;
   if (dto.accountNumber.length > maxLen)
     throw new BadRequestException(`Account number cannot exceed ${maxLen} characters`);
   validateGlobalBankFields(dto.currency.toUpperCase(), dto.accountNumber, dto.bankCode);
