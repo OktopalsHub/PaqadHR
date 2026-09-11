@@ -66,7 +66,9 @@ export class TopupWebhookService {
       status !== 'success' &&
       status !== 'successful' &&
       status !== 'succeeded' &&
-      status !== 'accepted'
+      status !== 'accepted' &&
+      status !== 'payment_successful' &&
+      status !== 'payment successful'
     ) {
       this.logger.warn(
         `Wallet checkout top-up not yet successful for ${input.orderReference}: ${status || 'unknown'}`,
@@ -93,7 +95,7 @@ export class TopupWebhookService {
         this.logger.warn(
           `Wallet checkout top-up underpaid for ${input.orderReference}: expected ${input.amount}, got ${paid}`,
         );
-        return { received: true, credited: false };
+        return { received: true, credited: false, retryable: false };
       }
     }
 

@@ -204,6 +204,8 @@ export function SettingsRewardsTab() {
           toast.success('Wallet topped up');
           void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });
           void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.walletTransactions });
+        } else if (result.retryable === false) {
+          toast.error('Payment could not be credited. Contact support if you were charged.');
         } else if (walletTopupDone || hasPending) {
           toast.message('Payment is still processing. Your wallet will update shortly.');
           void queryClient.invalidateQueries({ queryKey: queryKeys.rewards.wallet });

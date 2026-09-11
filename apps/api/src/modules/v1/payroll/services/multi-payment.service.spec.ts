@@ -160,6 +160,9 @@ describe('MultiPaymentService', () => {
     delete process.env.MONNIFY_API_KEY;
     delete process.env.MONNIFY_SECRET_KEY;
     delete process.env.MONNIFY_CONTRACT_CODE;
+    delete process.env.FINCRA_API_KEY;
+    delete process.env.FINCRA_PUBLIC_KEY;
+    delete process.env.FINCRA_WEBHOOK_SECRET;
     const { service } = createService();
 
     await expect(

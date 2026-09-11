@@ -69,36 +69,9 @@ export class MultiPaymentService {
     const payable = [...paymentBatch.bankPayments, ...paymentBatch.cryptoPayments];
     if (payable.length === 0) {
       await this.payrollPayoutService.reconcilePayrollRunStatus(payrollRunId, tenantId);
-      const hadPendingCandidates = payrollRun.items.some(
-        (item) =>
-          item.status !== PayrollItemStatus.CANCELLED &&
-          item.status !== PayrollItemStatus.PAID &&
-          item.status !== PayrollItemStatus.PROCESSING &&
-          item.status !== PayrollItemStatus.FAILED,
+      throw new BadRequestException(
+        'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
       );
-      if (hadPendingCandidates) {
-        throw new BadRequestException(
-          'No employees could be paid. Check each employee payment method and that your payout provider account is funded, then use Retry payment.',
-        );
-      }
-      return {
-        totalItems: payrollRun.items.length,
-        successfulPayments: 0,
-        failedPayments: 0,
-        processingPayments: 0,
-        fiatResults: [],
-        payoutResults: [],
-        summary: {
-          bankSuccess: 0,
-          bankFailed: 0,
-          bankProcessing: 0,
-          cryptoSuccess: 0,
-          cryptoFailed: 0,
-          cryptoProcessing: 0,
-          fiatSuccess: 0,
-          fiatFailed: 0,
-        },
-      };
     }
     const payoutResults = await this.batching.processPayouts(
       payable,

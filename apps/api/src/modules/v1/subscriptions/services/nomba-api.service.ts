@@ -1,7 +1,11 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import {
   isNombaAcceptedCode,
+  isNombaCheckoutPaymentSuccessful,
+  nombaCheckoutOrderPath,
+  nombaSandboxCheckoutTransactionPath,
   resolveNombaTokenExpiresAtMs,
+  resolveNombaVerifiedCheckoutAmount,
 } from 'src/common/config/nomba-api.util';
 import { verifyNombaWebhookSignature } from 'src/common/config/nomba-webhook.util';
 import {
@@ -12,6 +16,7 @@ import {
   getNombaScopedAccountId,
   getNombaSubAccountId,
   isNombaConfigured,
+  isNombaLive,
 } from '../config/nomba.config';
 import { formatNombaAmount } from '../utils/per-seat-pricing.util';
 
@@ -43,10 +48,15 @@ interface NombaCheckoutResponse {
 interface NombaVerifyResponse {
   data?: {
     status?: string;
-    amount?: number;
+    amount?: number | string;
+    onlineCheckoutAmount?: number | string;
     currency?: string;
     meta?: Record<string, unknown>;
-  };
+    success?: boolean;
+    message?: string;
+    order?: { amount?: number | string };
+    transactionDetails?: { statusCode?: string };
+  } | null;
 }
 
 export interface NombaCheckoutOrderInput {
@@ -158,7 +168,8 @@ export class NombaApiService {
     orderReference: string;
   }> {
     this.assertOrderReference(input.orderReference);
-    const payload = await this.request<NombaCheckoutResponse>('/v1/checkout/order', {
+    const path = nombaCheckoutOrderPath(isNombaLive());
+    const payload = await this.request<NombaCheckoutResponse>(path, {
       order: {
         orderReference: input.orderReference,
         customerEmail: input.customerEmail,
@@ -231,7 +242,10 @@ export class NombaApiService {
 
     try {
       const token = await this.getAccessToken();
-      const response = await fetch(`${getNombaBaseUrl()}${this.singleTransactionPath(reference)}`, {
+      const path = isNombaLive()
+        ? this.singleTransactionPath(reference)
+        : nombaSandboxCheckoutTransactionPath(reference);
+      const response = await fetch(`${getNombaBaseUrl()}${path}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           accountId: getNombaAccountId(),
@@ -239,11 +253,25 @@ export class NombaApiService {
       });
 
       const payload = (await response.json()) as NombaVerifyResponse;
-      if (!response.ok) {
+      if (!response.ok || !payload.data) {
         return null;
       }
 
-      return payload.data ?? null;
+      const data = payload.data;
+      const rawStatus =
+        data.status ?? data.transactionDetails?.statusCode ?? data.message ?? undefined;
+      const successful = isNombaCheckoutPaymentSuccessful({
+        status: rawStatus,
+        successFlag: data.success,
+        message: data.message,
+      });
+      const amount = resolveNombaVerifiedCheckoutAmount(data);
+
+      return {
+        ...data,
+        status: successful ? 'success' : rawStatus,
+        amount,
+      };
     } catch (error) {
       this.logger.warn(
         `Nomba verify failed for ${reference}: ${error instanceof Error ? error.message : String(error)}`,

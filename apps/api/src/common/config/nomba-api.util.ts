@@ -27,6 +27,64 @@ export function isNombaAcceptedStatus(status?: string | null): boolean {
   );
 }
 
+/** Parse Nomba money fields (number or decimal string). */
+export function parseNombaAmount(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+const NOMBA_CHECKOUT_SUCCESS_STATUSES = new Set([
+  'success',
+  'successful',
+  'succeeded',
+  'accepted',
+  'payment_successful',
+  'payment successful',
+]);
+
+/** Checkout / verify success — avoid `includes('success')` (matches unsuccessful). */
+export function isNombaCheckoutPaymentSuccessful(input: {
+  status?: string | null;
+  successFlag?: boolean | null;
+  message?: string | null;
+}): boolean {
+  if (input.successFlag === true) return true;
+  const status = (input.status ?? '').trim().toLowerCase();
+  if (status && NOMBA_CHECKOUT_SUCCESS_STATUSES.has(status)) return true;
+  const message = (input.message ?? '').trim().toLowerCase();
+  return message === 'payment successful' || message === 'payment_successful';
+}
+
+/** Prefer order amount over net wallet credit (fees). */
+export function resolveNombaVerifiedCheckoutAmount(data: {
+  amount?: unknown;
+  onlineCheckoutAmount?: unknown;
+  order?: { amount?: unknown };
+}): number | undefined {
+  return (
+    parseNombaAmount(data.order?.amount) ??
+    parseNombaAmount(data.onlineCheckoutAmount) ??
+    parseNombaAmount(data.amount)
+  );
+}
+
+/** Sandbox checkout create uses `/sandbox/checkout/*`; live uses `/v1/checkout/*`. */
+export function nombaCheckoutOrderPath(isLive: boolean): string {
+  return isLive ? '/v1/checkout/order' : '/sandbox/checkout/order';
+}
+
+export function nombaSandboxCheckoutTransactionPath(orderReference: string): string {
+  const params = new URLSearchParams({
+    idType: 'orderReference',
+    id: orderReference,
+  });
+  return `/sandbox/checkout/transaction?${params.toString()}`;
+}
+
 export function isNombaOperationSuccessful(options: {
   code?: string | number | null;
   status?: string | null;

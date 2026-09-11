@@ -1,7 +1,11 @@
 import {
   isNombaAcceptedCode,
+  isNombaCheckoutPaymentSuccessful,
   isNombaOperationSuccessful,
+  nombaCheckoutOrderPath,
+  parseNombaAmount,
   resolveNombaTokenExpiresAtMs,
+  resolveNombaVerifiedCheckoutAmount,
 } from './nomba-api.util';
 
 describe('nomba-api.util', () => {
@@ -32,5 +36,26 @@ describe('nomba-api.util', () => {
     const resolved = resolveNombaTokenExpiresAtMs({});
     expect(resolved).toBeGreaterThan(Date.now() + 20 * 60 * 1000);
     expect(resolved).toBeLessThanOrEqual(Date.now() + 25 * 60 * 1000);
+  });
+
+  it('parses Nomba checkout amounts and prefers order amount', () => {
+    expect(parseNombaAmount('5000.00')).toBe(5000);
+    expect(parseNombaAmount(100)).toBe(100);
+    expect(
+      resolveNombaVerifiedCheckoutAmount({
+        amount: 100,
+        onlineCheckoutAmount: '5000.00',
+        order: { amount: '5000.00' },
+      }),
+    ).toBe(5000);
+  });
+
+  it('detects checkout success without matching unsuccessful', () => {
+    expect(isNombaCheckoutPaymentSuccessful({ status: 'SUCCESS' })).toBe(true);
+    expect(isNombaCheckoutPaymentSuccessful({ status: 'PAYMENT_SUCCESSFUL' })).toBe(true);
+    expect(isNombaCheckoutPaymentSuccessful({ successFlag: true })).toBe(true);
+    expect(isNombaCheckoutPaymentSuccessful({ status: 'unsuccessful' })).toBe(false);
+    expect(nombaCheckoutOrderPath(false)).toBe('/sandbox/checkout/order');
+    expect(nombaCheckoutOrderPath(true)).toBe('/v1/checkout/order');
   });
 });
