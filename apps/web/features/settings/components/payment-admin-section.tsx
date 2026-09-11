@@ -88,28 +88,10 @@ export function PaymentAdminSection() {
               <p className="font-medium">{method.employeeName}</p>
               <Badge variant="outline">{method.currency}</Badge>
             </div>
-            <p className="text-sm text-muted-foreground">{method.displayInfo}</p>
             {method.accountName ? (
-              <p className="text-sm text-muted-foreground">Account name: {method.accountName}</p>
+              <p className="text-sm text-foreground">{method.accountName}</p>
             ) : null}
-            {method.bankName ? (
-              <p className="text-xs text-muted-foreground">Bank: {method.bankName}</p>
-            ) : null}
-            {method.institutionCode ? (
-              <p className="text-xs text-muted-foreground">
-                {method.currency === 'USD'
-                  ? 'Routing'
-                  : method.currency === 'EUR'
-                    ? 'BIC'
-                    : method.currency === 'GBP'
-                      ? 'Sort code'
-                      : 'Institution'}
-                : {method.institutionCode}
-              </p>
-            ) : null}
-            {method.accountLast4 ? (
-              <p className="text-xs text-muted-foreground">Account ending {method.accountLast4}</p>
-            ) : null}
+            <p className="text-sm text-muted-foreground">{method.displayInfo}</p>
             <p className="text-xs text-muted-foreground">
               Submitted {new Date(method.submittedAt ?? method.createdAt).toLocaleString()}
             </p>

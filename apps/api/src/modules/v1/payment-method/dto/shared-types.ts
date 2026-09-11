@@ -55,7 +55,9 @@ export class VerifyPaymentMethodDto {
   @IsNotEmpty({ message: 'Status is required' })
   @IsEnum(PaymentMethodStatus)
   status: PaymentMethodStatus;
-  @ApiProperty({ description: 'Verification notes (required when rejecting)', required: false })
+
+  @ApiProperty({ description: 'Optional notes (required when rejecting)', required: false })
+  @IsOptional()
   @IsString()
   @MaxLength(500)
   notes?: string;

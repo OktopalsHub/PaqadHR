@@ -64,9 +64,12 @@ export async function verifyPaymentMethod(
   notes?: string,
 ): Promise<void> {
   const tenantId = await resolveTenantId();
+  const body: { status: 'verified' | 'rejected'; notes?: string } = { status };
+  const trimmedNotes = notes?.trim();
+  if (trimmedNotes) body.notes = trimmedNotes;
   await apiClient(tenantPath(tenantId, `payment-methods/${paymentMethodId}/verify`), {
     method: 'POST',
-    body: JSON.stringify({ status, notes }),
+    body: JSON.stringify(body),
   });
 }
 
