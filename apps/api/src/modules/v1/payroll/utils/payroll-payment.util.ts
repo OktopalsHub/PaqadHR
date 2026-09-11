@@ -7,8 +7,13 @@ import type { PayrollItem } from '../entities/payroll-item.entity';
 
 import { buildPayrollMerchantRef } from './payroll-merchant-ref.util';
 
-/** Prefer paymentAmount; fall back to netAmount for legacy rows that never synced payout amount. */
+/** Prefer paymentAmount; for FX-at-payout rows use salary net until provider quotes. */
 export function resolvePayrollPayoutAmount(item: PayrollItem): number {
+  const meta = item.metadata ?? {};
+  if (meta.fxAtPayout === true) {
+    const net = Number(item.netAmount);
+    if (Number.isFinite(net) && net > 0) return net;
+  }
   const payment = Number(item.paymentAmount);
   if (Number.isFinite(payment) && payment > 0) {
     return payment;
@@ -33,6 +38,8 @@ export function buildPayrollPaymentData(
     : `Payroll payment for ${employeeName}`;
   const currency = item.paymentCurrency;
   const isCrypto = paymentMethod.type === PaymentMethodType.CRYPTO || isCryptoCurrency(currency);
+  const fxAtPayout = item.metadata?.fxAtPayout === true;
+  const salaryCurrency = item.baseSalaryCurrency?.toUpperCase();
   const retryAttempt =
     typeof item.metadata?.payoutRetryCount === 'number' ? item.metadata.payoutRetryCount : 0;
 
@@ -71,6 +78,9 @@ export function buildPayrollPaymentData(
       cryptoNetwork: meta.cryptoNetwork,
       noahChannelId: meta.noahChannelId,
       tenantName,
+      fxAtPayout,
+      salaryCurrency,
+      salaryNetAmount: fxAtPayout ? Number(item.netAmount) : undefined,
     },
   };
 }

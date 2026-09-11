@@ -51,17 +51,15 @@ export class PayrollService {
   private async assertEmployeesPaymentReady(
     tenantId: string,
     employeeIds: string[],
-    currency: string,
   ): Promise<void> {
     const results = await this.paymentMethodService.assessBulkPayrollReadiness(
       tenantId,
       employeeIds,
-      currency,
     );
     const notReady = results.filter((r) => !r.ready);
     if (notReady.length > 0) {
       throw new BadRequestException(
-        `${notReady.length} employee(s) are missing payment details for ${currency.toUpperCase()} and cannot be included.`,
+        `${notReady.length} employee(s) need a verified primary payout method and cannot be included.`,
       );
     }
   }
@@ -73,7 +71,7 @@ export class PayrollService {
     createdById: string,
     idempotencyKey?: string,
   ) {
-    await this.assertEmployeesPaymentReady(tenantId, dto.employeeIds, dto.baseCurrency);
+    await this.assertEmployeesPaymentReady(tenantId, dto.employeeIds);
     return this.payrollRunService.createPayrollRun(dto, tenantId, createdById, idempotencyKey);
   }
 
@@ -135,7 +133,7 @@ export class PayrollService {
     if (dto.employeeIds?.length) {
       const existing = await this.payrollRunService.getPayrollRun(payrollRunId, tenantId);
       if (!existing) throw new BadRequestException('Payroll run not found');
-      await this.assertEmployeesPaymentReady(tenantId, dto.employeeIds, existing.baseCurrency);
+      await this.assertEmployeesPaymentReady(tenantId, dto.employeeIds);
     }
 
     const run = await this.payrollRunService.updatePayrollRun(

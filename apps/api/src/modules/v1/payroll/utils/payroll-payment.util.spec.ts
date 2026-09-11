@@ -14,6 +14,16 @@ describe('resolvePayrollPayoutAmount', () => {
     ).toBe(2500);
   });
 
+  it('uses salary net for fx-at-payout rows', () => {
+    expect(
+      resolvePayrollPayoutAmount({
+        paymentAmount: 0,
+        netAmount: 250_000,
+        metadata: { fxAtPayout: true },
+      } as never),
+    ).toBe(250_000);
+  });
+
   it('returns 0 when both amounts are empty', () => {
     expect(resolvePayrollPayoutAmount({ paymentAmount: 0, netAmount: 0 } as never)).toBe(0);
   });

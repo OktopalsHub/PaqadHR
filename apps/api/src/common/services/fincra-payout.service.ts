@@ -38,6 +38,10 @@ export interface FincraInitiatePayoutInput {
   customerEmail?: string;
   /** Supporting document URL required for USD (and some cross-border) payouts. */
   documentUrl?: string;
+  /** When set, quote uses send (salary debit) instead of receive (payout credit). */
+  quoteAction?: 'send' | 'receive';
+  /** Salary currency for cross-currency payroll (send-side quote). */
+  salaryCurrency?: string;
 }
 
 @Injectable()
@@ -50,14 +54,15 @@ export class FincraPayoutService {
     amount: number;
     paymentDestination: 'bank_account' | 'crypto_wallet';
     paymentScheme?: string;
+    action?: 'send' | 'receive';
   }): Promise<FincraQuoteResult | null> {
     const businessId = await this.auth.resolveBusinessId();
+    const quoteAction = input.action ?? 'receive';
     const body: Record<string, unknown> = {
       sourceCurrency: input.sourceCurrency.toUpperCase(),
       destinationCurrency: input.destinationCurrency.toUpperCase(),
-      // Payroll amounts are what the recipient should receive.
       amount: String(input.amount),
-      action: 'receive',
+      action: quoteAction,
       transactionType: 'disbursement',
       business: businessId,
       paymentDestination: input.paymentDestination,
@@ -116,7 +121,9 @@ export class FincraPayoutService {
 
     const destinationCurrency = input.destinationCurrency.toUpperCase();
     const sourceCurrency = (
-      input.sourceCurrency ?? (await this.auth.resolvePayoutSourceCurrency())
+      input.salaryCurrency ??
+      input.sourceCurrency ??
+      (await this.auth.resolvePayoutSourceCurrency())
     ).toUpperCase();
     const isCrypto = isCryptoCurrency(destinationCurrency);
     const paymentDestination = isCrypto ? 'crypto_wallet' : 'bank_account';
@@ -133,19 +140,26 @@ export class FincraPayoutService {
     let quotedDestinationAmount: number | undefined;
 
     if (sourceCurrency !== destinationCurrency) {
+      const quoteAction = input.quoteAction ?? (input.salaryCurrency ? 'send' : 'receive');
       const quote = await this.generateQuote({
         sourceCurrency,
         destinationCurrency,
         amount: input.amount,
         paymentDestination,
         paymentScheme,
+        action: quoteAction,
       });
       if (!quote) return { success: false, message: 'Failed to generate Fincra quote' };
       quoteReference = quote.reference;
-      // Cross-currency payout amount must match the quoted source (wallet) debit.
-      payoutAmount = quote.sourceAmount;
-      quotedSourceAmount = quote.sourceAmount;
-      quotedDestinationAmount = quote.destinationAmount;
+      if (quoteAction === 'send') {
+        payoutAmount = quote.sourceAmount;
+        quotedSourceAmount = quote.sourceAmount;
+        quotedDestinationAmount = quote.destinationAmount;
+      } else {
+        payoutAmount = quote.sourceAmount;
+        quotedSourceAmount = quote.sourceAmount;
+        quotedDestinationAmount = quote.destinationAmount;
+      }
     }
 
     const [firstName, ...restName] = (input.accountName ?? 'Payroll Recipient').trim().split(/\s+/);

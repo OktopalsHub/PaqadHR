@@ -266,7 +266,7 @@ export function EditPayrollRunDialog({
         ) : (
           <div className="space-y-4 pt-2">
             <p className="text-sm text-muted-foreground">
-              Only employees with payment details for {currency} can be included.
+              Only employees with a verified primary payout method can be included.
             </p>
             <div className="max-h-56 space-y-2 overflow-y-auto rounded-[8px] border border-[#d7e3f6] p-3 dark:border-slate-800">
               {eligibleEmployeeIds.map((employeeId) => {

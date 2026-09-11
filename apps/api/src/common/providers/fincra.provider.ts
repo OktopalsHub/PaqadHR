@@ -45,6 +45,12 @@ export class FincraProvider extends BasePaymentProvider {
       this.generateReference(
         `PAYROLL_${(data.metadata?.payrollItemId as string | undefined) ?? ''}`,
       );
+    const fxAtPayout = data.metadata?.fxAtPayout === true;
+    const salaryCurrency =
+      typeof data.metadata?.salaryCurrency === 'string'
+        ? data.metadata.salaryCurrency.toUpperCase()
+        : undefined;
+    const crossCurrencySalaryPayout = fxAtPayout && salaryCurrency && salaryCurrency !== currency;
 
     try {
       if (isCryptoCurrency(currency)) {
@@ -74,6 +80,8 @@ export class FincraProvider extends BasePaymentProvider {
           walletAddress,
           cryptoNetwork,
           accountName: data.accountName,
+          salaryCurrency: crossCurrencySalaryPayout ? salaryCurrency : undefined,
+          quoteAction: crossCurrencySalaryPayout ? 'send' : undefined,
         });
 
         const accepted = response.success === true;
@@ -114,6 +122,8 @@ export class FincraProvider extends BasePaymentProvider {
           typeof data.metadata?.fincraDocumentUrl === 'string'
             ? data.metadata.fincraDocumentUrl
             : undefined,
+        salaryCurrency: crossCurrencySalaryPayout ? salaryCurrency : undefined,
+        quoteAction: crossCurrencySalaryPayout ? 'send' : undefined,
       };
 
       if (currency === 'GBP') {

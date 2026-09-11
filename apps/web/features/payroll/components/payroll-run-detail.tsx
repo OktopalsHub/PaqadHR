@@ -286,19 +286,10 @@ export function PayrollRunDetail({
   const viewerMemberId = tenant?.member?.id;
   const viewerRole = tenant?.member?.role;
 
-  const paymentReadyByCurrency = useMemo(() => {
-    const map = new Map<string, Set<string>>();
-    for (const row of setupSummary?.byCurrency ?? []) {
-      map.set(row.currency.toUpperCase(), new Set(row.readyMemberIds ?? []));
-    }
-    return map;
-  }, [setupSummary?.byCurrency]);
-
-  const paymentReadyMemberIds = useMemo(() => {
-    const currency = run?.baseCurrency?.toUpperCase();
-    if (!currency) return new Set<string>();
-    return paymentReadyByCurrency.get(currency) ?? new Set<string>();
-  }, [run?.baseCurrency, paymentReadyByCurrency]);
+  const paymentReadyMemberIds = useMemo(
+    () => new Set(setupSummary?.readyMemberIds ?? []),
+    [setupSummary?.readyMemberIds],
+  );
 
   const activeEmployees = useMemo(
     () => employees.filter((employee) => employee.status === 'Active'),
@@ -803,8 +794,28 @@ export function PayrollRunDetail({
                       </div>
                     </AppTableCell>
                     <AppTableCell>{Number(item.deductions ?? 0).toLocaleString()}</AppTableCell>
-                    <AppTableCell className="font-medium">
-                      {Number(item.netAmount ?? 0).toLocaleString()} {detail.baseCurrency}
+                    <AppTableCell>
+                      <div className="space-y-1">
+                        <p className="font-medium">
+                          {Number(item.netAmount ?? 0).toLocaleString()}{' '}
+                          {item.baseSalaryCurrency || detail.baseCurrency}
+                        </p>
+                        {item.paymentCurrency &&
+                        item.baseSalaryCurrency &&
+                        item.paymentCurrency.toUpperCase() !==
+                          item.baseSalaryCurrency.toUpperCase() ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Payout:{' '}
+                            {item.metadata?.fxAtPayout === true
+                              ? `quoted at disbursement → ${item.paymentCurrency}`
+                              : `${Number(item.paymentAmount ?? 0).toLocaleString()} ${item.paymentCurrency}`}
+                          </p>
+                        ) : item.paymentCurrency ? (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Payout: {item.paymentCurrency}
+                          </p>
+                        ) : null}
+                      </div>
                     </AppTableCell>
                     <AppTableCell>
                       <div className="space-y-1">

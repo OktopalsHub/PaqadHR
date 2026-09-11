@@ -45,15 +45,10 @@ export class PaymentBatching {
     private readonly lifecycleNotify?: PayrollLifecycleNotifyService,
   ) {}
 
-  async categorizePayments(
-    items: PayrollItem[],
-    tenantId: string,
-    currency: string,
-  ): Promise<PaymentBatch> {
+  async categorizePayments(items: PayrollItem[], tenantId: string): Promise<PaymentBatch> {
     const bankPayments: PayrollItem[] = [];
     const cryptoPayments: PayrollItem[] = [];
     const skipped: PayrollItem[] = [];
-    const runIsCrypto = isCryptoCurrency(currency);
 
     for (const item of items) {
       if (
@@ -65,10 +60,12 @@ export class PaymentBatching {
         continue;
       }
 
+      const payoutCurrency = (item.paymentCurrency ?? '').toUpperCase();
+      const itemIsCrypto = isCryptoCurrency(payoutCurrency);
+
       const readiness = await this.paymentMethodService.assessPayrollReadiness(
         tenantId,
         item.memberId,
-        currency,
         Boolean(item.metadata?.excludedFromRun),
       );
       if (!readiness.ready) {
@@ -80,7 +77,7 @@ export class PaymentBatching {
         continue;
       }
 
-      if (runIsCrypto) {
+      if (itemIsCrypto) {
         cryptoPayments.push(item);
       } else {
         bankPayments.push(item);
@@ -257,7 +254,6 @@ export class PaymentBatching {
     const readiness = await this.paymentMethodService.assessPayrollReadiness(
       tenantId,
       item.memberId,
-      item.paymentCurrency,
       Boolean(item.metadata?.excludedFromRun),
     );
     if (!readiness.ready || !readiness.paymentMethodId) {

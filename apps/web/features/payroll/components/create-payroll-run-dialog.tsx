@@ -34,7 +34,7 @@ type CreatePayrollRunDialogProps = {
   activeEmployees: Employee[];
   currentSalaries: CurrentSalary[];
   fallbackCurrency: string;
-  paymentReadyByCurrency: Map<string, Set<string>>;
+  paymentReadyMemberIds: Set<string>;
   onCreated: (firstRunId: string | null) => void;
 };
 
@@ -51,7 +51,7 @@ export function CreatePayrollRunDialog({
   activeEmployees,
   currentSalaries,
   fallbackCurrency,
-  paymentReadyByCurrency,
+  paymentReadyMemberIds,
   onCreated,
 }: CreatePayrollRunDialogProps) {
   const now = new Date();
@@ -107,18 +107,7 @@ export function CreatePayrollRunDialog({
     }
   };
 
-  const salaryCurrencyByEmployee = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const salary of currentSalaries) {
-      map.set(salary.memberId, (salary.currency ?? fallbackCurrency).toUpperCase());
-    }
-    return map;
-  }, [currentSalaries, fallbackCurrency]);
-
-  const isPaymentReady = (employeeId: string) => {
-    const currency = salaryCurrencyByEmployee.get(employeeId) ?? fallbackCurrency.toUpperCase();
-    return paymentReadyByCurrency.get(currency)?.has(employeeId) ?? false;
-  };
+  const isPaymentReady = (employeeId: string) => paymentReadyMemberIds.has(employeeId);
 
   const toggleEmployee = (employeeId: string, checked: boolean) => {
     if (!isPaymentReady(employeeId)) return;
@@ -308,8 +297,9 @@ export function CreatePayrollRunDialog({
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Runs split by each employee&apos;s salary currency (Employment → Add salary).
-                  Crypto salaries (e.g. SOL) only appear after salary is saved in that currency.
+                  Runs are grouped by salary currency for bookkeeping. Payout uses each
+                  employee&apos;s primary payment method — conversion applies when currencies
+                  differ.
                 </p>
               </div>
             ) : (
@@ -329,7 +319,8 @@ export function CreatePayrollRunDialog({
         ) : (
           <div className="space-y-4 pt-2">
             <p className="text-sm text-muted-foreground">
-              Only employees with payment details can be included. Others are shown disabled.
+              Include employees with a verified primary payout method. Salary currency and payout
+              currency can differ — FX is applied at calculate/payout.
             </p>
 
             {groupEmployeeIdsBySalaryCurrency(
