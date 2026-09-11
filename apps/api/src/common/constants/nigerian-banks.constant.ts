@@ -12,7 +12,7 @@ export const NIGERIAN_BANKS_FALLBACK: ReadonlyArray<{ code: string; name: string
   { code: '082', name: 'Keystone Bank' },
   { code: '090267', name: 'Kuda Bank' },
   { code: '090405', name: 'Moniepoint MFB' },
-  { code: '100004', name: 'Opay' },
+  { code: '100004', name: 'Paycom (Opay)' },
   { code: '100033', name: 'PalmPay' },
   { code: '526', name: 'Parallex Bank' },
   { code: '076', name: 'Polaris Bank' },
