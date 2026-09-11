@@ -73,6 +73,8 @@ export function resolveFincraPaymentScheme(
     if (net.includes('bep') || net.includes('bsc')) return 'usdc_bep20';
     return 'usdc_erc20';
   }
+  if (code === 'BTC') return 'btc_mainnet';
+  if (code === 'ETH') return 'eth';
   return undefined;
 }
 

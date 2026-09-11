@@ -26,13 +26,13 @@ export class NoahProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    for (const code of ['USD', 'EUR', 'GBP', 'USDC', 'USDT']) {
+    for (const code of ['USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH', 'SOL']) {
       this.currencyConfigs.set(code, {
         code,
         name: code,
         symbol: code,
-        decimals: 2,
-        type: ['USDC', 'USDT'].includes(code) ? 'crypto' : 'fiat',
+        decimals: code === 'BTC' || code === 'ETH' || code === 'SOL' ? 8 : 2,
+        type: ['USDC', 'USDT', 'BTC', 'ETH', 'SOL'].includes(code) ? 'crypto' : 'fiat',
         isActive: true,
       });
     }
@@ -74,6 +74,7 @@ export class NoahProvider extends BasePaymentProvider {
           network: data.network ?? (data.metadata?.cryptoNetwork as string | undefined),
           merchantTxRef,
           narration: data.description,
+          accountName: data.accountName ?? data.customerName,
         });
 
         const success = isNoahOperationSuccessful(response.status);
@@ -154,7 +155,7 @@ export class NoahProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['USD', 'EUR', 'GBP', 'USDC', 'USDT'];
+    return ['USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH', 'SOL'];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

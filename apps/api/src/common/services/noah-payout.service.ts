@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getNoahPayoutCryptoCurrency } from '../config/noah.config';
+import { getNoahEnvironment, getNoahPayoutCryptoCurrency } from '../config/noah.config';
+import { normalizeCryptoNetwork } from '../constants/crypto-currencies.constant';
 import { NoahAuthService } from './noah-auth.service';
 
 export interface NoahFiatPayoutInput {
@@ -18,6 +19,15 @@ export interface NoahFiatPayoutInput {
   bankAccountType?: 'CHECKING' | 'SAVINGS';
   purposeOfPayment?: string;
   narration?: string;
+  customerId?: string;
+  /** Optional holder address for rails that require it (e.g. USD ACH). */
+  holderAddress?: {
+    line1: string;
+    city: string;
+    postalCode: string;
+    state: string;
+    countryCode: string;
+  };
 }
 
 export interface NoahCryptoPayoutInput {
@@ -27,6 +37,77 @@ export interface NoahCryptoPayoutInput {
   network?: string;
   merchantTxRef: string;
   narration?: string;
+  accountName?: string;
+}
+
+interface NoahChannelItem {
+  ID?: string;
+  id?: string;
+  PaymentMethodCategory?: string;
+  PaymentMethodType?: string;
+  FiatCurrency?: string;
+}
+
+interface NoahChannelsResponse {
+  Items?: NoahChannelItem[];
+  channels?: NoahChannelItem[];
+}
+
+interface NoahPrepareResponse {
+  FormSessionID?: string;
+  CryptoAuthorizedAmount?: string;
+  CryptoAmountEstimate?: string;
+  FiatAmount?: string;
+  CryptoCurrency?: string;
+  NextStep?: { StepID?: string };
+}
+
+interface NoahSellResponse {
+  Transaction?: { ID?: string; Status?: string };
+  transactionID?: string;
+  status?: string;
+}
+
+interface NoahWithdrawResponse {
+  Transaction?: { ID?: string; Status?: string };
+}
+
+function resolveNoahCryptoAsset(code: string): string {
+  const upper = code.toUpperCase();
+  if (getNoahEnvironment() === 'production') {
+    if (upper.endsWith('_TEST') || upper.includes('_TEST_')) {
+      return upper.replace(/_TEST(_SEPOLIA)?$/i, '').replace(/_TEST_/i, '_');
+    }
+    if (upper === 'ETH_TEST_SEPOLIA') return 'ETH';
+    return upper;
+  }
+  if (upper === 'USDC' || upper === 'USDC_TEST') return 'USDC_TEST';
+  if (upper === 'USDT' || upper === 'USDT_TEST') return 'USDT_TEST';
+  if (upper === 'BTC' || upper === 'BTC_TEST') return 'BTC_TEST';
+  if (upper === 'ETH' || upper === 'ETH_TEST' || upper === 'ETH_TEST_SEPOLIA') {
+    return 'ETH_TEST_SEPOLIA';
+  }
+  if (upper === 'SOL' || upper === 'SOL_TEST') return 'SOL_TEST';
+  return upper.endsWith('_TEST') || upper.includes('_TEST') ? upper : `${upper}_TEST`;
+}
+
+function resolveNoahNetwork(currency: string, network?: string): string {
+  const normalized = network ? normalizeCryptoNetwork(currency, network) : null;
+  const isSandbox = getNoahEnvironment() !== 'production';
+  const base =
+    normalized ??
+    (currency.toUpperCase() === 'BTC'
+      ? 'Bitcoin'
+      : currency.toUpperCase() === 'SOL'
+        ? 'Solana'
+        : 'Ethereum');
+  if (!isSandbox) return base === 'PolygonPos' ? 'PolygonPos' : base;
+  if (base === 'Ethereum') return 'EthereumTestSepolia';
+  if (base === 'Base') return 'BaseTestSepolia';
+  if (base === 'PolygonPos' || base === 'Polygon') return 'PolygonTestAmoy';
+  if (base === 'Solana') return 'SolanaDevnet';
+  if (base === 'Bitcoin') return 'BitcoinTest';
+  return base;
 }
 
 @Injectable()
@@ -37,85 +118,110 @@ export class NoahPayoutService {
     transactionId: string;
     status: string;
   }> {
-    const cryptoCurrency = input.cryptoCurrency ?? getNoahPayoutCryptoCurrency();
-    const channels = await this.auth.request<{
-      channels?: Array<{ id?: string; channelID?: string }>;
-    }>('GET', '/channels/sell', undefined, {
-      country: input.countryCode.toUpperCase(),
-      fiatCurrency: input.fiatCurrency.toUpperCase(),
-      cryptoCurrency,
-    });
+    const cryptoCurrency = resolveNoahCryptoAsset(
+      input.cryptoCurrency ?? getNoahPayoutCryptoCurrency(),
+    );
+    const channels = await this.auth.request<NoahChannelsResponse>(
+      'GET',
+      '/channels/sell',
+      undefined,
+      {
+        Country: input.countryCode.toUpperCase(),
+        FiatCurrency: input.fiatCurrency.toUpperCase(),
+        CryptoCurrency: cryptoCurrency,
+      },
+    );
 
-    const channelId =
-      input.channelId ?? channels.channels?.[0]?.channelID ?? channels.channels?.[0]?.id;
+    const items = channels.Items ?? channels.channels ?? [];
+    const preferredTypes = ['BankAch', 'BankSepa', 'BankLocal', 'BankFasterPayments'];
+    const bankChannel =
+      preferredTypes
+        .map((type) => items.find((item) => item.PaymentMethodType === type))
+        .find(Boolean) ??
+      items.find((item) => (item.PaymentMethodCategory || '').toLowerCase() === 'bank') ??
+      items[0];
+    const channelId = input.channelId ?? bankChannel?.ID ?? bankChannel?.id;
     if (!channelId) {
       throw new BadRequestException(
         `No Noah payout channel for ${input.fiatCurrency} in ${input.countryCode}`,
       );
     }
 
+    const [firstName, ...rest] = input.accountName.trim().split(/\s+/);
+    const lastName = rest.join(' ') || firstName;
+    const bankDetails: Record<string, unknown> = {
+      AccountNumber: input.accountNumber,
+      AccountType: input.bankAccountType === 'SAVINGS' ? 'Savings' : 'Checking',
+    };
+    if (input.fiatCurrency.toUpperCase() === 'USD') {
+      bankDetails.RoutingNumber = input.bankCode;
+    } else if (input.fiatCurrency.toUpperCase() === 'EUR') {
+      if (input.bankCode) bankDetails.Bic = input.bankCode;
+    } else if (input.bankCode) {
+      bankDetails.BankCode = input.bankCode;
+    }
+    if (input.bankName) bankDetails.BankName = input.bankName;
+
     const form: Record<string, unknown> = {
       AccountHolderName: {
         AccountHolderType: input.accountType === 'CORPORATE' ? 'Business' : 'Individual',
-        Name: { FullName: input.accountName },
+        Name: { FirstName: firstName, LastName: lastName },
       },
-      BankDetails: {
-        AccountNumber: input.accountNumber,
-        BankCode: input.bankCode,
-        BankName: input.bankName,
-        AccountType: input.bankAccountType ?? 'Checking',
-      },
-      PaymentPurpose: input.purposeOfPayment ?? 'Payroll',
-      Reference: input.merchantTxRef,
+      BankDetails: bankDetails,
+      Reference: input.merchantTxRef.slice(0, 36),
     };
 
-    const prepared = await this.auth.request<{
-      transactionID?: string;
-      transactionId?: string;
-      payoutID?: string;
-      payoutId?: string;
-      status?: string;
-    }>(
+    if (input.fiatCurrency.toUpperCase() === 'USD') {
+      form.AccountHolderAddress = input.holderAddress ?? {
+        line1: '1 Business Street',
+        city: 'New York',
+        postalCode: '10001',
+        state: 'NY',
+        countryCode: 'US',
+      };
+    }
+
+    const prepared = await this.auth.request<NoahPrepareResponse>(
       'POST',
       '/transactions/sell/prepare',
       {
-        channelID: channelId,
-        cryptoCurrency,
-        fiatAmount: String(input.amount),
-        fiatCurrency: input.fiatCurrency.toUpperCase(),
-        form,
-        externalID: input.merchantTxRef,
-        narration: input.narration,
+        ChannelID: channelId,
+        CryptoCurrency: cryptoCurrency,
+        FiatAmount: String(input.amount),
+        Form: form,
+        DelayedSell: true,
+        ...(input.customerId ? { CustomerID: input.customerId } : {}),
       },
       undefined,
       input.merchantTxRef,
     );
 
-    const prepareId =
-      prepared.payoutID ?? prepared.payoutId ?? prepared.transactionID ?? prepared.transactionId;
-    if (!prepareId) {
-      throw new BadRequestException('Noah payout prepare did not return a transaction id');
+    if (!prepared.FormSessionID || !prepared.CryptoAuthorizedAmount) {
+      throw new BadRequestException(
+        prepared.NextStep?.StepID
+          ? `Noah payout prepare needs additional step: ${prepared.NextStep.StepID}`
+          : 'Noah payout prepare did not return FormSessionID',
+      );
     }
 
-    const executed = await this.auth.request<{
-      transactionID?: string;
-      transactionId?: string;
-      status?: string;
-    }>(
+    const executed = await this.auth.request<NoahSellResponse>(
       'POST',
       '/transactions/sell',
       {
-        transactionID: prepareId,
-        externalID: input.merchantTxRef,
+        CryptoCurrency: cryptoCurrency,
+        FiatAmount: prepared.FiatAmount ?? String(input.amount),
+        CryptoAuthorizedAmount: prepared.CryptoAuthorizedAmount,
+        FormSessionID: prepared.FormSessionID,
+        Nonce: input.merchantTxRef.slice(0, 36),
+        ExternalID: input.merchantTxRef.slice(0, 36),
       },
       undefined,
-      input.merchantTxRef,
+      `${input.merchantTxRef}_sell`,
     );
 
     return {
-      transactionId:
-        executed.transactionID ?? executed.transactionId ?? prepareId ?? input.merchantTxRef,
-      status: executed.status ?? prepared.status ?? 'PROCESSING',
+      transactionId: executed.Transaction?.ID ?? input.merchantTxRef,
+      status: executed.Transaction?.Status ?? executed.status ?? 'Pending',
     };
   }
 
@@ -123,28 +229,36 @@ export class NoahPayoutService {
     transactionId: string;
     status: string;
   }> {
-    const payload = await this.auth.request<{
-      transactionID?: string;
-      transactionId?: string;
-      status?: string;
-    }>(
+    const cryptoCurrency = resolveNoahCryptoAsset(input.cryptoCurrency);
+    const network = resolveNoahNetwork(input.cryptoCurrency, input.network);
+    const [firstName, ...rest] = (input.accountName ?? 'Payroll Recipient').trim().split(/\s+/);
+    const lastName = rest.join(' ') || firstName;
+
+    const payload = await this.auth.request<NoahWithdrawResponse>(
       'POST',
-      '/transactions/send',
+      '/transactions/withdraw',
       {
-        cryptoCurrency: input.cryptoCurrency.toUpperCase(),
-        amount: String(input.amount),
-        destinationAddress: input.walletAddress,
-        network: input.network,
-        externalID: input.merchantTxRef,
-        narration: input.narration,
+        CryptoCurrency: cryptoCurrency,
+        Network: network,
+        Amount: String(input.amount),
+        DestinationAddress: { Address: input.walletAddress },
+        Nonce: input.merchantTxRef.slice(0, 36),
+        ExternalID: input.merchantTxRef.slice(0, 36),
+        TravelRule: {
+          Beneficiary: {
+            Type: 'Individual',
+            FullName: { FirstName: firstName, LastName: lastName },
+            AccountNumber: input.walletAddress,
+          },
+        },
       },
       undefined,
       input.merchantTxRef,
     );
 
     return {
-      transactionId: payload.transactionID ?? payload.transactionId ?? input.merchantTxRef,
-      status: payload.status ?? 'PROCESSING',
+      transactionId: payload.Transaction?.ID ?? input.merchantTxRef,
+      status: payload.Transaction?.Status ?? 'Pending',
     };
   }
 }

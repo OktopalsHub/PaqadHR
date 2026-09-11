@@ -27,6 +27,7 @@ export interface FincraInitiatePayoutInput {
   accountNumber?: string;
   accountName?: string;
   bankCode?: string;
+  bankName?: string;
   countryCode?: string;
   walletAddress?: string;
   cryptoNetwork?: string;
@@ -35,6 +36,8 @@ export interface FincraInitiatePayoutInput {
   bankSwiftCode?: string;
   paymentScheme?: string;
   customerEmail?: string;
+  /** Supporting document URL required for USD (and some cross-border) payouts. */
+  documentUrl?: string;
 }
 
 @Injectable()
@@ -52,8 +55,9 @@ export class FincraPayoutService {
     const body: Record<string, unknown> = {
       sourceCurrency: input.sourceCurrency.toUpperCase(),
       destinationCurrency: input.destinationCurrency.toUpperCase(),
+      // Payroll amounts are what the recipient should receive.
       amount: String(input.amount),
-      action: 'send',
+      action: 'receive',
       transactionType: 'disbursement',
       business: businessId,
       paymentDestination: input.paymentDestination,
@@ -138,7 +142,8 @@ export class FincraPayoutService {
       });
       if (!quote) return { success: false, message: 'Failed to generate Fincra quote' };
       quoteReference = quote.reference;
-      payoutAmount = quote.amountToCharge ?? quote.sourceAmount;
+      // Cross-currency payout amount must match the quoted source (wallet) debit.
+      payoutAmount = quote.sourceAmount;
       quotedSourceAmount = quote.sourceAmount;
       quotedDestinationAmount = quote.destinationAmount;
     }
@@ -173,6 +178,7 @@ export class FincraPayoutService {
       } else if (destinationCurrency === 'USD') {
         if (input.bankCode) beneficiary.bankCode = input.bankCode;
         if (input.bankSwiftCode) beneficiary.bankSwiftCode = input.bankSwiftCode;
+        if (input.bankName) beneficiary.bankName = input.bankName;
       } else if (input.bankCode) {
         beneficiary.bankCode = input.bankCode;
       }
@@ -186,10 +192,15 @@ export class FincraPayoutService {
       description: input.description ?? 'Payroll disbursement',
       paymentDestination,
       customerReference: input.customerReference,
+      customerName: input.accountName ?? 'Paqad Payroll',
       beneficiary,
     };
     if (quoteReference) payload.quoteReference = quoteReference;
     if (paymentScheme) payload.paymentScheme = paymentScheme;
+    const documentUrl = input.documentUrl?.trim() || process.env.FINCRA_PAYOUT_DOCUMENT_URL?.trim();
+    if (documentUrl && (destinationCurrency === 'USD' || sourceCurrency !== destinationCurrency)) {
+      payload.files = documentUrl;
+    }
 
     const { parsed: response } = await this.auth.request<{
       reference?: string;

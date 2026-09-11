@@ -1,4 +1,8 @@
-import { isCryptoCurrency } from '../constants/crypto-currencies.constant';
+import { isNoahConfigured } from '../config/noah.config';
+import {
+  isCryptoCurrency,
+  isNoahNativeCryptoCurrency,
+} from '../constants/crypto-currencies.constant';
 import { PaymentProvider } from '../enums/payment-provider.enum';
 import { PaymentMethodType } from '../enums/payment-type.enum';
 import { resolveIntlPaymentProvider } from './intl-money-provider.util';
@@ -9,6 +13,11 @@ export function resolvePaymentProvider(
   paymentMethodType?: PaymentMethodType,
 ): PaymentProvider {
   const code = currency.toUpperCase();
+
+  // BTC / ETH / SOL are Noah withdraw rails when Noah is configured.
+  if (isNoahNativeCryptoCurrency(code) && isNoahConfigured()) {
+    return PaymentProvider.NOAH;
+  }
 
   if (isCryptoCurrency(code) || paymentMethodType === PaymentMethodType.CRYPTO) {
     return resolveIntlPaymentProvider();

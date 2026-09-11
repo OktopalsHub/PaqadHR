@@ -30,5 +30,8 @@ describe('crypto-currencies.constant', () => {
   it('lists at least Ethereum for USDT and USDC', () => {
     expect(CRYPTO_NETWORKS_BY_CURRENCY.USDT).toContain('Ethereum');
     expect(CRYPTO_NETWORKS_BY_CURRENCY.USDC).toContain('Ethereum');
+    expect(CRYPTO_NETWORKS_BY_CURRENCY.BTC).toContain('Bitcoin');
+    expect(CRYPTO_NETWORKS_BY_CURRENCY.ETH).toContain('Ethereum');
+    expect(CRYPTO_NETWORKS_BY_CURRENCY.SOL).toContain('Solana');
   });
 });

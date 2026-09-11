@@ -74,5 +74,10 @@ describe('fincra-api.util', () => {
     it('maps USDT network to trc20 scheme', () => {
       expect(resolveFincraPaymentScheme('USDT', 'TRC20')).toBe('usdt_trc20');
     });
+
+    it('maps BTC and ETH to Fincra crypto schemes', () => {
+      expect(resolveFincraPaymentScheme('BTC', 'Bitcoin')).toBe('btc_mainnet');
+      expect(resolveFincraPaymentScheme('ETH', 'Ethereum')).toBe('eth');
+    });
   });
 });

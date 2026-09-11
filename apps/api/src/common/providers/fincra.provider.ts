@@ -20,7 +20,7 @@ export class FincraProvider extends BasePaymentProvider {
   }
 
   protected initializeCurrencyConfigs(): void {
-    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT']) {
+    for (const code of ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH']) {
       this.currencyConfigs.set(code, {
         code,
         name: code,
@@ -109,6 +109,11 @@ export class FincraProvider extends BasePaymentProvider {
         accountName: data.accountName,
         countryCode,
         customerEmail: data.customerEmail,
+        bankName: data.bankName ?? data.institutionName,
+        documentUrl:
+          typeof data.metadata?.fincraDocumentUrl === 'string'
+            ? data.metadata.fincraDocumentUrl
+            : undefined,
       };
 
       if (currency === 'GBP') {
@@ -150,7 +155,7 @@ export class FincraProvider extends BasePaymentProvider {
   }
 
   async getSupportedCurrencies(): Promise<string[]> {
-    return ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT'];
+    return ['NGN', 'USD', 'EUR', 'GBP', 'USDC', 'USDT', 'BTC', 'ETH'];
   }
 
   validateSignature(payload: unknown, signature: string): boolean {

@@ -145,6 +145,71 @@ export function CurrencyIcon({ code, className, size = 20, ...props }: CurrencyI
         </svg>
       );
 
+    case 'BTC':
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 32 32"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={cn('shrink-0 rounded-full', className)}
+          {...props}
+        >
+          <circle cx="16" cy="16" r="16" fill="#F7931A" />
+          <path
+            d="M18.2 14.2c.9-.5 1.4-1.2 1.3-2.3-.2-1.5-1.5-2-3.1-2.1V8h-1.5v1.7h-1.2V8h-1.5v1.7H9.8v1.6h.8c.4 0 .6.2.6.6v7.1c0 .3-.2.5-.5.5h-.8V21h2.4V22.7h1.5V21h1.2v1.7h1.5V21c2 .1 3.6-.6 3.8-2.4.1-1.2-.5-1.9-1.5-2.3v-.1c.7-.3 1.2-.9 1.2-1.9 0-.1 0-.2 0-.3zm-2.9-2.7c.8 0 2.1.1 2.1 1.3s-1.3 1.3-2.1 1.3h-1.5v-2.6h1.5zm.3 7.2h-1.8v-2.8h1.8c1 0 2.4.2 2.4 1.4s-1.4 1.4-2.4 1.4z"
+            fill="white"
+          />
+        </svg>
+      );
+
+    case 'ETH':
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 32 32"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={cn('shrink-0 rounded-full', className)}
+          {...props}
+        >
+          <circle cx="16" cy="16" r="16" fill="#627EEA" />
+          <path d="M16.2 6.5v7.2l6.1 2.7-6.1-9.9z" fill="white" fillOpacity="0.6" />
+          <path d="M16.2 6.5l-6.1 9.9 6.1-2.7V6.5z" fill="white" />
+          <path d="M16.2 21.1v4.4l6.1-8.5-6.1 4.1z" fill="white" fillOpacity="0.6" />
+          <path d="M16.2 25.5v-4.4l-6.1-4.1 6.1 8.5z" fill="white" />
+          <path d="M16.2 19.5l6.1-3.4-6.1-2.7v6.1z" fill="white" fillOpacity="0.2" />
+          <path d="M10.1 16.1l6.1 3.4v-6.1l-6.1 2.7z" fill="white" fillOpacity="0.6" />
+        </svg>
+      );
+
+    case 'SOL':
+      return (
+        <svg
+          width={size}
+          height={size}
+          viewBox="0 0 32 32"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className={cn('shrink-0 rounded-full', className)}
+          {...props}
+        >
+          <circle cx="16" cy="16" r="16" fill="#000000" />
+          <path
+            d="M9.5 19.8c.2-.2.4-.3.7-.3h12.6c.4 0 .7.5.3.8l-2.4 2.4c-.2.2-.4.3-.7.3H7.4c-.4 0-.7-.5-.3-.8l2.4-2.4zm0-10.6c.2-.2.4-.3.7-.3h12.6c.4 0 .7.5.3.8l-2.4 2.4c-.2.2-.4.3-.7.3H7.4c-.4 0-.7-.5-.3-.8l2.4-2.4zm13.3 4.9c-.2-.2-.4-.3-.7-.3H9.5c-.4 0-.7.5-.3.8l2.4 2.4c.2.2.4.3.7.3h12.6c.4 0 .7-.5.3-.8l-2.4-2.4z"
+            fill="url(#solGrad)"
+          />
+          <defs>
+            <linearGradient id="solGrad" x1="8" y1="8" x2="24" y2="24">
+              <stop stopColor="#00FFA3" />
+              <stop offset="1" stopColor="#DC1FFF" />
+            </linearGradient>
+          </defs>
+        </svg>
+      );
+
     default:
       return (
         <div

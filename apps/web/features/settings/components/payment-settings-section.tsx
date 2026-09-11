@@ -34,6 +34,7 @@ import {
 } from '@/hooks/queries/use-payment-methods';
 import { useDebounce } from '@/hooks/use-debounce';
 import { lookupNigerianBankAccount } from '@/lib/api/payment-methods';
+import { networksForCryptoCurrency } from '@/lib/constants/currencies';
 import {
   getPayoutFieldConfig,
   isGlobalBankCurrency,
@@ -224,6 +225,10 @@ export function PaymentSettingsSection() {
   );
   const isNgn = currency === 'NGN';
   const isCrypto = cryptoOptions.includes(currency);
+  const cryptoNetworkOptions = useMemo(
+    () => (isCrypto ? [...networksForCryptoCurrency(currency)] : []),
+    [isCrypto, currency],
+  );
   const {
     data: banks = [],
     isLoading: banksLoading,
@@ -242,6 +247,17 @@ export function PaymentSettingsSection() {
       setCurrency(currencyOptions[0]);
     }
   }, [currency, currencyOptions]);
+
+  useEffect(() => {
+    if (!isCrypto) {
+      setCryptoNetwork('');
+      return;
+    }
+    if (cryptoNetworkOptions.length === 0) return;
+    if (!cryptoNetworkOptions.includes(cryptoNetwork)) {
+      setCryptoNetwork(cryptoNetworkOptions[0]);
+    }
+  }, [isCrypto, cryptoNetwork, cryptoNetworkOptions]);
 
   useEffect(() => {
     setInstitutionCode('');
@@ -593,11 +609,22 @@ export function PaymentSettingsSection() {
               </div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Network</Label>
-                <Input
-                  value={cryptoNetwork}
-                  onChange={(e) => setCryptoNetwork(e.target.value)}
-                  placeholder="e.g. ERC20, TRC20, Solana"
-                />
+                {cryptoNetworkOptions.length <= 1 ? (
+                  <Input value={cryptoNetworkOptions[0] ?? cryptoNetwork} readOnly disabled />
+                ) : (
+                  <Select value={cryptoNetwork} onValueChange={setCryptoNetwork}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select network" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cryptoNetworkOptions.map((network) => (
+                        <SelectItem key={network} value={network}>
+                          {network}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </>
           ) : isNgn ? (

@@ -49,6 +49,90 @@ describe('FincraProvider', () => {
     );
   });
 
+  it('creates EUR bank payout with SWIFT', async () => {
+    fincraApi.initiatePayout.mockResolvedValue({
+      success: true,
+      reference: 'fincra-eur-1',
+      status: 'processing',
+    });
+    fincraApi.isOperationPending.mockReturnValue(true);
+
+    const result = await provider.createPayment({
+      amount: 100,
+      currency: 'EUR',
+      accountNumber: 'DE89370400440532013000',
+      accountName: 'Jane Smith',
+      bankCode: 'COBADEFF',
+      merchantTxRef: 'payroll_eur_item',
+      description: 'Payroll',
+    });
+
+    expect(result.success).toBe(true);
+    expect(fincraApi.initiatePayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destinationCurrency: 'EUR',
+        bankSwiftCode: 'COBADEFF',
+        accountNumber: 'DE89370400440532013000',
+      }),
+    );
+  });
+
+  it('creates USD bank payout with bank code and name', async () => {
+    fincraApi.initiatePayout.mockResolvedValue({
+      success: true,
+      reference: 'fincra-usd-1',
+      status: 'processing',
+    });
+    fincraApi.isOperationPending.mockReturnValue(true);
+
+    const result = await provider.createPayment({
+      amount: 50,
+      currency: 'USD',
+      accountNumber: '123456789',
+      accountName: 'John Doe USD Test',
+      bankCode: '021000021',
+      bankName: 'Chase Bank',
+      merchantTxRef: 'payroll_usd_item',
+      description: 'Payroll',
+    });
+
+    expect(result.success).toBe(true);
+    expect(fincraApi.initiatePayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destinationCurrency: 'USD',
+        bankCode: '021000021',
+        bankName: 'Chase Bank',
+      }),
+    );
+  });
+
+  it('creates GBP bank payout with sort code', async () => {
+    fincraApi.initiatePayout.mockResolvedValue({
+      success: true,
+      reference: 'fincra-gbp-1',
+      status: 'processing',
+    });
+    fincraApi.isOperationPending.mockReturnValue(true);
+
+    const result = await provider.createPayment({
+      amount: 80,
+      currency: 'GBP',
+      accountNumber: 'GB29NWBK60161331926819',
+      accountName: 'John Doe',
+      bankCode: '601613',
+      merchantTxRef: 'payroll_gbp_item',
+      description: 'Payroll',
+    });
+
+    expect(result.success).toBe(true);
+    expect(fincraApi.initiatePayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destinationCurrency: 'GBP',
+        sortCode: '601613',
+      }),
+    );
+  });
+
   it('creates USDC crypto payout when network is provided', async () => {
     fincraApi.initiatePayout.mockResolvedValue({
       success: true,
@@ -72,6 +156,33 @@ describe('FincraProvider', () => {
         destinationCurrency: 'USDC',
         walletAddress: '0xabc',
         cryptoNetwork: 'ERC20',
+      }),
+    );
+  });
+
+  it('creates USDT crypto payout when network is provided', async () => {
+    fincraApi.initiatePayout.mockResolvedValue({
+      success: true,
+      reference: 'fincra-usdt-1',
+      status: 'processing',
+    });
+    fincraApi.isOperationPending.mockReturnValue(true);
+
+    const result = await provider.createPayment({
+      amount: 25,
+      currency: 'USDT',
+      accountNumber: 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf',
+      network: 'TRC20',
+      merchantTxRef: 'payroll_usdt_item',
+      description: 'Payroll',
+    });
+
+    expect(result.success).toBe(true);
+    expect(fincraApi.initiatePayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        destinationCurrency: 'USDT',
+        walletAddress: 'TXYZopYRdj2D9XRtbG411XZZ3kM5VkAeBf',
+        cryptoNetwork: 'TRC20',
       }),
     );
   });

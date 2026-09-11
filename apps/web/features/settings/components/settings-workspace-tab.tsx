@@ -292,7 +292,11 @@ export function SettingsWorkspaceTab() {
             </div>
           </SettingsFieldHint>
 
-          <SettingsFieldHint label="Crypto payroll" className="lg:col-span-2" hint="USDC / USDT.">
+          <SettingsFieldHint
+            label="Crypto payroll"
+            className="lg:col-span-2"
+            hint="USDT, USDC, BTC, ETH, SOL (Noah for BTC/ETH/SOL)."
+          >
             <div className="flex items-center gap-3">
               <Switch
                 id="crypto-enabled"

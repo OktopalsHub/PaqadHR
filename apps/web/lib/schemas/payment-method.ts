@@ -1,10 +1,7 @@
 import { z } from 'zod';
+import { isCryptoCurrency, SUPPORTED_CRYPTO_CURRENCIES } from '@/lib/constants/currencies';
 
-const CRYPTO_CURRENCIES = ['USDT', 'USDC'] as const;
-
-export function isCryptoCurrency(code: string): boolean {
-  return CRYPTO_CURRENCIES.includes(code.toUpperCase() as (typeof CRYPTO_CURRENCIES)[number]);
-}
+export { isCryptoCurrency };
 
 export const paymentMethodSummarySchema = z.object({
   id: z.string(),
@@ -47,6 +44,13 @@ export const createPaymentMethodInputSchema = z
           code: 'custom',
           message: 'Wallet address is required',
           path: ['walletAddress'],
+        });
+      }
+      if (!SUPPORTED_CRYPTO_CURRENCIES.includes(data.currency.toUpperCase() as never)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Unsupported crypto currency: ${data.currency}`,
+          path: ['currency'],
         });
       }
       return;
