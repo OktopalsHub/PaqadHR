@@ -12,6 +12,10 @@ import { PayrollRun } from '../entities/payroll-run.entity';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
 import {
+  collectAdjustmentsForEmployee,
+  computePayrollItemAmounts,
+} from '../utils/payroll-adjustment.util';
+import {
   assertPayrollRunDeletable,
   assertPayrollRunMutable,
   assertPayrollRunReopenable,
@@ -359,7 +363,26 @@ export class RunLifecycle {
       throw new BadRequestException('Cannot edit cancelled item');
     if (dto.adjustmentLines !== undefined) {
       item.metadata = { ...item.metadata, adjustmentLines: dto.adjustmentLines };
+      const base = Number(item.baseSalary);
+      if (base > 0) {
+        const lines = collectAdjustmentsForEmployee(
+          item.memberId,
+          undefined,
+          item.metadata ?? undefined,
+        );
+        const amounts = computePayrollItemAmounts(base, lines);
+        item.grossAmount = amounts.grossAmount;
+        item.adjustments = amounts.adjustments;
+        item.deductions = amounts.deductions;
+        item.netAmount = amounts.netAmount;
+        item.paymentAmount = amounts.paymentAmount;
+      }
       await this.payrollItemRepository.save(item);
+      const active = (run.items ?? []).filter((e) => e.status !== PayrollItemStatus.CANCELLED);
+      run.totalGrossAmount = active.reduce((s, e) => s + Number(e.grossAmount ?? 0), 0);
+      run.totalDeductions = active.reduce((s, e) => s + Number(e.deductions ?? 0), 0);
+      run.totalNetAmount = active.reduce((s, e) => s + Number(e.netAmount ?? 0), 0);
+      await this.payrollRunRepository.save(run);
     }
     await this.auditService.logAdjustmentCalculated(auditContext, {
       action: 'update_item',

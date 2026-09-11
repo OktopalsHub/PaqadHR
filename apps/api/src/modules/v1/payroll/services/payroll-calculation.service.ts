@@ -10,6 +10,10 @@ import type {
 } from '../dto/payroll-adjustment.dto';
 import { PayrollItemRepository } from '../repositories/payroll-item.repository';
 import { PayrollRunRepository } from '../repositories/payroll-run.repository';
+import {
+  collectAdjustmentsForEmployee,
+  computePayrollItemAmounts,
+} from '../utils/payroll-adjustment.util';
 import { PayrollPaymentOrchestrator } from './payroll-payment-orchestrator';
 
 export interface PayrollPreviewResult {
@@ -56,28 +60,41 @@ export class PayrollCalculationService {
           item.memberId,
           tenantId,
         );
-        item.baseSalary = salaryInfo.baseSalary;
+        const lines = collectAdjustmentsForEmployee(
+          item.memberId,
+          adjustments,
+          item.metadata ?? undefined,
+        );
+        const amounts = computePayrollItemAmounts(salaryInfo.baseSalary, lines);
+        item.baseSalary = amounts.baseSalary;
         item.baseSalaryCurrency = salaryInfo.currency;
-        item.grossAmount = salaryInfo.baseSalary;
-        item.netAmount = salaryInfo.baseSalary;
+        item.grossAmount = amounts.grossAmount;
+        item.adjustments = amounts.adjustments;
+        item.deductions = amounts.deductions;
+        item.netAmount = amounts.netAmount;
         item.paymentCurrency = run.baseCurrency || salaryInfo.currency;
-        item.paymentAmount = salaryInfo.baseSalary;
+        item.paymentAmount = amounts.paymentAmount;
         item.exchangeRate = 1;
         item.metadata = {
           ...item.metadata,
           payType: salaryInfo.payType,
           paySchedule: salaryInfo.paySchedule,
+          adjustmentLines: lines,
         };
         await this.payrollItemRepository.save(item);
       } catch (error) {
         this.logger.error(`Calculation failed for ${item.memberId}: ${error}`);
-        warnings.push(`Calculation failed for member ${item.memberId}`);
+        warnings.push(
+          error instanceof Error
+            ? `${item.memberId}: ${error.message}`
+            : `Calculation failed for member ${item.memberId}`,
+        );
       }
     }
 
     if (warnings.length > 0) {
       throw new BadRequestException(
-        `Calculation failed for ${warnings.length} employee(s). Resolve the salary records and retry.`,
+        `Calculation failed for ${warnings.length} employee(s). ${warnings.join(' ')}`,
       );
     }
 
@@ -101,18 +118,24 @@ export class PayrollCalculationService {
           emp.employeeId,
           tenantId,
         );
+        const lines = emp.adjustments || [];
+        const amounts = computePayrollItemAmounts(salaryInfo.baseSalary, lines);
         results.push({
           employeeId: emp.employeeId,
-          baseSalary: salaryInfo.baseSalary,
+          baseSalary: amounts.baseSalary,
           currency: salaryInfo.currency,
           payType: salaryInfo.payType,
           paySchedule: salaryInfo.paySchedule,
-          finalAmount: salaryInfo.baseSalary,
-          adjustments: emp.adjustments || [],
+          finalAmount: amounts.netAmount,
+          adjustments: lines,
         });
       } catch (error) {
         this.logger.error(`Preview failed for ${emp.employeeId}: ${error}`);
-        warnings.push(`Calculation failed for ${emp.employeeId}`);
+        warnings.push(
+          error instanceof Error
+            ? `${emp.employeeId}: ${error.message}`
+            : `Calculation failed for ${emp.employeeId}`,
+        );
       }
     }
     return {
@@ -132,7 +155,7 @@ export class PayrollCalculationService {
       this.tenantMembersService.getTenantMembers(tenantId),
     ]);
     const activeIds = new Set(members.filter((m) => m.isActive).map((m) => m.id));
-    const eligible = salaries.filter((s) => activeIds.has(s.memberId));
+    const eligible = salaries.filter((s) => activeIds.has(s.memberId) && Number(s.payRate) > 0);
     const byCurrencyMap = new Map<string, string[]>();
     for (const s of eligible) {
       const c = s.currency.toUpperCase();

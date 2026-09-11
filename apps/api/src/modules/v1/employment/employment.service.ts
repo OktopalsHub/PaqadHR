@@ -230,7 +230,7 @@ export class EmploymentService {
     const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
     return {
       employment,
-      baseSalary: employment.payRate,
+      baseSalary: Number(employment.payRate),
       payType: employment.payType,
       paySchedule: employment.paySchedule,
       currency,
@@ -278,7 +278,7 @@ export class EmploymentService {
       const currency = (employment.currency || tenant?.preferredCurrency || 'USD').toUpperCase();
       salaryMap.set(employment.tenantMemberId, {
         employment,
-        baseSalary: employment.payRate,
+        baseSalary: Number(employment.payRate),
         payType: employment.payType,
         paySchedule: employment.paySchedule,
         currency,
