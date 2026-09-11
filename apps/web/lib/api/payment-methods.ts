@@ -85,7 +85,7 @@ export async function submitPaymentMethodForVerification(
   );
 }
 
-export type NigerianBank = { code: string; name: string };
+export type NigerianBank = { code: string; name: string; logoUrl?: string | null };
 
 export async function fetchNigerianBanks(): Promise<NigerianBank[]> {
   const tenantId = await resolveTenantId();

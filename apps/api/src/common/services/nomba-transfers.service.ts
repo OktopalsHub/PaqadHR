@@ -23,9 +23,9 @@ interface NombaBanksResponse {
   code?: string;
   data?:
     | {
-        results?: Array<{ code: string; name: string }>;
+        results?: Array<{ code: string; name: string; logo?: string | null }>;
       }
-    | Array<{ code: string; name: string }>;
+    | Array<{ code: string; name: string; logo?: string | null }>;
 }
 
 interface NombaBankLookupResponse {
@@ -68,7 +68,10 @@ export interface NombaGlobalPayoutInput {
 @Injectable()
 export class NombaTransfersService {
   private readonly logger = new Logger(NombaTransfersService.name);
-  private cachedBanks?: { fetchedAt: number; banks: Array<{ code: string; name: string }> };
+  private cachedBanks?: {
+    fetchedAt: number;
+    banks: Array<{ code: string; name: string; logoUrl?: string | null }>;
+  };
   private static readonly BANKS_CACHE_MS = 24 * 60 * 60 * 1000;
 
   constructor(private readonly auth: NombaAuthService) {}
@@ -130,14 +133,18 @@ export class NombaTransfersService {
     const rows = Array.isArray(payload.data) ? payload.data : (payload.data?.results ?? []);
     return rows
       .filter((row) => row?.code && row?.name)
-      .map((row) => ({ code: String(row.code).trim(), name: String(row.name).trim() }))
+      .map((row) => ({
+        code: String(row.code).trim(),
+        name: String(row.name).trim(),
+        logoUrl: typeof row.logo === 'string' && row.logo.trim() ? row.logo.trim() : null,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
   private async fetchBanksFromPath(
     token: string,
     path: '/v1/transfers/banks' | '/v1/transfers/bank',
-  ): Promise<Array<{ code: string; name: string }>> {
+  ): Promise<Array<{ code: string; name: string; logoUrl?: string | null }>> {
     const response = await fetch(`${getNombaBaseUrl()}${path}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -163,7 +170,7 @@ export class NombaTransfersService {
     return this.parseBanksPayload(payload);
   }
 
-  async listBanks(): Promise<Array<{ code: string; name: string }>> {
+  async listBanks(): Promise<Array<{ code: string; name: string; logoUrl?: string | null }>> {
     if (
       this.cachedBanks &&
       Date.now() - this.cachedBanks.fetchedAt < NombaTransfersService.BANKS_CACHE_MS
@@ -172,7 +179,7 @@ export class NombaTransfersService {
     }
     this.auth.ensureConfigured();
     const token = await this.auth.getAccessToken();
-    let banks: Array<{ code: string; name: string }> = [];
+    let banks: Array<{ code: string; name: string; logoUrl?: string | null }> = [];
     let lastError: unknown;
     for (const path of ['/v1/transfers/banks', '/v1/transfers/bank'] as const) {
       try {

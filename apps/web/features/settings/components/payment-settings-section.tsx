@@ -270,7 +270,7 @@ export function PaymentSettingsSection() {
       banks.map((bank) => ({
         value: bank.code,
         label: bank.name,
-        icon: <BankLogo name={bank.name} />,
+        icon: <BankLogo name={bank.name} logoUrl={bank.logoUrl} />,
       })),
     [banks],
   );

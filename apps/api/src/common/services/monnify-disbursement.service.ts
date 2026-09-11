@@ -271,4 +271,35 @@ export class MonnifyDisbursementService {
       accountName: payload.responseBody.accountName,
     };
   }
+
+  async listBanks(): Promise<Array<{ code: string; name: string; logoUrl?: string | null }>> {
+    this.auth.ensureConfigured();
+    const token = await this.auth.getAccessToken();
+    const url = `${getMonnifyBaseUrl()}/api/v1/banks`;
+    const response = await this.auth.monnifyFetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = (await response.json().catch(() => ({}))) as {
+      requestSuccessful?: boolean;
+      responseMessage?: string;
+      responseBody?: Array<{ code?: string; name?: string }>;
+    };
+    if (
+      !response.ok ||
+      payload.requestSuccessful === false ||
+      !Array.isArray(payload.responseBody)
+    ) {
+      this.auth.logMonnifyResponse('list-banks', '/api/v1/banks', response.status, payload);
+      throw new BadRequestException(payload.responseMessage || 'Failed to fetch Monnify banks');
+    }
+    return payload.responseBody
+      .filter((row) => row?.code && row?.name)
+      .map((row) => ({
+        code: String(row.code).trim(),
+        name: String(row.name).trim(),
+        logoUrl: null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
 }

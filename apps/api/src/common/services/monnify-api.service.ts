@@ -53,4 +53,8 @@ export class MonnifyApiService {
   lookupBankAccount(accountNumber: string, bankCode: string) {
     return this.disbursement.lookupBankAccount(accountNumber, bankCode);
   }
+
+  listBanks() {
+    return this.disbursement.listBanks();
+  }
 }

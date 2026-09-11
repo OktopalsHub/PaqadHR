@@ -4,13 +4,15 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { isNombaLive } from 'src/common/config/nomba.config';
 import { NIGERIAN_BANKS_FALLBACK } from 'src/common/constants/nigerian-banks.constant';
 import { PaymentMethodStatus } from 'src/common/enums/payment-method-status.enum';
 import { MonnifyApiService } from 'src/common/services/monnify-api.service';
 import { NombaTransferApiService } from 'src/common/services/nomba-transfer-api.service';
 import {
+  type BankListItem,
+  mergeBankLogos,
   monnifyBankCodesToTry,
+  nombaBankCodesToTry,
   shouldPreferMonnifyForBankLookup,
 } from '../utils/nigerian-bank-lookup.util';
 
@@ -23,15 +25,41 @@ export class NigerianBankService {
     private readonly monnifyApi: MonnifyApiService,
   ) {}
 
-  async listBanks(): Promise<Array<{ code: string; name: string }>> {
-    if (this.nombaTransferApi.isConfigured()) {
+  async listBanks(): Promise<BankListItem[]> {
+    let primary: BankListItem[] = [];
+    let logoSources: BankListItem[] = [];
+
+    if (this.monnifyApi.isConfigured()) {
       try {
-        return await this.nombaTransferApi.listBanks();
-      } catch (e) {
-        this.logger.warn(`Nomba bank list unavailable: ${e instanceof Error ? e.message : e}`);
+        primary = await this.monnifyApi.listBanks();
+      } catch (error) {
+        this.logger.warn(
+          `Monnify bank list unavailable: ${error instanceof Error ? error.message : error}`,
+        );
       }
     }
-    return [...NIGERIAN_BANKS_FALLBACK].sort((a, b) => a.name.localeCompare(b.name));
+
+    if (this.nombaTransferApi.isConfigured()) {
+      try {
+        const nombaBanks = await this.nombaTransferApi.listBanks();
+        logoSources = nombaBanks;
+        if (primary.length === 0) primary = nombaBanks;
+      } catch (error) {
+        this.logger.warn(
+          `Nomba bank list unavailable: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
+    if (primary.length === 0) {
+      primary = NIGERIAN_BANKS_FALLBACK.map((bank) => ({
+        code: bank.code,
+        name: bank.name,
+        logoUrl: null,
+      }));
+    }
+
+    return mergeBankLogos(primary, logoSources).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   async resolveBankAccount(
@@ -82,24 +110,23 @@ export class NigerianBankService {
     const trimmedCode = bankCode.trim();
     const preferMonnify = shouldPreferMonnifyForBankLookup({
       monnifyConfigured: this.monnifyApi.isConfigured(),
-      nombaLive: isNombaLive(),
     });
 
-    if (preferMonnify) {
-      const monnifyResult = await this.tryMonnifyLookup(normalized, trimmedCode, bankName);
-      if (monnifyResult) return monnifyResult;
-      const nombaResult = await this.tryNombaLookup(normalized, trimmedCode, bankName);
-      if (nombaResult) {
-        this.logger.warn(
-          'Using Nomba sandbox bank lookup — account names may be stubs, not real NIBSS names',
-        );
-        return nombaResult;
+    const order = preferMonnify ? (['monnify', 'nomba'] as const) : (['nomba', 'monnify'] as const);
+
+    for (const provider of order) {
+      const result =
+        provider === 'monnify'
+          ? await this.tryMonnifyLookup(normalized, trimmedCode, bankName)
+          : await this.tryNombaLookup(normalized, trimmedCode, bankName);
+      if (result) {
+        if (provider === 'nomba' && preferMonnify) {
+          this.logger.warn(
+            'Using Nomba bank lookup fallback — sandbox Nomba may return stub account names',
+          );
+        }
+        return result;
       }
-    } else {
-      const nombaResult = await this.tryNombaLookup(normalized, trimmedCode, bankName);
-      if (nombaResult) return nombaResult;
-      const monnifyResult = await this.tryMonnifyLookup(normalized, trimmedCode, bankName);
-      if (monnifyResult) return monnifyResult;
     }
 
     throw new ServiceUnavailableException('Bank lookup is not available in this environment');
@@ -116,20 +143,34 @@ export class NigerianBankService {
     bankName: string;
   } | null> {
     if (!this.nombaTransferApi.isConfigured()) return null;
-    try {
-      const result = await this.nombaTransferApi.lookupBankAccount(accountNumber, bankCode);
-      return {
-        ...result,
-        bankCode,
-        bankName: bankName?.trim() || bankCode,
-      };
-    } catch (error) {
-      if (!this.isLookupInfraFailure(error)) throw error;
-      this.logger.warn(
-        `Nomba lookup failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
+
+    let lastVerifyFailure: BadRequestException | null = null;
+    for (const code of nombaBankCodesToTry(bankCode)) {
+      try {
+        const result = await this.nombaTransferApi.lookupBankAccount(accountNumber, code);
+        return {
+          ...result,
+          bankCode,
+          bankName: bankName?.trim() || bankCode,
+        };
+      } catch (error) {
+        if (this.isLookupInfraFailure(error)) {
+          this.logger.warn(
+            `Nomba lookup unavailable for bankCode=${code}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+          return null;
+        }
+        if (error instanceof BadRequestException) {
+          lastVerifyFailure = error;
+          continue;
+        }
+        throw error;
+      }
     }
+    if (lastVerifyFailure) throw lastVerifyFailure;
+    return null;
   }
 
   private async tryMonnifyLookup(
